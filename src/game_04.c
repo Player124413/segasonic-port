@@ -11,6 +11,484 @@
  */
 #include "game.h"
 
+void breakable_panel_wait(void)
+{
+	uint32_t r11 = 0, random_value = 0, ring = 0;
+
+	if ((OBJECT(current_object)->flags & 4u) == 0u || (OBJECT(LINKED(WORK_RAM, OBJECT(current_object)->touched_by))->flags & 0x40u) == 0u)
+	{
+		draw_breakable_panel();
+		return;
+	}
+	released_ring_flip = 0u;
+	released_rings_random = 1u;
+	released_ring_angle = OBJECT(current_object)->spawn_arg_1;
+	rings_to_release = OBJECT(current_object)->spawn_arg_2;
+	drop_rings(0u, &r11, &random_value, &ring);
+	OBJECT(current_object)->handler = breakable_panel_break_ADDRESS;
+	breakable_panel_break();
+}
+
+void breakable_panel_break(void)
+{
+	uint16_t frame_timer = 0;
+
+	frame_timer = OBJECT(current_object)->breakable_panel.frame_timer;
+	OBJECT(current_object)->breakable_panel.frame_timer = frame_timer - 1u;
+	if (frame_timer != 0u)
+	{
+		draw_breakable_panel();
+		return;
+	}
+	OBJECT(current_object)->sprite_frame = breakable_panel_break_frames[(uint8_t)OBJECT(current_object)->breakable_panel.frame_index];
+	OBJECT(current_object)->breakable_panel.frame_timer = 2u;
+	OBJECT(current_object)->breakable_panel.frame_index++;
+	if (OBJECT(current_object)->breakable_panel.frame_index <= 0x10)
+	{
+		draw_breakable_panel();
+		return;
+	}
+	OBJECT(current_object)->handler = draw_breakable_panel_ADDRESS;
+	draw_breakable_panel();
+}
+
+void draw_breakable_panel(void)
+{
+	uint16_t offset_x = 0, offset_y = 0;
+	uint32_t r2 = 0, r3 = 0, r11 = 0, deleted = 0, depth = 0, ignored = 0;
+	uint16_t direction = 0;
+
+	unproject_object(&ignored, &r2, &r3, &r11);
+	delete_if_off_screen(&deleted, &r2, &r3);
+	if ((uint8_t)deleted != 0u)
+		return;
+	depth = (uint16_t)(OBJECT(current_object)->screen_y - 0x20u);
+	queue_sprite_at_depth(&ignored, &depth);
+	add_to_touchable_list(ignored);
+	if ((uint8_t)OBJECT(current_object)->draw_breakable_panel.frame_index != 0u)
+		return;
+	current_object = LINKED(current_object, OBJECT(current_object)->child);
+	direction = OBJECT(current_object)->direction;
+	OBJECT(current_object)->direction = direction - 1u;
+	if (direction == 0u)
+	{
+		OBJECT(current_object)->sprite_palette = breakable_panel_glow_palettes[breakable_panel_glow_steps[AT8(OBJECT(current_object)->projected_y, 1)]];
+		OBJECT(current_object)->direction = 2u;
+		AT8(OBJECT(current_object)->projected_y, 1)++;
+		if (AT8(OBJECT(current_object)->projected_y, 1) == 0xFu)
+			OBJECT(current_object)->direction = 0xFu;
+		if ((int8_t)AT8(OBJECT(current_object)->projected_y, 1) > 0x1C)
+		{
+			OBJECT(current_object)->direction = 0x1Eu;
+			AT8(OBJECT(current_object)->projected_y, 1) = 0u;
+		}
+	}
+	offset_x = 0u;
+	offset_y = 0u;
+	place_sprite_near_cursor(offset_x, offset_y);
+	depth = (uint16_t)(OBJECT(object_cursor)->screen_y - 0x19u);
+	queue_sprite_at_depth(&ignored, &depth);
+}
+
+void white_puff_init(void)
+{
+	OBJECT(current_object)->sprite_palette = 0x90A0u;
+	OBJECT(current_object)->sprite_palette = 0x2000u;
+	OBJECT(current_object)->handler = white_puff_animate_ADDRESS;
+}
+
+void white_puff_animate(void)
+{
+	uint32_t r2 = 0, r3 = 0, r11 = 0, deleted = 0, ignored = 0;
+	uint8_t wrapped_frame_index = 0;
+	uint16_t frame_timer = 0;
+
+	unproject_object(&ignored, &r2, &r3, &r11);
+	delete_if_off_screen(&deleted, &r2, &r3);
+	if ((uint16_t)deleted != 0u)
+		return;
+	frame_timer = OBJECT(current_object)->white_puff.frame_timer;
+	OBJECT(current_object)->white_puff.frame_timer = frame_timer - 1u;
+	if (frame_timer == 0u)
+	{
+		OBJECT(current_object)->sprite_frame = white_puff_frames[OBJECT(current_object)->white_puff.frame_index];
+		OBJECT(current_object)->white_puff.frame_timer = 3u;
+		OBJECT(current_object)->white_puff.frame_index++;
+		wrapped_frame_index = OBJECT(current_object)->white_puff.frame_index % 0xAu;
+		OBJECT(current_object)->white_puff.frame_index = wrapped_frame_index;
+		if (wrapped_frame_index == 0u)
+			OBJECT(current_object)->white_puff.frame_timer = 0x5Au;
+	}
+	queue_sprite(0u);
+}
+
+void checker_pad_init(void)
+{
+	OBJECT(current_object)->sprite_palette = 0x9040u;
+	OBJECT(current_object)->handler = checker_pad_animate_ADDRESS;
+}
+
+void checker_pad_animate(void)
+{
+	uint32_t r2 = 0, r3 = 0, deleted = 0;
+	uint16_t frame_timer = 0;
+
+	update_screen_position_no_offset();
+	delete_if_off_screen(&deleted, &r2, &r3);
+	if ((uint8_t)deleted != 0u)
+		return;
+	frame_timer = OBJECT(current_object)->checker_pad.frame_timer;
+	OBJECT(current_object)->checker_pad.frame_timer = frame_timer - 1u;
+	if (frame_timer == 0u)
+	{
+		OBJECT(current_object)->sprite_frame = checker_pad_frames[AS16(OBJECT(current_object)->checker_pad.frame_index)];
+		OBJECT(current_object)->checker_pad.frame_timer = 8u;
+		OBJECT(current_object)->checker_pad.frame_index++;
+		if (OBJECT(current_object)->checker_pad.frame_index > 4)
+			OBJECT(current_object)->checker_pad.frame_index = 0;
+	}
+	queue_sprite(0u);
+}
+
+void static_triangle_init(void)
+{
+	OBJECT(current_object)->sprite_palette = 0x9050u;
+	OBJECT(current_object)->handler = static_triangle_animate_ADDRESS;
+	current_object = LINKED(current_object, OBJECT(current_object)->child);
+	OBJECT(current_object)->sprite_frame = 0x7828u;
+	OBJECT(current_object)->sprite_palette = 0x9060u;
+}
+
+void static_triangle_animate(void)
+{
+	uint16_t offset_x = 0, offset_y = 0;
+	uint32_t r2 = 0, r3 = 0, deleted = 0, depth = 0;
+	uint16_t frame_timer = 0, direction = 0;
+
+	update_screen_position_no_offset();
+	delete_if_off_screen(&deleted, &r2, &r3);
+	if ((uint8_t)deleted != 0u)
+		return;
+	frame_timer = OBJECT(current_object)->static_triangle.frame_timer;
+	OBJECT(current_object)->static_triangle.frame_timer = frame_timer - 1u;
+	if (frame_timer == 0u)
+	{
+		OBJECT(current_object)->sprite_frame = static_triangle_frames[(uint8_t)OBJECT(current_object)->static_triangle.frame_index];
+		OBJECT(current_object)->static_triangle.frame_timer = 2u;
+		OBJECT(current_object)->static_triangle.frame_index++;
+		if (OBJECT(current_object)->static_triangle.frame_index > 2)
+		{
+			OBJECT(current_object)->static_triangle.frame_index = 0;
+			OBJECT(current_object)->var_81 = 0u;
+		}
+	}
+	depth = queue_sprite(0u);
+	current_object = LINKED(current_object, OBJECT(current_object)->child);
+	direction = OBJECT(current_object)->direction;
+	OBJECT(current_object)->direction = direction - 1u;
+	if (direction == 0u)
+	{
+		OBJECT(current_object)->direction = 1u;
+		offset_x = 0x68u;
+		offset_y = 0u;
+		place_sprite_near_cursor(offset_x, offset_y);
+		queue_sprite(depth);
+	}
+}
+
+void railing_init(void)
+{
+	uint32_t block = 0, object = 0, spawned = 0;
+
+	OBJECT(current_object)->sprite_frame = 0x7838u;
+	OBJECT(current_object)->sprite_palette = 0x9080u;
+	OBJECT(current_object)->flags |= 2u;
+	OBJECT(current_object)->hitbox_size_x = 0xFu;
+	OBJECT(current_object)->hitbox_size_y = 0x57u;
+	OBJECT(current_object)->hitbox_offset_x = 3;
+	OBJECT(current_object)->hitbox_offset_y = -0x67;
+	OBJECT(current_object)->hitbox_height = 0x100u;
+	OBJECT(current_object)->kind = 0xCu;
+	OBJECT(current_object)->handler = railing_draw_ADDRESS;
+	spawn_count = 1u;
+	spawn_objects(0x015389u, &spawned, &object, &block);
+	OBJECT(object_cursor)->child = object;
+	copy_position_to(object);
+	OBJECT(object)->flags |= 2u;
+	OBJECT(object)->hitbox_size_x = 0x56u;
+	OBJECT(object)->hitbox_size_y = 0x11u;
+	OBJECT(object)->hitbox_offset_x = 0x12;
+	OBJECT(object)->hitbox_offset_y = -0x11;
+	OBJECT(object)->hitbox_height = 0x100u;
+	OBJECT(object)->kind = 0xCu;
+	OBJECT(object)->handler = railing_side_update_ADDRESS;
+}
+
+void railing_draw(void)
+{
+	uint32_t r2 = 0, r3 = 0, r11 = 0, deleted = 0, ignored = 0;
+
+	unproject_object(&ignored, &r2, &r3, &r11);
+	delete_if_off_screen(&deleted, &r2, &r3);
+	if ((uint8_t)deleted == 0u)
+	{
+		queue_sprite(0u);
+		add_to_touchable_list(deleted);
+		return;
+	}
+}
+
+void railing_side_update(void)
+{
+	uint32_t r11 = 0, ignored = 0;
+
+	unproject_object(&ignored, &ignored, &ignored, &r11);
+	add_to_touchable_list(ignored);
+}
+
+void spike_gate_init(void)
+{
+	uint32_t block = 0, free_count = 0, object = 0, piece_count = 0, spawned = 0;
+
+	OBJECT(current_object)->sprite_frame = 0xA200u;
+	OBJECT(current_object)->sprite_palette = 0x91F0u;
+	OBJECT(current_object)->flags |= 2u;
+	OBJECT(current_object)->hitbox_size_x = 0x2Du;
+	OBJECT(current_object)->hitbox_size_y = 0x21u;
+	OBJECT(current_object)->hitbox_offset_x = -0xE;
+	OBJECT(current_object)->hitbox_offset_y = -0x1A;
+	OBJECT(current_object)->hitbox_height = 0x100u;
+	OBJECT(current_object)->kind = 0xCu;
+	OBJECT(current_object)->handler = spike_gate_pillar_update_ADDRESS;
+	spawn_count = 1u;
+	spawn_object_with_pieces(0x01543Du, &spawned, &piece_count, &free_count, &object, &block);
+	copy_position_to(object);
+	OBJECT(object)->projected_x += 0x94u;
+	OBJECT(object)->projected_y_int += 0x4Au;
+	OBJECT(object)->sprite_frame = 0xA208u;
+	OBJECT(object)->sprite_palette = 0x91F0u;
+	OBJECT(object)->flags |= 2u;
+	OBJECT(object)->hitbox_size_x = 0x2Cu;
+	OBJECT(object)->hitbox_size_y = 0x29u;
+	OBJECT(object)->hitbox_offset_x = -9;
+	OBJECT(object)->hitbox_offset_y = -0x20;
+	OBJECT(object)->hitbox_height = 0x100u;
+	OBJECT(object)->kind = 0xCu;
+	OBJECT(object)->spawn_arg_2 = OBJECT(object_cursor)->spawn_arg_2;
+	OBJECT(object)->handler = spike_gate_pillar_update_ADDRESS;
+	spawn_count = 4u;
+	spawn_object_with_pieces(0x0154A4u, &spawned, &piece_count, &free_count, &object, &block);
+	copy_position_to(object);
+	OBJECT(object)->direction = 0x300u;
+	OBJECT(object)->projected_x += 0x1Au;
+	OBJECT(object)->projected_y_int += 0x14u;
+	OBJECT(object)->sprite_frame = 0xA1E8u;
+	OBJECT(object)->sprite_palette = 0x91E0u;
+	OBJECT(object)->flags |= 2u;
+	OBJECT(object)->hitbox_size_x = 0x2Du;
+	OBJECT(object)->hitbox_size_y = 0xDAu;
+	OBJECT(object)->hitbox_offset_x = 3;
+	OBJECT(object)->hitbox_offset_y = -0x38;
+	OBJECT(object)->hitbox_height = 0x28u;
+	OBJECT(object)->kind = 0xCu;
+	OBJECT(object)->spawn_arg_2 = OBJECT(object_cursor)->spawn_arg_2;
+	OBJECT(object)->handler = spike_gate_beam_wait_ADDRESS;
+	object = LINKED(object, OBJECT(object)->child);
+	OBJECT(object)->sprite_frame = 0xA1F0u;
+	OBJECT(object)->sprite_palette = 0x91E0u;
+	object = LINKED(object, OBJECT(object)->child);
+	OBJECT(object)->sprite_frame = 0xA1F8u;
+	OBJECT(object)->sprite_palette = 0x91E0u;
+	object = LINKED(object, OBJECT(object)->child);
+	OBJECT(object)->sprite_scale = 0x180u;
+	OBJECT(object)->sprite_frame = 0xA788u;
+	OBJECT(object)->sprite_palette = 0x87A0u;
+}
+
+void spike_gate_pillar_update(void)
+{
+	uint16_t count = 0;
+	uint32_t r2 = 0, r3 = 0, r11 = 0, depth = 0, head_distance_x = 0, ignored = 0;
+
+	unproject_object(&ignored, &r2, &r3, &r11);
+	r14 = LINKED(WORK_RAM, biting_head);
+	distance_xy_to_object(&head_distance_x, &ignored);
+	if ((int32_t)head_distance_x <= 0x20 || (int16_t)OBJECT(current_object)->spawn_arg_2 < (int16_t)scroll_position)
+	{
+		count = 5u;
+		OBJECT(current_object)->projected_x -= 0x90u;
+		OBJECT(current_object)->projected_y_int -= 0x40u;
+		spawn_debris(head_distance_x, count, r11);
+		delete_object_and_children(&ignored, &r2, &r3);
+		return;
+	}
+	depth = (uint16_t)(OBJECT(current_object)->screen_y - 8u);
+	queue_sprite_at_depth(&ignored, &depth);
+	add_to_touchable_list(ignored);
+}
+
+void spike_gate_beam_rise(void)
+{
+	uint16_t height_above_floor = 0;
+
+	OBJECT(current_object)->z_int -= 3u;
+	height_above_floor = (uint16_t)(OBJECT(current_object)->floor_z_int - OBJECT(current_object)->z_int);
+	if ((int16_t)height_above_floor > 0x20)
+		OBJECT(current_object)->kind = 0x24u;
+	if ((int16_t)height_above_floor <= 0x50)
+	{
+		spike_gate_beam_update();
+		return;
+	}
+	OBJECT(current_object)->spike_gate_beam.pause_timer = 8u;
+	OBJECT(current_object)->handler = spike_gate_beam_hold_ADDRESS;
+	spike_gate_beam_hold();
+}
+
+void spike_gate_beam_hold(void)
+{
+	uint16_t pause_timer = 0;
+
+	pause_timer = OBJECT(current_object)->spike_gate_beam.pause_timer;
+	OBJECT(current_object)->spike_gate_beam.pause_timer = pause_timer - 1u;
+	if (pause_timer != 0u)
+	{
+		spike_gate_beam_update();
+		return;
+	}
+	OBJECT(current_object)->handler = spike_gate_beam_drop_ADDRESS;
+	spike_gate_beam_drop();
+}
+
+void spike_gate_beam_drop(void)
+{
+	uint8_t sound_id = 0;
+	uint32_t r1 = 0, r2 = 0, height = 0;
+
+	OBJECT(current_object)->speed_z += 0x2000u;
+	fall_to_floor(&height, &r1, &r2);
+	if ((int32_t)height >= 1)
+	{
+		spike_gate_beam_update();
+		return;
+	}
+	OBJECT(current_object)->kind = 0xCu;
+	OBJECT(current_object)->z_int -= 6u;
+	OBJECT(current_object)->spike_gate_beam.bounce_count++;
+	if (OBJECT(current_object)->spike_gate_beam.bounce_count <= 2)
+	{
+		spike_gate_beam_update();
+		return;
+	}
+	OBJECT(current_object)->spike_gate_beam.bounce_count = 0;
+	OBJECT(current_object)->z_int += 3u;
+	OBJECT(current_object)->spike_gate_beam.pause_timer = 0xAu;
+	sound_id = 7u;
+	play_sound(sound_id, &r1, &r2);
+	OBJECT(current_object)->handler = spike_gate_beam_wait_ADDRESS;
+	spike_gate_beam_wait();
+}
+
+void spike_gate_beam_wait(void)
+{
+	uint16_t pause_timer = 0;
+
+	pause_timer = OBJECT(current_object)->spike_gate_beam.pause_timer;
+	OBJECT(current_object)->spike_gate_beam.pause_timer = pause_timer - 1u;
+	if (pause_timer != 0u)
+	{
+		spike_gate_beam_update();
+		return;
+	}
+	OBJECT(current_object)->handler = spike_gate_beam_rise_ADDRESS;
+	spike_gate_beam_update();
+}
+
+void spike_gate_beam_update(void)
+{
+	uint16_t count = 0, offset_x = 0, offset_y = 0;
+	uint32_t r2 = 0, r3 = 0, r11 = 0, bucket = 0, depth = 0, head_distance_x = 0, ignored = 0;
+
+	move_object_projected(&ignored, &r2, &r3, &r11);
+	r14 = LINKED(WORK_RAM, biting_head);
+	distance_xy_to_object(&head_distance_x, &depth);
+	if ((int32_t)head_distance_x <= 0x20 || (int16_t)OBJECT(current_object)->spawn_arg_2 < (int16_t)scroll_position)
+	{
+		count = 5u;
+		OBJECT(current_object)->projected_x -= 0x90u;
+		OBJECT(current_object)->projected_y_int -= 0x40u;
+		spawn_debris(head_distance_x, count, r11);
+		delete_object_and_children(&ignored, &r2, &r3);
+		return;
+	}
+	depth = cursor_floor_screen_y(depth);
+	depth = (uint16_t)(depth - 0x10u);
+	queue_sprite_at_depth(&ignored, &depth);
+	add_to_touchable_list(ignored);
+	current_object = LINKED(current_object, OBJECT(current_object)->child);
+	offset_x = 0x30u;
+	offset_y = 0x19u;
+	place_sprite_near_cursor(offset_x, offset_y);
+	depth = cursor_floor_screen_y(depth);
+	depth = (uint16_t)(depth - 0x14u);
+	queue_sprite_at_depth(&ignored, &depth);
+	current_object = LINKED(current_object, OBJECT(current_object)->child);
+	offset_x = 0x60u;
+	offset_y = 0x2Du;
+	place_sprite_near_cursor(offset_x, offset_y);
+	depth = cursor_floor_screen_y(depth);
+	depth = (uint16_t)(depth - 0x10u);
+	queue_sprite_at_depth(&ignored, &depth);
+	current_object = LINKED(current_object, OBJECT(current_object)->child);
+	bucket = place_sprite_at_cursor_floor();
+	OBJECT(current_object)->screen_x += 0x30u;
+	OBJECT(current_object)->screen_y += 0x48u;
+	queue_sprite_in_bucket(bucket);
+}
+
+void eel_den_init(void)
+{
+	OBJECT(current_object)->flags |= 2u;
+	OBJECT(current_object)->hitbox_size_x = 0x47u;
+	OBJECT(current_object)->hitbox_size_y = 0x42u;
+	OBJECT(current_object)->hitbox_offset_x = -3;
+	OBJECT(current_object)->hitbox_offset_y = -0x43;
+	OBJECT(current_object)->hitbox_height = 0x28u;
+	OBJECT(current_object)->kind = 0xCu;
+	OBJECT(current_object)->sprite_frame = 0xAC70u;
+	OBJECT(current_object)->sprite_palette = 0x1300u;
+	OBJECT(current_object)->sprite_palette |= 0x4000u;
+	OBJECT(current_object)->health = 1;
+	OBJECT(current_object)->handler = eel_den_wait_ADDRESS;
+	current_object = object_cursor;
+}
+
+void eel_den_wait(void)
+{
+	uint32_t r11 = 0, distance_y = 0, ignored = 0, random_value = 0, ring = 0;
+
+	if ((stage_trigger_bits & shl32(1u, (int)(OBJECT(current_object)->spawn_arg_1))) == 0u)
+	{
+		r14 = LINKED(WORK_RAM, chaser_object);
+		distance_xy_to_object(&ignored, &distance_y);
+		if ((int16_t)distance_y > 0x35 && ((OBJECT(current_object)->flags & 4u) == 0u || OBJECT(current_object)->health > 0))
+		{
+			eel_den_draw();
+			return;
+		}
+	}
+	stage_trigger_bits |= shl32(1u, (int)(OBJECT(current_object)->spawn_arg_1));
+	OBJECT(current_object)->handler = eel_den_collapse_ADDRESS;
+	OBJECT(current_object)->projected_y_int -= 0x18u;
+	released_ring_angle = 0x144u;
+	rings_to_release = 3u;
+	released_ring_flip = 2u;
+	released_rings_random = 1u;
+	drop_rings(0u, &r11, &random_value, &ring);
+	OBJECT(current_object)->projected_y_int += 0x18u;
+	eel_den_collapse();
+}
+
 void eel_den_collapse(void)
 {
 	uint16_t frame_timer = 0;
@@ -90,9 +568,9 @@ void init_stage_view(uint32_t *p_r2, uint32_t *p_r3, uint32_t *p_r4, uint32_t *p
 	mem_write8(io_cnt, io_cnt_bits & ~2u);
 	display_off_frames = 8u;
 	dest = load_default_palettes();
-	unused_view_value_1 = 0x30u;
-	unused_view_value_2 = 0x30u;
-	unused_view_value_3 = 0u;
+	debug_sprite_x = 0x30u;
+	debug_sprite_y = 0x30u;
+	debug_sprite_spawned = 0u;
 	circle_wipe_left = 0x82u;
 	circle_wipe_right = 0xBEu;
 	circle_wipe_line = 0x32u;
@@ -207,7 +685,6 @@ void init_stage_view(uint32_t *p_r2, uint32_t *p_r3, uint32_t *p_r4, uint32_t *p
 	camera_y += (uint32_t)camera_origin << 16;
 	view_offset_y = ROM16(stage_view_offsets_y_ADDRESS + table_offset);
 	view_offset_x = ROM16(stage_view_offsets_x_ADDRESS + table_offset);
-	table_offset = table_offset;
 	scroll_end = ROM16(stage_scroll_ends_ADDRESS + table_offset);
 	stage_number = stage;
 	list = stage_section_speeds[stage_number] + stage_section_speeds_ADDRESS;
@@ -257,7 +734,7 @@ void init_stage_view(uint32_t *p_r2, uint32_t *p_r3, uint32_t *p_r4, uint32_t *p
 	AS16(camera_shake_frame) = 0u;
 	back_edge_frames = 0u;
 	nearby_floor_blocks_locked = 0u;
-	unused_view_byte = 0u;
+	scroll_skip_open = 0u;
 	*p_r2 = direction_y;
 	*p_r3 = direction_x;
 	*p_r4 = r4;
@@ -2301,6 +2778,51 @@ void update_background_scroll(uint32_t *p_r1, uint32_t *p_r2, uint32_t *p_speed,
 	*p_r11 = r11;
 }
 
+void spawn_debug_sprite_mover(uint32_t object)
+{
+	uint32_t free_count = 0;
+
+	if (debug_sprite_spawned == 0u)
+	{
+		allocate_object_outside_loop(&free_count, &object);
+		if ((uint8_t)free_count != 0u)
+		{
+			OBJECT(object)->handler = debug_sprite_mover_update_ADDRESS;
+			debug_sprite_spawned++;
+		}
+	}
+}
+
+void debug_sprite_mover_update(void)
+{
+	uint32_t attribute = 0, text_position = 0, value = 0;
+
+	OBJECT(current_object)->screen_x = debug_sprite_x;
+	OBJECT(current_object)->screen_y = debug_sprite_y;
+	OBJECT(current_object)->sprite_layer = 0x32u;
+	OBJECT(current_object)->sprite_frame = 0x8DB8u;
+	OBJECT(current_object)->sprite_palette = 0x130u;
+	OBJECT(current_object)->sprite_flags = 0u;
+	OBJECT(current_object)->sprite_scale = 0x100u;
+	queue_sprite_in_layer();
+	if ((input_ports_active & 0x10000u) != 0u)
+		debug_sprite_x++;
+	if ((input_ports_active & 0x10u) != 0u)
+		debug_sprite_x--;
+	if ((input_ports_active & 0x1000000u) != 0u)
+		debug_sprite_y++;
+	if ((input_ports_active & 0x2000000u) != 0u)
+		debug_sprite_y--;
+	value = debug_sprite_x;
+	text_position = TEXT_CELL(3, 22);
+	attribute = 0x200u;
+	draw_hex_4(&value, &attribute, &text_position);
+	value = debug_sprite_y;
+	text_position = TEXT_CELL(8, 22);
+	attribute = 0x200u;
+	draw_hex_4(&value, &attribute, &text_position);
+}
+
 void start_stage_view(uint32_t *p_r2, uint32_t *p_r3, uint32_t *p_r4, uint32_t *p_stage_offset)
 {
 	uint32_t r2 = *p_r2;
@@ -2320,6 +2842,11 @@ void start_stage_view(uint32_t *p_r2, uint32_t *p_r3, uint32_t *p_r4, uint32_t *
 		return;
 	}
 	ending_scene_step = 0u;
+}
+
+void call_run_map_screen(uint32_t object)
+{
+	run_map_screen(0u, object);
 }
 
 void run_stage_05_switch(uint32_t r3, uint32_t *p_r2, uint32_t *p_r4, uint32_t *p_dest)
@@ -3400,6 +3927,121 @@ void escape_alarm_flash(void)
 	}
 }
 
+void run_scroll_skip_mode(void)
+{
+	if (scroll_skip_open == 0u)
+	{
+		if ((input_ports_active & 0x21u) != 0x21u)
+		{
+			scroll_skip_open = 0u;
+			return;
+		}
+		scroll_skip_last_point = scroll_skip_last_points[stage];
+		stage_start_section = 0xDu;
+		scroll_skip_value_index = 0u;
+		scroll_skip_next_armed = 0u;
+		scroll_skip_back_armed = 0u;
+		scroll_skip_exit_armed = 0u;
+		scroll_skip_call_armed = 0u;
+		scroll_skip_open = 1u;
+		scroll_skip_print_panel();
+	}
+	scroll_skip_draw_values();
+	scroll_skip_next_point();
+	scroll_skip_previous_point();
+	scroll_skip_check_call();
+	scroll_skip_check_exit();
+}
+
+void scroll_skip_next_point(void)
+{
+	uint32_t held_buttons = 0;
+
+	held_buttons = input_ports_active & 0x1010000u;
+	if (held_buttons != 0x1010000u)
+	{
+		if ((held_buttons & 0x10000u) != 0u)
+		{
+			if (scroll_skip_next_armed != 0u)
+			{
+				stage_start_section++;
+				scroll_skip_next_armed = 0u;
+			}
+		}
+		else
+			scroll_skip_next_armed = 1u;
+	}
+	if (scroll_skip_last_point < (int16_t)stage_start_section)
+		stage_start_section = scroll_skip_last_point;
+}
+
+void scroll_skip_previous_point(void)
+{
+	uint32_t held_buttons = 0;
+
+	held_buttons = input_ports_active & 0x1010000u;
+	if (held_buttons != 0x1010000u)
+	{
+		if ((held_buttons & 0x1000000u) != 0u)
+		{
+			if (scroll_skip_back_armed != 0u)
+			{
+				stage_start_section--;
+				scroll_skip_back_armed = 0u;
+			}
+		}
+		else
+			scroll_skip_back_armed = 1u;
+	}
+	if ((int16_t)stage_start_section < 0)
+		stage_start_section = 0u;
+}
+
+void scroll_skip_check_exit(void)
+{
+	uint32_t held_buttons = 0;
+
+	held_buttons = input_ports_active & 0x30u;
+	if (held_buttons == 0x30u)
+		return;
+	if ((held_buttons & 0x20u) != 0u)
+	{
+		if (scroll_skip_exit_armed != 0u)
+		{
+			scroll_skip_open = 0u;
+			scroll_skip_erase_panel();
+			scroll_skip_exit_armed = 0u;
+		}
+	}
+	else
+		scroll_skip_exit_armed = 1u;
+}
+
+void scroll_skip_erase_panel(void)
+{
+	uint32_t text = 0, text_position = 0;
+
+	text = scroll_skip_blank_text_ADDRESS;
+	print_text_list(&text, &text_position);
+}
+
+void scroll_skip_check_call(void)
+{
+	uint32_t held_buttons = 0, ignored = 0;
+
+	held_buttons = input_ports_active & 0x30u;
+	if (held_buttons == 0x30u)
+		return;
+	if ((held_buttons & 0x10u) != 0u)
+	{
+		if (scroll_skip_call_armed == 0u)
+			return;
+		move_camera_to_start_section(&ignored, &ignored, &ignored);
+		return;
+	}
+	scroll_skip_call_armed = 1u;
+}
+
 void move_camera_to_start_section(uint32_t *p_r2, uint32_t *p_section_offset, uint32_t *p_stage_index)
 {
 	uint32_t r2 = 0, section_offset = 0, stage_index = 0;
@@ -3459,6 +4101,99 @@ void load_camera_start_section(uint32_t *p_section_offset, uint32_t *p_stage_ind
 	scroll_mode_script = list + 2u;
 	*p_section_offset = section_offset;
 	*p_stage_index = stage_index;
+}
+
+void index_stage_list_pair(uint32_t section_offset, uint32_t stage_offset, uint32_t *p_first_entry, uint32_t *p_second_entry)
+{
+	uint32_t first_entry = *p_first_entry;
+	uint32_t second_entry = *p_second_entry;
+
+	second_entry = mem_read32((second_entry & ~0xFFFFu) | (uint16_t)(second_entry + stage_offset)) + section_offset;
+	first_entry = mem_read32(first_entry + stage_offset) + section_offset;
+	*p_first_entry = first_entry;
+	*p_second_entry = second_entry;
+}
+
+uint32_t scroll_skip_x_position_cell(void)
+{
+	uint32_t text_position = 0;
+
+	text_position = TEXT_CELL(34, 18);
+	return text_position;
+}
+
+uint32_t scroll_skip_y_position_cell(void)
+{
+	uint32_t text_position = 0;
+
+	text_position = TEXT_CELL(34, 19);
+	return text_position;
+}
+
+uint32_t scroll_skip_total_cell(void)
+{
+	uint32_t text_position = 0;
+
+	text_position = TEXT_CELL(34, 17);
+	return text_position;
+}
+
+void scroll_skip_draw_values(void)
+{
+	uint16_t attribute_2 = 0;
+	uint32_t attribute = 0, point = 0, text_position = 0, value = 0, value_list = 0;
+
+	point = stage_start_section;
+	value_list = ROM32(scroll_skip_value_lists_ADDRESS + scroll_skip_value_index * 2u * 2u);
+	value = ROM16(mem_read16((value_list & ~0xFFFFu) | (uint16_t)(value_list + stage * 2u)) + value_list + (uint16_t)(point * 2u));
+	switch (scroll_skip_value_index)
+	{
+	case 0:
+		text_position = scroll_skip_x_position_cell();
+		break;
+	case 1:
+		text_position = scroll_skip_y_position_cell();
+		break;
+	case 2:
+		text_position = scroll_skip_total_cell();
+		break;
+	case 3:
+		text_position = scroll_skip_x_position_cell();
+		break;
+	default:
+		unknown_code(0x1AAC1u + scroll_skip_value_index * 3u);
+	}
+	attribute = 0x200u;
+	draw_hex_4(&value, &attribute, &text_position);
+	scroll_skip_value_index++;
+	if (scroll_skip_value_index != 3u)
+		return;
+	scroll_skip_value_index = 0u;
+	value = stage_start_section;
+	text_position = TEXT_CELL(24, 15);
+	attribute_2 = 0x600u;
+	draw_hex_2(value, attribute_2, text_position);
+}
+
+void scroll_skip_print_panel(void)
+{
+	uint32_t text = 0, text_position = 0;
+
+	text = scroll_skip_panel_text_ADDRESS;
+	print_text_list(&text, &text_position);
+}
+
+void clear_bitmap_lower_half(void)
+{
+	bitmap_address = VIDEO_RAM + 0xE000u;
+	fill_value = fill_value & ~0xFFFFu;
+	set_halfwords(VIDEO_RAM + 0xE000u, 0x7000u, fill_value);
+	mem_write32(video_layer_disable, mem_read32(video_layer_disable) & ~0x20u);
+	AS16(bitmap_8bpp) = 1u;
+	bitmap_window_left = 0;
+	bitmap_window_top = 0;
+	bitmap_window_right = 0x13F;
+	bitmap_window_bottom = 0xDF;
 }
 
 void animate_stage_palette(uint32_t *p_r1, uint32_t *p_r2, uint32_t *p_palette_count, uint32_t *p_cycle, uint32_t *p_source, uint32_t *p_dest)
@@ -3878,6 +4613,11 @@ void load_palette_set_and_backdrop(uint32_t stage_index, uint32_t *p_tile_bank_b
 	}
 }
 
+void set_backdrop_color_19aa(void)
+{
+	mem_write16(backdrop_color, 0x19AAu);
+}
+
 uint32_t init_nbg0_picture_screen(void)
 {
 	uint32_t dest = 0, ignored = 0, palette_list = 0;
@@ -3897,6 +4637,24 @@ uint32_t init_nbg0_picture_screen(void)
 	nbg0_scroll_y_int = 0u;
 	nbg0_pages = 0u;
 	return dest;
+}
+
+void show_winners_dont_use_drugs_screen(void)
+{
+	uint32_t count = 0, dest = 0, script = 0;
+
+	dest = init_nbg0_picture_screen();
+	script = winners_dont_use_drugs_script_ADDRESS;
+	run_vram_script(&count, &script, &dest);
+}
+
+void show_recycle_it_screen(void)
+{
+	uint32_t count = 0, dest = 0, script = 0;
+
+	dest = init_nbg0_picture_screen();
+	script = recycle_it_script_ADDRESS;
+	run_vram_script(&count, &script, &dest);
 }
 
 void show_nbg0_picture(uint32_t *p_copy_entry, uint32_t *p_rows, uint32_t *p_source, uint32_t *p_dest)
@@ -4239,1097 +4997,4 @@ void set_nbg2_scroll_to_camera(void)
 
 void skip_nbg2_scroll(void)
 {
-}
-
-void set_nbg2_scroll_to_camera_2(void)
-{
-	uint16_t layer_scroll_y = 0;
-
-	layer_scroll_y = camera_y_pixels;
-	nbg2_scroll_x = camera_x_pixels;
-	nbg2_scroll_y = layer_scroll_y;
-}
-
-uint32_t set_nbg2_scroll_stages_03_07(void)
-{
-	uint16_t layer_scroll_y = 0;
-	uint32_t current_position = 0;
-
-	nbg2_pages = 0xD0C0B0Au;
-	layer_scroll_y = (uint16_t)((uint32_t)camera_y >> 16);
-	nbg2_scroll_x = (uint32_t)camera_x >> 16;
-	nbg2_scroll_y = layer_scroll_y;
-	current_position = scroll_position;
-	if ((int32_t)current_position < 0x9159)
-	{
-		skip_nbg2_scroll();
-		return current_position;
-	}
-	layer_scroll_y = (uint16_t)(camera_y_pixels + 0x10u);
-	nbg2_scroll_x = camera_x_pixels + 0x10u;
-	nbg2_scroll_y = layer_scroll_y;
-	return current_position;
-}
-
-void set_nbg2_scroll_stage_04(void)
-{
-	uint16_t layer_scroll_y = 0;
-
-	nbg2_pages = 0xD0C0B0Au;
-	layer_scroll_y = camera_y_pixels;
-	nbg2_scroll_x = camera_x_pixels + 0x20u - 0x20u;
-	nbg2_scroll_y = layer_scroll_y;
-}
-
-void init_nbg3_layer(uint32_t dest)
-{
-	uint32_t ignored = 0, script = 0, stage_index = 0;
-
-	stage_index = stage;
-	nbg3_block_map_width = stage_nbg3_widths[stage_index];
-	switch (stage_index)
-	{
-	case 0:
-	case 1:
-	case 2:
-	case 3:
-	case 5:
-	case 6:
-	case 7:
-	case 17:
-	case 18:
-		script = default_nbg3_script_ADDRESS;
-		run_vram_script(&stage_index, &script, &dest);
-		nbg3_pages = 0x6060505u;
-		nbg3_scroll_x = 0u;
-		nbg3_scroll_y = 0u;
-		set_nbg3_page_5_flags(&ignored, &ignored);
-		return;
-	case 4:
-		script = stage_04_nbg3_script_ADDRESS;
-		run_vram_script(&stage_index, &script, &dest);
-		script = stage_04_nbg3_fill_script_ADDRESS;
-		run_vram_script(&stage_index, &script, &dest);
-		nbg3_pages = 0x6060505u;
-		nbg3_scroll_x = 0u;
-		nbg3_scroll_y = 0u;
-		return;
-	case 8:
-	case 19:
-		script = stage_08_nbg3_script_ADDRESS;
-		run_vram_script(&stage_index, &script, &dest);
-		nbg3_pages = 0x5050505u;
-		nbg3_scroll_x = 0u;
-		nbg3_scroll_y = 0u;
-		return;
-	case 9:
-	case 11:
-		script = clear_tile_page_05_script_ADDRESS;
-		run_vram_script(&stage_index, &script, &dest);
-		script = clear_tile_page_06_script_ADDRESS;
-		run_vram_script(&stage_index, &script, &dest);
-		script = clear_tile_page_07_script_ADDRESS;
-		run_vram_script(&stage_index, &script, &dest);
-		script = clear_tile_page_08_script_ADDRESS;
-		run_vram_script(&stage_index, &script, &dest);
-		nbg3_pages = 0x8070605u;
-		video_layer_opaque_shadow = 0u;
-		return;
-	case 10:
-		script = stage_0a_nbg3_script_ADDRESS;
-		run_vram_script(&stage_index, &script, &dest);
-		nbg3_pages = 0x7070707u;
-		nbg3_scroll_x = 0u;
-		nbg3_scroll_y = 0u;
-		return;
-	case 12:
-		script = stage_0c_nbg3_script_ADDRESS;
-		run_vram_script(&stage_index, &script, &dest);
-		nbg3_pages = 0x5050505u;
-		nbg3_scroll_x = 0u;
-		nbg3_scroll_y = 0u;
-		return;
-	case 13:
-		script = stage_0d_nbg3_script_ADDRESS;
-		run_vram_script(&stage_index, &script, &dest);
-		nbg3_pages = 0x5050505u;
-		nbg3_scroll_x = 0u;
-		nbg3_scroll_y = 0u;
-		return;
-	case 14:
-		script = stage_0e_nbg3_script_ADDRESS;
-		run_vram_script(&stage_index, &script, &dest);
-		nbg3_pages = 0x5050505u;
-		nbg3_scroll_x = 0u;
-		nbg3_scroll_y = 0u;
-		return;
-	case 15:
-		script = stage_0f_nbg3_script_ADDRESS;
-		run_vram_script(&stage_index, &script, &dest);
-		nbg3_pages = 0x5050505u;
-		nbg3_scroll_x = 0u;
-		nbg3_scroll_y = 0u;
-		return;
-	case 16:
-		script = stage_10_nbg3_script_ADDRESS;
-		run_vram_script(&stage_index, &script, &dest);
-		nbg3_pages = 0x5050505u;
-		nbg3_scroll_x = 0u;
-		nbg3_scroll_y = 0u;
-		return;
-	default:
-		unknown_code(0x1B63Fu + stage_index * 3u);
-	}
-}
-
-void set_nbg3_page_5_flags(uint32_t *p_count, uint32_t *p_dest)
-{
-	uint32_t count = 0, dest = 0;
-
-	video_layer_opaque_shadow = 0xAu;
-	mem_write16(palette_color_4000, 0xF70u);
-	count = 0x400u;
-	dest = VIDEO_RAM + 0x1400u;
-	do
-	{
-		mem_write16(dest, mem_read16(dest) | 0x2000u);
-		count--;
-		dest += 2u;
-	} while (count != 0u);
-	*p_count = count;
-	*p_dest = dest;
-}
-
-void update_nbg3_scroll(uint32_t *p_scroll_y, uint32_t *p_quadrants, uint32_t *p_r4, uint32_t *p_r5, uint32_t *p_quadrant_cursor)
-{
-	uint32_t scroll_y = *p_scroll_y;
-	uint32_t quadrants = *p_quadrants;
-	uint32_t r4 = *p_r4;
-	uint32_t r5 = *p_r5;
-	uint32_t quadrant_cursor = *p_quadrant_cursor;
-	uint16_t half_view_y = 0, layer_scroll_y = 0;
-	uint32_t r4_2 = 0, r5_2 = 0, block_pages = 0;
-
-	switch (stage)
-	{
-	case 0:
-		if ((uint8_t)scroll_ended == 0u)
-		{
-			half_view_y = (uint16_t)((int16_t)view_y >> 1);
-			nbg3_scroll_x = (int16_t)view_x >> 1;
-			nbg3_scroll_y = half_view_y;
-			nbg3_scroll_y += 0x80u;
-			select_nbg3_pages(&block_pages, &quadrants, &r4_2, &r5_2, &quadrant_cursor);
-			*p_scroll_y = block_pages;
-			*p_quadrants = quadrants;
-			*p_r4 = r4_2;
-			*p_r5 = r5_2;
-			*p_quadrant_cursor = quadrant_cursor;
-			return;
-		}
-		scroll_y = (scroll_y & ~0xFFFFu) | (uint16_t)view_y;
-		scroll_y = (scroll_y & ~0xFFFFu) | (uint16_t)((int16_t)scroll_y >> 2);
-		nbg3_scroll_x = (int16_t)view_x >> 2;
-		nbg3_scroll_y = scroll_y;
-		nbg3_scroll_y += 0x80u;
-		*p_scroll_y = scroll_y;
-		return;
-	case 1:
-	case 2:
-	case 4:
-	case 8:
-	case 11:
-	case 13:
-	case 15:
-	case 17:
-	case 18:
-	case 19:
-		return;
-	case 3:
-	case 5:
-	case 6:
-	case 7:
-	case 10:
-		half_view_y = (uint16_t)((int16_t)view_y >> 1);
-		nbg3_scroll_x = (int16_t)view_x >> 1;
-		nbg3_scroll_y = half_view_y;
-		nbg3_scroll_y += 0x80u;
-		select_nbg3_pages(&block_pages, &quadrants, &r4_2, &r5_2, &quadrant_cursor);
-		*p_scroll_y = block_pages;
-		*p_quadrants = quadrants;
-		*p_r4 = r4_2;
-		*p_r5 = r5_2;
-		*p_quadrant_cursor = quadrant_cursor;
-		return;
-	case 9:
-	case 20:
-		layer_scroll_y = camera_y_pixels;
-		nbg3_scroll_x = camera_x_pixels;
-		nbg3_scroll_y = layer_scroll_y;
-		return;
-	case 12:
-	case 14:
-		scroll_y = (uint16_t)view_y * 3u;
-		scroll_y = (scroll_y & ~0xFFFFu) | (uint16_t)((int16_t)scroll_y >> 2);
-		nbg3_scroll_x = (int16_t)(view_x * 3u) >> 2;
-		nbg3_scroll_y = scroll_y;
-		*p_scroll_y = scroll_y;
-		return;
-	case 16:
-		scroll_y = (uint16_t)view_y;
-		scroll_y = (uint16_t)((int16_t)scroll_y >> 2);
-		nbg3_scroll_x = (int16_t)view_x >> 2;
-		nbg3_scroll_y = scroll_y;
-		*p_scroll_y = scroll_y;
-		return;
-	default:
-		unknown_code(0x1B89Eu + stage * 3u);
-	}
-}
-
-void select_nbg3_pages(uint32_t *p_block_pages, uint32_t *p_quadrants, uint32_t *p_r4, uint32_t *p_r5, uint32_t *p_quadrant_cursor)
-{
-	uint8_t byte_shift = 0;
-	uint32_t block_column = 0, block_pages = 0, block_row = 0, byte_mask = 0, bytes_left = 0, gathered_pages = 0, gathered_quadrants = 0, map_cursor = 0, pages = 0, quadrant_cursor = 0, quadrants = 0, shift = 0, stage_index = 0;
-	uint32_t next_mask = 0;
-
-	get_nbg3_block();
-	stage_index = stage;
-	nbg3_block_row = (uint32_t)nbg3_block_row * nbg3_block_map_width;
-	map_cursor = stage_nbg3_block_maps[stage_index];
-	map_cursor = (map_cursor & ~0xFFFFu) | (uint16_t)(map_cursor + nbg3_block_row);
-	map_cursor = (map_cursor & ~0xFFFFu) | (uint16_t)(map_cursor + nbg3_block_column);
-	get_nbg3_block();
-	nbg3_block_row = nbg3_block_row * (nbg3_block_map_width - 1u);
-	block_row = nbg3_block_row;
-	block_column = nbg3_block_column;
-	quadrant_cursor = 0x1BCBCu + (block_row & 1u) * 3u + (block_column & 1u);
-	nbg3_scroll_x &= 0x3FFu;
-	nbg3_scroll_y &= 0x1FFu;
-	bytes_left = 4u;
-	byte_shift = 0u;
-	gathered_pages = 0u;
-	do
-	{
-		gathered_pages |= rotate_by(mem_read8(map_cursor), (uint8_t)byte_shift, 32);
-		map_cursor++;
-		byte_shift += 8u;
-		if (bytes_left == 3u)
-			map_cursor = (map_cursor & ~0xFFFFu) | (uint16_t)(map_cursor + (nbg3_block_map_width - 2u));
-		bytes_left--;
-	} while (bytes_left != 0u);
-	block_pages = gathered_pages;
-	bytes_left = 4u;
-	byte_shift = 0u;
-	gathered_quadrants = 0u;
-	do
-	{
-		gathered_quadrants |= rotate_by(mem_read8(quadrant_cursor), (uint8_t)byte_shift, 32);
-		quadrant_cursor++;
-		byte_shift += 8u;
-		if (bytes_left == 3u)
-			quadrant_cursor = (quadrant_cursor & ~0xFFFFu) | (uint16_t)(quadrant_cursor + 1u);
-		bytes_left--;
-	} while (bytes_left != 0u);
-	quadrants = gathered_quadrants;
-	byte_mask = 0xFFu;
-	shift = 0u;
-	pages = 0u;
-	do
-	{
-		pages |= shift_by(shift_by(block_pages & byte_mask, (uint8_t)shift, 32), (uint8_t)(shift_by(quadrants & byte_mask, (uint8_t)shift, 32) << 3), 32);
-		next_mask = byte_mask << 8;
-		byte_mask = next_mask;
-		shift -= 8u;
-	} while (next_mask != 0u);
-	nbg3_pages = pages;
-	*p_block_pages = block_pages;
-	*p_quadrants = quadrants;
-	*p_r4 = byte_mask;
-	*p_r5 = shift;
-	*p_quadrant_cursor = quadrant_cursor;
-}
-
-void get_nbg3_block(void)
-{
-	nbg3_block_column = nbg3_scroll_x;
-	nbg3_block_row = nbg3_scroll_y;
-	nbg3_block_row += 0x400u;
-	nbg3_block_column &= ~0x1FFu;
-	nbg3_block_row &= ~0xFFu;
-	nbg3_block_column = (int16_t)nbg3_block_column >> 9;
-	nbg3_block_row = (int16_t)nbg3_block_row >> 8;
-}
-
-void build_ending_scene(uint32_t *p_r2, uint32_t *p_tile_bank_bits, uint32_t *p_r4, uint32_t *p_r8, uint32_t *p_blocks_per_row, uint32_t *p_scene_actor)
-{
-	uint32_t r2 = *p_r2;
-	uint32_t tile_bank_bits = *p_tile_bank_bits;
-	uint32_t r4 = *p_r4;
-	uint32_t r8 = *p_r8;
-	uint32_t blocks_per_row = *p_blocks_per_row;
-	uint32_t scene_actor = *p_scene_actor;
-	uint8_t is_8bpp = 0, sound_id = 0;
-	uint32_t r1 = 0, r2_2 = 0, r4_2 = 0, r5 = 0, r10 = 0, r11 = 0, ignored = 0, script = 0;
-	uint8_t io_cnt_bits = 0;
-
-	is_8bpp = (uint8_t)(ending_scene_step * 3u);
-	switch (ending_scene_step)
-	{
-	case 0:
-		io_cnt_bits = mem_read8(io_cnt);
-		mem_write8(io_cnt, io_cnt_bits & ~2u);
-		display_off_frames = 0x10u;
-		r4_2 = set_stage_layer_mixing();
-		clear_sprite_buckets();
-		clear_bitmap_layer(is_8bpp, &ignored, &r4_2, &r5, &r8, &blocks_per_row, &r10);
-		init_video_registers();
-		load_stage_palette_set(&tile_bank_bits, &r11);
-		sound_id = 0x94u;
-		queue_sound(sound_id, &r1, &r2_2);
-		color_offset_red = 0x20u;
-		color_offset_blue = 0x20u;
-		color_offset_green = 0x20u;
-		mem_write16(video_layer_disable, mem_read16(video_layer_disable) | 0x2Fu);
-		nbg0_pages = 0x3020100u;
-		nbg1_pages = 0x1211100Fu;
-		nbg2_pages = 0xD0C0B0Au;
-		nbg3_pages = 0x8070605u;
-		nbg0_scroll_x_int = 0u;
-		nbg0_scroll_y_int = 0u;
-		nbg1_scroll_x_int = 0u;
-		nbg1_scroll_y_int = 0u;
-		nbg2_scroll_x = 0u;
-		nbg2_scroll_y = 0u;
-		nbg3_scroll_x = 0u;
-		nbg3_scroll_y = 0u;
-		ending_scene_step = 1u;
-		ending_first_scene_done = 0u;
-		mixer_text_blend &= 0xBFFFu;
-		mixer_nbg0_blend &= 0xBFFFu;
-		mixer_nbg1_blend &= 0xBFFFu;
-		mixer_nbg2_blend &= 0xBFFFu;
-		mixer_nbg3_blend &= 0xBFFFu;
-		mixer_bitmap_blend &= 0xBFFFu;
-		mixer_sprite_control &= ~0x8000u;
-		mem_write32(video_control, mem_read32(video_control) & ~0x1000u);
-		mem_write32(video_control, mem_read32(video_control) & ~0x2000u);
-		mem_write32(video_control, mem_read32(video_control) & ~0x4000u);
-		mem_write16(nbg0_zoom_x, 0x200u);
-		mem_write16(nbg0_zoom_y, 0x200u);
-		mem_write16(nbg1_zoom_x, 0x200u);
-		mem_write16(nbg1_zoom_y, 0x200u);
-		nbg0_center_x = 0u;
-		nbg0_center_y = 0u;
-		nbg1_center_x = 0u;
-		nbg1_center_y = 0u;
-		mem_write16(video_clip_1_left, 0u);
-		mem_write16(video_clip_1_right, 0u);
-		mem_write16(video_clip_1_top, 0u);
-		mem_write16(video_clip_1_bottom, 0u);
-		script = blue_sky_script_ADDRESS;
-		run_vram_script(&r1, &script, &r11);
-		script = aerial_city_script_ADDRESS;
-		run_vram_script(&r1, &script, &r11);
-		script = sonic_head_pattern_script_ADDRESS;
-		run_vram_script(&r1, &script, &r11);
-		script = ending_eggman_machine_script_ADDRESS;
-		run_vram_script(&r1, &script, &r11);
-		script = ending_logo_script_ADDRESS;
-		run_vram_script(&r1, &script, &r11);
-		script = ending_bars_script_ADDRESS;
-		run_vram_script(&r1, &script, &r11);
-		nbg0_pages = 0x8080707u;
-		nbg1_pages = 0x1010101u;
-		nbg2_pages = 0x5050505u;
-		*p_r2 = r2_2;
-		*p_tile_bank_bits = tile_bank_bits;
-		*p_r4 = r4_2;
-		*p_r8 = r8;
-		*p_blocks_per_row = blocks_per_row;
-		*p_scene_actor = r11;
-		return;
-	case 1:
-		allocate_object_outside_loop(&ignored, &scene_actor);
-		OBJECT(scene_actor)->handler = ending_tower_animate_ADDRESS;
-		init_ending_scene_object(scene_actor);
-		allocate_object_outside_loop(&ignored, &scene_actor);
-		OBJECT(scene_actor)->handler = ending_horizon_show_ADDRESS;
-		init_ending_scene_object(scene_actor);
-		allocate_object_outside_loop(&ignored, &scene_actor);
-		OBJECT(scene_actor)->handler = ending_sonic_run_forward_ADDRESS;
-		init_ending_scene_object(scene_actor);
-		allocate_object_outside_loop(&ignored, &scene_actor);
-		OBJECT(scene_actor)->handler = ending_ray_run_forward_ADDRESS;
-		init_ending_scene_object(scene_actor);
-		allocate_object_outside_loop(&ignored, &scene_actor);
-		OBJECT(scene_actor)->handler = ending_mighty_run_forward_ADDRESS;
-		init_ending_scene_object(scene_actor);
-		allocate_object_outside_loop(&ignored, &scene_actor);
-		OBJECT(scene_actor)->handler = ending_road_scroll_ADDRESS;
-		init_ending_scene_object(scene_actor);
-		*p_scene_actor = scene_actor;
-		return;
-	case 2:
-	case 3:
-		return;
-	default:
-		unknown_code(0x1BCD3u + ending_scene_step * 3u);
-	}
-}
-
-void init_ending_scene_object(uint32_t object)
-{
-	AS8(OBJECT(object)->flags) = 0u;
-	AT8(OBJECT(object)->flags, 1) = 0u;
-	AT16(OBJECT(object)->flags, 2) = 0u;
-	ending_scene_step = 2u;
-}
-
-void ending_tower_animate(void)
-{
-	uint32_t r11 = 0, count = 0, frame_record = 0, script = 0;
-
-	if (OBJECT(current_object)->ending.started == 0u)
-	{
-		script = cloudy_horizon_script_ADDRESS;
-		run_vram_script(&count, &script, &r11);
-		mem_write16(video_layer_disable, mem_read16(video_layer_disable) & ~8u);
-		nbg3_pages = 0u;
-		OBJECT(current_object)->ending.list_index = 0u;
-		OBJECT(current_object)->ending.timer = 0;
-		OBJECT(current_object)->ending.started++;
-	}
-	OBJECT(current_object)->sprite_layer = 7u;
-	OBJECT(current_object)->screen_x = 0xA0;
-	OBJECT(current_object)->screen_y = 0x6B;
-	OBJECT(current_object)->sprite_scale = 0x100u;
-	OBJECT(current_object)->sprite_flags = 0u;
-	frame_record = ending_tower_frames_ADDRESS;
-	for (;;)
-	{
-		if (ROM16(frame_record) == 0xFFFFu)
-		{
-			if (ROM16(frame_record + 4u) != 0xFFFFu)
-			{
-				OBJECT(current_object)->ending.timer++;
-				run_timed_spawns_2(r11);
-				return;
-			}
-			delete_current_object();
-			return;
-		}
-		if (OBJECT(current_object)->ending.timer < (int16_t)ROM16(frame_record))
-			break;
-		frame_record += 6u;
-	}
-	OBJECT(current_object)->sprite_frame = ROM16(frame_record + 2u);
-	OBJECT(current_object)->sprite_palette = ROM16(frame_record + 4u);
-	queue_sprite_in_layer();
-	if (ROM16(frame_record + 4u) != 0xFFFFu)
-	{
-		OBJECT(current_object)->ending.timer++;
-		run_timed_spawns_2(r11);
-		return;
-	}
-	delete_current_object();
-}
-
-void ending_debris_1_fly(void)
-{
-	uint8_t sound_id = 0;
-	uint32_t ignored = 0, path = 0;
-
-	if (OBJECT(current_object)->ending.started == 0u)
-	{
-		sound_id = 0xBu;
-		queue_sound(sound_id, &ignored, &ignored);
-		OBJECT(current_object)->ending.started++;
-		OBJECT(current_object)->ending.timer = 0;
-	}
-	path = ending_debris_1_path_ADDRESS;
-	OBJECT(current_object)->sprite_flags = 0u;
-	OBJECT(current_object)->sprite_flags |= 9u;
-	animate_ending_debris(path);
-}
-
-void ending_debris_2_fly(void)
-{
-	uint8_t sound_id = 0;
-	uint32_t ignored = 0, path = 0;
-
-	if (OBJECT(current_object)->ending.started == 0u)
-	{
-		sound_id = 0xBu;
-		queue_sound(sound_id, &ignored, &ignored);
-		OBJECT(current_object)->ending.started++;
-		OBJECT(current_object)->ending.timer = 0;
-	}
-	path = ending_debris_2_path_ADDRESS;
-	OBJECT(current_object)->sprite_flags = 0u;
-	OBJECT(current_object)->sprite_flags |= 0xAu;
-	animate_ending_debris(path);
-}
-
-void ending_debris_3_fly(void)
-{
-	uint8_t sound_id = 0;
-	uint32_t ignored = 0, path = 0;
-
-	if (OBJECT(current_object)->ending.started == 0u)
-	{
-		sound_id = 0xBu;
-		queue_sound(sound_id, &ignored, &ignored);
-		OBJECT(current_object)->ending.started++;
-		OBJECT(current_object)->ending.timer = 0;
-	}
-	path = ending_debris_3_path_ADDRESS;
-	OBJECT(current_object)->sprite_flags = 0u;
-	OBJECT(current_object)->sprite_flags |= 9u;
-	animate_ending_debris(path);
-}
-
-void ending_tower_blast_1(void)
-{
-	uint8_t sound_id = 0;
-	uint32_t ignored = 0;
-
-	if (OBJECT(current_object)->ending.started == 0u)
-	{
-		sound_id = 0xAu;
-		queue_sound(sound_id, &ignored, &ignored);
-		start_ending_blast();
-	}
-	OBJECT(current_object)->screen_x = 0x90;
-	OBJECT(current_object)->screen_y = 0xA0;
-	animate_tower_blast();
-}
-
-void ending_tower_blast_2(void)
-{
-	uint8_t sound_id = 0;
-	uint32_t ignored = 0;
-
-	if (OBJECT(current_object)->ending.started == 0u)
-	{
-		sound_id = 0xAu;
-		queue_sound(sound_id, &ignored, &ignored);
-		start_ending_blast();
-	}
-	OBJECT(current_object)->screen_x = 0xA1;
-	OBJECT(current_object)->screen_y = 0x98;
-	animate_tower_blast();
-}
-
-void ending_tower_blast_3(void)
-{
-	uint8_t sound_id = 0;
-	uint32_t ignored = 0;
-
-	if (OBJECT(current_object)->ending.started == 0u)
-	{
-		sound_id = 0xAu;
-		queue_sound(sound_id, &ignored, &ignored);
-		start_ending_blast();
-	}
-	OBJECT(current_object)->screen_x = 0xAE;
-	OBJECT(current_object)->screen_y = 0xA0;
-	animate_tower_blast();
-}
-
-void ending_horizon_blast_1(void)
-{
-	uint8_t sound_id = 0;
-	uint32_t ignored = 0;
-
-	if (OBJECT(current_object)->ending.started == 0u)
-	{
-		sound_id = 9u;
-		queue_sound(sound_id, &ignored, &ignored);
-		start_ending_blast();
-	}
-	OBJECT(current_object)->screen_x = 0x35;
-	OBJECT(current_object)->screen_y = 0xAA;
-	animate_horizon_blast();
-}
-
-void ending_horizon_blast_2(void)
-{
-	uint8_t sound_id = 0;
-	uint32_t ignored = 0;
-
-	if (OBJECT(current_object)->ending.started == 0u)
-	{
-		sound_id = 9u;
-		queue_sound(sound_id, &ignored, &ignored);
-		start_ending_blast();
-	}
-	OBJECT(current_object)->screen_x = 0x52;
-	OBJECT(current_object)->screen_y = 0xA8;
-	animate_horizon_blast();
-}
-
-void ending_horizon_blast_3(void)
-{
-	uint8_t sound_id = 0;
-	uint32_t ignored = 0;
-
-	if (OBJECT(current_object)->ending.started == 0u)
-	{
-		sound_id = 9u;
-		queue_sound(sound_id, &ignored, &ignored);
-		start_ending_blast();
-	}
-	OBJECT(current_object)->screen_x = 0x73;
-	OBJECT(current_object)->screen_y = 0xA5;
-	animate_horizon_blast();
-}
-
-void ending_horizon_blast_4(void)
-{
-	uint8_t sound_id = 0;
-	uint32_t ignored = 0;
-
-	if (OBJECT(current_object)->ending.started == 0u)
-	{
-		sound_id = 9u;
-		queue_sound(sound_id, &ignored, &ignored);
-		start_ending_blast();
-	}
-	OBJECT(current_object)->screen_x = 0x93;
-	OBJECT(current_object)->screen_y = 0xA0;
-	animate_horizon_blast();
-}
-
-void ending_horizon_blast_5(void)
-{
-	uint8_t sound_id = 0;
-	uint32_t ignored = 0;
-
-	if (OBJECT(current_object)->ending.started == 0u)
-	{
-		sound_id = 9u;
-		queue_sound(sound_id, &ignored, &ignored);
-		start_ending_blast();
-	}
-	OBJECT(current_object)->screen_x = 0xAD;
-	OBJECT(current_object)->screen_y = 0x9E;
-	animate_horizon_blast();
-}
-
-void ending_horizon_blast_6(void)
-{
-	uint8_t sound_id = 0;
-	uint32_t ignored = 0;
-
-	if (OBJECT(current_object)->ending.started == 0u)
-	{
-		sound_id = 9u;
-		queue_sound(sound_id, &ignored, &ignored);
-		start_ending_blast();
-	}
-	OBJECT(current_object)->screen_x = 0xC6;
-	OBJECT(current_object)->screen_y = 0xA2;
-	animate_horizon_blast();
-}
-
-void ending_horizon_blast_7(void)
-{
-	uint8_t sound_id = 0;
-	uint32_t ignored = 0;
-
-	if (OBJECT(current_object)->ending.started == 0u)
-	{
-		sound_id = 9u;
-		queue_sound(sound_id, &ignored, &ignored);
-		start_ending_blast();
-	}
-	OBJECT(current_object)->screen_x = 0xCF;
-	OBJECT(current_object)->screen_y = 0xAF;
-	animate_horizon_blast();
-}
-
-void ending_horizon_blast_8(void)
-{
-	uint8_t sound_id = 0;
-	uint32_t ignored = 0;
-
-	if (OBJECT(current_object)->ending.started == 0u)
-	{
-		sound_id = 9u;
-		queue_sound(sound_id, &ignored, &ignored);
-		start_ending_blast();
-	}
-	OBJECT(current_object)->screen_x = 0xE4;
-	OBJECT(current_object)->screen_y = 0xAC;
-	animate_horizon_blast();
-}
-
-void ending_horizon_blast_9(void)
-{
-	uint8_t sound_id = 0;
-	uint32_t ignored = 0;
-
-	if (OBJECT(current_object)->ending.started != 0u)
-	{
-		OBJECT(current_object)->screen_x = 0xE4;
-		OBJECT(current_object)->screen_y = 0xAC;
-		animate_horizon_blast();
-		return;
-	}
-	sound_id = 9u;
-	queue_sound(sound_id, &ignored, &ignored);
-	start_ending_blast();
-	OBJECT(current_object)->screen_x = 0xF8;
-	OBJECT(current_object)->screen_y = 0xB0;
-	animate_horizon_blast();
-}
-
-void start_ending_blast(void)
-{
-	OBJECT(current_object)->start_ending_blast.started = 1u;
-	OBJECT(current_object)->start_ending_blast.frame_index = 0u;
-	OBJECT(current_object)->start_ending_blast.timer = 0;
-}
-
-void ending_big_explosion(void)
-{
-	uint8_t sound_id = 0;
-	uint16_t speed_x = 0;
-	uint32_t frame_record = 0, ignored = 0, second_frame_record = 0, second_object = 0;
-
-	if (OBJECT(current_object)->ending.started == 0u)
-	{
-		OBJECT(current_object)->ending.frame_index = 0u;
-		OBJECT(current_object)->ending.timer = 0;
-		OBJECT(current_object)->ending.started = 1u;
-		OBJECT(current_object)->ending.step = 0u;
-		OBJECT(current_object)->screen_x = 0xA1;
-		OBJECT(current_object)->screen_y = 0x62;
-		OBJECT(current_object)->sprite_layer = 9u;
-		OBJECT(current_object)->sprite_scale = 0x100u;
-		OBJECT(current_object)->sprite_palette = 0x1100u;
-		allocate_object_2(&ignored, &ignored, &second_object);
-		OBJECT(current_object)->speed_x = second_object;
-		current_object = second_object;
-		OBJECT(current_object)->screen_x = 0xA1;
-		OBJECT(current_object)->screen_y = 0x62;
-		OBJECT(current_object)->sprite_layer = 9u;
-		OBJECT(current_object)->sprite_scale = 0x100u;
-		OBJECT(current_object)->sprite_palette = 0x1100u;
-		sound_id = 7u;
-		queue_sound(sound_id, &ignored, &ignored);
-	}
-	current_object = object_cursor;
-	frame_record = ending_big_explosion_frames_ADDRESS + OBJECT(current_object)->ending.frame_index * 4u;
-	second_frame_record = ending_big_explosion_frames_2_ADDRESS + OBJECT(current_object)->ending.frame_index * 4u;
-	if (ROM16(frame_record) == 0xFFFFu)
-	{
-		speed_x = (uint16_t)OBJECT(object_cursor)->speed_x;
-		free_object_2(speed_x);
-		delete_current_object();
-		return;
-	}
-	OBJECT(current_object)->sprite_frame = ROM16(frame_record);
-	OBJECT(current_object)->sprite_flags = ROM16(frame_record + 2u);
-	queue_sprite_in_layer();
-	if (ROM16(second_frame_record) != 0xFFFFu)
-	{
-		current_object = OBJECT(current_object)->speed_x;
-		OBJECT(current_object)->sprite_frame = ROM16(second_frame_record);
-		OBJECT(current_object)->sprite_flags = ROM16(second_frame_record + 2u);
-		queue_sprite_in_layer();
-		current_object = object_cursor;
-	}
-	OBJECT(current_object)->ending.timer++;
-	if (OBJECT(current_object)->ending.timer >= 6)
-	{
-		OBJECT(current_object)->ending.timer = 0;
-		OBJECT(current_object)->ending.frame_index++;
-	}
-}
-
-void ending_flash_to_white(void)
-{
-	uint32_t ignored = 0, object = 0;
-
-	if (OBJECT(current_object)->ending.started == 0u)
-	{
-		OBJECT(current_object)->ending.started = 1u;
-		mixer_offset_select = 0x80FFu;
-		color_offset_2_red = 0u;
-		color_offset_2_blue = 0u;
-		color_offset_2_green = 0u;
-		OBJECT(current_object)->ending.timer = 0;
-	}
-	OBJECT(current_object)->ending.timer++;
-	if (OBJECT(current_object)->ending.timer >= 3)
-	{
-		color_offset_2_red++;
-		color_offset_2_blue++;
-		color_offset_2_green++;
-		OBJECT(current_object)->ending.timer = 0;
-	}
-	if (color_offset_2_red != 0x1Fu)
-		return;
-	ending_first_scene_done = 1u;
-	allocate_object_outside_loop(&ignored, &object);
-	OBJECT(object)->handler = ending_credits_fade_in_ADDRESS;
-	OBJECT(object)->ending.started = 0u;
-	delete_current_object();
-}
-
-void animate_horizon_blast(void)
-{
-	uint32_t frame_entry = 0;
-
-	frame_entry = ending_horizon_blast_frames_ADDRESS + OBJECT(current_object)->animate_horizon_blast.frame_index * 2u;
-	if (ROM16(frame_entry) != 0xFFFFu)
-	{
-		draw_ending_blast_frame(frame_entry);
-		return;
-	}
-	delete_current_object();
-}
-
-void animate_tower_blast(void)
-{
-	uint32_t frame_entry = 0;
-
-	frame_entry = ending_tower_blast_frames_ADDRESS + OBJECT(current_object)->animate_tower_blast.frame_index * 2u;
-	if (ROM16(frame_entry) != 0xFFFFu)
-	{
-		draw_ending_blast_frame(frame_entry);
-		return;
-	}
-	delete_current_object();
-}
-
-void draw_ending_blast_frame(uint32_t frame_entry)
-{
-	OBJECT(current_object)->sprite_frame = mem_read16(frame_entry);
-	OBJECT(current_object)->sprite_layer = 6u;
-	OBJECT(current_object)->sprite_flags = 0u;
-	OBJECT(current_object)->sprite_scale = 0x100u;
-	OBJECT(current_object)->sprite_palette = 0x10B0u;
-	queue_sprite_in_layer();
-	OBJECT(current_object)->draw_ending_blast_frame.timer++;
-	if (OBJECT(current_object)->draw_ending_blast_frame.timer >= 6)
-	{
-		OBJECT(current_object)->draw_ending_blast_frame.frame_index++;
-		OBJECT(current_object)->draw_ending_blast_frame.timer = 0;
-	}
-}
-
-void animate_ending_debris(uint32_t path)
-{
-	AS8(OBJECT(current_object)->animate_ending.timer)++;
-	for (;;)
-	{
-		if (mem_read16(path) == 0xFFFFu)
-		{
-			delete_current_object();
-			return;
-		}
-		if (OBJECT(current_object)->animate_ending.timer < (int16_t)mem_read16(path))
-			break;
-		path += 8u;
-	}
-	OBJECT(current_object)->sprite_palette = 0x10C0u;
-	OBJECT(current_object)->sprite_layer = 6u;
-	OBJECT(current_object)->screen_x = mem_read16(path + 2u);
-	OBJECT(current_object)->screen_y = mem_read16(path + 4u);
-	OBJECT(current_object)->sprite_frame = mem_read16(path + 6u);
-	OBJECT(current_object)->sprite_scale = 0x100u;
-	queue_sprite_in_layer();
-}
-
-void run_timed_spawns_2(uint32_t object)
-{
-	uint32_t ignored = 0, spawn_record = 0;
-
-	spawn_record = timed_spawns_2_ADDRESS + OBJECT(current_object)->run_timed_spawns.list_index * 4u;
-	OBJECT(current_object)->z = ROM16(spawn_record + 2u);
-	if (OBJECT(current_object)->z_fraction != 0xFFFFu && (int16_t)ROM16(spawn_record) <= OBJECT(current_object)->run_timed_spawns.timer)
-	{
-		allocate_object_outside_loop(&ignored, &object);
-		OBJECT(current_object)->z += 0x1BFC4u;
-		OBJECT(object)->handler = OBJECT(current_object)->z;
-		AS8(OBJECT(object)->flags) = 0u;
-		OBJECT(current_object)->run_timed_spawns.list_index++;
-	}
-}
-
-void ending_horizon_show(void)
-{
-	uint32_t ignored = 0, object = 0;
-
-	if (OBJECT(current_object)->ending.started == 0u)
-	{
-		OBJECT(current_object)->ending.started++;
-		OBJECT(current_object)->ending.timer = 0;
-	}
-	if (ending_first_scene_done == 1u)
-	{
-		delete_current_object();
-		return;
-	}
-	OBJECT(current_object)->sprite_layer = 5u;
-	OBJECT(current_object)->screen_x = 0x9E;
-	OBJECT(current_object)->screen_y = 0xBE;
-	OBJECT(current_object)->sprite_scale = 0x100u;
-	OBJECT(current_object)->sprite_frame = 0x9AC0u;
-	OBJECT(current_object)->sprite_flags = 0u;
-	OBJECT(current_object)->sprite_palette = 0x10F0u;
-	queue_sprite_in_layer();
-	OBJECT(current_object)->ending.timer++;
-	if ((int16_t)AS16(OBJECT(current_object)->ending.started) <= 1 && OBJECT(current_object)->ending.timer >= 0x258)
-	{
-		allocate_object_outside_loop(&ignored, &object);
-		OBJECT(object)->handler = ending_dust_cloud_rise_ADDRESS;
-		OBJECT(object)->ending.started = 0u;
-		OBJECT(current_object)->ending.started = 2u;
-	}
-}
-
-void ending_dust_cloud_rise(void)
-{
-	uint32_t frame_pointer = 0;
-
-	if (OBJECT(current_object)->ending.started == 0u)
-	{
-		OBJECT(current_object)->z = 0x1C636;
-		OBJECT(current_object)->ending.started = 1u;
-		OBJECT(current_object)->ending.timer = 0;
-	}
-	if (ending_first_scene_done == 1u)
-	{
-		delete_current_object();
-		return;
-	}
-	OBJECT(current_object)->ending.timer++;
-	OBJECT(current_object)->sprite_layer = 6u;
-	OBJECT(current_object)->screen_x = 0x9E;
-	OBJECT(current_object)->sprite_scale = 0x100u;
-	OBJECT(current_object)->sprite_flags = 0u;
-	OBJECT(current_object)->sprite_palette = 0x10D0u;
-	frame_pointer = OBJECT(current_object)->z;
-	if (mem_read16(frame_pointer) != 0xFFFFu && OBJECT(current_object)->ending.timer >= 7)
-	{
-		OBJECT(current_object)->screen_y = mem_read16(frame_pointer);
-		frame_pointer += 2u;
-		OBJECT(current_object)->sprite_frame = mem_read16(frame_pointer);
-		OBJECT(current_object)->z = frame_pointer + 2u;
-		OBJECT(current_object)->ending.timer = 0;
-	}
-	queue_sprite_in_layer();
-}
-
-void ending_sonic_run_forward(void)
-{
-	uint32_t frame_entry = 0;
-
-	if (OBJECT(current_object)->ending.started == 0u)
-	{
-		OBJECT(current_object)->ending.started++;
-		OBJECT(current_object)->ending.frame_index = 0u;
-		OBJECT(current_object)->sprite_scale = 0x40u;
-		OBJECT(current_object)->screen_y = 0xC0;
-		OBJECT(current_object)->ending.timer = 0;
-		OBJECT(current_object)->ending.cycle_count = 0;
-	}
-	frame_entry = ending_sonic_run_frames_ADDRESS + OBJECT(current_object)->ending.frame_index * 2u;
-	OBJECT(current_object)->sprite_palette = 0x130u;
-	OBJECT(current_object)->sprite_layer = 0u;
-	OBJECT(current_object)->screen_x = 0xA0;
-	OBJECT(current_object)->ending.cycle_count++;
-	if ((uint16_t)OBJECT(current_object)->ending.cycle_count == 0x20u)
-	{
-		OBJECT(current_object)->screen_y--;
-		OBJECT(current_object)->ending.cycle_count = 0;
-	}
-	animate_ending_runner(frame_entry);
-}
-
-void ending_ray_run_forward(void)
-{
-	uint32_t frame_entry = 0;
-
-	if (OBJECT(current_object)->ending.started == 0u)
-	{
-		OBJECT(current_object)->ending.started++;
-		OBJECT(current_object)->ending.frame_index = 0u;
-		OBJECT(current_object)->sprite_scale = 0x40u;
-		OBJECT(current_object)->screen_y = 0xC0;
-		OBJECT(current_object)->screen_x = 0x90;
-		OBJECT(current_object)->ending.timer = 0;
-		OBJECT(current_object)->ending.cycle_count = 0;
-	}
-	frame_entry = ending_ray_run_frames_ADDRESS + OBJECT(current_object)->ending.frame_index * 2u;
-	OBJECT(current_object)->sprite_palette = 0x140u;
-	OBJECT(current_object)->sprite_layer = 1u;
-	OBJECT(current_object)->ending.cycle_count++;
-	if ((uint16_t)OBJECT(current_object)->ending.cycle_count == 0x20u)
-	{
-		OBJECT(current_object)->screen_x--;
-		OBJECT(current_object)->screen_x--;
-		OBJECT(current_object)->screen_y--;
-		OBJECT(current_object)->ending.cycle_count = 0;
-	}
-	animate_ending_runner(frame_entry);
-}
-
-void ending_mighty_run_forward(void)
-{
-	uint32_t frame_entry = 0;
-
-	if (OBJECT(current_object)->ending.started == 0u)
-	{
-		OBJECT(current_object)->ending.started++;
-		OBJECT(current_object)->ending.frame_index = 0u;
-		OBJECT(current_object)->sprite_scale = 0x40u;
-		OBJECT(current_object)->screen_y = 0xC0;
-		OBJECT(current_object)->screen_x = 0xB0;
-		OBJECT(current_object)->ending.timer = 0;
-		OBJECT(current_object)->ending.cycle_count = 0;
-	}
-	frame_entry = ending_mighty_run_frames_ADDRESS + OBJECT(current_object)->ending.frame_index * 2u;
-	OBJECT(current_object)->sprite_palette = 0x150u;
-	OBJECT(current_object)->sprite_layer = 1u;
-	OBJECT(current_object)->ending.cycle_count++;
-	if ((uint16_t)OBJECT(current_object)->ending.cycle_count == 0x20u)
-	{
-		OBJECT(current_object)->screen_x++;
-		OBJECT(current_object)->screen_x++;
-		OBJECT(current_object)->screen_y--;
-		OBJECT(current_object)->ending.cycle_count = 0;
-	}
-	animate_ending_runner(frame_entry);
-}
-
-void ending_road_scroll(void)
-{
-	if (OBJECT(current_object)->ending.started == 0u)
-	{
-		OBJECT(current_object)->ending.started++;
-		OBJECT(current_object)->ending.frame_index = 0u;
-		OBJECT(current_object)->sprite_scale = 0x100u;
-		OBJECT(current_object)->screen_y = 0xD4;
-		OBJECT(current_object)->screen_x = 0x9F;
-		OBJECT(current_object)->sprite_layer = 2u;
-		OBJECT(current_object)->sprite_flags = 0u;
-		OBJECT(current_object)->sprite_palette = 0x12B0u;
-		OBJECT(current_object)->ending.timer = 0;
-		OBJECT(current_object)->ending.cycle_count = 0;
-	}
-	OBJECT(current_object)->ending.cycle_count++;
-	if (ending_first_scene_done == 1u)
-	{
-		delete_current_object();
-		return;
-	}
-	if (OBJECT(current_object)->ending.cycle_count > 4)
-		OBJECT(current_object)->ending.cycle_count = 0;
-	OBJECT(current_object)->sprite_frame = ending_road_frames[(uint16_t)OBJECT(current_object)->ending.cycle_count];
-	queue_sprite_in_layer();
 }

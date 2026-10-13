@@ -13,11 +13,14 @@ register, and SP itself drops out. Slot 0 holds the caller's return address. A c
 it was. Code that sets SP to an address of its own (boot) starts a new stack there. A function that
 drops its own return address before returning (add.w #4, SP; rsr) returns from its caller as well.
 """
+import copy
+
 from v60 import ir
 
 from . import cpu
 
 NEW_STACK = -0x100000    # slot offsets after code sets SP itself: far from anything the caller's stack holds
+MEMORY_SP = 32           # the register SP becomes in a function whose stack stays in memory (V60 only)
 
 
 class StackError(Exception):
@@ -58,7 +61,39 @@ def mentions_sp(expression):
 
 
 def analyse(function):
-    """Rewrites 'function' in place; returns the SP offset at the start of each block."""
+    """Rewrites 'function' in place; returns the SP offset at the start of each block. A function whose
+    stack addresses serve as values (an address into the frame handed on, SP set to a register that walked
+    the frame) keeps its stack in memory instead: SP becomes MEMORY_SP, a register the whole program
+    shares, and pushes, pops and [SP] accesses go to memory, as on the V60 (code the game never calls is
+    all that does it)."""
+    if MEMORY_SP not in cpu.current.registers:
+        return slots(function)
+    saved = copy.deepcopy(function.blocks)
+    try:
+        found = slots(function)
+        if not leftovers(function):
+            return found
+    except StackError:
+        pass
+    function.blocks = saved
+    function.exits_caller = False
+    function.memory_stack = True
+
+    def change(node):
+        if isinstance(node, ir.Reg) and node.index == cpu.current.sp:
+            return ir.Reg(MEMORY_SP, node.bits)
+        return None
+    for block in function.blocks.values():
+        for index, statement in enumerate(block.statements):
+            if isinstance(statement, ir.SetReg) and statement.index == cpu.current.sp:
+                block.statements[index] = statement = ir.SetReg(MEMORY_SP, statement.value)
+            ir.map_statement(statement, change)
+        ir.map_statement(block.end, change)
+    return {label: 0 for label in function.blocks}
+
+
+def slots(function):
+    """The stack as slots: see analyse()."""
     function.exits_caller = False
     stacks = 0
     start = {function.entry: 0}
@@ -101,7 +136,10 @@ def analyse(function):
                 offset = offset_of(statement.address, sp)
                 if offset is not None:
                     value = ir.rebuild(statement.value, slot_reader(sp))
-                    statements.append(ir.SetStack(offset, value, statement.bits))
+                    slot = ir.SetStack(offset, value, statement.bits)
+                    if hasattr(statement, "origin"):
+                        slot.origin = statement.origin    # the instruction that stores it ("local" lines)
+                    statements.append(slot)
                     continue
             ir.map_statement(statement, slot_reader(sp))
             statements.append(statement)

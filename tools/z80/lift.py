@@ -70,10 +70,13 @@ def parity(value):
 class Lifter:
     """The IR statements of one instruction."""
 
-    def __init__(self, mem, prefix="t"):
+    def __init__(self, mem, prefix="t", carry=None):
         self.mem = mem
         self.statements = []
         self.prefix = prefix
+        # the carry the instruction finds when one before it in its block left a constant (OR A clears it
+        # before SBC HL,DE: a plain subtraction), else None
+        self.known_carry = carry
         self.count = 0
 
     def emit(self, statement):
@@ -87,6 +90,12 @@ class Lifter:
 
     def load(self, address, bits=8, hint="value"):
         return self.temp(ir.Load(address, bits), hint)
+
+    def held(self, value, hint="value"):
+        """'value' as a temporary (a constant as it is): what an instruction reads that sets the flags,
+        so that a branch on them can compare what was compared (decompiler/conditions.py), whatever
+        happens to the registers afterwards."""
+        return value if isinstance(value, (ir.Const, ir.Temp)) else self.temp(value, hint)
 
     def store(self, address, value):
         self.emit(ir.Store(address, value, value.bits))
@@ -175,19 +184,26 @@ class Lifter:
             return
         if name in ("and", "xor", "or"):
             # AND A and OR A leave A as it is: only the flags change
-            result = a if value == a else self.temp(ir.op(name, (a, value), 8), name)
+            result = self.temp(a, "value") if value == a else self.temp(ir.op(name, (a, value), 8), name)
             self.sign_zero(result)
             self.flag("ov", parity(result))
             self.flag("cy", ir.const(0, 1))
-            self.emit(ir.SetReg(A, result))
+            if value != a:
+                self.emit(ir.SetReg(A, result))
             return
-        carry = ir.Flag("cy") if name in ("adc", "sbc") else ir.const(0, 1)
+        carry = (self.known_carry or ir.Flag("cy")) if name in ("adc", "sbc") else ir.const(0, 1)
+        a = self.held(a, "a")
+        value = self.held(value, "operand")
         if name in ("add", "adc"):
-            result = self.temp(ir.op("add", (ir.op("add", (a, value), 8), ir.zext(carry, 8)), 8), "sum")
+            # ADD and SUB (and CP) take no carry in: "a + b", not "a + b + 0", so that the passes see the
+            # sum or the comparison they know
+            whole = ir.op("add", (a, value), 8)
+            result = self.temp(whole if name == "add" else ir.op("add", (whole, ir.zext(carry, 8)), 8), "sum")
             self.flag("ov", ir.op("overflow_add", (a, value, carry), 1))
             self.flag("cy", ir.op("carry_add", (a, value, carry), 1))
         else:
-            result = self.temp(ir.op("sub", (ir.op("sub", (a, value), 8), ir.zext(carry, 8)), 8), "difference")
+            whole = ir.op("sub", (a, value), 8)
+            result = self.temp(whole if name != "sbc" else ir.op("sub", (whole, ir.zext(carry, 8)), 8), "difference")
             self.flag("ov", ir.op("overflow_sub", (a, value, carry), 1))
             self.flag("cy", ir.op("carry_sub", (a, value, carry), 1))
         self.sign_zero(result)
@@ -196,7 +212,7 @@ class Lifter:
 
     def shifted(self, name, value):
         """The result of a CB shift or rotate of 'value', with its flags set."""
-        carry_in = ir.zext(ir.Flag("cy"), 8)
+        carry_in = ir.zext(self.known_carry or ir.Flag("cy"), 8)
         if name == "rlc":
             result = ir.op("or", (ir.op("shl", (value, c8(1)), 8), ir.op("shr", (value, c8(7)), 8)), 8)
         elif name == "rrc":
@@ -262,7 +278,7 @@ def lift_data(lifter, instruction):
             lifter.write16(operand.reg, ir.op(step, (lifter.read16(operand.reg), c16(1)), 16))
             return True
         address = lifter.address(operand) if operand.mode != "reg" else None
-        value = lifter.read8(operand.reg) if operand.mode == "reg" else lifter.load(address, 8)
+        value = lifter.held(lifter.read8(operand.reg)) if operand.mode == "reg" else lifter.load(address, 8)
         step = "add" if mnemonic == "inc" else "sub"
         result = lifter.temp(ir.op(step, (value, c8(1)), 8), mnemonic)
         lifter.sign_zero(result)
@@ -282,7 +298,7 @@ def lift_data(lifter, instruction):
 
     if mnemonic in ("rlca", "rrca", "rla", "rra"):
         a = lifter.temp(reg(A), "rotated")
-        carry_in = ir.zext(ir.Flag("cy"), 8)
+        carry_in = ir.zext(lifter.known_carry or ir.Flag("cy"), 8)
         if mnemonic == "rlca":
             result = ir.op("or", (ir.op("shl", (a, c8(1)), 8), ir.op("shr", (a, c8(7)), 8)), 8)
         elif mnemonic == "rrca":
@@ -309,6 +325,7 @@ def lift_data(lifter, instruction):
         address = lifter.address(operand) if operand.mode != "reg" else None
         value = lifter.read8(operand.reg) if operand.mode == "reg" else lifter.load(address, 8)
         if mnemonic == "bit":
+            value = lifter.held(value, "tested")
             tested = ir.bit(value, number)
             lifter.flag("z", lnot(tested))
             lifter.flag("ov", lnot(tested))
@@ -423,12 +440,14 @@ def lift_add16(lifter, mnemonic, destination, source):
     """ADD HL/IX/IY,rr keeps S, Z and P/V; ADC and SBC HL,rr set them from the 16-bit result."""
     left = lifter.read16(destination)
     right = lifter.read16(source)
+    if mnemonic != "add":
+        left, right = lifter.held(left, "left"), lifter.held(right, "right")
     if mnemonic == "add":
         result = lifter.temp(ir.op("add", (left, right), 16), "sum")
         lifter.flag("cy", ir.op("carry_add", (left, right, ir.const(0, 1)), 1))
         lifter.write16(destination, result)
         return True
-    carry = ir.Flag("cy")
+    carry = lifter.known_carry or ir.Flag("cy")
     if mnemonic == "adc":
         result = lifter.temp(ir.op("add", (ir.op("add", (left, right), 16), ir.zext(carry, 16)), 16), "sum")
         lifter.flag("ov", ir.op("overflow_add", (left, right, carry), 1))

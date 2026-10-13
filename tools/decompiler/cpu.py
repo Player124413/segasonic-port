@@ -34,37 +34,40 @@ class Profile:
 
 V60 = Profile(
     name="v60",
-    registers=tuple(range(31)),
+    registers=tuple(range(31)) + (32,),    # 32: SP where the stack stays in memory (stack.MEMORY_SP)
     sp=31,
     address_bits=32,
     flags=("z", "s", "ov", "cy"),
     return_address_bytes=4,
     interrupt_effects=("frame_wait", "take_interrupts"),
     result_register=0,
-    register_bits={index: 32 for index in range(31)},
+    register_bits={index: 32 for index in tuple(range(31)) + (32,)},
     register_names={29: "ap", 30: "fp"},
     flag_names={"z": "zero", "s": "negative", "ov": "overflow", "cy": "carry"},
     variable_names={},
     unknown_code="unknown_code",
 )
 
-# tools/z80/lift.py: BC DE HL IX IY are 0-4, SP 5, A 6, and the other bank's BC DE HL A 7-10
+# tools/z80/lift.py: BC DE HL IX IY are 0-4, SP 5, A 6, and the other bank's BC DE HL A 7-10; B C D E H L
+# 11-16 where a function uses a pair's bytes apart (tools/z80/pairs.py)
 Z80 = Profile(
     name="z80",
-    registers=(0, 1, 2, 3, 4, 6, 7, 8, 9, 10),
+    registers=(0, 1, 2, 3, 4, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16),
     sp=5,
     address_bits=16,
     flags=("z", "s", "ov", "cy", "z_alt", "s_alt", "ov_alt", "cy_alt"),
     return_address_bytes=2,
     interrupt_effects=("z80_block",),
     result_register=None,
-    register_bits={0: 16, 1: 16, 2: 16, 3: 16, 4: 16, 6: 8, 7: 16, 8: 16, 9: 16, 10: 8},
+    register_bits={0: 16, 1: 16, 2: 16, 3: 16, 4: 16, 6: 8, 7: 16, 8: 16, 9: 16, 10: 8,
+                   11: 8, 12: 8, 13: 8, 14: 8, 15: 8, 16: 8},
     register_names={0: "bc", 1: "de", 2: "hl", 3: "ix", 4: "iy", 5: "sp", 6: "a",
-                    7: "bc_alt", 8: "de_alt", 9: "hl_alt", 10: "a_alt"},
+                    7: "bc_alt", 8: "de_alt", 9: "hl_alt", 10: "a_alt",
+                    11: "b", 12: "c", 13: "d", 14: "e", 15: "h", 16: "l"},
     flag_names={"z": "zero", "s": "negative", "ov": "overflow", "cy": "carry",
                 "z_alt": "zero_alt", "s_alt": "negative_alt", "ov_alt": "overflow_alt", "cy_alt": "carry_alt"},
     variable_names={0: "bc", 1: "de", 2: "hl", 3: "ix", 4: "iy", 6: "a", 7: "bc_alt", 8: "de_alt", 9: "hl_alt",
-                    10: "a_alt"},
+                    10: "a_alt", 11: "b", 12: "c", 13: "d", 14: "e", 15: "h", 16: "l"},
     unknown_code="sound_unknown_code",
 )
 

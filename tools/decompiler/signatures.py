@@ -3,7 +3,7 @@ Name:        signatures.py
 Description: the C signature of every function: its parameters and the results it hands back
 Version:     0.1.0
 Created:     11-10-2026
-Modified:    12-10-2026
+Modified:    13-10-2026
 Author:      Sebastian Toyos
 
 The game passes values in registers, as hand-written assembly does. In C:
@@ -20,6 +20,10 @@ The game passes values in registers, as hand-written assembly does. In C:
   - The registers and flags some caller reads after the call, out of those the function may write, are
     its results: each one a pointer parameter the function writes through (and reads, when it may leave
     it unchanged).
+A function nothing in the program reaches (no call, jump, table or stored pointer: OPEN) has no caller to
+say what it takes or hands back: every register it reads before writing is a parameter, and its results
+are the registers symbols.txt says it hands back ("result" lines: dataflow.Program.declared), so that
+the C keeps the work that makes them.
 A call through a memory slot (an object's handler, an interrupt hook) passes nothing and takes nothing
 back: the code that makes it runs whatever is stored there. A function such a slot can hold gets its
 parameters from its direct callers only, and the slot call reaches it with zeros and ignores its
@@ -33,10 +37,15 @@ from v60 import ir
 
 from . import dataflow
 
-CONTEXT = (14, 18, 20, 21, 22, 23, 24, 26)
+CONTEXT = (14, 18, 20, 21, 22, 23, 24, 26, 32)
+# what a context register holds when the program starts, where it is not 0 (the V60's SP after boot,
+# 00004D: functions whose stack stays in memory, stack.MEMORY_SP, push from there)
+INITIAL = {32: 0x20FF00}
 # context registers the game uses as scratch: the bits code that runs later may read without setting them
 SCRATCH_CONTEXT = {14: 0x0000FFFF}
 CONSTANT = {25: 0x208000}
+# the functions nothing reaches (decompile.py)
+OPEN = set()
 
 
 def register_of(variable):
@@ -112,7 +121,7 @@ def provided_inputs(flow, written):
                     if target in provided:
                         provided[target] |= available
         for entry in flow.functions:
-            new = inputs[entry] & provided[entry]
+            new = inputs[entry] if entry in OPEN else inputs[entry] & provided[entry]
             if new != params[entry]:
                 params[entry] = new
                 changed = True

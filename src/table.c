@@ -11,7 +11,7 @@
  */
 #include "game.h"
 
-uint32_t r14, current_player, current_object, free_objects, first_object, object_cursor, last_object, fill_value;
+uint32_t r14, current_player, current_object, free_objects, first_object, object_cursor, last_object, fill_value, stack_pointer = 0x20FF00u;
 
 static void call_00F8B2(void)
 {
@@ -274,6 +274,7 @@ const game_code_entry game_code[] =
 	{ 0x0157EDu, eel_den_draw },
 	{ 0x01586Eu, stepped_wall_init },
 	{ 0x0158BBu, stepped_wall_draw },
+	{ 0x016C3Du, debug_sprite_mover_update },
 	{ 0x01A6E1u, escape_alarm_flash },
 	{ 0x01BF2Du, ending_tower_animate },
 	{ 0x01BFC4u, ending_debris_1_fly },
@@ -331,6 +332,7 @@ const game_code_entry game_code[] =
 	{ 0x01E9C1u, scattered_ring_vanish },
 	{ 0x01EB04u, sparkle_start },
 	{ 0x01EB11u, sparkle_animate },
+	{ 0x01EC15u, gauge_ring_update },
 	{ 0x080000u, call_080000 },
 	{ 0x080072u, stage_03_floor_block_start },
 	{ 0x0800FBu, stage_03_floor_block_update },
@@ -362,6 +364,7 @@ const game_code_entry game_code[] =
 	{ 0x082B7Du, fireball_emitter_start },
 	{ 0x082BC7u, fireball_emitter_update },
 	{ 0x082D36u, bouncing_fireball_update },
+	{ 0x082E37u, knocked_object_fly },
 	{ 0x082EBEu, chaser_back_zone_check_parent },
 	{ 0x082ED3u, chaser_back_zone_update },
 	{ 0x082FEDu, roller_back_zone_update },
@@ -403,15 +406,20 @@ const game_code_entry game_code[] =
 	{ 0x084C52u, sign_show_while_player_busy },
 	{ 0x084C82u, sign_show_until_goal_unlocked },
 	{ 0x084C8Eu, sign_show_while_parent_still },
-	{ 0x084CA0u, sign_show_until_20e5f4 },
+	{ 0x084CA0u, sign_show_until_gate_closed },
 	{ 0x084CACu, sign_show_until_cage_bar_hit },
 	{ 0x084CB8u, sign_show_unless_stage_0 },
 	{ 0x084CC6u, sign_show },
 	{ 0x084CE6u, sign_follow_parent },
 	{ 0x084D2Bu, sign_follow_player },
+	{ 0x084E0Bu, screen_sign_show },
+	{ 0x084E67u, floor_sign_update },
 	{ 0x084E83u, spreading_flame_start },
 	{ 0x084ECEu, spreading_flame_burn },
 	{ 0x08539Fu, stage_03_end_pillar_show },
+	{ 0x085428u, exit_gate_update },
+	{ 0x08551Du, ram_target_update },
+	{ 0x0856CEu, ram_target_part_update },
 	{ 0x08574Au, eggman_speech_start },
 	{ 0x08576Fu, eggman_speech_run },
 	{ 0x0857E5u, scenery_sprite_start },
@@ -518,6 +526,7 @@ const game_code_entry game_code[] =
 	{ 0x08C1A4u, river_raft_spawner_update },
 	{ 0x08C332u, river_raft_update },
 	{ 0x08C547u, river_raft_foam_update },
+	{ 0x08C61Eu, clipped_copy_sprite_update },
 	{ 0x08C6E1u, geyser_front_init },
 	{ 0x08C7ACu, geyser_front_wait },
 	{ 0x08C7D5u, geyser_front_rise },
@@ -572,6 +581,7 @@ const game_code_entry game_code[] =
 	{ 0x091EB5u, lava_column_land },
 	{ 0x091F63u, group_slot_trigger_update },
 	{ 0x093ADEu, rope_bridge_plank_update },
+	{ 0x0947D6u, falling_rock_bounce },
 	{ 0x094C3Fu, stage_00_platform_start },
 	{ 0x094C93u, stage_00_platform_stand },
 	{ 0x094D06u, stage_00_platform_break },
@@ -600,6 +610,7 @@ const game_code_entry game_code[] =
 	{ 0x098954u, ring_tally_player_1_update },
 	{ 0x098981u, ring_tally_player_2_update },
 	{ 0x098A00u, ring_tally_player_3_update },
+	{ 0x099530u, empty_vblank_hook },
 	{ 0x099531u, apply_video_registers },
 	{ 0x09A1E9u, swap_sprite_buffers },
 	{ 0x0FF500u, irq_vblank_start },
@@ -609,7 +620,7 @@ const game_code_entry game_code[] =
 	{ 0x0FF59Cu, irq_timer1 },
 };
 
-const size_t game_code_count = 559;
+const size_t game_code_count = 570;
 
 /* the code at the reset vector */
 void game_entry(void)

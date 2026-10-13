@@ -26,6 +26,9 @@ through the bus.
 
 The program ROM shows up several times in the address space (sonic_rom.PROGRAM_AREAS): code that runs in
 a mirror reads its tables through that mirror. A table is named, and read, at its own copy.
+
+The map above is the V60's. Another program sets its own in the module's names below (MAP and the rest;
+tools/decompile_sound.py: the Z80's shared RAM, ROM, sample bank and RF5C68).
 """
 from collections import Counter
 
@@ -33,6 +36,22 @@ import sonic_rom
 from v60 import ir
 
 WORK_RAM = (0x200000, 0x210000)
+ROM_AREAS = ((0x000000, 0x200000), (0xF00000, 0x1000000))    # the program ROM, the first area holding it whole
+ADDRESS_MASK = 0xFFFFFF
+ADDRESS_DIGITS = 6
+RAM_MACRO, ROM_MACRO = "RAM", "ROM"          # the lvalue and rvalue macros (game/support.h) ...
+RAM_FUNCTION, ROM_FUNCTION = "ram", "rom"    # ... and what gives a pointer into either
+PAGED = True                                 # tables read with 16-bit arithmetic inside their 64 KB page
+PLAYER_FIELDS = (0x208400, 0x208A00)         # reached by the player's number (pointers.py), not as tables
+CANONICAL = sonic_rom.canonical_address      # the copy of the ROM tables are named by
+ROM_NAMES_FROM = 0x1000                      # constants below are numbers, never ROM addresses (the vectors)
+NOTES = {
+    "variables": ["/* the game's variables in work RAM (the original code reaches them from R25, which holds",
+                  "   GAME_VARIABLES; some code adds offsets it reads from tables) */"],
+    "scoped": ["/* work RAM as one family of functions uses it (their scratch variables) */"],
+    "tables": ["/* data in the program ROM the code reads */"],
+    "hardware": ["/* the board's registers (read and written through the bus) */"],
+}
 TYPES = {8: "uint8_t", 16: "uint16_t", 32: "uint32_t"}
 SIGNED = {"u8": (8, False), "s8": (8, True), "u16": (16, False), "s16": (16, True),
           "u32": (32, False), "s32": (32, True)}
@@ -48,13 +67,13 @@ def work_ram(address):
 
 
 def program_rom(address):
-    return address < 0x200000 or address >= 0xF00000
+    return any(start <= address < end for start, end in ROM_AREAS)
 
 
 def own_copy(address):
     """A ROM address at the copy the program's tables are named by; any other address as it is."""
     if program_rom(address):
-        found = sonic_rom.canonical_address(address)
+        found = CANONICAL(address)
         return found if found is not None else address
     return address
 
@@ -74,7 +93,7 @@ def bus_only(address, bits):
 def constant_address(expression):
     """The address an expression always gives (24 bits), or None."""
     if isinstance(expression, ir.Const):
-        return expression.value & 0xFFFFFF
+        return expression.value & ADDRESS_MASK
     return None
 
 
@@ -83,16 +102,16 @@ def based(expression):
     if isinstance(expression, ir.Op) and expression.name == "add":
         left, right = expression.args
         if isinstance(left, ir.Const) and not isinstance(right, ir.Const):
-            return left.value & 0xFFFFFF, right
+            return left.value & ADDRESS_MASK, right
         if isinstance(right, ir.Const) and not isinstance(left, ir.Const):
-            return right.value & 0xFFFFFF, left
+            return right.value & ADDRESS_MASK, left
     return None
 
 
 def paged(expression):
     """(base, rest) for "page | (uint16_t)(low + rest)": a table read with 16-bit arithmetic in the 64 KB page
     it is in (the code adds the index to the low half of a register that holds the page), or None."""
-    if not (isinstance(expression, ir.Op) and expression.name == "or"):
+    if not PAGED or not (isinstance(expression, ir.Op) and expression.name == "or"):
         return None
     for page, low in (expression.args, reversed(expression.args)):
         if not isinstance(page, ir.Const) or page.value & 0xFFFF:
@@ -193,7 +212,7 @@ class Memory:
             if parts is not None:
                 if not table_index(parts[1], bits):
                     continue    # maybe a pointer and a displacement (access() keeps it on the bus)
-                if 0x208400 <= parts[0] < 0x208A00:
+                if PLAYER_FIELDS and PLAYER_FIELDS[0] <= parts[0] < PLAYER_FIELDS[1]:
                     continue    # a field of the player blocks, reached by the player's number (pointers.py)
                 value = parts[0]
             if value is None:
@@ -206,12 +225,12 @@ class Memory:
             widths[where].setdefault(value, Counter())[bits] += 1
             if parts is not None:
                 indexed.add(value)
-        self.add_unnamed(self.variables, widths["variables"], lambda address: f"unk_{address:06X}")
+        self.add_unnamed(self.variables, widths["variables"], lambda address: f"unk_{address:0{ADDRESS_DIGITS}X}")
         data_names = data_names or {}
         self.add_unnamed(self.tables, widths["tables"],
-                         lambda address: data_names.get(address, f"rom_{address:06X}"))
+                         lambda address: data_names.get(address, f"rom_{address:0{ADDRESS_DIGITS}X}"))
         self.add_unnamed(self.hardware, widths["hardware"],
-                         lambda address: f"{hardware_area(address)}_{address:06X}")
+                         lambda address: f"{hardware_area(address)}_{address:0{ADDRESS_DIGITS}X}")
         for address in indexed:
             for items in (self.variables, self.tables):
                 if address in items:
@@ -279,7 +298,7 @@ class Memory:
         if not table_index(rest, bits):
             return None
         ram = work_ram(base)
-        if not ram and (not program_rom(base) or base + 0xFFFF * (bits // 8) >= 0x200000):
+        if not ram and (not program_rom(base) or base + index_limit(rest) * (bits // 8) >= ROM_AREAS[0][1]):
             return None
         items = self.variables if ram else self.tables
         loaded = rest
@@ -294,7 +313,7 @@ class Memory:
         item = items[base]
         if index is not None and item.bits == bits:
             return f"{item.name}[{index_text(index)}]", item.signed, ram
-        macro = ("RAM" if ram else "ROM") + str(bits)
+        macro = (RAM_MACRO if ram else ROM_MACRO) + str(bits)
         start = "GAME_VARIABLES" if base == VARIABLES else f"{item.name}_ADDRESS"
         return f"{macro}({start} + {index_text(rest)})", False, ram
 
@@ -306,25 +325,25 @@ class Memory:
     # ---- the header ----
 
     def declarations(self):
-        lines = ["/* the game's variables in work RAM (the original code reaches them from R25, which holds",
-                 "   GAME_VARIABLES; some code adds offsets it reads from tables) */",
-                 f"#define GAME_VARIABLES 0x{VARIABLES:06X}u"]
+        lines = list(NOTES["variables"])
+        if VARIABLES is not None:
+            lines.append(f"#define GAME_VARIABLES 0x{VARIABLES:06X}u")
         for address, item in sorted(self.variables.items()):
-            lines += self.declare(item, "RAM", "ram")
+            lines += self.declare(item, RAM_MACRO, RAM_FUNCTION)
             for (start, bits), overlay in sorted(self.overlays.items()):
                 if start == address:
-                    lines += self.declare(overlay, "RAM", "ram")
+                    lines += self.declare(overlay, RAM_MACRO, RAM_FUNCTION)
         if self.scoped:
-            lines += ["", "/* work RAM as one family of functions uses it (their scratch variables) */"]
+            lines += [""] + NOTES["scoped"]
             for family, items in sorted(self.scoped.items()):
                 for address, item in sorted(items.items()):
-                    lines += self.declare(item, "RAM", "ram")
-        lines += ["", "/* data in the program ROM the code reads */"]
+                    lines += self.declare(item, RAM_MACRO, RAM_FUNCTION)
+        lines += [""] + NOTES["tables"]
         for address, item in sorted(self.tables.items()):
-            lines += self.declare(item, "ROM", "rom")
-        lines += ["", "/* the board's registers (read and written through the bus) */"]
+            lines += self.declare(item, ROM_MACRO, ROM_FUNCTION)
+        lines += [""] + NOTES["hardware"]
         for address, item in sorted(self.hardware.items()):
-            lines.append(f"#define {item.name} 0x{address:06X}u")
+            lines.append(f"#define {item.name} 0x{address:0{ADDRESS_DIGITS}X}u")
         return lines
 
     @staticmethod
@@ -332,14 +351,26 @@ class Memory:
         kind = TYPES[item.bits]
         if item.signed:
             kind = kind[1:]
-        constness = "const " if macro == "ROM" else ""
-        lines = [f"#define {item.name}_ADDRESS 0x{item.address:06X}u"]
+        constness = "const " if macro == ROM_MACRO else ""
+        lines = [f"#define {item.name}_ADDRESS 0x{item.address:0{ADDRESS_DIGITS}X}u"]
         if item.indexed:
             lines.append(f"#define {item.name} (({constness}{kind} *){function}({item.name}_ADDRESS))")
         else:
             suffix = "S" if item.signed else ""
             lines.append(f"#define {item.name} {macro}{item.bits}{suffix}({item.name}_ADDRESS)")
         return lines
+
+
+def index_limit(rest):
+    """The largest index 'rest' can be: a byte's when it is one (on a map that says so), else a halfword's."""
+    while BYTE_INDEXES and isinstance(rest, ir.Op) and rest.name in ("zext", "fits"):
+        if rest.args[0].bits <= 8:
+            return 0xFF
+        rest = rest.args[0]
+    return 0xFFFF
+
+
+BYTE_INDEXES = False    # whether index_limit() looks at the index (the V60's program never needed it)
 
 
 def accesses_of(functions):

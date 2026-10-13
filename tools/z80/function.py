@@ -174,6 +174,17 @@ class Builder:
             self._pairs = (body, pairs)
         return instruction.address in self._pairs[1]
 
+    @staticmethod
+    def carry_left(statements):
+        """The constant the carry holds after 'statements' (the block so far), or None: the last value
+        set, unless a call or an effect comes after it."""
+        for statement in reversed(statements):
+            if isinstance(statement, ir.SetFlag) and statement.name == "cy":
+                return statement.value if isinstance(statement.value, ir.Const) else None
+            if isinstance(statement, (ir.Call, ir.Effect)):
+                return None
+        return None
+
     def lift(self, function, block, instruction, body):
         address = instruction.address
         mnemonic = instruction.mnemonic
@@ -182,7 +193,7 @@ class Builder:
 
         if self.swapped_back(instruction, body):
             return    # EX (SP),HL twice: nothing changes, only time passes (the block counts it)
-        lifter = lift.Lifter(self.program.mem, prefix=f"t{address:04X}_")
+        lifter = lift.Lifter(self.program.mem, prefix=f"t{address:04X}_", carry=self.carry_left(statements))
         if lift.lift_data(lifter, instruction):
             statements += lifter.statements
             return

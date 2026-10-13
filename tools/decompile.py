@@ -72,8 +72,16 @@ def load_program(source):
     reached = set().union(*program.bodies.values())
     inside = {address for address, symbol in symbols.items()
               if symbol.kind == "func" and address in reached and address not in program.entries}
-    if inside:
-        program = recompile.Program(image, symbols, set(), inside)
+    # code nothing reaches (functions the game never calls) is decompiled too, from its "func" lines
+    # (the code runs in the ROM's mirrors too: an address is reached when any copy of it is)
+    reached_copies = {sonic_rom.canonical_address(address) for address in reached}
+    unreached = {address for address, symbol in symbols.items()
+                 if symbol.kind == "func" and address not in reached and address not in reached_copies}
+    live = set(program.entries)
+    if inside or unreached:
+        program = recompile.Program(image, symbols, set(), inside | unreached)
+    program.live_entries = live
+    program.unreached = unreached
     merge_entries(program)
     return program
 
@@ -112,12 +120,70 @@ def build_functions(program):
             built[entry] = builder.build(entry)
         except lift.Unsupported as problem:
             failures.append((entry, str(problem)))
+    fold_mirror_copies(program, built)
     return built, failures
+
+
+def fold_mirror_copies(program, built):
+    """A function the game calls in one copy of the ROM and unused code calls in another is one function:
+    the unused code's calls go to the copy the game runs (the bookkeeping functions run at 0FFxxx, and
+    code nothing calls reaches them at 09Fxxx), which keeps its name."""
+    live = getattr(program, "live_entries", set())
+    copies = {}
+    for entry in built:
+        canonical = sonic_rom.canonical_address(entry)
+        if canonical is not None:
+            copies.setdefault(canonical, []).append(entry)
+    alias = {}
+    for entries in copies.values():
+        running = [entry for entry in entries if entry in live]
+        if len(entries) > 1 and len(running) == 1:
+            alias.update({entry: running[0] for entry in entries if entry not in live})
+    for entry, kept in alias.items():
+        if "_at_" in program.names[kept] and "_at_" not in program.names[entry]:
+            program.names[kept] = program.names[entry]    # the plain name goes with the copy that stays
+        del built[entry]
+        program.entries.discard(entry)
+    for function in built.values():
+        for block in function.blocks.values():
+            for statement in block.statements + [block.end]:
+                if isinstance(statement, (ir.Call, ir.TailCall)) and statement.target in alias:
+                    statement.target = alias[statement.target]
 
 
 def interrupt_handlers(program):
     table = next(address for address, symbol in program.symbols.items() if symbol.name == "vector_table")
     return [program.mem.r32(table + vector * 4) & 0xFFFFFF for vector in range(0x40, 0x45)]
+
+
+def open_entries(program, built, flow):
+    """The functions nothing in the program reaches: no call, tail call, call table or memory slot leads to
+    them (code nothing reaches calls some of the others)."""
+    reached = set(interrupt_handlers(program))
+    for targets in flow.slot_targets.values():
+        reached |= targets
+    for function in built.values():
+        for block in function.blocks.values():
+            for statement in block.statements + [block.end]:
+                if isinstance(statement, ir.Call):
+                    reached |= set(flow.call_targets(statement))
+                elif isinstance(statement, ir.TailCall):
+                    reached.add(statement.target & 0xFFFFFF)
+    return {entry for entry in getattr(program, "unreached", ()) if entry in built and entry not in reached}
+
+
+def declared_results(program, open_entries):
+    """What the functions nothing calls hand back, from the "result" lines of symbols.txt: {entry: {RN}}."""
+    entries = {program.names[entry]: entry for entry in program.names}
+    found = {}
+    for function_name, register in disassemble.load_names(SYMBOLS).results:
+        entry = entries.get(function_name)
+        if entry is None:
+            raise SystemExit(f"symbols.txt: a result of {function_name}, which is no function")
+        if entry not in open_entries:
+            raise SystemExit(f"symbols.txt: a result of {function_name}, whose callers say what it hands back")
+        found.setdefault(entry, set()).add(register)
+    return found
 
 
 def analyse(program, built):
@@ -234,6 +300,8 @@ def analyse_after_stack(program, built):
     for function in built.values():
         constants.substitute(function)
     flow = dataflow.Program(built, program.analysis, interrupt_handlers(program), signatures.CONTEXT)
+    signatures.OPEN = open_entries(program, built, flow)
+    flow.declared = declared_results(program, signatures.OPEN)
     flow.solve()
     while True:
         removed = sum(len(preserved.analyse(function, flow.call_writes, context=signatures.CONTEXT))
@@ -456,6 +524,8 @@ def write_c(program, out_dir, trace=False, variables_path=None, split_webs=False
               + ", ".join(unknown[:5]))
     emitter.param_names = {(entries_by_name[function], register): name
                            for (function, register), name in known.params.items() if function in entries_by_name}
+    emitter.result_names = {(entries_by_name[function], register): name
+                            for (function, register), name in known.results.items() if function in entries_by_name}
     # a local is found by the instruction that writes it, wherever that code now is; what a register holds
     # when a function starts, by the function
     emitter.local_sites = {(spot, value): name for (function, spot, value), name in known.locals.items()
@@ -505,6 +575,8 @@ def write_c(program, out_dir, trace=False, variables_path=None, split_webs=False
     entries = sorted(entry for entry in built
                      if entry not in emitter.trampolines or entry in table or entry == RESET_ADDRESS)
     context = ", ".join(emitter.context_name(index) for index in signatures.CONTEXT)
+    defined = ", ".join(emitter.context_name(index) + (f" = 0x{signatures.INITIAL[index]:X}u" if index in signatures.INITIAL else "")
+                        for index in signatures.CONTEXT)
     prototypes = [emitter.prototype(entry) + ";" for entry in entries]
     addresses = [f"#define {name} 0x{address:06X}u" for address, name in sorted(emitter.code_addresses.items())]
     (out_dir / "game.h").write_text(
@@ -545,7 +617,7 @@ def write_c(program, out_dir, trace=False, variables_path=None, split_webs=False
         file_header("table.c", "the registers the whole program shares, the code calls through memory "
                     "slots reach (by address), and the reset entry")
         + '#include "game.h"\n\n'
-        f"uint32_t {context};\n\n" + "\n".join(wrappers) + "\n"
+        f"uint32_t {defined};\n\n" + "\n".join(wrappers) + "\n"
         "/* the code calls through memory slots and interrupts can reach, by address */\n"
         "const game_code_entry game_code[] =\n{\n" + "\n".join(rows) + "\n};\n\n"
         f"const size_t game_code_count = {len(rows)};\n\n" + entry_text, encoding="ascii")

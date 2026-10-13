@@ -63,7 +63,7 @@ LINKED OBJECT PLAYER RAM8 RAM16 RAM32 ROM8 ROM16 ROM32 AS8 AS16 AS32 AT8 AT16 AT
 interrupts_on interrupts_off divide_s8 divide_s16 divide_s32 divide_u8 divide_u16 divide_u32 remainder_s8
 remainder_s16 remainder_s32 remainder_u8 remainder_u16 remainder_u32 shift_by shift_signed_by rotate_by
 rotate_with_carry_by byte_swap32 mem_read8 mem_read16 mem_read32 mem_write8 mem_write16 mem_write32
-call_code unknown_code frame_wait take_interrupts frame_end halt move_string game_trace game_trace_block
+call_code unknown_code invalid_operand frame_wait take_interrupts frame_end halt move_string game_trace game_trace_block
 GAME_VARIABLES PLAYER_BLOCK WORK_RAM VIDEO_RAM SPRITE_RAM SPRITE_CONTROL PALETTE_RAM MIXER_REGISTERS SOUND_RAM IO_PORTS
 INTERRUPT_CONTROL RANDOM_GENERATOR TEXT_LAYER TEXT_CELL RAM8S RAM16S RAM32S ROM8S ROM16S ROM32S move_bytes move_halfwords move_bytes_backward
 move_halfwords_backward set_bytes set_halfwords move_bits_down move_bits_up divx_pair divux_pair""".split())
@@ -239,7 +239,7 @@ class Printer(cprint.Printer):
             test = self.writer.bit_test(node.args[0]) or self.writer.all_zero(node.args[0])
             if test is not None:
                 return cprint.Value(f"({test}) {'==' if node.name == 'eq' else '!='} 0u", cprint.EQUALITY, True, "int")
-        if isinstance(node, ir.Const) and node.bits == 32 and id(node) not in self.writer.numbers():
+        if isinstance(node, ir.Const) and node.bits == cpu.current.address_bits and id(node) not in self.writer.numbers():
             if node.value in self.writer.emitter.code_addresses and id(node) not in self.writer.sum_operands():
                 # the address of code the program stores in a slot (an object's handler): its name
                 return cprint.Value(self.writer.emitter.code_addresses[node.value], cprint.PRIMARY, True, "u32")
@@ -251,6 +251,9 @@ class Printer(cprint.Printer):
                 # an address in the ROM nothing names yet
                 self.writer.emitter.raw_addresses.setdefault(node.value, set()).add(self.writer.function.name)
         return super().emit(node)
+
+
+SELF_ASSIGNMENT = re.compile(r"([A-Za-z_][A-Za-z0-9_]*) = \1;")
 
 
 class FunctionWriter:
@@ -500,7 +503,7 @@ class FunctionWriter:
 
     def chosen_temp(self, temp):
         """symbols.txt's name for a temporary (a "local" line with tN), when no other variable has it."""
-        found = re.fullmatch(r"t([0-9A-F]{6})_(\d+)_\w+", temp.name)
+        found = re.fullmatch(r"t([0-9A-F]{4,6})_(\d+)_\w+", temp.name)
         if found is None:
             return None
         named = self.chosen.get((int(found.group(1), 16), f"t{found.group(2)}"))
@@ -512,10 +515,30 @@ class FunctionWriter:
         """{C name of a local: where its values come from, as "local" lines name them}."""
         found = self.vars.variable_sites()
         for temp, name in self.temps.items():
-            spot = re.fullmatch(r"t([0-9A-F]{6})_(\d+)_\w+", temp)
+            spot = re.fullmatch(r"t([0-9A-F]{4,6})_(\d+)_\w+", temp)
             if spot is not None:
                 found.setdefault(name, []).append((int(spot.group(1), 16), f"t{spot.group(2)}", "temp"))
+        # the stack slots: by the instructions that store to them ("s" and the slot's distance below the
+        # function's start)
+        for offset, name in self.slots.items():
+            for statement in self.slot_stores(offset):
+                origin = getattr(statement, "origin", None)
+                if origin is not None:
+                    found.setdefault(name, []).append((origin, f"s{-offset:X}", "set"))
         return found
+
+    def slot_stores(self, offset):
+        return [statement for block in self.function.blocks.values() for statement in block.statements
+                if isinstance(statement, ir.SetStack) and statement.offset == offset]
+
+    def slot_chosen(self, offset):
+        """The name symbols.txt's "local" lines give a stack slot by an instruction that stores to it, or
+        None."""
+        for statement in self.slot_stores(offset):
+            name = self.emitter.local_sites.get((getattr(statement, "origin", None), f"s{-offset:X}"))
+            if name is not None:
+                return self.vars.unused(name)
+        return None
 
     def read_field_name(self, load, statement=None):
         """The name of the whole field 'load' reads (the family's name for it when the function's own
@@ -579,6 +602,14 @@ class FunctionWriter:
                     text = found[0] if found is not None else None
                     match = None if text is None else re.fullmatch(r"(?:\w+\(\w+\)->(?:\w+\.)?)?(\w+)", text)
                     saved.add(match.group(1) if match else None)
+                elif isinstance(value, ir.Reg) and self.emitter.saved_locals:
+                    # a local variable pushed to get it back later (the Z80's PUSH HL ... POP HL)
+                    writing = self.current
+                    self.current = statement
+                    try:
+                        saved.add(self.register_read(value)[0])
+                    finally:
+                        self.current = writing
                 else:
                     saved.add(None)
         if len(saved) != 1 or None in saved:
@@ -593,7 +624,7 @@ class FunctionWriter:
             return "return_address"
         if node.offset > 0:
             raise EmitError(f"{self.function.name}: reads its caller's stack at {node.offset:+d}")
-        name = self.slots.get(node.offset) or self.slot_hint(node.offset) or f"stack_{-node.offset:X}"
+        name = self.slots.get(node.offset) or self.slot_chosen(node.offset) or self.slot_hint(node.offset)             or f"stack_{-node.offset:X}"
         self.slots[node.offset] = name
         bits = self.slot_widths.setdefault(node.offset, node.bits)
         if bits != node.bits:
@@ -615,7 +646,7 @@ class FunctionWriter:
             named = self.emitter.memory.access(address, bits, self.exact)
             if named is not None:
                 return named
-            return f"ROM{bits}({self.printer.any(field[2]).text})", False, False
+            return f"{memory.ROM_MACRO}{bits}({self.printer.any(field[2]).text})", False, False
         if field is not None and field[0] == "global":
             # through a pointer to a variable: as the variable
             own = self.own_variable(field[1], bits)
@@ -976,7 +1007,9 @@ class FunctionWriter:
     def statement(self, statement):
         self.current = statement
         if isinstance(statement, ir.SetTemp):
-            value = self.exact(statement.value) if statement.temp.bits == 1 else self.expr(statement.value)
+            # a temporary narrower than what it takes says the cut, as a store does (stored)
+            value = self.exact(statement.value) if statement.temp.bits == 1 else \
+                self.stored(statement.value, statement.temp.bits)
             return [f"{self.temp_name(statement.temp)} = {value};"]
         if isinstance(statement, ir.SetReg):
             if statement.index not in cpu.current.registers:
@@ -1034,6 +1067,8 @@ class FunctionWriter:
         if bits >= 32:
             return self.expr(value)
         if isinstance(value, ir.Const):
+            if bits == cpu.current.address_bits and value.bits == bits:
+                return self.expr(value)    # a variable as wide as an address may hold one: named if it is
             return cprint.literal(value.value & ir.MASKS[bits], bits)
         inner = value
         while isinstance(inner, ir.Op) and inner.name in ("zext", "fits", "trunc"):
@@ -1262,6 +1297,8 @@ class FunctionWriter:
             return ["frame_end();"]
         if name == "halt":
             return ["halt();"]
+        if name == "invalid_operand":
+            return [f"invalid_operand(0x{args[0].value:06X}u);"]
         if name == "load_privileged":
             return [f"load_privileged({self.expr(args[0])}, {self.expr(args[1])});"]
         if name == "write_psw":
@@ -1485,7 +1522,8 @@ class FunctionWriter:
             if self.emitter.trace and isinstance(node.label, int):
                 lines.append(f"game_trace_block(0x{node.label:06X}u);")
             for statement in node.statements:
-                lines += self.statement(statement)
+                # an assignment of a variable to itself (two registers that hold one variable) does nothing
+                lines += [line for line in self.statement(statement) if not SELF_ASSIGNMENT.fullmatch(line)]
             return [pad + line for line in lines]
         if isinstance(node, structure.End):
             return [pad + line for line in self.ending(node.end)]
@@ -1645,6 +1683,8 @@ class Emitter:
         self.code_addresses = {}    # address of code calls through memory slots reach -> NAME_ADDRESS
         self.trampolines = {}       # entry -> (function, way in) of a function that only jumps to another
         self.param_names = {}       # (entry, register) -> the name symbols.txt gives a parameter or result
+        self.result_names = {}      # (entry, register) -> the name a "result" line gives what a function
+                                    # nothing calls hands back
         self.local_names = {}       # (entry, "entry", "rN") -> the name symbols.txt gives what a register
                                     # holds when the function starts
         self.local_sites = {}       # (address, "rN" or "tN") -> the name symbols.txt gives what it writes
@@ -1661,6 +1701,7 @@ class Emitter:
         self.context = context
         self.needs_return_address = needs_return_address
         self.trace = trace    # every function reports itself to game_trace() when it starts
+        self.saved_locals = False    # a stack slot that saves a local variable is saved_NAME (slot_hint)
 
     def context_name(self, index):
         """The C name of a register the whole program shares."""
@@ -1785,10 +1826,14 @@ class Emitter:
             first, size, count = pointers.PLAYERS
             if first <= address < first + size * count and not (address - first) % size:
                 return f"PLAYER_BLOCK({(address - first) // size + 1})", cprint.PRIMARY
+            for struct, (start, number) in pointers.ARRAYS.items():
+                size = pointers.STRUCTS[struct]
+                if start <= address < start + size * number and not (address - start) % size:
+                    return f"{struct.upper()}_ADDRESS({(address - start) // size})", cprint.PRIMARY
             item = self.memory.variables.get(address)
             return (f"{item.name}_ADDRESS", cprint.PRIMARY) if item is not None else None
         if memory.program_rom(address):
-            if address < 0x1000:
+            if address < memory.ROM_NAMES_FROM:
                 return None
             canonical = memory.own_copy(address)
             item = self.memory.tables.get(canonical)
@@ -1827,6 +1872,11 @@ class Emitter:
         global takes it, else the register's."""
         if value[0] == "r":
             name = self.param_names.get((entry, value[1]))
+            if name is None:
+                # (no param line: what a local line calls the register where the function starts, or what a
+                # result line calls what it hands back there)
+                name = self.local_names.get((entry, "entry", f"r{value[1]}"),
+                                            self.result_names.get((entry, value[1])))
             if name is not None and self.local_name(name) is not None:
                 return name
         return value_name(value)

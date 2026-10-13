@@ -38,6 +38,9 @@ object, R18 a player) unless the callers say otherwise. Inside a function, where
 holds only if it is the same on all of them. Repeated until it settles.
 
 This only decides how accesses are written, never what they do: the C reads and writes the same bytes.
+
+The structures, places and rules above are the V60 program's. Another program sets its own in the module's
+names below (tools/decompile_sound.py: the Z80's sound channels in its shared RAM, 16-bit pointers).
 """
 from v60 import ir
 
@@ -53,13 +56,31 @@ OFFSET = ("offset", 0)        # not a pointer: a value below 0x10000 (a halfword
 CONFLICT = ("conflict", 0)    # callers that know different things: nothing is known
 UNKNOWN = ("unknown", 0)      # a caller that does not know
 ROUNDS = 40
+WORK_RAM = (0x200000, 0x210000)
+ADDRESS_MASK = 0xFFFFFF
+POINTER_BITS = 32              # a value read at this width holds a whole address
+PAGE_LINKS = True              # structures linked by the low halves of their addresses, in the work RAM page
+ROM_DATA = (0x1000, 0x200000)  # where the program ROM's data can be (the vectors and first code are below)
+ARRAYS = {}                    # struct -> (first, count): structures one after another, so that a pointer
+                               # moved by the size of one points at the next (PLAYERS has its own rules)
+STRUCT_FUNCTION = "ram"        # what gives a pointer to a structure from its address (game/support.h)
+CONSTANTS = False              # registers keep the constants they are set to, so that a pointer moved by one
+                               # (the Z80's "ld de,12h ... add iy,de") keeps its kind
 
 
 def player_constant(value):
     first, size, count = PLAYERS
     if first <= value < first + size * count:
         return "player", (value - first) % size
+    for struct, (start, number) in ARRAYS.items():
+        size = STRUCTS[struct]
+        if start <= value < start + size * number:
+            return struct, (value - start) % size
     return None
+
+
+def in_work_ram(value):
+    return WORK_RAM[0] <= value < WORK_RAM[1]
 
 
 def merge(a, b):
@@ -74,7 +95,7 @@ def merge(a, b):
             found[index] = kind
         elif other is not None and {kind[0], other[0]} & {"global"}:
             pointer, structure = (kind, other) if kind[0] == "global" else (other, kind)
-            if structure[0] in STRUCTS and structure[1] == 0 and 0x200000 <= pointer[1] < 0x210000:
+            if structure[0] in STRUCTS and structure[1] == 0 and in_work_ram(pointer[1]):
                 found[index] = structure
     return found
 
@@ -103,7 +124,16 @@ def gather(a, b):
 def outward(kind):
     """What a function tells its callees and callers about a register: a pointer into the ROM, or an offset,
     stays inside the function (a constant that happens to be a ROM address is not news to anyone)."""
-    return UNKNOWN if kind[0] in REGIONS or kind == OFFSET else kind
+    return UNKNOWN if kind[0] in REGIONS or kind == OFFSET or kind[0] == "const" else kind
+
+
+def held_constant(node, state):
+    """A constant 'node' is or a register holds (CONSTANTS), as a Const; else 'node'."""
+    if CONSTANTS and isinstance(node, ir.Reg) and state is not None:
+        kind = state.get(node.index)
+        if kind is not None and kind[0] == "const":
+            return ir.Const(kind[1], node.bits)
+    return node
 
 
 def known(kinds):
@@ -111,7 +141,8 @@ def known(kinds):
 
 
 def signed(offset):
-    return offset - (1 << 32) if offset >= 1 << 31 else offset
+    offset &= (1 << POINTER_BITS) - 1
+    return offset - (1 << POINTER_BITS) if offset >= 1 << (POINTER_BITS - 1) else offset
 
 
 def low_zeros(node, zeros):
@@ -142,21 +173,23 @@ def kind_of(node, state, zeros):
     if isinstance(node, ir.Reg):
         return state.get(node.index)
     if isinstance(node, ir.Const):
-        value = node.value & 0xFFFFFF
+        value = node.value & ADDRESS_MASK
         found = player_constant(value)
-        if found is None and 0x200000 <= value < 0x210000:
+        if found is None and in_work_ram(value):
             found = ("global", value)
         if found is None and rom_address(value):
             found = ("rom", 0)
         return found
     if isinstance(node, ir.Load):
-        if node.bits == 32:
-            target = target_of(node.address, state, 32)
+        if node.bits == POINTER_BITS:
+            target = target_of(node.address, state, POINTER_BITS)
             return (target, 0) if target is not None else None
         return None
     if not isinstance(node, ir.Op):
         return None
     name, args = node.name, node.args
+    if CONSTANTS and name == "add":
+        args = tuple(held_constant(arg, state) for arg in args)
     if name in ("add", "sub"):
         # a pointer into the ROM moved by an offset: something that cannot be an address itself (below
         # 0x10000), so that a RAM pointer plus a displacement that happens to be a ROM address stays unknown
@@ -168,14 +201,16 @@ def kind_of(node, state, zeros):
     if name == "add" and isinstance(args[1], ir.Const):
         inner = kind_of(args[0], state, zeros)
         if inner is not None and inner[0] == "global":
-            value = (inner[1] + args[1].value) & 0xFFFFFF
-            return ("global", value) if 0x200000 <= value < 0x210000 else None
+            value = (inner[1] + args[1].value) & ADDRESS_MASK
+            return ("global", value) if in_work_ram(value) else None
         if inner is not None and inner[0] in STRUCTS:
             offset = signed(inner[1] + args[1].value)
             if 0 <= offset < STRUCTS[inner[0]]:
                 return inner[0], offset
+            if inner[0] in ARRAYS and offset >= 0:
+                return inner[0], offset % STRUCTS[inner[0]]    # into the next one of the array
             return None
-    if name == "add" and isinstance(args[0], ir.Const) and args[0].value & 0xFFFFFF == VARIABLES \
+    if name == "add" and isinstance(args[0], ir.Const) and args[0].value & ADDRESS_MASK == VARIABLES \
             and isinstance(args[1], ir.Load) and args[1].bits == 32:
         # the variables' base (R25) plus an offset read from a table symbols.txt says leads to a structure
         # (player_block_offsets: 0x400, 0x600, 0x800)
@@ -184,14 +219,14 @@ def kind_of(node, state, zeros):
             return target, 0
     if name == "add" and isinstance(args[0], ir.Const):
         # a player's block, or a place in it: the first one's plus a multiple of the block size
-        found = player_constant(args[0].value & 0xFFFFFF)
-        if found is not None and args[0].value & 0xFFFFFF < PLAYERS[0] + PLAYERS[1] \
+        found = player_constant(args[0].value & ADDRESS_MASK)
+        if found is not None and found[0] == "player" and args[0].value & ADDRESS_MASK < PLAYERS[0] + PLAYERS[1] \
                 and low_zeros(args[1], zeros) >= PLAYERS[1].bit_length() - 1:
             return found
         return None
-    if name == "or":
+    if name == "or" and PAGE_LINKS:
         kept, low = args
-        page = isinstance(kept, ir.Const) and (kept.value & 0xFFFF) == 0 and 0x200000 <= kept.value < 0x210000
+        page = isinstance(kept, ir.Const) and (kept.value & 0xFFFF) == 0 and in_work_ram(kept.value)
         masked = isinstance(kept, ir.Op) and kept.name == "and" and isinstance(kept.args[1], ir.Const) \
             and kept.args[1].value == 0xFFFF0000
         if page or masked:
@@ -218,7 +253,8 @@ def offset_sized(node, state=None):
     if isinstance(node, ir.Const):
         return node.value < 0x10000
     if isinstance(node, ir.Reg):
-        return state is not None and state.get(node.index) == OFFSET
+        kind = state.get(node.index) if state is not None else None
+        return kind == OFFSET or (kind is not None and kind[0] == "const")
     if isinstance(node, ir.Load):
         return node.bits <= 16
     if not isinstance(node, ir.Op):
@@ -237,17 +273,17 @@ def offset_sized(node, state=None):
 
 def rom_address(value):
     """An address in the program ROM that can be data (the vectors and the first code are below 0x1000)."""
-    return 0x1000 <= value < 0x200000
+    return ROM_DATA[0] <= value < ROM_DATA[1]
 
 
 def constant_base(address):
     """The constant of "constant + rest", or of a constant address."""
     if isinstance(address, ir.Const):
-        return address.value & 0xFFFFFF
+        return address.value & ADDRESS_MASK
     if isinstance(address, ir.Op) and address.name == "add":
         for arg in address.args:
             if isinstance(arg, ir.Const):
-                return arg.value & 0xFFFFFF
+                return arg.value & ADDRESS_MASK
     return None
 
 
@@ -294,7 +330,7 @@ def access(address, state):
         kind = kind_of(base, state, {})
     else:
         kind = None
-    if kind is None or kind[0] == "global" or kind[0] in REGIONS or kind == OFFSET:
+    if kind is None or kind[0] in ("global", "const") or kind[0] in REGIONS or kind == OFFSET:
         return None
     offset = signed(kind[1] + displacement)
     if 0 <= offset < STRUCTS[kind[0]]:
@@ -317,9 +353,10 @@ def fold(node):
 class Program:
     """The kinds of every function's registers, across calls."""
 
-    def __init__(self, functions, flow, signatures, call_results, context, targets=None):
+    def __init__(self, functions, flow, signatures, call_results, context, targets=None, hints=None):
         TARGETS.clear()
         TARGETS.update(targets or {})
+        self.hints = hints or {}             # entry -> {register: kind}: what symbols.txt says a parameter is
         self.functions = functions
         self.flow = flow
         self.signatures = signatures
@@ -414,6 +451,8 @@ class Program:
     def step(self, statement, state, zeros, record):
         if isinstance(statement, ir.SetReg):
             kind = kind_of(statement.value, state, zeros)
+            if CONSTANTS and isinstance(statement.value, ir.Const) and kind is None:
+                kind = ("const", statement.value.value & ADDRESS_MASK)
             if kind is None and offset_sized(statement.value, state):
                 kind = OFFSET
             if statement.index in OBJECT_REGISTERS and (kind is None or kind[0] == "global") \
@@ -479,6 +518,7 @@ class Program:
         state = {index: kind for index, kind in CONTEXT_KINDS.items()
                  if told.get(index) != CONFLICT or index in OBJECT_REGISTERS}
         state.update(known(told))
+        state.update(self.hints.get(entry, {}))
         start = {entry: state}
         pending = [entry]
         while pending:
@@ -721,6 +761,9 @@ class Layouts:
             lines.append(f"_Static_assert(sizeof(struct {struct}) == 0x{size:X}, "
                          f"\"struct {struct} has the size of the game's blocks\");")
         lines.append("")
-        lines.append("#define OBJECT(address) ((struct object *)ram(address))")
-        lines.append("#define PLAYER(address) ((struct player *)ram(address))")
+        for struct in STRUCTS:
+            lines.append(f"#define {struct.upper()}(address) ((struct {struct} *){STRUCT_FUNCTION}(address))")
+        for struct, (first, count) in ARRAYS.items():
+            lines.append(f"#define {struct.upper()}_ADDRESS(n) (0x{first:X}u + (n) * 0x{STRUCTS[struct]:X}u)    "
+                         f"/* the {count} of them, from 0 */")
         return lines

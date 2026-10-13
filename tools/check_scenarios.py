@@ -8,6 +8,7 @@ Modified:    13-10-2026
 Author:      Sebastian Toyos
 
 Usage: python tools/check_scenarios.py [NAME ...] [--native-only] [--translated] [--video] [--sound] [--jobs N]
+                                       [--bin DIR] [--out DIR]
   NAME            scripts of tests/controls to run (file names without .txt); all of them by default
   --native-only   reuse the reference results already in build/scenarios/ (a script without them
                   still runs on the reference)
@@ -19,6 +20,8 @@ Usage: python tools/check_scenarios.py [NAME ...] [--native-only] [--translated]
                   sound program and chips; per frame, the samples and the sound board's memories
                   (sound_hashes.txt against game_sound_hashes.txt)
   --jobs N        run N scripts at a time (half the processors by default)
+  --bin DIR       the executables to run (build/bin by default): another build of the game
+  --out DIR       where the runs go (build/scenarios by default)
 
 For every script: build/bin/s32ref writes build/scenarios/NAME/{executed,called,hashes}.txt, the
 game (build/bin/sonic_game_headless, from tools/decompile.py) writes game_hashes.txt, and the two hash
@@ -115,6 +118,7 @@ def static_check(names):
 
 
 def main():
+    global BIN, RESULTS
     arguments = sys.argv[1:]
     native_only = "--native-only" in arguments
     game = "translated" if "--translated" in arguments else "decompiled"
@@ -122,6 +126,15 @@ def main():
     sound = "--sound" in arguments
     if sound and not SOUND_TIMING.exists():
         raise SystemExit(f"{SOUND_TIMING} not found")
+    for option in ("--bin", "--out"):
+        if option in arguments:
+            position = arguments.index(option)
+            folder = Path(arguments[position + 1]).resolve()
+            if option == "--bin":
+                BIN = folder
+            else:
+                RESULTS = folder
+            del arguments[position:position + 2]
     jobs = max(1, (os.cpu_count() or 2) // 2)
     if "--jobs" in arguments:
         position = arguments.index("--jobs")

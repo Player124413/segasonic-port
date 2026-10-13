@@ -43,7 +43,9 @@ decompiled game plays the scenarios of <code>tests/controls/</code>.</sub></p>
       written by name; addresses the code uses as values print as names (`TEXT_CELL(14, 20)`,
       `PALETTE_RAM + 0x83A0u`, `NAME_ADDRESS`). Code two functions share is written once (the player's
       update runs into the state code of its animation, which takes an `entry_point`; each player state
-      the update jumps to is a function of its own). It matches the reference frame by frame in every
+      the update jumps to is a function of its own). The code nothing in the program reaches (about
+      12.5 KB: drawing routines, object types never spawned, earlier versions of live routines) is
+      decompiled too, so the C holds the whole program. It matches the reference frame by frame in every
       scenario of `tests/controls/`
 - [x] Names: every function, variable, table, structure field and board register has one in
       `symbols.txt`, with the evidence for it, and so do the parameters and results of the functions,
@@ -71,7 +73,10 @@ decompiled game plays the scenarios of <code>tests/controls/</code>.</sub></p>
       from the sound ROM and `sound_symbols.txt`), running on the board's time, and the YM3438 and RF5C68
       as libraries (`runtime/src/ym3438.c`, `runtime/src/rf5c68.c`) that make the same samples as ymfm and
       MAME. It matches the reference's samples and sound board memories frame by frame in every scenario
-      (`check_scenarios.py --sound`). Its functions are still named by their addresses (`sound_4645`)
+      (`check_scenarios.py --sound`). It reads like the game's C: its functions, parameters, local
+      variables, variables, structures (the sequence players, the FM and PCM voices, the MIDI parts) and
+      the chips' ports are named in `sound_symbols.txt`, with the evidence for each name, and the bytes the
+      Z80 keeps apart in a register pair (a count in B, a register number in C) are variables of their own
 - [x] PC port (`ports/sdl2/`): the game in a window, with its sound, the mouse, the keyboard and game
       controllers, on SDL2; its settings in `sonic.ini`. Built and played on Windows; SDL2's own packages
       should build it on Linux and macOS (not tried yet)
@@ -79,9 +84,12 @@ decompiled game plays the scenarios of <code>tests/controls/</code>.</sub></p>
       `assets/` (sprites as PNG, the data tables and levels in readable form), and the build making the
       game's data from them instead of from the ROM, so that edited assets (a new character, sprites at a
       higher resolution) go into the game
-- [ ] Ports to Nintendo Switch and Linux ARM handhelds (Anbernic)
-- [ ] A console version, in a layer of its own beside the arcade one, which stays as it is: no coins, a
-      settings menu in the game's own style, higher resolution
+- [ ] Ports, in a repository of their own built on this one (`segasonic-port`), so that this one stays the
+      faithful reference: Windows and macOS, Android, Nintendo Switch and Linux ARM handhelds (Anbernic);
+      released as downloads with no game data in them (the first run takes the player's own ROM set and
+      extracts the assets), and listed in [Quiver Launcher](https://quiverlauncher.com)
+- [ ] A console version, there too, in a layer of its own beside the arcade one, which stays as it is: no
+      coins, a settings menu in the game's own style, higher resolution
 
 ## Getting started
 
@@ -289,8 +297,19 @@ registers and structures), `game_NN.c` (the functions, in the order of their V60
   runs its events, and `take_interrupts()` where the interrupts that raised are handled; the interrupt
   handlers are ordinary functions. `halt()` (only in `int_default` and `int_vector_02`) does nothing, as in
   MAME.
+- **Unused code.** The functions nothing in the program reaches are in the C beside the rest, in their
+  place by address; their entries in `symbols.txt` (at the end) start with "unused:" and say what each one
+  would do. With no caller to say what they take and hand back, they take every register they read before
+  writing it, and hand back what `symbols.txt` says (`result` lines). The 00 bytes that align the routine
+  after them are data, not code. A few of them use addresses of their own stack frame as values: there the V60's stack
+  pointer is a global variable, `stack_pointer`, and the stack stays in work RAM, as on the board. An
+  instruction the V60 would refuse (a bit operand in a register) is `invalid_operand(address)`, which
+  stops the game, as MAME does.
 - **The sound driver.** `src/sound/` is the Z80 program the same way. The sound chips are read and
-  written through `port_in`/`port_out` and the memory with `SOUND_RAM8`; `z80_block(cycles)` opens each
+  written through `port_in`/`port_out` by the ports' names; its variables are names over the sound RAM
+  (`sound.h`), its structures are reached with `FM_VOICE(voice)->`, `SAMPLE_VOICE(voice)->`,
+  `MIDI_PART(part)->`, and what it reads through an address it computes goes through the board's bus
+  (`z80_read8`, `z80_write8`); `z80_block(cycles)` opens each
   stretch of code with the time it takes, so the chips' timers, the interrupt and the samples happen when
   they did on the board.
 

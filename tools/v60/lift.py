@@ -139,6 +139,10 @@ class Lifter:
             return self.temp(ir.Reg(op.reg), "address"), ir.const(0)
         if op.mode == "disp":
             return self.temp(ir.Reg(op.reg), "address"), ir.const(op.disp)
+        if op.mode == "reg_indirect_indexed":
+            # MAME's bam2RegisterIndirectIndexed: the address in the base register, the bit offset in the
+            # index register (any size: the move divides it into bytes)
+            return self.temp(ir.Reg(op.reg), "address"), self.temp(ir.Reg(op.index_reg), "offset")
         raise Unsupported(f"bit addressing mode {op.mode}")
 
     # ---- am3: write a value ----
@@ -539,6 +543,11 @@ def lift_data(lifter, instruction):
 
     if mnemonic in ("movbsd", "movbsu"):
         source, length, dest = instruction.operands
+        if "reg" in (source.mode, dest.mode):
+            # a register is no bit address: the V60 cannot run this (MAME's core stops: "BAM2 - 6"); only
+            # code the game never calls has it
+            emit(ir.Effect("invalid_operand", (ir.const(instruction.address),)))
+            return True
         source_address, source_offset = lifter.bit_address_of(source)
         bits = lifter.read_value(length, 2, "length") if length.mode == "reg" else ir.const(length.value)
         dest_address, dest_offset = lifter.bit_address_of(dest)

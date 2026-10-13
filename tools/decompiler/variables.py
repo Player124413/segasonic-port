@@ -333,7 +333,7 @@ class Variables:
         found = []
         for item in items:
             if item[0] == "entry":
-                found.append(("entry", cpu.variable_name(register), "entry"))
+                found.append(("entry", f"r{register}", "entry"))    # as "local ... entry rN" lines name it
                 continue
             statement = self.statement_of(item[1])
             origin = getattr(statement, "origin", None)

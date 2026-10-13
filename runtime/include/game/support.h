@@ -186,6 +186,7 @@ void game_entry(void);                          /* the code at the reset vector 
 
 void call_code(uint32_t address);
 GAME_NORETURN void unknown_code(uint32_t address);    /* a jump or call to an address no code was found at */
+GAME_NORETURN void invalid_operand(uint32_t address); /* an instruction the V60 cannot run (code the game never calls) */
 
 /* With tools/decompile.py --trace, every function calls game_trace when it starts (the calls go to stderr)
    and every block of code game_trace_block (the V60 addresses of the blocks that ran are written to

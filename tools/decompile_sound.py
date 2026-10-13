@@ -12,6 +12,9 @@ Usage: python tools/decompile_sound.py [--check] [--out DIR] [--timing FILE]
   --out       where to write the C (src/sound/ by default)
   --timing    where to write the blocks of the timing model for tools/reference/s32ref (--sound-timing;
               build/sound/timing.txt by default)
+  --symbols FILE  the names to use instead of sound_symbols.txt
+  --variables FILE  lists every local variable with the instructions that write it, which is what
+              sound_symbols.txt's "local" lines name them by (decompile.py --variables)
 
 The sound program (epr-15785, read from the ROM set in rom/ by tools/sonic_rom.py) goes
 through the decompiler the V60 program goes through (tools/decompiler/), with the Z80's profile
@@ -29,9 +32,14 @@ from pathlib import Path
 TOOLS = Path(__file__).resolve().parent
 ROOT = TOOLS.parent
 sys.path.insert(0, str(TOOLS))
+import disassemble  # noqa: E402
 from decompile import call_results  # noqa: E402
+from decompile import write_variables  # noqa: E402
 import sonic_rom  # noqa: E402
 from decompiler import cleanup  # noqa: E402
+from decompiler import cprint  # noqa: E402
+from decompiler import memory  # noqa: E402
+from decompiler import pointers  # noqa: E402
 from decompiler import conditions  # noqa: E402
 from decompiler import cpu  # noqa: E402
 from decompiler import dataflow  # noqa: E402
@@ -46,13 +54,16 @@ from z80 import analysis  # noqa: E402
 from z80 import emit  # noqa: E402
 from z80 import function as functions  # noqa: E402
 from z80 import lift  # noqa: E402
+from z80 import pairs  # noqa: E402
 
 SYMBOLS = ROOT / "sound_symbols.txt"
 ROM_SET = ROOT / "rom"
+REPORTS = ROOT / "build" / "sound"    # the listing and the index naming works from
 INTERRUPT_HANDLER = 0x0038
 FUNCTIONS_PER_FILE = 120
 CREATED = "13-10-2026"    # when the C was first written; the files say when it was last written too
 IDENTIFIER = re.compile(r"[A-Za-z_][A-Za-z0-9_]*\Z")
+REGISTERS = {name: index for index, name in cpu.Z80.register_names.items()}    # param and local lines
 
 
 def load_program():
@@ -64,6 +75,7 @@ def load_program():
 def configure():
     """The Z80 profile, and the sound program's own: no registers it keeps for the whole program."""
     cpu.use(cpu.Z80)
+    conditions.DIRECT_FLAGS = True
     signatures.CONTEXT = ()
     signatures.SCRATCH_CONTEXT = {}
     signatures.CONSTANT = {}
@@ -155,7 +167,21 @@ def file_header(name, description):
             " */\n")
 
 
-def write_c(program, out_dir):
+def load_arrays(path):
+    """The "array STRUCT FIRST COUNT" lines of sound_symbols.txt: {struct: (first address, count)}, the
+    structures that stand one after another in the shared RAM (a pointer moved by the size of one points
+    at the next)."""
+    arrays = {}
+    for number, line in enumerate(Path(path).read_text(encoding="utf-8").splitlines(), 1):
+        parts = line.split("#", 1)[0].split()
+        if parts and parts[0] == "array":
+            if len(parts) != 4 or not parts[3].isdigit():
+                raise SystemExit(f"{Path(path).name}:{number}: expected 'array STRUCT FIRST COUNT'")
+            arrays[parts[1]] = (int(parts[2], 16), int(parts[3]))
+    return arrays
+
+
+def write_c(program, out_dir, variables_path=None):
     built, failures = build_functions(program)
     if failures:
         raise SystemExit(f"{len(failures)} functions do not lift, the first: {failures[0][0]:04X} {failures[0][1]}")
@@ -165,6 +191,9 @@ def write_c(program, out_dir):
     for entry, function_name in names.items():
         if not IDENTIFIER.match(function_name):
             raise SystemExit(f"{entry:04X}: '{function_name}' cannot be a C function name")
+    # a pair the function writes a byte at a time: its bytes as variables of their own
+    for entry, function in built.items():
+        pairs.split(function, flow, found[entry])
 
     before = sum(len(block.statements) for function in built.values() for block in function.blocks.values())
     arguments = {}
@@ -191,17 +220,63 @@ def write_c(program, out_dir):
             expressions.tidy(function, flow, after, whole)
         knownbits.simplify(function, found[entry], signatures.CONTEXT, results_of_calls)
         expressions.simplify_function(function)
+        pairs.tidy_bytes(function, after)
         live_after[entry] = after
         live_at_start[entry] = start
 
+    # the names: variables, tables, structures and ports of sound_symbols.txt, on the Z80's memory map
+    known = disassemble.load_names(SYMBOLS, REGISTERS)
+    arrays = load_arrays(SYMBOLS)
+    # the variables, tables, registers and ports are macros: a field or a local by the same name would be
+    # taken for one of them
+    macros = {name for name, _ in list(known.variables.values()) + list(known.tables.values())
+              + list(known.hardware.values())} | set(known.ports.values())
+    clashes = sorted({name for name, _ in known.fields.values()} & macros)
+    if clashes:
+        raise SystemExit("sound_symbols.txt: fields named like a variable, table, register or port: "
+                         + ", ".join(clashes))
+    for struct in arrays:
+        if struct not in known.structs:
+            raise SystemExit(f"sound_symbols.txt: array of '{struct}', which is no struct")
+    emit.use_memory_map(known, arrays)
+    entries_by_name = {name: entry for entry, name in names.items()}
+    hints = {}
+    for (function, register), struct in known.param_structs.items():
+        if function in entries_by_name:
+            hints.setdefault(entries_by_name[function], {})[register] = (struct, 0)
+    typing = pointers.Program(built, flow, found,
+                              {entry: call_results(function, found, flow) for entry, function in built.items()},
+                              signatures.CONTEXT, known.targets, hints)
+    fields, accesses = typing.run()
+    through = [(hit[1], hit[2]) for found_fields in fields.values() for hit in found_fields.values()
+               if hit[0] == "global"]
+    data_names = {address: symbol.name for address, symbol in program.symbols.items()
+                  if symbol.kind in ("data", "jumps")}
+    named = memory.Memory(known, memory.accesses_of(built.values()) + through, data_names)
+    cprint.PORT_NAMES = dict(known.ports)
+
     always = {entry: set(summary.always) for entry, summary in flow.summaries.items()}
-    emitter = emit.SoundEmitter(built, found, names, emit.SoundMemory(), always)
+    emitter = emit.SoundEmitter(built, found, names, named, always, pointers.Layouts(accesses, known), known.ports)
     emitter.writes = {entry: set(summary.writes) for entry, summary in flow.summaries.items()}
     emitter.flow = flow
+    emitter.data_labels = {address: name for address, name in data_names.items() if address not in named.tables}
     emitter.code_labels = {address: symbol.name for address, symbol in program.symbols.items() if symbol.kind == "code"}
+    entries_by_name = {name: entry for entry, name in names.items()}
+    unknown = sorted({function for function, _ in known.params if function not in entries_by_name}
+                     | {function for function, spot, _ in known.locals if function not in entries_by_name})
+    if unknown:
+        print(f"sound_symbols.txt names parameters or locals of functions that are not in the program: "
+              + ", ".join(unknown[:5]))
+    emitter.param_names = {(entries_by_name[function], register): name
+                           for (function, register), name in known.params.items() if function in entries_by_name}
+    emitter.local_sites = {(spot, value): name for (function, spot, value), name in known.locals.items()
+                           if spot != "entry"}
+    emitter.local_names = {(entries_by_name[function], spot, value): name
+                           for (function, spot, value), name in known.locals.items()
+                           if spot == "entry" and function in entries_by_name}
     for entry, function in built.items():
-        structure.split_loop_entries(function, (live_after[entry], {}))
-    writers = {entry: emit.SoundWriter(emitter, function, live_after[entry], {}, live_at_start[entry])
+        structure.split_loop_entries(function, (live_after[entry], fields[entry]))
+    writers = {entry: emit.SoundWriter(emitter, function, live_after[entry], fields[entry], live_at_start[entry])
                for entry, function in built.items()}
     texts = {}
     problems = []
@@ -214,6 +289,12 @@ def write_c(program, out_dir):
         for entry, problem in problems[:20]:
             print(f"  {entry:04X}  {problem}")
         raise SystemExit(f"{len(problems)} functions could not be written")
+    if variables_path is not None:
+        write_variables(variables_path, writers, names, texts)
+    # the reports of the sound program's source go beside the build; those of another copy, with it
+    reports = REPORTS if out_dir.resolve() == (ROOT / "src" / "sound").resolve() else out_dir
+    reports.mkdir(parents=True, exist_ok=True)
+    write_reports(program, built, flow, names, reports)
 
     out_dir.mkdir(parents=True, exist_ok=True)
     for stale in out_dir.glob("*.c"):
@@ -221,9 +302,13 @@ def write_c(program, out_dir):
     entries = sorted(built)
     prototypes = [emitter.prototype(entry) + ";" for entry in entries]
     (out_dir / "sound.h").write_text(
-        file_header("sound.h", "prototypes of the sound program's functions")
+        file_header("sound.h", "the sound program's ports, variables, tables, structures and functions")
         + "#ifndef SONIC_SOUND_H\n#define SONIC_SOUND_H\n\n#include \"sound/support.h\"\n\n"
-        + "\n".join(emitter.memory.declarations()) + "\n\n"
+        + "/* the board's I/O ports the program uses */\n" + "\n".join(emitter.port_declarations()) + "\n\n"
+        + "\n".join(named.declarations()) + "\n\n/* data in the program ROM sound_symbols.txt labels */\n"
+        + "\n".join(f"#define {name}_ADDRESS 0x{address:04X}u" for address, name in sorted(emitter.data_labels.items()))
+        + "\n\n/* the sound program's structures in the shared RAM */\n"
+        + "\n".join(emitter.layouts.declarations()) + "\n\n"
         + "\n".join(prototypes) + "\n\n#endif\n", encoding="ascii")
     for number, first in enumerate(range(0, len(entries), FUNCTIONS_PER_FILE)):
         chunk = [texts[entry] for entry in entries[first:first + FUNCTIONS_PER_FILE]]
@@ -238,6 +323,66 @@ def write_c(program, out_dir):
     print(f"branches:   {flow.conditions_recovered} now compare values instead of flags")
     print(f"gotos:      {gotos}")
     return 0
+
+
+def write_reports(program, built, flow, names, out_dir):
+    """build/sound/listing.s, the program's instructions function by function with the names
+    sound_symbols.txt gives, and build/sound/index.txt, what each function calls and is called by, the
+    shared RAM it reads and writes at fixed addresses and the ports it uses: what naming it works from."""
+    labels = {address: symbol.name for address, symbol in program.symbols.items()
+              if symbol.kind in ("func", "code", "loop", "data", "jumps")}
+    labels.update(names)
+    lines = ["; the sound program (epr-15785), function by function: tools/decompile_sound.py"]
+    for entry in sorted(program.bodies):
+        lines += ["", f"; ---- {names[entry]} ({entry:04X})"]
+        for address in sorted(program.bodies[entry]):
+            instruction = program.bodies[entry][address]
+            raw = " ".join(f"{program.image[(address + offset) & 0xFFFF]:02X}" for offset in range(instruction.length))
+            label = labels.get(address) if address != entry else None
+            if label:
+                lines.append(f"{label}:")
+            text = instruction.text
+            if instruction.target is not None and instruction.target in labels:
+                text += f"    ; {labels[instruction.target]}"
+            lines.append(f"  {address:04X}  {raw:<12}  {text}")
+    (out_dir / "listing.s").write_text("\n".join(lines) + "\n", encoding="ascii")
+
+    callers = {}
+    uses = {}
+    for entry, function in built.items():
+        callees, reads, writes, ports = set(), set(), set(), set()
+        for block in function.blocks.values():
+            for statement in block.statements + [block.end]:
+                if isinstance(statement, ir.Call):
+                    callees |= set(flow.call_targets(statement))
+                if isinstance(statement, ir.TailCall):
+                    callees.add(statement.target)
+                if isinstance(statement, ir.Store) and isinstance(statement.address, ir.Const):
+                    writes.add(statement.address.value)
+                if isinstance(statement, ir.Effect) and statement.name == "port_out" \
+                        and isinstance(statement.args[0], ir.Const):
+                    ports.add(f"out {statement.args[0].value:02X}")
+                for expression in ir.statement_expressions(statement):
+                    for node in ir.walk(expression):
+                        if isinstance(node, ir.Load) and isinstance(node.address, ir.Const):
+                            reads.add(node.address.value)
+                        if isinstance(node, ir.Op) and node.name == "helper:port_in" \
+                                and isinstance(node.args[0], ir.Const):
+                            ports.add(f"in {node.args[0].value:02X}")
+        uses[entry] = (callees, reads, writes, ports)
+        for callee in callees:
+            callers.setdefault(callee, set()).add(entry)
+    lines = ["# FUNCTION (address): callers, callees, shared RAM read and written at fixed addresses, ports",
+             "# (tools/decompile_sound.py; computed addresses, such as fields reached through IX and IY, are not listed)"]
+    for entry in sorted(built):
+        callees, reads, writes, ports = uses[entry]
+        lines.append(f"{names[entry]} ({entry:04X})")
+        lines.append("  called by: " + " ".join(sorted(names[c] for c in callers.get(entry, ()))))
+        lines.append("  calls:     " + " ".join(sorted(names.get(c, f"{c:04X}") for c in callees)))
+        lines.append("  reads:     " + " ".join(f"{a:04X}" for a in sorted(reads)))
+        lines.append("  writes:    " + " ".join(f"{a:04X}" for a in sorted(writes)))
+        lines.append("  ports:     " + " ".join(sorted(ports)))
+    (out_dir / "index.txt").write_text("\n".join(lines) + "\n", encoding="ascii")
 
 
 def write_timing(program, path):
@@ -265,11 +410,21 @@ def write_timing(program, path):
 
 
 def main():
+    global SYMBOLS
     arguments = sys.argv[1:]
     out_dir = ROOT / "src" / "sound"
     if "--out" in arguments:
         position = arguments.index("--out")
         out_dir = Path(arguments[position + 1])
+        del arguments[position:position + 2]
+    if "--symbols" in arguments:
+        position = arguments.index("--symbols")
+        SYMBOLS = Path(arguments[position + 1])
+        del arguments[position:position + 2]
+    variables_path = None
+    if "--variables" in arguments:
+        position = arguments.index("--variables")
+        variables_path = Path(arguments[position + 1])
         del arguments[position:position + 2]
     timing_path = ROOT / "build" / "sound" / "timing.txt"
     if "--timing" in arguments:
@@ -282,7 +437,7 @@ def main():
         return check(program)
     timing_path.parent.mkdir(parents=True, exist_ok=True)
     write_timing(program, timing_path)
-    return write_c(program, out_dir)
+    return write_c(program, out_dir, variables_path)
 
 
 if __name__ == "__main__":

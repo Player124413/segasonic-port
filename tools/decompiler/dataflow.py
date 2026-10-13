@@ -3,7 +3,7 @@ Name:        dataflow.py
 Description: what each function reads, writes and hands back in registers and flags, across the program
 Version:     0.1.0
 Created:     11-10-2026
-Modified:    12-10-2026
+Modified:    13-10-2026
 Author:      Sebastian Toyos
 
 Variables are the parts of the V60 registers (("r", n, part): part 0 is bits 0-7, part 1 bits 8-15,
@@ -344,6 +344,7 @@ class Program:
         self.zeroed = {}
         # live where each function ends: what it hands back to its callers (solve)
         self.exit_live = {}
+        self.declared = {}    # entry -> register numbers a function nothing calls hands back (symbols.txt)
 
     def code_pointer_slots(self):
         """For each memory slot calls read their target from (by displacement): the functions the program
@@ -769,6 +770,11 @@ class Program:
                 for target in self.call_targets(call):
                     if target in handed:
                         handed[target] |= live & self.summaries[target].writes
+        # what a function nothing calls hands back: symbols.txt says it ("result" lines)
+        for entry, registers in self.declared.items():
+            if entry in handed:
+                handed[entry] |= {variable for variable in self.summaries[entry].writes
+                                  if variable[0] == "r" and variable[1] in registers}
         # a tail call hands the callee's results to this function's callers
         changed = True
         while changed:

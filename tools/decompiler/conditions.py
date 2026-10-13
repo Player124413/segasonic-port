@@ -18,6 +18,9 @@ from v60 import ir
 from . import cleanup
 
 ZERO_1 = ir.Const(0, 1)
+# a branch whose flags none of the comparisons explains reads them as they were set, when what set them
+# reads only temporaries and constants (the Z80's bit shifted out into the carry); the V60's keep them
+DIRECT_FLAGS = False
 
 FLAGS_READ = {"v": {"ov"}, "nv": {"ov"}, "l": {"cy"}, "nl": {"cy"}, "e": {"z"}, "ne": {"z"},
               "nh": {"cy", "z"}, "h": {"cy", "z"}, "n": {"s"}, "p": {"s"},
@@ -273,7 +276,19 @@ def rewrite_condition(condition, defs, temps, checked=False):
                 return ir.op("ne" if name == "l" else "eq", (bit, ir.Const(0, value.bits)), 1)
     source = source_of(defs, temps, used)
     new = comparison(name, source, checked) if source is not None else None
+    if new is None and DIRECT_FLAGS:
+        new = substituted(condition, defs, used, checked)
     return condition if new is None else new
+
+
+def substituted(condition, defs, used, checked):
+    """'condition' with each flag it reads replaced by what the flag was set to, or None when that reads
+    something that may have changed since."""
+    for flag in used:
+        reads, memory = reads_of(defs[flag])
+        if (reads or memory) and not checked:
+            return None
+    return ir.rebuild(condition, lambda node: defs[node.name] if isinstance(node, ir.Flag) else None)
 
 
 def resolve_all(expression, values):

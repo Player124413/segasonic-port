@@ -84,7 +84,11 @@
 #   scoped global FAMILY ADDRESS NAME TYPE  work RAM as one family of functions uses it (scratch variables)
 #   param FUNCTION RN NAME        what a function takes or hands back in register RN; its callers name the
 #                                 variables they pass in RN, or get back from it, the same way
-#   local FUNCTION CNAME NAME     the local variable the C of FUNCTION would call CNAME (r5, r5_2, t3)
+#   result FUNCTION RN NAME       what a function nothing calls hands back in register RN (its callers say
+#                                 it for the others); every register such a function reads before writing
+#                                 is one of its parameters
+#   local FUNCTION WHERE RN NAME  the local variable that holds what the instructions at WHERE (addresses,
+#                                 or "entry": where the function starts) write in register RN
 # A second var or field at the same place with a narrower type names the first bytes of the wider one
 # (x_fraction: the low half of the 16.16 x).
 # A struct name after the TYPE of a var or field says its value points at one: a u32 holds the address,
@@ -100,6 +104,7 @@ register R22  first_object          # the object list's first ...
 register R23  object_cursor         # ... the object loop's position in it ...
 register R24  last_object           # ... and its last
 register R26  fill_value            # what the string moves (MOVCFU) fill with
+register R32  stack_pointer         # SP, in the functions whose stack stays in memory (decompiler/stack.py: code the game never calls uses its stack frame as an array); 20FF00 after boot
 
 # -- objects: a doubly linked list of 0xA0-byte blocks in work RAM, linked by 16-bit addresses --
 207FE0  var  object_count   u16     # one more when an object joins the list, one less when it leaves
@@ -1736,7 +1741,7 @@ field player 1D8 stall_frames s16           # 00E415: frames the scroll has not 
 084C52  func  sign_show_while_player_busy      # while the parent's player is in state 1D, 2C or 32
 084C82  func  sign_show_until_goal_unlocked    # "BREAK!!" (stage 5): until goal_unlocked is set (game mode 0x0A sets it in stage 5)
 084C8E  func  sign_show_while_parent_still     # until the parent's field 3E is non-zero
-084CA0  func  sign_show_until_20e5f4
+084CA0  func  sign_show_until_gate_closed
 084CAC  func  sign_show_until_cage_bar_hit     # the arrow over "BREAK!!"
 084CB8  func  sign_show_unless_stage_0
 084CE6  func  sign_follow_parent               # 38 above the parent while its flag 40
@@ -1894,7 +1899,7 @@ field player 1D8 stall_frames s16           # 00E415: frames the scroll has not 
 01B55B  func  update_nbg2_scroll_stage_12      # stage 12: skip_nbg2_scroll
 
 # ======== More of the stage flow ========
-# Game mode 0x0A (stage 5, sub_09492F, see the stage events helper): the stage runs until check_stage_clear
+# Game mode 0x0A (stage 5, update_stage_05_event, see the stage events helper): the stage runs until check_stage_clear
 # would end it, then run_stage_05_switch (stage 0), Eggman's booth, a shake, explosions, then
 # update_stage_00_exit_scene for 1B6 + 12C frames, then game mode 2 (stage 8).
 017088  func  update_stage_00_exit_scene       # stage_00_exit_step: the camera climbs at speed 35 (direction y -4000), new tile layer pages, fade to white, then the four layers zoom (31FF50-31FF56 = 2000000 / stage_00_exit_zoom)
@@ -2276,7 +2281,7 @@ field object 78 wall         u16 object              # check_walls
 20E61A  var   players_frozen           u8      # while set check_player_jump returns at once and player_steer zeroes the trackball; set by spiked_roller_start (first state 0) until the first moving script record, by spiked_press_start until its frame C8, by tornado_start (cleared by tornado_move) and game mode 0x0D (with event_0d_active, until scroll A00); stages.txt leaves it to the players helper; start_stage clears it
 20E670  var   roller_back_zone_index   u16     # spiked_roller_start: the kind record's back zone index, passed to spawn_roller_back_zone
 20E5EB  var   roller_ram_count         u8      # spiked_roller_ram_charge: charges so far (state 4 never runs)
-20E5F3  var   roller_ram_hit           u8      # FF when a ram charge hits, cleared by spiked_roller_chase every frame; nothing reads it
+20E5F3  var   roller_ram_hit           u8      # FF when a ram charge hits, cleared by spiked_roller_chase every frame; only unused code reads it (ram_target_check_hits, ram_target_part_update)
 
 # ======== Back zones of the other chasers (object_steps 08340D: limit, handler) ========
 082E82  func  spawn_chaser_back_zone           # called by the chasers burning_boulder_start (stage 8), tornado_start (stage A), propeller_machine_init (stage 10) with R1 = record of 08340D: kind (47) 9, flags 40000002, field 80 = the record's scroll position, its handler, parent = the chaser (objects.txt calls it spawn_chaser_back_zone; records 3-7 of the same table are the roller back zone limits)
@@ -3550,12 +3555,12 @@ D00005  io  irq_control_5          u8    # init_system clears it with the other 
 209008  var   unused_title_word         u16         # run_title_screen writes 58; nothing reads it
 20900B  var   unused_title_byte_1       u8          # attract_title clears it; nothing else
 209015  var   unused_title_byte_2       u8          # attract_title clears it; nothing else
-20902B  var   unused_view_byte          u8          # attract_title and init_stage_view clear it; nothing reads it
+20902B  var   scroll_skip_open          u8          # attract_title and init_stage_view clear it; only the unused scroll skip mode (run_scroll_skip_mode) reads it: the panel is open while it is set
 209070  var   unused_view_word          u16         # init_stage_view clears it (with the stage 3 end variables); nothing reads it
 20CA19  var   unused_circle_wipe_byte   u8          # init_stage_view clears it, between circle_wipe_line and circle_wipe_radius; nothing reads it
-20CA36  var   unused_view_value_1       u16         # init_stage_view writes 30; nothing reads it
-20CA38  var   unused_view_value_2       u16         # init_stage_view writes 30; nothing reads it
-20CA3A  var   unused_view_value_3       u8          # init_stage_view clears it; nothing reads it
+20CA36  var   debug_sprite_x       u16         # init_stage_view writes 30; the unused debug sprite mover (debug_sprite_mover_update) moves it and prints it
+20CA38  var   debug_sprite_y       u16         # init_stage_view writes 30; the unused debug sprite mover (debug_sprite_mover_update) moves it and prints it
+20CA3A  var   debug_sprite_spawned       u8          # init_stage_view clears it; the unused spawn_debug_sprite_mover spawns its mover only while it is 0, and adds 1
 20E42A  var   unused_scroll_offset      s16         # init_stage_view writes FFF6 (neg.h #A); nothing reads it
 20E42E  var   unused_scroll_flag        u8          # start_stage_view sets 1, init_stage_view clears it right after; nothing reads it
 20E544  var   unused_group_spawn_word   u16         # spawn_object_groups_2 clears it at its stage set-up; nothing else
@@ -3570,7 +3575,7 @@ D00005  io  irq_control_5          u8    # init_system clears it with the other 
 20F0A6  var   unused_group_spawn_word_3 u16         # spawn_object_groups_2's stage set-up writes 1; nothing reads it
 20F0A9  var   unused_game_byte          u8          # run_game_mode (twice) and start_stage clear it; nothing reads it
 20F0E9  var   unused_player_start_byte  u8          # player_start writes 3; nothing reads it
-20F405  var   unused_coin_byte          u8          # attract_warning clears it (between shared_coin_counter and coin_counter_1_on); nothing reads it
+20F405  var   unused_coin_byte          u8          # attract_warning clears it (between shared_coin_counter and coin_counter_1_on); only the unused set_port_d_bit_3_if_sound_allowed reads it
 20F03E  var   credit_text_position      u32         # draw_credit_count_now stores the text map address it draws at (R11); nothing reads it
 20F104  var   sprite_jump_init          u16         # init_sprites writes A400 (the entry 1 jump of sprite_buffer_swaps' second half); nothing reads it
 20E514  var   camera_map_direction      u16         # compute_camera_ground_speed: angle(camera_velocity_x >> 8, camera_velocity_y >> 8), the camera's direction on the screen plane; nothing reads it
@@ -3665,7 +3670,7 @@ D00005  io  irq_control_5          u8    # init_system clears it with the other 
 20E5AA  var   group_slot_index          u16         # the group_slots entry taken (members' field 8A)
 20E5EF  var   stage_03_floor_block_falls_1 u8       # stage_03_floor_block_falls[1]: spiked_roller_sink_and_jump sets FF when it lands
 20E5F2  var   per_player_view_mode      u8          # only cleared (start_stage): while set the player code skips find_floor and projects with project_object_2, which from scroll_position A5F0 uses each player's own_view_y (player DE) instead of view_y; shadow_update too. Never set
-20E5F4  var   sign_stop_flag            u8          # sign_show_until_20e5f4 (never run) removes its sign once it is set; nothing writes it
+20E5F4  var   sign_stop_flag            u8          # sign_show_until_gate_closed (never run) removes its sign once it is set; only the unused exit gate (exit_gate_start, exit_gate_update) writes it
 20E5F5  var   players_pulled            u8          # while set check_scene_states puts every player (not falling: 6/8/9) into state 26 (pulled toward scene_object); handle_rod_wait sets 1, handle_rod_start_swing clears it; run_game_mode clears it with a 16-bit store that also clears the low byte of moving_floor_object
 20E5FA  var   scroll_drift_block        u32 rom     # compute_scroll_drift: the floor block (address) the drift was computed for
 20E5FE  var   scroll_drift_vx           u32         # camera_velocity_x it was computed for
@@ -3824,7 +3829,7 @@ field player 39 unused_hud_byte u8          # player_hud_init clears it
 field player 58 unused_hud_word u16         # player_hud_init writes FFFF (16-bit)
 field player 11A unused_reset_word u16      # player_reset clears it
 field player 11C unused_jump_byte u8        # state 4 (jump) start clears it
-field player 12C unused_hud_word_2 u16      # player_hud_init writes FFFF
+field player 12C stage_rings_shown u16      # player_hud_init writes FFFF; the unused draw_player_stage_rings keeps the stage_rings it last drew here
 field player 136 unused_start_byte u8       # player_start clears it
 field player B3 unused_reset_byte u8        # player_reset writes 78
 
@@ -8650,3 +8655,1686 @@ local update_coins 0FF806,0FF882,0FF89E r10 coin_credit_block  # the credit bloc
 local update_coins 0FF7AE r8 service_credits_added  # 0, then add_service_credit's count for each block: added to bookkeeping_service_credits
 local update_coins 0FF7F4 r9 coin_credits_added  # 0, then add_coin's count for each chute: added to bookkeeping_coin_credits
 local draw_credit_count_now entry,0FFDE2 r0 plural_cell  # print_text_here's last cell with its low byte set to 0x73 ('s'): written 4 bytes back, so CREDIT reads CREDITS from 2 credits on
+
+# ======== unused code (from build/naming/dead_1..5.txt) ========
+# Code nothing in the program reaches (no call, jump, table or stored pointer leads there): unused functions, decompiled like the rest
+08341F  data  data_08341F    # data that decodes as instructions into invalid ones: a table of 6-byte records
+09A65C  data  data_09A65C    # data that decodes as instructions into invalid ones: zeros after erase_formatted_text_skip_triple's last RSR
+09EDC1  data  data_09EDC1    # data that decodes as instructions into invalid ones: zeros and FF after three RSR
+09FEDD  data  data_09FEDD    # data that decodes as instructions into invalid ones: a table of halfwords
+
+# Unused code, work list 1 (001459-082DF2): names, parameters, locals, labels, variables and tables
+
+# ---- debug stage select shortcut ----
+001459  func  check_stage_select_buttons      # unused: service held (input_ports_active bit 0) and player 1's jump just pressed (inputs_pressed bit 16): game_mode 8 (mov.h), the debug stage select (game_mode_stage_select, right after it)
+
+# ---- returns nothing reaches: the rsr after a routine's tail jump ----
+003DF8  func  player_state_falling_off_edge_spare_return    # unused: a lone rsr after player_state_falling_off_edge's last jmp (queue_sprite_at_depth); player_state_over_edge follows
+00439A  func  player_state_dropping_spare_return            # unused: a lone rsr after player_state_dropping's jmp queue_sprite_at_previous_floor
+0046EC  func  player_state_falling_into_pit_spare_return    # unused: a lone rsr after player_state_falling_into_pit's jmp queue_sprite_at_depth; player_state_climbing follows
+005436  func  player_state_launched_spare_return            # unused: a lone rsr after player_state_launched's jmp queue_sprite_at_floor
+0059F9  func  player_state_hurt_spare_return                # unused: a lone rsr after player_state_hurt's jmp queue_sprite_at_base (player_hurt_get_up); player_hurt_recover follows
+006E2F  func  player_state_opening_scene_spare_return       # unused: a lone rsr after player_state_opening_scene's jmp queue_sprite_at_depth
+006E8D  func  shadow_update_spare_return                    # unused: a lone rsr after the opening scene shadow code at 006E30 (shadow_update jumps there in game mode 10) and its jmp queue_sprite_at_depth
+00FF9F  func  flame_machine_update_spare_return             # unused: a lone rsr after flame_machine_update's br spawn_flame_machine_wreck; flame_machine_remove follows
+014C59  func  eel_anchor_wait_explode_spare_return          # unused: a lone rsr after eel_anchor_wait_explode's last br; eel_head_move follows
+01DDC7  func  ending_eggman_fly_away_spare_return           # unused: a lone rsr after ending_eggman_fly_away's jmp delete_current_object
+01E6F6  func  carried_ring_spin_spare_return                # unused: a lone rsr after carried_ring_spin's br draw_child_shadow; scatter_rings_fixed follows
+082DF1  func  bouncing_fireball_update_spare_return         # unused: a lone rsr after bouncing_fireball_update's jmp into draw_child_shadow (01F007)
+0169C7  func  scroll_slowing_down_spare_branch           # unused: a lone br set_camera_velocity after scroll_slowing_down's jmp scroll_at_scroll_speed
+0169F7  func  scroll_speeding_up_spare_branch            # unused: a lone br set_camera_velocity after scroll_speeding_up's jmp advance_scroll_unless_ended
+
+# ---- 00 bytes (halt) that put the next routine at an even address ----
+005E23  data  player_state_out_of_game_padding  # a 00 byte (halt) after player_bouncing_end's rsr, aligning player_state_out_of_game (005E24): not code
+007499  data  player_stage_exit_stage_4_padding  # a 00 byte (halt) after player_state_you_failed's rsr, aligning player_stage_exit_stage_4 (00749A): not code
+007C09  data  player_state_scene_thrown_padding  # a 00 byte (halt) after player_state_stage_b_sequence's jmp queue_sprite, aligning player_state_scene_thrown (007C0A): not code
+0158E1  data  init_stage_view_padding         # a 00 byte (halt) after stepped_wall_draw's rsr, aligning init_stage_view (0158E2): not code
+01B403  data  init_nbg2_layer_padding         # a 00 byte (halt) after set_nbg1_scroll_to_camera's rsr, aligning init_nbg2_layer (01B404): not code
+
+# ---- player tumbling (state 20): an earlier knockback and the start code it shares with the live state ----
+0065E2  func  player_tumbling_knock_with_toucher_speed   # unused: speed_x/speed_y = the toucher's (R10) speed_x/speed_y x 2 (in place of the fixed 40000 by direction player_state_tumbling uses, whose br lands right after it), then player_tumbling_set_launch_speed
+0065F8  func  player_tumbling_set_launch_speed           # player_state_tumbling's tumbling start with a knockback (and the unused 0065E2): speed = 4000000, then player_tumbling_launch
+006601  func  player_tumbling_launch                     # the rest of the tumbling start (straight here when the toucher is kind 17): direction = the toucher's (100 on floor type D), face_movement_direction, the character's tumble animation, normal palette, hurt flash 3/3/off, the character's voice (3A/61/6E), spawn_tumble_effect, then player_tumbling_fly
+param player_tumbling_set_launch_speed R10 toucher       # player_state_tumbling's LINKED(touched_by): handed to player_tumbling_launch
+param player_tumbling_set_launch_speed R11 effect        # handed on to spawn_tumble_effect (its effect object)
+param player_tumbling_launch R10 toucher                 # the object that touched the player: its direction becomes the player's (unless floor type D)
+param player_tumbling_launch R11 effect                  # spawn_tumble_effect's effect
+local player_tumbling_knock_with_toucher_speed entry r10 toucher  # 34[R10]/38[R10]: the toucher's speed_x/speed_y (no caller: the C reads them as rom_000034/rom_000038 + 0)
+# skip player_tumbling_launch r1: play_sound's R1, passed on only
+# skip player_tumbling_launch r2: play_sound's R2, passed on only
+
+# ---- stage slots ----
+00A607  data  move_object_to_next_stage_slot_padding  # a 00 byte (halt) that aligns move_object_to_next_stage_slot: not code
+00A608  func  move_object_to_next_stage_slot  # unused: while next_stage_slot_request is set, moves the current object's x, y, z_int, previous_floor_z_int and previous_floor_block from this stage's link block to the next stage's (- stage_link_from_*, + stage_link_to_*), the object side of continue_to_next_stage_slot
+
+# ---- HUD ----
+00AD5C  func  draw_player_stage_rings          # unused: when stage_rings differs from player field 12C (stage_rings_shown, player_hud_init sets FFFF: the count shown), copies it there and draw_hex_2 (attribute 0) at 31 << 16 | hud_stage_rings_positions[player]
+113F44  table hud_stage_rings_positions u16    # [player] FB8C, FBA6, FBC0: text row 23, columns 6, 19, 32 (5 cells right of hud_text_positions_3p): where draw_player_stage_rings (unused) draws stage_rings in hex
+
+# ---- floor block lookups (earlier versions of find_floor's search) ----
+00C850  func  get_floor_z_at_point             # unused: finds the nearby_floor_blocks entry whose box (x min/max, y min/max) holds the point R7 = x, R8 = y (else no_floor_block) and hands back R9 = its height (+10) << 16 plus, on a slope (+13), (x or y - the box start) >> 16 x the floor_slopes factor (bit 1 = along x): find_floor's floor z for any point (the C keeps none of it: no caller reads R9/R10)
+00C887  code  get_floor_z_at_point_next_block  # get_floor_z_at_point: the point is outside this block: count down to the next nearby block, no_floor_block after the last
+local get_floor_z_at_point entry r7 x                    # the point's x (32-bit), compared with each block's x min/max
+local get_floor_z_at_point entry r8 y                    # the point's y
+local get_floor_z_at_point 00C864 r0 test_x              # copy of x the box tests use
+local get_floor_z_at_point 00C8A4 r0 slope               # the block's slope type (+13): 0 flat, else its floor_slopes record
+local get_floor_z_at_point 00C867 r1 test_y              # copy of y the box tests use
+local get_floor_z_at_point 00C855,00C88B,00C894 r10 block  # floor_blocks + 2, then the found block (+ its offset) or no_floor_block
+local get_floor_z_at_point 00C85D,00C86D r11 cursor      # walks nearby_floor_blocks (u16 block offsets)
+local get_floor_z_at_point 00C870 r12 bounds             # the block's box: x min, x max, y min, y max read in turn
+local get_floor_z_at_point 00C86D r2 block_offset        # the nearby entry: the block's offset from floor_blocks + 2
+local get_floor_z_at_point 00C85D,00C887 r6 blocks_left  # nearby_floor_block_count, counted down
+local get_floor_z_at_point 00C873 t2 x_min               # the block's x min
+local get_floor_z_at_point 00C878 t2 x_max               # its x max
+local get_floor_z_at_point 00C87D t2 y_min               # its y min
+00C8D9  func  find_floor_block_at_point        # unused: the same search for the point R8 = x, R9 = y: hands back R10 = the block holding it (floor_blocks + 2 + offset) or no_floor_block (dropped in the C: no caller)
+local find_floor_block_at_point entry r8 x               # the point's x
+local find_floor_block_at_point entry r9 y               # the point's y
+local find_floor_block_at_point 00C8ED r0 test_x         # copy of x the box tests use
+local find_floor_block_at_point 00C8F0 r1 test_y         # copy of y
+local find_floor_block_at_point 00C8DE r10 block         # floor_blocks + 2 (then the block, or no_floor_block)
+local find_floor_block_at_point 00C8E6,00C8F6 r11 cursor # walks nearby_floor_blocks
+local find_floor_block_at_point 00C8F9 r12 bounds        # the block's box read in turn
+local find_floor_block_at_point 00C8E6,00C910 r6 blocks_left  # nearby_floor_block_count, counted down
+local find_floor_block_at_point 00C8FC t2 x_min          # the block's x min
+local find_floor_block_at_point 00C901 t2 x_max          # its x max
+local find_floor_block_at_point 00C906 t2 y_min          # its y min
+00CAD7  func  get_floor_block_side_or_corner   # unused: as get_floor_block_side (just before it) for block offset R10 and point R11, R12, with the corners: outcode R0 (1 past x max, 2 before x min, 4 before y min, 8 past y max) and R3 = floor_block_side_codes[outcode] (the C keeps none of it: no caller)
+local get_floor_block_side_or_corner 00CADF r10 block    # the block offset handed in, + floor_blocks + 2: the block's box
+113E95  table floor_block_side_codes u8        # [outcode: 1 past x max, 2 before x min, 4 before y min, 8 past y max] 0 1 3 0 0 5 4 0 2 6 7: get_floor_block_side's sides (0 y min side or inside, 1 x max, 2 y max, 3 x min) and 4-7 the corners (get_floor_block_side_or_corner, unused)
+
+# ---- floor push ----
+00D9F6  func  add_push_to_player_motion        # unused: when push_x/push_y (read as one word) is not 0: polar_to_xy(heading_snapped, speed_int) + the push words, each >> 4; speed = sqrt(dx^2 + dy^2) << 12 (0 while speed_int < 0, at most 5000000), heading = angle_of_vector; then push_x/push_y cleared (32-bit stores at 94 and 96)
+local add_push_to_player_motion 00DA2B,00DA79 r0 sum_dx         # (the move's dx + push) >> 4; one C variable with sum_dx^2 + sum_dy^2 (square_root's value: the new speed comes back) and angle_of_vector's dx (the new heading comes back)
+local add_push_to_player_motion 00DA3C r1 sum_dy                # (the move's dy + push) >> 4
+local add_push_to_player_motion 00DA01 r5 angle                 # heading_snapped: polar_to_xy's angle (the move's dx comes back in it)
+local add_push_to_player_motion 00D9FD r6 length                # speed_int: polar_to_xy's length (the move's dy comes back in it)
+scoped global add_push_to_player_motion 20E500 push_motion_x s32  # the move's dx + the push word at 94, then >> 4 (sha): angle_of_vector's dx
+scoped global add_push_to_player_motion 20E504 push_motion_y s32  # the move's dy + the push word at 96, then >> 4 (32-bit, as scratch_1's AS32)
+
+# ---- sand rock ----
+012F7D  func  sand_rock_draw_piece             # unused: probably drew the rock's second part: R20 = the child (28) of R23, put at its screen x/y and queued at screen_y + 1F (the rock itself queues at + 14) (right after sand_rock_update)
+
+# ---- debug sprite mover (debug_sprite_x, debug_sprite_y, debug_sprite_spawned) ----
+016C1D  func  spawn_debug_sprite_mover         # unused: once (20CA3A debug_sprite_spawned is 0, then + 1) allocate_object_outside_loop with handler debug_sprite_mover_update
+016C3D  func  debug_sprite_mover_update        # unused: handler (only from spawn_debug_sprite_mover): sprite 8DB8, palette 130, layer 32 at 20CA36/20CA38 (debug_sprite_x, debug_sprite_y, init_stage_view sets them to 30); held 1P jump / 1P start (input_ports_active bits 16/4) move it right/left, 2P jump / bit 25 down/up, one pixel a frame; the two in hex at text cells (3,22) and (8,22)
+016D02  func  call_run_map_screen              # unused: jsr run_map_screen, rsr (between start_stage_view and run_stage_05_switch)
+
+# ---- "Scroll skip mode": a debug panel that moves the camera to a stage section ("POINT") ----
+01A797  data  run_scroll_skip_mode_padding    # a 00 byte (halt) that aligns run_scroll_skip_mode: not code
+01A798  func  run_scroll_skip_mode            # unused: closed (20902B scroll_skip_open 0): opens while service and 2P start are held (input_ports_active 21): last point = scroll_skip_last_points[stage], stage_start_section D (then capped), flags cleared, scroll_skip_print_panel; open: scroll_skip_draw_values, _next_point, _previous_point, _check_call, _check_exit every frame
+01A826  func  scroll_skip_next_point           # unused: "NEXT:1P JUMP": 1P jump (bit 16) pressed after a release (scroll_skip_next_armed): stage_start_section + 1, at most scroll_skip_last_point; nothing while both jumps are held
+01A87D  func  scroll_skip_previous_point       # unused: "BACK:2P JUMP": 2P jump (bit 24) after a release: stage_start_section - 1, not below 0
+01A8D0  func  scroll_skip_check_exit           # unused: "EXIT:2P START": 2P start (bit 5) after a release: closes the mode (20902B = 0) and scroll_skip_erase_panel; nothing while both starts are held
+01A918  func  scroll_skip_erase_panel          # unused: print_text_list(scroll_skip_blank_text)
+01A924  func  scroll_skip_check_call           # unused: "CALL:1P START": 1P start (bit 4) after a release: move_camera_to_start_section (the camera jumps to stage_start_section)
+01AAAE  func  index_stage_list_pair            # unused: R2 = [R2 + R5] + R3, R1 = [R1 + R5] + R3: two per-stage pointer lists indexed by stage (R5) and moved on by a section offset (R3), as load_camera_start_section (just before it) does inline with its offset tables (the C keeps none of it: no caller)
+01AACA  func  scroll_skip_x_position_cell      # unused: R11 = text cell (34,18), after "X POSITION  =0x" (scroll_skip_draw_values' value 0)
+01AAD2  func  scroll_skip_y_position_cell      # unused: R11 = text cell (34,19), after "Y POSITION  =0x" (value 1)
+01AADA  func  scroll_skip_total_cell           # unused: R11 = text cell (34,17), after "SCROLL TOTAL=0x" (value 2)
+01AAE2  func  scroll_skip_draw_values          # unused: one value a frame (scroll_skip_value_index 0-2): scroll_skip_value_lists[index] per-stage list, word of stage_start_section, draw_hex_4 (attribute 200) at its cell; after the third, stage_start_section in hex at (24,15) after "POINT" (attribute 600)
+01AB5D  func  scroll_skip_print_panel          # unused: print_text_list(scroll_skip_panel_text)
+01AB69  func  clear_bitmap_lower_half          # unused: bitmap_address 30E000 (row 70 at 8 bits per pixel, 200 bytes a row), 7000 halfwords from there cleared (rows 70-DF), bitmap layer on (video_layer_disable bit 5 cleared), bitmap_8bpp 1, window 0,0-13F,DF (and an unused mov.b #EE, R4)
+param scroll_skip_x_position_cell R11 text_position      # 31F944: where scroll_skip_draw_values draws value 0
+param scroll_skip_y_position_cell R11 text_position      # 31F9C4
+param scroll_skip_total_cell R11 text_position           # 31F8C4
+local scroll_skip_next_point 01A83C r2 held_buttons      # input_ports_active & (1P jump | 2P jump)
+local scroll_skip_previous_point 01A893 r2 held_buttons  # input_ports_active & (1P jump | 2P jump)
+local scroll_skip_check_exit 01A8E6 r2 held_buttons      # input_ports_active & (1P start | 2P start)
+local scroll_skip_check_call 01A93A r2 held_buttons      # input_ports_active & (1P start | 2P start)
+local scroll_skip_draw_values 01AB05 r0 value_list       # scroll_skip_value_lists[scroll_skip_value_index]: a per-stage offset table (stage_section_limits_x/_y, stage_section_ends)
+local scroll_skip_draw_values 01AAF5 r2 point            # stage_start_section: the word index in the stage's list
+local scroll_skip_draw_values 01AB23 r11 text_position   # the value's cell (scroll_skip_x_position_cell...): draw_hex_4's text_position
+01ABBA  data   scroll_skip_panel_text          # print_text_list records (cell, attribute 04, text): "Scroll skip mode" (row 13), "POINT" (15), "SCROLL TOTAL=0x" (17), "X POSITION  =0x" (18), "Y POSITION  =0x" (19), "NEXT:1P JUMP", "BACK:2P JUMP", "CALL:1P START", "EXIT:2P START" (21-24)
+01AC54  data   scroll_skip_blank_text          # the same nine cells in spaces: scroll_skip_erase_panel
+01AD04  table  scroll_skip_value_lists u32 rom # 18DFA, 18E20, 193E0 (stage_section_limits_x, stage_section_limits_y, stage_section_ends): X POSITION, Y POSITION, SCROLL TOTAL
+01AD10  table  scroll_skip_last_points u16     # [stage] 0B 0D 0D 23 16 23 23 23 23 46 46 23 0A 0A 0A 0A: the highest POINT (stage_start_section) the mode lets you pick
+209026  var   scroll_skip_value_index  u8      # which of the three values scroll_skip_draw_values draws this frame (0-2)
+209027  var   scroll_skip_next_armed   u8      # 1 while 1P jump is up: the next press steps the point (scroll_skip_next_point)
+209028  var   scroll_skip_back_armed   u8      # 1 while 2P jump is up (scroll_skip_previous_point)
+209029  var   scroll_skip_exit_armed   u8      # 1 while 2P start is up (scroll_skip_check_exit)
+20902A  var   scroll_skip_call_armed   u8      # 1 while 1P start is up (scroll_skip_check_call)
+20902C  var   scroll_skip_last_point   s16     # scroll_skip_last_points[stage]: stage_start_section's limit (compared signed)
+
+# ---- background layers ----
+01B08B  func  set_backdrop_color_19aa          # unused: backdrop_color = 19AA, a fourth case of load_palette_set_and_backdrop's stage switch that no stage's entry uses (they use 0, 200 and 6212)
+01B0F0  func  show_winners_dont_use_drugs_screen  # unused: init_nbg0_picture_screen, then winners_dont_use_drugs_script on page 0: the US "WINNERS DON'T USE DRUGS" screen with the FBI seal
+01B101  func  show_recycle_it_screen           # unused: init_nbg0_picture_screen, then recycle_it_script on page 0: the "RECYCLE IT, DON'T TRASH IT!" screen with the EPA seal
+172B46  data   winners_dont_use_drugs_script   # vram script: clears page 0, then rows of tiles 1900-197C (render, bank 1): the FBI seal over "WINNERS DON'T USE DRUGS" and the Director's name (show_winners_dont_use_drugs_screen, unused)
+172C25  data   recycle_it_script               # vram script: clears page 0, then tiles 1980-19F6 (render, bank 1): "RECYCLE IT, DON'T TRASH IT!" with the EPA seal and the Administrator's name (show_recycle_it_screen, unused)
+01B7B9  func  init_nbg3_layer_cleared_pages    # unused: a case of init_nbg3_layer no stage uses: the four scripts that clear tile pages 0A-0D (as init_nbg2_layer), NBG3 on them (nbg3_pages 0A0B0C0D), scroll 0, set_nbg3_page_5_flags
+01B83B  func  set_nbg3_pages_5_6               # unused: nbg3_pages 06060505, nbg3_scroll_x/_y 0: the end of init_nbg3_layer's stage 4 case again, without its scripts
+
+# ---- ending ----
+01C380  func  draw_ending_blast_frame_copy     # unused: the same code as draw_ending_blast_frame (01C3D4): sprite [R10], layer 6, zoom 100, palette 10B0, next frame every 6 frames
+local draw_ending_blast_frame_copy entry r10 frame_entry  # the frame list entry whose word is the sprite frame (no caller: the C reads address 0)
+
+# ---- gauge ring: a ring that flies from a player to his health gauge and adds 1 health ----
+01EB43  func  spawn_gauge_ring                 # unused: a ring (sprite 5E70, palette 8430, ring_animation, sound 7F) 20 above the current object (its parent; kind copied), speed_x so it reaches hud_gauge_positions_3p[player] x + 10 in 3C frames; handler gauge_ring_update
+01EC15  func  gauge_ring_update                # unused: handler: step 0 gauge_ring_rise, 1 gauge_ring_fall_into_gauge (the table has two entries), then animate and queue_sprite
+01EC33  func  gauge_ring_rise                  # unused: step 0: x += speed_x; direction += turn_speed: y = base_y - sine >> 8 (up to 40 higher); after hop_timer (1E) frames step 1, base_y = the gauge y (hud_gauge_positions_3p by kind), drop_height from the distance to it
+01EC9D  func  gauge_ring_fall_into_gauge       # unused: step 1: x += speed_x; y = base_y + sine x drop_height (down onto the gauge's y), sprite_scale - 8 a frame; at 0 the parent's health + 1 and removed
+scoped object gauge_ring 3C turn_speed u16     # 88: added to direction (24) every frame, the angle of the sine arc
+scoped object gauge_ring 3E base_y u16         # the arc's base: the start screen y, then the gauge's y (hud_gauge_positions_3p +2)
+scoped object gauge_ring 54 hop_timer s8       # 1E frames of rising (dec.b, bgt)
+scoped object gauge_ring 55 step u8            # gauge_ring_update's table: 0 rising, 1 falling into the gauge
+scoped object gauge_ring 58 drop_height s32    # -((gauge y - screen y) << 2): times the sine (4000 = 1.0) it is the drop in 16.16
+local gauge_ring_rise 01EC80 r0 gauge_y        # hud_gauge_positions_3p_y [kind]: the gauge's y, the new base_y
+113F12  table  hud_gauge_positions_3p_y u16    # hud_gauge_positions_3p + 2: the y (C7) of each [player x 2] pair; gauge_ring_rise (unused) reads it by kind (x 4)
+local gauge_ring_rise 01EC60 r1 y              # base_y - sine >> 8: y_int and screen_y
+# skip spawn_gauge_ring r1: play_sound's R1 leftover
+# skip spawn_gauge_ring r2: play_sound's R2 leftover
+# skip gauge_ring_update r1: animate's frame, passed to queue_sprite only
+# skip gauge_ring_update r7: animate's result, unused
+# skip gauge_ring_update r8: animate's result, unused
+
+# ---- stage object templates spawned at a point (earlier versions of spawn_ring_rows' spawn) ----
+01ECFA  func  spawn_stage_template_0           # unused: when pool 2 has a block, stage_object_templates[0] (the spinning ring) at x R5, y R6, z R7, scroll_position in 7E, project_object, find_floor, and a pool 2 shadow child (5D90, palette 9FFE, unscaled); current_object kept
+01EDD4  func  spawn_stage_template             # unused: the same with template R0 (stage_object_templates + R0 x 1A)
+local spawn_stage_template_0 entry r5 x        # the spawn x (x_int), kept in template_spawn_x
+local spawn_stage_template_0 entry r6 y        # the spawn y
+local spawn_stage_template_0 entry r7 z        # the spawn z (z_int)
+# skip spawn_stage_template_0 r0: project_object/find_floor's R0, passed on only
+# skip spawn_stage_template_0 r1: project_object/find_floor's R1, passed on only
+local spawn_stage_template entry r5 x          # the spawn x
+local spawn_stage_template entry r6 y          # the spawn y
+local spawn_stage_template entry r7 z          # the spawn z
+local spawn_stage_template entry r0 template_index  # the stage_object_templates record (x 1A), kept in template_spawn_index
+local spawn_stage_template 01EE0C r12 template_cursor  # walks the template record into the new object
+# skip spawn_stage_template r0: project_object/find_floor's R0 (the C variable after template_index), passed on only
+# skip spawn_stage_template r1: project_object/find_floor's R1, passed on only
+scoped global spawn_stage_template 20F0EA template_spawn_x u16      # R5 kept across allocate_object: the new object's x_int
+scoped global spawn_stage_template 20F0EC template_spawn_y u16      # R6: its y_int
+scoped global spawn_stage_template 20F0EE template_spawn_z u16      # R7: its z_int
+scoped global spawn_stage_template 20F0F0 template_spawn_index u16  # R0: the template (spawn_stage_template only)
+01F4D4  table  stage_template_0_sprite_frame u16     # stage_object_templates[0] +2: 5E70 (spawn_stage_template_0 reads the first record field by field)
+01F4D6  table  stage_template_0_sprite_palette u16   # +4: 8430
+01F4D8  table  stage_template_0_hitbox_size u16      # +6: 10 (hitbox_size_x)
+01F4DC  table  stage_template_0_animation_speed u8   # +A: 2
+01F4DD  table  stage_template_0_animation_timer u8   # +B: 0
+01F4DE  table  stage_template_0_animation_frame u8   # +C: 0
+01F4DF  table  stage_template_0_kind u8              # +D: 3 (ring)
+01F4E0  table  stage_template_0_animation u32 rom    # +E: ring_animation (01F56E)
+01F4E4  table  stage_template_0_handler u32 rom      # +12: ring_spin
+01F4E8  table  stage_template_0_offset_x u8          # +16: 4 (sprite_offset_x)
+01F4E9  table  stage_template_0_offset_y u8          # +17: 1 (sprite_offset_y)
+01F4EA  table  stage_template_0_hitbox_height u16    # +18: 20
+
+# ---- shadows ----
+01EEF0  func  create_child_shadow_unscaled     # unused: as create_child_shadow, but unscaled (sprite_flags 1000), palette 9FFE (the shadow colour) and R19 as the scratch register
+01EF27  func  create_child_shadow_9ffe         # unused: create_child_shadow (scaled by R8) with palette 9FFE (the shadow colour) instead of 87A0
+local create_child_shadow_unscaled 01EEF7 r19 owner      # the current object: its child (28) gets the shadow
+local create_child_shadow_unscaled entry r11 shadow      # allocate_object_2's block: the shadow
+local create_child_shadow_9ffe entry r11 shadow          # allocate_object_2's block: the shadow
+local create_child_shadow_9ffe entry r8 scale            # the shadow's sprite_scale
+
+01F06D  func  is_floor_block_off_screen        # unused: R8 = 0 when the object's floor block (5C, low half) is in nearby_floor_blocks (the blocks near the screen), FFFFFFFF when not (dropped in the C: no caller) (before is_off_screen and in its style)
+local is_floor_block_off_screen 01F075,01F080 r10 cursor       # walks nearby_floor_blocks
+local is_floor_block_off_screen 01F075,01F083 r7 blocks_left   # nearby_floor_block_count, counted down (dbne)
+local is_floor_block_off_screen 01F080 t2 listed_block         # the nearby entry compared with floor_block
+
+# ---- catapults ----
+080EC1  func  catapult_y_start_on_floor        # unused: catapult_y_start set up at once on the floor: rides_platform 0, flags 0, template 1A, catapult_wait_for_platform_setup
+080ED4  func  catapult_x_start_on_floor        # unused: the same with template 0 (catapult_x_start's)
+080EE1  func  catapult_wait_for_platform_setup # catapult_wait_for_platform once it stands on a platform (and the unused _start_on_floor two): object_pair_templates + R3: handler, animation, offsets, launch_kind; floor, anchor, launch_position, kind 5 / state 4 or the launch kind; the base part and, with a delay, the dummy part
+param catapult_wait_for_platform_setup R3 template_offset  # the object_pair_templates record: 0 (x) or 1A (y), what catapult_x_start/y_start leave in state (34)
+local catapult_y_start_on_floor 080EC1 r3 template_offset  # 1A: the y catapult's record
+local catapult_x_start_on_floor 080EDE r3 template_offset  # 0: the x catapult's record
+# skip catapult_wait_for_platform_setup r0: find_floor's R0, passed on only
+
+# ---- bouncing fireball ----
+082DF2  func  bouncing_fireball_knocked_away   # unused: right after bouncing_fireball_update, probably the fireball's: speed_z -80000, direction and speed of the toucher (6A) with the direction turned 80 either way (by bit 0 of the copied speed_int), set_speed_from_direction; handler knocked_object_fly (flies off with gravity, removed with its shadow off screen)
+local bouncing_fireball_knocked_away 082DFE r10 toucher        # LINKED(touched_by): its direction and speed are copied
+local bouncing_fireball_knocked_away 082E0E,082E1A r0 turn     # 80, or -80 when the copied speed_int is odd: added to the direction
+
+# Unused code 082E37-099530 (dead_work_2): names, parameters, locals, scoped fields and data.
+
+# ---- 082E37: the handler bouncing_fireball_knocked_away (dead_work_1) installs
+082E37  func  knocked_object_fly                # unused: handler set by bouncing_fireball_knocked_away (speed_z -80000, direction = what touched it (6A) +-80 by bit 0 of its speed_int, its speed, set_speed_from_direction): gravity 6000, moves by speed_x/y/z with no floor test, animate + queue_sprite; once is_off_screen frees its pool 2 child (28) and is removed. Same tail as bouncing_fireball_update next to it: probably an object knocked flying by whatever touched it
+# skip knocked_object_fly r1: project_object's and animate's R1 handed to queue_sprite, which sets its own depth
+# skip knocked_object_fly r7: animate's wrapped flag, never read
+
+# ---- 0843BF: a lone rsr
+0843BF  func  draw_opening_machine_shadow_spare_return  # unused: a lone rsr right after draw_opening_machine_shadow's tail jump (jmp queue_sprite_at_depth), before player_pacer_start
+
+# ---- 084D8D-084E0B: signs at a fixed screen position (the screen-space twin of sign_start/spawn_sign/place_sign/sign_show)
+084D8D  func  screen_sign_start                 # unused: like sign_start, for a stage list object: its x_int/y_int become the sign's screen x/y and its field 04 the kind, then place_screen_sign on itself
+084D9E  func  spawn_screen_sign                 # unused: allocate_object_outside_loop, then place_screen_sign (R5 screen x, R6 screen y, R7 kind); as spawn_sign
+084DAA  func  spawn_screen_sign_2               # unused: the same with allocate_object (as spawn_sign_2)
+084DB4  func  place_screen_sign                 # unused: screen_x/screen_y from R5/R6; screen_sign_kinds[R7] (6-byte records): sprite, duration (speed_x_fraction), animate_sign palette list offset from 08514D (80); flags 1000, handler screen_sign_show, palette index 0, delay 4, timer 0. No project_object: the position stays a screen position
+084E0B  func  screen_sign_show                  # unused: sign_show without update_screen_position: animate_sign, counts speed_x_fraction down, drawn on top (bucket 0); removed at 0
+param place_screen_sign R5 screen_x             # -> screen_x (0E)
+param place_screen_sign R6 screen_y             # -> screen_y (0C)
+param place_screen_sign R7 kind                 # index into screen_sign_kinds (x 6)
+param place_screen_sign R11 sign                # the object it sets up (allocate_object's, or the current object from screen_sign_start)
+# skip place_screen_sign r7: the parameter kind (param line); it becomes the screen_sign_kinds record pointer in the same C variable (a kind_record line at 084DC2 does not split it)
+# skip place_screen_sign r5: the parameter screen_x (param line)
+# skip place_screen_sign r6: the parameter screen_y (param line)
+# skip place_screen_sign r11: the parameter sign (param line)
+local screen_sign_start 084D99 r11 sign         # the current object (R20): place_screen_sign's sign
+local spawn_screen_sign 084D9E r11 sign         # allocate_object_outside_loop's object: place_screen_sign's sign
+local spawn_screen_sign_2 084DAA r11 sign       # allocate_object's object: place_screen_sign's sign
+scoped object screen_sign 80 palette_list u32 rom  # as animate_sign 80: 08514D + the screen_sign_kinds record's offset (place_screen_sign)
+scoped object screen_sign 84 palette_index u8   # as animate_sign 84: 0 at the start
+scoped object screen_sign 85 palette_delay u8   # as animate_sign 85: 4
+scoped object screen_sign 86 palette_timer u8   # as animate_sign 86: 0 at the start
+084FA9  data  screen_sign_kinds                 # place_screen_sign: 6-byte records (sprite, duration, animate_sign list offset from 08514D): 0 = 6378 B4 0E, 1 = 6318 12C 18; record 2 on is object_kinds (084FB5) read with the wrong stride, record 0 overlaps floor_sign_sprites[1]
+
+# ---- 084E25-084E67: a sign standing on the floor
+084E25  func  floor_sign_start                  # unused: a stage list object: sprite floor_sign_sprites[field 04] (6350/6378, among the sign sprites 6308-63A0), palette 8450 (the sign palettes' 84xx bank), flags 1004, on its floor (find_floor, z = floor_z), handler floor_sign_update
+084E67  func  floor_sign_update                 # unused: drawn (update_screen_position, queue_sprite) until check_left_screen, then removed
+084FA7  table floor_sign_sprites u16            # floor_sign_start: [field 04] = sprite: 6350, 6378 (the next words are screen_sign_kinds)
+# skip floor_sign_start r0: find_floor's R0, never read
+# skip floor_sign_update r1: update_screen_position's R1 handed to queue_sprite, which sets its own depth
+
+# ---- 0853BA-085428: something that drops behind the players at a stage exit
+0853BA  func  exit_gate_start                   # unused: sprite 6520 palette 86A0 (flags 1005) hung E0 above its floor, speed_z 0, handler exit_gate_update; clears sign_stop_flag and spawn_sign_2 kind 8 (sprite 6330, "IN" and an arrow, handler sign_show_until_gate_closed) at 942,10E0, z floor - 50. Placed after stage_03_end_pillar_show: probably a gate that closes the way once every player is in
+085428  func  exit_gate_update                  # unused: removed while map_screen_active; while above its floor and the u32 at players_finished is 00FFFFFF (the three players finished, goal_unlocked still 0) it falls (gravity 6000); on landing z = floor_z, sign_stop_flag = FF (the IN sign goes) and sound 20; drawn with queue_sprite
+# skip exit_gate_start r0: find_floor's R0, never read
+local exit_gate_start 085421 r11 sign           # spawn_sign_2's sign (before it, find_floor's cursor handed in as it)
+# skip exit_gate_update r1: play_sound's and update_screen_position's R1 handed to queue_sprite
+# skip exit_gate_update r2: play_sound's R2, never read
+
+# ---- 085482-0856CE: what the spiked roller's ram charges (state 4, roller_ram_hit) were meant to break
+085482  func  ram_target_start                  # unused: sprite 6A58 palette 91A0 flags 1045, kind (47) 21 (solid, like C), box 30 x 10 offset D0/E0, height 28, direction 300, ram_target_animation, damage script ram_target_damage_script, on its floor; handler ram_target_update
+08551D  func  ram_target_update                 # unused: health 7F (players cannot break it); removed by check_left_screen_margin(40); appear_state FF once screen_x >= 50, then ram_target_draw ("test.b 80; br 085596": the branch skips ram_target_check_hits)
+085556  func  ram_target_check_hits             # unused: the part of ram_target_update its br skips: on a roller_ram_hit frame (the roller's ram charge) hit_count + 1; at each damage script threshold the next animation (085E8D + offset); at the 4th hit ram_target_burst; then ram_target_draw
+085596  func  ram_target_draw                   # unused: while appear_state is set the animation plays once (at_last_step: appear_state 1, frame FF = stopped); appear_state 1-7F: add_to_zone_list (solid); drawn at depth screen_y - sprite_offset_y + 10 (- 30 before it appears)
+0855EC  func  ram_target_burst                  # unused: ram_target_debris_count rock_debris_fly pieces (ram_target_debris records: sprite flags, dx, dy from its screen position, speed x/y, animation offset into ram_target_debris_animations), palette 8240, zoom 100
+085678  func  ram_target_part_start             # unused: variant = field 04; part list ram_target_part_list_2 (variant 0) or ram_target_part_list_3, flags D006 (multi-part sprite), offsets 2/1, on its floor; handler ram_target_part_update
+0856CE  func  ram_target_part_update            # unused: on roller_ram_hit frames while chaser_object's y <= its y + 60, hit_count + 1; at 4 variant 0 becomes sprite 6A88 (palette 11B0, flags 1049, offsets 2/E7), the others are removed; removed by check_left_screen_margin(88); depth screen_y - 28
+param ram_target_burst R11 piece                # the caller's value is not used: each allocate_object_outside_loop object, the last one at the end
+# skip ram_target_start r0: find_floor's R0, never read
+local ram_target_check_hits 085574 r10 script_record  # damage_script + 2: the record's animation offset; + 2 again is the next record, stored back
+local ram_target_check_hits 08557A r11 animation  # ram_target_damage_script + the record's offset: the new animation (48), then ram_target_burst's unused R11
+local ram_target_draw 0855D6,0855E1 r1 depth    # screen_y - sprite_offset_y + 10 (- 30 while appear_state is 0): queue_sprite_at_depth's depth
+# skip ram_target_draw r7: animate's wrapped flag, never read
+local ram_target_draw 0855A1 r8 at_last_step    # animate's at_last_step: the appearing animation is over (appear_state 1, frame FF)
+local ram_target_burst 0855FC r11 piece         # each allocate_object_outside_loop object: a rock_debris_fly piece
+local ram_target_burst 0855F9,085606,08560F,085618,08561D,085622,085627 r12 piece_record  # walks ram_target_debris: flags, dx, dy, speed x, speed y, animation offset
+local ram_target_burst 0855F9,085673 r8 pieces_left  # ram_target_debris_count (4), one piece per pass
+# skip ram_target_part_start r0: find_floor's R0, never read
+local ram_target_part_start 08567F,08568B r10 part_list  # ram_target_part_list_2 or _3 by variant: stored in part_list (04)
+local ram_target_part_update 08571E r1 margin   # 88: check_left_screen_margin's margin (then update_screen_position's unread R1)
+scoped object ram_target 80 appear_state s8     # 0 until screen_x >= 50 (ram_target_update), FF while the appearing animation plays, 1 after it (then solid: add_to_zone_list for 1-7F, tested signed)
+scoped object ram_target 82 variant u16         # ram_target_part: field 04 at the start: 0 = two-part list, turns into sprite 6A88 after 4 hits; else three parts, removed after 4 hits
+scoped object ram_target 84 hit_count s8        # roller_ram_hit frames counted (compared signed with the damage script thresholds and with 4)
+scoped object ram_target 86 damage_script u32 rom  # ram_target_damage_script (movea.b to 86): the next (threshold, animation offset) record
+085E53  data  ram_target_part_list_2            # part list: 2 parts of sprite 6A80 (flags 1041, palette 91B0) at (0,0) and (-20,10)
+085E65  data  ram_target_part_list_3            # part list: 3 parts of 6A80 at (0,0), (-20,10), (-41,20)
+085E8D  data  ram_target_damage_script          # (hits, animation offset from here) words: (1,1C) (2,28) (3,34) (4,40), 7F ends: animations 6A70/6A78, 83B0/83C0, 83A8/83C8, 83B8
+085E9F  data  ram_target_animation              # last step 3: 6A58 6A60 6A68 6A70, played once when it appears
+085ED3  table ram_target_debris_count u16       # 4 (ram_target_burst)
+085ED5  table ram_target_debris u16             # 4 x 6 words: sprite flags 1000, dx, dy, speed x, speed y (12.4), animation offset into ram_target_debris_animations
+085F05  data  ram_target_debris_animations      # four animations (+0, +E, +1A, +22): sprites 6AA8-6B10
+
+# ---- 08C56E-08C61E: an object drawn twice, the copy between two clip entries
+08C56E  func  clipped_copy_sprite_start         # unused: sprite 7058 palette 5050 flags 4 zoom 100 on its floor; with a free object and two pool 2 blocks: a take_free_object copy of its first 50 bytes in palette bank 8000 (| 8000, & 9FFF) kept in copy_object (80), and two 5000 clip entries (frame E0, zoom 140) chained as its child and grandchild; handler clipped_copy_sprite_update. As icicle_buried_part_draw (copy in another palette bank between two clip entries)
+08C61E  func  clipped_copy_sprite_update        # unused: until check_left_screen (then the copy is pushed back, the clip blocks freed, removed): draw_depth = its floor's screen y; queues the second clip entry, itself, the first clip entry with the screen y of the point 60 above its floor (point_to_screen) in its low 12 flag bits, then the copy at its screen position, all at draw_depth
+local clipped_copy_sprite_start 08C5B2 r11 copy # take_free_object's block: the copy (palette bank 8000), kept in copy_object; before it find_floor's cursor
+local clipped_copy_sprite_start 08C5CF,08C610 r8 clips_left  # 2 clip entries (allocate_object_2 blocks)
+# skip clipped_copy_sprite_start r0: find_floor's R0, never read
+# skip clipped_copy_sprite_update r1: update_screen_position's R1, never read
+# skip clipped_copy_sprite_update r7: point_to_screen's screen x, never read
+# skip clipped_copy_sprite_update r8: check_left_screen's off_screen, then point_to_screen's screen y of the clip line (& FFF into the first clip entry's flags); naming the two (08C61E, 08C6A0) still gives one C variable with the first name, so it stays r8
+scoped object clipped_copy_sprite 80 copy_object u16 object  # the take_free_object copy (not in the list): placed at its screen position and queued by clipped_copy_sprite_update, pushed back at the end
+scoped object clipped_copy_sprite 88 draw_depth u16  # (projected_y + floor_z) >> 16 - view_y every frame: the depth of all four sprites
+
+# ---- 08DE53-08DEEB: object list helpers
+08DE53  func  unlink_child_chain                # unused: from the object in R0 along its child links (28): each child = FFFF, until one is already FFFF
+local unlink_child_chain 08DE68 r0 object       # the object whose child link is cut (R0 at the start, then each next one; the C reads its 28 as ROM because nothing passes R0)
+local unlink_child_chain 08DE53 r1 next_child   # the object's child (28), the next one to cut
+08DEE5  func  clear_object_speeds               # unused: R12 = 2, R11 = the current object, into init_object_fields_tail: only speed_x/y/z are cleared
+08DEEB  func  init_object_fields_tail           # init_object_fields from 34 on: speed_x/y/z = 0, then (mode not 2) z and every field up to 9C; also entered by clear_object_speeds
+param init_object_fields_tail R11 object        # as init_object_fields
+param init_object_fields_tail R12 mode          # as init_object_fields: 2 (clear_object_speeds) stops after the speeds
+# skip init_object_fields_tail r11: the parameter object (param line)
+# skip init_object_fields_tail r12: the parameter mode (param line)
+local clear_object_speeds 08DEE8 r11 object     # the current object (R20): init_object_fields_tail's object
+local clear_object_speeds 08DEE5 r12 mode       # 2: init_object_fields_tail clears only the speeds
+
+# ---- 08E457: a third explosion size
+08E457  func  explode_object_medium             # unused: explosion frames F-1F (between the small one at 08E43B, 0-F, and explode_object's 1F-2B), palette 82A0, handler explosion_animate; but it falls into explode_object (no branch past its stores), which sets 1F-2B and 86D0 again
+
+# ---- 090F48-09110A: a lone rsr and leftovers of a wall editor (debug menu texts "Pattern Add/Sub", "Number Add/Sub", "Oku"/"Temae", "Exit", "Pattern No.", "Data No." at 090C7A, after wall_kinds)
+090F48  func  wall_update_spare_return          # unused: a second rsr right after wall_update's own (090F47), before check_wall_left_screen
+090FDE  func  wall_editor_set_side_label        # unused: copies 12 characters into wall_editor_side_text: "Oku" (far) when the wall's depth_from_next (37) is set, else "Temae" (near)
+090FF9  func  wall_editor_draw_arrow            # unused: up to 7 arrows (sprite 6388, the arrow sign; flags 1004, palette 8230) in static 80-byte slots from 209602 (wall_editor_arrow_count): x = R6, y = R7 (16.16), on the floor (find_floor), riding object_cursor's platform when it has flag 4 or 3; project_object and drawn on top (bucket 0) at once. Nothing resets the count. Probably a debugging aid of the wall editor (it sits among its routines)
+091079  func  wall_editor_draw_arrow_at_z       # unused: the same with z = R8 instead of the floor
+0910F1  func  wall_editor_draw_pattern_number   # unused: the wall's kind (sprite_frame field: wall_kinds offset / 14) with draw_hex_2 at column 12 row 18, right after the menu's "Pattern No." (text cell F902)
+09110A  func  wall_editor_rebuild_parts         # unused: frees the wall's chain of pool 2 parts (child links, walked with R18) and builds them again with build_wall_parts (after a pattern change)
+local wall_editor_set_side_label 090FDE,090FE8 r11 label_text  # wall_editor_far_label or wall_editor_near_label: the 12 characters copied
+local wall_editor_draw_arrow 090FFE,091001,09100B r0 marker_number  # wall_editor_arrow_count + 1 (no arrow from 8 on), then - 1: the slot index (x 80)
+local wall_editor_draw_arrow 090FF9,091012 r11 marker  # &wall_editor_arrow_count, then the arrow's slot (209602 + index x 80), the current object while it is placed
+local wall_editor_draw_arrow entry r6 marker_x  # R6 at the start (no caller): the arrow's x (16.16, -> 4C)
+local wall_editor_draw_arrow entry r7 marker_y  # R7 at the start: the arrow's y (-> 50)
+local wall_editor_draw_arrow_at_z 09107E,091081,09108B r0 marker_number  # as wall_editor_draw_arrow
+local wall_editor_draw_arrow_at_z 091079,091092 r11 marker  # as wall_editor_draw_arrow
+local wall_editor_draw_arrow_at_z entry r6 marker_x  # R6 at the start: x (-> 4C)
+local wall_editor_draw_arrow_at_z entry r7 marker_y  # R7 at the start: y (-> 50)
+local wall_editor_draw_arrow_at_z entry r8 marker_z  # R8 at the start: z (-> 40)
+# skip wall_editor_rebuild_parts r2: free_object_2's R2 handed to build_wall_parts (its part_size only on the other path)
+scoped object wall_editor 37 depth_from_next u8  # as wall_update 37 (the same wall object): set shows "Oku", clear "Temae"
+090CBD  data  wall_editor_far_label             # "Oku" and 9 spaces (12 characters): the menu text at 090C7A + 43 (its fifth item)
+090CD2  data  wall_editor_near_label            # "Temae" and 7 spaces: the alternative text of that item
+209600  var   wall_editor_arrow_count s16       # wall_editor_draw_arrow(_at_z): arrows drawn, + 1 each (none from 8, compared signed); the slots follow at 209602 (80 bytes each); nothing else uses it
+20DA43  var   wall_editor_side_text u8          # 12 characters wall_editor_set_side_label copies: probably the Oku/Temae item of a RAM copy of the menu text 090C7A at 20DA00 (090CBD - 090C7A = 43); nothing else uses it
+
+# ---- 091EBF-091EC5: the lava column turning into a bubble
+091EBF  func  lava_column_land_in_place         # unused: lava_column_land with base_x offset 0 instead of 40: the bubble at the column's own x
+091EC5  func  lava_column_become_bubble         # the tail of lava_column_land (and lava_column_land_in_place): base_x += x_int, base_y = y_int, z 540, flags 1004, palette D000, bubble_animation, handler bubble_near_parent_update, project_object
+
+# ---- 094753-0947D6: rocks that fall and bounce
+094753  func  spawn_falling_rocks               # unused: falling_rock_count objects from falling_rocks: x, y, z (whole), speed x/y (<< C), animation (rock_debris_animations); palette 8240, flags 1000; handler falling_rock_bounce
+0947D6  func  falling_rock_bounce               # unused: until flag 400: moves, gravity 6000; on the floor speed_z = -(speed_z / 2) while that is over 20000, else flag 400 (stays); animate; drawn (queue_sprite) until check_left_screen
+local spawn_falling_rocks 094758,0947D1 r16 rocks_left  # falling_rock_count (8), one object per pass
+local spawn_falling_rocks 094758,094765,09476F,094779,0947A4,0947AE,0947CC r17 rock_record  # walks falling_rocks: x, y, z, speed x, speed y, animation
+local falling_rock_bounce 094810 r0 bounce_speed  # speed_z >> 1 on landing: -it is the new speed_z while over 20000 (before it, find_floor's R0)
+# skip falling_rock_bounce r1: find_floor's, animate's and project_object's R1 handed to queue_sprite
+# skip falling_rock_bounce r7: animate's wrapped flag, never read
+# skip falling_rock_bounce r8: animate's at_last_step, never read
+0956A8  table falling_rock_count u16            # 8 (spawn_falling_rocks)
+0956AA  data  falling_rocks                     # 14-byte records: x, y, z, speed x, speed y (<< C), animation (u32: rock_debris_animations +0/+A/+14); around x F40, y 900, z 3B0
+
+# ---- 094A48-094A7D: update_stage_05_event step 3 (Eggman's booth)
+094A48  func  stage_05_event_show_message_11    # unused: like step 3's message at scene_timer A, with message box kind 11 (sprite 65E8) at y 40 for 78 frames
+094A59  func  stage_05_event_show_message_12    # unused: the same with kind 12 (sprite 65F0) for 1E frames
+094A68  func  stage_05_event_show_message       # update_stage_05_event step 3 at scene_timer A: spawn_message_box(A0, R6, R7, R8) and sound 70, then stage_05_event_step_3_frame
+094A7D  func  stage_05_event_step_3_frame       # update_stage_05_event step 3: spawn_walls, check_hits, check_walls, check_platforms; scene_timer + 1, at A0 scene_step + 1 and scene_timer 0
+param stage_05_event_show_message R6 screen_y   # spawn_message_box's screen y (50; 40 in the unused entries)
+param stage_05_event_show_message R7 kind       # message_box_kinds index (10; 11 and 12 in the unused entries)
+param stage_05_event_show_message R8 frames     # spawn_message_box's frames (B4; 78, 1E); spawn_walls' point_y comes back in it
+param stage_05_event_show_message R9 z          # spawn_walls' R9 handed back
+param stage_05_event_show_message R10 platform  # check_platforms' R10 handed back
+param stage_05_event_show_message R11 box       # spawn_message_box's box (the caller's value is not used)
+param stage_05_event_step_3_frame R8 point_y    # spawn_walls' R8 handed back (as event_0c_second_quake)
+param stage_05_event_step_3_frame R9 z          # spawn_walls' R9 handed back
+param stage_05_event_step_3_frame R10 platform  # check_platforms' R10 handed back
+param stage_05_event_step_3_frame R11 wall      # handed to spawn_walls (its wall), then check_hits and check_platforms
+# skip stage_05_event_show_message r1: play_sound's R1, never read
+local stage_05_event_show_message 094A77 r10 platform  # stage_05_event_step_3_frame's platform, handed back
+# skip stage_05_event_show_message r11: the parameter box (param line)
+# skip stage_05_event_show_message r2: play_sound's R2 handed to stage_05_event_step_3_frame (spawn_walls' unnamed R2)
+# skip stage_05_event_show_message r4: check_hits' R4 handed back
+# skip stage_05_event_show_message r6: the parameter screen_y (param line)
+# skip stage_05_event_show_message r7: the parameter kind (param line)
+# skip stage_05_event_show_message r8: the parameter frames (param line)
+# skip stage_05_event_show_message r9: the parameter z (param line)
+# skip stage_05_event_step_3_frame r1: spawn_walls' and check_hits' R1 handed on (check_walls, check_platforms)
+local stage_05_event_step_3_frame 094A8F r10 platform  # check_platforms' R10, handed back
+# skip stage_05_event_step_3_frame r11: the parameter wall (param line)
+# skip stage_05_event_step_3_frame r2: spawn_walls' R2 handed on
+# skip stage_05_event_step_3_frame r3: check_hits' R3 handed to check_platforms
+# skip stage_05_event_step_3_frame r4: check_hits' R4 handed back
+# skip stage_05_event_step_3_frame r5: spawn_walls' R5 handed on
+# skip stage_05_event_step_3_frame r8: the parameter point_y (param line)
+# skip stage_05_event_step_3_frame r9: the parameter z (param line)
+# skip stage_05_event_show_message_11 r4: handed back by stage_05_event_show_message, never read
+local stage_05_event_show_message_11 094A52 r6 screen_y  # 40: the message box's screen y
+local stage_05_event_show_message_11 094A48 r7 kind  # 11: the message box kind
+local stage_05_event_show_message_11 094A4D r8 frames  # 78: the message box's frames
+# skip stage_05_event_show_message_11 r9: handed back, never read
+# skip stage_05_event_show_message_12 r4: handed back, never read
+local stage_05_event_show_message_12 094A63 r6 screen_y  # 40
+local stage_05_event_show_message_12 094A59 r7 kind  # 12
+local stage_05_event_show_message_12 094A5E r8 frames  # 1E
+# skip stage_05_event_show_message_12 r9: handed back, never read
+
+# ---- 0953CB-0953D5: message boxes
+0953CB  func  spawn_message_box_2               # unused: spawn_message_box with allocate_object instead of allocate_object_outside_loop (as spawn_sign_2)
+0953D5  func  place_message_box                 # the second half of spawn_message_box (and spawn_message_box_2): screen x/y, frames (34), message_box_kinds[R7]: sprite, palette, full width (36), height (18); flags 9000, width 0, handler message_box_show, the address word (08) from the sprite's frame record +6
+param place_message_box R5 screen_x             # as spawn_message_box
+param place_message_box R6 screen_y             # as spawn_message_box
+param place_message_box R7 kind                 # as spawn_message_box: message_box_kinds index
+param place_message_box R8 frames               # as spawn_message_box: -> speed_x_fraction (34)
+param place_message_box R11 box                 # the object it sets up
+# skip place_message_box r7: symbols.txt's "local spawn_message_box 0953E7,0953EE,0953F3 r7 kind_record" already names it (found by its instructions)
+# skip place_message_box r5: the parameter screen_x (param line)
+# skip place_message_box r6: the parameter screen_y (param line)
+# skip place_message_box r8: the parameter frames (param line)
+# skip place_message_box r11: the parameter box (param line)
+local spawn_message_box_2 0953CB r11 box        # allocate_object's object: place_message_box's box
+
+# ---- 0959EB-095D3B: map screen
+0959EB  func  run_map_screen_wait_for_wipe      # unused: a step of run_map_screen its jump table no longer lists: update_screen_wipe until the four edges are done (edges_done & F = F), then map_screen_step + 1
+local run_map_screen_wait_for_wipe 0959EB r5 edges_done  # update_screen_wipe's edges_done
+095D3B  func  map_screen_draw_flipping_icon     # unused: map_screen_update's step 4 drawing alone: sprite 65C8 palette 6C0 at 20,10, zoom 100, layer 0, flags 10A; blink_phase cycles 0-2, timer - 1; x flipped while timer bit 1 is set, else y flipped while blink_phase bit 1 is
+
+# ---- 0963CD-0964A1: the map's Eggman
+0963CD  func  map_eggman_draw_plain             # unused: sprite 5760 (the pose before the gestures), then draw_map_eggman
+096497  func  map_eggman_draw_plain_2           # unused: the same code again
+0964A1  func  draw_map_eggman                   # the tail of map_eggman_update's steps: palette 680, zoom 100, layer 1, at B7,DF, flags 107, queue_sprite_in_layer
+
+# ---- 0970D2-0983FD
+0970D2  func  title_emblem_animate_spare_return # unused: an rsr inside title_emblem_animate that "cmp.h #1E0, title_timer; br 0970D3" jumps over (probably a conditional return once)
+097E3E  func  init_title_cloud_block            # unused: the block in R11 gets zoom 80, layer 8, flags 0, palette D80 (title_clouds_1_drift sets its clouds' blocks the same way, zoom E0)
+local init_title_cloud_block entry r11 cloud    # R11 at the start (no caller): the pool 2 block it sets up
+0983FD  data  start_ring_tally_padding        # a 00 byte ("halt") that puts start_ring_tally at an even address; not code
+# skip start_ring_tally_padding r2: start_ring_tally's R2, never read
+098A76  func  ring_tally_player_3_update_spare_return  # unused: a lone rsr after ring_tally_player_3_update's tail jump to update_ring_tally_panel, before build_ring_tally_panel
+
+# ---- 099029-0991BB: system leftovers
+099029  func  pause_on_start_3                  # unused: when start 3 is pressed (inputs_pressed bit 7): debug_pause + 1, then wait_for_frame frames (attract_timer - 1 each, so it stands still) until start 3 is pressed again, debug_pause - 1
+0990D4  func  convert_from_bcd                  # unused: R0 = the 8 BCD digits of R0 as a binary number (x A + each nibble from the top); the C keeps only the digit loop, as nothing reads its R0
+local convert_from_bcd 0990D4,0990E9 r2 digits_left  # 8 digits
+09912D  func  convert_64_to_bcd                 # unused: the 64-bit R1:R0 in BCD: divided by A twice per byte into a 12-byte buffer under SP (filled backwards, zero padded), read back as R2:R1:R0 (rvbyt, most significant first, 24 digits); the C drops the final reads, as nothing uses them
+local convert_64_to_bcd entry r0 number_low     # R0 at the start (no caller): the number's low word, copied to value_low
+local convert_64_to_bcd entry r1 number_high    # R1 at the start: its high word, copied to value_high
+local convert_64_to_bcd 09913F,099148,099157,099160 r0 dividend  # the half being divided by A (divux); the low word at the start
+local convert_64_to_bcd 09913C,099154,09917B,099184 r1 remainder  # 0 before each divux, then the remainder: each decimal digit; the high word at the start
+local convert_64_to_bcd 09912D,09914E,099166 r2 value_low  # the number's low word (R0 at the start), divided by A for each digit
+local convert_64_to_bcd 099130,099145,09915D r3 value_high  # its high word (R1 at the start)
+local convert_64_to_bcd 099133,099172,099193,09919F r4 cursor  # SP, then each byte written backwards into the buffer
+local convert_64_to_bcd 099136,099177,099198,09919C,0991A2 r5 pairs_left  # A digit pairs at most, + 2 for the zero padding
+local convert_64_to_bcd 099151,09916C,099181,09918D r6 digit_pair  # two decimal digits packed (rot.b 4) into one byte
+0991BB  func  reset_objects_alt                 # unused: reset_objects with reset_object_pool_2_alt instead of reset_object_pool_2: reset_object_list, the pool, run_objects
+
+# ---- 099271-099335: the object list and pools
+099271  func  allocate_object_after_current     # unused: allocate_object, but linked right after the current object (R20) instead of at the end (last_object moves to it when R20 was last); object_count + 1
+local allocate_object_after_current 099271 r0 free_count  # the free stack's count: 0 = no free object
+local allocate_object_after_current 09927B r11 new_object  # the object popped from the free stack
+0992DD  func  delete_next_object                # unused: delete_object of the object after the current one (its next, 22)
+099335  func  reset_object_pool_2_alt           # unused: reset_object_pool_2 with 1D8 blocks of 34 bytes (205000-20AFE0) instead of FF of 30
+local reset_object_pool_2_alt 099335,09934A r0 block  # each block's address (205000 + 34 each), as reset_object_pool_2's block
+local reset_object_pool_2_alt 09933F,09934E r1 pool_blocks_left  # 1D8 blocks (also the stack's count)
+local reset_object_pool_2_alt 099344,099347 r3 stack_slot  # walks free_object_stack_2 from 20EA12
+
+# ---- 099408-09944F: 2-bit font expansion
+099408  func  expand_font_2bpp                  # unused: as expand_font with 2 bits per pixel: R1 characters of 8 words from R10 (8 pixels each), every pixel (0-3) + the colour R0 & F into a 4-bit pixel of the character at R11 (a long per row, rvbyt)
+local expand_font_2bpp 09941B,099424,09942A,099430,099436 r0 font_row  # one source word: 8 pixels of 2 bits, shifted out from the top
+local expand_font_2bpp 099418,09944A r1 rows_left  # the character count (R1) x 8
+local expand_font_2bpp 09941B r10 source        # the 2-bit rows (a word each), R10 at the start
+local expand_font_2bpp 099447 r11 dest          # the 4-bit characters, a long per row, R11 at the start
+local expand_font_2bpp 09941E,09943C r2 pairs_left  # 4 passes of two pixels per word
+local expand_font_2bpp 09940E r3 color_nibbles  # (R0 & F) x 11111111: the colour in every nibble, added to the row (the C folds R0 to 0)
+local expand_font_2bpp 099421,099427,09942D,099433,099439 r4 pixels  # the row's 8 pixels, one per nibble
+09944F  func  expand_font_2bpp_transparent      # unused: the same, but pixel 0 stays 0 (transparent): the colour is added only to the nibbles of set pixels
+local expand_font_2bpp_transparent 099462,099468,099482 r0 font_row  # as expand_font_2bpp (rotated 2 bits at a time)
+local expand_font_2bpp_transparent 09945F,0994AC r1 rows_left  # as expand_font_2bpp
+local expand_font_2bpp_transparent 099462 r10 source  # as expand_font_2bpp
+local expand_font_2bpp_transparent 0994A9 r11 dest  # as expand_font_2bpp
+local expand_font_2bpp_transparent 099465,09949C r2 pairs_left  # as expand_font_2bpp
+local expand_font_2bpp_transparent 099455 r3 color_nibbles  # as expand_font_2bpp
+local expand_font_2bpp_transparent 099471,099474,09948B,09948E,0994A6 r4 pixels  # the row's pixels, one per nibble; + color_nibbles, masked by opaque_mask
+local expand_font_2bpp_transparent 09947C,09947F,099496,099499,0994A0 r5 opaque_mask  # 1 in the nibble of each non-zero pixel (setf), x F: the nibbles the colour goes into
+local expand_font_2bpp_transparent 09946E,099488 r6 pixel  # one 2-bit pixel (rot.h 2, & 3)
+
+# ---- 09951D-099530: video set-up
+09951D  func  init_video_registers_layers_off   # unused: init_video_registers, then NBG0-3 off (video_layer_disable | F) and vblank_start_hook = empty_vblank_hook (no apply_video_registers: the register shadows never reach the chip)
+099530  func  empty_vblank_hook                 # unused: an rsr, the vblank_start_hook init_video_registers_layers_off installs (apply_video_registers follows it)
+
+# dead_3: names for the unused code 099616-09B312 (build/naming/dead_work_3.txt)
+
+# ---- text map: erase_text_list, print_formatted_text and its eraser ----
+# A formatted text: a position word (text map offset, 31F000 | word), an attribute byte, then runs of characters ending
+# in 0, each followed by a code byte that jumps through a table of 3-byte branches right after the run's loop (0996A7,
+# 099703, 099764 to print; 0997BC, 0997FD, 099841 to erase): 0 end; 3/6/9 next run at 1/2/3 cells per character;
+# C new attribute byte, same width; F/15/1B new position word and attribute byte at width 1/2/3; 12/18/1E new
+# attribute byte at width 1/2/3; 21 skip s8 cells, 24 skip s16 cells (same width). Width 2 writes cell, cell + 1;
+# width 3 cell, cell + 1, cell + 2 (a character drawn as 2 or 3 consecutive tiles). The eraser walks the same
+# records writing R0 (0) and skipping the attribute bytes; its tables have no entry 24 (it would land inside 21's code).
+099616  func  erase_text_list                        # unused: erase_text for each record until a 0 halfword (the same loop as print_text_list: "movea.b 99616[PC], [-SP]" returns to the test)
+09967F  func  print_formatted_text                   # unused: R10 formatted text (position word, attribute byte, runs and codes) printed at 31F000 | the word; see the comment above
+099686  func  formatted_text_position_single         # unused: code F: position word into R11's low half, then attribute byte, then a run at 1 cell per character
+099689  func  formatted_text_attribute_single        # unused: codes C (in the width 1 table) and 12: attribute byte into R0's high byte, then a run at 1 cell per character
+09968F  func  formatted_text_single                  # unused: a run at 1 cell per character (attribute << 8 | character) up to its 0, then the code byte through the table at 0996A7
+0996C8  func  formatted_text_skip_single             # unused: code 21 at width 1: R11 += s8 x 2, then the next run at width 1
+0996CB  func  formatted_text_skip_long_single        # unused: code 24 at width 1: R11 += s16 x 2, then the next run at width 1
+0996DD  func  formatted_text_position_double         # unused: code 15: position word, attribute byte, a run at 2 cells per character
+0996E0  func  formatted_text_attribute_double        # unused: codes C (in the width 2 table) and 18: attribute byte, a run at 2 cells per character
+0996E6  func  formatted_text_double                  # unused: a run at 2 cells per character (cell, cell + 1), then the code byte through the table at 099703
+099724  func  formatted_text_skip_double             # unused: code 21 at width 2: R11 += s8 x 2
+099727  func  formatted_text_skip_long_double        # unused: code 24 at width 2: R11 += s16 x 2
+099739  func  formatted_text_position_triple         # unused: code 1B: position word, attribute byte, a run at 3 cells per character
+09973C  func  formatted_text_attribute_triple        # unused: codes C (in the width 3 table) and 1E: attribute byte, a run at 3 cells per character
+099742  func  formatted_text_triple                  # unused: a run at 3 cells per character (cell, cell + 1, cell + 2), then the code byte through the table at 099764
+099785  func  formatted_text_skip_triple             # unused: code 21 at width 3: R11 += s8 x 2
+099788  func  formatted_text_skip_long_triple        # unused: code 24 at width 3: R11 += s16 x 2
+09979B  func  erase_formatted_text                   # unused: print_formatted_text's text erased: R0 = 0 written over every cell it covers (31F000 | the position word)
+0997A5  func  erase_formatted_text_position_single   # unused: code F erased: position word, the attribute byte skipped, a run at width 1
+0997A8  func  erase_formatted_text_attribute_single  # unused: codes C/12 erased: skips the attribute byte, a run at width 1
+0997AA  func  erase_formatted_text_single            # unused: R0 over 1 cell per character up to the run's 0, then the code byte through the table at 0997BC
+0997DD  func  erase_formatted_text_skip_single       # unused: code 21 erased at width 1: R11 += s8 x 2
+0997E6  func  erase_formatted_text_position_double   # unused: code 15 erased: position word, attribute skipped, a run at width 2
+0997E9  func  erase_formatted_text_attribute_double  # unused: codes C/18 erased: attribute skipped, a run at width 2
+0997EB  func  erase_formatted_text_double            # unused: R0 as a long (2 cells) per character, then the code byte through the table at 0997FD
+09981E  func  erase_formatted_text_skip_double       # unused: code 21 erased at width 2: R11 += s8 x 2
+099827  func  erase_formatted_text_position_triple   # unused: code 1B erased: position word, attribute skipped, a run at width 3
+09982A  func  erase_formatted_text_attribute_triple  # unused: codes C/1E erased: attribute skipped, a run at width 3
+09982C  func  erase_formatted_text_triple            # unused: R0 as a long and a halfword (3 cells) per character, then the code byte through the table at 099841
+099862  func  erase_formatted_text_skip_triple       # unused: code 21 erased at width 3: R11 += s8 x 2
+
+# ---- vram scripts: erase_vram_script ----
+09999A  func  erase_vram_script                      # unused: run_vram_script's loop writing R1 (0) instead of the tiles: bytes 00-7F and commands 86-A4 write 0 to the cells they would draw (data skipped), 80/83/A7 move dest and 98 clears pages as run_vram_script does (its own routines)
+0999E1  func  erase_vram_script_end                  # unused: command AA, "add.w #4, SP; rsr" returns from erase_vram_script (as vram_script_end)
+0999E5  func  erase_vram_script_fill                 # unused: commands 86, 89, 8C (fill, count up, count down): count byte, word skipped; count cells of R1
+0999F3  func  erase_vram_script_bytes                # unused: command 8F: count byte, high byte, count bytes skipped; count cells of R1
+099A03  func  erase_vram_script_words                # unused: commands 92, 95 (95's dictionary is not written): count byte, count words skipped; count cells of R1
+099A12  func  erase_vram_script_fill_down            # unused: command 9B: count byte, word skipped; count cells of R1 down a column (+40)
+099A24  func  erase_vram_script_fill_up              # unused: command A1: up a column (-40)
+099A36  func  erase_vram_script_fill_down_wide       # unused: command 9E: down a column of a 64-cell map (+80)
+099A49  func  erase_vram_script_repeat               # unused: command A4: R1 count times to the same cell
+
+# ---- digits ----
+099A67  func  draw_hex_6                             # unused: draw_hex_digits with 6 digits of R0 & FFFFFF (the entry between draw_hex_4 and draw_hex_8)
+099AAB  func  draw_bcd_4                             # unused: draw_bcd_digits with 4 digits of R0 & FFFF
+099AB3  func  draw_bcd_6                             # unused: draw_bcd_digits with 6 digits of R0 & FFFFFF
+099ABF  func  draw_bcd_8                             # unused: draw_bcd_digits with 8 digits
+099AC2  func  draw_bcd_digits                        # draw_credit_digits (2 digits) and the unused draw_bcd_4/6/8: R2 digits of R0 leftwards from R11 + 2 x R2, each nibble + 1 as the character with attribute R1, blanks (R0 = 0) once the rest is 0; the same loop as draw_hex_digits
+
+# ---- sprites ----
+09A127  func  queue_sprite_at_depth_offset           # unused: queue_sprite_at_depth's clamp of R1 + 10 (0-FE), bucket (FF - depth + R2) & FF: R2 buckets further back
+09A1B0  func  get_previous_floor_bucket              # unused: queue_sprite_at_previous_floor_2's first half: (projected_y + previous_floor_z) >> 16 - view_y + 10 clamped to 0-FE in R1, FF - it in R10; queues nothing
+09A229  func  cancel_sprite_buffer_swap              # unused: sprite_list_ready = 0, so swap_sprite_buffers skips the next swap
+09A230  func  load_sized_frame_address_at_row        # unused: sprite_scale (the address word of sized frames, flags 9xxx) = the frame record's word 3 + R0 x (word 0 >> 2, halved first unless sprite_flags bit 9, 8 bpp): the frame's graphics from row R0 down
+09A257  func  load_sized_frame_address               # unused: sprite_scale = the frame record's word 3 (sprite_frames | sprite_frame, + 6): the address word of a sized frame, as spawn_message_box loads it
+09A267  func  load_frame_size                        # unused: sprite_width = the frame record's word 0, sprite_height = its byte 2 (sized frames draw at this size)
+
+# ---- sound / port D ----
+09A593  func  set_port_d_bit_3_if_sound_allowed      # unused: port D bit 3 on when unused_coin_byte, game_in_progress or setting_advertise_sound is set (play_sound's own conditions, but for 20F405); init_sound clears the bit (probably a sound output line before bits 2-3 drove the moving seats)
+09A5AE  func  queue_coin_sound                       # unused: port D bit 3 on (as set_port_d_bit_3_if_sound_allowed), then queue_sound 7F (update_coins' coin sound)
+
+# ---- bitmap layer ----
+09A7A5  func  set_bitmap_clip                        # unused: R0-R3 (x1, y1, x2, y2) sorted into video_bitmap_clip_left/top/right/bottom (31FF80-86), video_layer_disable bit 15 on (clear_bitmap_layer clears it)
+09A7D0  func  draw_pixel                             # unused: color R2 at R0,R1 when inside bitmap_window (get_point_outcode's outcode 0): 8 bpp the byte at y x 200 + x, 4 bpp the low nibble (even x) or high nibble (odd x) at y x 100 + x / 2
+09A823  func  read_pixel                             # unused: R0 = the pixel at R0,R1 (8 bpp byte, 4 bpp nibble by x parity), or -1 outside bitmap_window
+09A9BB  func  draw_vertical_line_8bpp                # draw_vertical_span_8bpp with R2 = 200 (one 8 bpp row): draw_line's vertical lines (09A9A6 falls in) and draw_rect_outline's sides
+09ABB1  code  draw_vertical_span_4bpp_here           # draw_vertical_span_4bpp from R1 on (after it computes the address): nibble mask by R0's parity, R5 + 1 rows R10 apart; draw_rect_outline's 4 bpp sides too. A code line, not func: a func line here makes it an entry before the split of shared code, and draw_vertical_span_4bpp (5 instructions before it) is then copied into draw_line and fill_rect_unclipped instead of staying a function
+09ABF1  func  draw_dotted_line_8bpp                  # unused: draw_line's 8 bpp part (clipped the same way, step pairs at 09C4D2) writing every other pixel: horizontal +2, vertical +400, diagonal double steps, other lines skip a pixel between writes; R0 = -1 when nothing is drawn
+09AD15  func  draw_rect_outline                      # unused: the frame of R0,R1-R2,R3 in color R4: clip_rect_to_window, then by its R10 (edges still inside: 1 left, 2 right, 4 top, 8 bottom) a table of 16 cases of fill_span_8bpp rows and draw_vertical_line_8bpp columns; 4 bpp only handles a lone left or right edge (and passes R10 as the row step): unfinished
+09AE91  func  draw_rect_sides_8bpp                   # unused: draw_rect_outline's left and right edges: color R4 at R1 and R1 + R2, R3 + 1 rows (200 apart); R1 ends at the bottom-left pixel
+09AEB0  func  draw_rect_top_bottom_8bpp              # unused: draw_rect_outline's top and bottom edges: R2 + 1 bytes of color R4 at R1 and at R1 + R3 x 200 (long stores where it can, as fill_span_8bpp)
+09B187  func  fill_triangle                          # unused: the three points R0,R1 / R2,R3 / R4,R5 sorted by y, R19 = bitmap_draw_buffer (span records), R18 = bitmap_address, then fill_triangle_sorted (8 bpp, color R6)
+09B1C4  func  fill_triangle_sorted                   # unused: top, middle, bottom points: one row (fill_span_8bpp) when all share y, fill_flat_top_triangle when the top two do, else steps both edges in 16.16 (div.w slopes), one span record (address, length) per row, then fill_span_list
+09B27E  func  fill_flat_top_triangle                 # unused: top edge R0-R2 at row R1 down to R4 at R5 rows below: one span record per row, then fill_span_list
+09B30F  func  fill_span_list_from_r8                 # unused: R6 = R8 (fill_quad keeps its color in R8), then fill_span_list
+09B312  func  fill_span_list                         # unused: R1 span records from bitmap_draw_buffer (long address, halfword length; negative length: skipped) filled with color R6 (as fill_span_8bpp: odd first byte, 16-byte blocks, then 8/4/2/1)
+
+# ---- labels ----
+09B337  code  fill_span_list_aligned                 # fill_span_list: the span from an even address (after the odd first byte): blocks, then the 8/4/2/1-byte tail
+09B37A  code  fill_span_list_last_byte               # fill_span_list: the span's last odd byte
+
+# ---- data ----
+09C4D2  table line_direction_steps s16               # 4 pairs (row step, column step) by draw_line's direction_index (dy < 0: +1, dx < 0: +2): (200, 1), (-200, 1), (200, -1), (-200, -1); draw_line and draw_dotted_line_8bpp read the two words of a pair
+
+# ---- parameters ----
+param formatted_text_position_single R11 text_position     # 31xxxx: its low half replaced by the position word, then + 2 per cell
+param formatted_text_attribute_single R10 text             # the formatted text after the position word: attribute byte, run, code
+param formatted_text_attribute_single R11 text_position    # the text map cell the run starts at
+param formatted_text_single R0 cell                        # attribute << 8 | character, written to each cell
+param formatted_text_single R10 text                       # the run's characters, its 0 and the code byte; past them at the end
+param formatted_text_single R11 text_position              # + 2 per cell written
+param formatted_text_attribute_double R10 text             # as formatted_text_attribute_single
+param formatted_text_attribute_double R11 text_position
+param formatted_text_double R0 cell                        # attribute << 8 | character: cell and cell + 1 per character
+param formatted_text_double R10 text
+param formatted_text_double R11 text_position
+param formatted_text_attribute_triple R10 text
+param formatted_text_attribute_triple R11 text_position
+param formatted_text_triple R0 cell                        # cell, cell + 1, cell + 2 per character
+param formatted_text_triple R10 text
+param formatted_text_triple R11 text_position
+param erase_formatted_text_position_single R0 cell         # 0 (erase_formatted_text): written over the cells
+param erase_formatted_text_position_single R11 text_position
+param erase_formatted_text_attribute_single R0 cell
+param erase_formatted_text_attribute_single R10 text       # at the attribute byte, which it skips
+param erase_formatted_text_attribute_single R11 text_position
+param erase_formatted_text_single R0 cell                  # written to 1 cell per character
+param erase_formatted_text_single R10 text                 # only the count of characters matters, then the code byte
+param erase_formatted_text_single R11 text_position
+param erase_formatted_text_attribute_double R10 text
+param erase_formatted_text_attribute_double R11 text_position
+param erase_formatted_text_double R10 text
+param erase_formatted_text_double R11 text_position        # + 4 per character
+param erase_formatted_text_attribute_triple R10 text
+param erase_formatted_text_attribute_triple R11 text_position
+param erase_formatted_text_triple R10 text
+param erase_formatted_text_triple R11 text_position        # + 6 per character
+param erase_vram_script_fill R1 cell                       # 0 (erase_vram_script): written instead of the tiles
+param erase_vram_script_fill R10 script                    # the command's count byte and data, skipped
+param erase_vram_script_fill R11 dest                      # + 2 per cell
+param erase_vram_script_bytes R1 cell
+param erase_vram_script_bytes R10 script
+param erase_vram_script_bytes R11 dest
+param erase_vram_script_words R1 cell
+param erase_vram_script_words R10 script
+param erase_vram_script_words R11 dest
+param erase_vram_script_fill_down R1 cell
+param erase_vram_script_fill_down R10 script
+param erase_vram_script_fill_down R11 dest                 # + 40 per cell
+param erase_vram_script_fill_up R1 cell
+param erase_vram_script_fill_up R10 script
+param erase_vram_script_fill_up R11 dest                   # - 40 per cell
+param erase_vram_script_fill_down_wide R1 cell
+param erase_vram_script_fill_down_wide R10 script
+param erase_vram_script_fill_down_wide R11 dest            # + 80 per cell
+param erase_vram_script_repeat R1 cell
+param erase_vram_script_repeat R10 script
+param erase_vram_script_repeat R11 dest                    # unchanged: one cell written count times
+param draw_bcd_digits R0 value                             # shifted right 4 per digit; once it is 0 the remaining cells get it (blank)
+param draw_bcd_digits R1 attribute                         # high byte kept, low byte = nibble + 1
+param draw_bcd_digits R2 digit_count                       # 2 (draw_credit_digits), 4, 6 or 8: counted down
+param draw_bcd_digits R11 text_position                    # leftmost cell (it starts at the right end and comes back here)
+param draw_vertical_line_8bpp R1 pixel_address             # top pixel's byte; the last one written at the end
+param draw_vertical_line_8bpp R4 color                     # byte written to each row
+param draw_vertical_line_8bpp R5 length                    # rows after the first
+param draw_vertical_span_4bpp_here R0 start_x              # only bit 0: odd x writes the high nibble
+param draw_vertical_span_4bpp_here R1 pixel_address        # the byte of the top pixel; past the last one at the end
+param draw_vertical_span_4bpp_here R4 color                # low nibble, shifted up for odd x
+param draw_vertical_span_4bpp_here R5 length               # rows after the first; 0 at the end
+param draw_vertical_span_4bpp_here R10 row_step            # 100 or -100 (draw_vertical_span_4bpp); draw_rect_outline passes its table offset (3 or 6)
+param draw_rect_sides_8bpp R1 pixel_address                # the top-left corner's byte; the bottom-left one at the end
+param draw_rect_sides_8bpp R2 width                        # right - left: the right side is R1 + it
+param draw_rect_sides_8bpp R3 height                       # rows after the first
+param draw_rect_sides_8bpp R4 color                        # byte written
+param draw_rect_top_bottom_8bpp R1 pixel_address           # the top-left corner's byte; the top row's last byte at the end
+param draw_rect_top_bottom_8bpp R2 width                   # bytes after the first in each row
+param draw_rect_top_bottom_8bpp R3 height                  # the bottom row is R1 + it x 200
+param draw_rect_top_bottom_8bpp R4 color                   # replicated x 01010101 by draw_rect_outline for the long stores
+param fill_triangle_sorted R0 top_x                        # the topmost point's x; shifted to 16.16 and stepped down the left edge
+param fill_triangle_sorted R1 top_y                        # its y (the first span's row)
+param fill_triangle_sorted R2 middle_x                     # the middle point's x; becomes the left edge's 16.16 slope
+param fill_triangle_sorted R3 middle_y
+param fill_triangle_sorted R4 bottom_x                     # the lowest point's x; becomes the right edge's 16.16 slope
+param fill_triangle_sorted R5 bottom_y                     # becomes the row count of the lower part
+param fill_triangle_sorted R6 color                        # byte (fill_span_list replicates it)
+param fill_triangle_sorted R19 span_cursor                 # where the next span record goes (bitmap_draw_buffer)
+param fill_flat_top_triangle R0 left_x                     # the top edge's left end; 16.16 down the left edge
+param fill_flat_top_triangle R1 top_y                      # the top edge's row
+param fill_flat_top_triangle R2 right_x                    # the top edge's right end; 16.16 down the right edge
+param fill_flat_top_triangle R4 bottom_x                   # the bottom point's x; becomes the right edge's slope
+param fill_flat_top_triangle R5 height                     # rows below the top edge; + 1 spans, counted down
+param fill_flat_top_triangle R6 color
+param fill_flat_top_triangle R19 span_cursor
+param fill_span_list_from_r8 R1 span_count                 # span records to fill
+param fill_span_list R1 span_count                         # span records in bitmap_draw_buffer, counted down
+param fill_span_list R6 color                              # byte, replicated x 01010101
+
+# ---- locals ----
+local erase_text_list 09961A r10 text                     # erase_text's record cursor: each record in turn, a 0 halfword ends
+local print_formatted_text 09967F r11 text_position       # 31F000; formatted_text_position_single puts the position word in its low half
+local formatted_text_position_single 099686 r10 text      # the formatted text; past the position word
+local formatted_text_position_single 099686 r11 text_position  # 31xxxx | the position word
+local formatted_text_attribute_single 09968C r0 cell      # the attribute byte << 8
+local formatted_text_single 0996A0 r1 code               # the code byte after the run: offset into the table at 0996A7
+local formatted_text_single 099699 t1 next_char          # the next character: replaces the cell's low byte, 0 ends the run
+local formatted_text_skip_single 0996D4 r10 text         # past the s8
+local formatted_text_skip_single 0996D7 r11 text_position  # + s8 x 2
+local formatted_text_skip_long_single 0996CB r10 text    # past the s16
+local formatted_text_skip_long_single 0996CE r11 text_position  # + s16 x 2
+local formatted_text_position_double 0996DD r10 text
+local formatted_text_position_double 0996DD r11 text_position
+local formatted_text_attribute_double 0996E3 r0 cell
+local formatted_text_double 0996E6 r0 cell               # the cell with the run's first character, + 1 for the second cell
+local formatted_text_double 0996FC r1 code               # offset into the table at 099703
+local formatted_text_double 0996F5 t1 next_char
+local formatted_text_skip_double 099730 r10 text
+local formatted_text_skip_double 099733 r11 text_position
+local formatted_text_skip_long_double 099727 r10 text
+local formatted_text_skip_long_double 09972A r11 text_position
+local formatted_text_position_triple 099739 r10 text
+local formatted_text_position_triple 099739 r11 text_position
+local formatted_text_attribute_triple 09973F r0 cell
+local formatted_text_triple 099742 r0 cell               # the cell with the run's first character, + 1 and + 2 for the next cells
+local formatted_text_triple 09975D r1 code               # offset into the table at 099764
+local formatted_text_triple 099756 t1 next_char
+local formatted_text_skip_triple 099791 r10 text
+local formatted_text_skip_triple 099794 r11 text_position
+local formatted_text_skip_long_triple 099788 r10 text
+local formatted_text_skip_long_triple 09978B r11 text_position
+local erase_formatted_text 0997A2 r0 cell                # 0: written over every cell
+local erase_formatted_text 09979B r11 text_position      # 31F000; the position word goes in its low half
+local erase_formatted_text_position_single 0997A5 r10 text
+local erase_formatted_text_position_single 0997A5 r11 text_position
+local erase_formatted_text_single 0997B5 r1 code         # offset into the table at 0997BC
+local erase_formatted_text_single 0997AA t1 first_char   # the run's first character: 0 = nothing to erase
+local erase_formatted_text_single 0997B1 t1 next_char    # each following character: 0 ends the run
+local erase_formatted_text_skip_single 0997DD r10 text
+local erase_formatted_text_skip_single 0997E0 r11 text_position
+local erase_formatted_text_position_double 0997E6 r10 text
+local erase_formatted_text_position_double 0997E6 r11 text_position
+local erase_formatted_text_double entry r0 cell          # written as a long (2 cells); erase_formatted_text's R0 (only its low half is set to 0)
+local erase_formatted_text_double 0997F6 r1 code         # offset into the table at 0997FD
+local erase_formatted_text_double 0997EB t1 first_char
+local erase_formatted_text_double 0997F2 t1 next_char
+local erase_formatted_text_skip_double 09981E r10 text
+local erase_formatted_text_skip_double 099821 r11 text_position
+local erase_formatted_text_position_triple 099827 r10 text
+local erase_formatted_text_position_triple 099827 r11 text_position
+local erase_formatted_text_triple entry r0 cell          # written as a long and a halfword (3 cells)
+local erase_formatted_text_triple 09983A r1 code         # offset into the table at 099841
+local erase_formatted_text_triple 09982C t1 first_char
+local erase_formatted_text_triple 099836 t1 next_char
+local erase_formatted_text_skip_triple 099862 r10 text
+local erase_formatted_text_skip_triple 099865 r11 text_position
+local erase_vram_script 09999D r0 script_code             # the script byte: 00-7F a cell, else & 7F = the command's table offset
+local erase_vram_script 09999A r1 cell                    # 0: written instead of every tile
+local erase_vram_script 09999D r10 script                 # the vram script, past each byte and command
+local erase_vram_script 0999B2 r11 dest                   # video RAM write position (command 80 sets it)
+local erase_vram_script_fill 0999E5 r0 count             # the command's count byte, counted down
+local erase_vram_script_bytes 0999F3 r0 count
+local erase_vram_script_words 099A03 r0 count
+local erase_vram_script_fill_down 099A12 r0 count
+local erase_vram_script_fill_up 099A24 r0 count
+local erase_vram_script_fill_down_wide 099A36 r0 count
+local erase_vram_script_repeat 099A49 r0 count
+local draw_bcd_4 099AAB r0 value                          # R0 & FFFF
+local draw_bcd_4 entry r1 attribute                       # draw_bcd_digits' attribute (the caller's high byte)
+local draw_bcd_4 entry r11 text_position
+local draw_bcd_4 099AAE r2 digit_count                    # 4
+local draw_bcd_6 099AB3 r0 value                          # R0 & FFFFFF
+local draw_bcd_6 entry r1 attribute
+local draw_bcd_6 entry r11 text_position
+local draw_bcd_6 099ABA r2 digit_count                    # 6
+local draw_bcd_8 entry r1 attribute
+local draw_bcd_8 entry r11 text_position
+local draw_bcd_8 099ABF r2 digit_count                    # 8
+local queue_sprite_at_depth_offset 09A155 r0 bucket_head  # sprite_buckets + ((FF - depth + bucket_offset) & FF) x 2
+local queue_sprite_at_depth_offset entry r1 depth         # the sprite's y; + 10, clamped to 0-FE
+local queue_sprite_at_depth_offset entry r2 bucket_offset # buckets added to FF - depth: the sprite goes that much further back
+local get_previous_floor_bucket 09A1C1 r1 floor_depth     # (projected_y + previous_floor_z) >> 16 - view_y + 10, clamped to 0-FE
+local load_sized_frame_address_at_row entry r0 row        # rows of the frame to skip
+local load_sized_frame_address_at_row 09A235 r1 frame_record  # sprite_frames | sprite_frame: the frame's 4-word record
+local load_sized_frame_address_at_row 09A239 r2 row_bytes # the record's word 0, halved for 4 bpp; >> 2 x row is added to the address word
+local load_frame_size 09A26C r0 frame_record              # sprite_frames | sprite_frame
+local set_port_d_bit_3_if_sound_allowed 09A5A5 t1 port_d_bits  # io_port_d before bit 3 is set
+local queue_coin_sound 09A5AE t1 port_d_bits              # io_port_d before bit 3 is set
+local set_bitmap_clip entry r0 left                       # sorted with right (smaller first) -> video_bitmap_clip_left
+local set_bitmap_clip entry r1 top                        # sorted with bottom -> video_bitmap_clip_top
+local set_bitmap_clip entry r2 right                      # -> video_bitmap_clip_right
+local set_bitmap_clip entry r3 bottom                     # -> video_bitmap_clip_bottom
+local set_bitmap_clip 09A7AA t1 old_left                  # left before it swaps with right
+local set_bitmap_clip 09A7B2 t1 old_top                   # top before it swaps with bottom
+local draw_pixel entry r0 x                               # the pixel's column (get_point_outcode tests it against bitmap_window)
+local draw_pixel 09A7F1 r0 keep_mask                      # 4 bpp: F0 (even x keeps the high nibble) or 0F (odd x)
+local draw_pixel entry r1 y                               # the pixel's row; 4 bpp: becomes its byte address (y x 100 + x / 2 + bitmap_address)
+local draw_pixel 09A7D7 r10 outcode                       # get_point_outcode's: not 0 = outside bitmap_window, nothing drawn
+local draw_pixel 09A80C r10 outcode
+local draw_pixel entry r2 color                           # byte (8 bpp) or low nibble (4 bpp)
+local draw_pixel 09A7F4 r2 nibble                         # color & F, shifted up for odd x
+local draw_pixel 09A7DF r3 saved_x                        # x kept for its parity
+local read_pixel entry r0 x                               # the pixel's column; the pixel (or -1 outside) at the end
+local read_pixel entry r1 y
+local read_pixel 09A82A r10 outcode
+local read_pixel 09A853 r10 outcode
+local draw_dotted_line_8bpp entry r0 start_x              # first end of the line (get_window_outcode/clip_line_to_window swap and clip the ends, as in draw_line)
+local draw_dotted_line_8bpp 09AC40 r0 step_record         # 9C4D2 + direction_index x 4: the two signed address steps for the line's direction
+local draw_dotted_line_8bpp 09AC49 r0 major_step          # the record's second step (swapped with minor_step when |dx| < |dy|): added for every pixel, written or skipped
+local draw_dotted_line_8bpp entry r1 start_y              # first end's y; the bitmap address of the dots after it
+local draw_dotted_line_8bpp 09ABF4 r11 end_outcode        # get_window_outcode's first result (the end point's)
+local draw_dotted_line_8bpp entry r2 end_x                # other end
+local draw_dotted_line_8bpp 09AC46 r2 minor_step          # the record's first step: added when the fraction carries; on a diagonal both steps, doubled
+local draw_dotted_line_8bpp 09ACF8 r2 row_step            # 400: two rows, for a vertical dotted line
+local draw_dotted_line_8bpp entry r3 end_y                # other end's y
+local draw_dotted_line_8bpp 09ACBE r3 span_end_copy       # movz.hw of end_x for a horizontal line
+local draw_dotted_line_8bpp 09ACC1 r3 span_length         # |end_x - start_x| + 1 (the address moves to the left end when the line runs left)
+local draw_dotted_line_8bpp 09ACCE r3 dots_left           # (span_length) / 2, at least 1: dots of a horizontal line, 2 bytes apart
+local draw_dotted_line_8bpp entry r4 color                # byte written to each dot
+local draw_dotted_line_8bpp 09AC11 r5 end_y_copy          # mov.w of end_y: sub.h turns it into dy
+local draw_dotted_line_8bpp 09AC14 r5 dy                  # |end_y - start_y|; after the swap with steps_left the shorter axis, then the 0.16 slope (div.w), or the dot count's base on a diagonal or vertical line
+local draw_dotted_line_8bpp 09AC9A r5 dot_count           # (dy + 1) / 2, at least 1: dots of a diagonal or vertical line
+local draw_dotted_line_8bpp 09ACFF r5 dot_count
+local draw_dotted_line_8bpp 09AC21 r6 end_x_copy          # mov.w of end_x: sub.h turns it into dx
+local draw_dotted_line_8bpp 09AC24 r6 steps_left          # |end_x - start_x|, swapped with dy when shorter: the longer axis; + 1 = steps, counted down two per dot
+local draw_dotted_line_8bpp 09AC0E r7 direction_index     # + 1 if dy < 0, + 2 if dx < 0: index of the step pairs at 09C4D2
+local draw_dotted_line_8bpp 09AC64 r7 fraction            # the 0.16 accumulator; its carry adds minor_step
+local draw_dotted_line_8bpp 09AC14 t2 end_y_16            # end_y (16 bits) for dy and its flags
+local draw_dotted_line_8bpp 09AC14 t3 dy_16               # end_y - start_y
+local draw_dotted_line_8bpp 09AC24 t2 end_x_16            # end_x (16 bits) for dx and its flags
+local draw_dotted_line_8bpp 09AC24 t3 dx_16               # end_x - start_x
+local draw_dotted_line_8bpp 09ACC1 t2 span_end_16         # end_x for the horizontal line's length
+local draw_dotted_line_8bpp 09ACCE t4 span_dots           # (span_length) >> 1 before the at-least-1 fix
+local draw_dotted_line_8bpp 09ACFF t4 column_dots         # (dy + 1) >> 1 of a vertical line
+local draw_dotted_line_8bpp 09AC9A t4 diagonal_dots       # (dy + 1) >> 1 of a diagonal
+local draw_dotted_line_8bpp 09AC53 t1 saved_step          # major_step kept while the steps swap (|dx| < |dy|)
+local draw_dotted_line_8bpp 09AC56 t1 saved_dy            # dy kept while the lengths swap
+local draw_rect_outline entry r0 left                     # clip_rect_to_window's left (sorted, clipped)
+local draw_rect_outline 09AE21 r0 top_left_address        # the top-left byte kept across draw_rect_sides_8bpp / draw_rect_top_bottom_8bpp
+local draw_rect_outline 09AE64 r0 top_left_address
+local draw_rect_outline 09AE84 r0 top_left_address
+local draw_rect_outline entry r1 top                      # clip_rect_to_window's top; becomes the top-left pixel's address
+local draw_rect_outline 09AE0B r1 column_address          # the top-left pixel again, for the left side after the top row
+local draw_rect_outline 09AE6A r1 column_address
+local draw_rect_outline 09AD2E r10 unclipped_edges        # clip_rect_to_window's (1 left, 2 right, 4 top, 8 bottom still inside), x 3: the offset into the case tables
+local draw_rect_outline entry r2 width                    # right from the caller (clipped), then right - left
+local draw_rect_outline entry r3 height                   # bottom from the caller (clipped), then bottom - top
+local draw_rect_outline entry r4 color                    # replicated x 01010101 (8 bpp) or x 11111111 (4 bpp)
+local draw_rect_outline 09AD62 r5 left_byte_offset        # 4 bpp: left / 2, the byte of the left column in its row
+local draw_rect_outline 09ADE3 r5 column_length           # height: the rows after the first of a side
+local draw_rect_outline 09ADED r5 column_length
+local draw_rect_outline 09AE02 r5 column_length
+local draw_rect_outline 09AE11 r5 column_length
+local draw_rect_outline 09AE30 r5 column_length
+local draw_rect_outline 09AE6D r5 column_length
+local draw_rect_outline 09AE7A r5 column_length
+local draw_rect_outline 09AE3C r5 right_side_length      # right and bottom edges only: height, the right side drawn up (row step -200) from the bottom row's end
+local draw_rect_outline 09ADFF r6 saved_top_left          # the top-left byte kept while fill_span_8bpp draws the top row
+local draw_rect_sides_8bpp 09AE91 r5 right_address        # pixel_address + width: the right side's byte, + 200 per row
+local draw_rect_sides_8bpp 09AE95 r6 row_step             # 200: one 8 bpp row
+local draw_rect_top_bottom_8bpp 09AEB6 r5 bottom_address  # pixel_address + height x 200: the bottom row's byte, advanced with it
+local draw_rect_top_bottom_8bpp 09AEB9 r6 bytes_left      # width (bytes after the first), less the odd first byte, + 1 = bytes to write
+local draw_rect_top_bottom_8bpp 09AED4 r6 longs_left      # bytes_left / 4: the long stores, counted down
+local draw_rect_top_bottom_8bpp 09AED1 r10 byte_count     # bytes_left (+ 1) before the division: its low 2 bits are the tail
+local draw_rect_top_bottom_8bpp 09AEE4 r10 tail_bytes     # byte_count & 3: one halfword and/or one byte after the longs
+local draw_rect_top_bottom_8bpp 09AEC7 t2 bytes_after_odd # bytes_left - 1 after the odd first byte (negative: done)
+local draw_rect_top_bottom_8bpp 09AED4 t4 long_count      # bytes_left >> 2
+local draw_rect_top_bottom_8bpp 09AEE4 t2 tail_count      # byte_count & 3
+local fill_triangle 09B18C t1 swap_x_12                   # point 1's x while points 1 and 2 swap (2 is higher)
+local fill_triangle 09B18F t1 swap_y_12
+local fill_triangle 09B197 t1 swap_x_13                   # point 1's x while points 1 and 3 swap
+local fill_triangle 09B19A t1 swap_y_13
+local fill_triangle 09B1A2 t1 swap_x_23                   # point 2's x while points 2 and 3 swap
+local fill_triangle 09B1A5 t1 swap_y_23
+local fill_triangle 09B1A8 r19 span_cursor                # bitmap_draw_buffer: fill_triangle_sorted writes a span record per row there
+local fill_triangle entry r0 top_x                        # point 1's x; after the sort (by y) the topmost point's, sign-extended
+local fill_triangle entry r1 top_y
+local fill_triangle entry r2 middle_x                     # point 2's x; after the sort the middle point's
+local fill_triangle entry r3 middle_y
+local fill_triangle entry r4 bottom_x                     # point 3's x; after the sort the lowest point's
+local fill_triangle entry r5 bottom_y
+local fill_triangle_sorted 09B309 r4 span_color           # one-row triangle: color for fill_span_8bpp
+local fill_triangle_sorted 09B215 r1 span_count           # bottom_y - top_y + 1: one span record per row, fill_span_list's count
+local fill_triangle_sorted 09B27B r0 left_x               # flat top: the smaller of top_x and middle_x
+local fill_triangle_sorted 09B27B r2 right_x              # flat top: the larger
+local fill_triangle_sorted 09B270 r5 height               # flat top: bottom_y - top_y, fill_flat_top_triangle's rows after the first
+local fill_triangle_sorted 09B1C4 r3 rows_left            # middle_y - top_y + 1: the upper part's rows, then the lower part's
+local fill_triangle_sorted 09B1ED r8 bottom_x_fixed       # bottom_x << 16: the slope of the edge from the middle point is computed to it
+local fill_triangle_sorted 09B1F6 r9 integer_shift        # -16: sha by it gives the integer x of a 16.16 x
+local fill_triangle_sorted 09B1DA r10 span_address        # bitmap address of the current row's left end (span records' address)
+local fill_triangle_sorted 09B227 r11 row_left_x          # integer x of the left edge on this row
+local fill_triangle_sorted 09B1E1 r13 previous_left_x     # the left edge's x on the row before (span_address moves by the difference)
+local fill_triangle_sorted 09B1FF r15 middle_on_right     # 1 when the top-middle edge is the right one (its slope is the larger): the right slope changes at the middle row
+local fill_triangle_sorted 09B20D r16 right_edge_x        # 16.16 x of the right edge, + its slope per row
+local fill_triangle_sorted 09B1C4 t2 saved_middle_y       # middle_y for the flat-top test
+local fill_triangle_sorted 09B270 t2 saved_bottom_y       # bottom_y for the one-row test
+local fill_triangle_sorted 09B2E7 t1 swap_x_12            # one row: the x being swapped while the three x's are sorted
+local fill_triangle_sorted 09B2EF t1 swap_x_13
+local fill_triangle_sorted 09B27B t1 swap_top_x           # flat top: top_x while it swaps with middle_x
+local fill_triangle_sorted 09B207 t1 swap_slope           # a slope while the two edges swap
+local fill_flat_top_triangle 09B2AC r1 span_count         # height + 1: fill_span_list's count
+local fill_flat_top_triangle 09B2A3 r3 left_slope         # (bottom_x - left_x) << 16 / rows: added to left_x per row
+local fill_flat_top_triangle 09B2A9 r9 integer_shift      # -16
+local fill_flat_top_triangle 09B284 r10 span_address      # bitmap address of the current row's left end
+local fill_flat_top_triangle 09B2BA r11 row_left_x        # integer x of the left edge on this row
+local fill_flat_top_triangle 09B28E r13 previous_left_x
+local fill_span_list_from_r8 09B30F r6 color              # R8's low byte
+local fill_span_list_from_r8 entry r8 polygon_color       # the color fill_quad keeps in R8 (no caller sets it in the C)
+local fill_span_list 09B339 r0 tail_bytes                 # the span's byte count & F: what is left after the 16-byte blocks (8, 4, then 2/1)
+local fill_span_list 09B36B r0 last_bytes                 # tail_bytes & 3: a halfword and/or a byte
+local fill_span_list 09B312 r10 span_record               # bitmap_draw_buffer, 6 bytes per record
+local fill_span_list 09B321 r11 pixel_address             # the record's address, advanced as it fills
+local fill_span_list 09B324 r3 length                     # the record's length (bytes after the first; negative: skipped), + 1 = bytes
+local fill_span_list 09B33C r3 blocks_left                # 16-byte blocks, counted down
+local fill_span_list 09B33C t4 block_count                # bytes >> 4
+local fill_span_list 09B36B t2 odd_bytes                  # tail_bytes & 3
+local fill_span_list 09B333 t2 length_after_odd           # length - 1 after the odd first byte (negative: done)
+
+# dead_work_4: 09B382-09BC7E, the unused part of the bitmap-layer drawing library (draw_line and fill_rect are the live part, used by test mode):
+# a filled quadrilateral, a circle drawn as 64 lines, a midpoint circle (4 and 8 bpp, clipped) and a scanline flood fill
+
+09B382  func  fill_quad                 # unused: fills the quadrilateral R0,R1 / R2,R3 / R4,R5 / R6,R7 (vertices in order round it, convex) with colour R8 on the 8 bpp bitmap layer: sorts the vertices by y (key y << 8 | vertex number), walks the left and right edges in 16.16 into the span list at 20B500 (bitmap address, length per row) and draws it with 09B30F; flat cases go to fill_span_8bpp (one row) or the triangle code 09B1C4/09B27E (three vertices on one row). Keeps the vertices on the stack (stack_pointer) to find the bottom vertex's neighbours
+09B963  func  draw_circle_polygon       # unused: circle of radius |R2| around R0,R1 in colour R3 as 64 points (8 steps of sine_table/cosine_table x radius >> 14, mirrored into 8 octants) at 20B500 (x, y pairs), then draw_line between them; buggy: two mirrored stores use displacements 7E[R13] and 7F[R11] (-82 and 7E fit), and the line loop steps the list 2 bytes at a time (x, y and y, next x as the ends), so it would not draw a circle
+09BA54  func  draw_circle               # unused: midpoint circle of radius |R2| around R0,R1 in colour R3, 8 points per step (plot_circle_point_4bpp/_8bpp by bitmap_8bpp); returns at once when the circle is wholly outside bitmap_window, and R18 (current_player in C) carries a 2-bit-per-point mask of the octants that need the window test (bit 1 draw unclipped, bit 0 test); the masks assume the points in order round the circle, but points 4, 6 and 7 are plotted in another order
+09BC03  func  plot_circle_point_4bpp    # unused (draw_circle): R18 << 1 twice: top bit = plot without the window test, next bit = plot if R0,R1 is inside bitmap_window (R14-R17); at 4 bpp: (y << 8) + (x >> 1) + R12, odd x into the high nibble (R2), even into the low (R3)
+09BC53  func  plot_circle_point_8bpp    # unused (draw_circle): the same at 8 bpp: byte R3 at (y << 9) + x + R12
+09BC7E  func  flood_fill                # unused: scanline flood fill from R0,R1 with colour R2 up to border colour R3, inside bitmap_window (nothing when the seed is outside or already R2/R3): 09BD99 fills the seed's span, then a ring queue of 26-byte span records at 20B500-20CCC3 (written through R23, read through R24, both pushed; object_cursor/last_object in C) is worked off with 09BF99 (rows above and below); the queue overlaps string_queue and the test variables at 20C800-20CA4F
+
+# fill_quad: the sorted vertices are top (r0,r1), second (r2,r3), third (r4,r5), bottom (r6,r7)
+local fill_quad entry r0 left_x                      # vertex 0's x; after the sort the top vertex's x; then the left edge's x (16.16, + slope per row); the leftmost x of a one-row quad
+local fill_quad entry r1 top_y                       # vertex 0's y (y << 8 | 0 while sorting); then the top row; in the flat-top cases the first row's bitmap address
+local fill_quad entry r2 second_x                    # vertex 1's x; after the sort the second-highest vertex's; then, by case, the right edge's x (16.16) or the slope towards that vertex
+local fill_quad entry r3 second_y                    # vertex 1's y (<< 8 | 1 while sorting); then its rows below the top + 1, counted down per row
+local fill_quad entry r4 third_x                     # vertex 2's x; after the sort the third vertex's; then a slope or that vertex's x in 16.16 (where an edge turns towards it)
+local fill_quad entry r5 third_y                     # vertex 2's y (<< 8 | 2 while sorting); then its rows below the top (+ 1)
+local fill_quad entry r6 bottom_x                    # vertex 3's x; after the sort the bottom vertex's (16.16: where the edges end)
+local fill_quad entry r7 bottom_y                    # vertex 3's y (<< 8 | 3 while sorting); then the rows from the top or from the third vertex to it
+local fill_quad entry r8 fill_color                  # pixel value: fill_span_8bpp's color, the triangle code's R6 and 09B30F's R8
+local fill_quad 09B408 r10 top_index                 # the top vertex's number (low byte of its sort key); swapped with second_index when the flat top's x are swapped
+local fill_quad 09B40B r11 second_index              # the second vertex's number
+local fill_quad 09B40E r12 third_index               # the third vertex's number
+local fill_quad 09B411 r13 bottom_index              # the bottom vertex's number: (bottom_index - top_index) & 3 == 2 says they are opposite corners (the other two on different sides)
+local fill_quad 09B423 r19 span_cursor               # 20B500 + 6 per row: bitmap address (u32) and length (u16) of each row's span
+local fill_quad 09B512 r9 pixel_shift                # 0xF0 (-16): 16.16 x to its pixel column (the same in every case)
+local fill_quad 09B57B r9 pixel_shift
+local fill_quad 09B69E r9 pixel_shift
+local fill_quad 09B7B7 r9 pixel_shift
+local fill_quad 09B88C r9 pixel_shift
+local fill_quad 09B4E6 r10 span_address              # bitmap address of the row's left end: + the left end's move + 200 per row; stored in the span list
+local fill_quad 09B58D r10 span_address
+local fill_quad 09B5F1 r10 span_address
+local fill_quad 09B67C r10 span_address
+local fill_quad 09B798 r10 span_address
+local fill_quad 09B89E r10 span_address
+local fill_quad 09B8EE r10 span_address
+local fill_quad 09B4ED r11 previous_left             # flat-top cases: the last row's left pixel column (the span address moves by the difference)
+local fill_quad 09B565 r11 previous_left
+local fill_quad 09B69B r11 right_x                   # top-vertex cases: the right edge's x (16.16), starting at the top vertex
+local fill_quad 09B7AB r11 right_x
+local fill_quad 09B880 r11 right_x
+local fill_quad 09B4F0 r12 right_column              # flat-top cases: the row's right pixel column (span length = right_column - previous_left)
+local fill_quad 09B568 r12 right_column
+local fill_quad 09B688 r12 prior_left                # top-vertex cases: the last row's left pixel column
+local fill_quad 09B7A1 r12 prior_left
+local fill_quad 09B86D r12 prior_left
+local fill_quad 09B532 r3 left_column                # flat-top cases: the new row's left pixel column (left_x >> 16)
+local fill_quad 09B5C4 r3 left_column
+local fill_quad 09B624 r3 left_column
+local fill_quad 09B6E1 r16 left_pixel                # top and bottom opposite: the new row's left pixel column
+local fill_quad 09B72C r16 left_pixel
+local fill_quad 09B764 r16 left_pixel
+local fill_quad 09B8BF r7 left_end                   # flat bottom: the new row's left pixel column
+local fill_quad 09B90F r7 left_end
+local fill_quad 09B517 r1 row_count                  # rows to draw: 09B30F's R1
+local fill_quad 09B5A3 r1 row_count
+local fill_quad 09B603 r1 row_count
+local fill_quad 09B685 r1 row_count
+local fill_quad 09B7BA r1 row_count
+local fill_quad 09B8A7 r1 row_count
+local fill_quad 09B8F1 r1 row_count
+local fill_quad 09B5A6 r15 segments_left             # 2: the edge with a bend is walked in two parts
+local fill_quad 09B606 r15 segments_left
+local fill_quad 09B6B6 r15 segments_left
+local fill_quad 09B88F r15 segments_left
+local fill_quad 09B7CC r15 bend_on_right             # top and bottom adjacent: 1 when the second and third vertices are on the right side (the right slope turns twice), 0 on the left
+local fill_quad 09B7D9 r16 edge_parts_left           # top and bottom adjacent: 3 parts of the bent side (2 when the second and third vertices share a row)
+local fill_quad 09B59C r16 single_edge_slope         # flat top: the slope (16.16 per row) of the side without a bend (top corner straight to the bottom)
+local fill_quad 09B600 r16 single_edge_slope
+local fill_quad 09B7C9 r17 right_side_slope          # top and bottom adjacent: first the slope to the bottom, after the compare the right edge's; recomputed at the right side's bends
+local fill_quad 09B6BF r2 left_slope                 # top and bottom opposite, second vertex on the right: the left edge's slope (towards the third vertex)
+local fill_quad 09B6BF r4 right_slope                # the right edge's slope (towards the second vertex, then the bottom)
+local fill_quad 09B6B3 r5 rows_after_second          # top and bottom opposite: rows from the second vertex to the bottom
+local fill_quad 09B7DF r5 next_part_rows             # top and bottom adjacent: rows of the bent side's next part
+local fill_quad 09B48B r0 bottom_vertex              # three vertices on the top row: the bottom vertex's (x, y) among the saved ones on the stack
+local fill_quad 09B488 r3 vertex_index               # (bottom_index & 3), + 1, + 2 more: the bottom vertex and its two neighbours; then the address of the last one's (x, y)
+local fill_quad 09B48F r4 apex_x                     # the bottom vertex's x: the triangle's tip (09B27E's R4)
+local fill_quad 09B492 r5 triangle_height            # the bottom vertex's y, - triangle_top_y: rows (09B27E's R5)
+local fill_quad 09B49E r2 triangle_right_x           # x of the bottom vertex's next neighbour; swapped with triangle_left_x when smaller
+local fill_quad 09B4C1 r2 triangle_right_x
+local fill_quad 09B4AB r0 triangle_left_x            # x of the bottom vertex's previous neighbour; the flat top's left end (09B27E's R0)
+local fill_quad 09B4C1 r0 triangle_left_x
+local fill_quad 09B4AE r1 triangle_top_y             # that neighbour's y: the triangle's top row
+local fill_quad 09B4B4 r6 triangle_color             # fill_color for 09B27E/09B1C4 (R6)
+local fill_quad 09B959 r6 triangle_color
+local fill_quad 09B956 r4 bottom_right_x             # three vertices on the bottom row: the larger of the third and bottom x (09B1C4's R4; the second vertex's x is left out)
+local fill_quad 09B3CB t1 swap_x_01                  # the sort: x of the first and second keys swapped
+local fill_quad 09B3CE t1 swap_key_01                # y << 8 | number of the first and second swapped
+local fill_quad 09B3D6 t1 swap_x_02
+local fill_quad 09B3D9 t1 swap_key_02
+local fill_quad 09B3E1 t1 swap_x_03
+local fill_quad 09B3E4 t1 swap_key_03
+local fill_quad 09B3EC t1 swap_x_12
+local fill_quad 09B3EF t1 swap_key_12
+local fill_quad 09B3F7 t1 swap_x_13
+local fill_quad 09B3FA t1 swap_key_13
+local fill_quad 09B402 t1 swap_x_23
+local fill_quad 09B405 t1 swap_key_23
+local fill_quad 09B550 t1 swap_top_x                 # flat top with two other rows: the two top x in order (and their numbers)
+local fill_quad 09B4D2 t1 swap_upper_x               # flat top and flat bottom: the top row's two x in order
+local fill_quad 09B4DA t1 swap_lower_x               # ... and the bottom row's
+local fill_quad 09B85D t1 swap_bottom_x              # flat bottom: the bottom row's two x in order (and their numbers)
+local fill_quad 09B4C1 t1 swap_triangle_x            # three on the top row: the neighbours' x in order
+local fill_quad 09B7D4 t1 swap_edge_slope            # top and bottom adjacent: the smaller slope goes left
+local fill_quad 09B6BF t1 swap_slope                 # top and bottom opposite: the smaller slope goes left
+local fill_quad 09B7DF t2 third_rows                 # third_y's rows before - second_y: equal = second and third on one row (the middle part is skipped)
+local fill_quad 09B71B t2 rows_after_left_bend       # rows_after_second before - bottom_y: 0 = the third vertex on the second's row
+local fill_quad 09B6D0 t2 rows_after_right_bend      # the same with the second vertex on the right
+
+# draw_circle_polygon
+local draw_circle_polygon entry r0 center_x          # the circle's centre x; in the line loop the low half becomes each line's start x (draw_line's R0)
+local draw_circle_polygon entry r1 center_y          # centre y; then each line's start y
+local draw_circle_polygon entry r2 radius            # made positive (neg.h when negative), x the sine and cosine
+local draw_circle_polygon entry r3 circle_color      # copied into draw_line's color
+local draw_circle_polygon 09B970 r8 angle            # 100000 + 200000 per step, rotated left 15: sine_table index 8, 18 ... 78 (the first octant's middles, 0x400 a turn); draw_line's R8 lands in it unread
+local draw_circle_polygon 09B977 r9 angle_step       # 200000: 16 sine_table entries
+local draw_circle_polygon 09B97B r10 sines           # sine_table (its + 0x200 bytes is cosine_table)
+local draw_circle_polygon 09B982 r19 points          # 20B500: the 64 (x, y) pairs
+local draw_circle_polygon 09B987 r11 point_cursor    # from 20B500 up, 4 a step: the first quadrant's points (and + 40, + 80, + C0: the other quadrants')
+local draw_circle_polygon 09B98A r13 mirror_cursor   # from 20B600 down, 4 a step: the points mirrored in each quadrant
+local draw_circle_polygon 09B98F r5 steps_left       # 8 points per octant
+local draw_circle_polygon 09B992 r12 sine_shift      # 0xF2 (-14): sine x radius >> 14 (0x4000 = 1.0)
+local draw_circle_polygon 09B995 r6 sine_entry       # the angle's sine_table entry address
+local draw_circle_polygon 09B9AD r3 cos_offset       # cosine x radius >> 14, then negated for the opposite points
+local draw_circle_polygon 09B9EB r3 sin_offset       # sine x radius >> 14, then negated
+local draw_circle_polygon 09B9B0 r7 coordinate       # centre + or - an offset: one x or y of the list
+local draw_circle_polygon 09B9BB r7 coordinate
+local draw_circle_polygon 09B9CB r7 coordinate
+local draw_circle_polygon 09B9D8 r7 coordinate
+local draw_circle_polygon 09B9EE r7 coordinate
+local draw_circle_polygon 09B9F9 r7 coordinate
+local draw_circle_polygon 09BA0A r7 coordinate
+local draw_circle_polygon 09BA16 r7 coordinate
+local draw_circle_polygon 09BA2B r15 x_cursor        # 20B500 + 2 per line: where the line's start x is read (the end x 2 further)
+local draw_circle_polygon 09BA28 r16 y_cursor        # 20B502 + 2 per line: start y (end y 2 further)
+local draw_circle_polygon 09BA2E r17 lines_left      # 3F lines, then the closing one from the first point
+
+# draw_circle
+local draw_circle entry r0 x                         # the centre's x (sign-extended into center_x)
+local draw_circle entry r1 y                         # the centre's y
+local draw_circle entry r2 radius                    # made positive; starts error and x_offset
+local draw_circle entry r3 color                     # 8 bpp: plot_circle_point_8bpp's byte; 4 bpp: split into low_color and high_color
+local draw_circle 09BA64 r10 center_x
+local draw_circle 09BA67 r11 center_y
+local draw_circle 09BA6A r12 bitmap_base             # bitmap_address: the layer's address of 0,0
+local draw_circle 09BA74 r15 window_top              # bitmap_window_top (left is R14)
+local draw_circle 09BA79 r16 window_right
+local draw_circle 09BA7E r17 window_bottom
+local draw_circle 09BA83 r13 octant_mask             # FFFF, cleared by the window tests: per point (in order round the circle) bit 1 = inside for sure, bit 0 = test it; copied into R18 every step
+local draw_circle 09BA86 r0 circle_right             # center_x + radius: left of the window = nothing to draw
+local draw_circle 09BAB1 r0 circle_bottom            # center_y + radius
+local draw_circle 09BA90 r1 minus_radius             # -radius
+local draw_circle 09BA93 r2 circle_left              # center_x - radius
+local draw_circle 09BABB r2 circle_top               # center_y - radius
+local draw_circle 09BA5B r5 error                    # midpoint decision: radius, - (2 y_offset + 1) per step; below 0: x_offset - 1 and + 2 x_offset
+local draw_circle 09BA5E r6 x_offset                 # starts at radius, down while the error goes negative; the loop ends when y_offset passes it
+local draw_circle 09BA61 r7 y_offset                 # 0, + 1 per step
+local draw_circle 09BB17 r8 minus_x_offset
+local draw_circle 09BB91 r8 minus_x_offset
+local draw_circle 09BB1A r9 minus_y_offset
+local draw_circle 09BB94 r9 minus_y_offset
+local draw_circle 09BB75 r0 error_step               # y_offset + (y_offset + 1): taken from the error
+local draw_circle 09BBEF r0 error_step
+local draw_circle 09BB1D r0 point_x                  # center_x +- x_offset or y_offset: the point plotted
+local draw_circle 09BB28 r0 point_x
+local draw_circle 09BB33 r0 point_x
+local draw_circle 09BB3E r0 point_x
+local draw_circle 09BB49 r0 point_x
+local draw_circle 09BB54 r0 point_x
+local draw_circle 09BB5F r0 point_x
+local draw_circle 09BB6A r0 point_x
+local draw_circle 09BB97 r0 point_x
+local draw_circle 09BBA2 r0 point_x
+local draw_circle 09BBAD r0 point_x
+local draw_circle 09BBB8 r0 point_x
+local draw_circle 09BBC3 r0 point_x
+local draw_circle 09BBCE r0 point_x
+local draw_circle 09BBD9 r0 point_x
+local draw_circle 09BBE4 r0 point_x
+local draw_circle 09BB21 r1 point_y                  # center_y +- y_offset or x_offset
+local draw_circle 09BB2C r1 point_y
+local draw_circle 09BB37 r1 point_y
+local draw_circle 09BB42 r1 point_y
+local draw_circle 09BB4D r1 point_y
+local draw_circle 09BB58 r1 point_y
+local draw_circle 09BB63 r1 point_y
+local draw_circle 09BB6E r1 point_y
+local draw_circle 09BB9B r1 point_y
+local draw_circle 09BBA6 r1 point_y
+local draw_circle 09BBB1 r1 point_y
+local draw_circle 09BBBC r1 point_y
+local draw_circle 09BBC7 r1 point_y
+local draw_circle 09BBD2 r1 point_y
+local draw_circle 09BBDD r1 point_y
+local draw_circle 09BBE8 r1 point_y
+local draw_circle 09BB06 r2 high_color               # 4 bpp: color << 3 (sic: shl.b #3, not 4) for odd x pixels (the high nibble)
+local draw_circle 09BB09 r3 low_color                # 4 bpp: color & F for even x pixels
+local draw_circle 09BB7B t2 error_before_4bpp        # error before the step is taken off (compared with error_step)
+local draw_circle 09BBF5 t2 error_before_8bpp
+
+# plot_circle_point_4bpp / plot_circle_point_8bpp
+param plot_circle_point_4bpp R0 point_x              # draw_circle's center_x +- an offset
+param plot_circle_point_4bpp R1 point_y              # then the byte's address: (y << 8) + (x >> 1) + bitmap_base
+param plot_circle_point_4bpp R2 high_color           # odd x: (byte & F) | high_color
+param plot_circle_point_4bpp R3 low_color            # even x: (byte & F0) | low_color
+param plot_circle_point_4bpp R12 bitmap_base         # bitmap_address
+param plot_circle_point_4bpp R15 window_top          # bitmap_window_top (R14 = left)
+param plot_circle_point_4bpp R16 window_right
+param plot_circle_point_4bpp R17 window_bottom
+local plot_circle_point_4bpp 09BC03 t3 shifted_mask  # R18 << 1: its carry (draw) and sign (test the window) decide; shifted again on the way out
+param plot_circle_point_8bpp R0 point_x
+param plot_circle_point_8bpp R1 point_y
+param plot_circle_point_8bpp R12 bitmap_base
+param plot_circle_point_8bpp R15 window_top
+param plot_circle_point_8bpp R16 window_right
+param plot_circle_point_8bpp R17 window_bottom
+local plot_circle_point_8bpp entry r3 color          # draw_circle's colour byte (R3 is not passed in C: draw_circle has no caller)
+local plot_circle_point_8bpp 09BC53 t3 shifted_mask
+
+# flood_fill
+local flood_fill entry r0 seed_x
+local flood_fill entry r1 seed_y                     # as a byte in the records (rows 0-FF)
+local flood_fill entry r2 fill_color                 # x 01010101 into fill_pattern; a pixel already this colour stops the fill
+local flood_fill entry r3 border_color               # the boundary: spans end at it
+local flood_fill 09BC7E r4 window_left               # bitmap_window (09BD99 scans its row up to left and right, 09BF99 stops at top and bottom)
+local flood_fill 09BC89 r5 window_top
+local flood_fill 09BC94 r6 window_right
+local flood_fill 09BC9F r7 window_bottom
+local flood_fill 09BCBC r10 seed_pixel               # the seed's pixel: fill_color or border_color = nothing to do
+local flood_fill 09BCD3 r10 span_left_x              # seed_x into 09BD99, the span's left end back; then what 09BEBB/09BF99 leave
+local flood_fill 09BCD6 r11 span_y                   # the span's row: seed_y, then each queued record's (flood_fill_y)
+local flood_fill 09BD49 r11 span_y
+local flood_fill 09BCDC r12 fill_pattern             # fill_color x 01010101 (09BD99 stores it a long at a time)
+local flood_fill 09BCE3 r15 span_right_address       # 09BD99: the bitmap address of the span's right end
+local flood_fill 09BCE3 r16 span_right_x             # 09BD99: the span's right end
+
+# variables
+20B500  var   bitmap_draw_buffer  u32     # work area of the unused bitmap drawing: fill_quad's and 09B187's span list (6 bytes a row: bitmap address u32, length u16, drawn by 09B312), draw_circle_polygon's 64 (x, y) points, flood_fill's ring queue of 26-byte span records up to 20CCC4 (R23 writes, R24 reads)
+
+# dead_work_5: 09BD58-09FEBA (unused code, helper 5)
+
+# --- Flood fill of the bitmap layer (span fill with a queue of spans at 20B500-20CCC4) ---
+# flood_fill (dead_work_4) is the entry: R0/R1 seed point, R2 fill colour, R3 border colour; it fills the
+# seed's span, then takes 0x1A-byte span records from the queue (R24 = last_object reads, R23 = object_cursor
+# writes, both saved and restored) until it is empty.
+09BD58  func  flood_fill_push_span              # unused: flood_fill_span from R10/R14 in row R11 + R9, then queues its record (R9, row, right x/address, left x/address, the flood_fill_push_parent_* range) at R23, wrapping from 20CCC4 to 20B500
+09BD99  func  flood_fill_span                   # unused: from the pixel at R10 (x) / R14 (address) scans left to R4 and right to R6 until the fill colour (R12 low byte) or the border colour (R3), fills the run with R12 (bytes, then words, 16 at a time); R10/R14 come back as its left end, R16/R15 its right end; also fill_span_at_point's 8bpp path
+09BEBB  func  flood_fill_scan_seed_rows         # unused: the seed span's neighbour rows: flood_fill_scan_row above (R9 = -1) when y > window top (R5), below (R9 = 1) when y < window bottom (R7)
+09BECE  func  flood_fill_scan_row               # unused: walks row y + R9 under/over the current span (flood_fill_left_x..right_x); every run not yet in the fill or border colour goes through flood_fill_push_span, flood_fill_push_parent_left_x moving past it
+09BF99  func  flood_fill_scan_span_rows         # unused: the same as flood_fill_scan_seed_rows for a span taken from the queue (flood_fill_scan_row_skip_parent)
+09BFAC  func  flood_fill_scan_row_skip_parent   # unused: R9 = the span's own direction (flood_fill_direction): the whole next row (flood_fill_scan_row); back toward its parent: only the parts left of flood_fill_parent_left_x and right of flood_fill_parent_right_x + 1
+09C10D  func  fill_span_at_point                # unused: R0,R1 point (get_point_outcode: nothing outside bitmap_window), R2 fill colour, R3 border colour: the one horizontal run through the point. 8bpp: flood_fill_span. 4bpp: nibble scans, but R10 still holds the outcode (never set to x) and R15 is never set: that path cannot work as written
+
+# --- Bitmap rectangles through bit strings (both MOVBSU operands are ones the V60 cannot run: invalid_operand() in the C) ---
+09C2A2  func  save_bitmap_rect                  # unused: R0-R3 rectangle (sorted) -> buffer R4: width in bits, height, then each row (MOVBSU from y * row + x of bitmap_address, bit offset (x & 1) * 4 in 4bpp, rows 100 or 200 bytes)
+09C324  func  draw_saved_bitmap_rect            # unused: the buffer R2 (save_bitmap_rect's: width in bits, rows, rows of (bits + 7) / 8 bytes) copied to the bitmap at R0,R1 with MOVBSU
+09C389  func  get_point_outcode                 # where R0,R1 is outside bitmap_window in R10 (1 left, 2 right, 4 above, 8 below), R0/R1 sign-extended; get_window_outcode runs on into it, draw_pixel/09A823 and fill_span_at_point call it
+
+# --- EEPROM entries that select the chip and turn interrupts back on (eeprom_lock's family) ---
+09C618  func  eeprom_unlock                     # unused: command 30 (write enable): eeprom_lock's other entry, through eeprom_send_command and eeprom_deselect, interrupts on
+09C632  func  eeprom_read_word_at               # unused: R4 = word address | 80 (read), eeprom_select, eeprom_read_word -> R0, interrupts on (no eeprom_deselect)
+09C714  func  eeprom_read_all_and_enable_interrupts  # unused: eeprom_read_all (0x40 words to eeprom_magic), then interrupts on; load_settings calls eeprom_read_all without this
+09C741  func  eeprom_write_word_at              # unused: R4 = word address | 40 (write), eeprom_select, eeprom_write_word of R0, interrupts on
+09C8DF  data  eeprom_deselect_padding         # a 00 byte (halt) before eeprom_deselect (09C8E0, 4-byte aligned): alignment filler, not code
+
+# --- Test mode leftovers ---
+09D857  func  wrap_sound_test_number_down       # unused: sound_test_number > 8C (0 stepped down to FF) -> 8C: the downward twin of wrap_sound_test_number; test_sound only steps up
+09E1E7  func  test_coin_assignments_spare_return    # unused: a second rsr right after test_coin_assignments_draw_setting_number's, inside test_coin_assignments; nothing jumps to it
+09E4C9  func  test_coin_assignments_spare_return_2  # unused: a second rsr right after test_coin_assignments_manual_page's, inside test_coin_assignments
+
+# --- Zero bytes (halt) that align the interrupt code ---
+09F55F  data  irq_vblank_end_padding          # a 00 byte (halt) that aligns irq_vblank_end (09F560): not code
+09F582  data  irq_timer0_padding              # two 00 bytes (halt) that align irq_timer0 (09F584): not code
+09F5B5  data  int_default_padding             # three 00 bytes (halt) that align int_default (09F5B8): not code
+09F5F9  data  send_sound_command_padding      # a 00 byte (halt) before send_sound_command (09F5FA, even address): not code
+09F62E  func  read_service_inputs               # unused: ports F and E (MAME's SERVICE34/SERVICE12: DIPs, PCB buttons; service, test, coins, starts) as one halfword at 20F010, the last one at 20F012, pressed (old & ~new, active low) at 20F014, released at 20F016: read_controls' edge detection on 16 bits
+
+# --- Credits display and an older single credit count ---
+09FC89  func  erase_attract_credits             # unused: draw_attract_credits' undo, by cabinet_config (jump table 09FC96): erase_credit_count and erase_start_prompt at the common or per-player positions; loads them with movz.hw, without the 31F000 base draw_attract_credits ORs in, so it would write at 00Fxxx (ROM)
+09FD72  func  erase_start_prompt                # unused entry of blink_start_prompt's erase: R10 = 1 (prompt 1, "Insert more coin"), port D bits 2-3 cleared, erase_text_lines of prompt_texts[1] at R11
+09FE2B  func  build_fraction_glyph              # unused: R0 numerator, R1 denominator -> R4/R5 the numerator's rows raised 3 (fraction_digit_font + R0 * 8 + 3), R6/R7 the denominator's rows OR the slash (104BCA, 104BCE): a small fraction's pixel rows; the C is empty since nothing reads R4-R7
+09FE66  func  erase_credit_count                # unused: erase_text_here of credits_label_text ("credit  ") and of the 4 blank cells after it at R11: the credit line; only erase_attract_credits calls it
+09FE7A  func  add_to_credit_pool                # unused: unless free_play: credit_pool += R0, capped at 9 (credit_pool_coins = 0 at the cap), copied to bookkeeping_coin_credits and bookkeeping_backup with update_bookkeeping_checksum; R0 = credits added (0 with free play)
+09FEBA  func  take_from_credit_pool             # unused: unless free_play: credit_pool -= R0, copied to bookkeeping_coin_credits and bookkeeping_backup with update_bookkeeping_checksum
+
+# Labels
+09BDBC  code  flood_fill_span_left_pair             # flood_fill_span: the next two pixels to the left ([-R14] halfword), the nearer one tested first
+09BDCF  code  flood_fill_span_left_pixel            # flood_fill_span: test the farther pixel of the pair (or the odd first pixel); dbne counts the pairs
+09BDF3  code  flood_fill_span_left_edge             # flood_fill_span: R14 is on the fill or border pixel: the span starts one to the right
+09BE1F  code  flood_fill_span_right_pair            # flood_fill_span: the next two pixels to the right ([R15+] halfword)
+09BE2F  code  flood_fill_span_right_pixel           # flood_fill_span: test the farther pixel of the pair (or the odd first pixel)
+09BE53  code  flood_fill_span_right_edge            # flood_fill_span: the last pixel read is the edge: R15 back two, to the one before it
+09BE55  code  flood_fill_span_right_end             # flood_fill_span: R15 back one, to the last pixel read (window edge reached, or the odd last pixel was the edge)
+09BF50  code  flood_fill_scan_row_pairs_done        # flood_fill_scan_row: no fillable pixel in the pairs: done unless an odd pixel is left
+09BF55  code  flood_fill_scan_row_odd_pixel         # flood_fill_scan_row: the last (odd) pixel of the row part: fill or border colour ends the scan
+09BF67  code  flood_fill_scan_row_back_to_pixel     # flood_fill_scan_row: R14 back to the fillable pixel just read (one more back for the first of the pair)
+09BF69  code  flood_fill_scan_row_found             # flood_fill_scan_row: R10 += R14 - R15: the x of the fillable pixel
+09BF6F  code  flood_fill_scan_row_push              # flood_fill_scan_row: flood_fill_push_span from it; go on 2 pixels past its right end while that is left of the span's right x - 1
+09C013  code  flood_fill_skip_parent_left_pairs     # flood_fill_scan_row_skip_parent: the left part (left x up to the parent's left x) two pixels at a time
+09C03A  code  flood_fill_skip_parent_left_odd_pixel # flood_fill_scan_row_skip_parent: the left part's odd last pixel, if any
+09C051  code  flood_fill_skip_parent_left_back_to_pixel  # flood_fill_scan_row_skip_parent: R14 back to the fillable pixel just read
+09C053  code  flood_fill_skip_parent_left_found     # flood_fill_scan_row_skip_parent: R10 += R14 - R15: the x of the fillable pixel
+09C059  code  flood_fill_skip_parent_left_push      # flood_fill_scan_row_skip_parent: flood_fill_push_span; on 2 past its end while left of the parent's left x - 2, then the right part
+09C0D3  code  flood_fill_skip_parent_right_odd_pixel     # flood_fill_scan_row_skip_parent: the right part's odd last pixel, if any
+09C0EA  code  flood_fill_skip_parent_right_back_to_pixel # flood_fill_scan_row_skip_parent: R14 back to the fillable pixel just read
+09C0EC  code  flood_fill_skip_parent_right_found    # flood_fill_scan_row_skip_parent: R10 += R14 - R15: the x of the fillable pixel
+09C0F2  code  flood_fill_skip_parent_right_push     # flood_fill_scan_row_skip_parent: flood_fill_push_span; on 2 past its end while left of the span's right x - 1
+09C1A0  code  fill_span_at_point_left_byte          # fill_span_at_point (4bpp): the byte to the left (two pixels), its high nibble (the odd, nearer pixel) tested first
+09C1BB  code  fill_span_at_point_left_even_pixel    # fill_span_at_point (4bpp): the low nibble (even pixel); dbne counts
+09C1D2  code  fill_span_at_point_left_edge          # fill_span_at_point (4bpp): R10 + 1: the run starts right of the edge pixel
+09C1EE  code  fill_span_at_point_right_byte         # fill_span_at_point (4bpp): the next byte to the right, its low nibble (even pixel) first
+09C208  code  fill_span_at_point_right_odd_pixel    # fill_span_at_point (4bpp): the high nibble (odd pixel); dbne counts
+09C21E  code  fill_span_at_point_right_edge         # fill_span_at_point (4bpp): R16 - 1: the run ends left of the edge pixel
+
+# Work RAM
+20CCDA  var   flood_fill_direction  u8                  # the span taken from the queue (record byte 0): FF it was found above its parent, 1 below; flood_fill_scan_row_skip_parent compares R9 with it
+20CCDB  var   flood_fill_y  u8                          # the current span's row (record byte 1): R11 of the row scans
+20CCDC  var   flood_fill_right_x  u16                   # the current span's right end x (record +2): flood_fill_scan_row's limit
+20CCDE  var   flood_fill_right_address  u32             # its bitmap address (record +4)
+20CCE2  var   flood_fill_left_x  u16                    # the current span's left end x (record +8): where the row scans start
+20CCE4  var   flood_fill_left_address  u32              # its bitmap address (record +A); + R9 * 200 is the neighbour row
+20CCE8  var   flood_fill_parent_right_x  u16            # the current span's parent range, right end (record +E): flood_fill_scan_row_skip_parent scans from 2 past it
+20CCEA  var   flood_fill_parent_right_address  u32      # its address in the parent's row (record +10)
+20CCEE  var   flood_fill_parent_left_x  u16             # parent range, left end (record +14): flood_fill_scan_row_skip_parent scans the left part up to it
+20CCF0  var   flood_fill_parent_left_address  u32       # record +16: popped with the rest, nothing reads it
+20CCF4  var   flood_fill_push_parent_right_x  u16       # the parent range flood_fill_push_span writes into new records: the current span's right x (also flood_fill_scan_row's limit)
+20CCF6  var   flood_fill_push_parent_right_address  u32 # the current span's right address, written into new records
+20CCFA  var   flood_fill_push_parent_left_x  u16        # the current span's left x; flood_fill_scan_row moves it 2 past each run it pushes
+20CCFC  var   flood_fill_push_parent_left_address  u32  # its address, moved with it
+20F010  var   service_inputs  u16                       # read_service_inputs (unused): port F << 8 | port E, active low
+20F012  var   service_inputs_previous  u16              # read_service_inputs: the 20F010 value before this read
+20F014  var   service_inputs_pressed  u16               # read_service_inputs: previous & ~new (active low: just pressed); 20F016 (released) left unnamed: check_zones uses 20F016 as the hitter list anchor
+20F400  var   credit_pool  u8                           # add_to_credit_pool / take_from_credit_pool (both unused): one credit count, max 9, copied to bookkeeping_coin_credits; nothing live reads it
+20F403  var   credit_pool_coins  u8                     # add_to_credit_pool clears it when credit_pool reaches 9 (as add_coin clears a block's bonus coins at the cap): probably the coins toward the next credit
+
+# ROM tables
+09FEDE  table common_start_prompt_texts  u16            # erase_attract_credits' prompt_texts for common chutes (09FEDD + 1): offsets from here to one-line texts "Push start button", "Insert more coin", "Insert coin", "Insert more coin"
+09FFCC  table common_start_prompt_position  u16         # F694: the start prompt with common chutes (erase_attract_credits, just before start_prompt_positions_3p)
+104B76  data  fraction_digit_font                       # build_fraction_glyph: digits 0-9, 8 bytes each (rows 3-7, 4 pixels in the low nibble), then a slash (10 20 40 80 at 104BCC)
+
+# The flood fill queue records (0x1A bytes) as flood_fill_push_span writes them through R23 (object_cursor)
+scoped object flood_fill 00 direction_and_y u16         # low byte the direction (R9), high byte the row (R11 + R9): popped into flood_fill_direction/flood_fill_y
+scoped object flood_fill 02 right_x u16                 # flood_fill_span's R16
+scoped object flood_fill 04 right_address u32           # flood_fill_span's R15
+scoped object flood_fill 08 left_x u16                  # flood_fill_span's R10
+scoped object flood_fill 0A left_address u32            # flood_fill_span's R14
+scoped object flood_fill 0E parent_right_x u16          # flood_fill_push_parent_right_x
+scoped object flood_fill 10 parent_right_address u32    # flood_fill_push_parent_right_address
+scoped object flood_fill 14 parent_left_x u16           # flood_fill_push_parent_left_x
+scoped object flood_fill 16 parent_left_address u32     # flood_fill_push_parent_left_address
+
+# Parameters
+param flood_fill_push_span R4 window_left           # bitmap_window_left, for flood_fill_span
+param flood_fill_push_span R6 window_right          # bitmap_window_right, for flood_fill_span
+param flood_fill_push_span R9 direction             # -1 the row above, 1 below: record byte 0; the record's row is R11 + R9
+param flood_fill_push_span R10 left_x               # the first fillable x the row scan found; flood_fill_span moves it to the run's left end (record +8)
+param flood_fill_push_span R11 y                    # the current span's row
+param flood_fill_push_span R12 fill_pattern         # the fill colour in all 4 bytes
+param flood_fill_push_span R15 right_address        # out: the run's right end address (record +4)
+param flood_fill_push_span R16 right_x              # out: the run's right end x (record +2)
+param flood_fill_span R4 window_left                # the left scan stops there (bitmap_window_left)
+param flood_fill_span R6 window_right               # the right scan stops there (bitmap_window_right)
+param flood_fill_span R10 left_x                    # in: the seed pixel's x; out: the run's left end x
+param flood_fill_span R12 fill_pattern              # the fill colour in all 4 bytes: tested (low byte) and written
+param flood_fill_span R15 right_address             # out: the address of the run's last pixel
+param flood_fill_span R16 right_x                   # out: the run's right end x
+param flood_fill_scan_seed_rows R4 window_left
+param flood_fill_scan_seed_rows R5 window_top       # no row above when y is not below it
+param flood_fill_scan_seed_rows R6 window_right
+param flood_fill_scan_seed_rows R7 window_bottom    # no row below when y is not above it
+param flood_fill_scan_seed_rows R10 scan_x          # flood_fill_scan_row's last scan position, handed back (callers pass it on unused)
+param flood_fill_scan_seed_rows R11 y               # the seed span's row
+param flood_fill_scan_seed_rows R12 fill_pattern
+param flood_fill_scan_row R4 window_left
+param flood_fill_scan_row R6 window_right
+param flood_fill_scan_row R9 direction              # -1 the row above, 1 below
+param flood_fill_scan_row R10 scan_x                # out: starts at flood_fill_left_x, the x the scan reached
+param flood_fill_scan_row R11 y                     # the current span's row
+param flood_fill_scan_row R12 fill_pattern
+param flood_fill_scan_span_rows R4 window_left
+param flood_fill_scan_span_rows R5 window_top
+param flood_fill_scan_span_rows R6 window_right
+param flood_fill_scan_span_rows R7 window_bottom
+param flood_fill_scan_span_rows R10 scan_x          # the row scans' last position, handed back
+param flood_fill_scan_span_rows R11 y               # flood_fill_y of the span taken from the queue
+param flood_fill_scan_span_rows R12 fill_pattern
+param flood_fill_scan_row_skip_parent R4 window_left
+param flood_fill_scan_row_skip_parent R6 window_right
+param flood_fill_scan_row_skip_parent R9 direction  # compared with flood_fill_direction
+param flood_fill_scan_row_skip_parent R10 scan_x    # starts at flood_fill_left_x, the x the scan reached
+param flood_fill_scan_row_skip_parent R11 y
+param flood_fill_scan_row_skip_parent R12 fill_pattern
+param get_point_outcode R0 point_x                  # compared signed with bitmap_window_left/right, handed back sign-extended
+param get_point_outcode R1 point_y                  # compared signed with bitmap_window_top/bottom, handed back sign-extended
+param get_point_outcode R10 outcode                 # out: 1 left, 2 right, 4 above, 8 below the window
+param erase_start_prompt R11 text_position          # where the prompt is (erase_text_lines)
+param erase_start_prompt R13 prompt_texts           # halfword offsets from here to the texts (start_prompt_texts or common_start_prompt_texts)
+param erase_credit_count R11 text_position          # the credit line's first cell, + 2 per cell erased
+
+# Locals
+local flood_fill_span 09BDB7,09BDBC,09BDBF,09BDCC,09BE1A,09BE1F,09BE2C r0 pixels  # one pixel or a pair read while scanning, bytes swapped to test each
+local flood_fill_span 09BDE2,09BE42 r0 last_pixel   # the odd pixel left after the pairs
+local flood_fill_span 09BEA6 r0 tail_bytes          # bytes left after the words: 2 then 1 written
+local flood_fill_span 09BE74,09BE8D,09BE9B r0 bytes_left  # the run's length, & 0xF, - 8 after two words
+local flood_fill_span 09BDA2,09BDAA,09BDB5,09BDD7,09BDFE,09BE01,09BE0D,09BE18,09BE37 r1 scan_count  # pixels to the window edge, halved: the pairs the dbne counts
+local flood_fill_span 09BE63,09BE6E,09BE72 r1 fill_count     # right_x - left_x (+ 1): the run's length
+local flood_fill_span 09BE77,09BE89 r1 blocks_left  # 16-byte blocks of the fill
+local flood_fill_span 09BDA7,09BDB3,09BE0A,09BE16 r2 pixel_count  # the scan's pixel count: bit 0 says an odd pixel is left after the pairs
+local flood_fill_span entry r3 border_color         # the border colour (flood_fill's R3): no caller sets it in the C
+local flood_fill_span 09BD99 r17 seed_address       # R14 on entry: the seed pixel; the ends are measured from it
+local flood_fill_span 09BE06,09BE1A,09BE1F,09BE51,09BE53,09BE55 r15 right_cursor  # the right scan's cursor (seed + 1, a pair per step); right_x += right_cursor - seed_address
+local flood_fill_span 09BDA2 t2 start_x             # left_x before the subtraction: compared with window_left
+local flood_fill_span 09BE01 t2 right_limit         # window_right: compared with right_x
+local flood_fill_span 09BE6E t2 count_after_first   # fill_count - 1 after the odd first byte: negative ends the fill
+local flood_fill_span 09BE77 t4 block_count         # fill_count >> 4
+local flood_fill_span 09BEA6 t2 tail_count          # bytes_left & 3
+local flood_fill_scan_seed_rows 09BEC0,09BECB r9 direction  # -1 then 1 for flood_fill_scan_row
+local flood_fill_scan_row 09BF11,09BF55 r0 pixel    # one pixel read: the odd first or last one
+local flood_fill_scan_row 09BF32,09BF3F r0 pixels   # a pair read, bytes swapped for the second test
+local flood_fill_scan_row 09BEE9,09BF09,09BF1E,09BF29,09BF2E,09BF4C,09BF72,09BF77,09BF90 r1 scan_count  # pixels from scan_x to the span's right x, then halved for the pairs
+local flood_fill_scan_row 09BECE,09BF6C,09BF7E r10 scan_x  # flood_fill_left_x, then the x of each run found, then 2 past each pushed run
+local flood_fill_scan_row 09BF06 r15 scan_start     # R14 when this step started: R10 += R14 - R15 gives the found pixel's x
+local flood_fill_scan_row 09BF6F r15 right_address  # flood_fill_push_span's: the pushed run's right end address
+local flood_fill_scan_row 09BF6F r16 right_x        # flood_fill_push_span's: the pushed run's right end x
+local flood_fill_scan_row 09BF2B r2 pixel_count     # the count before halving: bit 0 = an odd pixel left
+local flood_fill_scan_row entry r3 border_color     # flood_fill's R3: no caller sets it in the C
+local flood_fill_scan_row 09BF1E t2 count_after_first  # scan_count - 1 after the odd first pixel: negative ends the scan
+local flood_fill_scan_span_rows 09BF9E,09BFA9 r9 direction  # -1 then 1 for flood_fill_scan_row_skip_parent
+local flood_fill_scan_row_skip_parent 09BFFF,09C03F,09C098,09C0D8 r0 pixel  # one pixel read: the odd first or last one
+local flood_fill_scan_row_skip_parent 09C01C,09C029,09C0B5,09C0C2 r0 pixels  # a pair read, bytes swapped for the second test
+local flood_fill_scan_row_skip_parent 09BFEF,09BFF7,09C00C,09C016,09C036,09C079,09C080,09C0A5,09C0AF,09C0CF,09C0F5,09C0FA,09C0FC r1 scan_count  # pixels to the part's end, halved for the pairs
+local flood_fill_scan_row_skip_parent 09BFB1,09BFD4,09C056,09C069,09C074,09C07E,09C08B,09C0EF,09C101 r10 scan_x  # flood_fill_left_x, then parent right x + 2, the found pixels' x, 2 past each pushed run
+local flood_fill_scan_row_skip_parent 09BFF4,09C090 r15 scan_start  # R14 when this step started
+local flood_fill_scan_row_skip_parent 09C059,09C0F2 r15 right_address  # flood_fill_push_span's: the pushed run's right end address
+local flood_fill_scan_row_skip_parent 09C059,09C0F2 r16 right_x  # flood_fill_push_span's: the pushed run's right end x
+local flood_fill_scan_row_skip_parent 09C013,09C0AC r2 pixel_count  # the count before halving: bit 0 = an odd pixel left
+local flood_fill_scan_row_skip_parent entry r3 border_color  # flood_fill's R3: no caller sets it in the C
+local flood_fill_scan_row_skip_parent 09C016 t4 left_pairs  # scan_count >> 1 of the left part
+local flood_fill_scan_row_skip_parent 09C00C t1 left_count_before  # scan_count before the decrement after the odd first pixel (left part)
+local flood_fill_scan_row_skip_parent 09C080 t2 span_right_x  # flood_fill_right_x: nothing to scan when it is not past parent right x + 1
+local flood_fill_scan_row_skip_parent 09C0FC t2 right_limit  # flood_fill_right_x - 1: compared with the pushed run's right x
+local flood_fill_scan_row_skip_parent 09C0A5 t1 right_count_before  # scan_count before the decrement after the odd first pixel (right part)
+local flood_fill_scan_row_skip_parent 09C0AF t4 right_pairs  # scan_count >> 1 of the right part
+local fill_span_at_point entry,09C10D r0 point_x    # the point's x (get_point_outcode's, sign-extended)
+local fill_span_at_point 09C19B,09C1A3,09C1BB,09C1E5,09C1F1,09C208,09C231,09C237 r0 pixel_byte  # a byte of two 4bpp pixels, then the first byte of the fill with its high nibble set
+local fill_span_at_point entry,09C10D r1 point_y    # the point's y (get_point_outcode's, sign-extended)
+local fill_span_at_point 09C18F,09C1B7,09C1C6,09C1D9,09C204,09C214 r1 scan_count  # pixels to the window edge (left, then right)
+local fill_span_at_point 09C223,09C240,09C254,09C261,09C276,09C283 r1 fill_count  # right_x - left_x: the pixels to fill, less those written
+local fill_span_at_point 09C10D,09C199,09C1A0,09C1D0,09C1D2 r10 outcode  # get_point_outcode's (0 here); the 4bpp scans then use it as the x (the code never copies point_x to R10)
+local fill_span_at_point 09C138,09C14F r10 left_x   # 8bpp: point_x, flood_fill_span's left_x
+local fill_span_at_point 09C129,09C167,09C16F,09C172 r1 point_pixel  # the pixel at the point (8bpp byte, 4bpp nibble): fill or border colour = nothing to do
+local fill_span_at_point entry,09C24D r2 fill_color # the fill colour (in both nibbles after * 11)
+local fill_span_at_point 09C25A r2 fill_word        # (fill_color & F) * 11111111: 8 pixels a word
+local fill_span_at_point entry r3 border_color      # the border colour
+local fill_span_at_point 09C145,09C181 r4 window_left  # bitmap_window_left
+local fill_span_at_point 09C26B,09C272 r4 words_left  # fill_count >> 3 words to write
+local fill_span_at_point 09C1A9,09C1F7 r4 nibble    # the pixel tested: the high or low nibble of pixel_byte
+local fill_span_at_point 09C14A r6 window_right     # bitmap_window_right
+local fill_span_at_point 09C13E r12 fill_pattern    # the fill colour in all 4 bytes (8bpp)
+local fill_span_at_point entry,09C1E5,09C1EC,09C1F1 r15 right_cursor  # the right scan's byte cursor: never set from the point's address
+local fill_span_at_point 09C226,09C23D,09C251,09C26F,09C280,09C288 r15 fill_cursor  # R14 (the left end's byte), advanced by the fill
+local fill_span_at_point 09C189,09C1DE,09C1E8,09C1EE,09C21C,09C21E r16 right_x  # the run's right end x
+local fill_span_at_point 09C18F t2 start_x          # R10 before the subtraction: compared with window_left
+local fill_span_at_point 09C1B7 t1 left_count_before  # scan_count before the decrement (left)
+local fill_span_at_point 09C1D9 t2 right_limit      # bitmap_window_right
+local fill_span_at_point 09C204 t1 right_count_before  # scan_count before the decrement (right)
+local fill_span_at_point 09C240 t2 count_after_first  # fill_count - 1 after the odd first pixel: negative ends
+local fill_span_at_point 09C276 t2 bytes_after_words  # fill_count & 7
+local fill_span_at_point 09C283 t2 bytes_after_half  # fill_count & 3
+local save_bitmap_rect entry,09C2A7 r0 left         # x1, the smaller x after the swap
+local save_bitmap_rect entry,09C2AF r1 top          # y1, the smaller y after the swap
+local save_bitmap_rect entry,09C2A7 r2 right        # x2, the larger x after the swap; the same variable then holds right - left + 1 and the bits per row (* 4 with byte adds in 4bpp, * 8), stored first in the buffer
+local save_bitmap_rect entry,09C2AF r3 bottom       # y2, the larger y after the swap; then bottom - top + 1, stored second and counted down per row
+local save_bitmap_rect entry r4 buffer              # where the rectangle goes: bits per row, rows, then the rows
+local save_bitmap_rect 09C2A7 t1 swap_x             # the old left during the swap
+local save_bitmap_rect 09C2AF t1 swap_y             # the old top during the swap
+local draw_saved_bitmap_rect entry r2 buffer        # save_bitmap_rect's buffer: row bits, rows, the rows
+local draw_saved_bitmap_rect 09C365,09C37E r4 rows_left  # the buffer's row count, counted down
+local eeprom_read_word_at entry,09C636,09C639 r2 lines  # eeprom_select's EEPROM lines byte (io_port_d), through eeprom_read_word
+local eeprom_read_word_at entry,09C632 r4 command       # the word address on entry, | 80: the read command (one variable)
+local eeprom_write_word_at entry,09C745,09C748 r2 lines  # eeprom_select's EEPROM lines byte (io_port_d), through eeprom_write_word
+local eeprom_write_word_at entry,09C741 r4 command      # the word address on entry, | 40: the write command (one variable)
+local read_service_inputs 09F638 r0 inputs          # port F << 8 | port E, active low: stored in service_inputs
+local read_service_inputs 09F644 r1 previous        # service_inputs before this read
+local read_service_inputs 09F62E t1 port_f_bits     # io_port_f
+local read_service_inputs 09F638 t1 port_e_bits     # io_port_e
+local erase_attract_credits 09FC9E,09FCA6,09FCB4,09FCBC,09FCC9,09FCD1,09FCDE,09FCE6 r11 text_position  # the credit and prompt positions (movz.hw: no 31F000 base)
+local erase_attract_credits 09FCAB,09FCC1,09FCD6,09FCEB r13 prompt_texts  # common_start_prompt_texts or start_prompt_texts
+local erase_start_prompt 09FD75 t1 port_d_bits      # io_port_d read before clearing bits 2-3
+local add_to_credit_pool entry r0 credits_to_add    # credits to add
+local add_to_credit_pool 09FE88 r0 excess           # credit_pool + credits_to_add - 9: taken off when not negative
+local add_to_credit_pool 09FE80,09FE93 r5 credits_added  # credits_to_add, less the excess over 9: added and handed back in R0
+local add_to_credit_pool 09FE88 t1 new_total        # credit_pool + credits_to_add
+local take_from_credit_pool entry r0 credits_to_take  # credits taken from credit_pool
+
+# What the functions nothing calls hand back (result lines): no caller says it, so without these the C would drop
+# the work that makes it
+result get_floor_z_at_point R9 floor_z               # the found block's height (+10) << 16, plus the rise of its slope at the point
+result get_floor_z_at_point R10 block                # the block holding the point, or no_floor_block
+result find_floor_block_at_point R10 block           # the block holding the point, or no_floor_block
+result get_floor_block_side_or_corner R0 outcode     # 1 past x max, 2 before x min, 4 before y min, 8 past y max
+result get_floor_block_side_or_corner R3 side_code   # floor_block_side_codes[outcode]
+result index_stage_list_pair R1 first_entry          # [R1 + stage] + section offset
+result index_stage_list_pair R2 second_entry         # [R2 + stage] + section offset
+result is_floor_block_off_screen R8 off_screen       # 0 when the object's floor block is among nearby_floor_blocks, FFFFFFFF when not
+result convert_from_bcd R0 value                     # the 8 BCD digits handed in, as a binary number
+result convert_64_to_bcd R0 bcd_low                  # the 24 BCD digits, the lowest 8
+result convert_64_to_bcd R1 bcd_middle               # the middle 8
+result convert_64_to_bcd R2 bcd_high                 # the highest 8
+result get_previous_floor_bucket R1 floor_depth      # (projected_y + previous_floor_z) >> 16 - view_y + 10, clamped to 0-FE
+result get_previous_floor_bucket R10 bucket          # FF - floor_depth: the sprite bucket queue_sprite_at_previous_floor would use
+result read_pixel R0 pixel                           # the pixel at the point (8 bpp byte, 4 bpp nibble), or -1 outside bitmap_window
+result build_fraction_glyph R4 numerator_top_rows    # the numerator digit's rows (fraction_digit_font), raised 3
+result build_fraction_glyph R5 numerator_bottom_rows
+result build_fraction_glyph R6 denominator_top_rows  # the denominator digit's rows, with the slash ORed in
+result build_fraction_glyph R7 denominator_bottom_rows
+result add_to_credit_pool R0 credits_added           # the credits added (0 with free play)
+
+# ======== unused code: parameters, results and locals the open functions got (from build/naming/dead2_1..2.txt) ========
+# dead2_work_1: parameters and locals of the unused code still named after their registers (helper 1)
+
+# ---- build_fraction_glyph
+param build_fraction_glyph R0 numerator             # the numerator digit (0-9): x 8 into fraction_digit_font (+ 3, raised 3 rows); then the address its rows are read from
+param build_fraction_glyph R1 denominator           # the denominator digit (0-9): x 8 into fraction_digit_font
+local build_fraction_glyph 09FE43 r0 denominator_rows  # fraction_digit_font + denominator x 8: the denominator digit's 8 row bytes, read as two longs
+local build_fraction_glyph 09FE3A r4 numerator_top_rows      # the numerator's rows 3-6 (from fraction_digit_font + 3): handed back in R4
+local build_fraction_glyph 09FE3D r5 numerator_bottom_rows   # its rows 7-A: handed back in R5
+local build_fraction_glyph 09FE4A r6 denominator_top_rows    # the denominator's rows 0-3 ORed with the slash's (104BCA): handed back in R6
+local build_fraction_glyph 09FE51 r7 denominator_bottom_rows # its rows 4-7 ORed with the slash's (104BCE): handed back in R7
+
+# ---- call_run_map_screen
+param call_run_map_screen R11 object                # passed on as run_map_screen's object (allocate_object_outside_loop's in step 2); a leftover
+
+# ---- catapults
+param catapult_wait_for_platform_setup R11 object   # handed to find_floor (its cursor), then allocate_object's object: the base part, then the dummy part; the incoming value is a leftover
+param catapult_x_start_on_floor R11 object          # passed on as catapult_wait_for_platform_setup's object (a leftover)
+param catapult_y_start_on_floor R11 object          # passed on as catapult_wait_for_platform_setup's object (a leftover)
+# skip catapult_wait_for_platform_setup r0: find_floor's R0, passed on only
+
+# ---- clipped_copy_sprite
+param clipped_copy_sprite_start R11 copy            # handed to find_floor (its cursor), then take_free_object's object: the copy (palette bank 8000) kept in copy_object; the incoming value is a leftover
+# skip clipped_copy_sprite_start r0: find_floor's R0, never read
+# skip clipped_copy_sprite_update r1: update_screen_position's R1, never read
+# skip clipped_copy_sprite_update r7: point_to_screen's screen x, never read
+# skip clipped_copy_sprite_update r8: check_left_screen's off_screen, then point_to_screen's screen y of the clip line (one variable: point_to_screen takes it by pointer)
+
+# ---- credits
+local add_to_credit_pool 09FEA5 r0 crc              # update_bookkeeping_checksum's R0 (compute_bookkeeping_crc's crc): only its high half stays in the result
+local add_to_credit_pool 09FEB2 r0 result           # movz.bh of credits_added into crc's low half: the R0 handed back
+
+# ---- BCD conversions
+local convert_from_bcd 0990D7,0990E6 r3 number      # 0, x A + each nibble from the top: the binary number
+local convert_from_bcd 0990ED r0 value              # number, handed back in R0 (the result's name)
+local convert_64_to_bcd 0991A6 r2 bcd_high          # rvbyt of the buffer's first long: the highest 8 digits, handed back in R2
+local convert_64_to_bcd 0991A9 r1 bcd_middle        # the middle 8 digits, handed back in R1
+local convert_64_to_bcd 0991AC r0 bcd_low           # the lowest 8 digits, handed back in R0
+
+# ---- digits
+param draw_bcd_4 R0 value                           # the BCD number: & FFFF, 4 digits (draw_bcd_digits' value)
+param draw_bcd_6 R0 value                           # the BCD number: & FFFFFF, 6 digits
+param draw_bcd_8 R0 value                           # the BCD number: 8 digits
+param draw_hex_6 R0 value                           # as draw_hex_4: & FFFFFF, 6 digits (draw_hex_digits' value)
+param draw_hex_6 R1 attribute                       # as draw_hex_4
+param draw_hex_6 R11 text_position                  # as draw_hex_4
+
+# ---- bitmap layer
+param draw_circle_polygon R4 color                  # draw_line's color: only its low byte is set (circle_color), the upper bytes are the caller's
+param fill_triangle R6 color                        # pixel value: fill_triangle_sorted's color
+param flood_fill_push_span R3 border_color          # flood_fill's R3: flood_fill_span stops at it
+param flood_fill_scan_seed_rows R3 border_color     # flood_fill's R3: flood_fill_scan_row stops at it
+param flood_fill_scan_span_rows R3 border_color     # flood_fill's R3: flood_fill_scan_row_skip_parent stops at it
+
+# ---- EEPROM
+param eeprom_read_all_and_enable_interrupts R0 data # passed on as eeprom_read_all's data (only the high half of the first word read keeps it)
+param eeprom_write_word_at R0 data                  # the word to write (eeprom_write_word's data)
+result eeprom_read_word_at R0 data                  # eeprom_read_word's word read at the address R4 (interrupts_on does not touch R0)
+
+# ---- formatted text eraser (R0 cell, R10 text, R11 text_position as in erase_formatted_text_single)
+param erase_formatted_text R0 cell                  # its low half set to 0 (mov.h): written over every cell
+param erase_formatted_text R10 text                 # the formatted text: position word, attribute byte, runs and codes
+param erase_formatted_text_position_single R10 text # at the position word, then past it
+param erase_formatted_text_position_double R0 cell
+param erase_formatted_text_position_double R10 text # at the position word, then past it
+param erase_formatted_text_position_double R11 text_position  # its low half replaced by the position word
+param erase_formatted_text_position_triple R0 cell
+param erase_formatted_text_position_triple R10 text # at the position word, then past it
+param erase_formatted_text_position_triple R11 text_position  # its low half replaced by the position word
+param erase_formatted_text_attribute_double R0 cell
+param erase_formatted_text_attribute_triple R0 cell
+param erase_formatted_text_skip_single R0 cell
+param erase_formatted_text_skip_single R10 text     # at the s8, then past it
+param erase_formatted_text_skip_single R11 text_position  # + s8 x 2
+param erase_formatted_text_skip_double R0 cell
+param erase_formatted_text_skip_double R10 text     # at the s8, then past it
+param erase_formatted_text_skip_double R11 text_position  # + s8 x 2
+param erase_formatted_text_skip_triple R0 cell
+param erase_formatted_text_skip_triple R10 text     # at the s8, then past it
+param erase_formatted_text_skip_triple R11 text_position  # + s8 x 2
+
+# ---- text and vram scripts
+param erase_text_list R10 text                      # erase_text records one after the other, a 0 halfword ends (as print_text_list)
+param erase_vram_script R10 script                  # the vram script, as run_vram_script's: past each byte and command
+param erase_vram_script R11 dest                    # video RAM write position (command 80 sets it), as run_vram_script's
+
+# ---- exit gate
+param exit_gate_start R11 sign                      # handed to find_floor (its cursor), then spawn_sign_2's sign (the IN sign); the incoming value is a leftover
+# skip exit_gate_start r0: find_floor's R0, never read
+# skip exit_gate_update r1: play_sound's and update_screen_position's R1 handed to queue_sprite
+# skip exit_gate_update r2: play_sound's R2, never read
+
+# ---- 2-bit font expansion (as expand_font: R0 color, R1 count, R10 source, R11 dest)
+param expand_font_2bpp R0 color                     # colour of the pixels: & F into every nibble (color_nibbles)
+param expand_font_2bpp R1 count                     # characters to expand; x 8: the rows, counted down
+param expand_font_2bpp R10 source                   # the 2-bit rows (a halfword each)
+param expand_font_2bpp R11 dest                     # the 4-bit characters, a long per row
+param expand_font_2bpp_transparent R0 color         # as expand_font_2bpp
+param expand_font_2bpp_transparent R1 count         # as expand_font_2bpp
+param expand_font_2bpp_transparent R4 pixels        # shifted up a nibble per pixel: what the caller leaves is shifted out by each row's 8 pixels
+param expand_font_2bpp_transparent R5 opaque_mask   # the same, a 1 per non-zero pixel, then x F
+param expand_font_2bpp_transparent R10 source       # as expand_font_2bpp
+param expand_font_2bpp_transparent R11 dest         # as expand_font_2bpp
+
+# ---- falling rocks and floor signs
+# skip falling_rock_bounce r0: find_floor's R0, never read
+# skip falling_rock_bounce r1: find_floor's, animate's and project_object's R1 handed to queue_sprite
+# skip falling_rock_bounce r7: animate's wrapped flag, never read
+# skip falling_rock_bounce r8: animate's at_last_step, never read
+# skip floor_sign_start r0: find_floor's R0, never read
+# skip floor_sign_update r1: update_screen_position's R1 handed to queue_sprite, which sets its own depth
+
+# ---- floor search
+local find_floor_block_at_point 00C8F6 r2 block_offset  # the nearby entry: the block's offset from floor_blocks + 2 (as get_floor_z_at_point's)
+
+# dead2_work_2: parameters and locals of the unused code (and the functions it calls) still named after a register
+
+# ---- formatted text (print_formatted_text and its runs): R0 the cell, R10 the text, R11 the text map position ----
+param print_formatted_text R10 text                        # the formatted text: position word, attribute byte, runs and codes (formatted_text_position_single's text)
+param formatted_text_position_single R10 text              # the formatted text at its position word: past it and the attribute byte when the run starts
+param formatted_text_position_double R10 text              # as formatted_text_position_single (code 15: width 2)
+param formatted_text_position_double R11 text_position     # its low half replaced by the position word, then + 2 per cell
+param formatted_text_position_triple R10 text              # as formatted_text_position_single (code 1B: width 3)
+param formatted_text_position_triple R11 text_position     # its low half replaced by the position word
+param formatted_text_skip_single R0 cell                   # formatted_text_single's cell (attribute << 8 | character), handed back to it
+param formatted_text_skip_single R10 text                  # at the s8 count of cells to skip; past it at the end
+param formatted_text_skip_single R11 text_position         # + s8 x 2
+param formatted_text_skip_long_single R0 cell              # as formatted_text_skip_single
+param formatted_text_skip_long_single R10 text             # at the s16 count of cells to skip; past it
+param formatted_text_skip_long_single R11 text_position    # + s16 x 2
+param formatted_text_skip_double R0 cell                   # formatted_text_double's cell, handed back to it
+param formatted_text_skip_double R10 text                  # at the s8; past it
+param formatted_text_skip_double R11 text_position         # + s8 x 2
+param formatted_text_skip_long_double R0 cell
+param formatted_text_skip_long_double R10 text             # at the s16; past it
+param formatted_text_skip_long_double R11 text_position    # + s16 x 2
+param formatted_text_skip_triple R0 cell                   # formatted_text_triple's cell, handed back to it
+param formatted_text_skip_triple R10 text                  # at the s8; past it
+param formatted_text_skip_triple R11 text_position         # + s8 x 2
+param formatted_text_skip_long_triple R0 cell
+param formatted_text_skip_long_triple R10 text             # at the s16; past it
+param formatted_text_skip_long_triple R11 text_position    # + s16 x 2
+
+# ---- floor blocks ----
+param get_floor_block_side_or_corner R10 block             # in: the block's offset (a floor_block value), + floor_blocks + 2: the block's box (the name of its 00CADF local line; get_floor_block_side calls it floor_block)
+param get_floor_block_side_or_corner R11 x                 # the point tested against the box's x min (+0) and x max (+4), as get_floor_block_side's x
+param get_floor_block_side_or_corner R12 y                 # the point tested against the box's y min (+8) and y max (+C)
+local get_floor_block_side_or_corner 00CAD7,00CAEA,00CAF5,00CAFE,00CB09 r0 outcode  # 0, then | 2 before x min, 1 past x max, 4 before y min, 8 past y max: handed back (result R0)
+local get_floor_block_side_or_corner 00CB0C r3 side_code    # floor_block_side_codes[outcode]: handed back (result R3)
+local get_floor_z_at_point 00C8AB r11 slope_record         # floor_slopes + slope * 8: flag bit 1 (along x), the slope factor at +2
+local get_floor_z_at_point 00C8BC,00C8C4 r3 slope_distance # the point's x - the block's x min (bit 1 set) or y - its y min: >> 16, times the factor, is the slope's rise
+local get_floor_z_at_point 00C89B,00C8D5 r9 floor_z        # the block's height (+10) << 16, plus the slope's rise: handed back (result R9)
+local get_previous_floor_bucket 09A1CD,09A1DA r1 floor_depth  # the clamped depth: FE when not below FE, 0 when negative (the same floor_depth as 09A1C1, handed back in R1)
+param get_previous_floor_bucket R0 top_bucket              # in: a leftover, only its upper half survives (into the bucket); FF goes into its low half
+local get_previous_floor_bucket 09A1DD r0 top_bucket        # FF in the low half: bucket = top_bucket - floor_depth (mov.h: the caller's upper half kept)
+local get_previous_floor_bucket 09A1E5 r10 bucket           # FF - floor_depth: handed back (result R10)
+local is_floor_block_off_screen 01F06D,01F089 r8 off_screen  # 0, FFFFFFFF when the object's floor block is not in nearby_floor_blocks: handed back (result R8)
+
+# ---- bitmap layer ----
+local read_pixel 09A844,09A84C,09A84F,09A866 r0 pixel  # the byte at the point (8 bpp), its nibble by x parity (4 bpp), or -1 outside bitmap_window: handed back (result R0) (09A923, the -1, is code draw_pixel, draw_line and fill_rect share)
+local read_pixel 09A832 r2 saved_x                         # 4 bpp: x kept for its parity (odd x: the high nibble), as draw_pixel's saved_x
+
+# ---- stage lists ----
+param index_stage_list_pair R3 section_offset             # added to both entries read: as load_camera_start_section's section_offset, the offset into the section lists
+param index_stage_list_pair R5 stage_offset               # added (unscaled) to both list addresses: the stage's entry in each per-stage list
+local index_stage_list_pair 01AABD r1 first_entry         # [first list + stage_offset] + section_offset: handed back (result R1)
+local index_stage_list_pair 01AAB4 r2 second_entry        # [second list + stage_offset] + section_offset (add.h: only the low half of the address moves): handed back (result R2)
+
+# ---- video ----
+param init_nbg3_layer_cleared_pages R11 dest              # run_vram_script's destination through the four clear_tile_page_0a-0d scripts (they set it themselves), as init_nbg3_layer's dest
+param run_map_screen_wait_for_wipe R5 edges_done          # update_screen_wipe's edges_done: the map screen step moves on when its low 4 bits are F (the name of its 0959EB local line)
+
+# ---- players ----
+param player_tumbling_knock_with_toucher_speed R11 effect # handed on to player_tumbling_set_launch_speed and player_tumbling_launch: spawn_tumble_effect's effect
+# skip player_tumbling_launch r1: play_sound's R1, passed on only (as the first round)
+# skip player_tumbling_launch r2: play_sound's R2, passed on only
+
+# ---- spawners: R11 is the object allocate_object(_outside_loop) hands back; the incoming value is a leftover ----
+param spawn_gauge_ring R11 ring                           # allocate_object's object (handler gauge_ring_update, ring_animation); in: a leftover kept when none is free
+# skip spawn_gauge_ring r1: play_sound's R1 leftover
+# skip spawn_gauge_ring r2: play_sound's R2 leftover
+# skip gauge_ring_update r1: animate's frame, passed to queue_sprite only
+# skip gauge_ring_update r7: animate's wrapped flag, never read
+# skip gauge_ring_update r8: animate's at_last_step, never read
+param spawn_debug_sprite_mover R11 object                 # allocate_object_outside_loop's object (handler debug_sprite_mover_update); in: a leftover kept when none is free
+param spawn_falling_rocks R11 object                      # allocate_object_outside_loop's object, one per falling_rocks record (handler falling_rock_bounce): the last one at the end
+param spawn_message_box_2 R5 screen_x                     # place_message_box's screen_x (as spawn_message_box)
+param spawn_message_box_2 R6 screen_y                     # place_message_box's screen_y
+param spawn_message_box_2 R7 kind                         # place_message_box's kind: index into message_box_kinds
+param spawn_message_box_2 R8 frames                       # place_message_box's frames (speed_x_fraction)
+param spawn_message_box_2 R11 box                         # allocate_object's object, set up by place_message_box (the name of its 0953CB local line)
+param spawn_screen_sign R5 screen_x                       # place_screen_sign's screen_x
+param spawn_screen_sign R6 screen_y                       # place_screen_sign's screen_y
+param spawn_screen_sign R7 kind                           # place_screen_sign's kind: index into screen_sign_kinds
+param spawn_screen_sign R11 sign                          # allocate_object_outside_loop's object, set up by place_screen_sign (the name of its 084D9E local line)
+param spawn_screen_sign_2 R5 screen_x                     # as spawn_screen_sign
+param spawn_screen_sign_2 R6 screen_y
+param spawn_screen_sign_2 R7 kind
+param spawn_screen_sign_2 R11 sign                        # allocate_object's object, set up by place_screen_sign
+param spawn_stage_template R11 object                     # allocate_object's object filled from the template, find_floor's cursor in between, then its pool 2 shadow (allocate_object_2): the shadow at the end
+# skip spawn_stage_template r0: project_object/find_floor's R0, passed on only
+# skip spawn_stage_template r1: project_object/find_floor's R1, passed on only
+param spawn_stage_template_0 R11 object                   # as spawn_stage_template (template 0 read field by field)
+# skip spawn_stage_template_0 r0: project_object/find_floor's R0, passed on only
+# skip spawn_stage_template_0 r1: project_object/find_floor's R1, passed on only
+
+# ---- object handlers ----
+# skip knocked_object_fly r1: project_object's and animate's R1 handed to queue_sprite, which sets its own depth
+# skip knocked_object_fly r7: animate's wrapped flag, never read
+# skip ram_target_draw r1: animate's and update_screen_position's R1, never read (depth is its own variable)
+# skip ram_target_draw r7: animate's wrapped flag, never read
+# skip ram_target_start r0: find_floor's R0, never read
+# skip ram_target_part_start r0: find_floor's R0, never read
+param unlink_child_chain R0 object                        # the object whose child link (28) is cut first, then each child in turn (the name of its 08DE68 local line)
+param wall_editor_rebuild_parts R11 part                  # build_wall_parts' part: each new pool 2 part, the last one at the end
+# skip wall_editor_rebuild_parts r2: free_object_2's R2 handed to build_wall_parts (its part_size only on the other path)
+
+# ---- stage 05 event messages ----
+param stage_05_event_show_message_11 R11 box              # handed to stage_05_event_show_message as spawn_message_box's box (its value is not used)
+param stage_05_event_show_message_12 R11 box              # the same
+# skip stage_05_event_show_message R2: play_sound's R2 threaded through spawn_walls, check_hits and check_platforms (scratch there, unnamed in the live caller update_stage_05_event too)
+# skip stage_05_event_show_message R4: check_hits' R4 handed back (scratch, unnamed in update_stage_05_event)
+# skip stage_05_event_show_message r1: play_sound's R1, never read
+# skip stage_05_event_show_message r2: the parameter R2, passed on only
+# skip stage_05_event_show_message r4: the parameter R4, check_hits' R4 handed back
+# skip stage_05_event_show_message_11 R2: passed on to stage_05_event_show_message only
+# skip stage_05_event_show_message_11 r2: the parameter R2, passed on only
+# skip stage_05_event_show_message_11 r4: handed back by stage_05_event_show_message, never read
+# skip stage_05_event_show_message_11 r11: the parameter box (param line)
+# skip stage_05_event_show_message_12 R2: passed on to stage_05_event_show_message only
+# skip stage_05_event_show_message_12 r2: the parameter R2, passed on only
+# skip stage_05_event_show_message_12 r4: handed back by stage_05_event_show_message, never read
+# skip stage_05_event_show_message_12 r11: the parameter box (param line)
+# skip stage_05_event_step_3_frame R2: handed to spawn_walls, check_hits and check_platforms (scratch there)
+# skip stage_05_event_step_3_frame R4: check_hits' R4, handed to check_platforms and back
+# skip stage_05_event_step_3_frame r1: spawn_walls' and check_hits' R1 handed on (check_walls, check_platforms)
+# skip stage_05_event_step_3_frame r2: spawn_walls' R2 handed on
+# skip stage_05_event_step_3_frame r3: check_hits' R3 handed to check_platforms
+# skip stage_05_event_step_3_frame r4: check_hits' R4 handed back
+# skip stage_05_event_step_3_frame r5: spawn_walls' R5 handed on
+
+# ---- trampolines (a lone br set_camera_velocity: no C of their own, every register passed on) ----
+# skip scroll_slowing_down_spare_branch r3: set_camera_velocity's speed, passed on (no C: a trampoline)
+# skip scroll_slowing_down_spare_branch r5: passed on to set_camera_velocity
+# skip scroll_slowing_down_spare_branch r10: passed on to set_camera_velocity
+# skip scroll_slowing_down_spare_branch r11: passed on to set_camera_velocity
+# skip scroll_speeding_up_spare_branch r3: set_camera_velocity's speed, passed on (no C: a trampoline)
+# skip scroll_speeding_up_spare_branch r5: passed on to set_camera_velocity
+# skip scroll_speeding_up_spare_branch r10: passed on to set_camera_velocity
+# skip scroll_speeding_up_spare_branch r11: passed on to set_camera_velocity

@@ -16,7 +16,8 @@ decoded instruction means one of the two readings is wrong, and it is reported.
 Starts at the entry points in symbols.txt and follows every branch, call and jump whose
 target can be known without running the game. Whatever is never reached stays as data.
 On top of plain flow it understands two patterns the game uses everywhere:
-  - branch tables: "jmp table[PC](R0)" lands on a run of "br" instructions (with "nop" padding)
+  - branch tables: "jmp table[PC](R0)" lands on a run of "br" instructions (with "nop" padding; the
+    first may be a conditional branch, on a flag the code before the jump sets)
   - pointer tables: "mov.w table[PC](R0), R0" followed by "jsr [R0]" reads a table of addresses
   - code pointer slots: "movea.b func[PC], 1C[R20]" (or an absolute "movea.b func, 1C[R11]") stores
     a handler that "jsr [1C[R20]]" calls
@@ -94,7 +95,7 @@ def parse_layout(attributes, where):
                   pointers=int(values["pointers"]) if "pointers" in values else None)
 
 
-NAME_KINDS = ("var", "io", "table", "struct", "field", "register", "scoped", "param", "local")    # names for the decompiled C (load_names)
+NAME_KINDS = ("var", "io", "table", "struct", "field", "register", "scoped", "param", "result", "local", "port")    # names for the decompiled C (load_names)
 
 
 def load_symbols(path):
@@ -141,9 +142,12 @@ class Names(NamedTuple):
                         # the first bytes of a field or variable (the low half of a 16.16 value)
     locals: dict        # (function name, address of the instruction that writes it or "entry", "rN" or "tN")
                         # -> the name of the local variable
+    ports: dict         # I/O port number -> name (a processor with ports of its own: the Z80)
+    param_structs: dict  # (function name, register number) -> the structure the parameter points at
+    results: dict       # (function name, register number) -> name of what a function nothing calls hands back
 
 
-def load_names(path):
+def load_names(path, registers=None):
     """Read the var, io, table, struct and field lines of symbols.txt:
         ADDRESS  var    NAME  TYPE [STRUCT]  a variable in work RAM (TYPE: u8 s8 u16 s16 u32 s32)
         ADDRESS  io     NAME  TYPE       a hardware register
@@ -159,14 +163,29 @@ def load_names(path):
         scoped   STRUCT FAMILY OFFSET NAME TYPE  a field as the functions whose names start with FAMILY use
                                          it, in the structure their code runs on; with "global" for
                                          STRUCT and an address for OFFSET, work RAM as they use it
-        param    FUNCTION RN NAME        what a function takes or hands back in register RN
+        param    FUNCTION RN NAME [STRUCT]  what a function takes or hands back in register RN (a structure:
+                                         what it takes there points at one)
+        result   FUNCTION RN NAME [STRUCT]  what a function nothing calls hands back in register RN (no
+                                         caller says it: the ones that do call get it from what they read)
         local    FUNCTION WHERE RN NAME  the local variable of FUNCTION that holds what the instructions at
                                          WHERE (addresses separated by commas) write in register RN (a
                                          call: what it hands back in RN); "entry" in WHERE is what RN
                                          holds when the function starts
         local    FUNCTION WHERE TN NAME  likewise the N-th value the instruction at WHERE reads or works
-                                         out on its way (t1: what a read-modify-write instruction read)"""
-    names = Names({}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {})
+                                         out on its way (t1: what a read-modify-write instruction read)
+        local    FUNCTION WHERE SN NAME  the stack slot N bytes (hexadecimal) below where SP stood when the
+                                         function started, by the instructions at WHERE that store to it
+        ADDRESS  port   NAME             an I/O port
+    'registers' ({name: number}) lets param and local lines name a register by its name (hl, iy) on a
+    processor whose registers have names; RN works on any."""
+    names = Names({}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {})
+    registers = registers or {}
+
+    def register_number(text):
+        """The number of the register 'text' names (RN, or a name of 'registers'), or None."""
+        if text.upper().startswith("R") and text[1:].isdigit():
+            return int(text[1:])
+        return registers.get(text.lower())
 
     def declare(table, key, overlay_key, name, kind, where):
         """The wider of two names at one place is the field or variable; the narrower one an overlay."""
@@ -196,19 +215,27 @@ def load_names(path):
                 raise SystemExit(f"{where}: expected 'scoped STRUCT FAMILY OFFSET NAME TYPE' with TYPE in {VALUE_TYPES}")
             names.scoped.setdefault((parts[1], parts[2]), {})[int(parts[3], 16)] = (parts[4], parts[5])
             continue
-        if parts[0] == "param":
-            if len(parts) != 4 or not parts[2].upper().startswith("R") or not parts[2][1:].isdigit() \
-                    or not parts[3].isidentifier():
-                raise SystemExit(f"{where}: expected 'param FUNCTION RN NAME'")
-            names.params[(parts[1], int(parts[2][1:]))] = parts[3]
+        if parts[0] in ("param", "result"):
+            if len(parts) not in (4, 5) or register_number(parts[2]) is None or not parts[3].isidentifier():
+                raise SystemExit(f"{where}: expected '{parts[0]} FUNCTION RN NAME [STRUCT]'")
+            key = (parts[1], register_number(parts[2]))
+            table = names.params if parts[0] == "param" else names.results
+            if table.get(key, parts[3]) != parts[3]:
+                raise SystemExit(f"{where}: {parts[1]}'s {parts[2]} is '{table[key]}' already")
+            table[key] = parts[3]
+            if len(parts) == 5:
+                names.param_structs[(parts[1], register_number(parts[2]))] = parts[4]
             continue
         if parts[0] == "local":
             spots = parts[2].split(",") if len(parts) == 5 else []
-            if not spots or any(spot != "entry" and not re.fullmatch(r"[0-9A-Fa-f]{6}", spot) for spot in spots) \
-                    or not re.fullmatch(r"[rt]\d+", parts[3]) or not parts[4].isidentifier():
+            value = parts[3] if len(parts) == 5 else ""
+            if not re.fullmatch(r"[rt]\d+|s[0-9A-F]+", value) and register_number(value) is not None:
+                value = f"r{register_number(value)}"
+            if not spots or any(spot != "entry" and not re.fullmatch(r"[0-9A-Fa-f]{4,6}", spot) for spot in spots) \
+                    or not re.fullmatch(r"[rt]\d+|s[0-9A-F]+", value) or not parts[4].isidentifier():
                 raise SystemExit(f"{where}: expected 'local FUNCTION WHERE RN NAME' or 'local FUNCTION WHERE TN NAME'")
             for spot in spots:
-                names.locals[(parts[1], spot if spot == "entry" else int(spot, 16), parts[3])] = parts[4]
+                names.locals[(parts[1], spot if spot == "entry" else int(spot, 16), value)] = parts[4]
             continue
         if parts[0] == "register":
             if len(parts) != 3 or not parts[1].upper().startswith("R") or not parts[1][1:].isdigit():
@@ -222,6 +249,11 @@ def load_names(path):
                     where)
             if len(parts) == 6:
                 names.targets[(parts[1], int(parts[2], 16))] = (parts[5], int(parts[4][1:]))
+            continue
+        if len(parts) >= 2 and parts[1] == "port":
+            if len(parts) != 3 or not parts[2].isidentifier():
+                raise SystemExit(f"{where}: expected 'ADDRESS port NAME'")
+            names.ports[int(parts[0], 16)] = parts[2]
             continue
         if len(parts) < 2 or parts[1] not in ("var", "io", "table"):
             continue
@@ -238,6 +270,9 @@ def load_names(path):
     for (struct, _), (pointed, _) in names.targets.items():
         if pointed not in names.structs and pointed != "rom":
             raise SystemExit(f"{path.name}: points at '{pointed}', which is no struct (nor 'rom')")
+    for (function, _), pointed in names.param_structs.items():
+        if pointed not in names.structs:
+            raise SystemExit(f"{path.name}: a parameter of {function} points at '{pointed}', which is no struct")
     return names
 
 
@@ -457,9 +492,14 @@ class Analysis:
             return
         self.labels.setdefault(cursor, "loc")
         entries = (self.call_tables if called else self.jump_tables).setdefault(origin, [])
+        first = cursor
         for _ in range(1024):
             entry = dis.decode(self.mem, cursor)
-            if entry.mnemonic == "br" or (entry.mnemonic == "jmp" and entry.target is not None):
+            # the first entry may branch on a flag the code before the jump always leaves the same way
+            # (0996A7: "be", Z set by the test that ended the run): it falls through to the second
+            conditional = cursor == first and entry.flow == dis.FLOW_BRANCH and entry.mnemonic.startswith("b") \
+                and entry.target is not None
+            if entry.mnemonic == "br" or (entry.mnemonic == "jmp" and entry.target is not None) or conditional:
                 self.add_target(cursor, "loc", origin, label=False)
                 entries.append(cursor)
                 if called:

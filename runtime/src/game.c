@@ -150,6 +150,14 @@ GAME_NORETURN void unknown_code(uint32_t address)
 	exit(3);
 }
 
+GAME_NORETURN void invalid_operand(uint32_t address)
+{
+	fprintf(stderr, "Instruction the V60 cannot run at %06X (frame %llu)\n", address & 0xffffff,
+		(unsigned long long)frames);
+	print_recent_calls();
+	exit(3);
+}
+
 static uint8_t *blocks_run;
 
 static void write_blocks_run(void)

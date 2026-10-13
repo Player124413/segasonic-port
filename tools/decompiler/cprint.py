@@ -19,6 +19,7 @@ from . import cpu
 
 UNSIGNED = {8: "uint8_t", 16: "uint16_t", 32: "uint32_t", 64: "uint64_t"}
 SIGNED = {8: "int8_t", 16: "int16_t", 32: "int32_t", 64: "int64_t"}
+PORT_NAMES = {}    # I/O port -> its name, for a processor with ports (tools/decompile_sound.py)
 
 # C precedence: higher binds tighter
 PRIMARY, UNARY, MULTIPLY, ADD, SHIFT, RELATION, EQUALITY = 16, 15, 13, 12, 11, 10, 9
@@ -434,5 +435,6 @@ class Printer:
         if name == "read_psw":
             return Value(f"psw_read({', '.join(values)})", PRIMARY, True, "u32")
         if name == "port_in":
-            return Value(f"port_in({values[0]})", PRIMARY, True, "int")
+            port = PORT_NAMES.get(args[0].value) if isinstance(args[0], ir.Const) else None
+            return Value(f"port_in({port or values[0]})", PRIMARY, True, "int")
         raise ValueError(f"unknown helper {name}")

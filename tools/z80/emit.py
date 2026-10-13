@@ -9,59 +9,60 @@ Modified:    13-10-2026
 Author:      Sebastian Toyos
 
 The decompiler's FunctionWriter does the work (decompiler/emit.py); this gives it the Z80's memory and
-effects. Memory at a constant address prints as the place it is: SOUND_RAM8/16(address) for the RAM the
-Z80 shares with the V60 (E000-FFFF), SOUND_ROM8/16(address) for the program ROM (0000-9FFF), the names
-sound_symbols.txt gives them where it does; a computed address goes over the board's bus,
-z80_read8/16() and z80_write8/16() (runtime/include/sound/support.h). The timing model's Effects
-(z80_block, z80_cycles), DI and EI, OUT and the block moves print as calls of that header.
+effects. MEMORY_MAP is the Z80's for decompiler/memory.py and decompiler/pointers.py: the RAM it shares
+with the V60 (E000-FFFF) holds the variables and the structures sound_symbols.txt names, read and written
+as lvalues over those bytes (SOUND_RAM8, CHANNEL(p)->field); the program ROM (0000-9FFF) the tables; the
+sample bank's window (A000-BFFF) and the RF5C68 (C000-DFFF) are the board's, reached through its bus by
+name. A computed address no structure explains goes over the bus, z80_read8/16() and z80_write8/16()
+(runtime/include/sound/support.h). The timing model's Effects (z80_block, z80_cycles), DI and EI, OUT and
+the block moves print as calls of that header, the ports by the names sound_symbols.txt gives them.
 """
 from decompiler import emit
-from decompiler import memory
 from v60 import ir
 
 SHARED_RAM = (0xE000, 0x10000)
 PROGRAM_ROM = (0x0000, 0xA000)
 
 
-class SoundMemory:
-    """The names of the sound program's memory, with the interface decompiler/emit.py asks of its
-    memory.Memory: access(), register(), scoped, declarations()."""
-
-    def __init__(self, variables=None):
-        self.variables = variables or {}    # address -> (name, bits)
-        self.scoped = {}
-        self.tables = {}
-        self.overlays = {}
-
-    @staticmethod
-    def place(address, bits):
-        """SOUND_RAM8(0xE701) or SOUND_ROM16(0x4706), or None."""
-        if SHARED_RAM[0] <= address and address + bits // 8 <= SHARED_RAM[1]:
-            return f"SOUND_RAM{bits}(0x{address:04X}u)", True
-        if PROGRAM_ROM[0] <= address and address + bits // 8 <= PROGRAM_ROM[1]:
-            return f"SOUND_ROM{bits}(0x{address:04X}u)", False
-        return None
-
-    def access(self, address, bits, index_text):
-        if bits not in (8, 16):
-            return None
-        value = memory.constant_address(address)
-        if value is None:
-            return None
-        named = self.variables.get(value)
-        if named is not None and named[1] == bits:
-            return named[0], False, True
-        found = self.place(value, bits)
-        if found is None:
-            return None
-        return found[0], False, found[1]
-
-    def register(self, value):
-        return None
-
-    def declarations(self):
-        return [f"#define {name} SOUND_RAM{bits}(0x{address:04X}u)"
-                for address, (name, bits) in sorted(self.variables.items())]
+def use_memory_map(names, arrays):
+    """Makes the Z80's memory the one decompiler/memory.py and decompiler/pointers.py work on: 'names'
+    (disassemble.Names) gives the structures, 'arrays' ({struct: (first, count)}) where they stand one
+    after another."""
+    from decompiler import memory
+    from decompiler import pointers
+    memory.WORK_RAM = SHARED_RAM
+    memory.ROM_AREAS = (PROGRAM_ROM,)
+    memory.ADDRESS_MASK = 0xFFFF
+    memory.ADDRESS_DIGITS = 4
+    memory.RAM_MACRO, memory.ROM_MACRO = "SOUND_RAM", "SOUND_ROM"
+    memory.RAM_FUNCTION, memory.ROM_FUNCTION = "sound_ram_at", "sound_rom_at"
+    memory.PAGED = False
+    memory.PLAYER_FIELDS = None
+    memory.CANONICAL = lambda address: address
+    memory.ROM_NAMES_FROM = 0x0100    # the restarts and the interrupt's code are below
+    memory.VARIABLES = None
+    memory.HARDWARE = [(0xA000, 0xC000, "SAMPLE_BANK"), (0xC000, 0xD000, "PCM"), (0xD000, 0xE000, "PCM_RAM")]
+    memory.BUS_ONLY = []
+    memory.BYTE_INDEXES = True
+    memory.NOTES = {
+        "variables": ["/* the sound program's variables, in the RAM it shares with the V60 (E000-FFFF) */"],
+        "scoped": ["/* shared RAM as one family of functions uses it */"],
+        "tables": ["/* data in the program ROM the code reads */"],
+        "hardware": ["/* the sample bank's window and the RF5C68 (read and written through the bus) */"],
+    }
+    pointers.STRUCTS = dict(names.structs)
+    pointers.PLAYERS = (0, 0, 0)
+    pointers.VARIABLES = None
+    pointers.CONTEXT_KINDS = {}
+    pointers.OBJECT_REGISTERS = ()
+    pointers.WORK_RAM = SHARED_RAM
+    pointers.ADDRESS_MASK = 0xFFFF
+    pointers.POINTER_BITS = 16
+    pointers.PAGE_LINKS = False
+    pointers.ROM_DATA = (0x0100, PROGRAM_ROM[1])
+    pointers.ARRAYS = dict(arrays)
+    pointers.STRUCT_FUNCTION = "sound_ram_at"
+    pointers.CONSTANTS = True
 
 
 class SoundNames(emit.Names):
@@ -94,6 +95,10 @@ class SoundWriter(emit.FunctionWriter):
             return [f"z80_write{statement.bits}({self.exact(statement.address)}, {self.stored(statement.value, statement.bits)});"]
         return super().statement(statement)
 
+    def port(self, node):
+        name = self.emitter.ports.get(node.value) if isinstance(node, ir.Const) else None
+        return name or self.exact(node)
+
     def effect(self, statement):
         name = statement.name
         args = statement.args
@@ -107,7 +112,7 @@ class SoundWriter(emit.FunctionWriter):
             # EI as a block's last instruction: the interrupt waits for the block after the next start
             return ["interrupts_on_after_block();" if args[0].value else "interrupts_on();"]
         if name == "port_out":
-            return [f"port_out({self.exact(args[0])}, {self.exact(args[1])});"]
+            return [f"port_out({self.port(args[0])}, {self.exact(args[1])});"]
         if name == "move_block":
             source, destination, count, upward = (self.exact(arg) for arg in args)
             return [f"move_block({source}, {destination}, {count}, {upward});"]
@@ -115,22 +120,18 @@ class SoundWriter(emit.FunctionWriter):
 
 
 class SoundEmitter(emit.Emitter):
-    """emit.Emitter with nothing of the V60 program's: no context registers, no structures."""
+    """emit.Emitter with nothing of the V60 program's: no context registers; the sound program's
+    structures (pointers.Layouts) and ports."""
 
-    def __init__(self, functions, signatures, names, memory_, always):
+    def __init__(self, functions, signatures, names, memory_, always, layouts, ports):
         super().__init__(functions, signatures, names, (), set(), memory_, always, lambda address: 0)
-        self.layouts = NoLayouts()
+        self.layouts = layouts
+        self.ports = dict(ports)
+        self.saved_locals = True
         self.flow = None
 
     def restores_current(self, entry):
         return None, None
 
-
-class NoLayouts:
-    """No structures (yet): pointers.Layouts' answers when nothing is described."""
-
-    def families(self, struct):
-        return []
-
-    def declarations(self):
-        return []
+    def port_declarations(self):
+        return [f"#define {name} 0x{port:02X}u" for port, name in sorted(self.ports.items())]
