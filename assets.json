@@ -1,0 +1,40 @@
+{
+  "manifest_version": 1,
+  "rom_set": "sonic",
+  "notes": [
+    "Positions only: every byte comes from the user's own ROM at extraction time.",
+    "Regions: program (V60, 2 MB), tiles (2 MB), sprites (16 MB), sound (Z80 + PCM, 4 MB); see tools/sonic_rom.py.",
+    "Tile sheets keep the original 4-bit pens as palette indices; colors are grayscale until palettes are mapped.",
+    "PCM rate is nominal (half the RF5C68 output rate): the real pitch is set per sample by the Z80 driver."
+  ],
+  "assets": [
+    {"path": "assets/tiles/tiles_00.png", "region": "tiles", "offset": "0x000000", "size": "0x20000", "type": "tiles_16x16x4", "columns": 32},
+    {"path": "assets/tiles/tiles_01.png", "region": "tiles", "offset": "0x020000", "size": "0x20000", "type": "tiles_16x16x4", "columns": 32},
+    {"path": "assets/tiles/tiles_02.png", "region": "tiles", "offset": "0x040000", "size": "0x20000", "type": "tiles_16x16x4", "columns": 32},
+    {"path": "assets/tiles/tiles_03.png", "region": "tiles", "offset": "0x060000", "size": "0x20000", "type": "tiles_16x16x4", "columns": 32},
+    {"path": "assets/tiles/tiles_04.png", "region": "tiles", "offset": "0x080000", "size": "0x20000", "type": "tiles_16x16x4", "columns": 32},
+    {"path": "assets/tiles/tiles_05.png", "region": "tiles", "offset": "0x0A0000", "size": "0x20000", "type": "tiles_16x16x4", "columns": 32},
+    {"path": "assets/tiles/tiles_06.png", "region": "tiles", "offset": "0x0C0000", "size": "0x20000", "type": "tiles_16x16x4", "columns": 32},
+    {"path": "assets/tiles/tiles_07.png", "region": "tiles", "offset": "0x0E0000", "size": "0x20000", "type": "tiles_16x16x4", "columns": 32},
+    {"path": "assets/tiles/tiles_08.png", "region": "tiles", "offset": "0x100000", "size": "0x20000", "type": "tiles_16x16x4", "columns": 32},
+    {"path": "assets/tiles/tiles_09.png", "region": "tiles", "offset": "0x120000", "size": "0x20000", "type": "tiles_16x16x4", "columns": 32},
+    {"path": "assets/tiles/tiles_10.png", "region": "tiles", "offset": "0x140000", "size": "0x20000", "type": "tiles_16x16x4", "columns": 32},
+    {"path": "assets/tiles/tiles_11.png", "region": "tiles", "offset": "0x160000", "size": "0x20000", "type": "tiles_16x16x4", "columns": 32},
+    {"path": "assets/tiles/tiles_12.png", "region": "tiles", "offset": "0x180000", "size": "0x20000", "type": "tiles_16x16x4", "columns": 32},
+    {"path": "assets/tiles/tiles_13.png", "region": "tiles", "offset": "0x1A0000", "size": "0x20000", "type": "tiles_16x16x4", "columns": 32},
+    {"path": "assets/tiles/tiles_14.png", "region": "tiles", "offset": "0x1C0000", "size": "0x20000", "type": "tiles_16x16x4", "columns": 32},
+    {"path": "assets/tiles/tiles_15.png", "region": "tiles", "offset": "0x1E0000", "size": "0x20000", "type": "tiles_16x16x4", "columns": 32},
+
+    {"path": "assets/sprites/sprite_bank_0.bin", "region": "sprites", "offset": "0x000000", "size": "0x400000", "type": "binary"},
+    {"path": "assets/sprites/sprite_bank_1.bin", "region": "sprites", "offset": "0x400000", "size": "0x400000", "type": "binary"},
+    {"path": "assets/sprites/sprite_bank_2.bin", "region": "sprites", "offset": "0x800000", "size": "0x400000", "type": "binary"},
+    {"path": "assets/sprites/sprite_bank_3.bin", "region": "sprites", "offset": "0xC00000", "size": "0x400000", "type": "binary"},
+
+    {"path": "assets/sound/z80_driver.bin", "region": "sound", "offset": "0x000000", "size": "0x40000", "type": "binary"},
+    {"path": "assets/sound/pcm_bank_1", "region": "sound", "offset": "0x100000", "size": "0x100000", "type": "pcm_rf5c68", "rate": 16276},
+    {"path": "assets/sound/pcm_bank_2", "region": "sound", "offset": "0x200000", "size": "0x100000", "type": "pcm_rf5c68", "rate": 16276},
+    {"path": "assets/sound/pcm_bank_3", "region": "sound", "offset": "0x300000", "size": "0x100000", "type": "pcm_rf5c68", "rate": 16276},
+
+    {"path": "assets/program/game_data.bin", "region": "program", "offset": "0x100000", "size": "0x80000", "type": "binary"}
+  ]
+}

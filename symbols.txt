@@ -1,0 +1,21 @@
+# SegaSonic The Hedgehog (MAME set 'sonic', Japan rev. C) - V60 program symbols
+#
+# Addresses and names only: no game data lives in this file.
+# Format:  ADDRESS  KIND  NAME   [# comment]
+#   KIND: func = function entry, code = code label, data = data label
+# Addresses use the copy of each ROM chip the code refers to:
+#   000000-01FFFF (ic17), 080000-09FFFF (ic8), 100000-17FFFF (ic18 + ic9)
+# Mirrors are accepted and folded (e.g. FFFFF0 -> 09FFF0).
+
+09FFF0  func  reset              # V60 reset vector (0xFFFFFFF0 on a 24-bit bus): "jmp 0"
+000000  func  boot               # SBR = 0FF000, SP = 210000, R25 = 208000, first interrupt controller setup
+00004D  code  boot_main          # entered by pushing its address and executing "retis"
+
+09F000  data  vector_table       # 256 x 32-bit entries, base loaded into SBR by boot (as 0FF000)
+09F5B8  func  int_default        # target of 247 of the 256 vector table entries
+09F5BC  func  int_vector_02      # NMI
+09F500  func  irq_vector_40      # vectors 0x40-0x44: the five interrupt controller sources
+09F560  func  irq_vector_41      # (VBLANK start/end, sound, timer 0/1; the order is set at run time)
+09F578  func  irq_vector_42
+09F584  func  irq_vector_43
+09F59C  func  irq_vector_44
