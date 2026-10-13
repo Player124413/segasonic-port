@@ -1,0 +1,121 @@
+# Stage 10, game mode 0x19 (scroll C80): the two-player run of players_2 up to frame 6040 (mode 0x19
+# from 6036), then both players out: the game ends in mode 0x19 (09402B).
+# Pokes: 20E590-20E592 are player_status (one byte per player: negative = in play); 0 = out of
+# the game, as after a death with no continue. The game mode's own check then ends the game
+# (game mode 7) inside the event. A poke at frame N acts on the game code of frame N + 1.
+600  poke 20F41E 02
+1800  press coin1
+1820  press coin2
+1880  press start1
+1900  press start2
+3220  poke 20F061 08
+3320  poke 20F06E 10
+3320  poke 20F06F 00
+3420  press start1
+3520  roll 1 12 12
+3520  poke 204FDE 18
+3520  roll 2 -4 4
+3520  poke 204F3E 18
+3559  roll 2 0 7
+3559  press button2
+3619  roll 1 -8 0
+3626  roll 2 -7 -7
+3626  press button2
+3640  poke 204FDE 18
+3640  poke 204F3E 18
+3760  poke 204FDE 18
+3760  poke 204F3E 18
+3764  roll 1 -11 0
+3775  roll 2 -8 -8
+3880  poke 204FDE 18
+3880  poke 204F3E 18
+3893  roll 2 -7 7
+3895  roll 1 0 -5
+3895  press button1
+4000  poke 204FDE 18
+4000  poke 204F3E 18
+4003  roll 2 -8 8
+4005  roll 1 -8 -8
+4120  poke 204FDE 18
+4120  poke 204F3E 18
+4163  roll 2 0 -7
+4167  roll 1 0 6
+4240  poke 204FDE 18
+4240  poke 204F3E 18
+4267  roll 1 0 4
+4300  roll 2 5 -5
+4328  roll 1 -4 -4
+4328  press button1
+4360  poke 204FDE 18
+4360  poke 204F3E 18
+4410  roll 1 0 -10
+4422  roll 2 9 -9
+4480  poke 204FDE 18
+4480  poke 204F3E 18
+4552  roll 1 5 5
+4567  roll 2 0 -5
+4600  poke 204FDE 18
+4600  poke 204F3E 18
+4601  roll 2 -6 6
+4635  roll 2 -12 0
+4675  roll 1 0 5
+4690  roll 2 10 10
+4690  press button2
+4720  poke 204FDE 18
+4720  poke 204F3E 18
+4720  press coin1
+4780  press start1
+4829  roll 1 -8 8
+4839  roll 2 -10 0
+4840  poke 204FDE 18
+4840  poke 204F3E 18
+4914  roll 1 8 -8
+4928  roll 2 0 12
+4960  poke 204FDE 18
+4960  poke 204F3E 18
+4970  roll 1 5 5
+4970  press button1
+5030  roll 1 6 0
+5048  roll 2 7 7
+5080  poke 204FDE 18
+5080  poke 204F3E 18
+5089  roll 1 10 10
+5120  roll 2 -10 -10
+5162  roll 1 0 -11
+5200  poke 204FDE 18
+5200  poke 204F3E 18
+5236  roll 2 5 -5
+5309  roll 1 0 -10
+5320  poke 204FDE 18
+5320  poke 204F3E 18
+5335  roll 2 6 -6
+5335  press button2
+5363  roll 1 -11 0
+5440  poke 204FDE 18
+5440  poke 204F3E 18
+5491  roll 2 0 -10
+5491  press button2
+5508  roll 1 5 -5
+5560  poke 204FDE 18
+5560  poke 204F3E 18
+5587  roll 2 8 8
+5587  press button2
+5663  roll 1 -11 0
+5663  press button1
+5680  poke 204FDE 18
+5680  poke 204F3E 18
+5732  roll 2 8 0
+5732  press button2
+5796  roll 1 0 -4
+5800  poke 204FDE 18
+5800  poke 204F3E 18
+5889  roll 2 11 -11
+5889  press button2
+5920  poke 204FDE 18
+5920  poke 204F3E 18
+5934  roll 2 5 -5
+5971  roll 1 -11 -11
+5971  press button1
+6040  poke 20E590 00
+6040  poke 20E591 00
+6400  end

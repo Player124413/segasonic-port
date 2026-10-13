@@ -1,0 +1,144 @@
+# Dead game modes and debug flags run by poke (one player).
+#
+# Reaches: Stage Select Mode's trackball stepping with both wraps (0014D7-0014F3) and every branch of
+# read_trackball_step (001CAC, 001CBF-001CC3, 001CCC-001CD4); run_game_mode's table entries for game
+# modes 0x0B (000680), 9 (00067A) and 0x0F (00068C) and their handlers game_mode_event_09 (00156B-001585)
+# and game_mode_event_0F (0015D5-0015E0, then the whole event 0F at 0945CE: message boxes, back to mode
+# 3); update_grey_screen while a player's 9F is set and when it ends (001A59-001A7E);
+# continue_to_next_stage_slot (001B7A-001BEB); project_object_2 below scroll A5F0 (00C57C-00C5C9,
+# 00C5E8-00C604) and shadow_update's per_player_view_mode test (00C0FF-00C107); the stage 0x12 entry of
+# check_player_reached_goal's table (00D0A3).
+#
+# Nothing in the program writes these values: game_mode is only ever set to 0-4, 7,
+# 0x0A, 0x17, 0x1B, 0x1D, 0x1E, 0x20 and the stage_events values; next_stage_slot_request (20E538),
+# per_player_view_mode (20E5F2) and the players' grey_screen_request (field 9F) are only ever cleared;
+# the stage is never 0x12. Each poke stands for that missing write:
+#   20F061 game_mode; 20F0E2/20F0E4 scene_step/scene_timer (what run_stage_events clears when it
+#   switches modes); 20849F player 1's grey_screen_request; 20E538 next_stage_slot_request (only
+#   game_mode_event_09 calls continue_to_next_stage_slot without clearing it first); 20E5F2
+#   per_player_view_mode; 20F06E stage.
+# The modes 9 and 0x0F do not run check_zones (and 9 not check_hits/check_walls/check_platforms either),
+# so the objects that push themselves on those lists every frame make them circular: when game mode 3
+# comes back, the list heads are reset to FFFF as start_stage does (20F07E, 20F080, 20E5F0, 20F090,
+# 20F092, 20F0AE), else check_zones loops forever.
+# Game modes 5 and 6 are not poked here: in a stage they make game_mode_play_stage re-dispatch forever
+# (it jumps back to run_game_mode while game_mode is not 3); see game_over_cabinets.txt.
+#
+1800  press coin1
+1920  press start1
+# Stage Select Mode (debug, game mode 8; it sets stage 3): trackball 1 to the left steps the stage down
+# 3, 2, 1, 0, then wraps to 0x11; to the right (the sum of the other sign is reset) 0x11 wraps to 0, then
+# up to 5; start 1 plays stage 5
+3300  poke 20F061 08
+3320  roll 1 8 0
+3356  roll 1 -8 0
+3404  roll 1 0 0
+3420  press start1
+# The walk of stage_05.txt: out of the cage to the exit; stage 5's scene runs in game mode 0x0A
+3600  roll 1 -12 -12
+3600  press button1
+3749  roll 1 -4 4
+3807  roll 1 -10 10
+3983  roll 1 -10 10
+3983  press button1
+4112  roll 1 6 6
+4255  roll 1 4 0
+4255  press button1
+4340  roll 1 0 6
+4340  press button1
+4420  roll 1 -6 6
+4500  roll 1 0 -8
+4500  press button1
+4636  roll 1 0 8
+4636  press button1
+4743  roll 1 9 0
+4743  press button1
+4800  press coin1
+4860  press start1
+4863  roll 1 9 -9
+4863  press button1
+5013  roll 1 8 0
+5048  roll 1 -10 -10
+5048  press button1
+5185  roll 1 11 0
+5185  press button1
+5261  roll 1 -5 5
+# Game mode 0x0B, the second entry of the stage 5 scene (run_stage_events only ever sets 0x0A): the same
+# handler goes on; the scene's next step writes 0x0A again
+5345  poke 20F061 0B
+5409  roll 1 -12 -12
+5409  press button1
+5557  roll 1 -8 -8
+5557  press button1
+5610  roll 1 -6 -6
+5779  roll 1 0 0
+5887  roll 1 6 6
+5996  roll 1 0 4
+5996  press button1
+6000  press coin1
+6060  press start1
+6162  roll 1 7 0
+6280  roll 1 10 -10
+6280  press button1
+6318  roll 1 -7 -7
+6318  press button1
+6492  roll 1 0 -5
+6492  press button1
+6617  roll 1 0 -8
+6617  press button1
+6690  roll 1 11 -11
+6801  roll 1 -11 0
+6868  roll 1 0 11
+6944  roll 1 0 0
+6944  press button1
+# Stage 8 (game mode 3 from 7430). Game mode 9 for one frame, then 3 with the list heads reset
+7520  poke 20F061 09
+7521  poke 20F061 03
+7521  poke 20F07E FF
+7521  poke 20F07F FF
+7521  poke 20F080 FF
+7521  poke 20F081 FF
+7521  poke 20E5F0 FF
+7521  poke 20E5F1 FF
+7521  poke 20F090 FF
+7521  poke 20F091 FF
+7521  poke 20F092 FF
+7521  poke 20F093 FF
+7521  poke 20F0AE FF
+7521  poke 20F0AF FF
+# Player 1's grey_screen_request for 100 frames: the four tile layers go grey, then back
+7600  poke 20849F FF
+7700  poke 20849F 00
+# Game mode 0x0F from scene step 0: the scroll stops, message boxes for 0x258 frames, game mode 3 again
+# (from frame 8521, when the zone list head is reset)
+7800  poke 20F0E2 00
+7800  poke 20F0E4 00
+7800  poke 20F0E5 00
+7800  poke 20F061 0F
+8521  poke 20E5F0 FF
+8521  poke 20E5F1 FF
+# per_player_view_mode for 60 frames (scroll position below A5F0): players and shadows are projected
+# with project_object_2
+8700  poke 20E5F2 FF
+8760  poke 20E5F2 00
+# Stage 0x12 for one frame: check_player_reached_goal takes its table entry
+8800  poke 20F06E 12
+8801  poke 20F06E 08
+# next_stage_slot_request with one frame of game mode 9: stage 8 becomes 9 (its floors and restart
+# points); player 1 then falls off the changed map and loses his vitality
+9000  poke 20E538 01
+9000  poke 20F061 09
+9001  poke 20F061 03
+9001  poke 20F07E FF
+9001  poke 20F07F FF
+9001  poke 20F080 FF
+9001  poke 20F081 FF
+9001  poke 20E5F0 FF
+9001  poke 20E5F1 FF
+9001  poke 20F090 FF
+9001  poke 20F091 FF
+9001  poke 20F092 FF
+9001  poke 20F093 FF
+9001  poke 20F0AE FF
+9001  poke 20F0AF FF
+9600  end

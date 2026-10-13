@@ -1,0 +1,254 @@
+# Mighty at full trackball speed in stage 4 (one player, Stage Select Mode): character select turned to
+# Mighty (trackball 1 to the right for 40 frames), then a fast random walk (as in fast_trackball_ray.txt,
+# seed 1, button 1 at random). 204FDE (player 1's vitality) is refilled to 18 every 120 frames.
+#
+# Reaches: check_player_contacts: a vine bar (kind 0xA) caught while jumping by a character other than
+# Sonic (00E8BD-00E8CD: Mighty's held frame 3678); player_steer_in_air's speed cap and speed-up
+# (00B8DC-00B8ED). Run by poke: compute_ground_speed's floor slope case (00BD8F-00BDCC except the
+# rounding 00BDBF, which cannot run: see build/naming/unreachable.txt).
+#
+# 11978 (dead in the game, run by poke): player 1's state = 0x26 (pulled, player_state_pulled) and
+# substate = 5 while he runs on a slope 3 floor block: substate 5 releases the player at heading 2A0 and
+# speed 0x5000000 (L_008ECC) and calls compute_ground_speed, which takes the floor slope into account; in
+# the game only stage 9's pull (game mode 0x12) gets there, always at x 0x630 on flat blocks.
+1800  press coin1
+1920  press start1
+2000  roll 1 8 0
+2040  roll 1 0 0
+3300  poke 20F061 08
+3400  poke 20F06E 04
+3400  poke 20F06F 00
+3500  press start1
+3600  roll 1 30 -30
+3620  poke 204FDE 18
+3648  roll 1 40 0
+3648  press button1
+3740  poke 204FDE 18
+3745  roll 1 0 -40
+3811  roll 1 -30 30
+3811  press button1
+3860  poke 204FDE 18
+3900  roll 1 -40 0
+3940  roll 1 0 -40
+3940  press button1
+3980  poke 204FDE 18
+4009  roll 1 -30 30
+4052  roll 1 30 30
+4052  press button1
+4100  poke 204FDE 18
+4161  roll 1 30 30
+4220  poke 204FDE 18
+4249  roll 1 -30 -30
+4292  roll 1 -30 -30
+4340  poke 204FDE 18
+4395  roll 1 -30 -30
+4395  press button1
+4460  poke 204FDE 18
+4463  roll 1 0 -40
+4505  roll 1 -40 0
+4580  poke 204FDE 18
+4616  roll 1 -30 30
+4616  press button1
+4693  roll 1 -30 30
+4700  poke 204FDE 18
+4797  roll 1 -40 0
+4820  poke 204FDE 18
+4861  roll 1 40 0
+4861  press button1
+4940  poke 204FDE 18
+4964  roll 1 -40 0
+5008  roll 1 0 -40
+5008  press button1
+5060  poke 204FDE 18
+5099  roll 1 -40 0
+5180  poke 204FDE 18
+5185  roll 1 0 40
+5185  press button1
+5290  roll 1 -30 30
+5300  poke 204FDE 18
+5396  roll 1 -40 0
+5396  press button1
+5420  poke 204FDE 18
+5439  roll 1 0 -40
+5439  press button1
+5540  poke 204FDE 18
+5557  roll 1 -40 0
+5618  roll 1 -30 -30
+5660  poke 204FDE 18
+5683  roll 1 -30 -30
+5683  press button1
+5767  roll 1 0 40
+5767  press button1
+5780  poke 204FDE 18
+5841  roll 1 30 30
+5841  press button1
+5900  poke 204FDE 18
+5946  roll 1 30 -30
+6020  poke 204FDE 18
+6057  roll 1 -30 -30
+6057  press button1
+6104  roll 1 0 -40
+6140  poke 204FDE 18
+6216  roll 1 -30 -30
+6260  poke 204FDE 18
+6308  roll 1 0 -40
+6380  poke 204FDE 18
+6401  roll 1 0 40
+6401  press button1
+6500  poke 204FDE 18
+6510  roll 1 0 40
+6510  press button1
+6553  roll 1 -30 -30
+6620  poke 204FDE 18
+6663  roll 1 30 -30
+6740  poke 204FDE 18
+6773  roll 1 40 0
+6773  press button1
+6822  roll 1 -30 30
+6860  poke 204FDE 18
+6919  roll 1 30 30
+6980  poke 204FDE 18
+6994  roll 1 -30 -30
+6994  press button1
+7100  poke 204FDE 18
+7113  roll 1 30 -30
+7113  press button1
+7161  roll 1 30 -30
+7161  press button1
+7220  poke 204FDE 18
+7268  roll 1 30 -30
+7340  poke 204FDE 18
+7345  roll 1 0 -40
+7448  roll 1 0 -40
+7448  press button1
+7460  poke 204FDE 18
+7527  roll 1 -40 0
+7527  press button1
+7580  poke 204FDE 18
+7591  roll 1 40 0
+7591  press button1
+7696  roll 1 -30 -30
+7700  poke 204FDE 18
+7791  roll 1 30 30
+7791  press button1
+7820  poke 204FDE 18
+7881  roll 1 30 -30
+7881  press button1
+7940  poke 204FDE 18
+7941  roll 1 0 -40
+8035  roll 1 -30 -30
+8060  poke 204FDE 18
+8155  roll 1 0 -40
+8155  press button1
+8180  poke 204FDE 18
+8198  roll 1 -40 0
+8279  roll 1 -40 0
+8279  press button1
+8300  poke 204FDE 18
+8357  roll 1 30 -30
+8403  roll 1 40 0
+8403  press button1
+8420  poke 204FDE 18
+8452  roll 1 40 0
+8530  roll 1 30 -30
+8530  press button1
+8540  poke 204FDE 18
+8602  roll 1 30 -30
+8602  press button1
+8646  roll 1 -30 -30
+8660  poke 204FDE 18
+8758  roll 1 0 -40
+8758  press button1
+8780  poke 204FDE 18
+8877  roll 1 30 30
+8877  press button1
+8900  poke 204FDE 18
+8961  roll 1 -30 30
+8961  press button1
+9020  poke 204FDE 18
+9056  roll 1 -30 -30
+9056  press button1
+9140  poke 204FDE 18
+9145  roll 1 40 0
+9187  roll 1 0 40
+9260  poke 204FDE 18
+9278  roll 1 40 0
+9278  press button1
+9343  roll 1 0 40
+9380  poke 204FDE 18
+9455  roll 1 30 -30
+9455  press button1
+9500  poke 204FDE 18
+9522  roll 1 40 0
+9610  roll 1 0 40
+9620  poke 204FDE 18
+9718  roll 1 0 -40
+9740  poke 204FDE 18
+9826  roll 1 -30 -30
+9826  press button1
+9860  poke 204FDE 18
+9871  roll 1 -30 30
+9871  press button1
+9932  roll 1 -30 -30
+9932  press button1
+9980  poke 204FDE 18
+10014 roll 1 40 0
+10014 press button1
+10097 roll 1 -30 30
+10097 press button1
+10100 poke 204FDE 18
+10214 roll 1 0 -40
+10214 press button1
+10220 poke 204FDE 18
+10324 roll 1 -30 30
+10324 press button1
+10340 poke 204FDE 18
+10416 roll 1 -30 30
+10416 press button1
+10460 poke 204FDE 18
+10474 roll 1 30 -30
+10474 press button1
+10580 poke 204FDE 18
+10592 roll 1 -40 0
+10592 press button1
+10700 poke 204FDE 18
+10702 roll 1 -30 -30
+10776 roll 1 0 40
+10820 poke 204FDE 18
+10888 roll 1 -30 30
+10888 press button1
+10940 poke 204FDE 18
+10963 roll 1 -30 30
+11040 roll 1 30 30
+11060 poke 204FDE 18
+11081 roll 1 -30 30
+11081 press button1
+11126 roll 1 -30 -30
+11126 press button1
+11180 poke 204FDE 18
+11241 roll 1 -40 0
+11241 press button1
+11300 poke 204FDE 18
+11338 roll 1 30 -30
+11398 roll 1 -30 30
+11398 press button1
+11420 poke 204FDE 18
+11486 roll 1 40 0
+11540 poke 204FDE 18
+11587 roll 1 0 40
+11587 press button1
+11660 poke 204FDE 18
+11667 roll 1 30 30
+11667 press button1
+11744 roll 1 0 40
+11744 press button1
+11780 poke 204FDE 18
+11824 roll 1 -40 0
+11824 press button1
+11900 poke 204FDE 18
+11904 roll 1 0 -40
+11904 press button1
+11971 roll 1 0 -40
+11978 poke 208400 26
+11978 poke 208403 05
+12100 end

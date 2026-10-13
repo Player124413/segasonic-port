@@ -1,0 +1,19 @@
+# SegaSonic The Hedgehog (MAME set 'sonic') - Z80 sound program symbols (epr-15785.ic36)
+#
+# Addresses and names only: no game data lives in this file.
+# Format:  ADDRESS  KIND  NAME  [...]   [# comment]
+#   func     a function entry
+#   loop     the main loop's top: the program waits there for the board (a function entry)
+#   code     a code label
+#   jumps    NAME COUNT: a table of COUNT 16-bit code addresses
+#   via      TABLE: the JP (HL), JP (IX) or JP (IY) at ADDRESS goes to an entry of TABLE
+# Addresses are the Z80's: 0000-9FFF is the start of the sound ROM, A000-BFFF a banked page of it,
+# C000-DFFF the RF5C68, E000-FFFF the RAM shared with the V60 (V60 700000-701FFF).
+
+0000  func  sound_reset          # DI; JP 0100
+0038  func  sound_irq            # IM 1: the first YM3438's timer A; EXX and EX AF,AF' keep the main code's registers
+0100  code  sound_main           # IM 1, SP = FEFF, clears E000-FEFF, maps the interrupt inputs, sound_init, then the loop
+012D  loop  sound_main_loop      # waits while FFFF (sound_cpu_hold) is not 0; polls the second YM3438's timer A
+
+4706  jumps  track_command_table 16    # by the low nibble of a command byte (46AA)
+46B3  via    track_command_table

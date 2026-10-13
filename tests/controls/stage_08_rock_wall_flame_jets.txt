@@ -1,0 +1,255 @@
+# Stage 8: a rock wall broken by an attack, flame jets mirrored (field 92 non-zero), and a fade "to white"
+# (update_fade fade_kind 3) at the island map.
+# One player, stage 8 through Stage Select Mode, a trackball path found by a greedy search (every 480
+# frames the move, one of 8 directions with or without a jump every 45 frames, that scrolls furthest).
+# - Rock walls (type 1A, s8 9100-A840) stand in a line at x 3313, just past the floor's edge: a player
+#   can touch one only from the edge (x 3321) and breaks it only while jumping (flag 40 of the toucher,
+#   set by player_animate_jumping). From 9240 the trackball takes player 1 along the edge (y 5314) and
+#   against it; the jump at 9424 starts in the box of the wall at y 5363: rock_wall_update crumbles it
+#   (013291-0132EE) and its 92 rings go to drop_rings at the 5th frame (0132D1).
+# - Flame jets (type 0B, s8 8800): every record of the game has 92 = 0, so the mirrored variant (92 non-zero:
+#   sprite flags, nozzle and flame offsets, the burning flame parts) never runs. Two records with
+#   92 = 1 are poked into free RAM at 20B000 at frame 9450 (positions next to player 1, z 530 like the
+#   stage's jets) and the spawn list cursor 208000 (u32) is pointed at them; four frames later it is set
+#   back to the stage's own list (1005BA, its position at that time). stage_trigger_bits is already
+#   FFFFFFFF (the bridge fire reached the top at frame 8683), so the jets burn at once (011109 path).
+# - From 9500 the trackball rolls -12 12 with a jump every 45 frames: the stage is cleared (game mode 17
+#   at 10399) and the island map (game mode 4) starts at 11047. Its fade-out writes fade_kind 0 (0959BF)
+#   one frame before its first update_fade call (0959FC), with fade_step still 0 from the stage start:
+#   fade_kind (209089) is poked to 3 in between (frame 11048). Every caller writes 0 or 2 (and the end
+#   of a fade FF) before update_fade runs from step 0, so kinds 1 and 3 never run in a game.
+# Pokes 204FDE 18: player 1's vitality, every 120 frames.
+1800  press coin1
+1920  press start1
+3300  poke 20F061 08
+3400  poke 20F06E 08
+3400  poke 20F06F 00
+3500  press start1
+3600  roll 1 -12 12
+3620  poke 204FDE 18
+3740  poke 204FDE 18
+3860  poke 204FDE 18
+3980  poke 204FDE 18
+4080  roll 1 -12 0
+4080  press button1
+4100  poke 204FDE 18
+4125  press button1
+4170  press button1
+4215  press button1
+4220  poke 204FDE 18
+4260  press button1
+4305  press button1
+4340  poke 204FDE 18
+4350  press button1
+4395  press button1
+4440  press button1
+4460  poke 204FDE 18
+4485  press button1
+4530  press button1
+4560  roll 1 -12 12
+4580  poke 204FDE 18
+4700  poke 204FDE 18
+4820  poke 204FDE 18
+4940  poke 204FDE 18
+5040  roll 1 -12 12
+5040  press button1
+5060  poke 204FDE 18
+5085  press button1
+5130  press button1
+5175  press button1
+5180  poke 204FDE 18
+5220  press button1
+5265  press button1
+5300  poke 204FDE 18
+5310  press button1
+5355  press button1
+5400  press button1
+5420  poke 204FDE 18
+5445  press button1
+5490  press button1
+5520  roll 1 12 12
+5540  poke 204FDE 18
+5660  poke 204FDE 18
+5780  poke 204FDE 18
+5900  poke 204FDE 18
+6000  roll 1 -12 -12
+6000  press button1
+6020  poke 204FDE 18
+6045  press button1
+6090  press button1
+6135  press button1
+6140  poke 204FDE 18
+6180  press button1
+6225  press button1
+6260  poke 204FDE 18
+6270  press button1
+6315  press button1
+6360  press button1
+6380  poke 204FDE 18
+6405  press button1
+6450  press button1
+6480  roll 1 -12 -12
+6480  press button1
+6500  poke 204FDE 18
+6525  press button1
+6570  press button1
+6615  press button1
+6620  poke 204FDE 18
+6660  press button1
+6705  press button1
+6740  poke 204FDE 18
+6750  press button1
+6795  press button1
+6840  press button1
+6860  poke 204FDE 18
+6885  press button1
+6930  press button1
+6960  roll 1 -12 -12
+6960  press button1
+6980  poke 204FDE 18
+7005  press button1
+7050  press button1
+7095  press button1
+7100  poke 204FDE 18
+7140  press button1
+7185  press button1
+7220  poke 204FDE 18
+7230  press button1
+7275  press button1
+7320  press button1
+7340  poke 204FDE 18
+7365  press button1
+7410  press button1
+7440  roll 1 0 -12
+7440  press button1
+7460  poke 204FDE 18
+7485  press button1
+7530  press button1
+7575  press button1
+7580  poke 204FDE 18
+7620  press button1
+7665  press button1
+7700  poke 204FDE 18
+7710  press button1
+7755  press button1
+7800  press button1
+7820  poke 204FDE 18
+7845  press button1
+7890  press button1
+7920  roll 1 12 -12
+7940  poke 204FDE 18
+8060  poke 204FDE 18
+8180  poke 204FDE 18
+8300  poke 204FDE 18
+8400  roll 1 -12 12
+8400  press button1
+8420  poke 204FDE 18
+8445  press button1
+8490  press button1
+8535  press button1
+8540  poke 204FDE 18
+8580  press button1
+8625  press button1
+8660  poke 204FDE 18
+8670  press button1
+8715  press button1
+8760  press button1
+8780  poke 204FDE 18
+8805  press button1
+8850  press button1
+8880  roll 1 -12 12
+8880  press button1
+8900  poke 204FDE 18
+8925  press button1
+8970  press button1
+9015  press button1
+9020  poke 204FDE 18
+9060  press button1
+9105  press button1
+9140  poke 204FDE 18
+9150  press button1
+9195  press button1
+9240  roll 1 -8 8
+9260  poke 204FDE 18
+9290  roll 1 -8 -8
+9380  poke 204FDE 18
+9420  roll 1 0 0
+9424  press button1
+9450  poke 20B000 00
+9450  poke 20B001 00
+9450  poke 20B002 D0
+9450  poke 20B003 17
+9450  poke 20B004 E0
+9450  poke 20B005 02
+9450  poke 20B006 30
+9450  poke 20B007 05
+9450  poke 20B008 0B
+9450  poke 20B009 00
+9450  poke 20B00A 01
+9450  poke 20B00B 00
+9450  poke 20B00C 00
+9450  poke 20B00D 02
+9450  poke 20B00E 00
+9450  poke 20B00F 00
+9450  poke 20B010 F0
+9450  poke 20B011 17
+9450  poke 20B012 F0
+9450  poke 20B013 02
+9450  poke 20B014 30
+9450  poke 20B015 05
+9450  poke 20B016 0B
+9450  poke 20B017 00
+9450  poke 20B018 01
+9450  poke 20B019 00
+9450  poke 20B01A 00
+9450  poke 20B01B 02
+9450  poke 20B01C FF
+9450  poke 20B01D FF
+9451  poke 208000 00
+9451  poke 208001 B0
+9451  poke 208002 20
+9451  poke 208003 00
+9454  poke 208000 BA
+9454  poke 208001 05
+9454  poke 208002 10
+9454  poke 208003 00
+9500  roll 1 -12 12
+9500  press button1
+9500  poke 204FDE 18
+9545  press button1
+9590  press button1
+9620  poke 204FDE 18
+9635  press button1
+9680  press button1
+9725  press button1
+9740  poke 204FDE 18
+9770  press button1
+9815  press button1
+9860  press button1
+9860  poke 204FDE 18
+9905  press button1
+9950  press button1
+9980  poke 204FDE 18
+9995  press button1
+10040  press button1
+10085  press button1
+10100  poke 204FDE 18
+10130  press button1
+10175  press button1
+10220  press button1
+10220  poke 204FDE 18
+10265  press button1
+10310  press button1
+10340  poke 204FDE 18
+10355  press button1
+10400  press button1
+10445  press button1
+10460  poke 204FDE 18
+10490  press button1
+10580  poke 204FDE 18
+10700  poke 204FDE 18
+10820  poke 204FDE 18
+10940  poke 204FDE 18
+11048  poke 209089 03
+11060  poke 204FDE 18
+11100  end

@@ -1,0 +1,100 @@
+# Coins, credits and settings in attract, interrupts arriving together, attract system mode 1, then a
+# game: the ending scene of stage 11 on a wide screen, and bookkeeping times going past 32 bits
+#
+# The coin variables poked here are the live copies apply_settings makes of the EEPROM settings (what
+# COIN ASSIGNMENTS / GAME ASSIGNMENTS in test mode would set):
+#   600        20F60E setting_advertise_sound = 1 (ADVERTISE SOUND ON): the sounds of attract demo 1
+#              (frames 2290-2866) go through play_sound's attract filter (09A5C8)
+#   1000/1001  D00006, the interrupt controller's mask, = 1A then 00: VBLANK end and both timers wait
+#              masked for a frame and then come together with the next VBLANK start. s32ref applies
+#              an interrupt inside its instruction hook, so a handler's first instruction runs
+#              unrecorded unless the handler is entered after another one's retis: this records the
+#              first instructions of irq_vblank_end, irq_timer0 and irq_timer1 (09F560, 09F584,
+#              09F59C). (VBLANK start, source 0, is always taken first: 09F500 cannot be recorded.)
+#   1100/1101  20F001 = 1 then 0: frames per wait (7001, never written, so always one frame): one wait
+#              spans two VBLANKs and the second swap_sprite_buffers finds no list ready (09A228)
+#   1200       20F048 power_on_frames = FFF0: its low 16 bits overflow 16 frames later (09F666), what
+#              18 minutes of power-on time do
+#   1300       20F402 credit_coin_cost = 2 (2 coins 1 credit), 20F40E bonus_adder = 2 and 20F404 = 0
+#              (COIN CHUTE #1/#2 MULTIPLIERs differ: chute 2 uses its own): a coin in chute 2
+#              (09F84B), the second coin counter's pulse (09F8C7), the bonus adder (09F968), half a
+#              credit drawn as a fraction (09FE1A)
+#   1400       ten SERVICE presses: credits reach 9 (09F93A), then stay at 9 (09F925)
+#   1520/1540  20F41E cabinet_config = 1 (3P, common chutes), 3 (3P, individual chutes), a SERVICE
+#              press each (09F7CF, 09F7D5)
+#   1560-1640  20F410 credits_per_start = 2 (CREDIT TO START: 2) with individual chutes (20F41E = 2),
+#              then common chutes: the start prompts alternate with "2 credits start" (09FD2D) and the
+#              attract shows the "2 credits 1 play" line (09FBD4)
+#   1660       20F41E = 2 (2P, individual chutes) and a SERVICE press (09F7D1); at 1700 the settings
+#              are put back
+#   2950       20F007 system_mode = 1: attract_sequence (0005B4) never holds 1; system_mode_idle
+#              (09C551) runs until START begins a game
+# The game: Stage Select Mode (debug game mode 8, poked) to stage 11, whose ending scene clears the
+# bitmap layer when it starts (build_ending_scene 01BCF9); 31FF01 = 88 at that moment is the wide
+# screen bit (416 pixels), so the clear covers the wide window (09A712). Then Stage Select to stage 6;
+# player 1 is left without vitality (204FDE = 0: the next hit is fatal) and the bookkeeping's play time
+# and player time (701F18, 701F1E, 32 bits) are poked to FFFFFFFF, what years of play would make: when
+# the game ends both additions carry into their high words (09FB37, 09FB76).
+600   poke 20F60E 01                # ADVERTISE SOUND ON
+1000  poke D00006 1A                # interrupt mask: VBLANK end, timers 0 and 1
+1001  poke D00006 00
+1100  poke 20F001 01                # two frames per wait, once
+1101  poke 20F001 00
+1200  poke 20F048 F0                # power_on_frames low 16 bits FFF0
++0    poke 20F049 FF
+1300  poke 20F402 02                # 2 coins 1 credit
++0    poke 20F40E 02                # bonus adder 2
++0    poke 20F404 00                # chute 2 with its own multiplier
+1310  press coin2
+1330  press coin1
+1350  press coin1
+1370  press coin1
+1400  press service                 # service credits up to 9 and one more
++10   press service
++10   press service
++10   press service
++10   press service
++10   press service
++10   press service
++10   press service
++10   press service
++10   press service
+1520  poke 20F41E 01                # 3P, common chutes
++0    press service
+1540  poke 20F41E 03                # 3P, individual chutes
++0    press service
+1560  poke 20F41E 02                # 2P, individual chutes
++0    poke 20F410 02                # CREDIT TO START 2
+1640  poke 20F41E 00                # 2P, common chutes
+1660  poke 20F41E 02                # 2P, individual chutes
++0    press service
+1680  poke 20F41E 00
+1700  poke 20F410 01                # settings back
++0    poke 20F402 01
++0    poke 20F40E 00
++0    poke 20F404 FC
+2950  poke 20F007 01                # system_mode 1
+3000  press start1                  # a game (credits left from the service presses)
+4420  poke 20F061 08                # Stage Select Mode
++100  poke 20F06E 11                # stage 11
++0    poke 20F06F 00
++100  press start1
++1    poke 31FF01 88                # wide screen while the ending scene is built
++1    poke 31FF01 88
++1    poke 31FF01 88
++1    poke 31FF01 88
+4900  poke 20F061 08                # Stage Select Mode
++100  poke 20F06E 06                # stage 6
++0    poke 20F06F 00
++100  press start1
+5300  roll 1 8 0
+5500  poke 204FDE 00                # no vitality left
++0    poke 701F18 FF                # bookkeeping play time FFFFFFFF
++0    poke 701F19 FF
++0    poke 701F1A FF
++0    poke 701F1B FF
++0    poke 701F1E FF                # bookkeeping player time FFFFFFFF
++0    poke 701F1F FF
++0    poke 701F20 FF
++0    poke 701F21 FF
+6800  end

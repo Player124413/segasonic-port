@@ -1,0 +1,203 @@
+# Stage 4 objects through Stage Select Mode, without play (player 1 stays at the start; vitality refilled
+# every 120 frames). A poke at frame N acts on the code of frame N + 1.
+# - 3627: event 0C (the door at the start of stage 4): the third door roller (2033E0), dropping out of
+#   the doorway, moved 300 along -x: there is no floor under it, it falls to z 800 and is removed
+#   (082B26; door_roller_layout drops the four onto the floor).
+# - 3700/3701: a by-handler list in free RAM (20B000) and the by-handler cursor (20F0DA): an arrow board
+#   on a crumbling floor, a kind 0 catapult (launch delay 400), a kind 1 catapult on no platform, a
+#   propped board over player 1, group leader hold records 0 and 2, a kind 8 sign, and at scroll 0190 a
+#   second kind 0 catapult (spawned at 3709).
+# - 3709: free object count (20E900) 0 for frame 3710, when the second catapult lands on its platform
+#   and needs a block for its base part: it is removed (080F8F). 3710: the stack as it was plus the
+#   catapult's block (count 46, slot 1 back to 0000, slot 46 = 3340).
+# - 3720/3721: a group record of type 2 (no stage lists one: three crumbling floors, leader 0, floor block
+#   1E4, 45 apart in x, at scroll 0100) at 20B100 and the group cursor (20E55C) pointed at it (091262,
+#   0912D0, 091455).
+# - 3730: the hold objects (202EE0 kind 0, 2032A0 kind 2) turned to directions 0 and 3, which no
+#   group_leader_hold_records entry has (coordinate 0, leader 0 for the first).
+# - 3735: the propped board (202BC0), touched by player 1 while falling, moved aside and stopped (speed_z
+#   0, group_leaders[1] = the stage's leader 0 at 204B00) so that its shake runs to the end.
+# - 3740: the kind 0 catapult (2028A0): its launch position (36) moved to the current scroll position.
+# - 3750: sign_stop_flag (20E5F4, nothing writes it) = FF: the kind 8 sign is removed.
+# - 3800-3860: player 1's field 9F (nothing sets it) = 1: grey screen (update_grey_screen).
+1800  press coin1
+1920  press start1
+3300  poke 20F061 08
+3400  poke 20F06E 04
+3400  poke 20F06F 00
+3500  press start1
+3620  poke 204FDE 18
+3627  poke 20342E 69
+3627  poke 20342F EE
+3700  poke 20B000 80
+3700  poke 20B001 01
+3700  poke 20B002 67
+3700  poke 20B003 F2
+3700  poke 20B004 D8
+3700  poke 20B005 0F
+3700  poke 20B006 00
+3700  poke 20B007 00
+3700  poke 20B008 9C
+3700  poke 20B009 23
+3700  poke 20B00A 08
+3700  poke 20B00B 00
+3700  poke 20B00C 80
+3700  poke 20B00D 01
+3700  poke 20B00E 94
+3700  poke 20B00F F2
+3700  poke 20B010 D8
+3700  poke 20B011 0F
+3700  poke 20B012 00
+3700  poke 20B013 00
+3700  poke 20B014 75
+3700  poke 20B015 0E
+3700  poke 20B016 08
+3700  poke 20B017 00
+3700  poke 20B018 80
+3700  poke 20B019 01
+3700  poke 20B01A 9C
+3700  poke 20B01B F1
+3700  poke 20B01C 40
+3700  poke 20B01D 0F
+3700  poke 20B01E 01
+3700  poke 20B01F 00
+3700  poke 20B020 8E
+3700  poke 20B021 0E
+3700  poke 20B022 08
+3700  poke 20B023 00
+3700  poke 20B024 80
+3700  poke 20B025 01
+3700  poke 20B026 1C
+3700  poke 20B027 F2
+3700  poke 20B028 00
+3700  poke 20B029 10
+3700  poke 20B02A 00
+3700  poke 20B02B 00
+3700  poke 20B02C 93
+3700  poke 20B02D 24
+3700  poke 20B02E 08
+3700  poke 20B02F 00
+3700  poke 20B030 80
+3700  poke 20B031 01
+3700  poke 20B032 00
+3700  poke 20B033 00
+3700  poke 20B034 00
+3700  poke 20B035 00
+3700  poke 20B036 00
+3700  poke 20B037 00
+3700  poke 20B038 75
+3700  poke 20B039 5B
+3700  poke 20B03A 08
+3700  poke 20B03B 00
+3700  poke 20B03C 80
+3700  poke 20B03D 01
+3700  poke 20B03E 00
+3700  poke 20B03F 00
+3700  poke 20B040 00
+3700  poke 20B041 00
+3700  poke 20B042 02
+3700  poke 20B043 00
+3700  poke 20B044 75
+3700  poke 20B045 5B
+3700  poke 20B046 08
+3700  poke 20B047 00
+3700  poke 20B048 80
+3700  poke 20B049 01
+3700  poke 20B04A 67
+3700  poke 20B04B F2
+3700  poke 20B04C 00
+3700  poke 20B04D 10
+3700  poke 20B04E 08
+3700  poke 20B04F 00
+3700  poke 20B050 91
+3700  poke 20B051 4B
+3700  poke 20B052 08
+3700  poke 20B053 00
+3700  poke 20B054 90
+3700  poke 20B055 01
+3700  poke 20B056 94
+3700  poke 20B057 F2
+3700  poke 20B058 D8
+3700  poke 20B059 0F
+3700  poke 20B05A 00
+3700  poke 20B05B 00
+3700  poke 20B05C 75
+3700  poke 20B05D 0E
+3700  poke 20B05E 08
+3700  poke 20B05F 00
+3700  poke 20B060 FF
+3700  poke 20B061 FF
+3701  poke 20F0DA 00
+3701  poke 20F0DB B0
+3701  poke 20F0DC 20
+3701  poke 20F0DD 00
+3709  poke 20E900 00
+3709  poke 20E901 00
+3710  poke 20E900 46
+3710  poke 20E901 00
+3710  poke 20E902 00
+3710  poke 20E903 00
+3710  poke 20E98C 40
+3710  poke 20E98D 33
+3720  poke 20B100 00
+3720  poke 20B101 01
+3720  poke 20B102 02
+3720  poke 20B103 00
+3720  poke 20B104 00
+3720  poke 20B105 00
+3720  poke 20B106 E4
+3720  poke 20B107 01
+3720  poke 20B108 00
+3720  poke 20B109 00
+3720  poke 20B10A 03
+3720  poke 20B10B 00
+3720  poke 20B10C 45
+3720  poke 20B10D 00
+3720  poke 20B10E 00
+3720  poke 20B10F 00
+3720  poke 20B110 02
+3720  poke 20B111 00
+3720  poke 20B112 D2
+3720  poke 20B113 F0
+3720  poke 20B114 D2
+3720  poke 20B115 0F
+3720  poke 20B116 00
+3720  poke 20B117 00
+3720  poke 20B118 FF
+3720  poke 20B119 FF
+3721  poke 20E55C 00
+3721  poke 20E55D B1
+3721  poke 20E55E 20
+3721  poke 20E55F 00
+3730  poke 202F04 00
+3730  poke 202F05 00
+3730  poke 202F62 00
+3730  poke 202F63 00
+3730  poke 202F60 00
+3730  poke 2032C4 03
+3730  poke 2032C5 00
+3735  poke 202C0E 00
+3735  poke 202C0F F0
+3735  poke 202BFC 00
+3735  poke 202BFD 00
+3735  poke 202BFE 00
+3735  poke 202BFF 00
+3735  poke 20E564 00
+3735  poke 20E565 4B
+3740  poke 2028D6 00
+3740  poke 2028D7 01
+3740  poke 204FDE 18
+3750  poke 20E5F4 FF
+3800  poke 20849F 01
+3860  poke 20849F 00
+3860  poke 204FDE 18
+3980  poke 204FDE 18
+4100  poke 204FDE 18
+4220  poke 204FDE 18
+4340  poke 204FDE 18
+4460  poke 204FDE 18
+4580  poke 204FDE 18
+4700  poke 204FDE 18
+4820  poke 204FDE 18
+4940  poke 204FDE 18
+5000  end

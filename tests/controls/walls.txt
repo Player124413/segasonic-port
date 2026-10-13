@@ -1,0 +1,104 @@
+# Visible walls: wall kinds 00 and 14 of wall_kinds (090A72), which no stage's wall_spawns list
+# uses (every wall the stages spawn is of kind 12C-1F4: no sprite parts, collision only).
+# Stage 3 through Stage Select Mode; at frame 3700 a crafted wall list is poked into free RAM
+# (20B000) and wall_spawn_cursor (20F0B2) pointed at it. Records (14 bytes, as in wall_spawns):
+# position, removal position, x, y, z, kind, part count, flags:
+#  1. kind 00 (two sprites per step and shadows), 20 steps, removed at scroll 0300, flags 0
+#  2. kind 14 (one sprite per step, no shadow), 8 steps, removed once off screen, flags 1
+#  3. kind 00 with FF steps: more parts than the free second pool, deleted at once (090DBD)
+#  4. kind 00, 10 steps further left, removed at scroll 0300, flags 1
+# Reaches spawn_walls 090DB3-090DC8, build_wall_parts 091194-091213, wall_update 090E73-090F46.
+# Player 1 walks a little from 3900 to 5600 (trackball).
+# 204FDE is player 1's vitality, refilled every 120 frames.
+1800  press coin1
++120  press start1
+3300  poke 20F061 08
++100  poke 20F06E 03
++0  poke 20F06F 00
++100  press start1
+3700  poke 20B000 00
+3700  poke 20B001 01
+3700  poke 20B002 00
+3700  poke 20B003 03
+3700  poke 20B004 69
+3700  poke 20B005 12
+3700  poke 20B006 2E
+3700  poke 20B007 08
+3700  poke 20B008 38
+3700  poke 20B009 04
+3700  poke 20B00A 00
+3700  poke 20B00B 00
+3700  poke 20B00C 20
+3700  poke 20B00D 00
+3700  poke 20B00E 00
+3700  poke 20B00F 01
+3700  poke 20B010 00
+3700  poke 20B011 00
+3700  poke 20B012 69
+3700  poke 20B013 12
+3700  poke 20B014 D1
+3700  poke 20B015 08
+3700  poke 20B016 38
+3700  poke 20B017 04
+3700  poke 20B018 14
+3700  poke 20B019 00
+3700  poke 20B01A 08
+3700  poke 20B01B 01
+3700  poke 20B01C 00
+3700  poke 20B01D 01
+3700  poke 20B01E 00
+3700  poke 20B01F 00
+3700  poke 20B020 69
+3700  poke 20B021 12
+3700  poke 20B022 CD
+3700  poke 20B023 0B
+3700  poke 20B024 38
+3700  poke 20B025 04
+3700  poke 20B026 00
+3700  poke 20B027 00
+3700  poke 20B028 FF
+3700  poke 20B029 00
+3700  poke 20B02A 00
+3700  poke 20B02B 01
+3700  poke 20B02C 00
+3700  poke 20B02D 03
+3700  poke 20B02E 00
+3700  poke 20B02F 11
+3700  poke 20B030 00
+3700  poke 20B031 09
+3700  poke 20B032 38
+3700  poke 20B033 04
+3700  poke 20B034 00
+3700  poke 20B035 00
+3700  poke 20B036 10
+3700  poke 20B037 01
+3700  poke 20B038 FF
+3700  poke 20B039 FF
+3701  poke 20F0B2 00
+3701  poke 20F0B3 B0
+3701  poke 20F0B4 20
+3701  poke 20F0B5 00
+3720  poke 204FDE 18
+3840  poke 204FDE 18
+3960  poke 204FDE 18
+4080  poke 204FDE 18
+4200  poke 204FDE 18
+4320  poke 204FDE 18
+4440  poke 204FDE 18
+4560  poke 204FDE 18
+4680  poke 204FDE 18
+4800  poke 204FDE 18
+4920  poke 204FDE 18
+5040  poke 204FDE 18
+5160  poke 204FDE 18
+5280  poke 204FDE 18
+5400  poke 204FDE 18
+5520  poke 204FDE 18
+5640  poke 204FDE 18
+5760  poke 204FDE 18
+5880  poke 204FDE 18
+3900  roll 1 4 4
+4400  roll 1 -4 4
+5000  roll 1 4 -4
+5600  roll 1 0 0
+6000  end

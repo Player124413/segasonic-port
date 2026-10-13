@@ -1,0 +1,21 @@
+# The how-to-play intro (game mode 1, stage 7, after the character select of a new game): its
+# objects (button hand, trackball hand, control panel) remove themselves when the stage is not 7,
+# which never happens while they exist (start_stage resets the object list before any other stage
+# runs). Pokes (a poke at frame N acts on the game code of frame N + 1):
+# - 2555/2556: free_object_stack_2 (20EA10, the second pool's count) 0 for the frame the trackball
+#   hand starts (2556): it gets no ball (field 28 = 0, 083F98). Count restored (FC).
+# - 2700/2701 and, in a second game, 4740/4741: stage (20F06E) 06 for one frame: the three objects
+#   remove themselves (083D43, 083E41-083E55 with and without the ball, 083FCB).
+# - 3900: player 1's player_status (20E590) 0 in stage 5: game over; a start (3960) begins game 2.
+1800  press coin1
+1810  press coin1
+1920  press start1
+2555  poke 20EA10 00
+2556  poke 20EA10 FC
+2700  poke 20F06E 06
+2701  poke 20F06E 07
+3900  poke 20E590 00
+3960  press start1
+4740  poke 20F06E 06
+4741  poke 20F06E 07
+5100  end

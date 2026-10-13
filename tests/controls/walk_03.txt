@@ -1,0 +1,1296 @@
+# Stage 3 with two players: common coin chute and START BUTTON NO USE (the attack buttons start),
+# stage 3 through Stage Select Mode. Player 2 is left without vitality at 14000 and joins again
+# (button 2, on the credits of the common chute).
+#
+# Pokes: 7E of the player objects (P1 204F60, P2 204EC0, P3 204E20) is the vitality, refilled to 18
+# (the most a game setting gives) every 120 frames so the players live long enough to clear stages.
+# 20F061 is the game mode (8 = Stage Select Mode, a debug mode the game has no way into) and
+# 20F06E the stage number.
+# Trackball walks are pseudo-random with a fixed seed, so every run is the same run; a coin and the
+# starts are pressed every 3600 frames (a new game if the last one ended).
+# Walk parameters: stage=03 players=2 nouse=True pokesetup=True drop=[['2', '14000', '17000']] seed=5 frames=34000
+# Cabinet settings poked into the live copies the game reads (what test mode would set):
+# 20F41E cabinet and coin chutes (0 common 2P, 1 common 3P, 2 individual 2P, 3 individual 3P),
+# 20F623 START BUTTON (1 = NO USE: the attack buttons start)
+600  poke 20F41E 00
++0  poke 20F623 01
+# Coins and starts
+1800  press coin1
+1820  press coin1
+1880  press button1
+1900  press button2
+# Stage Select Mode (game mode 8) while the first stage runs: stage 03
+3220  poke 20F061 08
++100  poke 20F06E 03
++0  poke 20F06F 00
++100  press start1
+# Trackball walks, vitality refills
+3520  roll 1 -6 -6
+3520  poke 204FDE 18
+3520  roll 2 -4 -4
+3520  poke 204F3E 18
+3589  roll 1 -10 0
+3622  roll 2 4 4
+3640  poke 204FDE 18
+3640  poke 204F3E 18
+3697  roll 2 -8 8
+3760  poke 204FDE 18
+3760  poke 204F3E 18
+3764  roll 1 12 0
+3837  roll 2 -12 -12
+3837  press button2
+3864  roll 1 -5 -5
+3880  poke 204FDE 18
+3880  poke 204F3E 18
+3886  roll 2 0 -11
+4000  poke 204FDE 18
+4000  poke 204F3E 18
+4004  roll 2 0 -7
+4025  roll 1 5 0
+4065  roll 2 7 -7
+4120  poke 204FDE 18
+4120  poke 204F3E 18
+4142  roll 2 9 -9
+4150  roll 1 9 0
+4193  roll 1 7 0
+4240  poke 204FDE 18
+4240  poke 204F3E 18
+4243  roll 1 0 9
+4243  press button1
+4291  roll 1 9 -9
+4291  press button1
+4312  roll 2 0 4
+4360  poke 204FDE 18
+4360  poke 204F3E 18
+4362  roll 1 6 6
+4440  roll 2 6 -6
+4480  poke 204FDE 18
+4480  poke 204F3E 18
+4504  roll 1 9 -9
+4525  roll 2 0 -9
+4600  poke 204FDE 18
+4600  poke 204F3E 18
+4633  roll 1 8 0
+4681  roll 2 -4 0
+4681  press button2
+4720  poke 204FDE 18
+4720  poke 204F3E 18
+4720  press coin1
+4779  roll 1 5 0
+4780  press button1
+4840  poke 204FDE 18
+4840  roll 2 12 -12
+4840  press button2
+4840  poke 204F3E 18
+4891  roll 2 -8 8
+4891  press button2
+4949  roll 1 5 -5
+4949  press button1
+4960  poke 204FDE 18
+4960  poke 204F3E 18
+4963  roll 2 0 5
+5080  poke 204FDE 18
+5080  poke 204F3E 18
+5082  roll 1 -11 11
+5088  roll 2 0 -12
+5088  press button2
+5113  roll 1 -7 0
+5113  press button1
+5200  poke 204FDE 18
+5200  poke 204F3E 18
+5215  roll 2 -11 -11
+5215  press button2
+5291  roll 1 0 4
+5320  poke 204FDE 18
+5320  poke 204F3E 18
+5341  roll 1 5 5
+5389  roll 2 -5 0
+5389  press button2
+5415  roll 1 6 0
+5440  poke 204FDE 18
+5440  poke 204F3E 18
+5535  roll 2 -7 7
+5560  poke 204FDE 18
+5560  poke 204F3E 18
+5569  roll 1 11 0
+5641  roll 1 -12 0
+5655  roll 2 0 6
+5680  poke 204FDE 18
+5680  poke 204F3E 18
+5731  roll 2 11 11
+5772  roll 1 10 0
+5800  poke 204FDE 18
+5800  poke 204F3E 18
+5831  roll 2 -8 0
+5831  press button2
+5872  roll 1 0 9
+5920  poke 204FDE 18
+5920  poke 204F3E 18
+5937  roll 2 8 0
+5937  press button2
+5976  roll 1 5 -5
+5987  roll 2 0 -5
+6040  poke 204FDE 18
+6040  poke 204F3E 18
+6113  roll 2 0 8
+6145  roll 1 9 9
+6160  poke 204FDE 18
+6160  poke 204F3E 18
+6194  roll 2 0 8
+6251  roll 2 0 5
+6251  press button2
+6272  roll 1 11 0
+6280  poke 204FDE 18
+6280  poke 204F3E 18
+6360  roll 2 -12 0
+6400  poke 204FDE 18
+6400  poke 204F3E 18
+6419  roll 1 7 7
+6520  poke 204FDE 18
+6520  poke 204F3E 18
+6536  roll 2 0 10
+6536  press button2
+6544  roll 1 0 11
+6544  press button1
+6579  roll 2 -7 -7
+6640  poke 204FDE 18
+6640  poke 204F3E 18
+6652  roll 1 7 7
+6697  roll 1 0 -9
+6700  roll 2 10 10
+6733  roll 1 0 5
+6760  poke 204FDE 18
+6760  poke 204F3E 18
+6822  roll 2 -8 -8
+6822  press button2
+6880  poke 204FDE 18
+6880  poke 204F3E 18
+6894  roll 1 12 12
+6894  press button1
+6959  roll 2 0 -10
+7000  poke 204FDE 18
+7000  poke 204F3E 18
+7012  roll 2 0 12
+7063  roll 1 7 -7
+7120  poke 204FDE 18
+7120  poke 204F3E 18
+7146  roll 1 0 -7
+7146  press button1
+7190  roll 2 -6 -6
+7234  roll 1 0 -11
+7239  roll 2 -5 0
+7240  poke 204FDE 18
+7240  poke 204F3E 18
+7301  roll 1 5 -5
+7306  roll 2 11 11
+7306  press button2
+7360  poke 204FDE 18
+7360  poke 204F3E 18
+7467  roll 1 -4 4
+7473  roll 2 4 0
+7480  poke 204FDE 18
+7480  poke 204F3E 18
+7588  roll 1 0 -8
+7588  press button1
+7600  poke 204FDE 18
+7600  poke 204F3E 18
+7611  roll 2 10 10
+7669  roll 1 -9 -9
+7669  press button1
+7684  roll 2 0 -5
+7720  poke 204FDE 18
+7720  poke 204F3E 18
+7742  roll 1 11 0
+7774  roll 2 0 -4
+7810  roll 2 0 6
+7840  poke 204FDE 18
+7840  poke 204F3E 18
+7845  roll 1 5 5
+7952  roll 2 0 -8
+7960  poke 204FDE 18
+7960  poke 204F3E 18
+7996  roll 1 4 0
+8002  roll 2 0 -9
+8035  roll 2 0 -6
+8066  roll 2 -9 -9
+8066  press button2
+8080  poke 204FDE 18
+8080  poke 204F3E 18
+8135  roll 1 9 0
+8135  press button1
+8199  roll 1 0 11
+8200  poke 204FDE 18
+8200  poke 204F3E 18
+8227  roll 2 -5 5
+8307  roll 1 -11 -11
+8320  poke 204FDE 18
+8320  poke 204F3E 18
+8320  press coin1
+8344  roll 1 6 6
+8380  press button1
+8384  roll 2 10 10
+8384  press button2
+8440  poke 204FDE 18
+8440  poke 204F3E 18
+8447  roll 1 7 0
+8490  roll 2 0 4
+8490  press button2
+8560  poke 204FDE 18
+8560  poke 204F3E 18
+8591  roll 1 -10 -10
+8600  roll 2 -9 0
+8639  roll 1 5 0
+8680  poke 204FDE 18
+8680  poke 204F3E 18
+8698  roll 2 8 0
+8800  poke 204FDE 18
+8800  poke 204F3E 18
+8814  roll 1 -5 -5
+8814  press button1
+8836  roll 2 0 10
+8836  press button2
+8895  roll 1 0 -7
+8895  press button1
+8920  poke 204FDE 18
+8920  poke 204F3E 18
+9009  roll 2 9 0
+9009  press button2
+9021  roll 1 -5 0
+9040  poke 204FDE 18
+9040  poke 204F3E 18
+9082  roll 2 11 -11
+9160  poke 204FDE 18
+9160  poke 204F3E 18
+9166  roll 2 -6 -6
+9196  roll 1 -6 -6
+9196  press button1
+9212  roll 2 0 12
+9280  poke 204FDE 18
+9280  poke 204F3E 18
+9297  roll 2 0 -9
+9351  roll 1 -6 0
+9351  press button1
+9352  roll 2 0 -9
+9352  press button2
+9400  poke 204FDE 18
+9400  poke 204F3E 18
+9492  roll 2 -12 0
+9492  press button2
+9493  roll 1 -5 -5
+9520  poke 204FDE 18
+9520  poke 204F3E 18
+9568  roll 1 6 -6
+9636  roll 2 -8 0
+9640  poke 204FDE 18
+9640  poke 204F3E 18
+9705  roll 1 0 10
+9705  press button1
+9746  roll 1 -7 7
+9746  press button1
+9760  poke 204FDE 18
+9760  roll 2 9 9
+9760  poke 204F3E 18
+9835  roll 1 12 0
+9835  press button1
+9880  poke 204FDE 18
+9880  poke 204F3E 18
+9935  roll 2 5 5
+9935  press button2
+9940  roll 1 6 -6
+10000  poke 204FDE 18
+10000  poke 204F3E 18
+10042  roll 1 -12 -12
+10083  roll 1 0 -8
+10110  roll 2 11 -11
+10120  poke 204FDE 18
+10120  poke 204F3E 18
+10229  roll 2 12 12
+10229  press button2
+10240  roll 1 -8 -8
+10240  poke 204FDE 18
+10240  poke 204F3E 18
+10316  roll 1 0 8
+10316  press button1
+10333  roll 2 -9 -9
+10360  poke 204FDE 18
+10360  poke 204F3E 18
+10419  roll 2 11 0
+10445  roll 1 -7 7
+10480  poke 204FDE 18
+10480  poke 204F3E 18
+10503  roll 1 9 9
+10503  press button1
+10576  roll 1 0 8
+10576  roll 2 0 6
+10576  press button2
+10600  poke 204FDE 18
+10600  poke 204F3E 18
+10641  roll 1 -7 -7
+10669  roll 2 5 -5
+10673  roll 1 11 -11
+10720  poke 204FDE 18
+10720  poke 204F3E 18
+10809  roll 1 11 11
+10823  roll 2 0 12
+10840  poke 204FDE 18
+10840  poke 204F3E 18
+10926  roll 2 7 0
+10926  press button2
+10956  roll 1 -8 -8
+10960  poke 204FDE 18
+10960  poke 204F3E 18
+11020  roll 1 7 -7
+11044  roll 2 -4 0
+11080  poke 204FDE 18
+11080  poke 204F3E 18
+11125  roll 2 0 -9
+11129  roll 1 5 5
+11200  poke 204FDE 18
+11200  poke 204F3E 18
+11233  roll 2 5 5
+11233  press button2
+11287  roll 1 0 9
+11320  poke 204FDE 18
+11320  poke 204F3E 18
+11362  roll 2 8 -8
+11362  press button2
+11392  roll 2 -6 0
+11392  press button2
+11440  poke 204FDE 18
+11440  poke 204F3E 18
+11463  roll 1 7 0
+11463  press button1
+11550  roll 2 6 6
+11550  press button2
+11556  roll 1 0 9
+11556  press button1
+11560  poke 204FDE 18
+11560  poke 204F3E 18
+11680  poke 204FDE 18
+11680  roll 2 -8 -8
+11680  poke 204F3E 18
+11736  roll 1 0 6
+11767  roll 1 -11 -11
+11767  press button1
+11800  poke 204FDE 18
+11800  poke 204F3E 18
+11804  roll 2 9 9
+11811  roll 1 12 -12
+11874  roll 2 12 0
+11909  roll 2 6 0
+11920  poke 204FDE 18
+11920  poke 204F3E 18
+11920  press coin1
+11942  roll 2 12 0
+11943  roll 1 -10 -10
+11980  press button1
+11996  roll 1 11 0
+12021  roll 2 6 -6
+12021  press button2
+12040  poke 204FDE 18
+12040  poke 204F3E 18
+12082  roll 2 11 -11
+12096  roll 1 -12 0
+12160  poke 204FDE 18
+12160  roll 2 12 0
+12160  poke 204F3E 18
+12268  roll 1 0 -5
+12268  press button1
+12280  poke 204FDE 18
+12280  poke 204F3E 18
+12282  roll 2 8 -8
+12377  roll 2 9 -9
+12377  press button2
+12400  poke 204FDE 18
+12400  poke 204F3E 18
+12440  roll 1 -9 0
+12463  roll 2 -7 -7
+12514  roll 2 0 9
+12520  poke 204FDE 18
+12520  poke 204F3E 18
+12605  roll 1 9 9
+12640  poke 204FDE 18
+12640  poke 204F3E 18
+12690  roll 2 12 12
+12760  poke 204FDE 18
+12760  poke 204F3E 18
+12776  roll 1 -12 12
+12778  roll 2 7 0
+12825  roll 1 11 0
+12874  roll 2 0 -11
+12880  poke 204FDE 18
+12880  poke 204F3E 18
+12906  roll 1 0 6
+12992  roll 2 0 -9
+12992  press button2
+13000  poke 204FDE 18
+13000  poke 204F3E 18
+13048  roll 1 0 8
+13105  roll 1 -7 0
+13120  poke 204FDE 18
+13120  poke 204F3E 18
+13160  roll 2 0 7
+13240  poke 204FDE 18
+13240  poke 204F3E 18
+13270  roll 1 -8 8
+13322  roll 2 8 -8
+13360  poke 204FDE 18
+13360  poke 204F3E 18
+13444  roll 1 0 -11
+13480  poke 204FDE 18
+13480  poke 204F3E 18
+13490  roll 2 -6 6
+13585  roll 1 -7 0
+13585  press button1
+13600  poke 204FDE 18
+13600  poke 204F3E 18
+13608  roll 2 4 -4
+13608  press button2
+13635  roll 1 -4 -4
+13694  roll 2 6 6
+13720  poke 204FDE 18
+13720  poke 204F3E 18
+13751  roll 2 9 -9
+13764  roll 1 0 4
+13764  press button1
+13840  poke 204FDE 18
+13840  poke 204F3E 18
+13884  roll 2 7 -7
+13884  press button2
+13918  roll 1 0 12
+13960  poke 204FDE 18
+13960  poke 204F3E 18
+13993  roll 1 12 0
+14000  poke 204F3E 00       # vitality 0: the next hit is the last
+14028  roll 2 4 4
+14060  roll 1 -12 -12
+14080  poke 204FDE 18
+14166  roll 2 -9 9
+14189  roll 1 0 -7
+14189  press button1
+14200  poke 204FDE 18
+14254  roll 1 0 -9
+14254  roll 2 0 12
+14320  poke 204FDE 18
+14406  roll 2 10 -10
+14406  press button2
+14432  roll 1 -4 0
+14432  press button1
+14440  poke 204FDE 18
+14464  roll 1 -12 12
+14535  roll 1 -10 0
+14535  roll 2 -4 -4
+14560  poke 204FDE 18
+14597  roll 2 11 -11
+14680  poke 204FDE 18
+14701  roll 1 12 -12
+14701  press button1
+14728  roll 2 9 9
+14784  roll 1 7 0
+14784  press button1
+14800  poke 204FDE 18
+14845  roll 2 7 0
+14845  press button2
+14861  roll 1 7 -7
+14888  roll 2 10 -10
+14896  roll 1 0 -9
+14896  press button1
+14920  poke 204FDE 18
+14933  roll 1 0 -12
+14969  roll 1 0 4
+15029  roll 2 4 4
+15040  poke 204FDE 18
+15117  roll 1 -4 -4
+15160  poke 204FDE 18
+15169  roll 2 -6 6
+15225  roll 1 -5 5
+15259  roll 1 10 0
+15259  press button1
+15277  roll 2 -12 -12
+15280  poke 204FDE 18
+15363  roll 2 8 8
+15400  poke 204FDE 18
+15433  roll 1 6 0
+15481  roll 1 0 -8
+15481  press button1
+15520  poke 204FDE 18
+15520  press coin1
+15528  roll 2 -5 5
+15580  press button1
+15616  roll 2 8 8
+15626  roll 1 0 11
+15640  poke 204FDE 18
+15666  roll 2 10 10
+15666  press button2
+15675  roll 1 -5 -5
+15760  poke 204FDE 18
+15764  roll 2 -11 0
+15812  roll 2 0 9
+15812  press button2
+15851  roll 1 0 9
+15880  poke 204FDE 18
+15951  roll 2 4 -4
+15995  roll 2 5 -5
+16000  poke 204FDE 18
+16013  roll 1 -11 0
+16013  press button1
+16059  roll 2 -4 4
+16120  poke 204FDE 18
+16122  roll 1 6 -6
+16179  roll 2 4 0
+16240  poke 204FDE 18
+16249  roll 2 0 5
+16282  roll 1 12 12
+16315  roll 1 11 0
+16360  poke 204FDE 18
+16371  roll 2 -5 5
+16405  roll 2 9 -9
+16427  roll 1 7 7
+16427  press button1
+16480  poke 204FDE 18
+16484  roll 1 7 -7
+16537  roll 1 12 0
+16537  press button1
+16544  roll 2 -12 0
+16586  roll 2 -10 10
+16600  poke 204FDE 18
+16643  roll 1 -5 -5
+16643  press button1
+16720  poke 204FDE 18
+16765  roll 2 -8 -8
+16770  roll 1 0 -4
+16840  poke 204FDE 18
+16848  roll 1 12 -12
+16848  press button1
+16899  roll 2 -10 10
+16960  poke 204FDE 18
+17000  press coin1
+17028  roll 1 0 7
+17043  roll 2 8 0
+17060  press button2
+17080  poke 204FDE 18
+17134  roll 2 -5 -5
+17134  press button2
+17200  poke 204FDE 18
+17204  roll 1 -9 -9
+17204  press button1
+17264  roll 2 -10 0
+17318  roll 2 -5 5
+17320  poke 204FDE 18
+17320  poke 204F3E 18
+17350  roll 1 0 10
+17355  roll 2 0 8
+17440  poke 204FDE 18
+17440  poke 204F3E 18
+17442  roll 1 -10 0
+17442  press button1
+17523  roll 2 -5 5
+17560  poke 204FDE 18
+17560  poke 204F3E 18
+17581  roll 2 8 8
+17601  roll 1 0 7
+17601  press button1
+17680  poke 204FDE 18
+17680  poke 204F3E 18
+17704  roll 1 8 8
+17704  press button1
+17715  roll 2 0 -12
+17799  roll 2 -12 0
+17800  poke 204FDE 18
+17800  poke 204F3E 18
+17824  roll 1 0 9
+17890  roll 2 0 6
+17920  poke 204FDE 18
+17920  poke 204F3E 18
+17931  roll 2 5 -5
+17931  press button2
+17959  roll 1 -5 5
+18040  poke 204FDE 18
+18040  poke 204F3E 18
+18076  roll 1 11 -11
+18110  roll 2 12 -12
+18160  roll 1 9 0
+18160  poke 204FDE 18
+18160  poke 204F3E 18
+18259  roll 2 -5 0
+18277  roll 1 9 0
+18280  poke 204FDE 18
+18280  poke 204F3E 18
+18391  roll 1 0 6
+18400  poke 204FDE 18
+18400  poke 204F3E 18
+18433  roll 2 9 0
+18455  roll 1 11 11
+18503  roll 1 6 -6
+18514  roll 2 10 0
+18520  poke 204FDE 18
+18520  poke 204F3E 18
+18634  roll 1 -9 -9
+18640  poke 204FDE 18
+18640  poke 204F3E 18
+18654  roll 2 -5 5
+18760  poke 204FDE 18
+18760  poke 204F3E 18
+18787  roll 2 11 11
+18787  press button2
+18800  roll 1 -7 -7
+18837  roll 2 -11 0
+18875  roll 1 4 -4
+18880  poke 204FDE 18
+18880  poke 204F3E 18
+18932  roll 1 0 11
+18956  roll 2 -7 0
+19000  poke 204FDE 18
+19000  poke 204F3E 18
+19011  roll 1 6 0
+19101  roll 2 0 -7
+19120  poke 204FDE 18
+19120  poke 204F3E 18
+19120  press coin1
+19167  roll 1 -7 -7
+19167  press button1
+19175  roll 2 -7 -7
+19180  press button1
+19216  roll 2 9 9
+19240  poke 204FDE 18
+19240  poke 204F3E 18
+19336  roll 1 -12 -12
+19336  press button1
+19360  poke 204FDE 18
+19360  poke 204F3E 18
+19376  roll 2 8 -8
+19376  press button2
+19408  roll 2 -8 0
+19428  roll 1 4 4
+19459  roll 2 0 -12
+19462  roll 1 8 -8
+19480  poke 204FDE 18
+19480  poke 204F3E 18
+19547  roll 1 4 -4
+19577  roll 2 10 10
+19600  poke 204FDE 18
+19600  poke 204F3E 18
+19681  roll 1 12 -12
+19699  roll 2 -12 12
+19699  press button2
+19717  roll 1 8 -8
+19720  poke 204FDE 18
+19720  poke 204F3E 18
+19748  roll 2 0 -6
+19751  roll 1 5 -5
+19751  press button1
+19840  poke 204FDE 18
+19840  poke 204F3E 18
+19881  roll 1 -9 0
+19881  press button1
+19919  roll 2 0 12
+19919  press button2
+19960  poke 204FDE 18
+19960  poke 204F3E 18
+20008  roll 1 0 4
+20080  poke 204FDE 18
+20080  poke 204F3E 18
+20093  roll 2 -7 7
+20161  roll 1 0 12
+20200  poke 204FDE 18
+20200  poke 204F3E 18
+20204  roll 1 -10 10
+20253  roll 1 0 -8
+20253  press button1
+20259  roll 2 10 10
+20320  poke 204FDE 18
+20320  poke 204F3E 18
+20376  roll 1 -4 -4
+20437  roll 2 0 6
+20440  poke 204FDE 18
+20440  poke 204F3E 18
+20509  roll 1 11 0
+20560  poke 204FDE 18
+20560  poke 204F3E 18
+20579  roll 2 11 -11
+20644  roll 1 12 -12
+20644  press button1
+20658  roll 2 12 -12
+20680  poke 204FDE 18
+20680  poke 204F3E 18
+20688  roll 2 -6 6
+20719  roll 1 5 -5
+20800  poke 204FDE 18
+20800  poke 204F3E 18
+20855  roll 2 5 -5
+20883  roll 1 8 8
+20920  poke 204FDE 18
+20920  poke 204F3E 18
+20945  roll 1 -12 -12
+20945  press button1
+21003  roll 2 0 -8
+21027  roll 1 9 9
+21027  press button1
+21040  poke 204FDE 18
+21040  poke 204F3E 18
+21082  roll 1 4 4
+21102  roll 2 7 -7
+21160  poke 204FDE 18
+21160  poke 204F3E 18
+21195  roll 2 12 0
+21229  roll 1 5 5
+21229  press button1
+21280  poke 204FDE 18
+21280  poke 204F3E 18
+21284  roll 1 -10 10
+21328  roll 2 -5 -5
+21342  roll 1 0 -10
+21371  roll 2 -10 0
+21400  poke 204FDE 18
+21400  poke 204F3E 18
+21496  roll 2 -4 -4
+21507  roll 1 -7 0
+21507  press button1
+21520  poke 204FDE 18
+21520  poke 204F3E 18
+21619  roll 2 -8 8
+21632  roll 1 -9 9
+21632  press button1
+21640  poke 204FDE 18
+21640  poke 204F3E 18
+21760  poke 204FDE 18
+21760  roll 2 5 5
+21760  poke 204F3E 18
+21803  roll 1 -9 9
+21803  press button1
+21880  poke 204FDE 18
+21880  poke 204F3E 18
+21891  roll 1 0 7
+21929  roll 2 0 -12
+21929  press button2
+21995  roll 2 5 -5
+21995  press button2
+22000  poke 204FDE 18
+22000  poke 204F3E 18
+22058  roll 1 -10 10
+22058  press button1
+22092  roll 2 0 10
+22120  poke 204FDE 18
+22120  poke 204F3E 18
+22184  roll 1 0 -4
+22184  press button1
+22240  poke 204FDE 18
+22240  poke 204F3E 18
+22243  roll 2 0 -8
+22250  roll 1 -10 10
+22250  press button1
+22280  roll 1 -4 0
+22350  roll 1 9 -9
+22360  poke 204FDE 18
+22360  poke 204F3E 18
+22392  roll 2 12 -12
+22423  roll 1 7 -7
+22480  poke 204FDE 18
+22480  poke 204F3E 18
+22503  roll 2 11 11
+22551  roll 2 -9 9
+22597  roll 1 6 0
+22600  poke 204FDE 18
+22600  poke 204F3E 18
+22677  roll 1 0 4
+22677  press button1
+22684  roll 2 4 4
+22714  roll 1 9 9
+22720  poke 204FDE 18
+22720  poke 204F3E 18
+22720  press coin1
+22770  roll 1 0 11
+22770  roll 2 0 -5
+22770  press button2
+22780  press button1
+22840  poke 204FDE 18
+22840  poke 204F3E 18
+22898  roll 2 4 4
+22925  roll 1 0 -10
+22960  poke 204FDE 18
+22960  poke 204F3E 18
+23002  roll 2 -8 8
+23078  roll 1 6 0
+23080  poke 204FDE 18
+23080  poke 204F3E 18
+23173  roll 2 -11 -11
+23200  poke 204FDE 18
+23200  poke 204F3E 18
+23225  roll 1 -6 0
+23246  roll 2 0 10
+23320  poke 204FDE 18
+23320  poke 204F3E 18
+23340  roll 1 -6 0
+23340  press button1
+23356  roll 2 7 7
+23389  roll 1 0 11
+23389  press button1
+23440  poke 204FDE 18
+23440  poke 204F3E 18
+23443  roll 2 4 0
+23443  press button2
+23464  roll 1 -11 0
+23525  roll 1 5 5
+23560  poke 204FDE 18
+23560  poke 204F3E 18
+23610  roll 2 -8 0
+23614  roll 1 4 -4
+23680  poke 204FDE 18
+23680  poke 204F3E 18
+23743  roll 2 8 0
+23784  roll 1 6 -6
+23784  roll 2 0 -7
+23784  press button2
+23800  poke 204FDE 18
+23800  poke 204F3E 18
+23882  roll 1 5 5
+23920  poke 204FDE 18
+23920  poke 204F3E 18
+23928  roll 2 5 0
+23961  roll 2 0 -8
+23961  press button2
+24001  roll 2 -6 -6
+24040  poke 204FDE 18
+24040  poke 204F3E 18
+24048  roll 1 -12 -12
+24125  roll 2 0 -8
+24160  poke 204FDE 18
+24160  poke 204F3E 18
+24195  roll 1 0 8
+24276  roll 2 6 0
+24280  poke 204FDE 18
+24280  poke 204F3E 18
+24332  roll 2 0 11
+24342  roll 1 11 -11
+24342  press button1
+24372  roll 2 -9 -9
+24372  press button2
+24394  roll 1 -11 0
+24400  poke 204FDE 18
+24400  poke 204F3E 18
+24428  roll 2 0 5
+24464  roll 1 -9 -9
+24520  poke 204FDE 18
+24520  poke 204F3E 18
+24583  roll 1 10 10
+24605  roll 2 11 11
+24640  poke 204FDE 18
+24640  poke 204F3E 18
+24651  roll 1 -7 7
+24651  press button1
+24734  roll 2 0 12
+24734  press button2
+24760  poke 204FDE 18
+24760  poke 204F3E 18
+24772  roll 1 0 5
+24772  press button1
+24834  roll 1 6 -6
+24880  poke 204FDE 18
+24880  poke 204F3E 18
+24887  roll 1 12 -12
+24887  press button1
+24895  roll 2 0 11
+24984  roll 2 -10 0
+25000  poke 204FDE 18
+25000  poke 204F3E 18
+25001  roll 1 -12 0
+25018  roll 2 11 -11
+25018  press button2
+25110  roll 2 -4 0
+25110  press button2
+25120  poke 204FDE 18
+25120  poke 204F3E 18
+25159  roll 1 -4 4
+25159  press button1
+25197  roll 1 -5 5
+25240  poke 204FDE 18
+25240  poke 204F3E 18
+25282  roll 2 0 -6
+25284  roll 1 11 11
+25284  press button1
+25341  roll 2 -7 -7
+25359  roll 1 -5 -5
+25360  poke 204FDE 18
+25360  poke 204F3E 18
+25399  roll 2 4 0
+25419  roll 1 7 0
+25419  press button1
+25463  roll 1 -9 0
+25463  press button1
+25480  poke 204FDE 18
+25480  poke 204F3E 18
+25507  roll 2 -4 4
+25576  roll 1 8 0
+25600  poke 204FDE 18
+25600  poke 204F3E 18
+25608  roll 2 -8 -8
+25621  roll 1 -6 -6
+25693  roll 2 -7 -7
+25720  poke 204FDE 18
+25720  poke 204F3E 18
+25731  roll 1 0 -9
+25735  roll 2 -11 0
+25840  poke 204FDE 18
+25840  poke 204F3E 18
+25874  roll 1 4 -4
+25874  press button1
+25886  roll 2 -11 0
+25934  roll 1 -5 0
+25960  poke 204FDE 18
+25960  poke 204F3E 18
+25966  roll 2 -5 5
+26022  roll 2 10 10
+26022  press button2
+26052  roll 1 -10 -10
+26080  poke 204FDE 18
+26080  poke 204F3E 18
+26121  roll 2 12 0
+26121  press button2
+26128  roll 1 6 0
+26128  press button1
+26192  roll 1 -4 0
+26200  poke 204FDE 18
+26200  poke 204F3E 18
+26235  roll 2 0 5
+26305  roll 2 10 0
+26317  roll 1 0 -10
+26317  press button1
+26320  poke 204FDE 18
+26320  poke 204F3E 18
+26320  press coin1
+26377  roll 1 8 8
+26377  press button1
+26380  press button1
+26440  poke 204FDE 18
+26440  poke 204F3E 18
+26458  roll 2 5 -5
+26458  press button2
+26500  roll 1 -11 11
+26512  roll 2 -8 -8
+26560  poke 204FDE 18
+26560  poke 204F3E 18
+26590  roll 2 7 0
+26595  roll 1 -10 0
+26595  press button1
+26655  roll 2 0 -10
+26655  press button2
+26656  roll 1 -10 -10
+26680  poke 204FDE 18
+26680  poke 204F3E 18
+26706  roll 1 0 -6
+26720  roll 2 6 -6
+26778  roll 1 0 -9
+26799  roll 2 -8 0
+26800  poke 204FDE 18
+26800  poke 204F3E 18
+26821  roll 1 5 0
+26830  roll 2 -7 -7
+26868  roll 2 5 0
+26901  roll 2 4 0
+26901  press button2
+26920  poke 204FDE 18
+26920  poke 204F3E 18
+26964  roll 1 -9 9
+26972  roll 2 0 -11
+27032  roll 2 4 4
+27040  poke 204FDE 18
+27040  poke 204F3E 18
+27068  roll 2 0 -6
+27141  roll 1 0 -6
+27141  press button1
+27160  poke 204FDE 18
+27160  poke 204F3E 18
+27167  roll 2 4 4
+27280  poke 204FDE 18
+27280  poke 204F3E 18
+27304  roll 1 -11 11
+27345  roll 2 11 -11
+27345  press button2
+27349  roll 1 0 -5
+27400  poke 204FDE 18
+27400  poke 204F3E 18
+27414  roll 1 7 -7
+27496  roll 2 0 -5
+27520  poke 204FDE 18
+27520  poke 204F3E 18
+27583  roll 1 0 -9
+27584  roll 2 -7 7
+27640  poke 204FDE 18
+27640  poke 204F3E 18
+27688  roll 2 -9 -9
+27688  press button2
+27729  roll 1 -10 10
+27729  press button1
+27760  poke 204FDE 18
+27760  roll 2 -6 0
+27760  press button2
+27760  poke 204F3E 18
+27847  roll 1 5 -5
+27880  poke 204FDE 18
+27880  poke 204F3E 18
+27900  roll 1 7 7
+27900  press button1
+27932  roll 2 7 7
+27933  roll 1 4 -4
+27933  press button1
+27964  roll 2 0 -8
+27964  press button2
+28000  poke 204FDE 18
+28000  poke 204F3E 18
+28080  roll 1 0 4
+28099  roll 2 11 -11
+28120  poke 204FDE 18
+28120  poke 204F3E 18
+28174  roll 1 0 4
+28174  press button1
+28240  poke 204FDE 18
+28240  poke 204F3E 18
+28258  roll 2 9 -9
+28311  roll 1 4 -4
+28360  poke 204FDE 18
+28360  poke 204F3E 18
+28410  roll 2 -10 10
+28438  roll 1 7 -7
+28452  roll 2 10 0
+28480  poke 204FDE 18
+28480  poke 204F3E 18
+28579  roll 1 -4 4
+28589  roll 2 0 -11
+28589  press button2
+28600  poke 204FDE 18
+28600  poke 204F3E 18
+28649  roll 2 4 0
+28649  press button2
+28698  roll 2 0 5
+28699  roll 1 8 8
+28699  press button1
+28720  poke 204FDE 18
+28720  poke 204F3E 18
+28748  roll 2 -8 -8
+28801  roll 2 -7 0
+28836  roll 1 -12 12
+28840  poke 204FDE 18
+28840  poke 204F3E 18
+28893  roll 2 -6 6
+28893  press button2
+28929  roll 2 7 0
+28929  press button2
+28937  roll 1 -8 -8
+28937  press button1
+28960  poke 204FDE 18
+28960  poke 204F3E 18
+29008  roll 2 10 0
+29008  press button2
+29014  roll 1 0 -12
+29014  press button1
+29045  roll 2 4 0
+29045  press button2
+29075  roll 2 0 8
+29075  press button2
+29080  poke 204FDE 18
+29080  poke 204F3E 18
+29133  roll 2 5 0
+29133  press button2
+29184  roll 1 10 0
+29200  poke 204FDE 18
+29200  poke 204F3E 18
+29214  roll 1 -6 -6
+29214  press button1
+29224  roll 2 4 4
+29276  roll 1 9 9
+29276  press button1
+29320  poke 204FDE 18
+29320  poke 204F3E 18
+29324  roll 1 0 10
+29350  roll 2 0 -8
+29437  roll 1 0 -9
+29440  poke 204FDE 18
+29440  poke 204F3E 18
+29487  roll 2 9 9
+29487  press button2
+29512  roll 1 -7 -7
+29560  poke 204FDE 18
+29560  poke 204F3E 18
+29589  roll 1 0 6
+29601  roll 2 -9 9
+29601  press button2
+29638  roll 2 7 7
+29680  poke 204FDE 18
+29680  poke 204F3E 18
+29720  roll 1 10 0
+29767  roll 1 -7 0
+29800  poke 204FDE 18
+29800  poke 204F3E 18
+29806  roll 2 7 -7
+29841  roll 2 7 -7
+29841  press button2
+29914  roll 1 4 -4
+29920  poke 204FDE 18
+29920  poke 204F3E 18
+29920  press coin1
+29970  roll 2 -9 9
+29980  press button1
+30040  poke 204FDE 18
+30040  poke 204F3E 18
+30092  roll 1 5 0
+30150  roll 2 0 -8
+30160  poke 204FDE 18
+30160  poke 204F3E 18
+30173  roll 1 -9 0
+30270  roll 1 -7 -7
+30270  press button1
+30273  roll 2 -6 6
+30280  poke 204FDE 18
+30280  poke 204F3E 18
+30302  roll 1 7 0
+30379  roll 2 9 0
+30379  press button2
+30400  poke 204FDE 18
+30400  poke 204F3E 18
+30406  roll 1 -10 10
+30424  roll 2 5 5
+30489  roll 1 11 11
+30520  poke 204FDE 18
+30520  poke 204F3E 18
+30577  roll 2 0 11
+30577  press button2
+30640  poke 204FDE 18
+30640  poke 204F3E 18
+30660  roll 1 0 11
+30660  press button1
+30661  roll 2 8 0
+30760  poke 204FDE 18
+30760  poke 204F3E 18
+30807  roll 1 0 -4
+30836  roll 2 -6 6
+30880  poke 204FDE 18
+30880  poke 204F3E 18
+30925  roll 2 6 -6
+30925  press button2
+30934  roll 1 7 -7
+30934  press button1
+30986  roll 2 8 -8
+31000  poke 204FDE 18
+31000  poke 204F3E 18
+31023  roll 1 -4 0
+31102  roll 2 -5 -5
+31120  poke 204FDE 18
+31120  poke 204F3E 18
+31151  roll 2 -6 -6
+31151  press button2
+31165  roll 1 -9 0
+31165  press button1
+31240  poke 204FDE 18
+31240  poke 204F3E 18
+31273  roll 2 7 7
+31306  roll 1 7 0
+31329  roll 2 0 5
+31360  poke 204FDE 18
+31360  poke 204F3E 18
+31366  roll 1 0 11
+31453  roll 1 4 4
+31480  poke 204FDE 18
+31480  roll 2 10 10
+31480  poke 204F3E 18
+31537  roll 1 0 -5
+31600  poke 204FDE 18
+31600  poke 204F3E 18
+31637  roll 2 5 5
+31637  press button2
+31662  roll 1 -9 0
+31720  poke 204FDE 18
+31720  poke 204F3E 18
+31781  roll 2 0 -5
+31821  roll 1 -7 7
+31833  roll 2 -9 9
+31840  poke 204FDE 18
+31840  poke 204F3E 18
+31878  roll 1 0 9
+31960  poke 204FDE 18
+31960  poke 204F3E 18
+31963  roll 2 5 -5
+31963  press button2
+32003  roll 1 9 0
+32031  roll 2 8 -8
+32080  poke 204FDE 18
+32080  poke 204F3E 18
+32091  roll 1 12 0
+32188  roll 1 0 -8
+32196  roll 2 0 12
+32200  poke 204FDE 18
+32200  poke 204F3E 18
+32292  roll 1 0 7
+32292  press button1
+32320  poke 204FDE 18
+32320  poke 204F3E 18
+32333  roll 1 -7 -7
+32373  roll 2 6 -6
+32424  roll 2 10 0
+32440  poke 204FDE 18
+32440  poke 204F3E 18
+32459  roll 2 12 -12
+32462  roll 1 -8 0
+32527  roll 1 9 9
+32560  poke 204FDE 18
+32560  poke 204F3E 18
+32591  roll 2 11 -11
+32673  roll 1 0 -5
+32673  press button1
+32680  poke 204FDE 18
+32680  poke 204F3E 18
+32748  roll 1 -4 -4
+32748  press button1
+32764  roll 2 9 9
+32764  press button2
+32779  roll 1 0 6
+32800  poke 204FDE 18
+32800  poke 204F3E 18
+32850  roll 2 -9 9
+32884  roll 1 -7 7
+32914  roll 1 0 10
+32920  poke 204FDE 18
+32920  poke 204F3E 18
+32962  roll 2 -11 11
+33031  roll 2 -9 -9
+33031  press button2
+33040  poke 204FDE 18
+33040  poke 204F3E 18
+33065  roll 1 0 -6
+33087  roll 2 9 0
+33122  roll 1 -12 -12
+33160  poke 204FDE 18
+33160  poke 204F3E 18
+33227  roll 2 0 -12
+33230  roll 1 0 -9
+33230  press button1
+33280  poke 204FDE 18
+33280  poke 204F3E 18
+33342  roll 2 0 12
+33389  roll 1 5 -5
+33400  poke 204FDE 18
+33400  poke 204F3E 18
+33455  roll 2 -9 9
+33475  roll 1 -8 8
+33520  poke 204FDE 18
+33520  poke 204F3E 18
+33520  press coin1
+33556  roll 1 7 -7
+33580  press button1
+33585  roll 2 6 6
+33640  poke 204FDE 18
+33640  poke 204F3E 18
+33649  roll 1 -11 11
+33710  roll 2 0 5
+33760  poke 204FDE 18
+33760  poke 204F3E 18
+33762  roll 1 -11 -11
+33797  roll 2 0 4
+33808  roll 1 10 -10
+33808  press button1
+33880  poke 204FDE 18
+33880  poke 204F3E 18
+33907  roll 1 12 0
+33939  roll 2 12 12
+33978  roll 2 -5 -5
+33978  press button2
+34000  end

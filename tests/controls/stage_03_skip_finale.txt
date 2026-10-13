@@ -1,0 +1,193 @@
+# Stage 3's zero-length camera section 27 (direction 0,0 at scroll A535, shared by stage 7's path) and
+# is_direction_in_quadrant's "not found" exit (01693D-016940): the search for section_direction_y in the
+# quadrant's sine entries finds nothing for a (0,0) direction. A game never scrolls there: stage 3 stops
+# at A360 (its finale event, game mode 15, holds the scroll until the clear), stage 7 at its scroll_end 4AAD.
+# Here: a one-player greedy path (every 480 frames the move, one of 8 directions with or without a jump
+# every 45 frames, that scrolls the stage furthest); at frame 13545 (scroll A1E2, game mode 3,
+# before the finale event) scroll_position (20E435, u16) is poked to A520, both bytes in one frame: the
+# event at A360 is then more than 100 behind and run_stage_events skips it, the camera keeps following the
+# player and the scroll passes A535 at frame 13613 with scroll mode 7, so update_scroll calls
+# is_direction_in_quadrant with the (0,0) section.
+# At 13615 scroll_end (20E42C) is poked to FFFF so that the scroll does not end at A600 (there stage 3's
+# end sequence would start); the player reaches the goal, the stage is
+# cleared (game mode 17 at 13647) and the island map (game mode 4) starts at 14285. Its fade-out writes
+# fade_kind 0 (0959BF) one frame before its first update_fade call (0959FC), with fade_step still 0 from
+# the stage start: fade_kind (209089) is poked to 1 in between (frame 14286), a fade "from white"
+# (update_fade 016EF5, 016F26-016F4D, 016FD6, 017009-01702A). Every caller writes 0 or 2 (and the end of a
+# fade FF) before update_fade runs from step 0, so kinds 1 and 3 never run in a game.
+# Pokes 204FDE 18: player 1's vitality, every 120 frames.
+1800  press coin1
+1920  press start1
+3300  poke 20F061 08
+3400  poke 20F06E 03
+3400  poke 20F06F 00
+3500  press start1
+3600  roll 1 -12 12
+3620  poke 204FDE 18
+3740  poke 204FDE 18
+3860  poke 204FDE 18
+3980  poke 204FDE 18
+4080  roll 1 -12 12
+4100  poke 204FDE 18
+4220  poke 204FDE 18
+4340  poke 204FDE 18
+4460  poke 204FDE 18
+4560  roll 1 -12 12
+4560  press button1
+4580  poke 204FDE 18
+4605  press button1
+4650  press button1
+4695  press button1
+4700  poke 204FDE 18
+4740  press button1
+4785  press button1
+4820  poke 204FDE 18
+4830  press button1
+4875  press button1
+4920  press button1
+4940  poke 204FDE 18
+4965  press button1
+5010  press button1
+5040  roll 1 0 12
+5060  poke 204FDE 18
+5180  poke 204FDE 18
+5300  poke 204FDE 18
+5420  poke 204FDE 18
+5520  roll 1 0 12
+5540  poke 204FDE 18
+5660  poke 204FDE 18
+5780  poke 204FDE 18
+5900  poke 204FDE 18
+6000  roll 1 12 12
+6000  press button1
+6020  poke 204FDE 18
+6045  press button1
+6090  press button1
+6135  press button1
+6140  poke 204FDE 18
+6180  press button1
+6225  press button1
+6260  poke 204FDE 18
+6270  press button1
+6315  press button1
+6360  press button1
+6380  poke 204FDE 18
+6405  press button1
+6450  press button1
+6480  roll 1 12 12
+6480  press button1
+6500  poke 204FDE 18
+6525  press button1
+6570  press button1
+6615  press button1
+6620  poke 204FDE 18
+6660  press button1
+6705  press button1
+6740  poke 204FDE 18
+6750  press button1
+6795  press button1
+6840  press button1
+6860  poke 204FDE 18
+6885  press button1
+6930  press button1
+6960  roll 1 12 12
+6980  poke 204FDE 18
+7100  poke 204FDE 18
+7220  poke 204FDE 18
+7340  poke 204FDE 18
+7440  roll 1 12 12
+7460  poke 204FDE 18
+7580  poke 204FDE 18
+7700  poke 204FDE 18
+7820  poke 204FDE 18
+7920  roll 1 12 12
+7940  poke 204FDE 18
+8060  poke 204FDE 18
+8180  poke 204FDE 18
+8300  poke 204FDE 18
+8400  roll 1 12 12
+8420  poke 204FDE 18
+8540  poke 204FDE 18
+8660  poke 204FDE 18
+8780  poke 204FDE 18
+8880  roll 1 12 12
+8900  poke 204FDE 18
+9020  poke 204FDE 18
+9140  poke 204FDE 18
+9260  poke 204FDE 18
+9360  roll 1 12 12
+9380  poke 204FDE 18
+9500  poke 204FDE 18
+9620  poke 204FDE 18
+9740  poke 204FDE 18
+9840  roll 1 12 12
+9860  poke 204FDE 18
+9980  poke 204FDE 18
+10100  poke 204FDE 18
+10220  poke 204FDE 18
+10320  roll 1 12 -12
+10340  poke 204FDE 18
+10460  poke 204FDE 18
+10580  poke 204FDE 18
+10700  poke 204FDE 18
+10800  roll 1 12 0
+10800  press button1
+10820  poke 204FDE 18
+10845  press button1
+10890  press button1
+10935  press button1
+10940  poke 204FDE 18
+10980  press button1
+11025  press button1
+11060  poke 204FDE 18
+11070  press button1
+11115  press button1
+11160  press button1
+11180  poke 204FDE 18
+11205  press button1
+11250  press button1
+11280  roll 1 12 -12
+11300  poke 204FDE 18
+11420  poke 204FDE 18
+11540  poke 204FDE 18
+11660  poke 204FDE 18
+11760  roll 1 12 -12
+11780  poke 204FDE 18
+11900  poke 204FDE 18
+12020  poke 204FDE 18
+12140  poke 204FDE 18
+12240  roll 1 12 -12
+12260  poke 204FDE 18
+12380  poke 204FDE 18
+12500  poke 204FDE 18
+12620  poke 204FDE 18
+12720  roll 1 12 -12
+12740  poke 204FDE 18
+12860  poke 204FDE 18
+12980  poke 204FDE 18
+13100  poke 204FDE 18
+13200  roll 1 -12 -12
+13200  press button1
+13220  poke 204FDE 18
+13245  press button1
+13290  press button1
+13335  press button1
+13340  poke 204FDE 18
+13380  press button1
+13425  press button1
+13460  poke 204FDE 18
+13470  press button1
+13515  press button1
+13545  poke 20E435 20
+13545  poke 20E436 A5
+13580  poke 204FDE 18
+13615  poke 20E42C FF
+13615  poke 20E42D FF
+13700  poke 204FDE 18
+13820  poke 204FDE 18
+13940  poke 204FDE 18
+14060  poke 204FDE 18
+14180  poke 204FDE 18
+14286  poke 209089 01
+14300  poke 204FDE 18
+14400  end

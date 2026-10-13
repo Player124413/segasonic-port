@@ -1,0 +1,114 @@
+# Game over: the ranking and the name entry, a new game from the GAME OVER screen, two players losing,
+# the CONTINUE screen the game no longer reaches (poked in), free play, then the bookkeeping
+#
+# Pokes used: 13A[208400] is player 1's score (16 bits); 7E of player 1's object (204F60) and player 2's
+# (204EC0) is the vitality: 0 makes the next hit fatal. 20F061 is the game mode, 20E5AE/20E5AF the
+# CONTINUE countdown (frames, seconds), 20F401 free play.
+#
+# Game 1: one player with a score high enough for the ranking (1000: first place)
+1800  press coin1
++20   press coin1
++20   press coin1
++60   press start1
++300  roll 1 8 0
+4000  poke 20853A E8
++0    poke 20853B 03
++0    poke 204FDE 00
+4300  roll 1 0 0
+# Name entry (player state 2E): the trackball's Y picks a letter, X moves along the name, button 1
+# takes the letter
+4960  roll 1 0 6
++30   roll 1 0 0
++10   press button1
++20   roll 1 0 -6
++60   roll 1 0 0
++10   press button1
++20   roll 1 6 0
++20   roll 1 -6 0
++20   roll 1 0 0
++10   press button1
++20   press button1
++20   press button1
+# GAME OVER (game mode 7): a start with credits begins a new game at once
+5230  press start1
+# Game 2: player 2 joins with the last credit; both players lose their vitality, no ranking
++30   press start2
++300  roll 1 8 0
++0    roll 2 0 8
+8500  poke 204FDE 00
++0    poke 204F3E 00
+# Game 3, from the attract demo: one player, a credit kept for the CONTINUE screen
+11700 press coin1
++20   press coin1
++60   press start1
++300  roll 1 8 0
+13900 poke 204FDE 00
+# The CONTINUE screen (game mode E: a countdown from 9) is no longer entered by the game: poked in while
+# GAME OVER shows. Button 1 hurries the countdown; start with a credit continues in the same stage.
+14940 poke 20E5AE 00
++0    poke 20E5AF 09
++0    poke 20F061 0E
++100  press button1
++100  press start1
+# The game goes on (stage 5, then 8); player 1 loses again in stage 8
+19250 poke 204FDE 00
+# Game 4: free play (what the coin setting 7612 = 1 would give): starts need no credit
+22100 poke 20F401 01
+22200 press start1
++30   press start2
++300  roll 1 8 0
++0    roll 2 -8 0
+24300 poke 204FDE 00
+# Player 2's vitality kept full while player 1 is out (game 4)
+24200  poke 204F3E 18
+24260  poke 204F3E 18
+24320  poke 204F3E 18
+24380  poke 204F3E 18
+24440  poke 204F3E 18
+24500  poke 204F3E 18
+24560  poke 204F3E 18
+24620  poke 204F3E 18
+24680  poke 204F3E 18
+24740  poke 204F3E 18
+24800  poke 204F3E 18
+24860  poke 204F3E 18
+24920  poke 204F3E 18
+24980  poke 204F3E 18
+25040  poke 204F3E 18
+25100  poke 204F3E 18
+25160  poke 204F3E 18
+25220  poke 204F3E 18
+25280  poke 204F3E 18
+25340  poke 204F3E 18
+25400  poke 204F3E 18
+25460  poke 204F3E 18
+25520  poke 204F3E 18
+25580  poke 204F3E 18
+# Player 1 joins again without a credit, while player 2 is kept alive
+25450 press start1
++300  roll 1 -8 0
+25700 poke 204F3E 00
+# Stage 8: player 1 alone, loses
+27620 poke 204FDE 00
+# GAME OVER: the CONTINUE screen again, left to count down to GAME OVER
+28400 poke 20E5AE 00
++0    poke 20E5AF 02
++0    poke 20F061 0E
+# GAME OVER with free play: start begins a new game without a credit
+28560 press start1
+# Test mode in the middle of game 5: BOOKKEEPING counts the games (average and shortest game times)
+29600 press test
++30   press service
++10   press service
++10   press service
++10   press service
++10   press service
++10   press service
++10   press service
++10   press service                 # cursor 7 BOOKKEEPING
++10   press test
++60   press test
++20   press service                 # cursor 8
++10   press service                 # cursor 10 EXIT
++10   press test
++600  end

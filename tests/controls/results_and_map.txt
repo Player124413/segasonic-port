@@ -1,0 +1,97 @@
+# Stage results (ring tally) and island map screens, five times, with poked ring counts
+#
+# A two-player game sent to stage 6 through Stage Select Mode (debug game mode 8, a poke). Each cycle
+# stands for clearing a stage with given ring counts: the rings of the three player blocks (field 13C:
+# P1 20853C, P2 20873C, P3 20893C) are poked, then game mode 1D (the stage results), which the stage
+# clear (game mode 17) would set. start_ring_tally (0983FE) computes the percentage of the stage's
+# rings, pick_ring_bonus_players (0985CC) keeps the bonus for the players with the most rings, one panel
+# per player in play counts them (update_ring_tally_panel 098C2A), then the map (game mode 4) and the
+# next stage (6, 5, 8, 9, A, then 3). Ring counts (P1, P2, P3) and what they reach:
+#   stage 6 (1, 5, 0): P2 ahead of P1 and P3 (0985E4); 6 rings of 20 sets bit 11 of the percentage (09847B)
+#   stage 5 (1, 5, 9): P3 ahead (0985EA); 75% reaches stage 5's 50% bonus line: the percentage blinks (09889F)
+#   stage 8 (110, 105, 110): P1 = P3 above P2 (098609): P1's panel gives the bonus (states 1-2, 098C52,
+#           098D5F, cycle_ring_tally_label_palette) with three digits; P2's no-bonus panel shows 105 (098E1B)
+#   stage 9 (50, 110, 110): P2 = P3 above P1 (098617)
+#   stage A (60, 60, 10): P1 = P2 above P3 (09862C, 098645): two bonus panels under 100 rings (098DBB)
+# (Counts stay under 128: the tally compares them as signed bytes, so 128 rings and more count as fewer.)
+# The maps after stages 6 and 5 have no trail (start_map_trail 0964FF).
+# Other pokes, in time order:
+#   2700-2705  sprite_flags (field 02) of the how-to-play button hand (stage 7, object at 204BA0), a
+#              multi-part sprite (bits 15 and 14, D000): bits 6/7 (flips) are never set on a multi-part
+#              sprite (09A3C6-09A3DE), and no object has bit 14 alone (09A2F0) or bit 15 alone (09A300:
+#              the 8001 list entry at 09A48F); the immediate writes and the spawn template tables only
+#              hold 10xx, 5000, 9000/900A, C000 and D000-D00A
+#   3600       game mode 9 for one frame during stage 6's opening scene (game mode 10, restored after):
+#              nothing sets game mode 9; game_mode_event_09 ends at 09EDC0. (In a stage with zone
+#              objects one such frame leaves the zone list unemptied and check_zones then loops)
+#   4000/4060  209097 = 02/00: the top byte of the destination of a palette cycle copy (stage 6's opening
+#              scene, record at 209090) asks run_vblank_copies for two copies (09F5EF); the game only
+#              ever stores 00 there
+#   9600       on stage 9's map the Eggman counts his third sound in 209055 (map_stage_09_sound_count),
+#              which only ever reaches 1 because his state 0 clears it: poked to 59, his next sound
+#              takes it to 5A and plays sound 95 (096471)
+#   11060      on stage A's map the Eggman's hands (map_eggman_update state 3, object at 204880) get
+#              30 = 1 and 47 = 0, what the state never has at that point: their frame step goes back
+#              (096402)
+# 204FDE / 204F3E (vitality of P1 / P2) are refilled so nobody loses.
+1800  press coin1
++20   press coin1
++60   press start1
++30   press start2
+2700  poke 204BA2 40                # the how-to-play hand's sprite_flags D000 -> D040 (flip 1)
+2701  poke 204BA2 80                # D080 (flip 2)
+2702  poke 204BA2 C0                # D0C0 (both)
+2703  poke 204BA2 00                # 4000
++0    poke 204BA3 40
+2704  poke 204BA3 80                # 8000
+2705  poke 204BA3 D0                # D000 again
+3300  poke 20F061 08                # Stage Select Mode
++100  poke 20F06E 06                # stage 6
++0    poke 20F06F 00
++100  press start1
+3600  poke 20F061 09                # game mode 9 for one frame
++1    poke 20F061 10
+3700  poke 204FDE 18
++0    poke 204F3E 18
+4000  poke 209097 02                # palette cycle copy twice
+4060  poke 209097 00
+# cycle 1, stage 6
+4100  poke 204FDE 18
++0    poke 204F3E 18
++0    poke 20853C 01                # rings 1, 5, 0
++0    poke 20873C 05
++0    poke 20893C 00
++0    poke 20F061 1D                # stage results
+# cycle 2, stage 5
+5300  poke 204FDE 18
++0    poke 204F3E 18
++0    poke 20853C 01                # rings 1, 5, 9
++0    poke 20873C 05
++0    poke 20893C 09
++0    poke 20F061 1D
+# cycle 3, stage 8
+6700  poke 204FDE 18
++0    poke 204F3E 18
++0    poke 20853C 6E                # rings 110, 105, 110
++0    poke 20873C 69
++0    poke 20893C 6E
++0    poke 20F061 1D
+# cycle 4, stage 9
+8550  poke 204FDE 18
++0    poke 204F3E 18
++0    poke 20853C 32                # rings 50, 110, 110
++0    poke 20873C 6E
++0    poke 20893C 6E
++0    poke 20F061 1D
+9600  poke 209055 59                # stage 9's map: the Eggman's sound count
+# cycle 5, stage A
+10100 poke 204FDE 18
++0    poke 204F3E 18
++0    poke 20853C 3C                # rings 60, 60, 10
++0    poke 20873C 3C
++0    poke 20893C 0A
++0    poke 20F061 1D
+11060 poke 2048B0 01                # stage A's map: the Eggman's hands, field 30 = 1
++0    poke 2048B1 00
++0    poke 2048C7 00                # field 47 = 0
+11700 end

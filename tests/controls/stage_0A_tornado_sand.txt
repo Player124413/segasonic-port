@@ -1,0 +1,231 @@
+# Stage A (walk_0A up to 12550) with these additions (a poke at frame N acts on the code of frame N + 1):
+# - 3450: the kind 0 tornado (204BA0) waits at its start; its direction (24) 0300 (-x) set to 0100 for one
+#   frame (3451: back): its back zone (204A60) follows it on the +x side (082F32, 082F54-082F6F).
+# - 8400: the kind 0 tornado heads -y (direction 0) after its hazard list is done; a one-record list in
+#   free RAM (20B000: scroll position 0, coordinate 7FFF) and its pointer in field 48: it takes the
+#   record with direction 0 and spawns a hazard (089477-08948B, 0897BB). The data never has a hazard
+#   point left when a tornado heads -y.
+# - 10000-10003: the sand block leader (203DE0) and a waiting sand block (203C00), both direction 1
+#   (every stage A row), turned to 0, 2 and 3 for a frame each, then back to 1 (08A046-08A15D, 08A1A5..).
+# - 12550: player 1 stops (vitality refilled from 12600). 12600: player_status 20E590 = 2 for one frame
+#   (12601: FF), no player in play while the sand leader holds back (08A02D); the leader reaches y A2B
+#   and clears sand_block_leader_active at 13073 (08A167; it is removed at scroll 9C00 before that when
+#   the players keep walking).
+# - 13072: second-pool count (20EA10) 0 for the frame the kind 1 tornado starts (13073): its five
+#   columns get no top part (08976A); 13073: back to F0 (nothing allocated or freed in between).
+# - 13100: the kind 1 tornado (2044C0) turned to 0300 for a frame with a one-frame wait (90 = 2): its
+#   rear zone (202D00) follows it on the -x side (0898CD, 08990E-089920); 13101: back to 0100.
+1800  press coin1
+1860  press start1
+3180  poke 20F061 08
+3280  poke 20F06E 0A
+3280  poke 20F06F 00
+3380  press start1
+3450  poke 204BC5 01
+3451  poke 204BC5 03
+3480  roll 1 12 12
+3480  press button1
+3480  poke 204FDE 18
+3525  press button1
+3570  press button1
+3600  poke 204FDE 18
+3615  press button1
+3660  press button1
+3705  press button1
+3720  poke 204FDE 18
+3750  press button1
+3795  press button1
+3840  press button1
+3840  poke 204FDE 18
+3885  press button1
+3930  press button1
+3960  roll 1 12 0
+3960  press button1
+3960  poke 204FDE 18
+4005  press button1
+4050  press button1
+4080  poke 204FDE 18
+4095  press button1
+4140  press button1
+4185  press button1
+4200  poke 204FDE 18
+4230  press button1
+4275  press button1
+4320  press button1
+4320  poke 204FDE 18
+4365  press button1
+4410  press button1
+4440  roll 1 12 12
+4440  poke 204FDE 18
+4560  poke 204FDE 18
+4680  poke 204FDE 18
+4800  poke 204FDE 18
+4920  roll 1 12 12
+4920  poke 204FDE 18
+5040  poke 204FDE 18
+5160  poke 204FDE 18
+5280  poke 204FDE 18
+5400  roll 1 12 12
+5400  poke 204FDE 18
+5520  poke 204FDE 18
+5640  poke 204FDE 18
+5760  poke 204FDE 18
+5880  roll 1 -12 12
+5880  press button1
+5880  poke 204FDE 18
+5925  press button1
+5970  press button1
+6000  poke 204FDE 18
+6015  press button1
+6060  press button1
+6105  press button1
+6120  poke 204FDE 18
+6150  press button1
+6195  press button1
+6240  press button1
+6240  poke 204FDE 18
+6285  press button1
+6330  press button1
+6360  roll 1 -12 12
+6360  poke 204FDE 18
+6480  poke 204FDE 18
+6600  poke 204FDE 18
+6720  poke 204FDE 18
+6840  roll 1 -12 12
+6840  poke 204FDE 18
+6960  poke 204FDE 18
+7080  poke 204FDE 18
+7200  poke 204FDE 18
+7320  roll 1 12 12
+7320  poke 204FDE 18
+7440  poke 204FDE 18
+7560  poke 204FDE 18
+7680  poke 204FDE 18
+7800  roll 1 12 12
+7800  press button1
+7800  poke 204FDE 18
+7845  press button1
+7890  press button1
+7920  poke 204FDE 18
+7935  press button1
+7980  press button1
+8025  press button1
+8040  poke 204FDE 18
+8070  press button1
+8115  press button1
+8160  press button1
+8160  poke 204FDE 18
+8205  press button1
+8250  press button1
+8280  roll 1 12 12
+8280  poke 204FDE 18
+8400  poke 204FDE 18
+8400  poke 20B000 00
+8400  poke 20B001 00
+8400  poke 20B002 FF
+8400  poke 20B003 7F
+8400  poke 20B004 FF
+8400  poke 20B005 FF
+8400  poke 204BE8 00
+8400  poke 204BE9 B0
+8400  poke 204BEA 20
+8400  poke 204BEB 00
+8520  poke 204FDE 18
+8640  poke 204FDE 18
+8760  roll 1 12 12
+8760  poke 204FDE 18
+8880  poke 204FDE 18
+9000  poke 204FDE 18
+9120  poke 204FDE 18
+9240  roll 1 12 -12
+9240  poke 204FDE 18
+9360  poke 204FDE 18
+9480  poke 204FDE 18
+9600  poke 204FDE 18
+9720  roll 1 0 -12
+9720  press button1
+9720  poke 204FDE 18
+9765  press button1
+9810  press button1
+9840  poke 204FDE 18
+9855  press button1
+9900  press button1
+9945  press button1
+9960  poke 204FDE 18
+9990  press button1
+10000  poke 203E04 00
+10000  poke 203C24 00
+10001  poke 203E04 02
+10001  poke 203C24 02
+10002  poke 203E04 03
+10002  poke 203C24 03
+10003  poke 203E04 01
+10003  poke 203C24 01
+10035  press button1
+10080  press button1
+10080  poke 204FDE 18
+10125  press button1
+10170  press button1
+10200  roll 1 0 -12
+10200  press button1
+10200  poke 204FDE 18
+10245  press button1
+10290  press button1
+10320  poke 204FDE 18
+10335  press button1
+10380  press button1
+10425  press button1
+10440  poke 204FDE 18
+10470  press button1
+10515  press button1
+10560  press button1
+10560  poke 204FDE 18
+10605  press button1
+10650  press button1
+10680  roll 1 0 -12
+10680  press button1
+10680  poke 204FDE 18
+10725  press button1
+10770  press button1
+10800  poke 204FDE 18
+10815  press button1
+10860  press button1
+10905  press button1
+10920  poke 204FDE 18
+10950  press button1
+10995  press button1
+11040  press button1
+11040  poke 204FDE 18
+11085  press button1
+11130  press button1
+11160  roll 1 12 12
+11160  poke 204FDE 18
+11280  poke 204FDE 18
+11400  poke 204FDE 18
+11520  poke 204FDE 18
+11640  roll 1 12 12
+11640  poke 204FDE 18
+11760  poke 204FDE 18
+11880  poke 204FDE 18
+12000  poke 204FDE 18
+12120  roll 1 12 12
+12120  poke 204FDE 18
+12240  poke 204FDE 18
+12360  poke 204FDE 18
+12480  poke 204FDE 18
+12550  roll 1 0 0
+12600  poke 20E590 02
+12600  poke 204FDE 18
+12601  poke 20E590 FF
+12720  poke 204FDE 18
+12840  poke 204FDE 18
+12960  poke 204FDE 18
+13072  poke 20EA10 00
+13073  poke 20EA10 F0
+13080  poke 204FDE 18
+13100  poke 2044E5 03
+13100  poke 204550 02
+13101  poke 2044E5 01
+13200  poke 204FDE 18
+13320  poke 204FDE 18
+13400  end

@@ -1,0 +1,108 @@
+# Player code nothing in the game reaches, run by poking the values it needs (each poke below says what
+# it stands for), plus rare situations, in one three-player game (3P cabinet, common coin chute).
+# Reaches: player_hud_start for player 3 in the attract demo (00A8DD); the states with no setter in the
+# program: 0x1B short animation (player_state_short_animation 0050F1-00516C, characters 1 and 2), 0x1A
+# and 3 (player_state_inactive_2 005172, player_state_inactive 003593: the handler returns at once),
+# 0x2D (player_state_held_still 009CEC; touch kind 0x25 would set it but no object has that kind),
+# 0x10, 0x11 and 0x12 (the launched state's table entries 002D6E-002D74; 0x10 needs floor type 3, which
+# no floor block has), whose launches also run player_launch for characters 1 and 2 (005485-005493)
+# and the bounce off the screen's right side (0054F8-005504); per_player_view_mode (20E5F2, only ever
+# cleared: player_move 002F88); the entry walk of characters 1 and 2 at stage 4's start (006317-006322);
+# player 2's fatal fall into a pit (004696-0046A5); player_resume (0028D1: a stage starts while player
+# 2 is in the continue countdown); and player_place's stall check while waiting to enter
+# (002C81-002C9F).
+# How: the cabinet setting is poked at frame 600 (20F41E = 1, what test mode would set) so the attract
+# demo at 2290 runs with player 3; coins and the three starts at 2400-2540; Stage Select Mode (game mode
+# 8, a debug mode the game has no way into) sends the game to stage 4. Then: states poked into the player
+# blocks (208400/208600/208800 + 0, substep + 3): 0x1B for players 2 and 3 at 4400 (it ends by itself
+# in state 0), 0x1A, 3 and 0x2D for player 1 for two frames each (then back to 0), 0x10/0x11/0x12 for
+# players 1/2/3 at 4650 (a launch, ending in state 1); 20E5F2 = FF for 30 frames at 4900. Player 2 gets
+# vitality 8 at 5000 (204F3E) and runs into the pit south of the start: it dies; at 5200-5400 Stage
+# Select Mode starts stage 8 while it counts down. Player 2 continues (coin, start2, button2) during
+# stage 8's opening event (game mode 0xD), when joining players wait (entry status 0x82); its stall
+# counter (player block +1D8, 2087D8) is poked to 7199 at 5500, standing for two minutes of waiting
+# without scrolling (no wait lasts that long in the game). Vitality is otherwise refilled to 18.
+600  poke 20F41E 01
+2400  press coin1
+2420  press coin1
+2440  press coin1
+2500  press start1
+2520  press start2
+2540  press start3
+3900  poke 20F061 08
+4000  poke 20F06E 04
+4000  poke 20F06F 00
+4100  press start1
+4200  poke 204FDE 18
+4200  poke 204E9E 18
+4200  poke 204F3E 18
+4320  poke 204FDE 18
+4320  poke 204E9E 18
+4320  poke 204F3E 18
+4400  poke 208600 1B
+4400  poke 208603 00
+4400  poke 208800 1B
+4400  poke 208803 00
+4440  poke 204FDE 18
+4440  poke 204E9E 18
+4440  poke 204F3E 18
+4500  poke 208400 1A
+4500  poke 208403 00
+4502  poke 208400 00
+4550  poke 208400 03
+4550  poke 208403 00
+4552  poke 208400 00
+4560  poke 204FDE 18
+4560  poke 204E9E 18
+4560  poke 204F3E 18
+4600  poke 208400 2D
+4600  poke 208403 00
+4602  poke 208400 00
+4650  poke 208400 10
+4650  poke 208403 00
+4650  poke 208600 11
+4650  poke 208603 00
+4650  poke 208800 12
+4650  poke 208803 00
+4680  poke 204FDE 18
+4680  poke 204E9E 18
+4680  poke 204F3E 18
+4800  poke 204FDE 18
+4800  poke 204E9E 18
+4800  poke 204F3E 18
+4900  poke 20E5F2 FF
+4920  poke 204FDE 18
+4920  poke 204E9E 18
+4920  poke 204F3E 18
+4930  poke 20E5F2 00
+5000  poke 204F3E 08
+5000  roll 2 20 -20
+5040  poke 204FDE 18
+5040  poke 204E9E 18
+5100  roll 2 0 0
+5160  poke 204FDE 18
+5160  poke 204E9E 18
+5200  poke 20F061 08
+5280  poke 204FDE 18
+5280  poke 204E9E 18
+5300  poke 20F06E 08
+5300  poke 20F06F 00
+5390  press coin1
+5400  press start1
+5400  poke 204FDE 18
+5400  poke 204E9E 18
+5430  press start2
+5450  press button2
+5500  poke 2087D8 1F
+5500  poke 2087D9 1C
+5520  poke 204FDE 18
+5520  poke 204E9E 18
+5640  poke 204FDE 18
+5640  poke 204E9E 18
+5760  poke 204FDE 18
+5760  poke 204E9E 18
+5880  poke 204FDE 18
+5880  poke 204E9E 18
+6000  poke 204FDE 18
+6000  poke 204E9E 18
+6000  end

@@ -1,0 +1,609 @@
+# Test mode: every screen of the test menu, in two rounds
+#
+# TEST (port E bit 1) enters test mode from anywhere. In the menu SERVICE moves the cursor down, wrapping
+# at the end, and TEST selects; the cursor starts on EXIT. Inside a screen SERVICE picks an option and
+# TEST changes it, or leaves. Menu items:
+#   0 INDIVIDUAL/CONTINUE (after a test, back to the menu or on to the next test)
+#   1 MEMORY TEST  2 INPUT TEST  3 SOUND TEST  4 C.R.T. TEST  5 GAME ASSIGNMENTS  6 COIN ASSIGNMENTS
+#   7 BOOKKEEPING  8 BACKUP DATA CLEAR  9 OUTPUT TEST (only with DIP switch 1 on: moving seat cabinet)
+#   10 EXIT
+#
+# Round 1: DIP switch 1 off, tests one by one (INDIVIDUAL: each test returns to the menu)
+1800  press coin1
++20   press coin2
++20   press service                 # a service credit
+# SERVICE held while TEST is pressed: the menu also shows the EEPROM write count
++40   hold service
++10   press test
++10   release service
++30   press service                 # cursor 0
++10   press service                 # cursor 1
+# MEMORY TEST: ROM sums and RAM tests run in one frame
++10   press test
++30   press test
+# INPUT TEST (2P cabinet): every trackball in the four diagonal directions, long enough for the
+# trackball boxes to reach their limits, then every button
++20   press service                 # cursor 2
++10   press test
++20   roll 1 12 12
++0    roll 2 12 12
++0    roll 3 12 12
++60   roll 1 12 -12
++0    roll 2 12 -12
++0    roll 3 12 -12
++90   roll 1 -12 12
++0    roll 2 -12 12
++0    roll 3 -12 12
++90   roll 1 -12 -12
++0    roll 2 -12 -12
++0    roll 3 -12 -12
++90   roll 1 0 0
++0    roll 2 0 0
++0    roll 3 0 0
++10   press button1 8
++10   press button2 8
++10   press button3 8
++10   press start1 8
++10   press start2 8
++10   press start3 8
++10   press coin1 8
++10   press coin2 8
++10   press coin3 8
++10   press service 8
++20   press test                    # leaves when TEST is released
+# SOUND TEST: SERVICE plays the next sound
++30   press service                 # cursor 3
++10   press test
++20   press service
++10   press service
++10   press service
++30   press test
+# C.R.T. TEST: color bars, then the grid
++20   press service                 # cursor 4
++10   press test
++20   press test
++20   press test
+# GAME ASSIGNMENTS: the cursor starts on EXIT (7)
++20   press service                 # cursor 5
++10   press test
++20   press service                 # 0 GAME DIFFICULTY: four values, back to the first
++10   press test
++10   press test
++10   press test
++10   press test
++10   press service                 # 1 INITIAL VITALITY: four values
++10   press test
++10   press test
++10   press test
++10   press test
++10   press service                 # 2 ADVERTISE SOUND: ON
++10   press test
++10   press service                 # 3 MONITOR FLIP: REVERSE, NORMAL, REVERSE
++10   press test
++10   press test
++10   press test
++10   press service                 # 4 CABINET TYPE: 3P
++10   press test
++10   press service                 # 5 START BUTTON: NO USE
++10   press test
++10   press service                 # 6 MOVING SEAT is skipped: EXIT, saves to the EEPROM
++10   press test
+# C.R.T. TEST with the monitor flipped
++20   press service                 # cursor 6
++10   press service                 # cursor 7
++10   press service                 # cursor 8
++10   press service                 # cursor 10
++10   press service                 # cursor 0
++10   press service                 # cursor 1
++10   press service                 # cursor 2
++10   press service                 # cursor 3
++10   press service                 # cursor 4
++10   press test
++20   press test
++20   press test
+# BOOKKEEPING (common coin chute)
++20   press service                 # cursor 5
++10   press service                 # cursor 6
++10   press service                 # cursor 7
++10   press test
++30   press test
+# COIN ASSIGNMENTS: the cursor starts on EXIT (4)
++20   press service                 # cursor 8
++10   press service                 # cursor 10
++10   press service                 # cursor 0
++10   press service                 # cursor 1
++10   press service                 # cursor 2
++10   press service                 # cursor 3
++10   press service                 # cursor 4
++10   press service                 # cursor 5
++10   press service                 # cursor 6
++10   press test
++20   press service                 # 0 COIN CHUTE TYPE: INDIVIDUAL, COMMON
++10   press test
++10   press test
++10   press service                 # 1 CREDIT TO START: 2, then 1
++10   press test
++10   press test
++10   press service                 # 2 COIN/CREDIT SETTING: all 26 settings, wrapping around
++10   press test
++10   press test
++10   press test
++10   press test
++10   press test
++10   press test
++10   press test
++10   press test
++10   press test
++10   press test
++10   press test
++10   press test
++10   press test
++10   press test
++10   press test
++10   press test
++10   press test
++10   press test
++10   press test
++10   press test
++10   press test
++10   press test
++10   press test
++10   press test
++10   press test
++10   press test
++10   press test
++10   press service                 # 3
++10   press service                 # 4
++10   press service                 # 0 COIN CHUTE TYPE: INDIVIDUAL
++10   press test
++10   press service                 # 1
++10   press service                 # 2 COIN/CREDIT SETTING with individual chutes
++10   press test
++10   press test
++10   press service                 # 3 MANUAL SETTING (individual chutes: four items, cursor on the last)
++10   press test
++20   press service                 # 0: nine values, wraps
++10   press test
++10   press test
++10   press test
++10   press test
++10   press test
++10   press test
++10   press test
++10   press test
++10   press test
++10   press service                 # 1: nine values, wraps
++10   press test
++10   press test
++10   press test
++10   press test
++10   press test
++10   press test
++10   press test
++10   press test
++10   press test
++10   press service                 # 2: nine values, wraps
++10   press test
++10   press test
++10   press test
++10   press test
++10   press test
++10   press test
++10   press test
++10   press test
++10   press test
++10   press service                 # 3 is skipped with individual chutes: back
++10   press test
++20   press service                 # 4 EXIT
++10   press service                 # 0 COIN CHUTE TYPE with a manual setting: COMMON, INDIVIDUAL, COMMON
++10   press test
++10   press test
++10   press test
++10   press service                 # 1
++10   press service                 # 2
++10   press service                 # 3 MANUAL SETTING (common coin chute: five items)
++10   press test
++20   press service                 # 0
++10   press service                 # 1
++10   press service                 # 2
++10   press service                 # 3: nine values, wraps
++10   press test
++10   press test
++10   press test
++10   press test
++10   press test
++10   press test
++10   press test
++10   press test
++10   press test
++10   press service                 # 4 back
++10   press test
++20   press service                 # 4 EXIT
++10   press service                 # 0 COIN CHUTE TYPE: INDIVIDUAL again
++10   press test
++10   press service                 # 1
++10   press service                 # 2
++10   press service                 # 3
++10   press service                 # 4 EXIT, saves to the EEPROM
++10   press test
+# INPUT TEST again: 3P cabinet, START BUTTON NO USE, individual chutes, monitor flipped
++20   press service                 # cursor 7
++10   press service                 # cursor 8
++10   press service                 # cursor 10
++10   press service                 # cursor 0
++10   press service                 # cursor 1
++10   press service                 # cursor 2
++10   press test
++20   roll 1 12 12
++0    roll 2 -12 12
++0    roll 3 12 -12
++90   roll 1 12 -12
++0    roll 2 -12 -12
++0    roll 3 -12 -12
++90   roll 1 -12 12
++0    roll 2 12 12
++0    roll 3 12 12
++90   roll 1 -12 -12
++0    roll 2 12 -12
++0    roll 3 -12 12
++90   roll 1 0 0
++0    roll 2 0 0
++0    roll 3 0 0
++10   press button1 8
++10   press button2 8
++10   press button3 8
++10   press start1 8
++10   press start2 8
++10   press start3 8
++10   press coin1 8
++10   press coin2 8
++10   press coin3 8
++20   press test
+# BOOKKEEPING (individual chutes, 3P: chute #3 shown)
++30   press service                 # cursor 3
++10   press service                 # cursor 4
++10   press service                 # cursor 5
++10   press service                 # cursor 6
++10   press service                 # cursor 7
++10   press test
++30   press test
+# GAME ASSIGNMENTS: START BUTTON back to USE, then the INPUT TEST of the 3P cabinet with it
++20   press service                 # cursor 8
++10   press service                 # cursor 10
++10   press service                 # cursor 0
++10   press service                 # cursor 1
++10   press service                 # cursor 2
++10   press service                 # cursor 3
++10   press service                 # cursor 4
++10   press service                 # cursor 5
++10   press test
++20   press service                 # 0
++10   press service                 # 1
++10   press service                 # 2
++10   press service                 # 3
++10   press service                 # 4
++10   press service                 # 5 START BUTTON: USE
++10   press test
++10   press service                 # 7 EXIT
++10   press test
++20   press service                 # cursor 6
++10   press service                 # cursor 7
++10   press service                 # cursor 8
++10   press service                 # cursor 10
++10   press service                 # cursor 0
++10   press service                 # cursor 1
++10   press service                 # cursor 2
++10   press test
++20   roll 3 12 12
++30   roll 3 -12 12
++30   roll 3 12 -12
++30   roll 3 -12 -12
++30   roll 3 0 0
++10   press button3 8
++10   press start3 8
++10   press coin3 8
++20   press test
+# CONTINUE mode with the OUTPUT TEST hidden: BACKUP DATA CLEAR goes back to the menu, on EXIT
++30   press service                 # cursor 3
++10   press service                 # cursor 4
++10   press service                 # cursor 5
++10   press service                 # cursor 6
++10   press service                 # cursor 7
++10   press service                 # cursor 8
++10   press service                 # cursor 10
++10   press service                 # cursor 0
++10   press test                    # CONTINUE
++20   press service                 # cursor 1
++10   press service
++10   press service
++10   press service
++10   press service
++10   press service
++10   press service
++10   press service                 # cursor 8
++10   press test
++20   press test                    # NO (CANCEL)
+# BACKUP DATA CLEAR: YES
++30   press service                 # cursor 0
++10   press service
++10   press service
++10   press service
++10   press service
++10   press service
++10   press service
++10   press service
++10   press service                 # cursor 8
++10   press test
++20   press service                 # YES (CLEAR)
++10   press test                    # CONTINUE mode: back to the menu on EXIT
+# DIP switch 1 on (moving seat cabinet): read again when test mode ends
++150  dip 1 on
++10   press test
+#
+# Round 2: DIP switch 1 on: the cabinet becomes 2P with the moving seat in use. CONTINUE mode (each
+# test goes on to the next one)
++300  press test
++30   press service                 # cursor 0
++10   press test                    # CONTINUE
++20   press service                 # cursor 1
++10   press test                    # MEMORY TEST
++30   press test                    # -> INPUT TEST (2P, individual chutes, monitor flipped)
++20   roll 1 6 6
++0    roll 2 -6 6
++10   roll 1 6 -6
++0    roll 2 -6 -6
++10   roll 1 -6 6
++0    roll 2 6 6
++10   roll 1 -6 -6
++0    roll 2 6 -6
++10   roll 1 0 0
++0    roll 2 0 0
++10   press button1 8
++10   press button2 8
++10   press start1 8
++10   press start2 8
++10   press coin1 8
++10   press coin2 8
++20   press test                    # -> SOUND TEST
++30   press service                 # every sound number up to 8C, then back to 0
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++8    press service
++20   press test                    # -> C.R.T. TEST
++20   press test
++20   press test                    # -> GAME ASSIGNMENTS (ADVERTISE SOUND on, flipped, MOVING SEAT shown)
++20   press service                 # 0
++10   press service                 # 1
++10   press service                 # 2
++10   press service                 # 3 MONITOR FLIP: NORMAL
++10   press test
++10   press service                 # 4 CABINET TYPE: 3P turns the moving seat off
++10   press test
++10   press service                 # 5 START BUTTON: NO USE
++10   press test
++10   press service                 # 6 MOVING SEAT cannot change on a 3P cabinet
++10   press test
++10   press service                 # 7
++10   press service                 # 0
++10   press service                 # 1
++10   press service                 # 2
++10   press service                 # 3
++10   press service                 # 4 CABINET TYPE: 2P
++10   press test
++10   press service                 # 5
++10   press service                 # 6 MOVING SEAT: USE, NO USE, USE
++10   press test
++10   press test
++10   press test
++10   press service                 # 7 EXIT -> COIN ASSIGNMENTS (manual setting shown)
++10   press test
++20   press service                 # 0
++10   press service                 # 1
++10   press service                 # 2 COIN/CREDIT SETTING leaves the manual setting
++10   press test
++10   press service                 # 3
++10   press service                 # 4 EXIT -> BOOKKEEPING (2P)
++10   press test
++30   press test                    # -> BACKUP DATA CLEAR
++30   press test                    # NO -> OUTPUT TEST (moving seat in use)
++30   hold button1
++20   hold button2
++20   release button1
++20   release button2
++20   press test                    # -> back to the menu, on EXIT
++30   press service                 # every item, OUTPUT TEST included
++10   press service
++10   press service
++10   press service
++10   press service
++10   press service
++10   press service
++10   press service
++10   press service
++10   press service
++10   press service                 # cursor 10
++10   press service                 # cursor 0: tests one by one again (INDIVIDUAL)
++10   press test
+# GAME ASSIGNMENTS: MOVING SEAT NO USE, then the OUTPUT TEST without the seat
++20   press service                 # cursor 1
++10   press service
++10   press service
++10   press service
++10   press service                 # cursor 5
++10   press test
++20   press service                 # 0
++10   press service
++10   press service
++10   press service
++10   press service
++10   press service
++10   press service                 # 6 MOVING SEAT: NO USE
++10   press test
++10   press service                 # 7 EXIT
++10   press test
++20   press service                 # cursor 6
++10   press service
++10   press service
++10   press service                 # cursor 9 OUTPUT TEST
++10   press test
++30   press test
+# BACKUP DATA CLEAR in INDIVIDUAL mode: NO, back to the menu
++20   press service                 # cursor 10
++10   press service                 # cursor 0
++10   press service
++10   press service
++10   press service
++10   press service
++10   press service
++10   press service
++10   press service
++10   press service                 # cursor 8
++10   press test
++20   press test
+# EXIT with the EEPROM write count over 10000: a CAUTION screen first
++30   poke 20F60A 10
++0    poke 20F60B 27
++10   press service                 # cursor 9
++10   press service                 # cursor 10
++10   press test
++30   press test
++600  end

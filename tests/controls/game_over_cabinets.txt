@@ -1,0 +1,69 @@
+# GAME OVER with the other cabinet settings, game modes 5, 6 and 0x0B taking the game over, the CONTINUE
+# screen with every cabinet setting, the moving seat output, and a player waiting for the stage in a
+# two-player cabinet.
+#
+# Reaches: game_mode_game_over's cabinet cases 1-3 (000F91-000F95, 000FB9-000FE4: per-chute credit
+# checks); run_game_mode's entries for game modes 5, 6 and 0x0B (00066E, 000671, 000680) and the game
+# over taken in game mode 0x0B (game_mode_event_0A, 001592-0015A8); game_mode_continue's cabinet cases
+# (000BDE-000BE2, 000C06-000C2E); update_hurt_output (00E3C1-00E413); set_player_entry_by_scene for a
+# player joining during the stage 5 scene and at the next stage start (00D2CB-00D2DA, 00D2F2-00D301);
+# blink_player_hud_message in a two-player cabinet (00AD3E).
+#
+# Pokes:
+# - 20F41E cabinet_config (0 common 2P, 1 common 3P, 2 individual 2P, 3 individual 3P) and 20F624
+#   setting_moving_seat: the live copies of the settings test mode writes (DIP switch 1 on sets
+#   MOVING SEAT USE).
+# - 204FDE (7E of player 1's object) = 0: vitality 0, the next hit is fatal (a long play otherwise).
+# - Game modes 5, 6 and 0x0B: nothing in the program sets them. Each is poked in the one frame where the
+#   last player's status has just become 0 (where game_mode_play_stage would switch to game mode 7):
+#   their handlers then take the game over themselves (in any other frame modes 5 and 6 make
+#   game_mode_play_stage call run_game_mode again forever, because it re-dispatches while game_mode is
+#   not 3). 0x0B is game_mode_event_0A's second entry (stage 5's scene).
+# - Game mode 0x0E (the CONTINUE screen, set by nothing), with 20E5AE/20E5AF its frame and second
+#   counters, as in game_over.txt.
+# Credits with individual chutes (update_coins): 3P: coin 3 -> player 1, coin 2 -> player 2, coin 1 ->
+# player 3; 2P: coin 2 -> player 1, coin 1 -> player 2; common chutes: every coin -> the common block.
+#
+# Game 1: individual chutes, 3P. Player 1 plays, every player gets a credit, player 1 loses
+600   poke 20F41E 03
+1800  press coin3
+1900  press start1
+1960  press coin1
+1980  press coin2
+2000  press coin3
+2200  roll 1 8 0
+4000  poke 204FDE 00
+4300  roll 1 0 0
+# Status 0 at the start of frame 5047: game mode 5 takes the game over; GAME OVER sees the credits of
+# players 3, 2 and 1 without their start buttons, then times out (attract, demos with three players)
+5047  poke 20F061 05
+# Game 2: individual chutes, 2P, moving seat. Player 1 (his credit left from game 1) is pushed by stage
+# 5's spiked press (hurt states light his seat), gets a credit (coin 2), loses
+5200  poke 20F41E 02
+5200  poke 20F624 01
+5300  press start1
+5360  press coin2
+5600  roll 1 8 0
+8000  poke 204FDE 00
+8995  poke 20F061 06
+# Game 3: common chutes, 3P. Player 1 starts (his credit from game 2), one more credit, loses; game
+# mode 0x0B takes the game over (game_mode_event_0A's own test)
+9200  poke 20F41E 01
+9300  press start1
+9360  press coin1
+9600  roll 1 8 0
+11400 poke 204FDE 00
+12447 poke 20F061 0B
+# CONTINUE ? (game mode 0xE) while GAME OVER shows: 20 frames with each cabinet setting (common,
+# individual 2P, individual 3P: credits of players 3, 2 and 1 without their starts), then start 1
+# resumes game mode 0x0B (the stage 5 scene goes on) and player 1 joins with his credit
+12460 poke 20E5AE 00
+12460 poke 20E5AF 09
+12460 poke 20F061 0E
+12480 poke 20F41E 02
+12500 poke 20F41E 03
+12530 press start1
+# Back to a two-player cabinet (common chutes): player 1 has joined during the scene, so he waits for
+# the next stage (player_status 0x82, his HUD message blinks at the 2P position), then stage 8 starts
+12540 poke 20F41E 00
+14500 end

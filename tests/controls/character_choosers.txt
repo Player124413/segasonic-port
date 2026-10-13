@@ -1,0 +1,88 @@
+# Character choosers with three players: 3P cabinet, individual chutes, START BUTTON NO USE (20F41E
+# = 03, 20F623 = 01, what test mode would set).
+# - Game start (game mode 0x1B): player 1 turns to Mighty (trackball 1 x) and confirms (characters
+#   taken 04). Player 2 turns (trackball 2 x) onto Mighty, taken: its portrait dimmed and another turn
+#   at once (08FE70, 08FF10); it confirms Ray (06). Player 3's chooser starts on its own character,
+#   Mighty, taken: it skips past the end of the list and wraps to Sonic (08FA59-08FA6D, 07).
+# - 2255-2370: players_choosing_character (20808F) poked to 1 after the last confirm, as if a chooser
+#   had not confirmed: the countdown passes 0 and holds at 1 (08FFFE).
+# - Stage 3 through Stage Select Mode: players 2 and 3 without vitality (3600) are run over by the
+#   spiked roller and lose their game (state 0B, characters freed).
+# - 5050-5115: both join again at once (join choosers start on their own characters); player 3 steps
+#   (trackball 3 x) to player 2's and both buttons are pressed in the same frame: one takes it first
+#   and the other chooser ends on a taken character: it takes the next free one (0901F1).
+# - 5300: players 2 and 3 put in their dying state (16); out again at 6175. Player 2 joins (6210),
+#   steps (trackball 2 x) to player 3's character and takes it; player 3 joins (6310): its own
+#   character is taken, the join chooser skips to the next free one (0900C5).
+# 204FDE is player 1's vitality, refilled every 120 frames from 3720.
+600  poke 20F41E 03
+600  poke 20F623 01
+1800  press coin1
+1810  press coin1
+1820  press coin2
+1830  press coin2
+1840  press coin3
+1850  press coin3
+1900  press button1
+1950  roll 1 6 0
+1990  roll 1 0 0
+2040  press button1
+2060  press button2
+2070  roll 2 6 0
+2150  roll 2 0 0
+2200  press button2
+2210  press button3
+2250  press button3
+2255  poke 20808F 01
+2370  poke 20808F 00
+3300  poke 20F061 08
+3400  poke 20F06E 03
+3400  poke 20F06F 00
+3500  press start1
+3600  poke 204F3E 00
+3600  poke 204E9E 00
+3720  poke 204FDE 18
+3840  poke 204FDE 18
+3960  poke 204FDE 18
+4080  poke 204FDE 18
+4200  poke 204FDE 18
+4320  poke 204FDE 18
+4440  poke 204FDE 18
+4560  poke 204FDE 18
+4680  poke 204FDE 18
+4800  poke 204FDE 18
+4920  poke 204FDE 18
+5040  poke 204FDE 18
+5050  press coin2
+5050  press coin3
+5060  press button2
+5060  press button3
+5070  roll 3 6 0
+5108  roll 3 0 0
+5115  press button3
+5115  press button2
+5160  poke 204FDE 18
+5280  poke 204FDE 18
+5300  poke 208600 16
+5300  poke 208603 00
+5300  poke 208800 16
+5300  poke 208803 00
+5400  poke 204FDE 18
+5520  poke 204FDE 18
+5640  poke 204FDE 18
+5760  poke 204FDE 18
+5880  poke 204FDE 18
+6000  poke 204FDE 18
+6120  poke 204FDE 18
+6200  press coin2
+6210  press button2
+6220  roll 2 6 0
+6240  poke 204FDE 18
+6258  roll 2 0 0
+6270  press button2
+6290  press coin1
+6300  press coin3
+6310  press button3
+6360  poke 204FDE 18
+6400  press button3
+6600  end

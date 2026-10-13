@@ -23,7 +23,8 @@ import asset_formats  # noqa: E402
 import sonic_rom  # noqa: E402
 
 MANIFEST = ROOT / "assets.json"
-STATE = ROOT / "assets" / ".extracted"
+ASSETS = ROOT / "assets"
+STATE = ASSETS / ".extracted"     # manifest version, then the path of every asset extracted
 
 REGION_BUILDERS = {
     "program": sonic_rom.build_program,
@@ -46,10 +47,6 @@ def load_manifest():
 def extract(asset, data):
     path = ROOT / asset["path"]
     kind = asset["type"]
-    if kind == "binary":
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_bytes(data)
-        return 1
     if kind == "tiles_16x16x4":
         path.parent.mkdir(parents=True, exist_ok=True)
         columns = asset["columns"]
@@ -66,20 +63,40 @@ def extract(asset, data):
     raise SystemExit(f"assets.json: unknown type '{kind}' for {asset['path']}")
 
 
-def remove(asset):
-    path = ROOT / asset["path"]
+def remove(relative_path):
+    path = ROOT / relative_path
     if path.is_dir():
         shutil.rmtree(path)
     elif path.exists():
         path.unlink()
+    # Drop the folders the asset leaves empty, up to assets/
+    folder = path.parent
+    while folder != ASSETS and ASSETS in folder.parents and folder.is_dir() and not any(folder.iterdir()):
+        folder.rmdir()
+        folder = folder.parent
+
+
+def read_state():
+    """Manifest version and asset paths of the last extraction"""
+    if not STATE.exists():
+        return None, []
+    lines = STATE.read_text(encoding="utf-8").splitlines()
+    return (lines[0].strip(), [line for line in lines[1:] if line]) if lines else (None, [])
+
+
+def write_state(version, paths):
+    STATE.parent.mkdir(parents=True, exist_ok=True)
+    STATE.write_text("\n".join([version] + paths) + "\n", encoding="utf-8")
 
 
 def main():
     arguments = sys.argv[1:]
     manifest = load_manifest()
+    listed = [asset["path"] for asset in manifest["assets"]]
+    saved_version, saved_paths = read_state()
     if "--clean" in arguments:
-        for asset in manifest["assets"]:
-            remove(asset)
+        for path in dict.fromkeys(listed + saved_paths):
+            remove(path)
         STATE.unlink(missing_ok=True)
         print("Extracted assets removed")
         return 0
@@ -88,10 +105,17 @@ def main():
     arguments = [argument for argument in arguments if argument != "--force"]
     source = Path(arguments[0]) if arguments else ROOT / "rom"
     version = str(manifest["manifest_version"])
-    up_to_date = STATE.exists() and STATE.read_text(encoding="ascii").strip() == version
+    up_to_date = saved_version == version
+    # Assets an earlier manifest listed and this one no longer does
+    stale = [path for path in saved_paths if path not in listed]
+    for path in stale:
+        remove(path)
+        print(f"  removed {path}")
     todo = [asset for asset in manifest["assets"]
             if force or not up_to_date or not (ROOT / asset["path"]).exists()]
     if not todo:
+        if stale:
+            write_state(version, listed)
         print("Assets are up to date")
         return 0
 
@@ -102,12 +126,11 @@ def main():
         region = asset["region"]
         if region not in regions:
             regions[region] = REGION_BUILDERS[region](rom)
-        remove(asset)
+        remove(asset["path"])
         data = regions[region][asset["offset"]:asset["offset"] + asset["size"]]
         files += extract(asset, data)
         print(f"  {asset['path']}")
-    STATE.parent.mkdir(parents=True, exist_ok=True)
-    STATE.write_text(version + "\n", encoding="ascii")
+    write_state(version, listed)
     print(f"{len(todo)} assets extracted ({files} files)")
     return 0
 

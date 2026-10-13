@@ -1,0 +1,72 @@
+# Stage exit and stage entry tables of the stages that never use them (pokes)
+#
+# player_state_stage_exit (state 0x21, 00639C) jumps on the stage. Players get state 0x21 at the goal
+# (check_player_reached_goal 00D159/00D16F) or while the game mode is 0x17/0x1D/4 (check_scene_states
+# 00D750). Stages 0, 5, 6 and 7 never get it: stages 0 and 5 take state 0x18 at their goal (00D1DE,
+# 00D1A5/00D1CC) and stage 5's stage clear goes back to game mode 0x0A in the same frame; stages 6 and 7
+# have goal FFFF (6 is only game mode 0x10, 7 is the attract demo). Here game mode 0x17 (stage clear) is
+# poked on each of them and the game runs its own exit (0x17, 0x1D, 4, next stage): stage 0 (0063AA),
+# 7 (0063BF), 6 (0063BC), 5 (0063B9).
+# player_state_entering_stage (state 0x2A, 006295) jumps on the stage too, but check_stage_entry_path
+# gives state 0x2A (00CFEA) only on stages whose stage_player_entries word (1140AE) is non-zero (3, 4,
+# A-10). Player 1's state byte is poked to 0x2A on stages 7, 6, 5, 8 and 9 (0062B2-0062BE, 0062DC), one
+# frame before each stage clear poke (check_scene_states then makes it 0x21).
+#
+# Prefix: tests/controls/stage_05.txt up to frame 5599 (stage 5 walked to its switch: stage 0 from 5547,
+# game mode 0x0A). Then Stage Select slot 07 (stage 7) from stage 8, and each stage clear moves on to the
+# next stage of the order (7, 6, 5, 8, 9).
+1800  press coin1
+1920  press start1
+3300  poke 20F061 08
+3400  poke 20F06E 05
+3400  poke 20F06F 00
+3500  press start1
+3600  roll 1 -12 -12
+3600  press button1
+3749  roll 1 -4 4
+3807  roll 1 -10 10
+3983  roll 1 -10 10
+3983  press button1
+4112  roll 1 6 6
+4255  roll 1 4 0
+4255  press button1
+4340  roll 1 0 6
+4340  press button1
+4420  roll 1 -6 6
+4500  roll 1 0 -8
+4500  press button1
+4636  roll 1 0 8
+4636  press button1
+4743  roll 1 9 0
+4743  press button1
+4800  press coin1
+4860  press start1
+4863  roll 1 9 -9
+4863  press button1
+5013  roll 1 8 0
+5048  roll 1 -10 -10
+5048  press button1
+5185  roll 1 11 0
+5185  press button1
+5261  roll 1 -5 5
+5409  roll 1 -12 -12
+5409  press button1
+5557  roll 1 -8 -8
+5557  press button1
+5600  roll 1 0 0
+5600  poke 20F061 17
+7200  poke 20F061 08
+7300  poke 20F06E 07
+7300  poke 20F06F 00
+7400  press start1
+7599  poke 208400 2A
+7600  poke 20F061 17
+9199  poke 208400 2A
+9200  poke 20F061 17
+10799  poke 208400 2A
+10800  poke 20F061 17
+12450  poke 204FDE 18
+12499  poke 208400 2A
+12500  poke 20F061 17
+14300  poke 208400 2A
+14310  end

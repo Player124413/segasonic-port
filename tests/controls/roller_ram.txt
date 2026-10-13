@@ -1,0 +1,92 @@
+# The spiked roller's ram state (state 4, spiked_roller_ram 080900-080AB4, case 0803C7). No chase script
+# record or spiked_roller_events entry (082306) sets state 4: the events set D, F, 7, 6, A, 6, so the state
+# is dead in the game. Stage E through Stage Select Mode; the trackball walk of stage_0E brings the
+# players to the brick wall, where the kind 4 roller would get its event (scroll 0DEA, y <= 0640: state A,
+# smash the wall). Just before (frame 5900) the leader (204A60 in this run) is poked into state 4 instead:
+# 80 = 4, 98 = 0 (charge), 72 = 3A (the offset of that event's coordinate 0640 in spiked_roller_events,
+# what 72 holds once the event has fired), and roller_ram_count (20E5EB) = 3, as if it had hit three
+# times: it charges (-y 4 a frame) to 0640 - 50 and that hit is the fourth (back to state 0, 0809F2).
+# At 5930 it is poked into state 4 again: it hits, pauses, backs off, waits and charges again; by then
+# the players have moved on and the next hit happens off screen (0809CA: state 0).
+# At 5000-5030 player 1's grey_screen_request (20849F, never set by the game) greys the screen and the
+# chasing roller stops for those frames (0805CE).
+# 204FDE is player 1's vitality, refilled every 120 frames.
+1800  press coin1
+1920  press start1
+3300  poke 20F061 08
+3400  poke 20F06E 0E
+3400  poke 20F06F 00
+3500  press start1
+3600  roll 1 -8 8
+3620  poke 204FDE 18
+3704  roll 1 8 -8
+3740  poke 204FDE 18
+3835  roll 1 8 8
+3835  press button1
+3860  poke 204FDE 18
+3945  roll 1 -9 0
+3980  poke 204FDE 18
+4100  poke 204FDE 18
+4107  roll 1 -6 0
+4107  press button1
+4154  roll 1 -4 -4
+4154  press button1
+4220  poke 204FDE 18
+4236  roll 1 0 -10
+4340  poke 204FDE 18
+4378  roll 1 5 5
+4460  poke 204FDE 18
+4501  roll 1 11 11
+4580  roll 1 -11 11
+4580  poke 204FDE 18
+4700  poke 204FDE 18
+4738  roll 1 5 5
+4738  press button1
+4798  roll 1 0 0
+4820  poke 204FDE 18
+4857  roll 1 10 10
+4930  roll 1 8 -8
+4940  poke 204FDE 18
+5000  poke 20849F 01
+5030  poke 20849F 00
+5060  poke 204FDE 18
+5071  roll 1 8 8
+5161  roll 1 5 -5
+5180  poke 204FDE 18
+5300  poke 204FDE 18
+5316  roll 1 4 -4
+5420  poke 204FDE 18
+5449  roll 1 0 -4
+5540  poke 204FDE 18
+5624  roll 1 8 -8
+5660  poke 204FDE 18
+5780  poke 204FDE 18
+5789  roll 1 8 -8
+5789  press button1
+5844  roll 1 0 0
+5900  poke 204AE0 04
+5900  poke 204AF8 00
+5900  poke 204AD2 3A
+5900  poke 204AD3 00
+5900  poke 20E5EB 03
+5900  poke 204FDE 18
+5930  poke 204AE0 04
+5930  poke 204AF8 00
+6020  poke 204FDE 18
+6140  poke 204FDE 18
+6260  poke 204FDE 18
+6380  poke 204FDE 18
+6500  poke 204FDE 18
+6620  poke 204FDE 18
+6740  poke 204FDE 18
+6860  poke 204FDE 18
+6980  poke 204FDE 18
+7100  poke 204FDE 18
+7220  poke 204FDE 18
+7340  poke 204FDE 18
+7460  poke 204FDE 18
+7580  poke 204FDE 18
+7700  poke 204FDE 18
+7820  poke 204FDE 18
+7940  poke 204FDE 18
+8000  end

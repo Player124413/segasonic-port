@@ -1,0 +1,5 @@
+# Insert a coin and start a one-player game, then keep player 1's trackball rolling
+1800  press coin1
++120  press start1
++300  roll 1 8 0
+6000  end

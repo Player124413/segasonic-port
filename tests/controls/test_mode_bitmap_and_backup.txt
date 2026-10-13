@@ -1,0 +1,311 @@
+# Test mode: the C.R.T. test's bitmap drawing in every depth, flip and clip window, hidden or
+# inconsistent settings, and the EEPROM and bookkeeping checks of init_system after test mode
+#
+# Test mode is entered from attract with TEST (count_frames_and_check_test_switch) and left with EXIT,
+# which runs init_system again (load_settings, load_bookkeeping, apply_settings). Menu: SERVICE moves
+# the cursor (it starts on EXIT, item 10), TEST selects. Item 4 is the C.R.T. TEST: TEST shows the
+# colour bars (fill_rect), TEST draws the crosshatch (draw_line), TEST goes back to the menu.
+#
+# 1. C.R.T. TEST fourteen times. draw_line's only caller is test_crt, which draws only horizontal and
+#    vertical lines inside the full-screen window in 8 bits per pixel. Each run pokes, before the bars:
+#    20F200 bitmap_8bpp (00: 4 bits per pixel), 31FF01 (0A: screen flip bit 9, which makes the test
+#    mirror the bars with flip_test_coordinates, so they start at odd x; 08: not flipped) and the
+#    drawing window bitmap_window_left/top/right/bottom (20F206-20F20D, 16 bits each), which only
+#    clear_bitmap_layer sets (0,0-1FF,DF). Smaller windows make clip_rect_to_window cut and drop bars
+#    (1 and 2 pixel wide ones too) and draw_line clip (get_window_outcode, clip_line_to_window and its
+#    cases); because test_crt loads the coordinates with mov.h, the upper halves of R0-R3 hold stale
+#    values that the 32-bit clip arithmetic picks up, so clipped lines come out diagonal and take the
+#    diagonal drawing paths too. (Windows whose bottom is DF make draw_line loop forever: not used.)
+# 2. GAME ASSIGNMENTS with CABINET TYPE 3P and MOVING SEAT USE poked (20F625, 20F624): the screen turns
+#    the moving seat off (09DB44); then the cursor poked to 8 (20CA1E), the SMALL/LARGE item the
+#    cursor list (115BBB) cannot reach: TEST toggles setting_small_large (09DBF3). Before EXIT saves the
+#    EEPROM, its magic word is poked to 'SEGA' (20F600-20F603): on EXIT from test mode load_settings
+#    finds that older magic and rebuilds the settings from the defaults (09C665).
+# 3. In test mode the ROM stamp of the settings (20F604) is poked to 0 and GAME DIFFICULTY stepped
+#    through its four values so that EXIT saves: on EXIT from test mode load_settings finds the stamp
+#    wrong and rebuilds the settings part (09C6D3). (Every rebuild also clears the bookkeeping's stamp,
+#    so load_bookkeeping then resets the bookkeeping.)
+# 4. In attract, saved_credits (bookkeeping, 701F2F) poked to 0A credits (add_coin stops at 9); the
+#    game updates the bookkeeping CRC every 64 frames. Test mode and EXIT: apply_settings clamps the
+#    10 saved credits to 9 (09F75A).
+# 5. In test mode one byte of the bookkeeping block (701F3F) is poked: on EXIT load_bookkeeping finds
+#    its CRC wrong and the backup copy's right, and restores it (09FA1B, 09FA36).
+# 6. In test mode a byte of the bookkeeping block and of its backup (701F3F, 701F7F) are poked: both
+#    CRCs wrong, the bookkeeping is reset (09FA2E). COIN ASSIGNMENTS with COIN TO CREDIT poked to 10
+#    (20F60F): clamp_coin_setting brings it back to 9 (09E5FE); setting_coin_number poked to 18
+#    (20F61B) and COIN/CREDIT SETTING pressed once: setting 26, free play, saved on EXIT; after test mode
+#    apply_settings turns free play on (09F733).
+600   press test                    # test mode, cursor on EXIT
++30   press service                 # cursor 0
++10   press service                 # cursor 1
++10   press service                 # cursor 2
++10   press service                 # cursor 3
++10   press service                 # cursor 4
++20   poke 20F200 00                # C.R.T.: 4 bpp, not flipped, window 0,0-1FF,DF
++0    poke 31FF01 08
++0    poke 20F206 00
++0    poke 20F207 00
++0    poke 20F208 00
++0    poke 20F209 00
++0    poke 20F20A FF
++0    poke 20F20B 01
++0    poke 20F20C DF
++0    poke 20F20D 00
++1    press test                    # colour bars
++20   press test                    # crosshatch
++20   press test                    # back to the menu
++20   poke 20F200 00                # C.R.T.: 4 bpp, flipped, window 0,0-1FF,DF
++0    poke 31FF01 0A
++0    poke 20F206 00
++0    poke 20F207 00
++0    poke 20F208 00
++0    poke 20F209 00
++0    poke 20F20A FF
++0    poke 20F20B 01
++0    poke 20F20C DF
++0    poke 20F20D 00
++1    press test                    # colour bars
++20   press test                    # crosshatch
++20   press test                    # back to the menu
++20   poke 20F200 01                # C.R.T.: 8 bpp, not flipped, window 31,41-104,91
++0    poke 31FF01 08
++0    poke 20F206 31
++0    poke 20F207 00
++0    poke 20F208 41
++0    poke 20F209 00
++0    poke 20F20A 04
++0    poke 20F20B 01
++0    poke 20F20C 91
++0    poke 20F20D 00
++1    press test                    # colour bars
++20   press test                    # crosshatch
++20   press test                    # back to the menu
++20   poke 20F200 00                # C.R.T.: 4 bpp, not flipped, window 31,41-104,91
++0    poke 31FF01 08
++0    poke 20F206 31
++0    poke 20F207 00
++0    poke 20F208 41
++0    poke 20F209 00
++0    poke 20F20A 04
++0    poke 20F20B 01
++0    poke 20F20C 91
++0    poke 20F20D 00
++1    press test                    # colour bars
++20   press test                    # crosshatch
++20   press test                    # back to the menu
++20   poke 20F200 01                # C.R.T.: 8 bpp, flipped, window 31,41-104,91
++0    poke 31FF01 0A
++0    poke 20F206 31
++0    poke 20F207 00
++0    poke 20F208 41
++0    poke 20F209 00
++0    poke 20F20A 04
++0    poke 20F20B 01
++0    poke 20F20C 91
++0    poke 20F20D 00
++1    press test                    # colour bars
++20   press test                    # crosshatch
++20   press test                    # back to the menu
++20   poke 20F200 00                # C.R.T.: 4 bpp, flipped, window 31,41-104,91
++0    poke 31FF01 0A
++0    poke 20F206 31
++0    poke 20F207 00
++0    poke 20F208 41
++0    poke 20F209 00
++0    poke 20F20A 04
++0    poke 20F20B 01
++0    poke 20F20C 91
++0    poke 20F20D 00
++1    press test                    # colour bars
++20   press test                    # crosshatch
++20   press test                    # back to the menu
++20   poke 20F200 00                # C.R.T.: 4 bpp, not flipped, window 37,41-39,91
++0    poke 31FF01 08
++0    poke 20F206 37
++0    poke 20F207 00
++0    poke 20F208 41
++0    poke 20F209 00
++0    poke 20F20A 39
++0    poke 20F20B 00
++0    poke 20F20C 91
++0    poke 20F20D 00
++1    press test                    # colour bars
++20   press test                    # crosshatch
++20   press test                    # back to the menu
++20   poke 20F200 00                # C.R.T.: 4 bpp, flipped, window 101,41-102,91
++0    poke 31FF01 0A
++0    poke 20F206 01
++0    poke 20F207 01
++0    poke 20F208 41
++0    poke 20F209 00
++0    poke 20F20A 02
++0    poke 20F20B 01
++0    poke 20F20C 91
++0    poke 20F20D 00
++1    press test                    # colour bars
++20   press test                    # crosshatch
++20   press test                    # back to the menu
++20   poke 20F200 00                # C.R.T.: 4 bpp, not flipped, window 22,41-22,91
++0    poke 31FF01 08
++0    poke 20F206 22
++0    poke 20F207 00
++0    poke 20F208 41
++0    poke 20F209 00
++0    poke 20F20A 22
++0    poke 20F20B 00
++0    poke 20F20C 91
++0    poke 20F20D 00
++1    press test                    # colour bars
++20   press test                    # crosshatch
++20   press test                    # back to the menu
++20   poke 20F200 01                # C.R.T.: 8 bpp, not flipped, window 0,0-100,90
++0    poke 31FF01 08
++0    poke 20F206 00
++0    poke 20F207 00
++0    poke 20F208 00
++0    poke 20F209 00
++0    poke 20F20A 00
++0    poke 20F20B 01
++0    poke 20F20C 90
++0    poke 20F20D 00
++1    press test                    # colour bars
++20   press test                    # crosshatch
++20   press test                    # back to the menu
++20   poke 20F200 01                # C.R.T.: 8 bpp, not flipped, window 0,41-100,D0
++0    poke 31FF01 08
++0    poke 20F206 00
++0    poke 20F207 00
++0    poke 20F208 41
++0    poke 20F209 00
++0    poke 20F20A 00
++0    poke 20F20B 01
++0    poke 20F20C D0
++0    poke 20F20D 00
++1    press test                    # colour bars
++20   press test                    # crosshatch
++20   press test                    # back to the menu
++20   poke 20F200 00                # C.R.T.: 4 bpp, not flipped, window 0,41-100,D0
++0    poke 31FF01 08
++0    poke 20F206 00
++0    poke 20F207 00
++0    poke 20F208 41
++0    poke 20F209 00
++0    poke 20F20A 00
++0    poke 20F20B 01
++0    poke 20F20C D0
++0    poke 20F20D 00
++1    press test                    # colour bars
++20   press test                    # crosshatch
++20   press test                    # back to the menu
++20   poke 20F200 01                # C.R.T.: 8 bpp, flipped, window 0,41-100,D0
++0    poke 31FF01 0A
++0    poke 20F206 00
++0    poke 20F207 00
++0    poke 20F208 41
++0    poke 20F209 00
++0    poke 20F20A 00
++0    poke 20F20B 01
++0    poke 20F20C D0
++0    poke 20F20D 00
++1    press test                    # colour bars
++20   press test                    # crosshatch
++20   press test                    # back to the menu
++20   poke 20F200 00                # C.R.T.: 4 bpp, flipped, window 0,41-100,D0
++0    poke 31FF01 0A
++0    poke 20F206 00
++0    poke 20F207 00
++0    poke 20F208 41
++0    poke 20F209 00
++0    poke 20F20A 00
++0    poke 20F20B 01
++0    poke 20F20C D0
++0    poke 20F20D 00
++1    press test                    # colour bars
++20   press test                    # crosshatch
++20   press test                    # back to the menu
++20   poke 20F200 01                # back to what the test mode set
++0    poke 31FF01 08
++0    poke 20F206 00
++0    poke 20F207 00
++0    poke 20F208 00
++0    poke 20F209 00
++0    poke 20F20A FF
++0    poke 20F20B 01
++0    poke 20F20C DF
++0    poke 20F20D 00
++10   press service                 # cursor 5 GAME ASSIGNMENTS
++10   poke 20F625 01                # CABINET TYPE 3P
++0    poke 20F624 01                # MOVING SEAT USE
++0    press test
++20   poke 20CA1E 08                # cursor on the hidden item 8
++0    press test                    # SMALL/LARGE
++20   press test                    # and back
++20   poke 20CA1E 07                # cursor on EXIT
++0    poke 20F600 53                # magic word SEGA
++0    poke 20F601 45
++0    poke 20F602 47
++0    poke 20F603 41
++0    press test                    # EXIT, saves
++20   press service                 # cursor 6
++10   press service                 # cursor 7
++10   press service                 # cursor 8
++10   press service                 # cursor 10
++10   press test                    # leave test mode: init_system
++300  press test                    # test mode again
++30   poke 20F604 00                # ROM stamp of the settings
++0    poke 20F605 00
++0    press service                 # cursor 0
++10   press service                 # cursor 1
++10   press service                 # cursor 2
++10   press service                 # cursor 3
++10   press service                 # cursor 4
++10   press service                 # cursor 5
++10   press test                    # GAME ASSIGNMENTS
++20   press service                 # 0 GAME DIFFICULTY: four values
++10   press test
++10   press test
++10   press test
++10   press test
++10   press service                 # 1
++10   press service                 # 2
++10   press service                 # 3
++10   press service                 # 4
++10   press service                 # 5
++10   press service                 # 7 EXIT (6 MOVING SEAT is skipped)
++10   press test                    # saves
++20   press service                 # cursor 6
++10   press service                 # cursor 7
++10   press service                 # cursor 8
++10   press service                 # cursor 10
++10   press test                    # leave test mode
++300  poke 701F2F 0A                # saved_credits[0]: 10 credits
++200  press test                    # test mode again
++30   press test                    # EXIT at once
++300  press test                    # test mode again
++30   poke 701F3F 5A                # a byte of the bookkeeping block
++0    press test                    # EXIT at once
++300  press test                    # test mode again
++30   poke 701F3F A5                # a byte of the bookkeeping block
++0    poke 701F7F A5                # and of its backup copy
++0    press service                 # cursor 0
++10   press service                 # cursor 1
++10   press service                 # cursor 2
++10   press service                 # cursor 3
++10   press service                 # cursor 4
++10   press service                 # cursor 5
++10   press service                 # cursor 6
++10   poke 20F60F 0A                # COIN TO CREDIT 10
++0    poke 20F61B 18                # COIN/CREDIT SETTING #25
++0    press test                    # COIN ASSIGNMENTS
++20   press service                 # 0
++10   press service                 # 1
++10   press service                 # 2 COIN/CREDIT SETTING
++10   press test                    # setting 26: free play
++10   press service                 # 3
++10   press service                 # 4 EXIT
++10   press test                    # saves
++20   press service                 # cursor 7
++10   press service                 # cursor 8
++10   press service                 # cursor 10
++10   press test                    # leave test mode
++400  end

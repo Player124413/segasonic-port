@@ -1,0 +1,180 @@
+# Stage B, the escape, twice (Stage Select Mode, two credits). Game 1 replays ending.txt's stage B inputs
+# up to scroll 5C00 (frame 9595 here); at 9600 player 1 stops and escape_seconds (20E658) is poked to 1:
+# the time runs out (game mode 0x20, YOU FAILED: the escape signs and scenery kind 4 go away during it),
+# then GAME OVER. Game 2 (start at 10300, Stage Select Mode again at 11800): stage B replayed from 12002
+# into the escape (game mode 0x1F from scroll F00); at 13100 player 1 is put in its dying state (16, 0)
+# and escape_seconds is held at 14 (every 200 frames): the game ends inside game mode 0x1F.
+1800  press coin1
+1810  press coin1
+1920  press start1
+3300  poke 20F061 08
+3400  poke 20F06E 0B
+3400  poke 20F06F 00
+3500  press start1
+3554  poke 204FDE 18
+3674  poke 204FDE 18
+3794  roll 1 12 -12
+3794  press button1
+3794  poke 204FDE 18
+3794  poke 20E658 3B
+3839  press button1
+3884  press button1
+3914  poke 204FDE 18
+3929  press button1
+3974  press button1
+4019  press button1
+4034  poke 204FDE 18
+4064  press button1
+4094  poke 20E658 3B
+4109  press button1
+4154  press button1
+4154  poke 204FDE 18
+4199  press button1
+4244  press button1
+4274  roll 1 12 -12
+4274  press button1
+4274  poke 204FDE 18
+4319  press button1
+4364  press button1
+4394  poke 204FDE 18
+4394  poke 20E658 3B
+4409  press button1
+4454  press button1
+4499  press button1
+4514  poke 204FDE 18
+4544  press button1
+4589  press button1
+4634  press button1
+4634  poke 204FDE 18
+4679  press button1
+4694  poke 20E658 3B
+4724  press button1
+4754  roll 1 12 -12
+4754  press button1
+4754  poke 204FDE 18
+4799  press button1
+4844  press button1
+4874  poke 204FDE 18
+4889  press button1
+4934  press button1
+4979  press button1
+4994  poke 204FDE 18
+4994  poke 20E658 3B
+5024  press button1
+5069  press button1
+5114  press button1
+5114  poke 204FDE 18
+5159  press button1
+5204  press button1
+5234  roll 1 12 12
+5234  poke 204FDE 18
+5294  poke 20E658 3B
+5354  poke 204FDE 18
+5474  poke 204FDE 18
+5594  poke 204FDE 18
+5594  poke 20E658 3B
+5714  roll 1 -12 12
+5714  poke 204FDE 18
+5834  poke 204FDE 18
+5894  poke 20E658 3B
+5954  poke 204FDE 18
+6074  poke 204FDE 18
+6194  roll 1 12 12
+6194  poke 204FDE 18
+6194  poke 20E658 3B
+6314  poke 204FDE 18
+6434  poke 204FDE 18
+6494  poke 20E658 3B
+6554  poke 204FDE 18
+6674  roll 1 -12 12
+6674  poke 204FDE 18
+6794  poke 204FDE 18
+6794  poke 20E658 3B
+6914  poke 204FDE 18
+7034  poke 204FDE 18
+7094  poke 20E658 3B
+7154  roll 1 12 12
+7154  poke 204FDE 18
+7274  poke 204FDE 18
+7394  poke 204FDE 18
+7394  poke 20E658 3B
+7514  poke 204FDE 18
+7634  roll 1 -12 12
+7634  poke 204FDE 18
+7694  poke 20E658 3B
+7754  poke 204FDE 18
+7874  poke 204FDE 18
+7994  poke 204FDE 18
+7994  poke 20E658 3B
+8114  roll 1 12 12
+8114  poke 204FDE 18
+8234  poke 204FDE 18
+8294  poke 20E658 3B
+8354  poke 204FDE 18
+8474  poke 204FDE 18
+8594  roll 1 -12 12
+8594  poke 204FDE 18
+8594  poke 20E658 3B
+8714  poke 204FDE 18
+8834  poke 204FDE 18
+8894  poke 20E658 3B
+8954  poke 204FDE 18
+9074  roll 1 -12 12
+9074  poke 204FDE 18
+9194  poke 204FDE 18
+9194  poke 20E658 3B
+9314  poke 204FDE 18
+9434  poke 204FDE 18
+9494  poke 20E658 3B
+9554  roll 1 -12 12
+9554  poke 204FDE 18
+9600  roll 1 0 0
+9600  poke 20E658 01
+10300  press start1
+11800  poke 20F061 08
+11900  poke 20F06E 0B
+11900  poke 20F06F 00
+12000  press start1
+12054  poke 204FDE 18
+12174  poke 204FDE 18
+12294  roll 1 12 -12
+12294  press button1
+12294  poke 204FDE 18
+12294  poke 20E658 3B
+12339  press button1
+12384  press button1
+12414  poke 204FDE 18
+12429  press button1
+12474  press button1
+12519  press button1
+12534  poke 204FDE 18
+12564  press button1
+12594  poke 20E658 3B
+12609  press button1
+12654  press button1
+12654  poke 204FDE 18
+12699  press button1
+12744  press button1
+12774  roll 1 12 -12
+12774  press button1
+12774  poke 204FDE 18
+12819  press button1
+12864  press button1
+12894  poke 204FDE 18
+12894  poke 20E658 3B
+12909  press button1
+12954  press button1
+12999  press button1
+13014  poke 204FDE 18
+13044  press button1
+13089  press button1
+13100  roll 1 0 0
+13100  poke 208400 16
+13100  poke 208403 00
+13100  poke 20E658 14
+13300  poke 20E658 14
+13500  poke 20E658 14
+13700  poke 20E658 14
+13900  poke 20E658 14
+14100  poke 20E658 14
+14200  end

@@ -1,0 +1,52 @@
+# Stage 5's switch scene (game mode 0A, stage 0): the stone platform drawn above the top of the screen
+#
+# stage_00_platform_stand (094C93) draws the platform the players stand on during stage 5's switch
+# event through depth_to_bucket (09A102); it stays on screen (screen y 139, the camera does not move),
+# so the clamp for screen y < -16 never runs. Its projected y (field 2E of the object at 204920) is
+# poked 179 pixels up for one frame and back (09A11B).
+# The inputs up to frame 5557 are those of tests/controls/stage_05.txt (a one-player game sent to
+# stage 5 through Stage Select Mode, debug game mode 8, then a trackball walk) so that the event comes
+# at the same frame (game mode 0A from 5416, the platform from about 5550 to 5800).
+1800  press coin1
++120  press start1
+3300  poke 20F061 08
++100  poke 20F06E 05
++0  poke 20F06F 00
++100  press start1
+3600  roll 1 -12 -12
+3600  press button1
+3749  roll 1 -4 4
+3807  roll 1 -10 10
+3983  roll 1 -10 10
+3983  press button1
+4112  roll 1 6 6
+4255  roll 1 4 0
+4255  press button1
+4340  roll 1 0 6
+4340  press button1
+4420  roll 1 -6 6
+4500  roll 1 0 -8
+4500  press button1
+4636  roll 1 0 8
+4636  press button1
+4743  roll 1 9 0
+4743  press button1
+4800  press coin1
+4860  press start1
+4863  roll 1 9 -9
+4863  press button1
+5013  roll 1 8 0
+5048  roll 1 -10 -10
+5048  press button1
+5185  roll 1 11 0
+5185  press button1
+5261  roll 1 -5 5
+5409  roll 1 -12 -12
+5409  press button1
+5557  roll 1 -8 -8
+5557  press button1
+5600  poke 20494E 48                # platform projected y 06FB -> 0648
++0    poke 20494F 06
+5601  poke 20494E FB                # back
++0    poke 20494F 06
+5700  end

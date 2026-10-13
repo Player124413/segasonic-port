@@ -1,0 +1,212 @@
+# Stage A along walk_0A.txt's route (one player, Stage Select Mode), with the player's vitality set to 8
+# just before he sinks through a sinking sand floor.
+#
+# Reaches: update_sinking_floor's fatal case (00CEED-00CEFD): on floor type 0xA (stage A's sinking sand,
+# floor blocks 23-28 and 31-36) the sink depth reaches 0x2000 at frame 13261 and the vitality goes from 8
+# to 0 (state 0x16, dying). In walk_0A.txt the same sink costs 8 of 0x18 (handler 294A).
+#
+# Pokes: 204FDE (player 1's vitality) refilled to 18 every 120 frames as in walk_0A.txt; 8 at 13201, after
+# the refill of 13200.
+1800  press coin1
+1860  press start1
+3180  poke 20F061 08
+3280  poke 20F06E 0A
+3280  poke 20F06F 00
+3380  press start1
+3480  roll 1 12 12
+3480  press button1
+3480  poke 204FDE 18
+3525  press button1
+3570  press button1
+3600  poke 204FDE 18
+3615  press button1
+3660  press button1
+3705  press button1
+3720  poke 204FDE 18
+3750  press button1
+3795  press button1
+3840  press button1
+3840  poke 204FDE 18
+3885  press button1
+3930  press button1
+3960  roll 1 12 0
+3960  press button1
+3960  poke 204FDE 18
+4005  press button1
+4050  press button1
+4080  poke 204FDE 18
+4095  press button1
+4140  press button1
+4185  press button1
+4200  poke 204FDE 18
+4230  press button1
+4275  press button1
+4320  press button1
+4320  poke 204FDE 18
+4365  press button1
+4410  press button1
+4440  roll 1 12 12
+4440  poke 204FDE 18
+4560  poke 204FDE 18
+4680  poke 204FDE 18
+4800  poke 204FDE 18
+4920  roll 1 12 12
+4920  poke 204FDE 18
+5040  poke 204FDE 18
+5160  poke 204FDE 18
+5280  poke 204FDE 18
+5400  roll 1 12 12
+5400  poke 204FDE 18
+5520  poke 204FDE 18
+5640  poke 204FDE 18
+5760  poke 204FDE 18
+5880  roll 1 -12 12
+5880  press button1
+5880  poke 204FDE 18
+5925  press button1
+5970  press button1
+6000  poke 204FDE 18
+6015  press button1
+6060  press button1
+6105  press button1
+6120  poke 204FDE 18
+6150  press button1
+6195  press button1
+6240  press button1
+6240  poke 204FDE 18
+6285  press button1
+6330  press button1
+6360  roll 1 -12 12
+6360  poke 204FDE 18
+6480  poke 204FDE 18
+6600  poke 204FDE 18
+6720  poke 204FDE 18
+6840  roll 1 -12 12
+6840  poke 204FDE 18
+6960  poke 204FDE 18
+7080  poke 204FDE 18
+7200  poke 204FDE 18
+7320  roll 1 12 12
+7320  poke 204FDE 18
+7440  poke 204FDE 18
+7560  poke 204FDE 18
+7680  poke 204FDE 18
+7800  roll 1 12 12
+7800  press button1
+7800  poke 204FDE 18
+7845  press button1
+7890  press button1
+7920  poke 204FDE 18
+7935  press button1
+7980  press button1
+8025  press button1
+8040  poke 204FDE 18
+8070  press button1
+8115  press button1
+8160  press button1
+8160  poke 204FDE 18
+8205  press button1
+8250  press button1
+8280  roll 1 12 12
+8280  poke 204FDE 18
+8400  poke 204FDE 18
+8520  poke 204FDE 18
+8640  poke 204FDE 18
+8760  roll 1 12 12
+8760  poke 204FDE 18
+8880  poke 204FDE 18
+9000  poke 204FDE 18
+9120  poke 204FDE 18
+9240  roll 1 12 -12
+9240  poke 204FDE 18
+9360  poke 204FDE 18
+9480  poke 204FDE 18
+9600  poke 204FDE 18
+9720  roll 1 0 -12
+9720  press button1
+9720  poke 204FDE 18
+9765  press button1
+9810  press button1
+9840  poke 204FDE 18
+9855  press button1
+9900  press button1
+9945  press button1
+9960  poke 204FDE 18
+9990  press button1
+10035 press button1
+10080 press button1
+10080 poke 204FDE 18
+10125 press button1
+10170 press button1
+10200 roll 1 0 -12
+10200 press button1
+10200 poke 204FDE 18
+10245 press button1
+10290 press button1
+10320 poke 204FDE 18
+10335 press button1
+10380 press button1
+10425 press button1
+10440 poke 204FDE 18
+10470 press button1
+10515 press button1
+10560 press button1
+10560 poke 204FDE 18
+10605 press button1
+10650 press button1
+10680 roll 1 0 -12
+10680 press button1
+10680 poke 204FDE 18
+10725 press button1
+10770 press button1
+10800 poke 204FDE 18
+10815 press button1
+10860 press button1
+10905 press button1
+10920 poke 204FDE 18
+10950 press button1
+10995 press button1
+11040 press button1
+11040 poke 204FDE 18
+11085 press button1
+11130 press button1
+11160 roll 1 12 12
+11160 poke 204FDE 18
+11280 poke 204FDE 18
+11400 poke 204FDE 18
+11520 poke 204FDE 18
+11640 roll 1 12 12
+11640 poke 204FDE 18
+11760 poke 204FDE 18
+11880 poke 204FDE 18
+12000 poke 204FDE 18
+12120 roll 1 12 12
+12120 poke 204FDE 18
+12240 poke 204FDE 18
+12360 poke 204FDE 18
+12480 poke 204FDE 18
+12600 roll 1 -12 -12
+12600 poke 204FDE 18
+12720 poke 204FDE 18
+12840 poke 204FDE 18
+12960 poke 204FDE 18
+13080 roll 1 12 -12
+13080 press button1
+13080 poke 204FDE 18
+13125 press button1
+13170 press button1
+13200 poke 204FDE 18
+13201 poke 204FDE 08
+13215 press button1
+13260 press button1
+13305 press button1
+13320 poke 204FDE 18
+13350 press button1
+13395 press button1
+13440 press button1
+13440 poke 204FDE 18
+13485 press button1
+13530 press button1
+13560 roll 1 -12 -12
+13560 poke 204FDE 18
+13600 end

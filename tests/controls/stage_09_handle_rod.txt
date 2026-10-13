@@ -1,0 +1,98 @@
+# Stage 9: a handle rod that does not drop the players swinging back (handle_rod_swing 011714-011737).
+# Rods with drops_players (byte 93) = 0 reverse at the backward crossing of angle 0; rod 1 (s9 4480) drops the
+# players instead, rod 2 (4880) has end position 0578 (a typo of 5780?) and is removed as soon as it
+# starts, and rod 3 (4A00, end 5780) starts swinging in game mode 12 (the pull at scroll 4C00) at about
+# scroll 4F2A, crosses forward at 55B1 and is removed at 5791 (scroll speed about 1F a frame in mode 12),
+# before the backward crossing (about 50 frames after the forward one): the same in the 3-player run
+# players_3 (frames 14838-14940).
+# Here: one player, stage 9 through Stage Select Mode, a greedy trackball path (480-frame steps, 8
+# directions with or without jumps, the move that scrolls furthest); rod 3 is the object at 2019A0 in
+# this run (handler 011675 from frame 7375): at 7400 its end position (field 94, u16 at 201A34) is poked
+# to FFFF so that it is not removed: its first backward crossing comes at frame 7478 (field 81 back to 0).
+# Pokes 204FDE 18: player 1's vitality, every 120 frames.
+1800  press coin1
+1920  press start1
+3300  poke 20F061 08
+3400  poke 20F06E 09
+3400  poke 20F06F 00
+3500  press start1
+3600  roll 1 0 12
+3620  poke 204FDE 18
+3740  poke 204FDE 18
+3860  poke 204FDE 18
+3980  poke 204FDE 18
+4080  roll 1 -12 12
+4080  press button1
+4100  poke 204FDE 18
+4125  press button1
+4170  press button1
+4215  press button1
+4220  poke 204FDE 18
+4260  press button1
+4305  press button1
+4340  poke 204FDE 18
+4350  press button1
+4395  press button1
+4440  press button1
+4460  poke 204FDE 18
+4485  press button1
+4530  press button1
+4560  roll 1 -12 12
+4580  poke 204FDE 18
+4700  poke 204FDE 18
+4820  poke 204FDE 18
+4940  poke 204FDE 18
+5040  roll 1 -12 12
+5060  poke 204FDE 18
+5180  poke 204FDE 18
+5300  poke 204FDE 18
+5420  poke 204FDE 18
+5520  roll 1 -12 12
+5540  poke 204FDE 18
+5660  poke 204FDE 18
+5780  poke 204FDE 18
+5900  poke 204FDE 18
+6000  roll 1 -12 -12
+6020  poke 204FDE 18
+6140  poke 204FDE 18
+6260  poke 204FDE 18
+6380  poke 204FDE 18
+6480  roll 1 -12 -12
+6480  press button1
+6500  poke 204FDE 18
+6525  press button1
+6570  press button1
+6615  press button1
+6620  poke 204FDE 18
+6660  press button1
+6705  press button1
+6740  poke 204FDE 18
+6750  press button1
+6795  press button1
+6840  press button1
+6860  poke 204FDE 18
+6885  press button1
+6930  press button1
+6960  roll 1 0 -12
+6960  press button1
+6980  poke 204FDE 18
+7005  press button1
+7050  press button1
+7095  press button1
+7100  poke 204FDE 18
+7140  press button1
+7185  press button1
+7220  poke 204FDE 18
+7230  press button1
+7275  press button1
+7320  press button1
+7340  poke 204FDE 18
+7365  press button1
+7400  poke 201A34 FF
+7400  poke 201A35 FF
+7460  poke 204FDE 18
+7580  poke 204FDE 18
+7700  poke 204FDE 18
+7820  poke 204FDE 18
+7940  poke 204FDE 18
+8000  end

@@ -1,0 +1,259 @@
+# Object types that no stage spawns: 04, 08, 09, 11, 15, 1B and 1D (21, 27 and 29 in decimal), run
+# through the game's own by-type spawner from a list written into RAM
+#
+# object_types (100000, 45 records of 8 bytes: spawn count, handler) has entries for these types, but
+# none of the 19 lists of stage_spawns_by_type (100168) holds a record of them, and object_types is
+# only read by spawn_objects_by_type (08DC9A): in a normal game they are never spawned. Their handlers:
+#   04 012C80 rsr      08 0107EB scroll stop (flame_machine_scroll_stop_wait / _hold)   09 010814 rsr
+#   11 011F1F rsr      15 01274C crawler (head, 7 segments, tail)   1B 01343C eggman_teleport
+#   1D 013ADD bubble_column
+# spawn_objects_by_type reads 14-byte records through type_spawn_cursor (208000, u32): position (spawns
+# when below scroll_position 20E435), projected x (2A), projected y (2C), z, type, field 92, field 94;
+# FFFF ends the list. The script writes such lists at 20B000 (RAM nothing else uses) and points the
+# cursor at them while stage A runs (type_spawn_stage 208006 stays A, so the cursor is not reloaded).
+# It also drops one record with the object pool empty (spawn_objects_by_type 08DC91, what a full pool
+# does to any stage's record).
+#
+# Pokes: 20F061 = 08 is Stage Select Mode (a debug mode the game has no way into), 20F06E the stage;
+# 7E of player 1's object (204FDE) is the vitality, refilled to 18 every 120 frames.
+1800  press coin1
++120  press start1
+3300  poke 20F061 08
++100  poke 20F06E 0A
++0    poke 20F06F 00
++100  press start1
+# Stage A runs from frame 3502; player 1 stands near projected 1A40, 01EB. The records spawn one a frame
+# from frame 3764 (scroll_position 22). Field 92 of a crawler: low byte its kind (0 or 1: sprites, walk
+# frames, the range of crawler_head_update), high byte a flag for the falling draw. The pit (no floor
+# block: floor_z 800) starts just below the player:
+#   crawler kind 0 beside player 1 (within 28 in x: the head sets 8C, stop-and-go crawler_step)
+#   crawler kind 1 beside player 1 (within 35)
+#   crawler kind 0, flag set, head over the pit (falls; drawn at the depth of field 88 of object 74)
+#   crawler kind 1, flag set, head on the floor and segments over the pit
+#   crawler kind 0, no flag, head on the floor and segments over the pit (they stop falling: 3C = 0)
+#   types 1B, 1D, 04, 09 and 11 beside player 1
+#   one more type 04, due in frame 3774: dropped (see below)
+3600  poke 20B000 00
+3600  poke 20B001 00
+3600  poke 20B002 70
+3600  poke 20B003 1A
+3600  poke 20B004 EB
+3600  poke 20B005 01
+3600  poke 20B006 08
+3600  poke 20B007 00
+3600  poke 20B008 15
+3600  poke 20B009 00
+3600  poke 20B00A 00
+3600  poke 20B00B 00
+3600  poke 20B00C 00
+3600  poke 20B00D 00
+3600  poke 20B00E 00
+3600  poke 20B00F 00
+3600  poke 20B010 A0
+3600  poke 20B011 1A
+3600  poke 20B012 EB
+3600  poke 20B013 01
+3600  poke 20B014 08
+3600  poke 20B015 00
+3600  poke 20B016 15
+3600  poke 20B017 00
+3600  poke 20B018 01
+3600  poke 20B019 00
+3600  poke 20B01A 00
+3600  poke 20B01B 00
+3600  poke 20B01C 00
+3600  poke 20B01D 00
+3600  poke 20B01E 40
+3600  poke 20B01F 1A
+3600  poke 20B020 4B
+3600  poke 20B021 02
+3600  poke 20B022 08
+3600  poke 20B023 00
+3600  poke 20B024 15
+3600  poke 20B025 00
+3600  poke 20B026 00
+3600  poke 20B027 01
+3600  poke 20B028 00
+3600  poke 20B029 00
+3600  poke 20B02A 00
+3600  poke 20B02B 00
+3600  poke 20B02C 0D
+3600  poke 20B02D 1A
+3600  poke 20B02E 32
+3600  poke 20B02F 02
+3600  poke 20B030 08
+3600  poke 20B031 00
+3600  poke 20B032 15
+3600  poke 20B033 00
+3600  poke 20B034 01
+3600  poke 20B035 01
+3600  poke 20B036 00
+3600  poke 20B037 00
+3600  poke 20B038 00
+3600  poke 20B039 00
+3600  poke 20B03A 07
+3600  poke 20B03B 1A
+3600  poke 20B03C 2F
+3600  poke 20B03D 02
+3600  poke 20B03E 08
+3600  poke 20B03F 00
+3600  poke 20B040 15
+3600  poke 20B041 00
+3600  poke 20B042 00
+3600  poke 20B043 00
+3600  poke 20B044 00
+3600  poke 20B045 00
+3600  poke 20B046 00
+3600  poke 20B047 00
+3600  poke 20B048 40
+3600  poke 20B049 1A
+3600  poke 20B04A EB
+3600  poke 20B04B 01
+3600  poke 20B04C 08
+3600  poke 20B04D 00
+3600  poke 20B04E 1B
+3600  poke 20B04F 00
+3600  poke 20B050 00
+3600  poke 20B051 00
+3600  poke 20B052 00
+3600  poke 20B053 00
+3600  poke 20B054 00
+3600  poke 20B055 00
+3600  poke 20B056 40
+3600  poke 20B057 1A
+3600  poke 20B058 EB
+3600  poke 20B059 01
+3600  poke 20B05A 08
+3600  poke 20B05B 00
+3600  poke 20B05C 1D
+3600  poke 20B05D 00
+3600  poke 20B05E 00
+3600  poke 20B05F 00
+3600  poke 20B060 00
+3600  poke 20B061 00
+3600  poke 20B062 00
+3600  poke 20B063 00
+3600  poke 20B064 40
+3600  poke 20B065 1A
+3600  poke 20B066 EB
+3600  poke 20B067 01
+3600  poke 20B068 08
+3600  poke 20B069 00
+3600  poke 20B06A 04
+3600  poke 20B06B 00
+3600  poke 20B06C 00
+3600  poke 20B06D 00
+3600  poke 20B06E 00
+3600  poke 20B06F 00
+3600  poke 20B070 00
+3600  poke 20B071 00
+3600  poke 20B072 40
+3600  poke 20B073 1A
+3600  poke 20B074 EB
+3600  poke 20B075 01
+3600  poke 20B076 08
+3600  poke 20B077 00
+3600  poke 20B078 09
+3600  poke 20B079 00
+3600  poke 20B07A 00
+3600  poke 20B07B 00
+3600  poke 20B07C 00
+3600  poke 20B07D 00
+3600  poke 20B07E 00
+3600  poke 20B07F 00
+3600  poke 20B080 40
+3600  poke 20B081 1A
+3600  poke 20B082 EB
+3600  poke 20B083 01
+3600  poke 20B084 08
+3600  poke 20B085 00
+3600  poke 20B086 11
+3600  poke 20B087 00
+3600  poke 20B088 00
+3600  poke 20B089 00
+3600  poke 20B08A 00
+3600  poke 20B08B 00
+3600  poke 20B08C 00
+3600  poke 20B08D 00
+3600  poke 20B08E 40
+3600  poke 20B08F 1A
+3600  poke 20B090 EB
+3600  poke 20B091 01
+3600  poke 20B092 08
+3600  poke 20B093 00
+3600  poke 20B094 04
+3600  poke 20B095 00
+3600  poke 20B096 00
+3600  poke 20B097 00
+3600  poke 20B098 00
+3600  poke 20B099 00
+3600  poke 20B09A FF
+3600  poke 20B09B FF
+3601  poke 208000 00
+3601  poke 208001 B0
+3601  poke 208002 20
+3601  poke 208003 00
+# The pool is empty for one frame: the count of free_object_stack (20E900, s16) is 0 when the last
+# record is due, so spawn_object_with_pieces fails and the record is dropped (08DC91: the cursor
+# moves on). Nothing else allocates or frees in that frame; the next frame the count is put back to
+# what it was (the stack's entries are untouched). A poke lands before the code of the next frame.
+3773  poke 20E900 00
+3774  poke 20E900 40
+# Player 1 walks right: the crawlers leave the screen and delete themselves (delete_if_off_screen)
+4400  roll 1 8 0
+4700  roll 1 0 0
+# Type 08 with field 92 = 0: at once scroll_mode 1 (the scroll stops), then it waits for bit 14 of
+# flame_machine_flags (20807A: the stage 8 flame machine destroyed), poked at 5300 (byte 20807C bit 4):
+# scroll_mode 7, the scroll follows the players again
+5000  poke 20B100 00
+5000  poke 20B101 00
+5000  poke 20B102 40
+5000  poke 20B103 1A
+5000  poke 20B104 EB
+5000  poke 20B105 01
+5000  poke 20B106 08
+5000  poke 20B107 00
+5000  poke 20B108 08
+5000  poke 20B109 00
+5000  poke 20B10A 00
+5000  poke 20B10B 00
+5000  poke 20B10C 00
+5000  poke 20B10D 00
+5000  poke 20B10E FF
+5000  poke 20B10F FF
+5001  poke 208000 00
+5001  poke 208001 B1
+5001  poke 208002 20
+5001  poke 208003 00
+5300  poke 20807C 10
+# Vitality refills
+3620  poke 204FDE 18
+3740  poke 204FDE 18
+3860  poke 204FDE 18
+3980  poke 204FDE 18
+4100  poke 204FDE 18
+4220  poke 204FDE 18
+4340  poke 204FDE 18
+4460  poke 204FDE 18
+4580  poke 204FDE 18
+4700  poke 204FDE 18
+4820  poke 204FDE 18
+4940  poke 204FDE 18
+5060  poke 204FDE 18
+5180  poke 204FDE 18
+5300  poke 204FDE 18
+5420  poke 204FDE 18
+5540  poke 204FDE 18
+5660  poke 204FDE 18
+5780  poke 204FDE 18
+5900  poke 204FDE 18
+6020  poke 204FDE 18
+6140  poke 204FDE 18
+6260  poke 204FDE 18
+6380  poke 204FDE 18
+6500  poke 204FDE 18
+6620  poke 204FDE 18
+6740  poke 204FDE 18
+6860  poke 204FDE 18
+6980  poke 204FDE 18
+7000  end

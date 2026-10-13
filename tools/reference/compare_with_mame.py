@@ -3,11 +3,11 @@ Name:        compare_with_mame.py
 Description: decodes every byte offset of the V60 program with our disassembler and with MAME's, and diffs them
 Version:     0.1.0
 Created:     11-10-2026
-Modified:    11-10-2026
+Modified:    13-10-2026
 Author:      Sebastian Toyos
 
 Usage: python tools/reference/compare_with_mame.py [rom folder or .zip]
-Needs build/reference/oracle.exe (tools/reference/build_oracle.cmd).
+Needs build/bin/oracle (built by CMake with the reference tools).
 Decoding at every offset, not only at real instructions, exercises every opcode and
 addressing mode that appears in the ROM bytes, including garbage.
 """
@@ -21,7 +21,7 @@ sys.path.insert(0, str(TOOLS))
 import sonic_rom  # noqa: E402
 from v60 import disassembler  # noqa: E402
 
-ORACLE = ROOT / "build" / "reference" / "oracle.exe"
+ORACLE = ROOT / "build" / "bin" / ("oracle.exe" if sys.platform == "win32" else "oracle")
 
 
 def our_line(mem, address):
@@ -37,7 +37,7 @@ def our_line(mem, address):
 
 def main():
     if not ORACLE.exists():
-        raise SystemExit(f"{ORACLE} not found: run tools/reference/build_oracle.cmd first")
+        raise SystemExit(f"{ORACLE} not found")
     source = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / "rom"
     image = sonic_rom.build_program(sonic_rom.load_set(source))
 

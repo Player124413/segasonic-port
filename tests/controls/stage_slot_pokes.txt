@@ -1,0 +1,72 @@
+# Stage slots 01, 02, 12, 06 and 07 of the per-stage tables that run every frame, reached with
+# one-frame pokes of the stage variable (20F06E): no code ever writes 01, 02 or 12 there, stage 6
+# never scrolls (its only event switches to game mode 10 at once) and stage 7 (the attract stage)
+# never reaches its scroll end (4AAD) in a game.
+# Base: the stage_05 walk (stage 5 through Stage Select Mode; at scroll 100 game mode 0A runs the
+# switch to stage 0 and the stage 0 exit scene; frames 5416-6610).
+# - Frames 5460-5511: stage 5 has reached its scroll end (scroll_ended FF from frame 5439) and game
+#   mode 0A still runs the stage frame: with the stage poked to 01, 02, 12, 06 and 07 for one frame
+#   each, update_scroll takes the scroll-end jump table entry of that slot (016BE5, 016BE8, 016C18,
+#   016BF4, 016BF7) and update_stage_tile_layers the slot's animate_stage_palette entry
+#   (01AD44, 01AD47, 01AD77) before it returns (scroll ended: no tile set reload).
+# - Frames 6200-6207: the stage 0 exit scene (update_stage_00_exit_scene) calls update_background_scroll
+#   every frame: stage 01, 02 and 12 for one frame each run update_nbg1_scroll_stage_01/02/12,
+#   update_nbg2_scroll_stage_01/02/12 -> set_nbg2_scroll_to_camera_2, update_nbg3_scroll 01B8A1,
+#   01B8A4 and 01B8D4. (The tables' entries for a 20th slot, 13, are left alone: no stage number
+#   reaches them.)
+# Each poke is undone the next frame (back to 05, then 00 after the switch). Starting a stage with
+# 00, 01, 02 or 12 instead stops the V60 (run_vram_script at 099902): those slots' tile set lists
+# hold 0007xxxx pointers and get_tile_set_*_bank add no 100000 bank for them.
+1800  press coin1
++120  press start1
+3300  poke 20F061 08
++100  poke 20F06E 05
++0  poke 20F06F 00
++100  press start1
+3600  roll 1 -12 -12
+3600  press button1
+3749  roll 1 -4 4
+3807  roll 1 -10 10
+3983  roll 1 -10 10
+3983  press button1
+4112  roll 1 6 6
+4255  roll 1 4 0
+4255  press button1
+4340  roll 1 0 6
+4340  press button1
+4420  roll 1 -6 6
+4500  roll 1 0 -8
+4500  press button1
+4636  roll 1 0 8
+4636  press button1
+4743  roll 1 9 0
+4743  press button1
+4800  press coin1
+4860  press start1
+4863  roll 1 9 -9
+4863  press button1
+5013  roll 1 8 0
+5048  roll 1 -10 -10
+5048  press button1
+5185  roll 1 11 0
+5185  press button1
+5261  roll 1 -5 5
+5409  roll 1 -12 -12
+5409  press button1
+5460  poke 20F06E 01
+5461  poke 20F06E 05
+5470  poke 20F06E 02
+5471  poke 20F06E 05
+5480  poke 20F06E 12
+5481  poke 20F06E 05
+5490  poke 20F06E 06
+5491  poke 20F06E 05
+5500  poke 20F06E 07
+5501  poke 20F06E 05
+6200  poke 20F06E 01
+6201  poke 20F06E 00
+6202  poke 20F06E 02
+6203  poke 20F06E 00
+6204  poke 20F06E 12
+6205  poke 20F06E 00
+6700  end

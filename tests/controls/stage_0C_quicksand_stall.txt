@@ -1,0 +1,162 @@
+# Stage C (two players, Stage Select Mode): a quicksand swirl under both players, a crawler on player 1,
+# then player 1 left standing until the stall timer kills him.
+#
+# Reaches: update_quicksand_object when the sink depth reaches 0x2000 (00CE59-00CE79): player 1 (vitality
+# 0x10) loses 8 and comes back (handler 294A), player 2 (vitality 8) dies (state 0x16); check_player_contacts
+# for the crawler's kind 0xD (00E506); check_player_stalled (00E435-00E442: scroll_position unchanged for
+# 0x1C20 frames: vitality 0, state 0xD); vine_init's return when the segments cannot be allocated (00EDA8).
+#
+# Crafted spawn lists in RAM (20B000-20B03F, zero and unused in the scenarios):
+# - 3566: a stage_spawns_by_handler record (position 0100, x 07A0, y 0AC6, 04 = 0, handler 089927
+#   quicksand_start: stage A's quicksand swirl) at 20B000, then FFFF; 3567: the by-handler spawner's cursor
+#   (20F0DA, u32) points at it. Both players stand there after the stage's start run and are pulled in.
+# - 4250: a stage_spawns_by_type record (position 0500, projected x 0C24, projected y 00B6, z 01D8, type
+#   0x15: the crawler, which no stage list spawns) at 20B020, then a type 2 record (a vine) with 92 = FF02:
+#   byte 93, the vine's number of segments, is FF (stage 4's vines have 20), more than the second object
+#   pool can ever hold, then FFFF; 4251: type_spawn_cursor (208000) points at it. The crawler's head box
+#   covers player 1, who is hurt by it; vine_init finds no room for its segments every frame and returns.
+# Other pokes: 204F3E (player 2's vitality) = 8 at 3567; 204FDE (player 1's) refilled to 18 every 120
+# frames from 3800 (the stall kills him anyway: it sets 0). Stage C's chaser pushes player 1 forward
+# until 5865 (scroll 1188); nothing moves the scroll after that; the stall timer ends at 13065.
+1800  press coin1
+1820  press coin1
+1900  press start1
+1920  press start2
+3300  poke 20F061 08
+3400  poke 20F06E 0C
+3400  poke 20F06F 00
+3500  press start1
+3566  poke 20B000 00
+3566  poke 20B001 01
+3566  poke 20B002 A0
+3566  poke 20B003 07
+3566  poke 20B004 C6
+3566  poke 20B005 0A
+3566  poke 20B006 00
+3566  poke 20B007 00
+3566  poke 20B008 27
+3566  poke 20B009 99
+3566  poke 20B00A 08
+3566  poke 20B00B 00
+3566  poke 20B00C FF
+3566  poke 20B00D FF
+3567  poke 20F0DA 00
+3567  poke 20F0DB B0
+3567  poke 20F0DC 20
+3567  poke 20F0DD 00
+3567  poke 204F3E 08
+3800  poke 204FDE 18
+3920  poke 204FDE 18
+4040  poke 204FDE 18
+4160  poke 204FDE 18
+4250  poke 20B020 00
+4250  poke 20B021 05
+4250  poke 20B022 24
+4250  poke 20B023 0C
+4250  poke 20B024 B6
+4250  poke 20B025 00
+4250  poke 20B026 D8
+4250  poke 20B027 01
+4250  poke 20B028 15
+4250  poke 20B029 00
+4250  poke 20B02A 00
+4250  poke 20B02B 00
+4250  poke 20B02C 00
+4250  poke 20B02D 00
+4250  poke 20B02E 00
+4250  poke 20B02F 05
+4250  poke 20B030 24
+4250  poke 20B031 0C
+4250  poke 20B032 B6
+4250  poke 20B033 00
+4250  poke 20B034 D8
+4250  poke 20B035 01
+4250  poke 20B036 02
+4250  poke 20B037 00
+4250  poke 20B038 02
+4250  poke 20B039 FF
+4250  poke 20B03A 07
+4250  poke 20B03B 20
+4250  poke 20B03C FF
+4250  poke 20B03D FF
+4251  poke 208000 20
+4251  poke 208001 B0
+4251  poke 208002 20
+4251  poke 208003 00
+4280  poke 204FDE 18
+4400  poke 204FDE 18
+4520  poke 204FDE 18
+4640  poke 204FDE 18
+4760  poke 204FDE 18
+4880  poke 204FDE 18
+5000  poke 204FDE 18
+5120  poke 204FDE 18
+5240  poke 204FDE 18
+5360  poke 204FDE 18
+5480  poke 204FDE 18
+5600  poke 204FDE 18
+5720  poke 204FDE 18
+5840  poke 204FDE 18
+5960  poke 204FDE 18
+6080  poke 204FDE 18
+6200  poke 204FDE 18
+6320  poke 204FDE 18
+6440  poke 204FDE 18
+6560  poke 204FDE 18
+6680  poke 204FDE 18
+6800  poke 204FDE 18
+6920  poke 204FDE 18
+7040  poke 204FDE 18
+7160  poke 204FDE 18
+7280  poke 204FDE 18
+7400  poke 204FDE 18
+7520  poke 204FDE 18
+7640  poke 204FDE 18
+7760  poke 204FDE 18
+7880  poke 204FDE 18
+8000  poke 204FDE 18
+8120  poke 204FDE 18
+8240  poke 204FDE 18
+8360  poke 204FDE 18
+8480  poke 204FDE 18
+8600  poke 204FDE 18
+8720  poke 204FDE 18
+8840  poke 204FDE 18
+8960  poke 204FDE 18
+9080  poke 204FDE 18
+9200  poke 204FDE 18
+9320  poke 204FDE 18
+9440  poke 204FDE 18
+9560  poke 204FDE 18
+9680  poke 204FDE 18
+9800  poke 204FDE 18
+9920  poke 204FDE 18
+10040 poke 204FDE 18
+10160 poke 204FDE 18
+10280 poke 204FDE 18
+10400 poke 204FDE 18
+10520 poke 204FDE 18
+10640 poke 204FDE 18
+10760 poke 204FDE 18
+10880 poke 204FDE 18
+11000 poke 204FDE 18
+11120 poke 204FDE 18
+11240 poke 204FDE 18
+11360 poke 204FDE 18
+11480 poke 204FDE 18
+11600 poke 204FDE 18
+11720 poke 204FDE 18
+11840 poke 204FDE 18
+11960 poke 204FDE 18
+12080 poke 204FDE 18
+12200 poke 204FDE 18
+12320 poke 204FDE 18
+12440 poke 204FDE 18
+12560 poke 204FDE 18
+12680 poke 204FDE 18
+12800 poke 204FDE 18
+12920 poke 204FDE 18
+13040 poke 204FDE 18
+13160 poke 204FDE 18
+13280 poke 204FDE 18
+13400 end

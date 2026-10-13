@@ -1,0 +1,29 @@
+# Stage A: a player caught by a sinkhole that has just opened (touch kind 0x1B: player state 7 with
+# object flag 0x11), still too small (zoom field 08 below 0x100) when the hanging time runs out, so the
+# player keeps hanging until it has grown (player_state_over_edge 0040C2).
+# How: tests/controls/walk_0A.txt (one player, stage A) until frame 3600; then the trackball is rolled
+# 14 4 (west-north-west, no jumps) into the sinkhole that opens at x 3632, y 5273 at frame 3647 (its
+# zoom grows by 1 a frame): caught at 3756, it drops at 3827. Vitality refilled to 18 as in walk_0A.
+# Also: the object pool is empty for one frame when the dropping player (state 8, substep 2) allocates
+# its effect object: free_object_stack's count (20E900, s16) is poked to 0 at 3857 and put back to 68
+# (its value then) at 3858, so allocate_object fails once and player_dropping_fall returns (00453A),
+# what a full pool would do; the allocation succeeds a frame later. (A poke lands before the code of
+# the next frame.)
+1800  press coin1
+1860  press start1
+3180  poke 20F061 08
+3280  poke 20F06E 0A
+3280  poke 20F06F 00
+3380  press start1
+3480  roll 1 12 12
+3480  press button1
+3480  poke 204FDE 18
+3525  press button1
+3570  press button1
+3600  poke 204FDE 18
+3600  roll 1 14 4
+3720  poke 204FDE 18
+3840  poke 204FDE 18
+3857  poke 20E900 00
+3858  poke 20E900 68
+3950  end

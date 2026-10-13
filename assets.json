@@ -1,9 +1,9 @@
 {
-  "manifest_version": 1,
+  "manifest_version": 2,
   "rom_set": "sonic",
   "notes": [
     "Positions only: every byte comes from the user's own ROM at extraction time.",
-    "Regions: program (V60, 2 MB), tiles (2 MB), sprites (16 MB), sound (Z80 + PCM, 4 MB); see tools/sonic_rom.py.",
+    "Only decoded resources are listed. Data whose format is still unknown (sprite ROM, the game data at 0x100000) stays in the ROM images the build reads from build/rom/; it is added here as each format is worked out.",
     "Tile sheets keep the original 4-bit pens as palette indices; colors are grayscale until palettes are mapped.",
     "PCM rate is nominal (half the RF5C68 output rate): the real pitch is set per sample by the Z80 driver."
   ],
@@ -25,16 +25,8 @@
     {"path": "assets/tiles/tiles_14.png", "region": "tiles", "offset": "0x1C0000", "size": "0x20000", "type": "tiles_16x16x4", "columns": 32},
     {"path": "assets/tiles/tiles_15.png", "region": "tiles", "offset": "0x1E0000", "size": "0x20000", "type": "tiles_16x16x4", "columns": 32},
 
-    {"path": "assets/sprites/sprite_bank_0.bin", "region": "sprites", "offset": "0x000000", "size": "0x400000", "type": "binary"},
-    {"path": "assets/sprites/sprite_bank_1.bin", "region": "sprites", "offset": "0x400000", "size": "0x400000", "type": "binary"},
-    {"path": "assets/sprites/sprite_bank_2.bin", "region": "sprites", "offset": "0x800000", "size": "0x400000", "type": "binary"},
-    {"path": "assets/sprites/sprite_bank_3.bin", "region": "sprites", "offset": "0xC00000", "size": "0x400000", "type": "binary"},
-
-    {"path": "assets/sound/z80_driver.bin", "region": "sound", "offset": "0x000000", "size": "0x40000", "type": "binary"},
     {"path": "assets/sound/pcm_bank_1", "region": "sound", "offset": "0x100000", "size": "0x100000", "type": "pcm_rf5c68", "rate": 16276},
     {"path": "assets/sound/pcm_bank_2", "region": "sound", "offset": "0x200000", "size": "0x100000", "type": "pcm_rf5c68", "rate": 16276},
-    {"path": "assets/sound/pcm_bank_3", "region": "sound", "offset": "0x300000", "size": "0x100000", "type": "pcm_rf5c68", "rate": 16276},
-
-    {"path": "assets/program/game_data.bin", "region": "program", "offset": "0x100000", "size": "0x80000", "type": "binary"}
+    {"path": "assets/sound/pcm_bank_3", "region": "sound", "offset": "0x300000", "size": "0x100000", "type": "pcm_rf5c68", "rate": 16276}
   ]
 }

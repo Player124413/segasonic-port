@@ -1,0 +1,142 @@
+# Player 3 (character 2) joining stage 4 and crossing its hop strips (floor type 6, block type 9): the
+# hop state 0x17 for character 2 (player_animate_hopping 0051DB), a hop and a fall to a lower floor
+# (player state 2) while the newly joined player blinks (005255, 003592: the animation returns on a
+# hidden frame). Then player 1 pulls itself back up from a moving edge whose group leader moves -x
+# (player_state_over_edge step 5, 0041F3, 004213-004219).
+# How: tests/controls/walk_04.txt (one player, stage 4) until frame 6951 with the cabinet set to three
+# players with the common coin chute (poke 20F41E 01 at frame 600; it does not change the walk).
+# Player 3 joins at 5850 (coin, start3, button3 picks the character) and from 5890 repeats player 1's
+# rolls and buttons until 6650, so it crosses the same strips (hops at 6133 and 6210). Player 3's
+# vitality (204E9E) is refilled to 18. At 6951 player 1 jumps off the +y side of the stage 4 bridge
+# that collapses toward -x (scroll 3700 group, leader moving -x) and hangs over the edge (state 7, object
+# 30 bit 8, edge_object = that leader); rolling -y from 6952 it pulls itself back up (steps 4 and 5 at
+# 6962-6963) instead of dropping.
+600  poke 20F41E 01
+1800  press coin1
+1860  press start1
+3180  poke 20F061 08
+3280  poke 20F06E 04
+3280  poke 20F06F 00
+3380  press start1
+3480  roll 1 -12 -12
+3480  press button1
+3480  poke 204FDE 18
+3525  press button1
+3570  press button1
+3600  poke 204FDE 18
+3615  press button1
+3660  press button1
+3705  press button1
+3720  poke 204FDE 18
+3750  press button1
+3795  press button1
+3840  press button1
+3840  poke 204FDE 18
+3885  press button1
+3930  press button1
+3960  roll 1 -12 -12
+3960  poke 204FDE 18
+4080  poke 204FDE 18
+4200  poke 204FDE 18
+4320  poke 204FDE 18
+4440  roll 1 -12 -12
+4440  press button1
+4440  poke 204FDE 18
+4485  press button1
+4530  press button1
+4560  poke 204FDE 18
+4575  press button1
+4620  press button1
+4665  press button1
+4680  poke 204FDE 18
+4710  press button1
+4755  press button1
+4800  press button1
+4800  poke 204FDE 18
+4845  press button1
+4890  press button1
+4920  roll 1 -12 -12
+4920  press button1
+4920  poke 204FDE 18
+4965  press button1
+5010  press button1
+5040  poke 204FDE 18
+5055  press button1
+5100  press button1
+5145  press button1
+5160  poke 204FDE 18
+5190  press button1
+5235  press button1
+5280  press button1
+5280  poke 204FDE 18
+5325  press button1
+5370  press button1
+5400  roll 1 0 -12
+5400  press button1
+5400  poke 204FDE 18
+5445  press button1
+5490  press button1
+5520  poke 204FDE 18
+5535  press button1
+5580  press button1
+5625  press button1
+5640  poke 204FDE 18
+5670  press button1
+5715  press button1
+5760  press button1
+5760  poke 204FDE 18
+5805  press button1
+5810  press coin1
+5850  press button1
+5850  press start3
+5850  poke 204E9E 18
+5870  press button3
+5880  roll 1 -12 -12
+5880  press button1
+5880  poke 204FDE 18
+5890  roll 3 -12 -12
+5925  press button1
+5925  press button3
+5970  press button1
+5970  press button3
+5970  poke 204E9E 18
+6000  poke 204FDE 18
+6015  press button1
+6015  press button3
+6060  press button1
+6060  press button3
+6090  poke 204E9E 18
+6105  press button1
+6105  press button3
+6120  poke 204FDE 18
+6150  press button1
+6150  press button3
+6195  press button1
+6195  press button3
+6210  poke 204E9E 18
+6240  press button1
+6240  press button3
+6240  poke 204FDE 18
+6285  press button1
+6285  press button3
+6330  press button1
+6330  press button3
+6330  poke 204E9E 18
+6360  roll 1 12 12
+6360  roll 3 12 12
+6360  poke 204FDE 18
+6450  poke 204E9E 18
+6480  poke 204FDE 18
+6570  poke 204E9E 18
+6600  poke 204FDE 18
+6690  poke 204E9E 18
+6720  poke 204FDE 18
+6810  poke 204E9E 18
+6840  roll 1 -12 12
+6840  press button1
+6840  poke 204FDE 18
+6885  press button1
+6930  press button1
+6930  poke 204E9E 18
+6952  roll 1 12 -12
+6990  end

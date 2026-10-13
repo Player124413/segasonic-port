@@ -1,0 +1,74 @@
+# Two rare conditions in stages 8 and 9, one player: the stall check firing while carried off (player
+# state 0x31 -> 0xD: player_state_carried_off 008000), and the trackball beyond the speed cap in the
+# floor 8 sequence's struggle (player state 0x25 step 0xC: 00942F).
+# How: tests/controls/stage_08.txt (one player; stage 8 through Stage Select Mode) until frame 6000,
+# when player 1 is carried off (game mode 0x1A) and the scroll stands still (5981-6047): its stall
+# counter (player block +1D8, 2085D8) is poked to 7199, standing for two minutes without scrolling
+# (the carried-off sequence never stands still that long). The hurt costs its last vitality; it
+# continues (coin, start1, button1). Stage Select Mode (game mode 8, a debug mode the game has no way
+# into; the trackball is stopped first, as the menu reads it) then starts stage 9, whose opening is the
+# floor 8 sequence; at its step 0xC the trackball is rolled 40 counts a frame.
+1800  press coin1
+1920  press start1
+3300  poke 20F061 08
+3400  poke 20F06E 08
+3400  poke 20F06F 00
+3500  press start1
+3600  roll 1 0 -6
+3600  press button1
+3641  roll 1 0 0
+3641  press button1
+3800  roll 1 11 0
+3929  roll 1 -10 10
+3929  press button1
+4018  roll 1 -12 0
+4145  roll 1 -5 0
+4191  roll 1 0 -5
+4307  roll 1 11 11
+4469  roll 1 0 5
+4508  roll 1 -6 6
+4686  roll 1 8 -8
+4800  press coin1
+4825  roll 1 12 12
+4860  press start1
+4946  roll 1 12 -12
+5055  roll 1 -12 0
+5214  roll 1 -9 9
+5214  press button1
+5247  roll 1 -8 8
+5247  press button1
+5342  roll 1 0 -6
+5401  roll 1 7 0
+5472  roll 1 10 0
+5545  roll 1 -6 6
+5689  roll 1 5 5
+5689  press button1
+5743  roll 1 0 0
+5906  roll 1 0 12
+5974  roll 1 7 7
+5974  press button1
+6000  poke 2085D8 1F
+6000  poke 2085D9 1C
+6100  press coin1
+6120  press start1
+6150  press button1
+6200  poke 204FDE 18
+6290  roll 1 0 0
+6300  poke 20F061 08
+6320  poke 204FDE 18
+6400  poke 20F06E 09
+6400  poke 20F06F 00
+6440  poke 204FDE 18
+6500  press start1
+6560  poke 204FDE 18
+6680  poke 204FDE 18
+6800  poke 204FDE 18
+6920  poke 204FDE 18
+6960  roll 1 40 40
+7040  poke 204FDE 18
+7160  poke 204FDE 18
+7280  poke 204FDE 18
+7300  roll 1 0 0
+7400  poke 204FDE 18
+7520  poke 204FDE 18
+7600  end

@@ -1,0 +1,200 @@
+# Crafted objects at the start of stage 3 (one player through Stage Select Mode, no input until 3700):
+# object types and field values no stage list has, spawned by the game's own spawners from lists poked
+# into free RAM (20B000-20B2FF), with each spawner's cursor pointed there for a few frames and then set
+# back to its position in the stage's own list (nothing of the stage is due in between).
+# - spawn_objects_by_type (cursor 208000 -> 20B000, back to 1001D2 at 3612), records next to player 1
+#   (projected 12C9, FCB4, z 438), one a frame:
+#   spike panel (type 05) 300 to the right, off screen: deleted on its first update (00F202);
+#   eel (type 23, den 1, 7 pieces) off screen: the anchor waits, then delete_if_off_screen (014BA0);
+#   cactus (type 13) with 92 = 1 (flipped sprite, 0120A1; every cactus record has 92 = 0);
+#   fence posts (type 01, 92 = 2, 94 = 0201); at 3609 electric_fence_state (208076) is poked to 0, a value
+#     only game start writes (08DC36): the posts turn into plain posts (fence_post_update 0139C6-0139EB);
+#   turtle (type 22); at 3650 its field 80 (object 203DE0 in this run) is poked to 4, a value nothing
+#     writes while it waits: turtle_wait's head and shadow code runs (01470E-01477E);
+#   metal wall (type 00) with byte 95 = 0C: 12 rings, more than scatter_rings takes (01E70E clamps to 10;
+#     the only metal wall record, s7 3C00, has 3).
+# - spawn_ring_rows (cursor 20F084 -> 20B100, back to 1F33A at 3604): a row of 5 rings of template 2
+#   (offset 34; templates 2 and 3 are in no stage list), from player 1's ground position in steps of
+#   (7F, 7F): still_ring_wait (01E5AD-01E5F9) collects the first, draws the near ones and deletes the far ones.
+# - spawn_walls (cursor 20F0B2 -> 20B200, back to 9052A at 3606): a wall of kind 17C with FF parts,
+#   more than the free objects of pool 2 (about F5): spawn_walls deletes it again with
+#   delete_object_outside_loop (01F1EA-01F205) while the record is current.
+# From 3700 player 1 rolls -12 -12; the jumps at 3700 and 3730 break the metal wall (frame 3733) and its
+# rings scatter (scatter_rings_random; only the first odd ring gets a speed, the others stay in a pile).
+# Without jumping, player 1 walks over the pile while the rings still ignore players (0x1E frames), is hurt
+# by the stage's spiked roller (state D at frame 3777) and bounces back over the pile: scattered_ring_live
+# sees a hurt player with hurt_contact_delay (C3) set (01E8A5-01E8A9) and later collects (01E87C-01E8C7);
+# a ring glints (move_scattered_ring 01E956).
+# Scroll modes 4, 5 and 6 (update_scroll's jump table 015FB5-015FBD, the mode 5/6 handlers 016945-01699E:
+# lock/unlock flag 20902E, next (mode, duration) pair of the script): no stage's scroll mode script has
+# them and the code writes only 0, 1, 2 and 7 (4 only in stage 3's end sequence, which runs with the scroll
+# ended and skips the table). scroll_mode (20E44B, low byte) is poked to 4 at 4300 (back to 7 at 4301),
+# to 5 at 4302 and to 6 at 4304 (those handlers load the next pair, mode 7, themselves).
+# Pokes 204FDE 18: player 1's vitality, every 120 frames.
+1800  press coin1
+1920  press start1
+3300  poke 20F061 08
+3400  poke 20F06E 03
+3400  poke 20F06F 00
+3500  press start1
+3600  poke 20B100 00
+3600  poke 20B101 01
+3600  poke 20B102 34
+3600  poke 20B103 00
+3600  poke 20B104 05
+3600  poke 20B105 00
+3600  poke 20B106 F2
+3600  poke 20B107 11
+3600  poke 20B108 A0
+3600  poke 20B109 08
+3600  poke 20B10A 7F
+3600  poke 20B10B 7F
+3600  poke 20B10C FF
+3600  poke 20B10D FF
+3600  poke 20B200 00
+3600  poke 20B201 01
+3600  poke 20B202 00
+3600  poke 20B203 00
+3600  poke 20B204 F2
+3600  poke 20B205 11
+3600  poke 20B206 A0
+3600  poke 20B207 08
+3600  poke 20B208 38
+3600  poke 20B209 04
+3600  poke 20B20A 7C
+3600  poke 20B20B 01
+3600  poke 20B20C FF
+3600  poke 20B20D 00
+3600  poke 20B20E FF
+3600  poke 20B20F FF
+3600  poke 20B000 00
+3600  poke 20B001 00
+3600  poke 20B002 C9
+3600  poke 20B003 15
+3600  poke 20B004 B4
+3600  poke 20B005 FC
+3600  poke 20B006 38
+3600  poke 20B007 04
+3600  poke 20B008 05
+3600  poke 20B009 00
+3600  poke 20B00A 00
+3600  poke 20B00B 00
+3600  poke 20B00C 30
+3600  poke 20B00D 00
+3600  poke 20B00E 00
+3600  poke 20B00F 00
+3600  poke 20B010 C9
+3600  poke 20B011 15
+3600  poke 20B012 F4
+3600  poke 20B013 FC
+3600  poke 20B014 38
+3600  poke 20B015 04
+3600  poke 20B016 23
+3600  poke 20B017 00
+3600  poke 20B018 00
+3600  poke 20B019 01
+3600  poke 20B01A 07
+3600  poke 20B01B 08
+3600  poke 20B01C 00
+3600  poke 20B01D 00
+3600  poke 20B01E 39
+3600  poke 20B01F 13
+3600  poke 20B020 84
+3600  poke 20B021 FC
+3600  poke 20B022 38
+3600  poke 20B023 04
+3600  poke 20B024 13
+3600  poke 20B025 00
+3600  poke 20B026 01
+3600  poke 20B027 00
+3600  poke 20B028 00
+3600  poke 20B029 00
+3600  poke 20B02A 00
+3600  poke 20B02B 00
+3600  poke 20B02C 69
+3600  poke 20B02D 12
+3600  poke 20B02E E4
+3600  poke 20B02F FC
+3600  poke 20B030 38
+3600  poke 20B031 04
+3600  poke 20B032 01
+3600  poke 20B033 00
+3600  poke 20B034 02
+3600  poke 20B035 00
+3600  poke 20B036 01
+3600  poke 20B037 02
+3600  poke 20B038 00
+3600  poke 20B039 00
+3600  poke 20B03A 09
+3600  poke 20B03B 13
+3600  poke 20B03C 04
+3600  poke 20B03D FD
+3600  poke 20B03E 38
+3600  poke 20B03F 04
+3600  poke 20B040 22
+3600  poke 20B041 00
+3600  poke 20B042 00
+3600  poke 20B043 00
+3600  poke 20B044 00
+3600  poke 20B045 00
+3600  poke 20B046 00
+3600  poke 20B047 00
+3600  poke 20B048 F9
+3600  poke 20B049 12
+3600  poke 20B04A B4
+3600  poke 20B04B FC
+3600  poke 20B04C 38
+3600  poke 20B04D 04
+3600  poke 20B04E 00
+3600  poke 20B04F 00
+3600  poke 20B050 00
+3600  poke 20B051 00
+3600  poke 20B052 00
+3600  poke 20B053 0C
+3600  poke 20B054 FF
+3600  poke 20B055 FF
+3601  poke 20F084 00
+3601  poke 20F085 B1
+3601  poke 20F086 20
+3601  poke 20F087 00
+3601  poke 20F0B2 00
+3601  poke 20F0B3 B2
+3601  poke 20F0B4 20
+3601  poke 20F0B5 00
+3601  poke 208000 00
+3601  poke 208001 B0
+3601  poke 208002 20
+3601  poke 208003 00
+3604  poke 20F084 3A
+3604  poke 20F085 F3
+3604  poke 20F086 01
+3604  poke 20F087 00
+3606  poke 20F0B2 2A
+3606  poke 20F0B3 05
+3606  poke 20F0B4 09
+3606  poke 20F0B5 00
+3609  poke 208076 00
+3612  poke 208000 D2
+3612  poke 208001 01
+3612  poke 208002 10
+3612  poke 208003 00
+3620  poke 204FDE 18
+3650  poke 203E60 04
+3700  roll 1 -12 -12
+3700  press button1
+3730  press button1
+3740  poke 204FDE 18
+3860  poke 204FDE 18
+3980  poke 204FDE 18
+4100  poke 204FDE 18
+4220  poke 204FDE 18
+4300  poke 20E44B 04
+4300  poke 20E44B 04
+4301  poke 20E44B 07
+4301  poke 20E44B 07
+4302  poke 20E44B 05
+4302  poke 20E44B 05
+4304  poke 20E44B 06
+4304  poke 20E44B 06
+4340  poke 204FDE 18
+4400  end

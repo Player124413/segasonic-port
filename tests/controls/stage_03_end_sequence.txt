@@ -1,0 +1,123 @@
+# The end of stage 3 (update_scroll's stage 3 sequence after scroll_end A600: the camera climbs, the
+# players walk the exit path and spawn_stage_03_end_pillar puts up the brick pillar), then the map.
+# The game never gets here (game mode 15 forces scroll mode 1 every frame, 0941EA, so scroll_end is
+# never reached): stage 3 through Stage Select Mode, scroll_position (20E435) poked to A600 at 3700.
+# The sequence's three vram scripts (145A46/146DD1 in its set-up, 146161 at the end of the climb) are
+# kept out: at 3700 stage_03_end_started (20906B) = 1 and the variables the set-up writes are poked
+# (20F2B0 02020202, 20E445/20E44D 3C, 20E44B 4, 20E42F 19, step 20906C 0, timer 20906D 78); at 5300,
+# during the climb (step 1 from 5200), step 2 and what the end of step 1 writes (20E410 10000, 20F2B0
+# 02020200, 20E445/20E44D 5, 20E44B 4, 20E42F 19). Step 2 slows down and spawns the pillar (5420).
+# - 5000: a by-handler list in free RAM (20B000) with one record, the stage F scenery kind A (palette
+#   cycling), and the by-handler cursor (20F0DA) pointed at it (5001): it is removed when the map sets
+#   map_screen_active (085904; kind A exists only in stage F, which ends with game mode 0x1E, no map).
+# - 5450: goal_unlocked (20E5E3), which the end roller sets when it lands in the finale: the stage
+#   clears (game mode 0x17), the results, the map (game mode 4) removes the pillar (0853A5).
+# - 6120/6121/6200: the map intro object (203700) runs state 0 again with its counter at 1D (095A90),
+#   then states 1-3 (095A62-095B0A; state 0 always skips them) with the icon starting at y 10, so it
+#   passes (30,10) and move_map_stage_icon parks it there (095B33); state 4 at 6200.
+# - 6960: the map screen object (203660) set to state B (096169-09617B): wipe, then removed; the map
+#   stays on screen to the end (7500).
+# 204FDE is player 1's vitality, refilled every 120 frames.
+1800  press coin1
+1920  press start1
+3300  poke 20F061 08
+3400  poke 20F06E 03
+3400  poke 20F06F 00
+3500  press start1
+3620  poke 204FDE 18
+3700  poke 20E435 00
+3700  poke 20E436 A6
+3700  poke 20906B 01
+3700  poke 20F2B0 02
+3700  poke 20F2B1 02
+3700  poke 20F2B2 02
+3700  poke 20F2B3 02
+3700  poke 20E445 3C
+3700  poke 20E446 00
+3700  poke 20E44D 3C
+3700  poke 20E44E 00
+3700  poke 20E44B 04
+3700  poke 20E44C 00
+3700  poke 20E42F 19
+3700  poke 20E430 00
+3700  poke 20906C 00
+3700  poke 20906D 78
+3700  poke 20906E 00
+3700  poke 20906F 00
+3740  poke 204FDE 18
+3860  poke 204FDE 18
+3980  poke 204FDE 18
+4100  poke 204FDE 18
+4220  poke 204FDE 18
+4340  poke 204FDE 18
+4460  poke 204FDE 18
+4580  poke 204FDE 18
+4700  poke 204FDE 18
+4820  poke 204FDE 18
+4940  poke 204FDE 18
+5000  poke 20B000 80
+5000  poke 20B001 A5
+5000  poke 20B002 62
+5000  poke 20B003 FA
+5000  poke 20B004 2F
+5000  poke 20B005 0B
+5000  poke 20B006 0A
+5000  poke 20B007 00
+5000  poke 20B008 E5
+5000  poke 20B009 57
+5000  poke 20B00A 08
+5000  poke 20B00B 00
+5000  poke 20B00C FF
+5000  poke 20B00D FF
+5001  poke 20F0DA 00
+5001  poke 20F0DB B0
+5001  poke 20F0DC 20
+5001  poke 20F0DD 00
+5060  poke 204FDE 18
+5180  poke 204FDE 18
+5300  poke 20906C 02
+5300  poke 20E410 00
+5300  poke 20E411 00
+5300  poke 20E412 01
+5300  poke 20E413 00
+5300  poke 20F2B0 00
+5300  poke 20F2B1 02
+5300  poke 20F2B2 02
+5300  poke 20F2B3 02
+5300  poke 20E445 05
+5300  poke 20E446 00
+5300  poke 20E44D 05
+5300  poke 20E44E 00
+5300  poke 20E44B 04
+5300  poke 20E44C 00
+5300  poke 20E42F 19
+5300  poke 20E430 00
+5300  poke 204FDE 18
+5420  poke 204FDE 18
+5450  poke 20E5E3 FF
+5540  poke 204FDE 18
+5660  poke 204FDE 18
+5780  poke 204FDE 18
+5900  poke 204FDE 18
+6020  poke 204FDE 18
+6120  poke 203746 00
+6120  poke 203730 1D
+6120  poke 203731 00
+6121  poke 203746 01
+6121  poke 203734 10
+6121  poke 203735 00
+6140  poke 204FDE 18
+6200  poke 203746 04
+6260  poke 204FDE 18
+6380  poke 204FDE 18
+6500  poke 204FDE 18
+6620  poke 204FDE 18
+6740  poke 204FDE 18
+6860  poke 204FDE 18
+6960  poke 2036A6 0B
+6980  poke 204FDE 18
+7100  poke 204FDE 18
+7220  poke 204FDE 18
+7340  poke 204FDE 18
+7460  poke 204FDE 18
+7500  end

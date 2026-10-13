@@ -1,0 +1,50 @@
+# Stage 5 in a game player 2 starts alone (a common two-player chute): the spiked press looks
+# for the first player in play (084901: player 1 is not); stage 6 then stage 5 come by themselves.
+# Pool pokes: free_object_stack (20E900: count, then 16-bit block addresses) left with few free
+# blocks for one frame, as when every object block is in use: cage_start waits (084ACC), and the
+# hint sign of a jump in the cage is not made (spawn_sign_2, 084E0A). A poke at frame N acts on
+# the game code of frame N + 1.
+# Player 2 is moved out of the cage (y 450) once the BREAK!! sign (press frame C8) and the IN sign
+# (frame 168) are up: the scroll follows it to 0100, game mode 0x0A unlocks the goal while the
+# BREAK!! sign shows (084C88); then moved to the exit door: the stage clears and stage 0 begins
+# while the IN sign shows (084CC0). 204F3E is player 2's vitality, refilled every 120 frames.
+1800  press coin1
+1920  press start2
+3817  poke 20E900 05
+3817  poke 20E901 00
+3818  poke 20E900 76
+3818  poke 20E901 00
+3818  poke 20E90A C0
+3818  poke 20E90B 49
+3900  poke 204F3E 18
+4020  poke 204F3E 18
+4060  press button2
+4060  poke 20E900 00
+4060  poke 20E901 00
+4061  poke 20E900 69
+4061  poke 20E901 00
+4140  poke 204F3E 18
+4180  poke 204F12 50
+4180  poke 204F13 04
+4180  poke 20867C 50
+4180  poke 20867D 04
+4240  poke 204F0E 80
+4240  poke 204F0F FE
+4240  poke 204F12 70
+4240  poke 204F13 04
+4240  poke 208678 80
+4240  poke 208679 FE
+4240  poke 20867C 70
+4240  poke 20867D 04
+4260  poke 204F3E 18
+4380  poke 204F3E 18
+4500  poke 204F3E 18
+4620  poke 204F3E 18
+4740  poke 204F3E 18
+4860  poke 204F3E 18
+4980  poke 204F3E 18
+5100  poke 204F3E 18
+5220  poke 204F3E 18
+5340  poke 204F3E 18
+5460  poke 204F3E 18
+5500  end

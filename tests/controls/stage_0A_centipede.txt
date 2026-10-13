@@ -1,0 +1,107 @@
+# Stage A: the centipede's head with no player in play (centipede_chase 01241C-012472): it stays on its
+# last path point (the ring of path points at 20D0EA) and holds the body (centipede_command = 1). This needs
+# active_player_count = 0 while scroll_position is below its field 92 (6900): the only player dying.
+# One player, stage A through Stage Select Mode, a greedy trackball path (480-frame steps, 8 directions with
+# or without jumps, the move that scrolls furthest); the centipede (s0A 5050) appears at frame 8429.
+# At 8500 player 1's vitality (204FDE) is poked to 1 instead of the usual refill (stands for a player
+# worn down by hits): his fall off a ledge (state 6 at frame 8633) kills him, and from 8634 (no player
+# in play: dying, continue countdown, game over) the head holds. The trackball is stopped 24 frames
+# (8530-8554) so that the fall comes when the head's path index (field 81) is 0: then 012425 (index
+# 0 -> entry 32) runs too.
+# Pokes 204FDE 18: player 1's vitality, every 120 frames until 8500.
+1800  press coin1
+1920  press start1
+3300  poke 20F061 08
+3400  poke 20F06E 0A
+3400  poke 20F06F 00
+3500  press start1
+3600  roll 1 12 12
+3600  press button1
+3620  poke 204FDE 18
+3645  press button1
+3690  press button1
+3735  press button1
+3740  poke 204FDE 18
+3780  press button1
+3825  press button1
+3860  poke 204FDE 18
+3870  press button1
+3915  press button1
+3960  press button1
+3980  poke 204FDE 18
+4005  press button1
+4050  press button1
+4080  roll 1 12 0
+4080  press button1
+4100  poke 204FDE 18
+4125  press button1
+4170  press button1
+4215  press button1
+4220  poke 204FDE 18
+4260  press button1
+4305  press button1
+4340  poke 204FDE 18
+4350  press button1
+4395  press button1
+4440  press button1
+4460  poke 204FDE 18
+4485  press button1
+4530  press button1
+4560  roll 1 12 12
+4580  poke 204FDE 18
+4700  poke 204FDE 18
+4820  poke 204FDE 18
+4940  poke 204FDE 18
+5040  roll 1 12 12
+5060  poke 204FDE 18
+5180  poke 204FDE 18
+5300  poke 204FDE 18
+5420  poke 204FDE 18
+5520  roll 1 12 12
+5540  poke 204FDE 18
+5660  poke 204FDE 18
+5780  poke 204FDE 18
+5900  poke 204FDE 18
+6000  roll 1 -12 12
+6000  press button1
+6020  poke 204FDE 18
+6045  press button1
+6090  press button1
+6135  press button1
+6140  poke 204FDE 18
+6180  press button1
+6225  press button1
+6260  poke 204FDE 18
+6270  press button1
+6315  press button1
+6360  press button1
+6380  poke 204FDE 18
+6405  press button1
+6450  press button1
+6480  roll 1 -12 12
+6500  poke 204FDE 18
+6620  poke 204FDE 18
+6740  poke 204FDE 18
+6860  poke 204FDE 18
+6960  roll 1 -12 12
+6980  poke 204FDE 18
+7100  poke 204FDE 18
+7220  poke 204FDE 18
+7340  poke 204FDE 18
+7440  roll 1 12 0
+7460  poke 204FDE 18
+7580  poke 204FDE 18
+7700  poke 204FDE 18
+7820  poke 204FDE 18
+7920  roll 1 12 12
+7940  poke 204FDE 18
+8060  poke 204FDE 18
+8180  poke 204FDE 18
+8300  poke 204FDE 18
+8400  roll 1 12 12
+8420  poke 204FDE 18
+8500  poke 204FDE 01
+8530  roll 1 0 0
+8554  roll 1 12 12
+8880  roll 1 12 12
+9000  end

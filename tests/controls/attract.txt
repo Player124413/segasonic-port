@@ -1,0 +1,2 @@
+# Attract mode: no controls for ten minutes
+35999  end

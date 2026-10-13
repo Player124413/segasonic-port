@@ -1,0 +1,14 @@
+# Stage 9, game mode 0x13 (scroll 0, the stage's opening, frames 3503-3903 of stage_09): the run of
+# stage_09 up to frame 3520, then player 1 out: the game ends in mode 0x13, which shares the end of
+# mode 0x12 (094477).
+# Pokes: 20E590-20E592 are player_status (one byte per player: negative = in play); 0 = out of
+# the game, as after a death with no continue. The game mode's own check then ends the game
+# (game mode 7) inside the event. A poke at frame N acts on the game code of frame N + 1.
+1800  press coin1
+1920  press start1
+3300  poke 20F061 08
+3400  poke 20F06E 09
+3400  poke 20F06F 00
+3500  press start1
+3520  poke 20E590 00
+3800  end

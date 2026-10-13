@@ -1,0 +1,39 @@
+# The reversed, flipped and past-the-end cases of the shared animation helpers, which no object of the game
+# reaches (no object sets the flags they test: see below), run by poking single fields of live objects (one player, Stage Select Mode to
+# stage 4; nothing else is done, the player stands where he starts).
+#
+# Reaches: animate_part_list_step backwards (00E09E-00E0B3); animate_with_screen_offset backwards
+# (00E015-00E026) and past its last frame (00E037); add_step_screen_offset with the sprite flipped in y
+# (00E073); animate_and_move backwards (00DF1D-00DF2E), past its last frame (00DF3F) and flipped in y
+# (00DF6A).
+#
+# Flags bit 7 (object field 30) makes these helpers step backwards; sprite_flags bit 7 (field 2) flips the
+# sprite in y and negates the steps' y offsets; field 46 is the frame index (45 the countdown to the next
+# step, 44 the step time). Objects and frames come from RAM dumps of this same run (it is deterministic):
+# - 2600: the "how to play" hand of the game intro (stage 7, 204BA0, handler how_to_play_button_hand_update,
+#   flags 0): flags = 80. Its next button presses step its part list backwards.
+# - Stage 4's crumbling rock ledges (handler crumbling_floor_update) crack in turn as the ledge leader
+#   passes: 4191 the ledge at 204560 (frame 3 of its 8-frame crack): countdown 1 and frame 9, so this
+#   frame's step goes past the last frame; 4200 the ledge at 2044C0 (cracking, frame 1): flags = 80; 4200
+#   the ledge at 204600 (holding its last frame, sprite_flags 1040): low byte C0 (flipped in y).
+# - The player falls off the crumbled ledge (state 6, animate_and_move, 5-frame animation 1128D8): 4229
+#   countdown 1 and frame 6 (past the last frame); 4236 flags = 80, sprite_flags low byte 8A (0A + flip),
+#   countdown 1 and frame 0, so the next steps go backwards from frame 0 (the restart at 4259 resets all).
+1800  press coin1
+1920  press start1
+2600  poke 204BD0 80
+3300  poke 20F061 08
+3400  poke 20F06E 04
+3400  poke 20F06F 00
+3500  press start1
+4191  poke 2045A5 01
+4191  poke 2045A6 09
+4200  poke 2044F0 80
+4200  poke 204602 C0
+4229  poke 204FA5 01
+4229  poke 204FA6 06
+4236  poke 204F90 80
+4236  poke 204F62 8A
+4236  poke 204FA5 01
+4236  poke 204FA6 00
+4500  end

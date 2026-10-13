@@ -1,0 +1,62 @@
+# Stage 8 through Stage Select Mode (the run of stage_08 up to 5850) with these pokes:
+# - 3502: the stage starts at 3503, where its five lava rocks (multi-part sprites) each take a
+#   second-pool block for their parts; pool 2 count (20EA10) = 4 for that frame: the fifth rock finds
+#   the pool empty and is removed (09199D). 3503: the pool as the game would have it after five
+#   allocations (count F8, slots 1-4 = the four top entries 7E80 7EB0 7EE0 7F10 of this run).
+# - 5730: event 0x1A (from 5724): the leading burning boulder (2046A0) moved 200 back along y: it falls
+#   off the floor at once and is still falling, on screen, when the scroll passes 4800 (08670A).
+# - 5850: player 1, carried off by the event, dies (state 16, substate 0): no player reaches the seesaw,
+#   the boulder's release timer runs to 258 (08678D, 6557); the game ends at 6608 (no continue).
+1800  press coin1
+1920  press start1
+3300  poke 20F061 08
+3400  poke 20F06E 08
+3400  poke 20F06F 00
+3500  press start1
+3502  poke 20EA10 04
+3503  poke 20EA10 F8
+3503  poke 20EA11 00
+3503  poke 20EA12 80
+3503  poke 20EA13 7E
+3503  poke 20EA14 B0
+3503  poke 20EA15 7E
+3503  poke 20EA16 E0
+3503  poke 20EA17 7E
+3503  poke 20EA18 10
+3503  poke 20EA19 7F
+3600  roll 1 0 -6
+3600  press button1
+3641  roll 1 0 0
+3641  press button1
+3800  roll 1 11 0
+3929  roll 1 -10 10
+3929  press button1
+4018  roll 1 -12 0
+4145  roll 1 -5 0
+4191  roll 1 0 -5
+4307  roll 1 11 11
+4469  roll 1 0 5
+4508  roll 1 -6 6
+4686  roll 1 8 -8
+4800  press coin1
+4825  roll 1 12 12
+4860  press start1
+4946  roll 1 12 -12
+5055  roll 1 -12 0
+5214  roll 1 -9 9
+5214  press button1
+5247  roll 1 -8 8
+5247  press button1
+5342  roll 1 0 -6
+5401  roll 1 7 0
+5472  roll 1 10 0
+5545  roll 1 -6 6
+5689  roll 1 5 5
+5689  press button1
+5730  poke 2046F2 9A
+5730  poke 2046F3 0B
+5743  roll 1 0 0
+5850  poke 208400 16
+5850  poke 208403 00
+5850  roll 1 0 0
+6700  end

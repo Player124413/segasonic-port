@@ -1,0 +1,49 @@
+# The touch kinds no object of the game ever has (no code writes them into field 47), run by poke: one player, Stage Select
+# Mode to stage C, a crafted quicksand swirl under him (as in stage_0C_quicksand_stall.txt); the swirl
+# touches him every frame, and its kind (field 47) is changed frame by frame.
+#
+# Reaches: check_player_contacts' table entries for kinds 8, 0x21, 0xF, 0x10, 0x16 and 0x25 (00E4F7,
+# 00E542, 00E50C, 00E50F, 00E521, 00E54E) and the kind 0x25 case (00EC76-00EC80: state 0x2D, held by the
+# object; its handler only returns, so the player stays there).
+#
+# - 3560: a crafted stage_spawns_by_handler record at 20B000 (position 0100, x 0796, y 0ABE, 04 = 0, handler
+#   089927 quicksand_start), FFFF; 3561: the by-handler cursor (20F0DA) points at it. The swirl object is at
+#   204B00 (RAM dump of this run), player 1 stands at its centre from 3565.
+# - 3610: player 1's invulnerability timer (field E of his block, 20840E) = 0x40, so the kinds whose case
+#   hurts (0xF, 0x10, 0x16: 00E62B) do nothing and he stays in the swirl.
+# - 3611-3616: the swirl's kind (204B47) = 8, 0x21, 0xF, 0x10, 0x16, 0x25, one a frame (it is 0x1C); no
+#   object writes these values to field 47 (only 0x16, given to the treadmill belt, which is never
+#   touchable).
+1800  press coin1
+1920  press start1
+3300  poke 20F061 08
+3400  poke 20F06E 0C
+3400  poke 20F06F 00
+3500  press start1
+3560  poke 20B000 00
+3560  poke 20B001 01
+3560  poke 20B002 96
+3560  poke 20B003 07
+3560  poke 20B004 BE
+3560  poke 20B005 0A
+3560  poke 20B006 00
+3560  poke 20B007 00
+3560  poke 20B008 27
+3560  poke 20B009 99
+3560  poke 20B00A 08
+3560  poke 20B00B 00
+3560  poke 20B00C FF
+3560  poke 20B00D FF
+3561  poke 20F0DA 00
+3561  poke 20F0DB B0
+3561  poke 20F0DC 20
+3561  poke 20F0DD 00
+3610  poke 20840E 40
+3610  poke 20840F 00
+3611  poke 204B47 08
+3612  poke 204B47 21
+3613  poke 204B47 0F
+3614  poke 204B47 10
+3615  poke 204B47 16
+3616  poke 204B47 25
+3700  end

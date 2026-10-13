@@ -1,0 +1,68 @@
+# Stage D at its start (ending.txt up to 6700): the falling grates wait for their leader (204B00 at x
+# FEF0, y 01B2); every grate row of stages D and F has direction 0 or 2. At 6700 grate 203FC0 gets
+# direction 1 and y 00B2 (the leader 100 past it), grate 203F20 direction 3 and x FDF0 (the same along
+# x); back to 0 at 6701 (08B258, 08B25C, 08B279-08B292, 08B2AC-08B2C4).
+1800  press coin1
+1860  press start1
+3180  poke 20F061 08
+3280  poke 20F06E 0C
+3280  poke 20F06F 00
+3380  press start1
+3480  roll 1 12 -12
+3480  press button1
+3480  poke 204FDE 18
+3525  press button1
+3570  press button1
+3600  poke 204FDE 18
+3615  press button1
+3660  press button1
+3705  press button1
+3720  poke 204FDE 18
+3750  press button1
+3795  press button1
+3840  press button1
+3840  poke 204FDE 18
+3885  press button1
+3930  press button1
+3960  roll 1 12 12
+3960  poke 204FDE 18
+4080  poke 204FDE 18
+4200  poke 204FDE 18
+4320  poke 204FDE 18
+4440  roll 1 12 12
+4440  poke 204FDE 18
+4560  poke 204FDE 18
+4680  poke 204FDE 18
+4800  poke 204FDE 18
+4920  roll 1 12 12
+4920  poke 204FDE 18
+5040  poke 204FDE 18
+5160  poke 204FDE 18
+5280  poke 204FDE 18
+5400  roll 1 12 12
+5400  poke 204FDE 18
+5520  poke 204FDE 18
+5640  poke 204FDE 18
+5760  poke 204FDE 18
+5880  roll 1 12 -12
+5880  poke 204FDE 18
+6000  poke 204FDE 18
+6120  poke 204FDE 18
+6240  poke 204FDE 18
+6360  roll 1 0 -12
+6360  poke 204FDE 18
+6480  poke 204FDE 18
+6600  poke 204FDE 18
+6700  poke 203FE4 01
+6700  poke 203FE5 00
+6700  poke 204012 B2
+6700  poke 204013 00
+6700  poke 203F44 03
+6700  poke 203F45 00
+6700  poke 203F6E F0
+6700  poke 203F6F FD
+6701  poke 203FE4 00
+6701  poke 203FE5 00
+6701  poke 203F44 00
+6701  poke 203F45 00
+6800  end

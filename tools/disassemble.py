@@ -3,23 +3,31 @@ Name:        disassemble.py
 Description: recursive-descent disassembly of the V60 program into a listing and a coverage report
 Version:     0.1.0
 Created:     11-10-2026
-Modified:    11-10-2026
+Modified:    13-10-2026
 Author:      Sebastian Toyos
 
-Usage: python tools/disassemble.py [rom folder or .zip]   (default: rom/)
+Usage: python tools/disassemble.py [rom folder or .zip] [--trace executed.txt ...]   (default ROM: rom/)
 Writes build/listing/sonic.s and build/listing/report.txt.
+
+--trace adds the addresses a real run executed (tools/reference/s32ref --trace) as entry points
+and checks them against the static analysis: an executed address that falls inside a statically
+decoded instruction means one of the two readings is wrong, and it is reported.
 
 Starts at the entry points in symbols.txt and follows every branch, call and jump whose
 target can be known without running the game. Whatever is never reached stays as data.
 On top of plain flow it understands two patterns the game uses everywhere:
   - branch tables: "jmp table[PC](R0)" lands on a run of "br" instructions (with "nop" padding)
   - pointer tables: "mov.w table[PC](R0), R0" followed by "jsr [R0]" reads a table of addresses
-  - code pointer slots: "movea.b func[PC], 1C[R20]" stores a handler that "jsr [1C[R20]]" calls
+  - code pointer slots: "movea.b func[PC], 1C[R20]" (or an absolute "movea.b func, 1C[R11]") stores
+    a handler that "jsr [1C[R20]]" calls
 A stored or tabled address is accepted as code only if a trial decode of it is clean.
 """
+import re
 import sys
 from collections import deque
+from dataclasses import dataclass
 from pathlib import Path
+from typing import NamedTuple
 
 TOOLS = Path(__file__).resolve().parent
 ROOT = TOOLS.parent
@@ -29,30 +37,250 @@ from v60 import disassembler as dis  # noqa: E402
 
 SYMBOL_KINDS = ("func", "code", "data")
 STACK_POINTER = 31
+MAX_RECORDS = 4096
+CODE_CHIPS = sonic_rom.PROGRAM_AREAS[:2]
+
+
+@dataclass(frozen=True)
+class Layout:
+    """Where a data table holds code addresses (symbols.txt: record=, count=, end=, code=, lists=, pointers=)."""
+    record: int                 # bytes per record
+    code: tuple                 # (offset inside each record, base): a 32-bit code address when base is None,
+                                # else a 16-bit offset from base
+    count: int | None = None    # records per array ...
+    prefixed: bool = False      # ... or: a 16-bit record count comes before the records ...
+    end: int | None = None      # ... or: the array ends with this 16-bit word where the next record would start
+    lists: int | None = None    # the table is this many 16-bit offsets, from its own address, to such arrays
+    pointers: int | None = None  # the table is this many 32-bit addresses of such arrays
+
+
+class Symbol(NamedTuple):
+    kind: str
+    name: str
+    layout: Layout | None = None
+
+
+def parse_code_fields(text, where):
+    """'8,12' or '2:973B4': field offsets, each with the base its 16-bit offset is added to, if any"""
+    fields = []
+    for field in text.split(","):
+        offset, _, base = field.partition(":")
+        try:
+            fields.append((int(offset), int(base, 16) if base else None))
+        except ValueError:
+            raise SystemExit(f"{where}: bad code field '{field}'") from None
+    return tuple(fields)
+
+
+def parse_layout(attributes, where):
+    """Layout from 'key=value' attributes: sizes, offsets and counts in decimal, the end word and bases in hexadecimal"""
+    values = {}
+    for attribute in attributes:
+        name, _, value = attribute.partition("=")
+        if name not in ("record", "count", "end", "code", "lists", "pointers") or not value:
+            raise SystemExit(f"{where}: unknown layout attribute '{attribute}'")
+        values[name] = value
+    if "record" not in values or "code" not in values or ("count" in values) == ("end" in values):
+        raise SystemExit(f"{where}: a layout needs record=, code= and one of count= or end=")
+    if "lists" in values and "pointers" in values:
+        raise SystemExit(f"{where}: lists= and pointers= do not go together")
+    prefixed = values.get("count") == "prefix"
+    return Layout(record=int(values["record"]),
+                  code=parse_code_fields(values["code"], where),
+                  count=int(values["count"]) if "count" in values and not prefixed else None,
+                  prefixed=prefixed,
+                  end=int(values["end"], 16) if "end" in values else None,
+                  lists=int(values["lists"]) if "lists" in values else None,
+                  pointers=int(values["pointers"]) if "pointers" in values else None)
+
+
+NAME_KINDS = ("var", "io", "table", "struct", "field", "register", "scoped", "param", "local")    # names for the decompiled C (load_names)
 
 
 def load_symbols(path):
-    """Read symbols.txt: {canonical address: (kind, name)}."""
+    """Read symbols.txt: {canonical address: Symbol(kind, name, layout)} for the program ROM. The lines
+    that name variables, hardware, tables and structures are for the decompiler (load_names)."""
     symbols = {}
     for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
         line = line.split("#", 1)[0].strip()
         if not line:
             continue
         parts = line.split()
-        if len(parts) != 3 or parts[1] not in SYMBOL_KINDS:
+        if parts[0] in NAME_KINDS or (len(parts) > 1 and parts[1] in NAME_KINDS):
+            continue
+        if len(parts) < 3 or parts[1] not in SYMBOL_KINDS:
             raise SystemExit(f"{path.name}:{number}: expected 'ADDRESS KIND NAME' with KIND in {SYMBOL_KINDS}")
+        if len(parts) > 3 and parts[1] != "data":
+            raise SystemExit(f"{path.name}:{number}: only data symbols take a layout")
         address = sonic_rom.canonical_address(int(parts[0], 16))
         if address is None:
             raise SystemExit(f"{path.name}:{number}: {parts[0]} is not in the program ROM")
-        symbols[address] = (parts[1], parts[2])
+        layout = parse_layout(parts[3:], f"{path.name}:{number}") if len(parts) > 3 else None
+        symbols[address] = Symbol(parts[1], parts[2], layout)
     return symbols
 
 
+VALUE_TYPES = ("u8", "s8", "u16", "s16", "u32", "s32")
+
+
+class Names(NamedTuple):
+    """The names symbols.txt gives the decompiled C besides functions and labels."""
+    variables: dict     # work RAM address -> (name, type)
+    hardware: dict      # address -> (name, type)
+    tables: dict        # program ROM address -> (name, element type)
+    structs: dict       # name -> size
+    fields: dict        # (struct, offset) -> (name, type)
+    registers: dict     # register number -> name, for the registers the whole program shares
+    targets: dict       # (struct, offset) or ("global", address) -> (struct it points at, bits): a u32
+                        # holds its address, a u16 the low half of it (a link in the work RAM page)
+    scoped: dict        # (struct, family) -> {offset: (name, type)}: fields that mean one thing only in the
+                        # code of one family of functions (an object type's own variables)
+    params: dict        # (function name, register number) -> name of what the function takes or hands back
+                        # in that register
+    overlays: dict      # (struct or "global", offset or address, bits) -> (name, type): a narrower name for
+                        # the first bytes of a field or variable (the low half of a 16.16 value)
+    locals: dict        # (function name, address of the instruction that writes it or "entry", "rN" or "tN")
+                        # -> the name of the local variable
+
+
+def load_names(path):
+    """Read the var, io, table, struct and field lines of symbols.txt:
+        ADDRESS  var    NAME  TYPE [STRUCT]  a variable in work RAM (TYPE: u8 s8 u16 s16 u32 s32)
+        ADDRESS  io     NAME  TYPE       a hardware register
+        ADDRESS  table  NAME  TYPE [STRUCT]  data in the program ROM the code reads by index, TYPE per element
+        struct   NAME   SIZE             a structure in work RAM (SIZE in hexadecimal)
+        field    STRUCT OFFSET NAME TYPE [STRUCT]  one of its fields (OFFSET in hexadecimal)
+    A second var or field at the same place with another width names the first bytes of the wider one
+    (x_fraction, the low half of the 16.16 x).
+    A struct name after the type says the value points at one: a u32 its address, a u16 the low half of
+    it (the game links its structures in the work RAM page by 16-bit addresses); "rom" after a u32 says it
+    points into the program ROM.
+        register RN     NAME             a register the whole program shares (a global variable in C)
+        scoped   STRUCT FAMILY OFFSET NAME TYPE  a field as the functions whose names start with FAMILY use
+                                         it, in the structure their code runs on; with "global" for
+                                         STRUCT and an address for OFFSET, work RAM as they use it
+        param    FUNCTION RN NAME        what a function takes or hands back in register RN
+        local    FUNCTION WHERE RN NAME  the local variable of FUNCTION that holds what the instructions at
+                                         WHERE (addresses separated by commas) write in register RN (a
+                                         call: what it hands back in RN); "entry" in WHERE is what RN
+                                         holds when the function starts
+        local    FUNCTION WHERE TN NAME  likewise the N-th value the instruction at WHERE reads or works
+                                         out on its way (t1: what a read-modify-write instruction read)"""
+    names = Names({}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {})
+
+    def declare(table, key, overlay_key, name, kind, where):
+        """The wider of two names at one place is the field or variable; the narrower one an overlay."""
+        old = table.get(key)
+        if old is None:
+            table[key] = (name, kind)
+            return
+        if int(old[1][1:]) == int(kind[1:]):
+            raise SystemExit(f"{where}: '{name}' has the place and width of '{old[0]}'")
+        if int(old[1][1:]) < int(kind[1:]):
+            table[key] = (name, kind)
+            name, kind = old
+        names.overlays[overlay_key + (int(kind[1:]),)] = (name, kind)
+    for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+        line = line.split("#", 1)[0].strip()
+        parts = line.split()
+        if not parts:
+            continue
+        where = f"{path.name}:{number}"
+        if parts[0] == "struct":
+            if len(parts) != 3:
+                raise SystemExit(f"{where}: expected 'struct NAME SIZE'")
+            names.structs[parts[1]] = int(parts[2], 16)
+            continue
+        if parts[0] == "scoped":
+            if len(parts) not in (6, 7) or parts[5] not in VALUE_TYPES:
+                raise SystemExit(f"{where}: expected 'scoped STRUCT FAMILY OFFSET NAME TYPE' with TYPE in {VALUE_TYPES}")
+            names.scoped.setdefault((parts[1], parts[2]), {})[int(parts[3], 16)] = (parts[4], parts[5])
+            continue
+        if parts[0] == "param":
+            if len(parts) != 4 or not parts[2].upper().startswith("R") or not parts[2][1:].isdigit() \
+                    or not parts[3].isidentifier():
+                raise SystemExit(f"{where}: expected 'param FUNCTION RN NAME'")
+            names.params[(parts[1], int(parts[2][1:]))] = parts[3]
+            continue
+        if parts[0] == "local":
+            spots = parts[2].split(",") if len(parts) == 5 else []
+            if not spots or any(spot != "entry" and not re.fullmatch(r"[0-9A-Fa-f]{6}", spot) for spot in spots) \
+                    or not re.fullmatch(r"[rt]\d+", parts[3]) or not parts[4].isidentifier():
+                raise SystemExit(f"{where}: expected 'local FUNCTION WHERE RN NAME' or 'local FUNCTION WHERE TN NAME'")
+            for spot in spots:
+                names.locals[(parts[1], spot if spot == "entry" else int(spot, 16), parts[3])] = parts[4]
+            continue
+        if parts[0] == "register":
+            if len(parts) != 3 or not parts[1].upper().startswith("R") or not parts[1][1:].isdigit():
+                raise SystemExit(f"{where}: expected 'register RN NAME'")
+            names.registers[int(parts[1][1:])] = parts[2]
+            continue
+        if parts[0] == "field":
+            if len(parts) not in (5, 6) or parts[4] not in VALUE_TYPES:
+                raise SystemExit(f"{where}: expected 'field STRUCT OFFSET NAME TYPE [STRUCT]' with TYPE in {VALUE_TYPES}")
+            declare(names.fields, (parts[1], int(parts[2], 16)), (parts[1], int(parts[2], 16)), parts[3], parts[4],
+                    where)
+            if len(parts) == 6:
+                names.targets[(parts[1], int(parts[2], 16))] = (parts[5], int(parts[4][1:]))
+            continue
+        if len(parts) < 2 or parts[1] not in ("var", "io", "table"):
+            continue
+        if len(parts) not in (4, 5) or parts[3] not in VALUE_TYPES or (len(parts) == 5 and parts[1] == "io"):
+            raise SystemExit(f"{where}: expected 'ADDRESS {parts[1]} NAME TYPE' with TYPE in {VALUE_TYPES}")
+        address = int(parts[0], 16)
+        target = {"var": names.variables, "io": names.hardware, "table": names.tables}[parts[1]]
+        if parts[1] == "var":
+            declare(target, address, ("global", address), parts[2], parts[3], where)
+        else:
+            target[address] = (parts[2], parts[3])
+        if len(parts) == 5:
+            names.targets[("global", address)] = (parts[4], int(parts[3][1:]))
+    for (struct, _), (pointed, _) in names.targets.items():
+        if pointed not in names.structs and pointed != "rom":
+            raise SystemExit(f"{path.name}: points at '{pointed}', which is no struct (nor 'rom')")
+    return names
+
+
+def load_trace(paths, fold_mirrors=True):
+    """Read s32ref address lists: (program addresses, count of addresses outside the program ROM).
+
+    With fold_mirrors the addresses are folded to their canonical copy; without it they are kept as
+    executed, which is what the C generator needs.
+    """
+    addresses = set()
+    outside = 0
+    for path in paths:
+        for line in Path(path).read_text(encoding="ascii").splitlines():
+            if not line or line.startswith("#"):
+                continue
+            address = int(line, 16)
+            canonical = sonic_rom.canonical_address(address)
+            if canonical is None:
+                outside += 1
+            else:
+                addresses.add(canonical if fold_mirrors else address & 0xFFFFFF)
+    return addresses, outside
+
+
 class Analysis:
-    def __init__(self, image, symbols):
+    """Static analysis of the V60 program.
+
+    With fold_mirrors (the listing) every address is folded to its canonical copy. Without it
+    (the C generator) addresses are kept as the CPU runs them: the same ROM bytes reached through
+    two mirrors are two separate pieces of code, because PC-relative operands differ.
+    'entries' replaces the code entry points of symbols.txt: a list of (address, kind).
+    """
+
+    def __init__(self, image, symbols, trace=frozenset(), fold_mirrors=True, entries=None):
         self.image = image
         self.mem = sonic_rom.ProgramMemory(image)
         self.symbols = symbols
+        self.fold = fold_mirrors
+        self.entries = entries
+        self.executed = trace    # addresses a real run executed
+        self.trace_added = 0     # executed addresses the static analysis had not reached
+        self.trace_conflicts = []  # executed addresses inside a statically decoded instruction
+        self.trace_outside = 0   # executed addresses outside the program ROM (code in RAM)
         self.instructions = {}   # start address -> Instruction
         self.owner = {}          # every byte of decoded code -> start of its instruction
         self.labels = {}         # address -> "func" | "loc" | "data"
@@ -64,24 +292,117 @@ class Analysis:
         self.pointer_writes = [] # (address of the store, stored value, slot displacement)
         self.rejected = []       # (candidate, address of the store): stored values that do not decode cleanly
         self.data_words = {}     # address of a pointer table entry -> address it points to
+        self.described = []      # (first, stop): bytes of the tables symbols.txt describes with a layout
+        self.described_targets = set()  # code addresses those tables hold
+        self.jump_tables = {}    # address of "jmp table(Rx)" -> addresses of its "br" entries
+        self.call_tables = {}    # address of "jsr table(Rx)" -> addresses of its "br" entries
+        self.pointer_tables = {} # address of "jsr [Rx]" fed by a table -> addresses in the table
+        self.return_jumps = {}   # address of a return that lands on a pushed address -> that address
+        self.push_jumps = {}     # address of a jump that acts as a call (pushed return) -> return address
         self.pending = deque()
 
-    def add_target(self, address, kind, origin, label=True):
+    def key(self, address):
+        """The address code is known by: canonical, or as executed (24-bit) without folding."""
         canonical = sonic_rom.canonical_address(address)
         if canonical is None:
+            return None
+        return canonical if self.fold else address & 0xFFFFFF
+
+    @staticmethod
+    def fits(address, length):
+        """True if an instruction at 'address' lies inside one ROM area (does not run off its end)."""
+        start = sonic_rom.canonical_address(address)
+        end = sonic_rom.canonical_address(address + length - 1)
+        return start is not None and end == start + length - 1
+
+    def add_target(self, address, kind, origin, label=True):
+        key = self.key(address)
+        if key is None:
             self.outside.append((origin, address))
             return
-        if label and (kind == "func" or canonical not in self.labels):
-            self.labels[canonical] = kind
-        self.pending.append((canonical, origin))
+        if label and (kind == "func" or key not in self.labels):
+            self.labels[key] = kind
+        self.pending.append((key, origin))
 
     def run(self):
-        for address, (kind, _) in sorted(self.symbols.items()):
-            if kind == "data":
-                self.labels[address] = "data"
-            else:
-                self.add_target(address, "func" if kind == "func" else "loc", address)
+        if self.entries is None:
+            for address, symbol in sorted(self.symbols.items()):
+                if symbol.kind == "data":
+                    self.labels[address] = "data"
+                else:
+                    self.add_target(address, "func" if symbol.kind == "func" else "loc", address)
+        else:
+            for address, kind in self.entries:
+                self.add_target(address, kind, address)
+        for address, symbol in sorted(self.symbols.items()):
+            if symbol.layout is not None:
+                self.described_table(address, symbol)
         tried = set()
+        self.settle(tried)
+        if not self.executed:
+            return
+
+        # executed addresses the static analysis did not reach become entry points
+        added = [address for address in sorted(self.executed)
+                 if address not in self.instructions and address not in self.owner]
+        for address in added:
+            self.add_target(address, "loc", address, label=False)
+        self.settle(tried)
+        self.trace_added = sum(1 for address in added if address in self.instructions)
+        # label the ones that are not just the next instruction of other executed code
+        fall_through = {instruction.address + instruction.length for instruction in self.instructions.values()
+                        if instruction.flow not in (dis.FLOW_JUMP, dis.FLOW_RETURN)}
+        for address in added:
+            if address in self.instructions and address not in fall_through:
+                self.labels.setdefault(address, "loc")
+        self.trace_conflicts = sorted((address, self.owner[address]) for address in self.executed
+                                      if address not in self.instructions and address in self.owner)
+
+    def described_table(self, address, symbol):
+        """Follow the code addresses of a table that symbols.txt describes, and keep the bytes it spans."""
+        layout = symbol.layout
+        if layout.lists is not None:
+            arrays = [address + self.mem.r16(address + 2 * number) for number in range(layout.lists)]
+            self.described.append((address, address + 2 * layout.lists))
+        elif layout.pointers is not None:
+            arrays = [sonic_rom.canonical_address(self.mem.r32(address + 4 * number))
+                      for number in range(layout.pointers)]
+            self.described.append((address, address + 4 * layout.pointers))
+            if None in arrays:
+                raise SystemExit(f"symbols.txt: {symbol.name} points outside the program ROM")
+        else:
+            arrays = [address]
+        for array in arrays:
+            record = array
+            count = layout.count
+            if layout.prefixed:
+                count = self.mem.r16(array)
+                record += 2
+            for number in range(MAX_RECORDS):
+                if count is not None and number == count:
+                    break
+                if layout.end is not None and self.mem.r16(record) == layout.end:
+                    record += 2
+                    break
+                for offset, base in layout.code:
+                    value = self.mem.r32(record + offset) if base is None else base + self.mem.r16(record + offset)
+                    if value == 0:
+                        continue   # no handler
+                    target = sonic_rom.canonical_address(value)
+                    if target is None or not any(start <= target < end for start, end in CODE_CHIPS):
+                        raise SystemExit(f"symbols.txt: {symbol.name} record at {record:06X} holds "
+                                         f"{value:08X} at +{offset}, which is not in the code ROM")
+                    if base is None:
+                        self.data_words[record + offset] = target
+                    self.add_target(value, "func", record + offset)
+                    self.described_targets.add(value & 0xFFFFFF)
+                record += layout.record
+            else:
+                raise SystemExit(f"symbols.txt: {symbol.name} array at {array:06X} has no end in sight")
+            self.described.append((array, record))
+
+    def settle(self, tried):
+        """Follow every pending path, then stored code pointers, until nothing new turns up."""
         while True:
             while self.pending:
                 address, origin = self.pending.popleft()
@@ -89,12 +410,14 @@ class Analysis:
             # stored code pointers whose slot is read by an indirect call
             found = False
             for store, value, slot in self.pointer_writes:
-                candidate = sonic_rom.canonical_address(value)
-                if slot not in self.slots or candidate is None or candidate in self.instructions \
-                        or (candidate, store) in tried:
+                candidate = self.key(value)
+                if slot not in self.slots or candidate is None or (candidate, store) in tried:
                     continue
                 tried.add((candidate, store))
-                if self.trial(candidate):
+                if candidate in self.instructions:
+                    # already decoded through a branch, but the indirect call enters there too
+                    self.labels[candidate] = "func"
+                elif self.trial(candidate):
                     self.add_target(candidate, "func", store)
                     found = True
                 else:
@@ -112,12 +435,11 @@ class Analysis:
                 if address in self.owner:
                     return False
                 instruction = dis.decode(self.mem, address)
-                last_byte = address + instruction.length - 1
-                if instruction.flow == dis.FLOW_INVALID or sonic_rom.canonical_address(last_byte) != last_byte:
+                if instruction.flow == dis.FLOW_INVALID or not self.fits(address, instruction.length):
                     return False
                 seen.add(address)
                 if instruction.target is not None:
-                    target = sonic_rom.canonical_address(instruction.target)
+                    target = self.key(instruction.target)
                     if target is None:
                         return False
                     if instruction.flow in (dis.FLOW_BRANCH, dis.FLOW_JUMP):
@@ -128,38 +450,47 @@ class Analysis:
         return True
 
     def branch_table(self, base, called, origin):
-        """A run of 'br' entries (and 'nop' padding) indexed by a register."""
-        cursor = sonic_rom.canonical_address(base)
+        """A run of 'br' or fixed 'jmp' entries (and 'nop' padding) indexed by a register."""
+        cursor = self.key(base)
         if cursor is None:
             self.outside.append((origin, base))
             return
         self.labels.setdefault(cursor, "loc")
+        entries = (self.call_tables if called else self.jump_tables).setdefault(origin, [])
         for _ in range(1024):
             entry = dis.decode(self.mem, cursor)
-            if entry.mnemonic == "br":
+            if entry.mnemonic == "br" or (entry.mnemonic == "jmp" and entry.target is not None):
                 self.add_target(cursor, "loc", origin, label=False)
+                entries.append(cursor)
                 if called:
-                    target = sonic_rom.canonical_address(entry.target)
+                    target = self.key(entry.target)
                     if target is not None:
                         self.labels[target] = "func"
             elif entry.mnemonic == "nop":
                 self.add_target(cursor, "loc", origin, label=False)
+                entries.append(cursor)
             else:
+                # the last case can be plain code right after the branches (seen at 0998B8)
+                if cursor in self.instructions or self.trial(cursor):
+                    self.add_target(cursor, "func" if called else "loc", origin, label=False)
+                    entries.append(cursor)
                 return
             cursor += entry.length
 
     def pointer_table(self, base, called, origin):
         """A run of 32-bit code addresses indexed by a register; ends at the first entry that is not code."""
-        cursor = sonic_rom.canonical_address(base)
+        cursor = self.key(base)
         if cursor is None:
             self.outside.append((origin, base))
             return
         self.labels.setdefault(cursor, "data")
+        targets = self.pointer_tables.setdefault(origin, [])
         for _ in range(512):
-            target = sonic_rom.canonical_address(self.mem.r32(cursor))
+            target = self.key(self.mem.r32(cursor))
             if target is None or not self.trial(target):
                 return
             self.data_words[cursor] = target
+            targets.append(target)
             self.add_target(target, "func" if called else "loc", origin)
             cursor += 4
 
@@ -173,7 +504,7 @@ class Analysis:
                 return
             instruction = dis.decode(self.mem, address)
             last_byte = address + instruction.length - 1
-            if instruction.flow == dis.FLOW_INVALID or sonic_rom.canonical_address(last_byte) != last_byte:
+            if instruction.flow == dis.FLOW_INVALID or not self.fits(address, instruction.length):
                 self.invalid.append((address, instruction.text, origin))
                 return
             taken = [a for a in range(address, last_byte + 1) if a in self.owner]
@@ -193,17 +524,25 @@ class Analysis:
     def follow(self, instruction, previous):
         kind = "func" if instruction.flow == dis.FLOW_CALL else "loc"
         first = instruction.operands[0] if instruction.operands else None
-        if instruction.target is not None:
+        pushed = self.pushed_return(previous)
+        if instruction.flow == dis.FLOW_JUMP and instruction.target is not None and pushed is not None:
+            # "movea back[PC], [-SP]" + "br func": a call to func that returns to 'back'
+            self.add_target(pushed, "loc", previous.address)
+            self.add_target(instruction.target, "func", instruction.address)
+            self.push_jumps[instruction.address] = self.key(pushed)
+        elif instruction.target is not None:
             self.add_target(instruction.target, kind, instruction.address)
         elif instruction.target_pointer is not None:
-            pointer = sonic_rom.canonical_address(instruction.target_pointer)
+            pointer = self.key(instruction.target_pointer)
             if pointer is None:
                 self.unresolved.append((instruction.address, instruction.text))
             else:
                 self.labels.setdefault(pointer, "data")
                 self.add_target(self.mem.r32(pointer), kind, instruction.address)
         elif instruction.mnemonic in ("jmp", "jsr") and first.mode in ("pc_disp_indexed", "direct_indexed"):
-            self.branch_table(first.value, instruction.mnemonic == "jsr", instruction.address)
+            # a jump through a table right after pushing a return address calls the entries (seen at 099881)
+            called = instruction.mnemonic == "jsr" or pushed is not None
+            self.branch_table(first.value, called, instruction.address)
         elif instruction.mnemonic in ("jmp", "jsr") and first.mode == "reg_indirect" \
                 and self.loads_table_entry(previous, first.reg):
             self.pointer_table(previous.operands[0].value, instruction.mnemonic == "jsr", instruction.address)
@@ -212,21 +551,37 @@ class Analysis:
             if first is not None and first.mode == "disp_indirect":
                 self.slots.add(first.disp)
 
-        # code pointer stores: "movea.b func[PC], slot" or "mov.w #func, slot"
+        # code pointer stores: "movea.b func[PC], slot", "movea.b func, slot" or "mov.w #func, slot"
         if len(instruction.operands) == 2 and instruction.flow == dis.FLOW_NORMAL:
             source, dest = instruction.operands
             if dest.mode == "disp":
-                if instruction.mnemonic.startswith("movea") and source.mode == "pc_disp":
+                if instruction.mnemonic.startswith("movea") and source.mode in ("pc_disp", "direct"):
                     self.pointer_writes.append((instruction.address, source.value, dest.disp))
                 elif instruction.mnemonic == "mov.w" and source.mode == "immediate":
                     self.pointer_writes.append((instruction.address, source.value, dest.disp))
 
         # "movea target[PC], [-SP]" right before a return: the return lands on target
-        if instruction.flow == dis.FLOW_RETURN and previous is not None \
-                and previous.mnemonic.startswith("movea") and len(previous.operands) == 2:
-            source, dest = previous.operands
-            if source.mode == "pc_disp" and dest.mode == "autodec" and dest.reg == STACK_POINTER:
-                self.add_target(source.value, "loc", previous.address)
+        if instruction.flow == dis.FLOW_RETURN and pushed is not None:
+            self.add_target(pushed, "loc", previous.address)
+            self.return_jumps[instruction.address] = self.key(pushed)
+
+        # any "movea target[PC], [-SP]" pushes a place a later return may land on (a loop head, say);
+        # it could also be a data pointer passed on the stack, so it has to decode cleanly first
+        own = self.pushed_return(instruction)
+        if own is not None:
+            candidate = self.key(own)
+            if candidate is not None and (candidate in self.instructions or self.trial(candidate)):
+                self.add_target(own, "loc", instruction.address)
+
+    @staticmethod
+    def pushed_return(previous):
+        """The address a "movea target[PC], [-SP]" pushes, or None for any other instruction."""
+        if previous is None or not previous.mnemonic.startswith("movea") or len(previous.operands) != 2:
+            return None
+        source, dest = previous.operands
+        if source.mode == "pc_disp" and dest.mode == "autodec" and dest.reg == STACK_POINTER:
+            return source.value
+        return None
 
     @staticmethod
     def loads_table_entry(previous, reg):
@@ -238,7 +593,7 @@ class Analysis:
 
     def label_name(self, address):
         if address in self.symbols:
-            return self.symbols[address][1]
+            return self.symbols[address].name
         kind = self.labels.get(address)
         if kind is None:
             return None
@@ -316,6 +671,16 @@ def write_report(analysis, path):
         f"overlapping paths:   {len(analysis.overlaps)}",
         f"targets outside ROM: {len(analysis.outside)}",
     ]
+    if analysis.executed:
+        confirmed = sum(1 for address in analysis.executed if address in analysis.instructions)
+        lines += [
+            "",
+            f"trace: executed addresses        {len(analysis.executed)}",
+            f"trace: found by static analysis  {confirmed - analysis.trace_added}",
+            f"trace: added from the trace      {analysis.trace_added}",
+            f"trace: conflicts                 {len(analysis.trace_conflicts)}",
+            f"trace: outside the program ROM   {analysis.trace_outside}",
+        ]
     sections = [
         ("Unresolved jumps and calls (target comes from registers or RAM)", analysis.unresolved,
          lambda item: f"{item[0]:06X}  {item[1]}"),
@@ -327,6 +692,8 @@ def write_report(analysis, path):
          lambda item: f"{item[0]:06X}  -> {item[1]:08X}"),
         ("Stored code pointers rejected by the trial decode", analysis.rejected,
          lambda item: f"{item[0]:06X}  stored at {item[1]:06X}"),
+        ("Executed addresses inside a statically decoded instruction", analysis.trace_conflicts,
+         lambda item: f"{item[0]:06X}  inside instruction at {item[1]:06X}"),
     ]
     for title, items, render in sections:
         if items:
@@ -337,16 +704,29 @@ def write_report(analysis, path):
 
 
 def main():
-    source = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / "rom"
+    arguments = sys.argv[1:]
+    trace_paths = []
+    while "--trace" in arguments:
+        position = arguments.index("--trace")
+        if position + 1 >= len(arguments):
+            raise SystemExit("Usage: python tools/disassemble.py [rom folder or .zip] [--trace executed.txt ...]")
+        trace_paths.append(arguments[position + 1])
+        del arguments[position:position + 2]
+    source = Path(arguments[0]) if arguments else ROOT / "rom"
+
     image = sonic_rom.build_program(sonic_rom.load_set(source))
-    analysis = Analysis(image, load_symbols(ROOT / "symbols.txt"))
+    executed, outside = load_trace(trace_paths)
+    analysis = Analysis(image, load_symbols(ROOT / "symbols.txt"), executed)
+    analysis.trace_outside = outside
     analysis.run()
 
     out_dir = ROOT / "build" / "listing"
     out_dir.mkdir(parents=True, exist_ok=True)
     write_listing(analysis, out_dir / "sonic.s")
     report = write_report(analysis, out_dir / "report.txt")
-    print("\n".join(report[:17]))
+    # print everything up to the first detailed section (a title underlined with dashes)
+    end = next((index for index in range(3, len(report) - 1) if report[index + 1].startswith("-")), len(report))
+    print("\n".join(report[:end]).rstrip())
     print(f"\nListing: {out_dir / 'sonic.s'}\nReport:  {out_dir / 'report.txt'}")
     return 0
 

@@ -1,0 +1,48 @@
+# Ranking name entry (player state 2E, enter_ranking_initials) for two players at once: a two-player
+# game (common chute), both scores poked high enough for the ranking (13A of the player blocks:
+# 20853A = 03E8, 20873A = 03E9) and both players put in their dying state (16) at 4000; their entries
+# start at 4631/4633. Player 1: trackball x to the left at the first letter (the cursor stays at 0,
+# 08ED61), y up past the last letter code 2B (it wraps to 0, 08EDC6) to 'X', then 'X' twice and END:
+# XXX is one of the initials the game turns into 'tak' (08EEC9). Player 2 enters nothing: its entry
+# times out (4B0 frames, 08ECD0).
+# Added pokes (a poke at frame N acts on the game code of frame N + 1):
+# - 4700: string_count (20C800, the strings queued this frame; draw_queued_strings empties it at the
+#   end of every frame) set to 2A: the name entry queues a few strings a frame, the second one finds
+#   43 queued and is dropped (08E8B8). The stale queue entries are drawn once.
+# - 5000: player 2's letter index (93 of its entry block 20DC60; 0-3, 3 = END) set to 4: the cursor
+#   code clamps it back to 3 (08ED8F). 5050: 4 again while player 2 presses its button (5050, seen at
+#   5051): the next-letter code clamps it (08ECC4). Player 2's entry still times out at 5833.
+# - 5020: ranking_entry_players (208095, a bit per running entry; 02 = player 2 only) cleared for a
+#   frame: enter_ranking_initials returns at once for player 2 (08EC93); 5021: back to 02.
+1800  press coin1
+1820  press coin1
+1880  press start1
+1900  press start2
+2180  roll 1 8 0
+4000  poke 20853A E8
+4000  poke 20853B 03
+4000  poke 20873A E9
+4000  poke 20873B 03
+4000  poke 208400 16
+4000  poke 208403 00
+4000  poke 208600 16
+4000  poke 208603 00
+4010  roll 1 0 0
+4650  roll 1 64 0
+4660  roll 1 0 64
+4700  poke 20C800 2A
+4794  roll 1 0 0
+4800  press button1
+4810  roll 1 0 64
+4856  roll 1 0 0
+4870  press button1
+4880  roll 1 0 64
+4926  roll 1 0 0
+4940  press button1
+4960  press button1
+5000  poke 20DCF3 04
+5020  poke 208095 00
+5021  poke 208095 02
+5050  press button2
+5050  poke 20DCF3 04
+6000  end
