@@ -145,6 +145,7 @@ class Names(NamedTuple):
     ports: dict         # I/O port number -> name (a processor with ports of its own: the Z80)
     param_structs: dict  # (function name, register number) -> the structure the parameter points at
     results: dict       # (function name, register number) -> name of what a function nothing calls hands back
+    local_structs: dict  # (function name, WHERE, "rN") -> the structure the local variable points at
 
 
 def load_names(path, registers=None):
@@ -167,10 +168,11 @@ def load_names(path, registers=None):
                                          what it takes there points at one)
         result   FUNCTION RN NAME [STRUCT]  what a function nothing calls hands back in register RN (no
                                          caller says it: the ones that do call get it from what they read)
-        local    FUNCTION WHERE RN NAME  the local variable of FUNCTION that holds what the instructions at
-                                         WHERE (addresses separated by commas) write in register RN (a
-                                         call: what it hands back in RN); "entry" in WHERE is what RN
-                                         holds when the function starts
+        local    FUNCTION WHERE RN NAME [STRUCT]  the local variable of FUNCTION that holds what the
+                                         instructions at WHERE (addresses separated by commas) write in
+                                         register RN (a call: what it hands back in RN); "entry" in WHERE is
+                                         what RN holds when the function starts; a structure: what it holds
+                                         points at one
         local    FUNCTION WHERE TN NAME  likewise the N-th value the instruction at WHERE reads or works
                                          out on its way (t1: what a read-modify-write instruction read)
         local    FUNCTION WHERE SN NAME  the stack slot N bytes (hexadecimal) below where SP stood when the
@@ -178,7 +180,7 @@ def load_names(path, registers=None):
         ADDRESS  port   NAME             an I/O port
     'registers' ({name: number}) lets param and local lines name a register by its name (hl, iy) on a
     processor whose registers have names; RN works on any."""
-    names = Names({}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {})
+    names = Names({}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {})
     registers = registers or {}
 
     def register_number(text):
@@ -227,15 +229,18 @@ def load_names(path, registers=None):
                 names.param_structs[(parts[1], register_number(parts[2]))] = parts[4]
             continue
         if parts[0] == "local":
-            spots = parts[2].split(",") if len(parts) == 5 else []
-            value = parts[3] if len(parts) == 5 else ""
+            spots = parts[2].split(",") if len(parts) in (5, 6) else []
+            value = parts[3] if len(parts) in (5, 6) else ""
             if not re.fullmatch(r"[rt]\d+|s[0-9A-F]+", value) and register_number(value) is not None:
                 value = f"r{register_number(value)}"
             if not spots or any(spot != "entry" and not re.fullmatch(r"[0-9A-Fa-f]{4,6}", spot) for spot in spots) \
                     or not re.fullmatch(r"[rt]\d+|s[0-9A-F]+", value) or not parts[4].isidentifier():
-                raise SystemExit(f"{where}: expected 'local FUNCTION WHERE RN NAME' or 'local FUNCTION WHERE TN NAME'")
+                raise SystemExit(f"{where}: expected 'local FUNCTION WHERE RN NAME [STRUCT]' or 'local FUNCTION WHERE TN NAME'")
             for spot in spots:
-                names.locals[(parts[1], spot if spot == "entry" else int(spot, 16), value)] = parts[4]
+                key = (parts[1], spot if spot == "entry" else int(spot, 16), value)
+                names.locals[key] = parts[4]
+                if len(parts) == 6:
+                    names.local_structs[key] = parts[5]
             continue
         if parts[0] == "register":
             if len(parts) != 3 or not parts[1].upper().startswith("R") or not parts[1][1:].isdigit():
@@ -273,6 +278,9 @@ def load_names(path, registers=None):
     for (function, _), pointed in names.param_structs.items():
         if pointed not in names.structs:
             raise SystemExit(f"{path.name}: a parameter of {function} points at '{pointed}', which is no struct")
+    for (function, _, _), pointed in names.local_structs.items():
+        if pointed not in names.structs:
+            raise SystemExit(f"{path.name}: a local of {function} points at '{pointed}', which is no struct")
     return names
 
 

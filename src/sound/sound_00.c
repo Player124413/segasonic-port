@@ -348,11 +348,11 @@ void write_pcm_register(uint8_t pcm_register, uint8_t register_value)
 	z80_write8((pcm_register & 0xFFu) | 0xC000u, register_value);
 }
 
-void init_track_channels(uint8_t unused_c)
+void init_track_channels(uint32_t unused_c)
 {
 	uint8_t voices_left = 0;
 	uint16_t code_entry = 0, sample_voice = 0;
-	uint16_t saved_count_and_c = 0;
+	uint8_t saved_voices_left = 0;
 
 	z80_block(27);
 	sample_voice = 0xE401u;
@@ -361,12 +361,11 @@ void init_track_channels(uint8_t unused_c)
 	for (;;)
 	{
 		z80_block(70);
-		saved_count_and_c = ((uint32_t)voices_left << 8) | (unused_c & 0xFFu);
+		saved_voices_left = voices_left;
 		SAMPLE_VOICE(sample_voice - 0x1u)->chip_channel = SOUND_ROM8(code_entry);
 		code_entry++;
 		sample_voice += 0x12u;
-		unused_c = (uint8_t)saved_count_and_c;
-		voices_left = (saved_count_and_c >> 8) - 1u;
+		voices_left = saved_voices_left - 1u;
 		if (voices_left == 0u)
 			break;
 		z80_cycles(5);
@@ -387,9 +386,9 @@ void init_pcm_tracks(void)
 		z80_block(98);
 		SAMPLE_VOICE(sample_voice - 0x9u)->wave_page = 0xD0u;
 		sample_voice += 7u;
-		SAMPLE_VOICE(sample_voice - 0x10u)->stream_position_low = 0xFFu;
+		AS8(SAMPLE_VOICE(sample_voice - 0x10u)->stream_position) = 0xFFu;
 		sample_voice++;
-		SAMPLE_VOICE(sample_voice - 0x11u)->stream_position_high = 7u;
+		AT8(SAMPLE_VOICE(sample_voice - 0x11u)->stream_position, 1) = 7u;
 		sample_voice += 0xAu;
 		voices_left--;
 		if (voices_left == 0u)
@@ -467,7 +466,8 @@ void handle_midi_message(void)
 {
 	uint8_t parts_left = 0, status = 0;
 	uint16_t channel_and_index = 0, ignored16 = 0, part = 0, parts_left_and_byte = 0;
-	uint16_t saved_parts_and_byte = 0, saved_channel_and_index = 0;
+	uint8_t saved_parts_left = 0, saved_parts_left_and_byte = 0;
+	uint16_t saved_channel_and_index = 0;
 
 	z80_block(26);
 	channel_and_index = midi_queue_count_ADDRESS;
@@ -499,7 +499,6 @@ void handle_midi_message(void)
 		z80_block(30);
 		if (MIDI_PART(part)->flags >> 7 == 0u)
 		{
-		next_part:
 			z80_block(33);
 			part += 9u;
 			parts_left--;
@@ -509,18 +508,25 @@ void handle_midi_message(void)
 			continue;
 		}
 		z80_block(33);
-		if (channel_and_index >> 8 != MIDI_PART(part)->midi_channel)
-			goto next_part;
-		z80_block(39);
-		saved_parts_and_byte = ((uint32_t)parts_left << 8) | (parts_left_and_byte & 0xFFu);
-		saved_channel_and_index = channel_and_index;
-		play_midi_message(parts_left_and_byte, part);
-		z80_block(37);
-		channel_and_index = saved_channel_and_index;
-		parts_left_and_byte = saved_parts_and_byte;
-		parts_left = (uint8_t)(saved_parts_and_byte >> 8);
-		midi_queue_read = (uint8_t)channel_and_index;
-		goto next_part;
+		if (channel_and_index >> 8 == MIDI_PART(part)->midi_channel)
+		{
+			z80_block(39);
+			saved_parts_left = parts_left;
+			saved_parts_left_and_byte = (uint8_t)parts_left_and_byte;
+			saved_channel_and_index = channel_and_index;
+			play_midi_message(parts_left_and_byte, part);
+			z80_block(37);
+			channel_and_index = saved_channel_and_index;
+			parts_left_and_byte = saved_parts_left_and_byte;
+			parts_left = saved_parts_left;
+			midi_queue_read = (uint8_t)channel_and_index;
+		}
+		z80_block(33);
+		part += 9u;
+		parts_left--;
+		if (parts_left == 0u)
+			break;
+		z80_cycles(5);
 	}
 	skip_midi_data((uint8_t)parts_left_and_byte);
 }
@@ -562,9 +568,9 @@ void skip_midi_data(uint8_t first_byte)
 void play_midi_message(uint16_t message_byte, uint16_t part)
 {
 	uint32_t carry = 0;
-	uint8_t bend = 0, bend_high = 0, bend_low = 0, bend_sign = 0, bend_steps = 0, channel = 0, channel_index = 0, channels_left = 0, chip_channel = 0, chip_channel_2 = 0, control_register = 0, control_value = 0, controller = 0, controller_number = 0, controls = 0, count_or_channel = 0, depth = 0, detune = 0, detune_low = 0, detune_sign = 0, effective_volume = 0, event = 0, first_byte = 0, first_data_byte = 0, flags = 0, fm_detune = 0, fm_register = 0, ignored8 = 0, keys_on = 0, level = 0, level_register = 0, lowest_order = 0, modulation_depth = 0, note = 0, note_number = 0, note_to_mark = 0, octave = 0, old_controls = 0, operators_left = 0, order = 0, part_channel = 0, parts_left = 0, pcm_register = 0, pitch_bend_high = 0, pitch_bend_low = 0, preset = 0, program = 0, register_number = 0, register_value = 0, rounded_volume = 0, sample = 0, scale = 0, setup = 0, total_level = 0, velocity = 0, velocity_then_steal_low = 0, vibrato_preset = 0, voice_channel = 0, voice_chip_channel = 0, voice_note = 0, voices_left = 0, voices_or_bytes_left = 0, voices_unchecked = 0, volume = 0, volume_curve = 0, volume_scale = 0;
+	uint8_t bend = 0, bend_high = 0, bend_low = 0, bend_sign = 0, bend_steps = 0, channel = 0, channel_index = 0, channels_left = 0, chip_channel = 0, control_register = 0, control_value = 0, controller = 0, controller_number = 0, controls = 0, count_or_channel = 0, depth = 0, detune = 0, detune_low = 0, detune_sign = 0, effective_volume = 0, event = 0, first_byte = 0, first_data_byte = 0, flags = 0, fm_detune = 0, fm_register = 0, ignored8 = 0, keys_on = 0, level = 0, level_register = 0, lowest_order = 0, modulation_depth = 0, note = 0, note_number = 0, note_to_mark = 0, octave = 0, old_controls = 0, operators_left = 0, order = 0, part_channel = 0, parts_left = 0, pcm_register = 0, pitch_bend_high = 0, pitch_bend_low = 0, preset = 0, program = 0, register_number = 0, register_value = 0, rounded_volume = 0, sample = 0, scale = 0, setup = 0, total_level = 0, velocity = 0, velocity_then_steal_low = 0, vibrato_preset = 0, voice_channel = 0, voice_chip_channel = 0, voice_note = 0, voices_left = 0, voices_or_bytes_left = 0, voices_unchecked = 0, volume = 0, volume_curve = 0, volume_scale = 0;
 	uint16_t bend_entry = 0, bend_index = 0, channel_in_part = 0, channel_offset = 0, controls_entry = 0, each_part = 0, fnum = 0, fnum_entry = 0, fnum_table_entry = 0, free_fm_voice = 0, free_voice = 0, ignored16 = 0, instrument = 0, kept_channel = 0, kit_note = 0, level_product = 0, new_voice = 0, new_voice_field = 0, note_index = 0, order_entry = 0, patch_levels = 0, pitch = 0, pitch_entry = 0, pitch_table_entry = 0, preset_address = 0, preset_data = 0, preset_target = 0, register_channel = 0, register_list = 0, scaled_part_volume = 0, setup_data = 0, velocity_index = 0, voice = 0, voice_field = 0, voice_size = 0, voices_left_pair = 0, voices_to_end_at = 0;
-	uint8_t saved_channel = 0;
+	uint8_t saved_channel = 0, saved_count = 0, saved_value = 0, saved_voices_left = 0;
 	uint16_t saved_outer = 0, saved_inner = 0;
 	uint8_t old_voices_to_end = 0, note_level_byte = 0, level_rotated = 0, fm_detune_byte = 0, sample_detune_byte = 0, octave_bits = 0, negated_bend = 0, negated_steps = 0, modulation_value = 0, modulation_rotated_1 = 0, modulation_rotated_2 = 0, doubled_volume = 0, doubled_music_volume = 0;
 
@@ -721,7 +727,7 @@ void play_midi_message(uint16_t message_byte, uint16_t part)
 					preset_address = vibrato_presets_ADDRESS;
 					preset_address = read_table_word(preset_address, vibrato_preset);
 					z80_block(353);
-					preset_data = ((uint32_t)(preset_address >> 8) << 8) | (uint8_t)preset_address;
+					preset_data = preset_address;
 					preset_target = new_fm_voice + 7u;
 					FM_VOICE(preset_target - 0x7u)->vibrato_delay = z80_read8(preset_data);
 					preset_data++;
@@ -824,7 +830,8 @@ void play_midi_message(uint16_t message_byte, uint16_t part)
 				for (;;)
 				{
 					z80_block(63);
-					saved_outer = ((uint32_t)operators_left << 8) | part_channel;
+					saved_count = operators_left;
+					saved_value = part_channel;
 					register_number = z80_read8(register_list) + part_channel;
 					register_list++;
 					level_register = register_number;
@@ -840,8 +847,8 @@ void play_midi_message(uint16_t message_byte, uint16_t part)
 					fm_register = level_register;
 					write_fm_channel(fm_register, total_level);
 					z80_block(18);
-					part_channel = (uint8_t)saved_outer;
-					operators_left = (saved_outer >> 8) - 1u;
+					part_channel = saved_value;
+					operators_left = saved_count - 1u;
 					if (operators_left == 0u)
 						break;
 					z80_cycles(5);
@@ -916,21 +923,21 @@ void play_midi_message(uint16_t message_byte, uint16_t part)
 			voice_6_allocation_order--;
 			voice_7_allocation_order--;
 			pcm_voices_used = 7u;
-			keys_on = pcm_channels_on ^ pcm_channel_bits[z80_read8((uint16_t)(new_voice + 1u))];
+			keys_on = pcm_channels_on ^ pcm_channel_bits[SAMPLE_VOICE(new_voice)->chip_channel];
 			pcm_channels_on = keys_on;
 			keys_on = ~keys_on;
 			pcm_register = 8u;
 			write_pcm_register(pcm_register, keys_on);
 			z80_block(67);
-			z80_write8((uint16_t)(new_voice + 9u), 0xD0u);
-			z80_write8((uint16_t)(new_voice + 0x10u), 0xFFu);
-			z80_write8((uint16_t)(new_voice + 0x11u), 7u);
+			SAMPLE_VOICE(new_voice)->wave_page = 0xD0u;
+			AS8(SAMPLE_VOICE(new_voice)->stream_position) = 0xFFu;
+			AT8(SAMPLE_VOICE(new_voice)->stream_position, 1) = 7u;
 		start_sample_voice:
 			z80_block(36);
 			if (MIDI_PART(part)->program < 0xF0u)
 			{
 				z80_block(63);
-				register_value = z80_read8((uint16_t)(new_voice + 1u));
+				register_value = SAMPLE_VOICE(new_voice)->chip_channel;
 				pcm_note_channel = register_value;
 				register_value |= 0xC0u;
 				control_register = 7u;
@@ -952,18 +959,18 @@ void play_midi_message(uint16_t message_byte, uint16_t part)
 				write_pcm_register(pcm_register, register_value);
 				z80_block(177);
 				note = note_code;
-				z80_write8((uint16_t)(new_voice + 2u), note);
+				SAMPLE_VOICE(new_voice)->note = note;
 				voice_note = note;
 				channel = midi_status & 0xFu;
-				z80_write8((uint16_t)(new_voice + 3u), channel);
+				SAMPLE_VOICE(new_voice)->midi_channel = channel;
 				count_or_channel = channel;
-				z80_write8((uint16_t)(new_voice + 5u), note_level);
+				SAMPLE_VOICE(new_voice)->level = note_level;
 				order = pcm_voices_used;
-				z80_write8((uint16_t)(new_voice + 6u), order);
+				SAMPLE_VOICE(new_voice)->allocation_order = order;
 				pcm_voices_used = order + 1u;
 				start_pcm_sample(new_voice);
 				z80_block(282);
-				z80_write8(new_voice, 0x40u);
+				SAMPLE_VOICE(new_voice)->flags = 0x40u;
 				bend_entry = channel_pitch_bends_ADDRESS + (uint8_t)(count_or_channel * 2u);
 				detune = sample_detune;
 				detune_low = detune;
@@ -1021,7 +1028,7 @@ void play_midi_message(uint16_t message_byte, uint16_t part)
 			else
 			{
 				z80_block(63);
-				register_value = z80_read8((uint16_t)(new_voice + 1u));
+				register_value = SAMPLE_VOICE(new_voice)->chip_channel;
 				pcm_note_channel = register_value;
 				register_value |= 0xC0u;
 				control_register = 7u;
@@ -1042,27 +1049,27 @@ void play_midi_message(uint16_t message_byte, uint16_t part)
 				pcm_register = 6u;
 				write_pcm_register(pcm_register, register_value);
 				z80_block(140);
-				z80_write8((uint16_t)(new_voice + 2u), note_code);
-				z80_write8((uint16_t)(new_voice + 3u), midi_status & 0xFu);
-				z80_write8((uint16_t)(new_voice + 5u), note_level);
+				SAMPLE_VOICE(new_voice)->note = note_code;
+				SAMPLE_VOICE(new_voice)->midi_channel = midi_status & 0xFu;
+				SAMPLE_VOICE(new_voice)->level = note_level;
 				if ((midi_status & 0xFu) == 0xFu)
 				{
 					z80_block(49);
 					order = pcm_voices_used;
-					z80_write8((uint16_t)(new_voice + 6u), order);
+					SAMPLE_VOICE(new_voice)->allocation_order = order;
 					pcm_voices_used = order + 1u;
 				}
 				else
 				{
 					z80_block(73);
 					order = pcm_voices_used | 0xF0u;
-					z80_write8((uint16_t)(new_voice + 6u), order);
+					SAMPLE_VOICE(new_voice)->allocation_order = order;
 					pcm_voices_used = (order & 0xFu) + 1u;
 				}
 				z80_block(17);
 				start_pcm_sample(new_voice);
 				z80_block(63);
-				z80_write8(new_voice, 0x50u);
+				SAMPLE_VOICE(new_voice)->flags = 0x50u;
 				pitch = AS16(kit_pitch_low);
 			}
 			z80_block(28);
@@ -1074,8 +1081,7 @@ void play_midi_message(uint16_t message_byte, uint16_t part)
 			pcm_register = 2u;
 			write_pcm_register(pcm_register, register_value);
 			z80_block(91);
-			z80_write8((uint16_t)(new_voice + 0xEu), (uint8_t)pitch);
-			z80_write8((uint16_t)(new_voice + 0xFu), pitch >> 8);
+			SAMPLE_VOICE(new_voice)->pitch_step = pitch;
 			level_product = (pitch & 0xFFu) | ((uint32_t)note_level << 8);
 			scale = MIDI_PART(part)->effective_volume;
 			level_product = multiply_bytes(scale, level_product);
@@ -1212,7 +1218,6 @@ void play_midi_message(uint16_t message_byte, uint16_t part)
 			z80_block(29);
 			if (channel != SAMPLE_VOICE(voice)->midi_channel)
 			{
-			pitch_bend_next_voice:
 				z80_block(33);
 				voice += 0x12u;
 				voices_left--;
@@ -1233,7 +1238,12 @@ void play_midi_message(uint16_t message_byte, uint16_t part)
 			}
 			z80_block(10);
 			channel = saved_channel;
-			goto pitch_bend_next_voice;
+			z80_block(33);
+			voice += 0x12u;
+			voices_left--;
+			if (voices_left == 0u)
+				break;
+			z80_cycles(5);
 		}
 		z80_block(10);
 		return;
@@ -1288,7 +1298,6 @@ void play_midi_message(uint16_t message_byte, uint16_t part)
 				z80_block(17);
 				if (channel != z80_read8(voice_field))
 				{
-				modulation_next_voice:
 					z80_block(29);
 					voice_field += 0x12u;
 					voices_left--;
@@ -1310,7 +1319,12 @@ void play_midi_message(uint16_t message_byte, uint16_t part)
 				z80_block(22);
 				voice_field += 3u;
 				channel = (uint8_t)(kept_channel >> 8);
-				goto modulation_next_voice;
+				z80_block(29);
+				voice_field += 0x12u;
+				voices_left--;
+				if (voices_left == 0u)
+					break;
+				z80_cycles(5);
 			}
 			z80_block(10);
 			return;
@@ -1355,7 +1369,6 @@ void play_midi_message(uint16_t message_byte, uint16_t part)
 				saved_outer = voice_field;
 				if (((z80_read8(voice_field) >> 6) & 1u) == 0u)
 				{
-				channel_volume_next_voice:
 					z80_block(39);
 					voice_field = saved_outer + 0x12u;
 					voices_left--;
@@ -1366,32 +1379,40 @@ void play_midi_message(uint16_t message_byte, uint16_t part)
 				}
 				z80_block(55);
 				voice_field += 3u;
-				if ((midi_status & 0xFu) != z80_read8(voice_field))
-					goto channel_volume_next_voice;
-				z80_block(37);
-				voice_field = voice_field - 1u - 1u;
-				voice_chip_channel = z80_read8(voice_field);
-				if (voice_chip_channel >> 7 == 0u)
+				if ((midi_status & 0xFu) == z80_read8(voice_field))
 				{
-					z80_block(35);
-					register_value = voice_chip_channel | 0xC0u;
-					pcm_register = 7u;
-					write_pcm_register(pcm_register, register_value);
-					z80_block(64);
-					voice_field = ((voice_field + 4u) & 0xFFu) | ((uint32_t)z80_read8((uint16_t)(voice_field + 4u)) << 8);
-					scale = MIDI_PART(part)->effective_volume;
-					voice_field = multiply_bytes(scale, voice_field);
-					z80_block(28);
-					register_value = (uint8_t)(voice_field >> 8);
-					pcm_register = 0u;
-					write_pcm_register(pcm_register, register_value);
-					goto channel_volume_next_voice;
+					z80_block(37);
+					voice_field = voice_field - 1u - 1u;
+					voice_chip_channel = z80_read8(voice_field);
+					if (voice_chip_channel >> 7 == 0u)
+					{
+						z80_block(35);
+						register_value = voice_chip_channel | 0xC0u;
+						pcm_register = 7u;
+						write_pcm_register(pcm_register, register_value);
+						z80_block(64);
+						voice_field = ((voice_field + 4u) & 0xFFu) | ((uint32_t)z80_read8((uint16_t)(voice_field + 4u)) << 8);
+						scale = MIDI_PART(part)->effective_volume;
+						voice_field = multiply_bytes(scale, voice_field);
+						z80_block(28);
+						register_value = (uint8_t)(voice_field >> 8);
+						pcm_register = 0u;
+						write_pcm_register(pcm_register, register_value);
+					}
+					else
+					{
+						z80_block(17);
+						chip_channel = voice_chip_channel;
+						apply_fm_channel_volume(chip_channel, voice_field, part);
+						z80_block(10);
+					}
 				}
-				z80_block(17);
-				chip_channel_2 = voice_chip_channel;
-				apply_fm_channel_volume(chip_channel_2, voice_field, part);
-				z80_block(10);
-				goto channel_volume_next_voice;
+				z80_block(39);
+				voice_field = saved_outer + 0x12u;
+				voices_left--;
+				if (voices_left == 0u)
+					break;
+				z80_cycles(5);
 			}
 			z80_block(10);
 			return;
@@ -1414,7 +1435,7 @@ void play_midi_message(uint16_t message_byte, uint16_t part)
 			for (;;)
 			{
 				z80_block(67);
-				saved_outer = ((uint32_t)parts_left << 8) | control_value;
+				saved_count = parts_left;
 				scaled_part_volume = (voice_field & 0xFFu) | ((uint32_t)MIDI_PART(each_part)->volume << 8);
 				volume_scale = 0xFFu;
 				if ((MIDI_PART(each_part)->flags & 1u) != 0u)
@@ -1465,8 +1486,8 @@ void play_midi_message(uint16_t message_byte, uint16_t part)
 								else
 								{
 									z80_block(17);
-									chip_channel_2 = voice_chip_channel;
-									apply_fm_music_volume(chip_channel_2, voice_field, each_part);
+									chip_channel = voice_chip_channel;
+									apply_fm_music_volume(chip_channel, voice_field, each_part);
 									z80_block(10);
 								}
 							}
@@ -1479,9 +1500,8 @@ void play_midi_message(uint16_t message_byte, uint16_t part)
 						z80_cycles(5);
 					}
 					z80_block(43);
-					control_value = (uint8_t)saved_outer;
 					each_part += 9u;
-					parts_left = (saved_outer >> 8) - 1u;
+					parts_left = saved_count - 1u;
 					if (parts_left == 0u)
 						break;
 					z80_cycles(5);
@@ -1515,7 +1535,6 @@ void play_midi_message(uint16_t message_byte, uint16_t part)
 				z80_block(29);
 				if (channel != SAMPLE_VOICE(voice)->midi_channel)
 				{
-				pedal_up_next_voice:
 					z80_block(23);
 					voice += voice_size;
 					voices_left--;
@@ -1529,15 +1548,14 @@ void play_midi_message(uint16_t message_byte, uint16_t part)
 				if ((SAMPLE_VOICE(voice)->flags >> 1) & 1u)
 				{
 					z80_block(37);
-					chip_channel = SAMPLE_VOICE(voice)->chip_channel;
-					if (chip_channel >> 7 == 0u)
+					if (SAMPLE_VOICE(voice)->chip_channel >> 7 == 0u)
 					{
 						z80_block(39);
 						saved_outer = voice_field;
-						saved_inner = ((uint32_t)voices_left << 8) | chip_channel;
+						saved_voices_left = voices_left;
 						stop_pcm_voice(voice);
 						z80_block(30);
-						voices_left = (uint8_t)(saved_inner >> 8);
+						voices_left = saved_voices_left;
 						voice_field = saved_outer;
 						voice_size = 0x12u;
 					}
@@ -1550,7 +1568,12 @@ void play_midi_message(uint16_t message_byte, uint16_t part)
 				}
 				z80_block(4);
 				channel = (uint8_t)voice_field;
-				goto pedal_up_next_voice;
+				z80_block(23);
+				voice += voice_size;
+				voices_left--;
+				if (voices_left == 0u)
+					break;
+				z80_cycles(5);
 			}
 			z80_block(77);
 			controls_entry = channel_controls_ADDRESS + (midi_status & 0xFu);
@@ -1573,11 +1596,12 @@ void play_midi_message(uint16_t message_byte, uint16_t part)
 					if (control_value == SAMPLE_VOICE(voice)->midi_channel)
 					{
 						z80_block(28);
-						saved_outer = ((uint32_t)voices_left << 8) | control_value;
+						saved_count = voices_left;
+						saved_value = control_value;
 						stop_pcm_voice(voice);
 						z80_block(20);
-						voices_left = (uint8_t)(saved_outer >> 8);
-						control_value = (uint8_t)saved_outer;
+						voices_left = saved_count;
+						control_value = saved_value;
 					}
 				}
 				z80_block(19);
@@ -1608,11 +1632,12 @@ void play_midi_message(uint16_t message_byte, uint16_t part)
 					{
 						z80_block(46);
 						voice_field = voice_field - 1u - 1u - 1u;
-						saved_outer = ((uint32_t)voices_left << 8) | control_value;
+						saved_count = voices_left;
+						saved_value = control_value;
 						fm_note_off(&voice_size, &voice_field, &channel);
 						z80_block(35);
-						voices_left = (uint8_t)(saved_outer >> 8);
-						control_value = (uint8_t)saved_outer;
+						voices_left = saved_count;
+						control_value = saved_value;
 						z80_write8(voice_field, z80_read8(voice_field) & 0xBFu);
 					}
 				}
@@ -1644,32 +1669,34 @@ void play_midi_message(uint16_t message_byte, uint16_t part)
 					z80_block(30);
 					if (((SAMPLE_VOICE(voice)->flags >> 6) & 1u) == 0u)
 					{
-					stop_music_next_sample_voice:
 						z80_block(19);
 						voices_left--;
-						if (voices_left != 0u)
-						{
-							z80_cycles(5);
-							continue;
-						}
-						break;
+						if (voices_left == 0u)
+							break;
+						z80_cycles(5);
+						continue;
 					}
 					z80_block(30);
 					if (((SAMPLE_VOICE(voice)->flags >> 4) & 1u) == 0u)
 					{
 					stop_music_sample_voice:
 						z80_block(28);
-						saved_outer = ((uint32_t)voices_left << 8) | control_value;
+						saved_count = voices_left;
 						stop_pcm_voice(voice);
 						z80_block(20);
-						voices_left = (uint8_t)(saved_outer >> 8);
-						control_value = (uint8_t)saved_outer;
-						goto stop_music_next_sample_voice;
+						voices_left = saved_count;
 					}
-					z80_block(36);
-					if (SAMPLE_VOICE(voice)->midi_channel != 0xFu)
-						goto stop_music_next_sample_voice;
-					goto stop_music_sample_voice;
+					else
+					{
+						z80_block(36);
+						if (SAMPLE_VOICE(voice)->midi_channel == 0xFu)
+							goto stop_music_sample_voice;
+					}
+					z80_block(19);
+					voices_left--;
+					if (voices_left == 0u)
+						break;
+					z80_cycles(5);
 				}
 				z80_block(10);
 			stop_all_fm_voices:
@@ -1682,25 +1709,26 @@ void play_midi_message(uint16_t message_byte, uint16_t part)
 					z80_block(30);
 					if (((FM_VOICE(voice)->flags >> 6) & 1u) == 0u)
 					{
-					stop_all_next_fm_voice:
 						z80_block(23);
 						voice += voice_size;
 						voices_left--;
-						if (voices_left != 0u)
-						{
-							z80_cycles(5);
-							continue;
-						}
-						break;
+						if (voices_left == 0u)
+							break;
+						z80_cycles(5);
+						continue;
 					}
 					z80_block(28);
-					saved_outer = ((uint32_t)voices_left << 8) | control_value;
+					saved_count = voices_left;
 					stop_fm_voice(voice);
 					z80_block(20);
-					voices_left = (uint8_t)(saved_outer >> 8);
-					control_value = (uint8_t)saved_outer;
+					voices_left = saved_count;
 					voice_size = 0x12u;
-					goto stop_all_next_fm_voice;
+					z80_block(23);
+					voice += voice_size;
+					voices_left--;
+					if (voices_left == 0u)
+						break;
+					z80_cycles(5);
 				}
 				z80_block(17);
 				controls_entry = channel_controls_ADDRESS;
@@ -1740,25 +1768,26 @@ void play_midi_message(uint16_t message_byte, uint16_t part)
 				z80_block(30);
 				if (((SAMPLE_VOICE(voice)->flags >> 6) & 1u) == 0u)
 				{
-				stop_all_next_sample_voice:
 					z80_block(23);
 					voice += voice_size;
 					voices_left--;
-					if (voices_left != 0u)
-					{
-						z80_cycles(5);
-						continue;
-					}
-					break;
+					if (voices_left == 0u)
+						break;
+					z80_cycles(5);
+					continue;
 				}
 				z80_block(28);
-				saved_outer = ((uint32_t)voices_left << 8) | control_value;
+				saved_count = voices_left;
 				stop_pcm_voice(voice);
 				z80_block(20);
-				voices_left = (uint8_t)(saved_outer >> 8);
-				control_value = (uint8_t)saved_outer;
+				voices_left = saved_count;
 				voice_size = 0x12u;
-				goto stop_all_next_sample_voice;
+				z80_block(23);
+				voice += voice_size;
+				voices_left--;
+				if (voices_left == 0u)
+					break;
+				z80_cycles(5);
 			}
 			goto stop_all_fm_voices;
 		}
@@ -1820,7 +1849,6 @@ void play_midi_message(uint16_t message_byte, uint16_t part)
 				z80_block(22);
 				if (((z80_read8(voice_field) >> 6) & 1u) == 0u)
 				{
-				mark_note_next_voice:
 					z80_block(29);
 					voice_field += 0x12u;
 					voices_left--;
@@ -1836,20 +1864,27 @@ void play_midi_message(uint16_t message_byte, uint16_t part)
 				mark_note_not_this:
 					z80_block(12);
 					voice_field = voice_field - 1u - 1u;
-					goto mark_note_next_voice;
 				}
-				z80_block(43);
-				voice_field++;
-				if ((midi_status & 0xFu) != z80_read8(voice_field))
+				else
 				{
-					z80_block(6);
-					voice_field--;
-					goto mark_note_not_this;
+					z80_block(43);
+					voice_field++;
+					if ((midi_status & 0xFu) != z80_read8(voice_field))
+					{
+						z80_block(6);
+						voice_field--;
+						goto mark_note_not_this;
+					}
+					z80_block(43);
+					voice_field = voice_field - 1u - 1u - 1u;
+					z80_write8(voice_field, z80_read8(voice_field) | 1u);
 				}
-				z80_block(43);
-				voice_field = voice_field - 1u - 1u - 1u;
-				z80_write8(voice_field, z80_read8(voice_field) | 1u);
-				goto mark_note_next_voice;
+				z80_block(29);
+				voice_field += 0x12u;
+				voices_left--;
+				if (voices_left == 0u)
+					break;
+				z80_cycles(5);
 			}
 			z80_block(10);
 			return;
@@ -1905,7 +1940,7 @@ void play_midi_message(uint16_t message_byte, uint16_t part)
 					preset = control_value;
 					preset_address = read_table_word(preset_address, preset);
 					z80_block(344);
-					preset_data = ((uint32_t)(preset_address >> 8) << 8) | (uint8_t)preset_address;
+					preset_data = preset_address;
 					z80_write8((uint16_t)(voice + 7u), z80_read8(preset_data));
 					preset_data++;
 					z80_write8((uint16_t)(voice + 8u), z80_read8(preset_data));
@@ -1990,7 +2025,6 @@ uint16_t retune_voice(uint16_t loop_count, uint16_t part, uint16_t voice)
 	uint16_t bend = 0, fnum = 0, fnum_entry = 0, fnum_table_entry = 0, old_pitch = 0, pitch = 0, pitch_entry = 0, pitch_table_entry = 0, register_channel = 0;
 	uint8_t saved_count_or_shifts = 0, saved_caller_c = 0;
 	uint8_t detune_byte = 0, octave_bits = 0;
-	uint16_t restored_loop_count = 0;
 
 	count_or_shifts = (uint8_t)(loop_count >> 8);
 	caller_c = (uint8_t)loop_count;
@@ -2023,8 +2057,7 @@ uint16_t retune_voice(uint16_t loop_count, uint16_t part, uint16_t voice)
 		fnum_low_register = 0xA0u | (register_channel >> 8);
 		write_fm_channel(fnum_low_register, register_value);
 		z80_block(20);
-		restored_loop_count = ((uint32_t)saved_count_or_shifts << 8) | saved_caller_c;
-		loop_count = ((uint32_t)(restored_loop_count >> 8) << 8) | (uint8_t)restored_loop_count;
+		loop_count = ((uint32_t)saved_count_or_shifts << 8) | saved_caller_c;
 		return loop_count;
 	}
 	z80_block(31);
@@ -2090,12 +2123,10 @@ uint16_t retune_voice(uint16_t loop_count, uint16_t part, uint16_t voice)
 	pcm_register = 2u;
 	write_pcm_register(pcm_register, register_value);
 	z80_block(196);
-	old_pitch = SAMPLE_VOICE(voice)->pitch_step_low | ((uint32_t)SAMPLE_VOICE(voice)->pitch_step_high << 8);
-	SAMPLE_VOICE(voice)->pitch_step_low = (uint8_t)pitch;
-	SAMPLE_VOICE(voice)->pitch_step_high = pitch >> 8;
-	pitch = pitch - old_pitch + (SAMPLE_VOICE(voice)->stream_position_low | ((uint32_t)SAMPLE_VOICE(voice)->stream_position_high << 8));
-	SAMPLE_VOICE(voice)->stream_position_low = (uint8_t)pitch;
-	SAMPLE_VOICE(voice)->stream_position_high = pitch >> 8;
+	old_pitch = SAMPLE_VOICE(voice)->pitch_step;
+	SAMPLE_VOICE(voice)->pitch_step = pitch;
+	pitch = pitch - old_pitch + SAMPLE_VOICE(voice)->stream_position;
+	SAMPLE_VOICE(voice)->stream_position = pitch;
 	loop_count = ((uint32_t)count_or_shifts << 8) | pitch_low_register;
 	return loop_count;
 }
@@ -2105,7 +2136,7 @@ void update_fm_modulation(uint16_t *p_loop_count, uint16_t *p_voice)
 	uint16_t loop_count = (uint16_t)*p_loop_count;
 	uint16_t voice = (uint16_t)*p_voice;
 	uint8_t chip_channel = 0, fm_register = 0, pan_register = 0, register_value = 0, voice_chip_channel = 0;
-	uint16_t saved_count_and_channel = 0;
+	uint8_t saved_count = 0, saved_voice_chip_channel = 0;
 
 	z80_block(26);
 	voice++;
@@ -2120,7 +2151,8 @@ void update_fm_modulation(uint16_t *p_loop_count, uint16_t *p_voice)
 	}
 	z80_block(10);
 	z80_block(90);
-	saved_count_and_channel = (loop_count & ~0xFFu) | voice_chip_channel;
+	saved_count = loop_count >> 8;
+	saved_voice_chip_channel = voice_chip_channel;
 	chip_channel = voice_chip_channel;
 	fm_channel = chip_channel;
 	pan_register = (chip_channel & 3u) - 0x4Cu;
@@ -2129,7 +2161,7 @@ void update_fm_modulation(uint16_t *p_loop_count, uint16_t *p_voice)
 	write_fm_channel(fm_register, register_value);
 	z80_block(26);
 	voice--;
-	loop_count = saved_count_and_channel;
+	loop_count = ((uint32_t)saved_count << 8) | saved_voice_chip_channel;
 	*p_loop_count = loop_count;
 	*p_voice = voice;
 }
@@ -2153,7 +2185,7 @@ void start_pcm_sample(uint16_t voice)
 {
 	uint8_t bank_high = 0, bank_low = 0, channels_off = 0, next_wave_page = 0, pcm_register = 0, sample = 0, wave_page = 0;
 	uint16_t header = 0, sample_address = 0, wave_address = 0;
-	uint8_t start_page = 0, start_offset = 0;
+	uint8_t saved_start_page = 0, saved_start_offset = 0;
 
 	z80_block(52);
 	channels_off = ~pcm_channels_on;
@@ -2176,14 +2208,14 @@ void start_pcm_sample(uint16_t voice)
 	port_out(ROM_BANK_LOW, bank_low);
 	wave_page = SAMPLE_VOICE(voice)->wave_page;
 	header++;
-	start_page = z80_read8(header);
-	start_offset = 0u;
+	saved_start_page = z80_read8(header);
+	saved_start_offset = 0u;
 	header++;
 	SAMPLE_VOICE(voice)->header_bank_step = z80_read8(header);
 	header++;
 	SAMPLE_VOICE(voice)->header_address_low = z80_read8(header);
 	SAMPLE_VOICE(voice)->header_address_high = z80_read8((uint16_t)(header + 1u));
-	sample_address = ((uint32_t)start_page << 8) | start_offset;
+	sample_address = ((uint32_t)saved_start_page << 8) | saved_start_offset;
 	wave_address = (uint32_t)wave_page << 8;
 	copy_sample_page(&wave_address, &sample_address);
 	next_wave_page = (uint8_t)(wave_address >> 8);
@@ -2227,7 +2259,7 @@ void refill_pcm_voice(void)
 		return;
 	}
 	z80_block(105);
-	progress = (SAMPLE_VOICE(voice)->stream_position_low | ((uint32_t)SAMPLE_VOICE(voice)->stream_position_high << 8)) + (((uint32_t)SAMPLE_VOICE(voice)->pitch_step_high << 8) | SAMPLE_VOICE(voice)->pitch_step_low);
+	progress = SAMPLE_VOICE(voice)->stream_position + SAMPLE_VOICE(voice)->pitch_step;
 	if ((((progress >> 8) >> 4) & 1u) == 0u)
 	{
 		z80_block(25);
@@ -2237,8 +2269,7 @@ void refill_pcm_voice(void)
 		refill_copy_pages:
 			z80_block(252);
 			progress = (progress & 0xFFu) | (((progress >> 8) & ~8u) << 8);
-			SAMPLE_VOICE(voice)->stream_position_low = (uint8_t)progress;
-			SAMPLE_VOICE(voice)->stream_position_high = progress >> 8;
+			SAMPLE_VOICE(voice)->stream_position = progress;
 			z80_write8(PCM_CONTROL, (SAMPLE_VOICE(voice)->chip_channel * 2u) | 0x80u);
 			bank_high = SAMPLE_VOICE(voice)->sample_bank_high & 7u;
 			rom_bank_high = bank_high;
@@ -2389,8 +2420,7 @@ void refill_pcm_voice(void)
 			goto refill_copy_two_pages;
 		}
 		z80_block(48);
-		SAMPLE_VOICE(voice)->stream_position_low = (uint8_t)progress;
-		SAMPLE_VOICE(voice)->stream_position_high = progress >> 8;
+		SAMPLE_VOICE(voice)->stream_position = progress;
 		z80_block(53);
 		voice += 0x12u;
 		voices_left_at = refill_voices_left_ADDRESS;
@@ -2436,8 +2466,8 @@ void stop_pcm_voice(uint16_t voice)
 	pcm_channels_on ^= pcm_channel_bits[SAMPLE_VOICE(voice)->chip_channel];
 	SAMPLE_VOICE(voice)->midi_channel = 0u;
 	SAMPLE_VOICE(voice)->wave_page = 0xD0u;
-	SAMPLE_VOICE(voice)->stream_position_low = 0xFFu;
-	SAMPLE_VOICE(voice)->stream_position_high = 7u;
+	AS8(SAMPLE_VOICE(voice)->stream_position) = 0xFFu;
+	AT8(SAMPLE_VOICE(voice)->stream_position, 1) = 7u;
 	pcm_voices_used--;
 	if (SAMPLE_VOICE(voice)->allocation_order >= 0x10u)
 	{
@@ -2454,7 +2484,6 @@ void stop_pcm_voice(uint16_t voice)
 		z80_block(17);
 		if (SAMPLE_VOICE(other_order - 0x6u)->allocation_order <= own_order)
 		{
-		stop_pcm_next_order:
 			z80_block(19);
 			other_order += voice_size;
 			voices_left--;
@@ -2465,7 +2494,12 @@ void stop_pcm_voice(uint16_t voice)
 		}
 		z80_block(11);
 		SAMPLE_VOICE(other_order - 0x6u)->allocation_order--;
-		goto stop_pcm_next_order;
+		z80_block(19);
+		other_order += voice_size;
+		voices_left--;
+		if (voices_left == 0u)
+			break;
+		z80_cycles(5);
 	}
 	z80_block(10);
 }
@@ -2551,774 +2585,12 @@ void copy_sample_page(uint16_t *p_wave_address, uint16_t *p_sample_address)
 	uint16_t sample_address = (uint16_t)*p_sample_address;
 
 	z80_block(4106);
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
-	z80_write8(wave_address, z80_read8(sample_address));
-	sample_address++;
-	wave_address++;
+	for (uint32_t repeat = 0; repeat < 256u; repeat++)
+	{
+		z80_write8(wave_address, z80_read8(sample_address));
+		sample_address++;
+		wave_address++;
+	}
 	*p_wave_address = wave_address;
 	*p_sample_address = sample_address;
 }
@@ -3400,8 +2672,8 @@ uint8_t stop_fm_voice(uint16_t voice)
 	FM_VOICE(voice)->midi_channel = 0u;
 	FM_VOICE(voice)->vibrato_range = 0u;
 	FM_VOICE(voice)->vibrato_depth = 0u;
-	FM_VOICE(voice)->vibrato_offset_low = 0u;
-	FM_VOICE(voice)->vibrato_offset_high = 0u;
+	AS8(FM_VOICE(voice)->vibrato_offset) = 0u;
+	AT8(FM_VOICE(voice)->vibrato_offset, 1) = 0u;
 	FM_VOICE(voice)->vibrato_block = 0u;
 	FM_VOICE(voice)->vibrato_phase = 0u;
 	register_value = FM_VOICE(voice)->chip_channel;
@@ -3440,7 +2712,6 @@ void apply_fm_music_volume(uint8_t chip_channel, uint16_t level, uint16_t part)
 	uint8_t channel_code = 0, effective_volume = 0, fm_register = 0, level_register = 0, operator_level = 0, operators_left = 0, part_channel = 0, patch = 0, program = 0, register_number = 0, volume_curve = 0;
 	uint16_t instrument = 0, patch_levels = 0, register_list = 0;
 	uint8_t saved_operators_left = 0, saved_part_channel = 0;
-	uint16_t restored_count_and_channel = 0;
 
 	z80_block(104);
 	channel_code = (uint8_t)chip_channel;
@@ -3481,11 +2752,9 @@ void apply_fm_music_volume(uint8_t chip_channel, uint16_t level, uint16_t part)
 		patch_levels++;
 		if (operator_level >> 7 != 0u)
 		{
-		music_volume_next_operator:
 			z80_block(18);
-			restored_count_and_channel = ((uint32_t)saved_operators_left << 8) | saved_part_channel;
-			part_channel = (uint8_t)restored_count_and_channel;
-			operators_left = (restored_count_and_channel >> 8) - 1u;
+			part_channel = saved_part_channel;
+			operators_left = saved_operators_left - 1u;
 			if (operators_left == 0u)
 				break;
 			z80_cycles(5);
@@ -3495,7 +2764,12 @@ void apply_fm_music_volume(uint8_t chip_channel, uint16_t level, uint16_t part)
 		operator_level += note_level;
 		fm_register = level_register;
 		write_fm_channel(fm_register, operator_level);
-		goto music_volume_next_operator;
+		z80_block(18);
+		part_channel = saved_part_channel;
+		operators_left = saved_operators_left - 1u;
+		if (operators_left == 0u)
+			break;
+		z80_cycles(5);
 	}
 	z80_block(20);
 }
@@ -3505,7 +2779,6 @@ void apply_fm_channel_volume(uint8_t chip_channel, uint16_t level, uint16_t part
 	uint8_t channel_code = 0, effective_volume = 0, fm_register = 0, level_register = 0, operator_level = 0, operators_left = 0, part_channel = 0, patch = 0, program = 0, register_number = 0, volume_curve = 0;
 	uint16_t instrument = 0, patch_levels = 0, register_list = 0;
 	uint8_t saved_operators_left = 0, saved_part_channel = 0;
-	uint16_t restored_count_and_channel = 0;
 
 	z80_block(104);
 	channel_code = (uint8_t)chip_channel;
@@ -3546,11 +2819,9 @@ void apply_fm_channel_volume(uint8_t chip_channel, uint16_t level, uint16_t part
 		patch_levels++;
 		if (operator_level >> 7 != 0u)
 		{
-		channel_volume_next_operator:
 			z80_block(18);
-			restored_count_and_channel = ((uint32_t)saved_operators_left << 8) | saved_part_channel;
-			part_channel = (uint8_t)restored_count_and_channel;
-			operators_left = (restored_count_and_channel >> 8) - 1u;
+			part_channel = saved_part_channel;
+			operators_left = saved_operators_left - 1u;
 			if (operators_left == 0u)
 				break;
 			z80_cycles(5);
@@ -3560,7 +2831,12 @@ void apply_fm_channel_volume(uint8_t chip_channel, uint16_t level, uint16_t part
 		operator_level += note_level;
 		fm_register = level_register;
 		write_fm_channel(fm_register, operator_level);
-		goto channel_volume_next_operator;
+		z80_block(18);
+		part_channel = saved_part_channel;
+		operators_left = saved_operators_left - 1u;
+		if (operators_left == 0u)
+			break;
+		z80_cycles(5);
 	}
 	z80_block(20);
 }
@@ -3570,7 +2846,6 @@ void load_fm_patch(uint16_t *p_channel_in_part, uint16_t *p_register_list, uint1
 	uint8_t fm_register = 0, part_channel = 0, patch = 0, patch_byte = 0, patch_register = 0, register_number = 0, registers_left = 0;
 	uint16_t channel_in_part = 0, patch_data = 0, register_list = 0;
 	uint8_t saved_registers_left = 0, saved_part_channel = 0;
-	uint16_t restored_count_and_channel = 0;
 
 	z80_block(64);
 	part_channel = fm_channel & 3u;
@@ -3593,9 +2868,8 @@ void load_fm_patch(uint16_t *p_channel_in_part, uint16_t *p_register_list, uint1
 		fm_register = patch_register;
 		write_fm_channel(fm_register, patch_byte);
 		z80_block(18);
-		restored_count_and_channel = ((uint32_t)saved_registers_left << 8) | saved_part_channel;
-		part_channel = (uint8_t)restored_count_and_channel;
-		registers_left = (restored_count_and_channel >> 8) - 1u;
+		part_channel = saved_part_channel;
+		registers_left = saved_registers_left - 1u;
 		if (registers_left == 0u)
 			break;
 		z80_cycles(5);
@@ -3728,7 +3002,7 @@ void playlist_command(uint16_t queue_pointer, uint16_t player, uint16_t mailbox_
 		cleared_player = saved_player;
 		next_song = 0u;
 		z80_write8(cleared_player, 0u);
-		move_block(cleared_player, (uint16_t)(((uint8_t)cleared_player | ((uint32_t)(cleared_player >> 8) << 8)) + 1u), 0x30u, 1u);
+		move_block(cleared_player, (uint16_t)(cleared_player + 1u), 0x30u, 1u);
 		playlist = saved_playlist;
 		*p_playlist = playlist;
 		*p_playlist_byte = next_song;
@@ -3775,16 +3049,20 @@ void step_player(uint16_t player_address, uint16_t mailbox_page)
 	uint32_t carry = 0;
 	uint8_t delta_time_high = 0, delta_time_low = 0, event_byte = 0, meta_bytes_left = 0, new_delta_high = 0, queue_page = 0, queued_byte = 0, sysex_bytes_left = 0, volume_value = 0, write_index = 0;
 	uint16_t cursor = 0, player = 0, player_2 = 0, queue_pointer = 0;
+	uint8_t saved_queue_page = 0, saved_write_index = 0;
 	uint16_t player_then_queue_pointer = 0, saved_player = 0;
 	uint8_t controller_number = 0;
+	uint16_t t1 = 0;
 
 	z80_block(64);
 	cursor = (player_address & ~0xFFu) | 6u;
-	delta_time_low = z80_read8(cursor);
+	delta_time_low = AS8(SEQUENCE_PLAYER(cursor - 0x6u)->delta_time);
 	cursor = (cursor & ~0xFFu) | (uint8_t)(cursor + 1u);
-	delta_time_high = (uint8_t)((uint16_t)((((uint32_t)z80_read8(cursor) << 8) | delta_time_low) - 1u) >> 8);
-	delta_time_low = (uint8_t)((((uint32_t)delta_time_high << 8) | delta_time_low) - 1u);
-	z80_write8(cursor, delta_time_high);
+	delta_time_high = AT8(SEQUENCE_PLAYER(cursor - 0x7u)->delta_time, 1);
+	t1 = (((uint32_t)delta_time_high << 8) | delta_time_low) - 1u;
+	delta_time_high = (uint8_t)((uint16_t)((((uint32_t)delta_time_high << 8) | delta_time_low) - 1u) >> 8);
+	delta_time_low = (uint8_t)t1;
+	AT8(SEQUENCE_PLAYER(cursor - 0x7u)->delta_time, 1) = delta_time_high;
 	cursor--;
 	z80_write8(cursor, delta_time_low);
 	if ((delta_time_high | delta_time_low) != 0u)
@@ -3801,23 +3079,23 @@ void step_player(uint16_t player_address, uint16_t mailbox_page)
 	{
 		z80_block(83);
 		port_out(ROM_BANK_HIGH, 0u);
-		port_out(ROM_BANK_LOW, z80_read8((uint16_t)(player + 0x1Bu)));
-		cursor = z80_read8((uint16_t)(player + 2u)) | ((uint32_t)z80_read8((uint16_t)(player + 3u)) << 8);
+		port_out(ROM_BANK_LOW, SEQUENCE_PLAYER(player)->bank);
+		cursor = SEQUENCE_PLAYER(player)->position;
 		for (;;)
 		{
 			z80_block(48);
-			z80_write8(player, z80_read8(player) & 0xBFu);
+			SEQUENCE_PLAYER(player)->flags &= 0xBFu;
 			event_byte = z80_read8(cursor);
 			if (event_byte >> 7 == 0u)
 			{
 				z80_block(35);
-				event_byte = z80_read8((uint16_t)(player + 0x14u));
+				event_byte = SEQUENCE_PLAYER(player)->running_status;
 				cursor--;
 			}
 			else
 			{
 				z80_block(19);
-				z80_write8((uint16_t)(player + 0x14u), event_byte);
+				SEQUENCE_PLAYER(player)->running_status = event_byte;
 			}
 			z80_block(17);
 			if (event_byte == 0xFFu)
@@ -3843,7 +3121,7 @@ void step_player(uint16_t player_address, uint16_t mailbox_page)
 						event_byte = (0u - event_byte) | 0x80u;
 					}
 					z80_block(36);
-					z80_write8((uint16_t)(player + 0xAu), event_byte);
+					SEQUENCE_PLAYER(player)->meta_51_value = event_byte;
 					cursor = next_sequence_byte(cursor, player);
 					z80_block(10);
 				}
@@ -3869,7 +3147,7 @@ void step_player(uint16_t player_address, uint16_t mailbox_page)
 				}
 			read_delta_time:
 				z80_block(30);
-				if (((z80_read8(player) >> 6) & 1u) != 0u)
+				if (((SEQUENCE_PLAYER(player)->flags >> 6) & 1u) != 0u)
 					continue;
 				z80_block(24);
 				event_byte = z80_read8(cursor);
@@ -3968,16 +3246,16 @@ void step_player(uint16_t player_address, uint16_t mailbox_page)
 				{
 					z80_block(37);
 					volume_value = event_byte;
-					if (z80_read8((uint16_t)(player + 0x18u)) == 0u)
+					if (SEQUENCE_PLAYER(player)->fade_speed == 0u)
 					{
 						z80_block(31);
 						event_byte = volume_value;
-						z80_write8((uint16_t)(player + 0x15u), volume_value & 0x7Fu);
+						SEQUENCE_PLAYER(player)->fade_volume = volume_value & 0x7Fu;
 					}
 					else
 					{
 						z80_block(29);
-						event_byte = z80_read8((uint16_t)(player + 0x15u));
+						event_byte = SEQUENCE_PLAYER(player)->fade_volume;
 					}
 				}
 				z80_block(18);
@@ -4029,23 +3307,23 @@ void step_player(uint16_t player_address, uint16_t mailbox_page)
 		z80_block(10);
 	end_of_sequence:
 		z80_block(30);
-		if (((z80_read8(player) >> 5) & 1u) == 0u)
+		if (((SEQUENCE_PLAYER(player)->flags >> 5) & 1u) == 0u)
 		{
 			z80_block(30);
-			if (((z80_read8(player) >> 4) & 1u) != 0u)
+			if (((SEQUENCE_PLAYER(player)->flags >> 4) & 1u) != 0u)
 			{
 				z80_cycles(7);
 				clear_player_end_flag(mailbox_page);
 			}
 			z80_block(100);
-			z80_write8(player, 0u);
+			SEQUENCE_PLAYER(player)->flags = 0u;
 			midi_queue_write = write_index;
 			port_out(ROM_BANK_HIGH, rom_bank_high);
 			port_out(ROM_BANK_LOW, rom_bank_low);
 			return;
 		}
 		z80_block(62);
-		cursor = z80_read8((uint16_t)(player + 0x20u)) | ((uint32_t)z80_read8((uint16_t)(player + 0x21u)) << 8);
+		cursor = SEQUENCE_PLAYER(player)->playlist;
 		event_byte = z80_read8(cursor);
 		cursor = next_sequence_byte(cursor, player);
 		z80_block(17);
@@ -4059,28 +3337,28 @@ void step_player(uint16_t player_address, uint16_t mailbox_page)
 		if (event_byte == 0u)
 		{
 			z80_block(30);
-			if (((z80_read8(player) >> 4) & 1u) != 0u)
+			if (((SEQUENCE_PLAYER(player)->flags >> 4) & 1u) != 0u)
 			{
 				z80_cycles(7);
 				clear_player_end_flag(mailbox_page);
 			}
 			z80_block(100);
-			z80_write8(player, 0u);
+			SEQUENCE_PLAYER(player)->flags = 0u;
 			midi_queue_write = write_index;
 			port_out(ROM_BANK_HIGH, rom_bank_high);
 			port_out(ROM_BANK_LOW, rom_bank_low);
 			return;
 		}
 		z80_block(91);
-		z80_write8((uint16_t)(player + 0x20u), (uint8_t)cursor);
-		z80_write8((uint16_t)(player + 0x21u), cursor >> 8);
-		player_then_queue_pointer = ((uint32_t)queue_page << 8) | write_index;
+		SEQUENCE_PLAYER(player)->playlist = cursor;
+		saved_queue_page = queue_page;
+		saved_write_index = write_index;
 		saved_player = player;
 		player_2 = (uint32_t)(saved_player >> 8) << 8;
 		start_song(player_2, event_byte);
 		z80_block(20);
-		queue_page = (uint8_t)(player_then_queue_pointer >> 8);
-		write_index = (uint8_t)player_then_queue_pointer;
+		queue_page = saved_queue_page;
+		write_index = saved_write_index;
 	}
 set_delta_time:
 	z80_block(18);
@@ -4099,12 +3377,11 @@ set_delta_time:
 		z80_block(17);
 		cursor = next_sequence_byte(cursor, player);
 		z80_block(19);
-		z80_write8((uint16_t)(player + 7u), new_delta_high);
+		AT8(SEQUENCE_PLAYER(player)->delta_time, 1) = new_delta_high;
 	}
 	z80_block(134);
-	z80_write8((uint16_t)(player + 6u), event_byte);
-	z80_write8((uint16_t)(player + 2u), (uint8_t)cursor);
-	z80_write8((uint16_t)(player + 3u), cursor >> 8);
+	AS8(SEQUENCE_PLAYER(player)->delta_time) = event_byte;
+	SEQUENCE_PLAYER(player)->position = cursor;
 	midi_queue_write = write_index;
 	port_out(ROM_BANK_HIGH, rom_bank_high);
 	port_out(ROM_BANK_LOW, rom_bank_low);
@@ -4114,7 +3391,7 @@ uint8_t chain_next_event(uint16_t player, uint8_t data_byte)
 {
 	z80_block(41);
 	data_byte &= 0x7Fu;
-	z80_write8(player, z80_read8(player) | 0x40u);
+	SEQUENCE_PLAYER(player)->flags |= 0x40u;
 	return data_byte;
 }
 
@@ -4181,15 +3458,15 @@ void poll_sound_command(void)
 			address = clear_player(address);
 			z80_block(87);
 			header++;
-			z80_write8(address, byte);
+			SEQUENCE_PLAYER(address)->flags = byte;
 			address = (address & ~0xFFu) | 2u;
-			z80_write8(address, (uint8_t)header);
+			AS8(SEQUENCE_PLAYER(address - 0x2u)->position) = (uint8_t)header;
 			address = (address & ~0xFFu) | (uint8_t)(address + 1u);
-			z80_write8(address, header >> 8);
+			AT8(SEQUENCE_PLAYER(address - 0x3u)->position, 1) = header >> 8;
 			address = (address & ~0xFFu) | 6u;
-			z80_write8(address, 1u);
+			AS8(SEQUENCE_PLAYER(address - 0x6u)->delta_time) = 1u;
 			address &= ~0xFFu;
-			z80_write8(address, z80_read8(address) | 0x80u);
+			SEQUENCE_PLAYER(address)->flags |= 0x80u;
 			return;
 		}
 		z80_block(10);
@@ -4197,7 +3474,7 @@ void poll_sound_command(void)
 		address = (uint32_t)(uint8_t)((address >> 8) + 1u) << 8;
 		address = (uint32_t)(uint8_t)((address >> 8) + 1u) << 8;
 		byte = z80_read8(header) & 0xFu;
-		if (byte < (z80_read8(address) & 0xFu))
+		if (byte < (SEQUENCE_PLAYER(address)->flags & 0xFu))
 		{
 			z80_block(10);
 			return;
@@ -4205,17 +3482,17 @@ void poll_sound_command(void)
 		z80_block(17);
 		address = clear_player(address);
 		z80_block(7);
-		z80_write8(address, byte);
+		SEQUENCE_PLAYER(address)->flags = byte;
 		z80_block(80);
 		header++;
 		address = (address & ~0xFFu) | 2u;
-		z80_write8(address, (uint8_t)header);
+		AS8(SEQUENCE_PLAYER(address - 0x2u)->position) = (uint8_t)header;
 		address = (address & ~0xFFu) | (uint8_t)(address + 1u);
-		z80_write8(address, header >> 8);
+		AT8(SEQUENCE_PLAYER(address - 0x3u)->position, 1) = header >> 8;
 		address = (address & ~0xFFu) | 6u;
-		z80_write8(address, 1u);
+		AS8(SEQUENCE_PLAYER(address - 0x6u)->delta_time) = 1u;
 		address &= ~0xFFu;
-		z80_write8(address, z80_read8(address) | 0x80u);
+		SEQUENCE_PLAYER(address)->flags |= 0x80u;
 		return;
 	}
 	z80_block(18);
@@ -4224,13 +3501,13 @@ void poll_sound_command(void)
 		z80_block(80);
 		header++;
 		address = (address & ~0xFFu) | 2u;
-		z80_write8(address, (uint8_t)header);
+		AS8(SEQUENCE_PLAYER(address - 0x2u)->position) = (uint8_t)header;
 		address = (address & ~0xFFu) | (uint8_t)(address + 1u);
-		z80_write8(address, header >> 8);
+		AT8(SEQUENCE_PLAYER(address - 0x3u)->position, 1) = header >> 8;
 		address = (address & ~0xFFu) | 6u;
-		z80_write8(address, 1u);
+		AS8(SEQUENCE_PLAYER(address - 0x6u)->delta_time) = 1u;
 		address &= ~0xFFu;
-		z80_write8(address, z80_read8(address) | 0x80u);
+		SEQUENCE_PLAYER(address)->flags |= 0x80u;
 		return;
 	}
 	z80_block(18);
@@ -4245,12 +3522,12 @@ void poll_sound_command(void)
 	z80_block(82);
 	header++;
 	byte = z80_read8(header);
-	z80_write8(address, z80_read8(address) | 0x20u);
+	SEQUENCE_PLAYER(address)->flags |= 0x20u;
 	header++;
 	address = (address & ~0xFFu) | 0x20u;
-	z80_write8(address, (uint8_t)header);
+	AS8(SEQUENCE_PLAYER(address - 0x20u)->playlist) = (uint8_t)header;
 	address++;
-	z80_write8(address, header >> 8);
+	AT8(SEQUENCE_PLAYER(address - 0x21u)->playlist, 1) = header >> 8;
 	header = address & ~0xFFu;
 	start_song(header, byte);
 }
@@ -4280,15 +3557,15 @@ void start_sequence(uint16_t header, uint16_t player)
 	player_field = (player & ~0xFFu) | 0x1Bu;
 	bank = z80_read8(header);
 	header++;
-	z80_write8(player_field, bank);
+	SEQUENCE_PLAYER(player_field - 0x1Bu)->bank = bank;
 	player_field = (player_field & ~0xFFu) | 2u;
-	z80_write8(player_field, z80_read8(header));
+	AS8(SEQUENCE_PLAYER(player_field - 0x2u)->position) = z80_read8(header);
 	player_field = (player_field & ~0xFFu) | (uint8_t)(player_field + 1u);
-	z80_write8(player_field, z80_read8((uint16_t)(header + 1u)));
+	AT8(SEQUENCE_PLAYER(player_field - 0x3u)->position, 1) = z80_read8((uint16_t)(header + 1u));
 	player_field = (player_field & ~0xFFu) | 6u;
-	z80_write8(player_field, 1u);
+	AS8(SEQUENCE_PLAYER(player_field - 0x6u)->delta_time) = 1u;
 	player_field &= ~0xFFu;
-	z80_write8(player_field, z80_read8(player_field) | 0x80u);
+	SEQUENCE_PLAYER(player_field)->flags |= 0x80u;
 }
 
 void select_channel_player(uint16_t *p_header, uint16_t *p_player)
@@ -4336,13 +3613,13 @@ void fade_music_volume(uint16_t mailbox_page)
 	queue_page = 0xE1u;
 	write_index = midi_queue_write;
 	fade_field = (fade_field & ~0xFFu) | 0x15u;
-	z80_write8(fade_field, z80_read8(fade_field) - 1u);
-	if (z80_read8(fade_field) == 0u)
+	SEQUENCE_PLAYER(fade_field - 0x15u)->fade_volume--;
+	if (SEQUENCE_PLAYER(fade_field - 0x15u)->fade_volume == 0u)
 	{
 		z80_block(223);
 		fade_field &= ~0xFFu;
-		z80_write8(fade_field, z80_read8(fade_field) & 0x7Fu);
-		z80_write8(fade_field | 0x18u, 0u);
+		SEQUENCE_PLAYER(fade_field)->flags &= 0x7Fu;
+		SEQUENCE_PLAYER(fade_field)->fade_speed = 0u;
 		z80_write8((uint16_t)(((uint32_t)queue_page << 8) | write_index), 0xBEu);
 		write_index++;
 		z80_write8((uint16_t)(((uint32_t)queue_page << 8) | write_index), 0x50u);
@@ -4364,11 +3641,11 @@ void fade_music_volume(uint16_t mailbox_page)
 	write_index++;
 	z80_write8((uint16_t)(((uint32_t)queue_page << 8) | write_index), 0x10u);
 	write_index++;
-	z80_write8((uint16_t)(((uint32_t)queue_page << 8) | write_index), z80_read8(fade_field));
+	z80_write8((uint16_t)(((uint32_t)queue_page << 8) | write_index), SEQUENCE_PLAYER(fade_field - 0x15u)->fade_volume);
 	midi_queue_write = write_index + 1u;
 	midi_queue_count++;
 	fade_field = (fade_field & ~0xFFu) | 0x18u;
-	z80_write8((fade_field & ~0xFFu) | 0x19u, z80_read8(fade_field));
+	SEQUENCE_PLAYER(fade_field & ~0xFFu)->fade_wait = SEQUENCE_PLAYER(fade_field - 0x18u)->fade_speed;
 }
 
 void fade_player_volume(uint16_t queue_pointer, uint16_t player, uint16_t mailbox_page)
@@ -4379,28 +3656,28 @@ void fade_player_volume(uint16_t queue_pointer, uint16_t player, uint16_t mailbo
 	write_index = (uint8_t)queue_pointer;
 	z80_block(23);
 	fade_field = (player & ~0xFFu) | 0x18u;
-	if (z80_read8(fade_field) == 0u)
+	if (SEQUENCE_PLAYER(fade_field - 0x18u)->fade_speed == 0u)
 	{
 		z80_cycles(6);
 		return;
 	}
 	z80_block(28);
 	fade_field = (fade_field & ~0xFFu) | 0x19u;
-	if (z80_read8(fade_field) != 0u)
+	if (SEQUENCE_PLAYER(fade_field - 0x19u)->fade_wait != 0u)
 	{
 		z80_block(21);
-		z80_write8(fade_field, z80_read8(fade_field) - 1u);
+		SEQUENCE_PLAYER(fade_field - 0x19u)->fade_wait--;
 		return;
 	}
 	z80_block(39);
 	fade_field = (fade_field & ~0xFFu) | 0x1Au;
-	z80_write8(fade_field, z80_read8(fade_field) - 1u);
-	if (z80_read8(fade_field) == 0u)
+	SEQUENCE_PLAYER(fade_field - 0x1Au)->fade_channel_volume--;
+	if (SEQUENCE_PLAYER(fade_field - 0x1Au)->fade_channel_volume == 0u)
 	{
 		z80_block(138);
 		fade_field &= ~0xFFu;
-		z80_write8(fade_field, 0u);
-		z80_write8(fade_field | 0x18u, 0u);
+		SEQUENCE_PLAYER(fade_field)->flags = 0u;
+		SEQUENCE_PLAYER(fade_field)->fade_speed = 0u;
 		z80_write8((queue_pointer & ~0xFFu) | write_index, 0xBAu);
 		write_index++;
 		z80_write8((queue_pointer & ~0xFFu) | write_index, 0x7Bu);
@@ -4415,11 +3692,11 @@ void fade_player_volume(uint16_t queue_pointer, uint16_t player, uint16_t mailbo
 	write_index++;
 	z80_write8((queue_pointer & ~0xFFu) | write_index, 7u);
 	write_index++;
-	z80_write8((queue_pointer & ~0xFFu) | write_index, z80_read8(fade_field));
+	z80_write8((queue_pointer & ~0xFFu) | write_index, SEQUENCE_PLAYER(fade_field - 0x1Au)->fade_channel_volume);
 	midi_queue_write = write_index + 1u;
 	midi_queue_count++;
 	fade_field = (fade_field & ~0xFFu) | 0x18u;
-	z80_write8((fade_field & ~0xFFu) | 0x19u, z80_read8(fade_field));
+	SEQUENCE_PLAYER(fade_field & ~0xFFu)->fade_wait = SEQUENCE_PLAYER(fade_field - 0x18u)->fade_speed;
 }
 
 uint16_t next_sequence_byte(uint16_t cursor, uint16_t player)
@@ -4429,8 +3706,8 @@ uint16_t next_sequence_byte(uint16_t cursor, uint16_t player)
 	if (cursor >> 8 == 0xC0u)
 	{
 		z80_block(60);
-		z80_write8((uint16_t)(player + 0x1Bu), z80_read8((uint16_t)(player + 0x1Bu)) + 1u);
-		port_out(ROM_BANK_LOW, z80_read8((uint16_t)(player + 0x1Bu)));
+		SEQUENCE_PLAYER(player)->bank++;
+		port_out(ROM_BANK_LOW, SEQUENCE_PLAYER(player)->bank);
 		cursor = (cursor & 0xFFu) | 0xA000u;
 	}
 	z80_block(20);
@@ -4441,6 +3718,7 @@ void step_fm_vibrato(uint16_t voice)
 {
 	uint8_t center_high = 0, center_low = 0, fall_block = 0, fall_limit = 0, fm_register = 0, rise_block = 0, rise_limit = 0, value = 0;
 	uint16_t fnumber = 0, frequency = 0;
+	uint8_t saved_center_high = 0, saved_center_low = 0;
 	uint16_t word_copy = 0;
 	uint8_t fall_limit_bits = 0;
 	uint16_t fall_floor = 0, fall_fnumber = 0, center_for_fall = 0, rise_ceiling = 0, rise_fnumber = 0, center_for_rise = 0;
@@ -4473,9 +3751,8 @@ void step_fm_vibrato(uint16_t voice)
 	{
 		z80_block(214);
 		frequency = fnumber;
-		fnumber = (FM_VOICE(voice)->vibrato_offset_low | ((uint32_t)FM_VOICE(voice)->vibrato_offset_high << 8)) - FM_VOICE(voice)->vibrato_fall;
-		FM_VOICE(voice)->vibrato_offset_low = (uint8_t)fnumber;
-		FM_VOICE(voice)->vibrato_offset_high = fnumber >> 8;
+		fnumber = FM_VOICE(voice)->vibrato_offset - FM_VOICE(voice)->vibrato_fall;
+		FM_VOICE(voice)->vibrato_offset = fnumber;
 		fnumber += (frequency & 0xFFu) | (((frequency >> 8) & 7u) << 8);
 		fnumber = (fnumber & 0xFFu) | ((uint32_t)(uint8_t)(((frequency >> 8) & ~7u) + (fnumber >> 8)) << 8);
 		if ((FM_VOICE(voice)->vibrato_range & 0x70u) == 0u)
@@ -4491,7 +3768,7 @@ void step_fm_vibrato(uint16_t voice)
 				z80_block(83);
 				word_copy = frequency;
 				fnumber = frequency;
-				if ((uint16_t)(((uint32_t)(word_copy >> 8) << 8) | (uint8_t)word_copy) > 0u)
+				if (word_copy > 0u)
 				{
 					z80_block(97);
 					FM_VOICE(voice)->vibrato_range += FM_VOICE(voice)->vibrato_phase & 0x70u;
@@ -4539,10 +3816,10 @@ void step_fm_vibrato(uint16_t voice)
 				center_high = (uint8_t)(center_for_fall >> 8);
 				center_low = (uint8_t)center_for_fall;
 				fnumber = 0x4CFu - (((uint32_t)center_high << 8) | center_low);
-				FM_VOICE(voice)->vibrato_offset_low = (uint8_t)fnumber;
-				FM_VOICE(voice)->vibrato_offset_high = fnumber >> 8;
-				word_copy = ((uint32_t)center_high << 8) | center_low;
-				fnumber = word_copy + (((uint32_t)FM_VOICE(voice)->vibrato_offset_high << 8) | FM_VOICE(voice)->vibrato_offset_low);
+				FM_VOICE(voice)->vibrato_offset = fnumber;
+				saved_center_high = center_high;
+				saved_center_low = center_low;
+				fnumber = (((uint32_t)saved_center_high << 8) | saved_center_low) + FM_VOICE(voice)->vibrato_offset;
 				fnumber = (fnumber & 0xFFu) | ((uint32_t)(uint8_t)(((frequency >> 8) & 0x38u) + (fnumber >> 8)) << 8);
 				frequency = ((fnumber >> 8) & 0x38u) << 8;
 				fall_block = (FM_VOICE(voice)->vibrato_block & ~7u) + (frequency >> 8);
@@ -4592,9 +3869,8 @@ void step_fm_vibrato(uint16_t voice)
 	{
 		z80_block(164);
 		frequency = fnumber;
-		fnumber = (FM_VOICE(voice)->vibrato_offset_low | ((uint32_t)FM_VOICE(voice)->vibrato_offset_high << 8)) + FM_VOICE(voice)->vibrato_rise;
-		FM_VOICE(voice)->vibrato_offset_low = (uint8_t)fnumber;
-		FM_VOICE(voice)->vibrato_offset_high = fnumber >> 8;
+		fnumber = FM_VOICE(voice)->vibrato_offset + FM_VOICE(voice)->vibrato_rise;
+		FM_VOICE(voice)->vibrato_offset = fnumber;
 		fnumber += frequency;
 		if ((FM_VOICE(voice)->vibrato_range & 0x70u) == 0u)
 		{
@@ -4636,10 +3912,10 @@ void step_fm_vibrato(uint16_t voice)
 				center_high = (uint8_t)(center_for_rise >> 8);
 				center_low = (uint8_t)center_for_rise;
 				fnumber = 0x269u - (((uint32_t)center_high << 8) | center_low);
-				FM_VOICE(voice)->vibrato_offset_low = (uint8_t)fnumber;
-				FM_VOICE(voice)->vibrato_offset_high = fnumber >> 8;
-				word_copy = ((uint32_t)center_high << 8) | center_low;
-				fnumber = word_copy + (((uint32_t)FM_VOICE(voice)->vibrato_offset_high << 8) | FM_VOICE(voice)->vibrato_offset_low);
+				FM_VOICE(voice)->vibrato_offset = fnumber;
+				saved_center_high = center_high;
+				saved_center_low = center_low;
+				fnumber = (((uint32_t)saved_center_high << 8) | saved_center_low) + FM_VOICE(voice)->vibrato_offset;
 				fnumber = (fnumber & 0xFFu) | ((uint32_t)(uint8_t)(((frequency >> 8) & 0x38u) + (fnumber >> 8)) << 8);
 				frequency = ((fnumber >> 8) & 0x38u) << 8;
 				rise_block = ((FM_VOICE(voice)->vibrato_block & ~7u) + (frequency >> 8)) & 0xF8u;

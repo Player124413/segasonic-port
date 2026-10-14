@@ -66,6 +66,67 @@ ARRAYS = {}                    # struct -> (first, count): structures one after 
 STRUCT_FUNCTION = "ram"        # what gives a pointer to a structure from its address (game/support.h)
 CONSTANTS = False              # registers keep the constants they are set to, so that a pointer moved by one
                                # (the Z80's "ld de,12h ... add iy,de") keeps its kind
+PAGED = False                  # structures a page long, one per page: (p & FF00) | n is field n of p's (page_parts)
+
+
+def paged(kind):
+    """True for a pointer into a structure a page long whose array starts on a page (the Z80's sequence
+    players): its high byte picks the structure, its low byte the field."""
+    return PAGED and kind is not None and kind[0] in STRUCTS and STRUCTS[kind[0]] == 0x100 \
+        and kind[0] in ARRAYS and ARRAYS[kind[0]][0] & 0xFF == 0
+
+
+def is_page_mask(node):
+    return isinstance(node, ir.Op) and node.name == "and" and isinstance(node.args[1], ir.Const) \
+        and node.args[1].value == 0xFF00 and node.bits == 16
+
+
+def page_parts(node, state, zeros):
+    """(structure, field offset, the structure's address) for a pointer into a paged structure set a byte
+    at a time: p & FF00 (the structure), (p & FF00) | n ("ld l,n"), (p & FF00) | (p + n) & FF ("inc l"), or
+    q | n with q a structure's own address; None otherwise."""
+    if is_page_mask(node):
+        inner = kind_of(node.args[0], state, zeros)
+        return (inner[0], 0, node) if paged(inner) else None
+    if isinstance(node, ir.Op) and node.name == "shl" and node.bits == 16 and isinstance(node.args[1], ir.Const) \
+            and node.args[1].value == 8:
+        # the next page's structure ("inc h; ld l,0"): ((p >> 8) + n) << 8
+        page = node.args[0]
+        while isinstance(page, ir.Op) and page.name in ("zext", "fits", "trunc"):
+            page = page.args[0]
+        if isinstance(page, ir.Op) and page.name == "add" and isinstance(page.args[1], ir.Const):
+            high = page.args[0]
+            while isinstance(high, ir.Op) and high.name in ("zext", "fits", "trunc"):
+                high = high.args[0]
+            if isinstance(high, ir.Op) and high.name == "shr" and isinstance(high.args[1], ir.Const) \
+                    and high.args[1].value == 8:
+                inner = kind_of(high.args[0], state, zeros)
+                if paged(inner):
+                    return inner[0], 0, node
+        return None
+    if not (isinstance(node, ir.Op) and node.name == "or" and node.bits == 16):
+        return None
+    for kept, low in (node.args, tuple(reversed(node.args))):
+        if is_page_mask(kept):
+            inner = kind_of(kept.args[0], state, zeros)
+            if not paged(inner):
+                continue
+            if isinstance(low, ir.Const) and low.value < 0x100:
+                return inner[0], low.value, kept
+            byte = low
+            while isinstance(byte, ir.Op) and byte.name in ("zext", "fits", "trunc"):
+                byte = byte.args[0]
+            if isinstance(byte, ir.Op) and byte.name == "add" and isinstance(byte.args[1], ir.Const):
+                moved = byte.args[0]
+                while isinstance(moved, ir.Op) and moved.name in ("zext", "fits", "trunc"):
+                    moved = moved.args[0]
+                if moved == kept.args[0]:
+                    return inner[0], (inner[1] + byte.args[1].value) & 0xFF, kept
+        elif isinstance(low, ir.Const) and low.value < 0x100:
+            inner = kind_of(kept, state, zeros)
+            if paged(inner) and inner[1] == 0:
+                return inner[0], low.value, kept
+    return None
 
 
 def player_constant(value):
@@ -172,6 +233,8 @@ def kind_of(node, state, zeros):
     """The kind of the value 'node' computes, or None."""
     if isinstance(node, ir.Reg):
         return state.get(node.index)
+    if isinstance(node, ir.Temp):
+        return state.get(("temp", node.name))    # (PAGED only: the Z80's EX DE,HL goes through one)
     if isinstance(node, ir.Const):
         value = node.value & ADDRESS_MASK
         found = player_constant(value)
@@ -188,6 +251,10 @@ def kind_of(node, state, zeros):
     if not isinstance(node, ir.Op):
         return None
     name, args = node.name, node.args
+    if PAGED and name in ("and", "or", "shl"):
+        found = page_parts(node, state, zeros)
+        if found is not None:
+            return found[0], found[1]
     if CONSTANTS and name == "add":
         args = tuple(held_constant(arg, state) for arg in args)
     if name in ("add", "sub"):
@@ -318,6 +385,10 @@ def access(address, state):
     whole = kind_of(address, state, {})
     if whole is not None and whole[0] in REGIONS:
         return whole[0], 0, address, 0
+    if PAGED:
+        found = page_parts(address, state, {})
+        if found is not None:
+            return found[0], found[1], found[2], 0
     if isinstance(address, ir.Reg):
         kind = state.get(address.index)
         return (kind[0], kind[1], address, kind[1]) if kind is not None and kind[0] in STRUCTS else None
@@ -353,10 +424,12 @@ def fold(node):
 class Program:
     """The kinds of every function's registers, across calls."""
 
-    def __init__(self, functions, flow, signatures, call_results, context, targets=None, hints=None):
+    def __init__(self, functions, flow, signatures, call_results, context, targets=None, hints=None, site_hints=None):
         TARGETS.clear()
         TARGETS.update(targets or {})
         self.hints = hints or {}             # entry -> {register: kind}: what symbols.txt says a parameter is
+        self.site_hints = site_hints or {}   # (instruction address, register) -> kind: what symbols.txt says a
+                                             # local variable written there is
         self.functions = functions
         self.flow = flow
         self.signatures = signatures
@@ -449,12 +522,22 @@ class Program:
                 state[index] = kind
 
     def step(self, statement, state, zeros, record):
+        if PAGED and isinstance(statement, ir.SetTemp):
+            kind = kind_of(statement.value, state, zeros)
+            if kind is None:
+                state.pop(("temp", statement.temp.name), None)
+            else:
+                state[("temp", statement.temp.name)] = kind
+            return
         if isinstance(statement, ir.SetReg):
             kind = kind_of(statement.value, state, zeros)
             if CONSTANTS and isinstance(statement.value, ir.Const) and kind is None:
                 kind = ("const", statement.value.value & ADDRESS_MASK)
             if kind is None and offset_sized(statement.value, state):
                 kind = OFFSET
+            hinted = self.site_hints.get((getattr(statement, "origin", None), statement.index))
+            if hinted is not None:
+                kind = hinted
             if statement.index in OBJECT_REGISTERS and (kind is None or kind[0] == "global") \
                     and not (kind is None and isinstance(statement.value, ir.Const)):
                 # whatever the object registers are set to is used as an object, except an address outside

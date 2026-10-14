@@ -261,8 +261,7 @@ field fm_voice 0B vibrato_rise u8           # vibrato preset byte 4: added to th
 field fm_voice 0C vibrato_fall u8           # vibrato preset byte 5: taken from the vibrato offset every step going down (6342)
 field fm_voice 0D vibrato_phase u8          # vibrato preset byte 6, plus vibrato_range's high nibble at note on (10A4) or all of it on CC 11 (459E): bit 0 going down (622F), one more or less at each turn (6335, 6423), bits 4-6 what vibrato_range gets back then (632A, 6418); 0 when freed (11ED)
 field fm_voice 0E vibrato_rate u8           # copy of vibrato_wait from the preset (10AD, 4596): what 61EF reloads vibrato_wait with (61FD)
-field fm_voice 0F vibrato_offset_low u8     # low byte of what the vibrato adds to the F-number now (61EF: 6238-6247, 633C-634D); 0 when freed (11E4)
-field fm_voice 10 vibrato_offset_high u8    # its high byte; 0 when freed (11E7)
+field fm_voice 0F vibrato_offset u16     # what the vibrato adds to the F-number now (61EF: 6238-6247, 633C-634D); 0 when freed (11E4, 11E7: a byte at a time)
 field fm_voice 11 vibrato_block u8          # bits 3-7: the block change added to register A4 once the offset crossed into the next block (62BA, 62C2, 63C4); 0 when freed (11EA)
 field midi_part 00 flags u8                 # bit 7 the part plays (040B skips it otherwise); bit 0 its volume ignores music_volume (09DA, 096B, 0AD1); 80 or 81 in the templates (81: the parts of channels A-E)
 field midi_part 01 midi_channel u8          # the MIDI channel it listens on (040B compares it with E008 & 0F; CC 10 picks the voices by it at 0989)
@@ -284,10 +283,8 @@ field sample_voice 0A source_page u8        # high byte of the next 256 sample b
 field sample_voice 0B header_bank_step u8   # uncertain: sample header byte 3 (0BD0, 00-02 in ROM), nothing reads it (maybe the bank of a loop or end point)
 field sample_voice 0C header_address_low u8   # uncertain: sample header byte 4 (0BD5), nothing reads it; with byte 5 an address in A000-BFFF in ROM
 field sample_voice 0D header_address_high u8  # uncertain: sample header byte 5 (0BDA), nothing reads it
-field sample_voice 0E pitch_step_low u8     # low byte of the note's RF5C68 FD (registers 2-3, 06BC); pitch bend rewrites it (0847); the Z80 only moves it a byte at a time
-field sample_voice 0F pitch_step_high u8    # its high byte (06BF, 084A)
-field sample_voice 10 stream_position_low u8   # low byte of a counter that adds the pitch step every time 0BF4 visits the voice: past 0800 (bit 3 of the high byte) 2 pages of the sample are copied, past 1000 4 (0C0C-0C28); 07FF at start and stop (058E, 0D3E, 039B); pitch bend adds the change of the pitch step (0850)
-field sample_voice 11 stream_position_high u8  # its high byte
+field sample_voice 0E pitch_step u16     # the note's RF5C68 FD (registers 2-3, 06BC-06BF); pitch bend rewrites it (0847-084A)
+field sample_voice 10 stream_position u16   # a counter that adds the pitch step every time 0BF4 visits the voice: past 0800 (bit 3 of the high byte) 2 pages of the sample are copied, past 1000 4 (0C0C-0C28); 07FF at start and stop (058E, 0D3E, 039B: the high byte alone); pitch bend adds the change of the pitch step (0850)
 field sequence_player 00 flags u8   # bit 7 playing (4726; set at 494B by start_sequence, at 496B and 498F by 48E0), bit 6 the event just read was chained (477F, cleared at 474E, tested at 4840), bit 5 has a playlist (487C, set at 4929), bit 4 clear E70B at the end (48AB), bits 0-3 priority (48E0 compares at 4950/4974); 0 when stopped (48AF)
 field sequence_player 02 position u16   # the read position in the sequence data (bank window A000-BFFF, or the program ROM below A000): read at 4748, stored back at 4868; set by start_sequence (493D) from the song header and by 48E0 (495F) to the sound header's own data
 field sequence_player 06 delta_time u16 # ticks to the next event: step_player counts it down (472B-4734) and sets it from the delta bytes (4862/4865); start_sequence sets 1 (4945)
@@ -308,14 +305,14 @@ param apply_fm_music_volume bc chip_channel  # C: the voice's chip_channel (09A5
 param apply_fm_music_volume hl level        # points at the voice's chip_channel on entry; then H = its level (4 bytes on), then that times volume_curve
 param apply_fm_music_volume iy part midi_part
 param chain_next_event        a   data_byte     # the data byte, handed back without bit 7
-param chain_next_event        ix  player
+param chain_next_event        ix  player sequence_player
 param clear_player hl player sequence_player
 param clear_player_end_flag   iy  mailbox_page
 param copy_sample_page de wave_address       # where the page goes (D000-DFFF), handed back 256 further
 param copy_sample_page hl sample_address     # where the page comes from (A000-BFFF), handed back 256 further
 param fade_music_volume       iy  mailbox_page
 param fade_player_volume      de  queue_pointer # E100 + midi_queue_write (4675-467A)
-param fade_player_volume      hl  player        # EA00 (467B)
+param fade_player_volume      hl  player sequence_player        # EA00 (467B)
 param fade_player_volume      iy  mailbox_page
 param fm_note_off hl saved_channel          # L: the channel while the note is compared; handed back as &channel_controls[channel] when a voice matched, else the caller's H with L = the channel: the caller at 0B6F clears bit 6 of what it points at and walks on from there
 param init_pcm_chip bc unused_c        # C passed through unused
@@ -326,13 +323,13 @@ param load_fm_patch hl patch_data           # handed back: the next byte of the 
 param multiply_bytes de factor         # E
 param multiply_bytes hl value          # H in; hands back the product H x E in HL
 param next_sequence_byte      hl  cursor        # the read position, handed back one byte further
-param next_sequence_byte      ix  player        # whose bank (field 1B) moves on at C000
+param next_sequence_byte      ix  player sequence_player        # whose bank (field 1B) moves on at C000
 param play_midi_message bc message_byte     # C: the byte 040B read (a status byte if bit 7 is set, else the first data byte); the handlers read the next one when it is a status byte
 param play_midi_message ix part midi_part    # the part the message is for (E300 + 9n)
 param playlist_command        a   playlist_byte # the playlist byte F0-FF; handed back: the byte after the command, a song number or 0 (4892)
 param playlist_command        de  queue_pointer # where the next byte goes in midi_queue: D picks what FF clears (46E0)
 param playlist_command        hl  playlist      # the playlist position after the command byte; handed back past its operands
-param playlist_command        ix  player        # the player FE clears (46CF)
+param playlist_command        ix  player sequence_player        # the player FE clears (46CF)
 param playlist_command        iy  mailbox_page  # E700 (E709 and E70A at 46BD/46C6)
 param read_midi_byte a byte            # the byte read
 param read_midi_byte bc byte_copy      # C: the same byte
@@ -352,7 +349,7 @@ param start_sequence de header         # the song header (its flags byte)
 param start_sequence hl player sequence_player
 param start_song a song_number         # entry of table songs
 param start_song de player sequence_player    # the player (E900)
-param step_fm_vibrato         iy  voice         # the YM3438 voice (vibrato_voice)
+param step_fm_vibrato         iy  voice fm_voice         # the YM3438 voice (vibrato_voice)
 param step_player             hl  player_address    # the player (L is not used: 4729 sets it to 06)
 param step_player             iy  mailbox_page  # E700: midi_queue_write and midi_queue_count through IY (486E, 47B6), E70B (48C1)
 param step_player_if_playing  hl  player_address
@@ -432,7 +429,8 @@ local play_midi_message 052B r2 free_voice          # the search for a free samp
 local play_midi_message 052E r1 voice_size          # 12h
 local play_midi_message 0533 r6 lowest_order        # 0, then FF and down to the lowest allocation_order of the 8 sample voices
 local play_midi_message 053B r2 order_entry         # &allocation_order of each sample_voice
-local play_midi_message 0550 r4 new_voice           # the sample_voice the note takes (free or stolen), and new_fm_voice at 109B
+local play_midi_message 0550 r4 new_voice sample_voice  # the sample_voice the note takes (free or stolen)
+local play_midi_message 059A r4 new_voice sample_voice  # POP IY: the free sample_voice the search found (HL), and new_fm_voice at 109B
 local play_midi_message 0580 r6 keys_on             # pcm_channels_on without the stolen channel
 local play_midi_message 05A4 r6 register_value      # what goes into an RF5C68 register: C0 | channel, 80 | channel * 2, then the channel's start page
 local play_midi_message 05EA r6 order               # the new sample voice's allocation_order
@@ -522,7 +520,7 @@ local play_midi_message 104C r1 voice_size
 local play_midi_message 106F r2 preset_address      # vibrato_presets[preset]
 local play_midi_message 1076 r1 preset_data         # the vibrato preset's 7 bytes
 local play_midi_message 107E r2 preset_target       # new_fm_voice's vibrato fields
-local play_midi_message 109B r4 new_voice
+local play_midi_message 109B r4 new_voice fm_voice   # new_fm_voice
 local play_midi_message 10CC r2 new_voice_field     # new_fm_voice's fields, one after another
 local play_midi_message 10D7 r6 note
 local play_midi_message 10E0 r6 channel
@@ -606,7 +604,7 @@ local step_fm_vibrato        006209,00629A,0062D3,0062DB,0063AA,0063AC  a  value
 local step_fm_vibrato        006216,006220,006224,00622E,006243,00624A,006260,00626D,006282,006284,0062C8,00630B,006317,006326,006348,006358,00635B,006371,00637E,006393,006395,0063EF,006400,006414  hl  fnumber  # fm_fnum_tables entry, the note's F-number (6225), the offset, the F-number and block written (62C8)
 local step_fm_vibrato        00621B,006237,006264,006288,0062CE,0062FE,00633B,006375,006399,0063E2  de  frequency  # the pitch bend (621B), the note's F-number and block (6237), the swept one (62FE, 63E2), D the channel's bits (62CE)
 local step_player            004729,00472C,004730,00474B,004789,00478F,0047B3,0047BF,0047CA,0047DA,0047E1,0047EC,0047F6,004808,004811,00481F,004823,004831,004835,00483A,004848,00485F,004886,00488A,00488F,0048C5,0048C8,0048DA  hl  cursor  # field 06 of the player (4729), then the read position in the sequence (474B) or the playlist (4886)
-local step_player            00473E  ix  player             # the player (HL with L = 0)
+local step_player            00473E  ix  player sequence_player             # the player (HL with L = 0)
 local step_player            004752,004761,00478C,004794,0047A0,0047A6,0047AE,0047C2,0047C5,0047E4,0047E7,0047F5,004810,00481C,004826,004847,00484B,004854,004859,00485D,004889,00488F,004892,0048CB,0048D5  a  event_byte  # status, data, meta type and delta bytes as they are read
 local stop_fm_voice 11F0 r6 register_value     # chip_channel, then & 7: the key off for register 28
 local stop_pcm_voice 0D09,0D13,0D15,0D16,0D17,0D1B r6 register_value  # C0h|channel for register 7 (picks the voice's channel), then turned into channel*20h+18h for register 5 (the loop address's high byte: the silent stretch)
@@ -774,3 +772,10 @@ local retune_voice 07E6 r12 caller_c    # C as the caller had it: pushed with B 
 
 local retune_voice 123F r0 fnum_low_register    # FM path: A0 + the channel (the F-number's low register), written with write_fm_channel and handed back in C
 local step_player entry,488F r1 queue_pointer    # where the next byte goes in midi_queue (D = E1, its page), as playlist_command takes and hands it back
+
+# The bytes a PUSH of a pair saves on their own (tools/z80/pairs.py split_slots: slot s10000 + the pair's slot)
+local play_midi_message 0965,0A4D,0A69,0AA9,0B43,0B6A,1163 s10001 saved_count      # B of the PUSH BC: the count of the walk it sits in (voices_left, parts_left, operators_left)
+local play_midi_message 0965,0A4D,0A69,0AA9,0B43,0B6A,1163 s10002 saved_value      # C of the PUSH BC: the controller's value (control_value), or the part's channel in the operator walk
+local start_pcm_sample 0BCD s10003 saved_start_page  # D of the PUSH DE: the page the sample starts at (header byte 2); popped into HL as its address
+local start_pcm_sample 0BCD s10004 saved_start_offset  # E of the PUSH DE: 0
+local update_fm_modulation 1244 s10001 saved_count   # B of the PUSH BC: the caller's count of voices left

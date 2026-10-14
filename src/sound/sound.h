@@ -209,8 +209,7 @@ struct fm_voice
 	uint8_t vibrato_fall;
 	uint8_t vibrato_phase;
 	uint8_t vibrato_rate;
-	uint8_t vibrato_offset_low;
-	uint8_t vibrato_offset_high;
+	uint16_t vibrato_offset;
 	uint8_t vibrato_block;
 };
 
@@ -242,10 +241,8 @@ struct sample_voice
 	uint8_t header_bank_step;
 	uint8_t header_address_low;
 	uint8_t header_address_high;
-	uint8_t pitch_step_low;
-	uint8_t pitch_step_high;
-	uint8_t stream_position_low;
-	uint8_t stream_position_high;
+	uint16_t pitch_step;
+	uint16_t stream_position;
 };
 
 struct sequence_player
@@ -299,7 +296,7 @@ void write_fm2(uint8_t fm_register, uint8_t value);
 void write_fm2_part2(uint8_t fm_register, uint8_t value);
 void init_pcm_chip(uint32_t unused_c);
 void write_pcm_register(uint8_t pcm_register, uint8_t register_value);
-void init_track_channels(uint8_t unused_c);
+void init_track_channels(uint32_t unused_c);
 void init_pcm_tracks(void);
 void init_midi_parts(void);
 uint16_t read_table_word(uint16_t table, uint8_t index);

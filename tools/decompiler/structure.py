@@ -3,7 +3,7 @@ Name:        structure.py
 Description: turns a function's blocks and jumps into if / else, loops, switch, break and continue
 Version:     0.1.0
 Created:     11-10-2026
-Modified:    12-10-2026
+Modified:    13-10-2026
 Author:      Sebastian Toyos
 
 The control flow graph is read with dominators. A block a back edge jumps to heads a loop: its body is
@@ -25,6 +25,8 @@ from dataclasses import dataclass, field
 from v60 import ir
 
 SMALL_EXIT = 4    # statements of an ending block that is copied rather than jumped to
+COPY_LATCHES = False    # a jump to the few statements a loop goes round again after is written as a copy of
+                        # them ending in continue or break (copied_latch): the sound driver's voice walks
 TAIL_COPY = 20    # statements (and block ends) of all the code a jump leads to, at most, to write it again
 
 
@@ -610,11 +612,46 @@ class Structurer:
                 return self.goto(target), None
         if target == stop:
             return [], None
+        if loop is not None and COPY_LATCHES:
+            latch = self.copied_latch(target, loop)
+            if latch is not None:
+                return latch, None
         if target in self.emitted:
             if self.small_exit(target):
                 return self.copy_exit(target), None
             return self.goto(target), None
         return [], target
+
+    def copied_latch(self, label, loop):
+        """The few statements before 'loop' goes round again (the next voice: the pointer moved on, the count
+        down), written again where the body jumps to them, ending in continue (and break when the count runs
+        out); None when 'label' is not such a block."""
+        if loop.in_switch or label not in loop.body or label == loop.header:
+            return None
+        block = self.blocks[label]
+        if len(block.statements) > SMALL_EXIT:
+            return None
+        end = block.end
+        if isinstance(end, ir.Goto) and end.target == loop.header:
+            return [Code(label, list(block.statements)), Continue()]
+
+        def again(side):
+            """The nodes for a side of the branch that goes round again ([continue], after the statements of
+            a block of its own on the way, the Z80's extra cycles of a jump taken), or None."""
+            if side == loop.header:
+                return [Continue()]
+            way = self.blocks.get(side)
+            if way is not None and side in loop.body and isinstance(way.end, ir.Goto) \
+                    and way.end.target == loop.header and len(way.statements) <= SMALL_EXIT:
+                return [Code(side, list(way.statements)), Continue()]
+            return None
+        if isinstance(end, ir.Branch):
+            for side, other, condition in ((end.target, end.otherwise, end.condition),
+                                           (end.otherwise, end.target, negate(end.condition))):
+                nodes = again(side)
+                if nodes is not None and other == loop.follow:
+                    return [Code(label, list(block.statements)), If(negate(condition), [Break()])] + nodes
+        return None
 
     def copy_exit(self, label):
         block = self.blocks[label]

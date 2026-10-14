@@ -79,6 +79,7 @@ def configure():
     signatures.CONTEXT = ()
     signatures.SCRATCH_CONTEXT = {}
     signatures.CONSTANT = {}
+    structure.COPY_LATCHES = True
 
 
 def build_functions(program):
@@ -244,9 +245,18 @@ def write_c(program, out_dir, variables_path=None):
     for (function, register), struct in known.param_structs.items():
         if function in entries_by_name:
             hints.setdefault(entries_by_name[function], {})[register] = (struct, 0)
+    site_hints = {}
+    for (function, spot, value), struct in known.local_structs.items():
+        if not value.startswith("r"):
+            continue    # (a temporary or a stack slot: the structure is for registers only)
+        register = int(value[1:])
+        if spot == "entry" and function in entries_by_name:
+            hints.setdefault(entries_by_name[function], {})[register] = (struct, 0)
+        elif spot != "entry":
+            site_hints[(spot, register)] = (struct, 0)
     typing = pointers.Program(built, flow, found,
                               {entry: call_results(function, found, flow) for entry, function in built.items()},
-                              signatures.CONTEXT, known.targets, hints)
+                              signatures.CONTEXT, known.targets, hints, site_hints)
     fields, accesses = typing.run()
     through = [(hit[1], hit[2]) for found_fields in fields.values() for hit in found_fields.values()
                if hit[0] == "global"]

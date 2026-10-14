@@ -254,6 +254,36 @@ class Printer(cprint.Printer):
 
 
 SELF_ASSIGNMENT = re.compile(r"([A-Za-z_][A-Za-z0-9_]*) = \1;")
+REPEAT_MINIMUM = 8    # a group of statements written this many times in a row or more becomes a loop (rerolled)
+
+
+def rerolled(lines):
+    """Runs of one group of simple statements written again and again (the sound driver's 256 LDI in a row)
+    as a counted loop: the same statements, run the same number of times."""
+    def simple(line):
+        return line.endswith(";") and not line.startswith(("return", "goto", "break", "continue", "for ", "if "))
+    found = []
+    position = 0
+    while position < len(lines):
+        best = None
+        for size in range(1, 9):
+            group = lines[position:position + size]
+            if len(group) < size or not all(simple(line) for line in group):
+                break
+            count = 1
+            while lines[position + count * size:position + (count + 1) * size] == group:
+                count += 1
+            if count >= REPEAT_MINIMUM and (best is None or count * size > best[0] * best[1]):
+                best = (count, size)
+        if best is None:
+            found.append(lines[position])
+            position += 1
+            continue
+        count, size = best
+        found += [f"for (uint32_t repeat = 0; repeat < {count}u; repeat++)", "{"]
+        found += ["\t" + line for line in lines[position:position + size]] + ["}"]
+        position += count * size
+    return found
 
 
 class FunctionWriter:
@@ -1025,7 +1055,7 @@ class FunctionWriter:
             if statement.offset >= 0:
                 raise EmitError(f"{self.function.name}: writes its caller's stack at {statement.offset:+d}")
             name = self.slot_name(ir.Stack(statement.offset, statement.bits))
-            return [f"{name} = {self.expr(statement.value)};"]
+            return [f"{name} = {self.stored(statement.value, statement.bits)};"]
         if isinstance(statement, ir.Store):
             value = statement.value
             target = self.memory(statement.address, statement.bits, id(statement))
@@ -1524,6 +1554,8 @@ class FunctionWriter:
             for statement in node.statements:
                 # an assignment of a variable to itself (two registers that hold one variable) does nothing
                 lines += [line for line in self.statement(statement) if not SELF_ASSIGNMENT.fullmatch(line)]
+            if self.emitter.reroll:
+                lines = rerolled(lines)
             return [pad + line for line in lines]
         if isinstance(node, structure.End):
             return [pad + line for line in self.ending(node.end)]
@@ -1702,6 +1734,7 @@ class Emitter:
         self.needs_return_address = needs_return_address
         self.trace = trace    # every function reports itself to game_trace() when it starts
         self.saved_locals = False    # a stack slot that saves a local variable is saved_NAME (slot_hint)
+        self.reroll = False    # runs of one group of statements written as a loop (rerolled)
 
     def context_name(self, index):
         """The C name of a register the whole program shares."""

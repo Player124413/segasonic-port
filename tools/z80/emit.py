@@ -63,6 +63,7 @@ def use_memory_map(names, arrays):
     pointers.ARRAYS = dict(arrays)
     pointers.STRUCT_FUNCTION = "sound_ram_at"
     pointers.CONSTANTS = True
+    pointers.PAGED = True    # the sequence players, one per page from E900
 
 
 class SoundNames(emit.Names):
@@ -128,6 +129,7 @@ class SoundEmitter(emit.Emitter):
         self.layouts = layouts
         self.ports = dict(ports)
         self.saved_locals = True
+        self.reroll = True    # copy_sample_page's 256 LDI in a row
         self.flow = None
 
     def restores_current(self, entry):
