@@ -34,7 +34,7 @@
 
 #define USAGE "Usage: sonic_headless [--frames N] [--hashes FILE] [--script FILE]" \
 	" [--dump-frame N --dump-dir DIR] [--video-hashes FILE] [--video-dump N ... --video-dir DIR]" \
-	" [--sound-hashes FILE] [--sprite-census FILE]\n"
+	" [--sound-hashes FILE] [--sprite-census FILE] [--tile-census FILE]\n"
 #define MAX_VIDEO_DUMPS 64
 #define CENSUS_SLOTS (1u << 20)
 
@@ -77,6 +77,37 @@ static void on_sprite_drawn(uint32_t address, int words, int rows, bool bits8, c
 	for (int pen = 0; pen < pens; pen++)
 		fprintf(sprite_census, " %04X", colors[pen]);
 	fputc('\n', sprite_census);
+}
+
+/* --tile-census: every tile the tilemaps that are on show (every TILE_CENSUS_EVERY frames), with the colors
+   its pens show, once per set of colors: "TILE COLOR TILEMAP COLOR..." (hex; colors RGB555, one a pen) */
+#define TILE_CENSUS_EVERY 30
+static FILE *tile_census;
+static uint64_t *tile_census_seen;
+
+static void on_tile_shown(int tilemap, uint32_t tile, uint16_t color)
+{
+	uint16_t colors[16];
+	uint64_t hash = 0xcbf29ce484222325ull;
+	uint32_t slot;
+
+	if (program_frames() % TILE_CENSUS_EVERY != 0)
+		return;
+	for (int pen = 0; pen < 16; pen++)
+		colors[pen] = s32_video_tile_pen_color(tilemap, color, pen);
+	hash = (hash ^ tile) * 0x100000001b3ull;
+	for (int pen = 0; pen < 16; pen++)
+		hash = (hash ^ colors[pen]) * 0x100000001b3ull;
+	if (hash == 0)
+		hash = 1;
+	for (slot = (uint32_t)hash & (CENSUS_SLOTS - 1); tile_census_seen[slot] != 0; slot = (slot + 1) & (CENSUS_SLOTS - 1))
+		if (tile_census_seen[slot] == hash)
+			return;
+	tile_census_seen[slot] = hash;
+	fprintf(tile_census, "%04X %03X %d", tile, color, tilemap);
+	for (int pen = 0; pen < 16; pen++)
+		fprintf(tile_census, " %04X", colors[pen]);
+	fputc('\n', tile_census);
 }
 
 static void write_file(const char *name, const void *data, size_t size)
@@ -201,6 +232,7 @@ int main(int argc, char **argv)
 	const char *video_hashes_path = NULL;
 	const char *sound_hashes_path = NULL;
 	const char *sprite_census_path = NULL;
+	const char *tile_census_path = NULL;
 	bool frames_given = false;
 
 	for (int index = 1; index < argc; index++)
@@ -228,6 +260,8 @@ int main(int argc, char **argv)
 			sound_hashes_path = argv[++index];
 		else if (strcmp(argv[index], "--sprite-census") == 0 && index + 1 < argc)
 			sprite_census_path = argv[++index];
+		else if (strcmp(argv[index], "--tile-census") == 0 && index + 1 < argc)
+			tile_census_path = argv[++index];
 		else
 		{
 			fprintf(stderr, USAGE);
@@ -249,7 +283,7 @@ int main(int argc, char **argv)
 	}
 	if (hashes_path)
 		hashes = fopen(hashes_path, "w");
-	if (video_hashes_path || video_dump_count || sprite_census_path)
+	if (video_hashes_path || video_dump_count || sprite_census_path || tile_census_path)
 	{
 		s32_video_init(game_tile_rom, GAME_TILE_ROM_SIZE, game_sprite_rom, GAME_SPRITE_ROM_SIZE);
 		if (video_hashes_path)
@@ -265,6 +299,17 @@ int main(int argc, char **argv)
 			return 1;
 		}
 		s32_video_sprite_observer = on_sprite_drawn;
+	}
+	if (tile_census_path)
+	{
+		tile_census = fopen(tile_census_path, "w");
+		tile_census_seen = calloc(CENSUS_SLOTS, sizeof(*tile_census_seen));
+		if (!tile_census || !tile_census_seen)
+		{
+			fprintf(stderr, "%s: cannot be written\n", tile_census_path);
+			return 1;
+		}
+		s32_video_tile_observer = on_tile_shown;
 	}
 	if (sound_hashes_path)
 	{
@@ -294,6 +339,9 @@ int main(int argc, char **argv)
 	if (sprite_census)
 		fclose(sprite_census);
 	free(census_seen);
+	if (tile_census)
+		fclose(tile_census);
+	free(tile_census_seen);
 	s32_script_free(script);
 	printf("frames:            %" PRIu64 "\n", program_frames());
 	printf("interrupts taken:  %u\n", program_interrupts());

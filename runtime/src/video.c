@@ -629,6 +629,31 @@ static void draw_backdrop(void)
 
 /* Every layer the registers leave on (0x02 and 0x8E turn them off, 0x00 bits 12-13 too for NBG2-3);
    the backdrop is always there. The layers drawn, as bits by LAYER_. */
+s32_tile_observer s32_video_tile_observer = NULL;
+
+/* Every cell of the pages tilemap 'number' shows, to s32_video_tile_observer */
+static void observe_tilemap(int number)
+{
+	int pages[4];
+	const int bank = pages_of(number, pages);
+
+	for (int index = 0; index < 4; index++)
+	{
+		bool seen = false;
+
+		for (int earlier = 0; earlier < index; earlier++)
+			seen = seen || pages[earlier] == pages[index];
+		if (seen)
+			continue;
+		for (uint32_t cell = 0; cell < 32 * 16; cell++)
+		{
+			const uint16_t word = video_word((uint32_t)pages[index] << 9 | cell);
+
+			s32_video_tile_observer(number, (uint32_t)bank << 13 | (word & 0x1fff), (word >> 4) & 0x1ff);
+		}
+	}
+}
+
 static int draw_layers(void)
 {
 	const uint16_t control = video_register(0x00);
@@ -639,21 +664,29 @@ static int draw_layers(void)
 	if (!bit(off, 0) && !bit(more_off, 1))
 	{
 		draw_zoomed(0);
+		if (s32_video_tile_observer != NULL)
+			observe_tilemap(0);
 		drawn |= 1 << LAYER_NBG0;
 	}
 	if (!bit(off, 1) && !bit(more_off, 2))
 	{
 		draw_zoomed(1);
+		if (s32_video_tile_observer != NULL)
+			observe_tilemap(1);
 		drawn |= 1 << LAYER_NBG1;
 	}
 	if (!bit(off, 2) && !bit(more_off, 3) && !bit(control, 12))
 	{
 		draw_scrolled(2);
+		if (s32_video_tile_observer != NULL)
+			observe_tilemap(2);
 		drawn |= 1 << LAYER_NBG2;
 	}
 	if (!bit(off, 3) && !bit(more_off, 4) && !bit(control, 13))
 	{
 		draw_scrolled(3);
+		if (s32_video_tile_observer != NULL)
+			observe_tilemap(3);
 		drawn |= 1 << LAYER_NBG3;
 	}
 	if (!bit(off, 4) && !bit(more_off, 0))
@@ -1024,6 +1057,16 @@ static const mix_layer *top_layer(const mix_layer *entry, const uint16_t *const 
 static uint16_t palette_color(const mix_layer *entry, int pixel)
 {
 	return s32_board.palette[(entry->palette_base + ((pixel >> entry->shift) & 0xfff0) + (pixel & 0x0f)) & 0x3fff];
+}
+
+uint16_t s32_video_tile_pen_color(int tilemap, uint16_t color, int pen)
+{
+	const uint16_t control = mixer_register(0x20 + 2 * (uint32_t)(LAYER_NBG0 + tilemap));
+	mix_layer layer;
+
+	layer.palette_base = (uint16_t)((control & 0x00f0) << 6);
+	layer.shift = (control >> 8) & 3;
+	return palette_color(&layer, ((color & 0x1ff) << 4 | (pen & 0x0f)) & 0x1fff);
 }
 
 uint16_t s32_video_sprite_pixel_color(uint16_t pixel)

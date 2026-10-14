@@ -55,6 +55,16 @@ extern s32_sprite_observer s32_video_sprite_observer;
    group's palette, without blending, shadow or color offsets */
 uint16_t s32_video_sprite_pixel_color(uint16_t pixel);
 
+/* Likewise for the tilemaps: called, when a frame is drawn, for every cell of the pages each tilemap
+   (NBG0-3: 0-3) that is on shows, with its tile (bank << 13 | number) and color (the cell's 9 bits). NULL,
+   the default, calls nothing. */
+typedef void (*s32_tile_observer)(int tilemap, uint32_t tile, uint16_t color);
+extern s32_tile_observer s32_video_tile_observer;
+
+/* The color (RGB555) pen 'pen' of a tile drawn with color 'color' shows on tilemap 'tilemap' (0-3), with the
+   mixer's registers as they are now, without blending or color offsets */
+uint16_t s32_video_tile_pen_color(int tilemap, uint16_t color, int pen);
+
 #ifdef __cplusplus
 }
 #endif

@@ -281,3 +281,28 @@ def build_sprite_rom(folder, size):
         at = int(strip["word"], 16) * 4
         image[at:at + len(data)] = data
     return bytes(image)
+
+
+# ---- tiles back ----
+
+def tile_sheet_pens(data, columns):
+    """The tiles of a sheet (tile_sheet_rows' layout) as rows of pens, one int a pixel."""
+    rows = []
+    for packed in tile_sheet_rows(data, columns):
+        rows.append([pen for byte in packed for pen in (byte >> 4, byte & 0x0F)])
+    return rows
+
+
+def tiles_from_sheet(rows, columns, count):
+    """The tile ROM bytes of 'count' tiles from a sheet's rows of pens (only the low 4 bits of each index are
+    the pen): the reverse of tile_sheet_rows."""
+    out = bytearray(count * TILE_BYTES)
+    for tile in range(count):
+        top = (tile // columns) * TILE_SIZE
+        left = (tile % columns) * TILE_SIZE
+        for y in range(TILE_SIZE):
+            pens = rows[top + y][left:left + TILE_SIZE]
+            packed = bytes((pens[index] & 0x0F) << 4 | (pens[index + 1] & 0x0F) for index in range(0, TILE_SIZE, 2))
+            for position, source in enumerate(TILE_ROW_ORDER):
+                out[tile * TILE_BYTES + y * 8 + source] = packed[position]
+    return bytes(out)

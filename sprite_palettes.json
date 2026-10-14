@@ -1,7 +1,7 @@
 {
  "notes": [
-  "Positions only: where in the program ROM each sprite frame's palette starts (frame = its sprite_frame, the record's offset in sprite_frame_records); tools/sprite_census.py writes it.",
-  "'drawn': the palette the frame was drawn with in the scenarios; 'nearby': a frame no scenario draws, with the palette of the frame before it in the sprite ROM."
+  "Positions only: where in the program ROM the palette of each sprite frame (its sprite_frame, the record's offset in sprite_frame_records) starts; tools/palette_census.py writes it.",
+  "'drawn': the palette the sprite frame (its sprite_frame, the record's offset in sprite_frame_records) was shown with in the scenarios; 'nearby': one no scenario shows, given the palette of the sprite frame (its sprite_frame, the record's offset in sprite_frame_records) before it."
  ],
  "drawn": {
   "0000": "0x1057EE",

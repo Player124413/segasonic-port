@@ -27,9 +27,9 @@ decompiled game plays the scenarios of <code>tests/controls/</code>.</sub></p>
 - [x] Recursive disassembly that follows branch tables, pointer tables and stored code pointers,
       cross-checked against real execution: 541 functions, about 26,000 instructions, no invalid
       or overlapping paths, and every executed address lands on a decoded instruction
-- [x] Asset extraction into plain resources: 16 tile sheets (PNG), 175 PCM samples (WAV), and every
-      sprite frame (6,138 of them) as an indexed PNG with the palette the game draws it with, showing
-      what the board draws; the sprite ROM builds back from those PNGs byte for byte
+- [x] Asset extraction into plain resources: 16 tile sheets and every sprite frame (6,138 of them) as
+      indexed PNGs in the colors the game shows them with, showing what the board draws, and 175 PCM
+      samples (WAV); the tile and sprite ROMs build back from those PNGs byte for byte
       (`extract_assets.py --check`). The game's data tables join them as their formats are worked out
 - [x] System 32 board model in C (`runtime/`): memory map, interrupt controller and timers, I/O chip,
       EEPROM, trackballs, palette and mixer registers, and the FD1149 (317-0213) level-load protection
@@ -233,6 +233,7 @@ rom/                    your ROM (ignored by git)
 assets.json             asset manifest: positions and formats, no data
 extract_assets.py       extracts assets/ from your ROM, and checks they build back into it (--check)
 sprite_palettes.json    where in the program ROM each sprite frame's palette is (positions only)
+tile_palettes.json      the same for each tile
 src/                    the game's C, decompiled from the program (tools/decompile.py writes it)
 src/sound/              the sound driver's C, decompiled from the sound program
                         (tools/decompile_sound.py writes it)
@@ -252,8 +253,9 @@ docs/unreachable.txt    the code no scenario runs, and why
 tools/sonic_rom.py      ROM set definition and memory region layouts
 tools/embed_data.py     writes the game's data from your ROM set as C, for the executables to carry
 tools/asset_formats.py  the board's data formats to standard files (PNG, WAV) and back
-tools/sprite_census.py  runs the scenarios with the sprite census on (sonic_game_headless --sprite-census)
-                        and finds each frame's palette in the program ROM: writes sprite_palettes.json
+tools/palette_census.py runs the scenarios with the sprite and tile censuses on (sonic_game_headless
+                        --sprite-census, --tile-census) and finds each frame's and tile's palette in the
+                        program ROM: writes sprite_palettes.json and tile_palettes.json
 tools/v60/              NEC V60 instruction decoder and C translation of each instruction
 tools/z80/              Zilog Z80 instruction decoder, analysis, lifting and timing (the sound program)
 tools/disassemble.py    recursive disassembler, listing and analysis report

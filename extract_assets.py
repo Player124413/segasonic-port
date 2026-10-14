@@ -16,6 +16,7 @@ Usage:
 import json
 import shutil
 import sys
+from collections import Counter
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
@@ -112,6 +113,47 @@ def extract_sprites(asset, sprites, program, path):
     return len(index["frames"]) + len(index["leftovers"]) + 1
 
 
+TILE_SLOTS = 16    # palettes a tile sheet's PNG holds: 16 of 16 colors
+
+
+def extract_tile_sheet(asset, data, program, path, columns):
+    """A sheet of 16x16 tiles as an 8-bit indexed PNG in color: the 16 palettes its tiles are shown with
+    the most (tile_palettes.json), 16 colors each, a tile's pixels at its palette's slot * 16 + pen (pen 0
+    see-through), so that index & 15 is the pen; and NAME.json beside it, each tile's palette."""
+    first = asset["offset"] // asset_formats.TILE_BYTES
+    count = len(data) // asset_formats.TILE_BYTES
+    known = json.loads((ROOT / asset["palettes"]).read_text(encoding="ascii"))
+    palettes = {int(tile, 16): (int(offset, 0), source)
+                for source in ("drawn", "nearby") for tile, offset in known[source].items()}
+    used = Counter(palettes[first + tile][0] for tile in range(count) if first + tile in palettes)
+    slots = [offset for offset, _ in used.most_common(TILE_SLOTS)]
+    colors = []
+    for offset in slots:
+        colors += sprite_palette_colors(program, offset, 16)
+    colors += [(level * 17,) * 3 for level in range(16)] * (TILE_SLOTS - len(slots))
+    rows = asset_formats.tile_sheet_pens(data, columns)
+    listing = []
+    for tile in range(count):
+        offset, source = palettes.get(first + tile, (None, "none"))
+        slot = slots.index(offset) if offset in slots else None
+        top = (tile // columns) * asset_formats.TILE_SIZE
+        left = (tile % columns) * asset_formats.TILE_SIZE
+        if slot:    # (slot 0: the pens are the indices already)
+            for y in range(top, top + asset_formats.TILE_SIZE):
+                rows[y][left:left + asset_formats.TILE_SIZE] = [slot * 16 + pen for pen in rows[y][left:left + asset_formats.TILE_SIZE]]
+        listing.append({"tile": f"{first + tile:04X}", "palette": f"0x{offset:06X}" if offset is not None else None,
+                        "palette_from": source, "slot": slot})
+    alphas = [0 if index % 16 == 0 else 255 for index in range(TILE_SLOTS * 16)]
+    asset_formats.write_png_indexed(path, rows, colors, 8, alphas=alphas)
+    path.with_suffix(".json").write_text(json.dumps({
+        "notes": ["Each tile's palette: where its colors are in the program ROM ('palette_from': 'drawn' in the "
+                  "scenarios, or 'nearby': a tile no scenario shows, given its neighbour's), and the slot of the "
+                  "sheet's 16 palettes it is drawn with (null: not among them, drawn with the first). Index & 15 "
+                  "of a pixel is the pen."],
+        "tiles": listing}, indent=1) + "\n", encoding="ascii")
+    return 2
+
+
 def extract(asset, data, region_of):
     path = ROOT / asset["path"]
     kind = asset["type"]
@@ -120,9 +162,11 @@ def extract(asset, data, region_of):
     if kind == "tiles_16x16x4":
         path.parent.mkdir(parents=True, exist_ok=True)
         columns = asset["columns"]
-        asset_formats.write_png_4bpp(path, columns * asset_formats.TILE_SIZE,
-                                     asset_formats.tile_sheet_rows(data, columns))
-        return 1
+        if "palettes" not in asset:
+            asset_formats.write_png_4bpp(path, columns * asset_formats.TILE_SIZE,
+                                         asset_formats.tile_sheet_rows(data, columns))
+            return 1
+        return extract_tile_sheet(asset, data, region_of("program"), path, columns)
     if kind == "pcm_rf5c68":
         path.mkdir(parents=True, exist_ok=True)
         samples = asset_formats.split_rf5c68(data)
@@ -161,6 +205,9 @@ def write_state(version, paths):
 
 REBUILDERS = {
     "sprite_frames": lambda asset: asset_formats.build_sprite_rom(ROOT / asset["path"], asset["size"]),
+    "tiles_16x16x4": lambda asset: asset_formats.tiles_from_sheet(
+        asset_formats.read_png_indexed(ROOT / asset["path"])[0], asset["columns"],
+        asset["size"] // asset_formats.TILE_BYTES),
 }
 
 
