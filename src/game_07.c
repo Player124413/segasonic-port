@@ -3,7 +3,7 @@
  *    Description: the game's functions, part 07 (in the order of their V60 addresses)
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    13-10-2026
+ *    Modified:    14-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -11,7 +11,7 @@
  */
 #include "game.h"
 
-void place_sign(uint16_t x, uint16_t y, uint32_t kind, uint16_t z, uint32_t *p_r1, uint32_t *p_sign)
+void place_sign(uint16_t x, uint16_t y, uint32_t kind, uint16_t z, uint32_t *p_depth, uint32_t *p_sign)
 {
 	uint32_t sign = *p_sign;
 	uint32_t r1 = 0;
@@ -24,14 +24,14 @@ void place_sign(uint16_t x, uint16_t y, uint32_t kind, uint16_t z, uint32_t *p_r
 	OBJECT(sign)->z_fraction = 0u;
 	kind = (uint16_t)kind * 0xCu + 0x84FB7u;
 	init_sign_from_kind(kind, &r1, &sign);
-	*p_r1 = r1;
+	*p_depth = r1;
 	*p_sign = sign;
 }
 
-void init_sign_from_kind(uint32_t record, uint32_t *p_r1, uint32_t *p_sign)
+void init_sign_from_kind(uint32_t record, uint32_t *p_depth, uint32_t *p_sign)
 {
 	uint32_t sign = *p_sign;
-	uint32_t r1 = 0, ignored = 0;
+	uint32_t depth = 0, ignored = 0;
 	uint32_t saved_current_object = 0;
 
 	OBJECT(sign)->sprite_frame = mem_read16(record);
@@ -51,10 +51,10 @@ void init_sign_from_kind(uint32_t record, uint32_t *p_r1, uint32_t *p_sign)
 	OBJECT(sign)->parent = current_object;
 	saved_current_object = current_object;
 	current_object = sign;
-	project_object(&ignored, &r1);
+	project_object(&ignored, &depth);
 	sign = current_object;
 	current_object = saved_current_object;
-	*p_r1 = r1;
+	*p_depth = depth;
 	*p_sign = sign;
 }
 
@@ -263,7 +263,7 @@ void screen_sign_show(void)
 
 void floor_sign_start(void)
 {
-	uint32_t r0 = 0, block_offset = 0, cursor = 0, ignored = 0, y = 0;
+	uint32_t block_offset = 0, cursor = 0, ignored = 0, x = 0, y = 0;
 
 	OBJECT(current_object)->sprite_flags = 0x1004u;
 	OBJECT(current_object)->sprite_palette = 0x8450u;
@@ -272,7 +272,7 @@ void floor_sign_start(void)
 	OBJECT(current_object)->flags = 0u;
 	OBJECT(current_object)->handler = floor_sign_update_ADDRESS;
 	OBJECT(current_object)->sprite_frame = floor_sign_sprites[OBJECT(current_object)->sprite_frame];
-	find_floor(&r0, &y, &block_offset, &ignored, &cursor);
+	find_floor(&x, &y, &block_offset, &ignored, &cursor);
 	OBJECT(current_object)->z = OBJECT(current_object)->floor_z;
 	project_object(&ignored, &ignored);
 }
@@ -293,7 +293,7 @@ void floor_sign_update(void)
 
 void spreading_flame_start(void)
 {
-	uint32_t r0 = 0, block_offset = 0, cursor = 0, ignored = 0, y = 0;
+	uint32_t block_offset = 0, cursor = 0, ignored = 0, x = 0, y = 0;
 
 	OBJECT(current_object)->sprite_flags = 0x1044u;
 	OBJECT(current_object)->sprite_palette = 0x10C0u;
@@ -305,7 +305,7 @@ void spreading_flame_start(void)
 	OBJECT(current_object)->animation_speed = 2u;
 	OBJECT(current_object)->animation_timer = 0;
 	OBJECT(current_object)->handler = spreading_flame_burn_ADDRESS;
-	find_floor(&r0, &y, &block_offset, &ignored, &cursor);
+	find_floor(&x, &y, &block_offset, &ignored, &cursor);
 	OBJECT(current_object)->z = OBJECT(current_object)->floor_z;
 	project_object(&ignored, &ignored);
 }
@@ -413,8 +413,8 @@ void stage_03_end_pillar_show(void)
 
 void exit_gate_start(uint32_t sign)
 {
-	uint16_t kind = 0, x = 0, y_2 = 0, z = 0;
-	uint32_t r0 = 0, block_offset = 0, ignored = 0, y = 0;
+	uint16_t kind = 0, x_2 = 0, y_2 = 0, z = 0;
+	uint32_t block_offset = 0, ignored = 0, x = 0, y = 0;
 
 	OBJECT(current_object)->sprite_flags = 0x1005u;
 	OBJECT(current_object)->sprite_frame = 0x6520u;
@@ -426,21 +426,21 @@ void exit_gate_start(uint32_t sign)
 	OBJECT(current_object)->speed_z = 0;
 	OBJECT(current_object)->handler = exit_gate_update_ADDRESS;
 	sign_stop_flag = 0u;
-	find_floor(&r0, &y, &block_offset, &ignored, &sign);
+	find_floor(&x, &y, &block_offset, &ignored, &sign);
 	OBJECT(current_object)->z = OBJECT(current_object)->floor_z;
 	OBJECT(current_object)->z_int -= 0xE0u;
 	project_object(&ignored, &ignored);
-	x = 0x942u;
+	x_2 = 0x942u;
 	y_2 = 0x10E0u;
 	kind = 8u;
 	z = (uint16_t)(OBJECT(current_object)->floor_z_int - 0x50u);
-	spawn_sign_2(x, y_2, kind, z, sign);
+	spawn_sign_2(x_2, y_2, kind, z, sign);
 }
 
 void exit_gate_update(void)
 {
 	uint8_t sound_id = 0;
-	uint32_t r1 = 0, r2 = 0, ignored = 0;
+	uint32_t r1 = 0, ignored = 0, write_index_address = 0;
 
 	if (map_screen_active != 0u)
 	{
@@ -456,7 +456,7 @@ void exit_gate_update(void)
 			OBJECT(current_object)->z = OBJECT(current_object)->floor_z;
 			sign_stop_flag = 0xFFu;
 			sound_id = 0x20u;
-			play_sound(sound_id, &r1, &r2);
+			play_sound(sound_id, &r1, &write_index_address);
 		}
 	}
 	update_screen_position(&ignored, &r1);
@@ -465,7 +465,7 @@ void exit_gate_update(void)
 
 void ram_target_start(void)
 {
-	uint32_t r0 = 0, block_offset = 0, cursor = 0, ignored = 0, y = 0;
+	uint32_t block_offset = 0, cursor = 0, ignored = 0, x = 0, y = 0;
 
 	OBJECT(current_object)->sprite_flags = 0x1045u;
 	OBJECT(current_object)->sprite_frame = 0x6A58u;
@@ -488,7 +488,7 @@ void ram_target_start(void)
 	OBJECT(current_object)->animation_speed = 4u;
 	OBJECT(current_object)->animation_timer = 0;
 	OBJECT(current_object)->ram_target.damage_script = ram_target_damage_script_ADDRESS;
-	find_floor(&r0, &y, &block_offset, &ignored, &cursor);
+	find_floor(&x, &y, &block_offset, &ignored, &cursor);
 	OBJECT(current_object)->z = OBJECT(current_object)->floor_z;
 	project_object(&ignored, &ignored);
 }
@@ -605,7 +605,7 @@ void ram_target_burst(uint32_t piece)
 
 void ram_target_part_start(void)
 {
-	uint32_t r0 = 0, block_offset = 0, cursor = 0, ignored = 0, part_list = 0, y = 0;
+	uint32_t block_offset = 0, cursor = 0, ignored = 0, part_list = 0, x = 0, y = 0;
 
 	OBJECT(current_object)->ram_target.variant = OBJECT(current_object)->sprite_frame;
 	part_list = ram_target_part_list_2_ADDRESS;
@@ -618,7 +618,7 @@ void ram_target_part_start(void)
 	OBJECT(current_object)->sprite_offset_y = 1;
 	OBJECT(current_object)->ram_target.hit_count = 0;
 	OBJECT(current_object)->handler = ram_target_part_update_ADDRESS;
-	find_floor(&r0, &y, &block_offset, &ignored, &cursor);
+	find_floor(&x, &y, &block_offset, &ignored, &cursor);
 	OBJECT(current_object)->z = OBJECT(current_object)->floor_z;
 	project_object(&ignored, &ignored);
 }
@@ -896,7 +896,7 @@ void fire_vent_update(void)
 {
 	uint32_t zero = 0, negative = 0, overflow = 0;
 	uint8_t sound_id = 0;
-	uint32_t r2 = 0, depth = 0, free_count = 0, ignored = 0, margin = 0, object = 0, off_screen = 0;
+	uint32_t depth = 0, free_count = 0, ignored = 0, margin = 0, object = 0, off_screen = 0, write_index_address = 0;
 	uint16_t blast_delay = 0, next_delay = 0;
 
 	margin = 0x40u;
@@ -942,7 +942,7 @@ void fire_vent_update(void)
 			OBJECT(object)->anchor_y = OBJECT(object)->projected_y_int;
 			OBJECT(object)->z = OBJECT(current_object)->z;
 			sound_id = 0xAu;
-			play_sound(sound_id, &margin, &r2);
+			play_sound(sound_id, &margin, &write_index_address);
 		}
 	}
 	else if (OBJECT(current_object)->screen_y >= 0x18)
@@ -1054,7 +1054,7 @@ void collapsing_bridge_plank_update(void)
 {
 	uint8_t sound_id = 0, start_frame = 0;
 	uint16_t x = 0, y = 0;
-	uint32_t r1 = 0, r2 = 0, angle_whole = 0, depth = 0, ignored = 0, kind = 0, object = 0, plank_index = 0, sag = 0, sag_table = 0, sign = 0, swing_dx = 0, swing_dz = 0, z = 0;
+	uint32_t angle_whole = 0, depth = 0, ignored = 0, kind = 0, object = 0, plank_index = 0, sag = 0, sag_table = 0, sign = 0, swing_dx = 0, swing_dz = 0, write_index_address = 0, z = 0;
 
 	switch (OBJECT(current_object)->collapsing_bridge_plank.state)
 	{
@@ -1100,7 +1100,7 @@ void collapsing_bridge_plank_update(void)
 			if (OBJECT(current_object)->collapsing_bridge_plank.plank_index == 0u)
 			{
 				sound_id = 9u;
-				play_sound(sound_id, &sag, &r2);
+				play_sound(sound_id, &sag, &write_index_address);
 			}
 		}
 		if ((uint16_t)(OBJECT(current_object)->screen_x + 0x50u) >= 0x1B0u)
@@ -1157,7 +1157,7 @@ void collapsing_bridge_plank_update(void)
 					bridge_swing_speed = 0u - bridge_swing_speed;
 					bridge_swing_speed = (int32_t)(bridge_swing_speed * 0x5Eu) >> 8;
 					sound_id = 0x20u;
-					play_sound(sound_id, &swing_dz, &r2);
+					play_sound(sound_id, &swing_dz, &write_index_address);
 				}
 			}
 			else
@@ -1183,12 +1183,12 @@ void collapsing_bridge_plank_update(void)
 			{
 				OBJECT(current_object)->collapsing_bridge_plank.roll_timer++;
 				animate(&swing_dz, &kind, &z);
-				project_object(&ignored, &r1);
+				project_object(&ignored, &depth);
 				if (OBJECT(current_object)->screen_y > 0xE0)
 					return;
 				if ((int8_t)OBJECT(current_object)->collapsing_bridge_plank.swing_count < 1)
 				{
-					r1 = queue_sprite(r1);
+					depth = queue_sprite(depth);
 					return;
 				}
 				depth = 0u;
@@ -1197,12 +1197,12 @@ void collapsing_bridge_plank_update(void)
 			}
 			OBJECT(current_object)->sprite_frame = mem_read16(OBJECT(current_object)->animation + 2u);
 		}
-		project_object(&ignored, &r1);
+		project_object(&ignored, &depth);
 		if (OBJECT(current_object)->screen_y > 0xE0)
 			return;
 		if ((int8_t)OBJECT(current_object)->collapsing_bridge_plank.swing_count < 1)
 		{
-			r1 = queue_sprite(r1);
+			depth = queue_sprite(depth);
 			return;
 		}
 		depth = 0u;
@@ -1215,7 +1215,7 @@ void collapsing_bridge_plank_update(void)
 
 void burning_boulder_start(void)
 {
-	uint32_t r0 = 0, block_offset = 0, boulder_record = 0, ignored = 0, object = 0, object_2 = 0, zone_index = 0;
+	uint32_t block_offset = 0, boulder_record = 0, ignored = 0, object = 0, object_2 = 0, x = 0, zone_index = 0;
 	uint8_t flames_left_before = 0;
 
 	boulder_record = burning_boulder_records_ADDRESS + OBJECT(current_object)->sprite_frame * 2u * 4u;
@@ -1258,7 +1258,7 @@ void burning_boulder_start(void)
 	}
 	if (AS16(OBJECT(current_object)->burning_boulder.path) != 0xFFFFu)
 		lead_burning_boulder = current_object;
-	find_floor(&r0, &zone_index, &block_offset, &ignored, &object);
+	find_floor(&x, &zone_index, &block_offset, &ignored, &object);
 	OBJECT(current_object)->z = OBJECT(current_object)->floor_z;
 	OBJECT(current_object)->z_int -= 0x70u;
 	project_object(&ignored, &ignored);
@@ -1294,7 +1294,7 @@ void burning_boulder_update(void)
 	uint32_t zero = 0;
 	uint8_t sound_id = 0;
 	uint16_t animation_speed = 0, roll_speed = 0;
-	uint32_t r0 = 0, r1 = 0, r2 = 0, r7 = 0, cursor = 0, depth = 0, drop_step = 0, flames_left = 0, floor_slope = 0, ignored = 0, object = 0, path_cursor = 0, slope_factor = 0, speed_level = 0, step_y = 0;
+	uint32_t r2 = 0, r7 = 0, cursor = 0, depth = 0, drop_step = 0, flames_left = 0, floor_slope = 0, ignored = 0, object = 0, path_cursor = 0, slope_factor = 0, speed_level = 0, step_y = 0, x = 0;
 	uint8_t hold_timer = 0;
 	uint16_t start_delay = 0, wait_timer = 0, record_scroll = 0, record_y = 0, next_slow_timer = 0, rumble_before = 0, rumble_after = 0, start_delay_2 = 0;
 
@@ -1309,7 +1309,7 @@ void burning_boulder_update(void)
 		OBJECT(current_object)->burning_boulder.start_delay = 0;
 		OBJECT(current_object)->speed_z += 0x6000u;
 		OBJECT(current_object)->z += OBJECT(current_object)->speed_z;
-		find_floor(&r0, &step_y, &r2, &ignored, &cursor);
+		find_floor(&x, &step_y, &r2, &ignored, &cursor);
 		if (OBJECT(current_object)->floor_z_int <= OBJECT(current_object)->z_int)
 		{
 			OBJECT(current_object)->z = OBJECT(current_object)->floor_z;
@@ -1563,8 +1563,8 @@ void burning_boulder_update(void)
 		}
 		if (OBJECT(current_object)->z_int >= 0x9E0)
 			seesaw_launched = 0xFFu;
-		project_object(&ignored, &r1);
-		r1 = queue_sprite(r1);
+		project_object(&ignored, &depth);
+		depth = queue_sprite(depth);
 		return;
 	default:
 		unknown_code(0x863F8u + OBJECT(current_object)->burning_boulder.state * 3u);
@@ -1623,14 +1623,14 @@ void burning_boulder_flame_flicker(void)
 
 void ember_emitter_start(void)
 {
-	uint32_t r0 = 0, block_offset = 0, cursor = 0, ignored = 0, y = 0;
+	uint32_t block_offset = 0, cursor = 0, ignored = 0, x = 0, y = 0;
 
 	OBJECT(current_object)->ember_emitter.spawn_timer = 0;
 	OBJECT(current_object)->floor_slope = 0u;
 	OBJECT(current_object)->floor_type = 0u;
 	OBJECT(current_object)->flags = 0u;
 	OBJECT(current_object)->ember_emitter.end_position = ember_emitter_end_positions[OBJECT(current_object)->sprite_frame];
-	find_floor(&r0, &y, &block_offset, &ignored, &cursor);
+	find_floor(&x, &y, &block_offset, &ignored, &cursor);
 	OBJECT(current_object)->z = OBJECT(current_object)->floor_z;
 	OBJECT(current_object)->handler = ember_emitter_move_ADDRESS;
 }
@@ -1737,7 +1737,7 @@ void ember_emitter_move(void)
 
 void falling_ember_update(void)
 {
-	uint32_t r0 = 0, r1 = 0, block_offset = 0, burst_animation = 0, cursor = 0, ignored = 0, off_screen = 0, wrapped = 0;
+	uint32_t r1 = 0, block_offset = 0, burst_animation = 0, cursor = 0, depth = 0, ignored = 0, off_screen = 0, wrapped = 0, x = 0;
 
 	switch (OBJECT(current_object)->falling_ember.state)
 	{
@@ -1760,13 +1760,13 @@ void falling_ember_update(void)
 		OBJECT(current_object)->y += OBJECT(current_object)->speed_y;
 		OBJECT(current_object)->z += OBJECT(current_object)->speed_z;
 		animate(&r1, &wrapped, &off_screen);
-		find_floor(&r0, &r1, &block_offset, &ignored, &cursor);
+		find_floor(&x, &r1, &block_offset, &ignored, &cursor);
 		if (OBJECT(current_object)->falling_ember.floor_block_high < 0)
 			OBJECT(current_object)->floor_z = 0x5300000;
-		project_object(&ignored, &r1);
+		project_object(&ignored, &depth);
 		if (OBJECT(current_object)->z_int < OBJECT(current_object)->floor_z_int)
 		{
-			r1 = queue_sprite(r1);
+			depth = queue_sprite(depth);
 			return;
 		}
 		OBJECT(current_object)->falling_ember.state++;
@@ -1778,7 +1778,7 @@ void falling_ember_update(void)
 		OBJECT(current_object)->animation_speed = 2u;
 		OBJECT(current_object)->animation_timer = 0;
 		OBJECT(current_object)->z = OBJECT(current_object)->floor_z;
-		r1 = queue_sprite(r1);
+		depth = queue_sprite(depth);
 		return;
 	case 2:
 		off_screen = check_left_screen();
@@ -2066,8 +2066,8 @@ void metal_platform_update(void)
 			OBJECT(current_object)->metal_platform.frame = 0xAFE8u;
 			OBJECT(current_object)->metal_platform.state = 2u;
 		}
-		project_object(&ignored, &r1);
-		r1 = queue_sprite(r1);
+		project_object(&ignored, &depth);
+		depth = queue_sprite(depth);
 		return;
 	default:
 		unknown_code(0x86DF9u + OBJECT(current_object)->metal_platform.state * 3u);
@@ -2180,7 +2180,7 @@ void fire_trench_update(void)
 void spawn_fire_trench_flames(void)
 {
 	uint8_t sound_id = 0;
-	uint32_t r1 = 0, r2 = 0, ignored = 0, object = 0;
+	uint32_t ignored = 0, object = 0, write_index = 0, write_index_address = 0;
 	uint16_t flames_left_before = 0;
 
 	if (free_object_stack < 3)
@@ -2217,7 +2217,7 @@ void spawn_fire_trench_flames(void)
 	if (OBJECT(current_object)->screen_x <= 0x140)
 	{
 		sound_id = 7u;
-		play_sound(sound_id, &r1, &r2);
+		play_sound(sound_id, &write_index, &write_index_address);
 	}
 }
 
@@ -2271,7 +2271,7 @@ void ridden_object_follow(void)
 
 void bridge_fire_start(void)
 {
-	uint32_t r0 = 0, block_offset = 0, ignored = 0, object = 0, y = 0;
+	uint32_t block_offset = 0, ignored = 0, object = 0, x = 0, y = 0;
 	uint16_t flames_left_before = 0;
 
 	OBJECT(current_object)->flags = 2u;
@@ -2291,7 +2291,7 @@ void bridge_fire_start(void)
 	OBJECT(current_object)->bridge_fire.path = bridge_fire_script_ADDRESS;
 	OBJECT(current_object)->bridge_fire.holding_back = 0u;
 	OBJECT(current_object)->bridge_fire.wait_timer = 0;
-	find_floor(&r0, &y, &block_offset, &ignored, &object);
+	find_floor(&x, &y, &block_offset, &ignored, &object);
 	project_object(&ignored, &ignored);
 	OBJECT(current_object)->bridge_fire.projected_x_whole = OBJECT(current_object)->projected_x;
 	OBJECT(current_object)->spawn_arg_2 = 0u;
@@ -2318,7 +2318,7 @@ void bridge_fire_start(void)
 
 void bridge_fire_rise(void)
 {
-	uint32_t r2 = 0, climb_speed = 0, path_cursor = 0, point_x = 0, point_y = 0, projected_dx = 0, sound_id = 0;
+	uint32_t climb_speed = 0, path_cursor = 0, point_x = 0, point_y = 0, projected_dx = 0, sound_id = 0, write_index_address = 0;
 	uint8_t hold_timer = 0, sound_timer = 0;
 	uint16_t record_height = 0, wait_timer = 0;
 	uint32_t flags = 0;
@@ -2423,7 +2423,7 @@ void bridge_fire_rise(void)
 			{
 				OBJECT(current_object)->bridge_fire.sound_timer = 0x3Cu;
 				sound_id = 9u;
-				play_sound((uint8_t)sound_id, &climb_speed, &r2);
+				play_sound((uint8_t)sound_id, &climb_speed, &write_index_address);
 			}
 		}
 	}
@@ -2497,7 +2497,7 @@ void lava_flow_wait(void)
 void lava_flow_advance(void)
 {
 	uint16_t part_list = 0;
-	uint32_t r0 = 0, r2 = 0, r3 = 0, r8 = 0, r11 = 0, depth = 0, flow_speed = 0, ignored = 0, path_cursor = 0;
+	uint32_t r0 = 0, r3 = 0, r8 = 0, r11 = 0, depth = 0, flow_speed = 0, ignored = 0, path_cursor = 0, write_index_address = 0;
 	uint8_t hold_timer = 0, sound_timer = 0;
 	uint16_t record_scroll = 0, wait_timer = 0;
 	uint32_t flags = 0;
@@ -2602,7 +2602,7 @@ void lava_flow_advance(void)
 			{
 				OBJECT(current_object)->lava_flow.sound_timer = 0x40u;
 				r0 = 0x10u;
-				play_sound((uint8_t)r0, &flow_speed, &r2);
+				play_sound((uint8_t)r0, &flow_speed, &write_index_address);
 			}
 		}
 	}
@@ -2949,7 +2949,7 @@ void spawn_ice_platform_leader(uint32_t record, uint32_t *p_spawned, uint32_t *p
 void ice_platform_leader_move(void)
 {
 	uint8_t sound_id = 0;
-	uint32_t r1 = 0, r2 = 0, ignored = 0;
+	uint32_t r1 = 0, ignored = 0, write_index_address = 0;
 
 	project_object(&ignored, &r1);
 	if (OBJECT(current_object)->ice_platform_leader.end_position <= scroll_position)
@@ -2964,7 +2964,7 @@ void ice_platform_leader_move(void)
 		OBJECT(current_object)->ice_platform_leader.travel = 0;
 		OBJECT(current_object)->speed_x = 0u - OBJECT(current_object)->speed_x;
 		sound_id = 0xFu;
-		play_sound(sound_id, &r1, &r2);
+		play_sound(sound_id, &r1, &write_index_address);
 	}
 }
 
@@ -3074,7 +3074,7 @@ void ice_floor_start(void)
 void ice_floor_block_update(void)
 {
 	uint8_t sound_id = 0;
-	uint32_t r1 = 0, r2 = 0, depth = 0, ignored = 0, object = 0, off_screen = 0;
+	uint32_t r1 = 0, depth = 0, ignored = 0, object = 0, off_screen = 0, write_index_address = 0;
 	uint8_t shake_timer = 0;
 	uint16_t shake_duration = 0;
 
@@ -3102,7 +3102,7 @@ void ice_floor_block_update(void)
 				OBJECT(current_object)->ice_floor_block.shake_timer = 0u;
 				OBJECT(current_object)->ice_floor_block.shake_duration = 0x1E;
 				sound_id = 0x14u;
-				play_sound(sound_id, &r1, &r2);
+				play_sound(sound_id, &r1, &write_index_address);
 				if (PLAYER(PLAYER_BLOCK(1) + ((uint32_t)OBJECT(object)->player << 8) * 2u)->invulnerable_timer > 0)
 					OBJECT(current_object)->ice_floor_block.shake_duration = 0x12C;
 			}
@@ -3121,7 +3121,7 @@ void ice_floor_block_update(void)
 			OBJECT(current_object)->ice_floor_block.state++;
 			OBJECT(current_object)->sprite_palette |= 0x2000u;
 			sound_id = 0x2Au;
-			play_sound(sound_id, &r1, &r2);
+			play_sound(sound_id, &r1, &write_index_address);
 		}
 		shake_timer = OBJECT(current_object)->ice_floor_block.shake_timer;
 		OBJECT(current_object)->ice_floor_block.shake_timer = shake_timer - 1u;
@@ -4461,7 +4461,7 @@ void tornado_move(void)
 
 void tornado_column_circle(void)
 {
-	uint32_t r0 = 0, r1 = 0, r7 = 0, r8 = 0, depth = 0, ignored = 0, object = 0, object_2 = 0, orbit_dx = 0, orbit_dy = 0, radius_limit = 0, radius_rate = 0;
+	uint32_t r1 = 0, r7 = 0, r8 = 0, depth = 0, ignored = 0, object = 0, object_2 = 0, orbit_dx = 0, orbit_dy = 0, radius_limit = 0, radius_rate = 0, x = 0;
 
 	if ((OBJECT(current_object)->flags & 0x400u) != 0u)
 	{
@@ -4494,10 +4494,10 @@ void tornado_column_circle(void)
 	OBJECT(current_object)->x += orbit_dx;
 	OBJECT(current_object)->y += orbit_dy;
 	animate(&r1, &r7, &r8);
-	find_floor(&r0, &r1, &radius_limit, &ignored, &object_2);
+	find_floor(&x, &r1, &radius_limit, &ignored, &object_2);
 	OBJECT(current_object)->z = OBJECT(current_object)->floor_z;
-	project_object(&ignored, &r1);
-	queue_sprite(r1);
+	project_object(&ignored, &depth);
+	queue_sprite(depth);
 	if ((int16_t)OBJECT(current_object)->child < 0)
 		return;
 	object = LINKED(current_object, OBJECT(current_object)->child);
@@ -4569,14 +4569,14 @@ void tornado_hazard_update(void)
 	delete_current_object();
 }
 
-uint32_t tornado_throw_whirlwinds(uint8_t spawned, uint32_t r2, uint32_t whirlwind, uint32_t object)
+uint32_t tornado_throw_whirlwinds(uint8_t spawned, uint32_t free_count, uint32_t whirlwind, uint32_t object)
 {
 	uint32_t saved_current_object = 0;
 
 	if (mem_read16(OBJECT(current_object)->part_list) <= scroll_position)
 	{
 		saved_current_object = current_object;
-		object = spawn_whirlwind(spawned, r2, whirlwind, object);
+		object = spawn_whirlwind(spawned, free_count, whirlwind, object);
 		current_object = saved_current_object;
 		OBJECT(current_object)->part_list += 2u;
 	}
@@ -4652,7 +4652,7 @@ void tornado_rear_zone_follow(void)
 
 void quicksand_start(void)
 {
-	uint32_t r0 = 0, block_offset = 0, ignored = 0, object = 0, object_2 = 0, y = 0;
+	uint32_t block_offset = 0, ignored = 0, object = 0, object_2 = 0, x = 0, y = 0;
 
 	OBJECT(current_object)->flags = 0u;
 	if (OBJECT(current_object)->sprite_frame != 0u)
@@ -4674,7 +4674,7 @@ void quicksand_start(void)
 	OBJECT(current_object)->animation_speed = 4u;
 	OBJECT(current_object)->animation_timer = 0;
 	OBJECT(current_object)->animation = quicksand_animation_ADDRESS;
-	find_floor(&r0, &y, &block_offset, &ignored, &object);
+	find_floor(&x, &y, &block_offset, &ignored, &object);
 	OBJECT(current_object)->z = OBJECT(current_object)->floor_z;
 	OBJECT(current_object)->z_int += 0x30u;
 	project_object(&ignored, &ignored);
@@ -4759,7 +4759,7 @@ void quicksand_swirl(void)
 
 void sinkhole_start(void)
 {
-	uint32_t r0 = 0, block_offset = 0, cursor = 0, growth_record = 0, ignored = 0, y = 0;
+	uint32_t block_offset = 0, cursor = 0, growth_record = 0, ignored = 0, x = 0, y = 0;
 	uint32_t sprite_frame = 0;
 
 	OBJECT(current_object)->sprite_flags = 8u;
@@ -4791,14 +4791,14 @@ void sinkhole_start(void)
 	OBJECT(current_object)->animation_speed = 4u;
 	OBJECT(current_object)->animation_timer = 0;
 	OBJECT(current_object)->animation = sinkhole_animation_ADDRESS;
-	find_floor(&r0, &y, &block_offset, &ignored, &cursor);
+	find_floor(&x, &y, &block_offset, &ignored, &cursor);
 	OBJECT(current_object)->z = OBJECT(current_object)->floor_z;
 	project_object(&ignored, &ignored);
 }
 
 void sinkhole_open(void)
 {
-	uint32_t r1 = 0, r2 = 0, r7 = 0, ignored = 0, off_screen = 0, scale = 0, sound_id = 0;
+	uint32_t r1 = 0, r7 = 0, ignored = 0, off_screen = 0, scale = 0, sound_id = 0, write_index_address = 0;
 
 	r1 = 0x68u;
 	off_screen = check_left_screen_margin((uint16_t)r1);
@@ -4820,7 +4820,7 @@ void sinkhole_open(void)
 	if (OBJECT(current_object)->sprite_scale == 1u)
 	{
 		sound_id = 0xFu;
-		play_sound((uint8_t)sound_id, &r1, &r2);
+		play_sound((uint8_t)sound_id, &r1, &write_index_address);
 	}
 	OBJECT(current_object)->sprite_scale += OBJECT(current_object)->sinkhole.zoom_step;
 	scale = OBJECT(current_object)->sprite_scale;
@@ -4837,7 +4837,7 @@ void sinkhole_open(void)
 
 void sand_patch_start(void)
 {
-	uint32_t r0 = 0, block_offset = 0, cursor = 0, ignored = 0, y = 0;
+	uint32_t block_offset = 0, cursor = 0, ignored = 0, x = 0, y = 0;
 
 	OBJECT(current_object)->sprite_flags = 0x1000u;
 	if ((OBJECT(current_object)->sprite_frame & 0x8000u) != 0u)
@@ -4848,7 +4848,7 @@ void sand_patch_start(void)
 	OBJECT(current_object)->flags = 0u;
 	OBJECT(current_object)->sprite_offset_x = 0;
 	OBJECT(current_object)->sprite_offset_y = 0;
-	find_floor(&r0, &y, &block_offset, &ignored, &cursor);
+	find_floor(&x, &y, &block_offset, &ignored, &cursor);
 	OBJECT(current_object)->z = OBJECT(current_object)->floor_z;
 	project_object(&ignored, &ignored);
 }
@@ -5046,7 +5046,7 @@ void sand_block_leader_wait(void)
 void sand_block_leader_move(void)
 {
 	uint16_t move_speed = 0;
-	uint32_t r0 = 0, r3 = 0, block_offset = 0, block_record = 0, hold_threshold = 0, ignored = 0, path_cursor = 0;
+	uint32_t r3 = 0, block_offset = 0, block_record = 0, hold_threshold = 0, ignored = 0, path_cursor = 0, x = 0;
 	uint8_t hold_timer = 0;
 	uint16_t wait_timer = 0, record_scroll = 0;
 	uint32_t flags = 0;
@@ -5097,7 +5097,7 @@ void sand_block_leader_move(void)
 			hold_threshold = 0x160u;
 		OBJECT(current_object)->sand_block_leader.screen_threshold = hold_threshold;
 	}
-	find_floor(&r0, &hold_threshold, &block_offset, &r3, &block_record);
+	find_floor(&x, &hold_threshold, &block_offset, &r3, &block_record);
 	project_object(&ignored, &ignored);
 	add_to_rider_list();
 	if (OBJECT(current_object)->sand_block_leader.holding_back != 0u)

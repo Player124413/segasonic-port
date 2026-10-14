@@ -3,7 +3,7 @@
  *    Description: the game's functions, part 02 (in the order of their V60 addresses)
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    13-10-2026
+ *    Modified:    14-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -11,12 +11,12 @@
  */
 #include "game.h"
 
-uint32_t update_sinking_floor(uint32_t r1)
+uint32_t update_sinking_floor(uint32_t sink_offset)
 {
 	uint8_t health = 0;
 
 	if (OBJECT(current_object)->floor_type != 0xAu)
-		return r1;
+		return sink_offset;
 	if (OBJECT(current_object)->floor_block >= 0)
 	{
 		PLAYER(current_player)->sink_depth += 0x33u;
@@ -25,11 +25,11 @@ uint32_t update_sinking_floor(uint32_t r1)
 			PLAYER(current_player)->sink_depth = 0x100;
 		if (sink_depth_limits[OBJECT(current_object)->floor_attribute] < PLAYER(current_player)->sink_depth)
 			PLAYER(current_player)->sink_depth -= 0xA0u;
-		r1 = (uint32_t)(uint16_t)PLAYER(current_player)->sink_depth << 8;
-		OBJECT(current_object)->z = OBJECT(current_object)->floor_z + r1;
+		sink_offset = (uint32_t)(uint16_t)PLAYER(current_player)->sink_depth << 8;
+		OBJECT(current_object)->z = OBJECT(current_object)->floor_z + sink_offset;
 	}
 	if (PLAYER(current_player)->sink_depth < 0x2000)
-		return r1;
+		return sink_offset;
 	health = OBJECT(current_object)->health;
 	OBJECT(current_object)->health = health - 8u;
 	if ((int8_t)health > 8)
@@ -40,7 +40,7 @@ uint32_t update_sinking_floor(uint32_t r1)
 		PLAYER(current_player)->state = 0x16u;
 		PLAYER(current_player)->substate = 0u;
 	}
-	return r1;
+	return sink_offset;
 }
 
 void apply_moving_floor(void)
@@ -472,10 +472,10 @@ uint32_t pay_and_join(uint8_t cost, uint32_t joined)
 	return joined;
 }
 
-uint32_t check_scene_states(uint32_t r11)
+uint32_t check_scene_states(uint32_t object)
 {
 	if (PLAYER(current_player)->state == 0xBu || PLAYER(current_player)->state == 0x23u || PLAYER(current_player)->state == 0x24u || PLAYER(current_player)->state == 0x16u || PLAYER(current_player)->state == 0x2Eu || PLAYER(current_player)->state == 0x37u)
-		return r11;
+		return object;
 	if (stage == 5u && OBJECT(current_object)->y_int >= 0x400)
 		scroll_mode = 7u;
 	if (current_game_mode == 0xDu)
@@ -507,7 +507,7 @@ uint32_t check_scene_states(uint32_t r11)
 	if (current_game_mode == 0x1Cu && event_1c_ride_phase != 0u)
 	{
 		if (event_1c_riding == 0u)
-			r11 = spawn_player_ride(r11);
+			object = spawn_player_ride(object);
 		else if (PLAYER(current_player)->state != 6u && PLAYER(current_player)->state != 9u && PLAYER(current_player)->state != 0xAu)
 		{
 			PLAYER(current_player)->previous_state = PLAYER(current_player)->state;
@@ -539,7 +539,7 @@ uint32_t check_scene_states(uint32_t r11)
 		PLAYER(current_player)->previous_state = PLAYER(current_player)->state;
 		PLAYER(current_player)->state = 0x39u;
 	}
-	return r11;
+	return object;
 }
 
 void set_fall_sprite_priority(void)
@@ -585,9 +585,9 @@ void set_fall_sprite_priority(void)
 	}
 }
 
-void start_climb_at_spawn(uint32_t r0)
+void start_climb_at_spawn(uint32_t climbed_height)
 {
-	uint32_t attribute_record = 0, block = 0, climb_animation = 0, climbed_height = 0, distance = 0;
+	uint32_t attribute_record = 0, block = 0, climb_animation = 0, distance = 0;
 
 	if (OBJECT(current_object)->floor_type != 2u)
 		return;
@@ -607,7 +607,7 @@ void start_climb_at_spawn(uint32_t r0)
 	OBJECT(current_object)->animation_frame = 0xFFu;
 	attribute_record = OBJECT(current_object)->floor_attribute + floor_types_ADDRESS;
 	PLAYER(current_player)->climb_remaining = ROM16(attribute_record + 6u);
-	climbed_height = (r0 & ~0xFFFFu) | ROM16(attribute_record + 0xEu);
+	climbed_height = (climbed_height & ~0xFFFFu) | ROM16(attribute_record + 0xEu);
 	block = floor_blocks + 2u + OBJECT(current_object)->floor_block;
 	if (ROM8(attribute_record) == 0u)
 		distance = OBJECT(current_object)->x - mem_read32(block);
@@ -1607,13 +1607,13 @@ void check_player_stalled(void)
 	}
 }
 
-void check_player_contacts(uint32_t *p_r1, uint32_t *p_r11)
+void check_player_contacts(uint32_t *p_health_limit, uint32_t *p_cursor)
 {
-	uint32_t r1 = *p_r1;
-	uint32_t r11 = *p_r11;
+	uint32_t health_limit = *p_health_limit;
+	uint32_t cursor = *p_cursor;
 	uint8_t new_substate = 0, sound_id = 0;
 	uint16_t dy = 0, held_frame = 0, saved_sides = 0;
-	uint32_t r1_2 = 0, r2 = 0, carried_x = 0, carried_y = 0, distance = 0, draw_depth = 0, dx = 0, dy_2 = 0, ignored = 0, joined_health_setting = 0, move_angle = 0, object = 0, object_2 = 0, push_cos = 0, sides = 0;
+	uint32_t r1 = 0, carried_x = 0, carried_y = 0, distance = 0, draw_depth = 0, dx = 0, dy_2 = 0, ignored = 0, joined_health_setting = 0, move_angle = 0, object = 0, object_2 = 0, push_cos = 0, sides = 0, write_index_address = 0;
 	uint8_t attack_power = 0, health = 0, push_out_delay = 0, push_out_delay_2 = 0;
 	uint32_t flags = 0, flags_2 = 0;
 
@@ -1626,7 +1626,7 @@ void check_player_contacts(uint32_t *p_r1, uint32_t *p_r11)
 		OBJECT(current_object)->flags &= ~0x800000u;
 		OBJECT(current_object)->flags &= 0x7FFFFFFFu;
 		PLAYER(current_player)->flags &= ~2u;
-		*p_r1 = r1;
+		*p_health_limit = health_limit;
 		return;
 	}
 	object = LINKED(WORK_RAM, OBJECT(current_object)->touched_by);
@@ -1639,7 +1639,7 @@ void check_player_contacts(uint32_t *p_r1, uint32_t *p_r11)
 		OBJECT(current_object)->flags &= ~0x800000u;
 		OBJECT(current_object)->flags &= 0x7FFFFFFFu;
 		PLAYER(current_player)->flags &= ~2u;
-		*p_r1 = r1;
+		*p_health_limit = health_limit;
 		return;
 	}
 	if (OBJECT(object)->kind != 8u)
@@ -1663,26 +1663,26 @@ void check_player_contacts(uint32_t *p_r1, uint32_t *p_r11)
 			break;
 		case 1:
 		case 2:
-			r1 = (r1 & ~0xFFu) | 4u;
+			health_limit = (health_limit & ~0xFFu) | 4u;
 		check_player_contacts_ring_health:
 			if (players_in_play >= 2)
-				r1 = (r1 & ~0xFFFFu) | ((uint16_t)r1 >> 1);
+				health_limit = (health_limit & ~0xFFFFu) | ((uint16_t)health_limit >> 1);
 			PLAYER(current_player)->rings_to_health++;
-			if ((int8_t)r1 <= PLAYER(current_player)->rings_to_health)
+			if ((int8_t)health_limit <= PLAYER(current_player)->rings_to_health)
 			{
 				OBJECT(current_object)->health++;
 				PLAYER(current_player)->rings_to_health = 0;
 			}
 			break;
 		case 3:
-			r1 = (r1 & ~0xFFu) | 8u;
+			health_limit = (health_limit & ~0xFFu) | 8u;
 			goto check_player_contacts_ring_health;
 		default:
 			unknown_code(0xE578u + health_setting * 2u);
 		}
 		joined_health_setting = PLAYER(current_player)->joined_health_setting;
-		r1 = (r1 & ~0xFFu) | (uint8_t)max_health_by_setting[(uint16_t)(joined_health_setting * 2u)];
-		if (OBJECT(current_object)->health <= (int8_t)r1)
+		health_limit = (health_limit & ~0xFFu) | (uint8_t)max_health_by_setting[(uint16_t)(joined_health_setting * 2u)];
+		if (OBJECT(current_object)->health <= (int8_t)health_limit)
 		{
 			PLAYER(current_player)->pushed_out = 0;
 			PLAYER(current_player)->last_hazard = 0xFFFFu;
@@ -1691,10 +1691,10 @@ void check_player_contacts(uint32_t *p_r1, uint32_t *p_r11)
 			OBJECT(current_object)->flags &= ~0x800000u;
 			OBJECT(current_object)->flags &= 0x7FFFFFFFu;
 			PLAYER(current_player)->flags &= ~2u;
-			*p_r1 = r1;
+			*p_health_limit = health_limit;
 			return;
 		}
-		OBJECT(current_object)->health = r1;
+		OBJECT(current_object)->health = health_limit;
 		PLAYER(current_player)->pushed_out = 0;
 		PLAYER(current_player)->last_hazard = 0xFFFFu;
 		PLAYER(current_player)->last_damaged = 0xFFFFu;
@@ -1702,7 +1702,7 @@ void check_player_contacts(uint32_t *p_r1, uint32_t *p_r11)
 		OBJECT(current_object)->flags &= ~0x800000u;
 		OBJECT(current_object)->flags &= 0x7FFFFFFFu;
 		PLAYER(current_player)->flags &= ~2u;
-		*p_r1 = r1;
+		*p_health_limit = health_limit;
 		return;
 	case 4:
 	case 15:
@@ -1718,7 +1718,7 @@ void check_player_contacts(uint32_t *p_r1, uint32_t *p_r11)
 			OBJECT(current_object)->flags &= ~0x800000u;
 			OBJECT(current_object)->flags &= 0x7FFFFFFFu;
 			PLAYER(current_player)->flags &= ~2u;
-			*p_r1 = r1;
+			*p_health_limit = health_limit;
 			return;
 		}
 	case 9:
@@ -1733,7 +1733,7 @@ void check_player_contacts(uint32_t *p_r1, uint32_t *p_r11)
 		check_player_contacts_attack:
 			if (PLAYER(current_player)->last_damaged == (uint16_t)object)
 			{
-				*p_r1 = r1;
+				*p_health_limit = health_limit;
 				return;
 			}
 			PLAYER(current_player)->last_damaged = object;
@@ -1760,11 +1760,11 @@ void check_player_contacts(uint32_t *p_r1, uint32_t *p_r11)
 				PLAYER(current_player)->state_timer = 6;
 				OBJECT(current_object)->x = PLAYER(current_player)->previous_x;
 				OBJECT(current_object)->y = PLAYER(current_player)->previous_y;
-				*p_r1 = r1;
+				*p_health_limit = health_limit;
 				return;
 			}
 			PLAYER(current_player)->hit_stop = 3u;
-			*p_r1 = r1;
+			*p_health_limit = health_limit;
 			return;
 		}
 		if ((uint16_t)object != PLAYER(current_player)->last_hazard)
@@ -1785,7 +1785,7 @@ void check_player_contacts(uint32_t *p_r1, uint32_t *p_r11)
 			OBJECT(current_object)->flags &= ~0x800000u;
 			OBJECT(current_object)->flags &= 0x7FFFFFFFu;
 			PLAYER(current_player)->flags &= ~2u;
-			*p_r1 = r1;
+			*p_health_limit = health_limit;
 			return;
 		}
 	case 12:
@@ -1805,7 +1805,7 @@ void check_player_contacts(uint32_t *p_r1, uint32_t *p_r11)
 				OBJECT(current_object)->flags &= ~0x800000u;
 				OBJECT(current_object)->flags &= 0x7FFFFFFFu;
 				PLAYER(current_player)->flags &= ~2u;
-				*p_r1 = r1;
+				*p_health_limit = health_limit;
 				return;
 			}
 			if ((uint8_t)PLAYER(current_player)->pushed_out != 0u)
@@ -1835,7 +1835,7 @@ void check_player_contacts(uint32_t *p_r1, uint32_t *p_r11)
 		{
 			if ((uint8_t)PLAYER(current_player)->pushed_out == 0u)
 			{
-				aim_at_screen_centre(&r1, &dx, &dy_2);
+				aim_at_screen_centre(&health_limit, &dx, &dy_2);
 				PLAYER(current_player)->push_out_x = dx;
 				PLAYER(current_player)->push_out_y = dy_2;
 				OBJECT(current_object)->speed = 0;
@@ -1848,7 +1848,7 @@ void check_player_contacts(uint32_t *p_r1, uint32_t *p_r11)
 			OBJECT(current_object)->y += PLAYER(current_player)->push_out_y;
 			PLAYER(current_player)->jump_delay = 2;
 			PLAYER(current_player)->state = 0u;
-			*p_r1 = r1;
+			*p_health_limit = health_limit;
 			return;
 		}
 		if (PLAYER(current_player)->last_hazard != (uint16_t)object)
@@ -1883,7 +1883,7 @@ void check_player_contacts(uint32_t *p_r1, uint32_t *p_r11)
 		{
 			if ((uint8_t)PLAYER(current_player)->pushed_out == 0u)
 			{
-				aim_at_screen_centre(&r1, &dx, &dy_2);
+				aim_at_screen_centre(&health_limit, &dx, &dy_2);
 				PLAYER(current_player)->push_out_x = dx;
 				PLAYER(current_player)->push_out_y = dy_2;
 				OBJECT(current_object)->speed = 0;
@@ -1896,7 +1896,7 @@ void check_player_contacts(uint32_t *p_r1, uint32_t *p_r11)
 			OBJECT(current_object)->y += PLAYER(current_player)->push_out_y;
 			PLAYER(current_player)->jump_delay = 2;
 			PLAYER(current_player)->state = 0u;
-			*p_r1 = r1;
+			*p_health_limit = health_limit;
 			return;
 		}
 		OBJECT(current_object)->flags |= 0x1000u;
@@ -1925,24 +1925,24 @@ void check_player_contacts(uint32_t *p_r1, uint32_t *p_r11)
 		object_2 = LINKED(current_object, OBJECT(current_object)->touched_by);
 		if (AS8(OBJECT(object_2)->speed_x) != 1u)
 		{
-			*p_r11 = object_2;
+			*p_cursor = object_2;
 			return;
 		}
 		PLAYER(current_player)->state = 0xFu;
 		PLAYER(current_player)->substate = new_substate;
-		*p_r11 = object_2;
+		*p_cursor = object_2;
 		return;
 	case 7:
 		new_substate = 1u;
 		object_2 = LINKED(current_object, OBJECT(current_object)->touched_by);
 		if (AS8(OBJECT(object_2)->speed_x) != 1u)
 		{
-			*p_r11 = object_2;
+			*p_cursor = object_2;
 			return;
 		}
 		PLAYER(current_player)->state = 0xFu;
 		PLAYER(current_player)->substate = new_substate;
-		*p_r11 = object_2;
+		*p_cursor = object_2;
 		return;
 	case 8:
 	case 10:
@@ -2019,7 +2019,7 @@ void check_player_contacts(uint32_t *p_r1, uint32_t *p_r11)
 			OBJECT(current_object)->flags &= ~0x800000u;
 			OBJECT(current_object)->flags &= 0x7FFFFFFFu;
 			PLAYER(current_player)->flags &= ~2u;
-			*p_r1 = r1;
+			*p_health_limit = health_limit;
 			return;
 		}
 		if ((uint16_t)object != PLAYER(current_player)->last_hazard)
@@ -2040,7 +2040,7 @@ void check_player_contacts(uint32_t *p_r1, uint32_t *p_r11)
 			OBJECT(current_object)->flags &= ~0x800000u;
 			OBJECT(current_object)->flags &= 0x7FFFFFFFu;
 			PLAYER(current_player)->flags &= ~2u;
-			*p_r1 = r1;
+			*p_health_limit = health_limit;
 			return;
 		}
 		if ((uint16_t)object == PLAYER(current_player)->last_hazard)
@@ -2063,7 +2063,7 @@ void check_player_contacts(uint32_t *p_r1, uint32_t *p_r11)
 			OBJECT(current_object)->flags &= ~0x800000u;
 			OBJECT(current_object)->flags &= 0x7FFFFFFFu;
 			PLAYER(current_player)->flags &= ~2u;
-			*p_r1 = r1;
+			*p_health_limit = health_limit;
 			return;
 		}
 		contact_saved_x = OBJECT(current_object)->x;
@@ -2073,7 +2073,7 @@ void check_player_contacts(uint32_t *p_r1, uint32_t *p_r11)
 		OBJECT(current_object)->z = PLAYER(current_player)->previous_z;
 		OBJECT(current_object)->floor_block = OBJECT(current_object)->previous_floor_block;
 		OBJECT(current_object)->floor_z = OBJECT(current_object)->previous_floor_z;
-		side_of_box(object, &r1, &sides);
+		side_of_box(object, &health_limit, &sides);
 		contact_box_side = sides;
 		if ((uint16_t)sides == 8u || (uint16_t)sides == 0u || PLAYER(current_player)->state != 4u)
 		{
@@ -2104,7 +2104,7 @@ void check_player_contacts(uint32_t *p_r1, uint32_t *p_r11)
 					AS16(PLAYER(current_player)->bounce_direction) = ((OBJECT(current_object)->direction + 0x80u) & 0x3FFu) >> 8;
 					PLAYER(current_player)->state = 0xEu;
 					PLAYER(current_player)->substate = 0u;
-					*p_r1 = r1;
+					*p_health_limit = health_limit;
 					return;
 				}
 			}
@@ -2121,7 +2121,7 @@ void check_player_contacts(uint32_t *p_r1, uint32_t *p_r11)
 			OBJECT(current_object)->flags &= ~0x40u;
 			OBJECT(current_object)->flags &= ~0x100000u;
 			OBJECT(current_object)->flags &= ~0x200000u;
-			*p_r1 = r1;
+			*p_health_limit = health_limit;
 			return;
 		}
 		goto check_player_contacts_attack;
@@ -2129,13 +2129,13 @@ void check_player_contacts(uint32_t *p_r1, uint32_t *p_r11)
 		object_2 = LINKED(current_object, OBJECT(object)->parent);
 		if (OBJECT(object_2)->var_82 != 0x300u)
 		{
-			*p_r11 = object_2;
+			*p_cursor = object_2;
 			return;
 		}
 		PLAYER(current_player)->state = 0x27u;
 		PLAYER(current_player)->substate = 0u;
 		PLAYER(current_player)->climb_remaining = OBJECT(object)->spawn_arg_2;
-		*p_r11 = object_2;
+		*p_cursor = object_2;
 		return;
 	case 27:
 		OBJECT(current_object)->flags |= 0x20000u;
@@ -2172,7 +2172,7 @@ void check_player_contacts(uint32_t *p_r1, uint32_t *p_r11)
 		draw_depth = (int32_t)((uint32_t)OBJECT(current_object)->projected_y + OBJECT(current_object)->previous_floor_z) >> 16;
 		draw_depth = (draw_depth & ~0xFFFFu) | (uint16_t)(draw_depth - view_y);
 		PLAYER(current_player)->fall_draw_depth = draw_depth;
-		*p_r1 = draw_depth;
+		*p_health_limit = draw_depth;
 		return;
 	case 28:
 		if (PLAYER(current_player)->invulnerable_timer >= 0)
@@ -2184,7 +2184,7 @@ void check_player_contacts(uint32_t *p_r1, uint32_t *p_r11)
 			OBJECT(current_object)->flags &= ~0x800000u;
 			OBJECT(current_object)->flags &= 0x7FFFFFFFu;
 			PLAYER(current_player)->flags &= ~2u;
-			*p_r1 = r1;
+			*p_health_limit = health_limit;
 			return;
 		}
 		flags = OBJECT(current_object)->flags;
@@ -2198,10 +2198,10 @@ void check_player_contacts(uint32_t *p_r1, uint32_t *p_r11)
 				if (OBJECT(current_object)->kind != 1u)
 					sound_id = 0x56u;
 			}
-			play_sound(sound_id, &r1, &r2);
+			play_sound(sound_id, &health_limit, &write_index_address);
 		}
 		distance = (uint16_t)OBJECT(current_object)->touch_distance;
-		square_root(&distance, &r1_2);
+		square_root(&distance, &r1);
 		OBJECT(current_object)->touch_distance = distance;
 		if (OBJECT(current_object)->touch_distance <= 8)
 		{
@@ -2218,8 +2218,8 @@ void check_player_contacts(uint32_t *p_r1, uint32_t *p_r11)
 					if (OBJECT(current_object)->kind != 1u)
 						sound_id = 0x3Du;
 				}
-				play_sound(sound_id, &r1_2, &r2);
-				r11 = spawn_sink_swirl(r11);
+				play_sound(sound_id, &r1, &write_index_address);
+				cursor = spawn_sink_swirl(cursor);
 			}
 		}
 		object = LINKED(current_object, OBJECT(current_object)->touched_by);
@@ -2230,8 +2230,8 @@ void check_player_contacts(uint32_t *p_r1, uint32_t *p_r11)
 		PLAYER(current_player)->push_x = (int32_t)(sine_table[move_angle] * 0x6000u) >> 16;
 		push_cos = (int32_t)(cosine_table[move_angle] * 0x6000u) >> 16;
 		PLAYER(current_player)->push_y = 0u - push_cos;
-		*p_r1 = push_cos;
-		*p_r11 = r11;
+		*p_health_limit = push_cos;
+		*p_cursor = cursor;
 		return;
 	case 29:
 		PLAYER(current_player)->flags |= 2u;
@@ -2253,7 +2253,7 @@ void check_player_contacts(uint32_t *p_r1, uint32_t *p_r11)
 			OBJECT(current_object)->flags &= ~0x800000u;
 			OBJECT(current_object)->flags &= 0x7FFFFFFFu;
 			PLAYER(current_player)->flags &= ~2u;
-			*p_r1 = r1;
+			*p_health_limit = health_limit;
 			return;
 		}
 		if (PLAYER(current_player)->state == 0x29u || PLAYER(current_player)->state == 5u || PLAYER(current_player)->state == 7u || PLAYER(current_player)->state == 0xDu || OBJECT(current_object)->floor_type == 0xAu || OBJECT(current_object)->floor_type == 0xBu)
@@ -2275,7 +2275,7 @@ void check_player_contacts(uint32_t *p_r1, uint32_t *p_r11)
 		OBJECT(current_object)->flags &= ~0x800000u;
 		OBJECT(current_object)->flags &= 0x7FFFFFFFu;
 		PLAYER(current_player)->flags &= ~2u;
-		*p_r1 = r1;
+		*p_health_limit = health_limit;
 		return;
 	case 35:
 		PLAYER(current_player)->state = 0x2Cu;
@@ -2292,7 +2292,7 @@ void check_player_contacts(uint32_t *p_r1, uint32_t *p_r11)
 			OBJECT(current_object)->flags &= ~0x800000u;
 			OBJECT(current_object)->flags &= 0x7FFFFFFFu;
 			PLAYER(current_player)->flags &= ~2u;
-			*p_r1 = r1;
+			*p_health_limit = health_limit;
 			return;
 		}
 		if ((uint16_t)object != PLAYER(current_player)->last_hazard)
@@ -2386,7 +2386,7 @@ void vine_swing(void)
 {
 	uint8_t bucket = 0;
 	uint16_t screen_x = 0;
-	uint32_t r2 = 0, r3 = 0, ignored = 0, in_front = 0, point_x = 0, point_y = 0, segment_angle_int = 0, segment_depth = 0, z = 0;
+	uint32_t block_offset = 0, ignored = 0, in_front = 0, point_x = 0, point_y = 0, segment_angle_int = 0, segment_depth = 0, slope_height = 0, z = 0;
 	uint16_t speed_x_fraction = 0;
 
 	OBJECT(current_object)->vine_swing.holding = 1u;
@@ -2395,7 +2395,7 @@ void vine_swing(void)
 	screen_x = (uint16_t)OBJECT(current_object)->screen_x;
 	if ((int16_t)screen_x >= 0x200 || (int16_t)screen_x <= -0x200)
 	{
-		delete_object_and_children(&ignored, &r2, &r3);
+		delete_object_and_children(&ignored, &block_offset, &slope_height);
 		vines_hold_players = 0xFFu;
 		return;
 	}
@@ -2443,7 +2443,7 @@ void vine_swing(void)
 void vine_bar_update(void)
 {
 	uint16_t kind = 0, screen_dy = 0, screen_x = 0, x_int = 0, y_int = 0, z = 0;
-	uint32_t r1 = 0, r11 = 0, height = 0, ignored = 0, vine = 0;
+	uint32_t r11 = 0, depth = 0, height = 0, ignored = 0, vine = 0;
 
 	OBJECT(current_object)->vine_bar.holding = mem_read8((0x200000u | OBJECT(current_object)->direction) + 0x80u);
 	if ((OBJECT(current_object)->flags & 8u) != 0u && OBJECT(current_object)->floor_z_int < 0x800)
@@ -2461,7 +2461,7 @@ void vine_bar_update(void)
 	OBJECT(current_object)->z = mem_read32(vine + 0x40u);
 	screen_x = (uint16_t)OBJECT(current_object)->screen_x;
 	screen_dy = (uint16_t)OBJECT(current_object)->screen_y;
-	project_object(&ignored, &r1);
+	project_object(&ignored, &depth);
 	screen_dy -= OBJECT(current_object)->screen_y;
 	OBJECT(current_object)->projected_x += screen_x - OBJECT(current_object)->screen_x;
 	OBJECT(current_object)->projected_y_int += screen_dy;
@@ -2487,7 +2487,7 @@ void vine_bar_update(void)
 		y_int = (uint16_t)OBJECT(current_object)->y_int;
 		kind = 7u;
 		z = (uint16_t)(OBJECT(current_object)->z_int + 0x14u);
-		spawn_sign(x_int, y_int, kind, z, &r1, &r11);
+		spawn_sign(x_int, y_int, kind, z, &depth, &r11);
 	}
 }
 
@@ -2552,14 +2552,14 @@ void vine_scroll_stop_hold(void)
 
 void vine_scroll_stop_end(void)
 {
-	uint32_t r2 = 0, r3 = 0, ignored = 0;
+	uint32_t block_offset = 0, ignored = 0, slope_height = 0;
 
 	if ((int16_t)OBJECT(current_object)->spawn_arg_2 < (int16_t)scroll_position)
 	{
 		scroll_mode = 7u;
 		saved_scroll_mode = 7u;
 		vines_hold_players = 0u;
-		delete_object_and_children(&ignored, &r2, &r3);
+		delete_object_and_children(&ignored, &block_offset, &slope_height);
 	}
 }
 
@@ -2654,10 +2654,10 @@ void spike_panel_update(void)
 {
 	uint8_t bucket = 0, sound_id = 0;
 	uint16_t count = 0;
-	uint32_t r0 = 0, r2 = 0, r3 = 0, r11 = 0, deleted = 0, depth = 0, frame_index = 0, ignored = 0, offset_record = 0, part_2_frame = 0;
+	uint32_t r0 = 0, r2 = 0, r11 = 0, block_offset = 0, deleted = 0, depth = 0, frame_index = 0, ignored = 0, offset_record = 0, part_2_frame = 0, slope_height = 0;
 
-	unproject_object(&ignored, &r2, &r3, &r11);
-	delete_if_off_screen(&deleted, &r2, &r3);
+	unproject_object(&ignored, &block_offset, &slope_height, &r11);
+	delete_if_off_screen(&deleted, &block_offset, &slope_height);
 	if ((uint8_t)deleted != 0u)
 		return;
 	r14 = LINKED(WORK_RAM, chaser_object);
@@ -2754,16 +2754,16 @@ void spike_panel_update(void)
 	OBJECT(current_object)->projected_x -= 0x90u;
 	OBJECT(current_object)->projected_y_int -= 0x40u;
 	spawn_debris(r0, count, r11);
-	delete_object_and_children(&ignored, &r2, &r3);
+	delete_object_and_children(&ignored, &block_offset, &slope_height);
 }
 
 void spike_panel_base_draw(void)
 {
 	uint8_t bucket = 0;
-	uint32_t r2 = 0, r3 = 0, r11 = 0, deleted = 0, ignored = 0;
+	uint32_t block_offset = 0, cursor = 0, deleted = 0, ignored = 0, slope_height = 0;
 
-	unproject_object(&ignored, &r2, &r3, &r11);
-	delete_if_off_screen(&deleted, &r2, &r3);
+	unproject_object(&ignored, &block_offset, &slope_height, &cursor);
+	delete_if_off_screen(&deleted, &block_offset, &slope_height);
 	if ((uint8_t)deleted != 1u)
 	{
 		bucket = 0xFFu;
@@ -2774,7 +2774,7 @@ void spike_panel_base_draw(void)
 
 void spike_panel_hitbox_update(void)
 {
-	uint32_t r11 = 0, ignored = 0;
+	uint32_t cursor = 0, ignored = 0;
 
 	current_object = LINKED(current_object, OBJECT(object_cursor)->parent);
 	if ((int8_t)OBJECT(current_object)->var_80 < 4)
@@ -2789,7 +2789,7 @@ void spike_panel_hitbox_update(void)
 	OBJECT(object_cursor)->floor_z = OBJECT(current_object)->floor_z;
 	OBJECT(object_cursor)->projected_x -= 0xD8u;
 	current_object = (current_object & ~0xFFFFu) | (uint16_t)object_cursor;
-	unproject_object(&ignored, &ignored, &ignored, &r11);
+	unproject_object(&ignored, &ignored, &ignored, &cursor);
 	OBJECT(current_object)->health = 0x7F;
 	add_to_touchable_list(ignored);
 }
@@ -2858,7 +2858,7 @@ void electric_pole_rise(void)
 void electric_pole_update(void)
 {
 	uint8_t sound_id = 0;
-	uint32_t r1 = 0, r2 = 0, r3 = 0, r11 = 0, charging_spark_y = 0, deleted = 0, ignored = 0, spark_y = 0;
+	uint32_t r1 = 0, block_offset = 0, charging_spark_y = 0, cursor = 0, deleted = 0, ignored = 0, slope_height = 0, spark_y = 0, write_index_address = 0;
 	uint8_t front_odd_frame = 0, side_odd_frame = 0;
 
 	r14 = LINKED(WORK_RAM, chaser_object);
@@ -2873,14 +2873,14 @@ void electric_pole_update(void)
 		OBJECT(current_object)->handler = explosion_animate_ADDRESS;
 		OBJECT(current_object)->electric_pole.frame_toggle = 0u;
 		sound_id = 7u;
-		play_sound(sound_id, &r1, &r2);
+		play_sound(sound_id, &r1, &write_index_address);
 		return;
 	}
 	if ((OBJECT(current_object)->flags & 4u) == 0u)
 	{
 	electric_pole_draw:
-		unproject_object(&ignored, &r2, &r3, &r11);
-		delete_if_off_screen(&deleted, &r2, &r3);
+		unproject_object(&ignored, &block_offset, &slope_height, &cursor);
+		delete_if_off_screen(&deleted, &block_offset, &slope_height);
 		if ((uint8_t)deleted == 1u)
 			return;
 		OBJECT(current_object)->screen_y += OBJECT(current_object)->electric_pole.draw_offset_y;
@@ -2952,7 +2952,7 @@ void electric_pole_update(void)
 		OBJECT(current_object)->handler = explosion_animate_ADDRESS;
 		OBJECT(current_object)->electric_pole.frame_toggle = 0u;
 		sound_id = 7u;
-		play_sound(sound_id, &r1, &r2);
+		play_sound(sound_id, &r1, &write_index_address);
 		return;
 	}
 	OBJECT(current_object)->kind = 0x15u;
@@ -3009,24 +3009,24 @@ void metal_wall_init(void)
 
 void metal_wall_wait(void)
 {
-	uint32_t r3 = 0;
+	uint32_t octant = 0;
 
 	OBJECT(current_object)->projected_x += 0x10u;
 	OBJECT(current_object)->projected_y_int += 0x10u;
-	r3 = face_nearest_player(0u, 0u);
+	octant = face_nearest_player(0u, 0u);
 	OBJECT(current_object)->projected_x -= 0x10u;
 	OBJECT(current_object)->projected_y_int -= 0x10u;
 	if (nearest_player_distance > 0x80)
 	{
-		metal_wall_update(r3);
+		metal_wall_update(octant);
 		return;
 	}
 	OBJECT(current_object)->metal_wall.dust_timer = 0x14u;
 	OBJECT(current_object)->handler = metal_wall_rise_ADDRESS;
-	metal_wall_rise(r3);
+	metal_wall_rise(octant);
 }
 
-void metal_wall_rise(uint32_t r3)
+void metal_wall_rise(uint32_t octant)
 {
 	uint16_t frame_count = 0;
 
@@ -3034,24 +3034,24 @@ void metal_wall_rise(uint32_t r3)
 	OBJECT(current_object)->metal_wall.frame_count++;
 	if ((int16_t)frame_count <= 2)
 	{
-		metal_wall_update(r3);
+		metal_wall_update(octant);
 		return;
 	}
 	OBJECT(current_object)->metal_wall.frame_count = 0;
 	OBJECT(current_object)->metal_wall.frame_index++;
 	if (OBJECT(current_object)->metal_wall.frame_index <= OBJECT(current_object)->metal_wall.rise_limit)
 	{
-		metal_wall_update(r3);
+		metal_wall_update(octant);
 		return;
 	}
 	OBJECT(current_object)->metal_wall.rise_limit = 7;
 	OBJECT(current_object)->handler = metal_wall_update_ADDRESS;
-	metal_wall_update(r3);
+	metal_wall_update(octant);
 }
 
-void metal_wall_update(uint32_t r3)
+void metal_wall_update(uint32_t octant)
 {
-	uint32_t r1 = 0, r2 = 0, r11 = 0, deleted = 0, health = 0, ignored = 0, ring = 0, ring_count = 0, spawn_arg_1 = 0;
+	uint32_t r1 = 0, r2 = 0, r11 = 0, block_offset = 0, deleted = 0, health = 0, ignored = 0, ring = 0, ring_count = 0, spawn_arg_1 = 0;
 
 	if (OBJECT(current_object)->health <= 0)
 	{
@@ -3060,7 +3060,7 @@ void metal_wall_update(uint32_t r3)
 		if (OBJECT(current_object)->metal_wall.ring_count != 0u)
 		{
 			ring_count = OBJECT(current_object)->metal_wall.ring_count;
-			scatter_rings_random(r3, ring_count, &r11, &ring);
+			scatter_rings_random(octant, ring_count, &r11, &ring);
 		}
 	}
 	health = (uint8_t)OBJECT(current_object)->health;
@@ -3077,7 +3077,7 @@ void metal_wall_update(uint32_t r3)
 		if ((int32_t)r1 > 0)
 			spawn_debris(spawn_arg_1, (uint16_t)r1, r11);
 	}
-	delete_if_off_screen(&deleted, &r2, &r3);
+	delete_if_off_screen(&deleted, &block_offset, &octant);
 	if ((uint8_t)deleted == 1u)
 		return;
 	move_object_projected(&ignored, &r2, &ignored, &r11);
@@ -3093,9 +3093,9 @@ void metal_wall_update(uint32_t r3)
 
 void metal_wall_broken(void)
 {
-	uint32_t r2 = 0, r3 = 0, deleted = 0;
+	uint32_t block_offset = 0, deleted = 0, slope_height = 0;
 
-	delete_if_off_screen(&deleted, &r2, &r3);
+	delete_if_off_screen(&deleted, &block_offset, &slope_height);
 	if ((uint8_t)deleted == 1u)
 		return;
 	update_screen_position_no_offset();
@@ -3447,10 +3447,10 @@ void flame_machine_update_spare_return(void)
 
 void flame_machine_remove(void)
 {
-	uint32_t r2 = 0, r3 = 0, ignored = 0;
+	uint32_t block_offset = 0, ignored = 0, slope_height = 0;
 
 	electric_fence_state = 0xFFu;
-	delete_object_and_children(&ignored, &r2, &r3);
+	delete_object_and_children(&ignored, &block_offset, &slope_height);
 }
 
 void flame_machine_explosion_start(void)
@@ -3467,12 +3467,12 @@ void flame_machine_explosion_start(void)
 void flame_machine_back_wall_update(void)
 {
 	uint16_t rod_sprite = 0;
-	uint32_t r11 = 0, depth = 0, frame_index = 0, ignored = 0, object = 0, offset_record = 0, wall_frame = 0;
+	uint32_t cursor = 0, depth = 0, frame_index = 0, ignored = 0, object = 0, offset_record = 0, wall_frame = 0;
 	uint16_t next_phase = 0;
 
 	if ((flame_machine_flags & 0x100000u) == 0u)
 	{
-		move_object_projected(&ignored, &ignored, &ignored, &r11);
+		move_object_projected(&ignored, &ignored, &ignored, &cursor);
 		if ((flame_machine_flags & 0x10u) == 0u && (flame_machine_flags & 0x20u) == 0u)
 		{
 			if (OBJECT(current_object)->flame_machine_back_wall.pause_timer > 0)
@@ -3710,11 +3710,11 @@ void flame_machine_cannon_update(void)
 
 void flame_machine_flame_burn(void)
 {
-	uint32_t r2 = 0, r3 = 0, r11 = 0, bucket = 0, depth = 0, flame_frame = 0, ignored = 0;
+	uint32_t block_offset = 0, bucket = 0, cursor = 0, depth = 0, flame_frame = 0, ignored = 0, slope_height = 0;
 	uint16_t odd_frame = 0;
 
 	OBJECT(object_cursor)->z_int -= 0x20u;
-	unproject_object(&ignored, &r2, &r3, &r11);
+	unproject_object(&ignored, &block_offset, &slope_height, &cursor);
 	OBJECT(current_object)->flame_machine_flame.frame_toggle++;
 	odd_frame = OBJECT(current_object)->flame_machine_flame.frame_toggle & 1u;
 	OBJECT(current_object)->flame_machine_flame.frame_toggle = odd_frame;
@@ -3726,7 +3726,7 @@ void flame_machine_flame_burn(void)
 		OBJECT(current_object)->sprite_frame = flame_machine_flame_sprites[flame_frame];
 		if (flame_frame == 0xBu)
 		{
-			delete_object_and_children(&ignored, &r2, &r3);
+			delete_object_and_children(&ignored, &block_offset, &slope_height);
 			return;
 		}
 		if ((int16_t)OBJECT(current_object)->spawn_arg_2 >= 2)
@@ -3751,12 +3751,12 @@ void flame_machine_flame_burn(void)
 	explode_object();
 }
 
-void flame_machine_arm_take_disc(uint32_t r2, uint32_t disc, uint32_t r11)
+void flame_machine_arm_take_disc(uint32_t free_count, uint32_t disc, uint32_t block)
 {
 	uint32_t disc_flag_bit = 0, object = 0, piece_count = 0, spawned = 0;
 
 	spawn_count = 2u;
-	spawn_object_with_pieces(0x01061Fu, &spawned, &piece_count, &r2, &disc, &r11);
+	spawn_object_with_pieces(0x01061Fu, &spawned, &piece_count, &free_count, &disc, &block);
 	copy_position_to(disc);
 	OBJECT(disc)->direction = 0x200u;
 	OBJECT(disc)->sprite_scale = 0xC0u;
@@ -3813,9 +3813,9 @@ void spiked_disc_drop(void)
 void spiked_disc_draw_held(void)
 {
 	uint8_t bucket = 0;
-	uint32_t r11 = 0, ignored = 0;
+	uint32_t cursor = 0, ignored = 0;
 
-	move_object_projected(&ignored, &ignored, &ignored, &r11);
+	move_object_projected(&ignored, &ignored, &ignored, &cursor);
 	bucket = (uint8_t)((OBJECT(current_object)->spawn_arg_1 + 1u) * 2u);
 	queue_sprite_in_bucket(bucket);
 	if ((int16_t)AS16(OBJECT(current_object)->spiked_disc.arm_frame) >= 8)
@@ -3828,11 +3828,11 @@ void spiked_disc_draw_held(void)
 
 void spiked_disc_roll(void)
 {
-	uint32_t r1 = 0, r2 = 0, r3 = 0, r11 = 0, deleted = 0, depth = 0, direction = 0, ignored = 0, speed = 0, speed_x = 0, speed_y = 0;
+	uint32_t r1 = 0, r2 = 0, cursor = 0, deleted = 0, depth = 0, direction = 0, ignored = 0, slope_height = 0, speed = 0, speed_x = 0, speed_y = 0;
 
-	move_object_projected(&ignored, &r2, &r3, &r11);
+	move_object_projected(&ignored, &r2, &slope_height, &cursor);
 	fall_to_floor(&ignored, &r1, &r2);
-	delete_if_off_screen(&deleted, &r2, &r3);
+	delete_if_off_screen(&deleted, &r2, &slope_height);
 	if ((uint8_t)deleted == 1u)
 		return;
 	direction = 0x154u;
@@ -3904,14 +3904,14 @@ void flame_machine_wreck_draw(void)
 {
 	uint8_t bucket = 0;
 	uint16_t offset_x = 0, offset_y = 0;
-	uint32_t r2 = 0, r3 = 0, r11 = 0, ignored = 0;
+	uint32_t block_offset = 0, cursor = 0, ignored = 0, slope_height = 0;
 
 	if (map_screen_active != 0u)
 	{
-		delete_object_and_children(&ignored, &r2, &r3);
+		delete_object_and_children(&ignored, &block_offset, &slope_height);
 		return;
 	}
-	unproject_object(&ignored, &ignored, &ignored, &r11);
+	unproject_object(&ignored, &ignored, &ignored, &cursor);
 	bucket = 0xFEu;
 	queue_sprite_in_bucket(bucket);
 	current_object = LINKED(current_object, OBJECT(current_object)->child);
@@ -4021,10 +4021,10 @@ void treadmill_init(void)
 
 void treadmill_update(void)
 {
-	uint32_t r2 = 0, r3 = 0, r11 = 0, belt_phase = 0, bucket = 0, deleted = 0, ignored = 0, player_block = 0, player_index = 0, speed_level = 0, total_speed = 0;
+	uint32_t belt_phase = 0, block_offset = 0, bucket = 0, cursor = 0, deleted = 0, ignored = 0, player_block = 0, player_index = 0, slope_height = 0, speed_level = 0, total_speed = 0;
 
-	unproject_object(&ignored, &r2, &r3, &r11);
-	delete_if_off_screen(&deleted, &r2, &r3);
+	unproject_object(&ignored, &block_offset, &slope_height, &cursor);
+	delete_if_off_screen(&deleted, &block_offset, &slope_height);
 	if ((uint8_t)deleted == 1u)
 		return;
 	OBJECT(current_object)->speed_z = 0;
@@ -4058,9 +4058,9 @@ void treadmill_update(void)
 
 void treadmill_roller_update(void)
 {
-	uint32_t r11 = 0, depth = 0, ignored = 0;
+	uint32_t cursor = 0, depth = 0, ignored = 0;
 
-	unproject_object(&ignored, &ignored, &ignored, &r11);
+	unproject_object(&ignored, &ignored, &ignored, &cursor);
 	r14 = OBJECT(LINKED(WORK_RAM, OBJECT(current_object)->parent))->var_80 >> 5;
 	OBJECT(current_object)->sprite_frame = treadmill_roller_sprites[r14];
 	queue_sprite(0u);
@@ -4080,10 +4080,10 @@ void treadmill_roller_update(void)
 void treadmill_gate_update(void)
 {
 	uint8_t sound_id = 0;
-	uint32_t r1 = 0, r2 = 0, r11 = 0, depth = 0, draw_bucket = 0, ignored = 0, object = 0;
+	uint32_t r1 = 0, r2 = 0, cursor = 0, depth = 0, draw_bucket = 0, ignored = 0, object = 0;
 	uint8_t sound_1e_timer = 0, sound_c_timer = 0;
 
-	move_object_projected(&ignored, &r2, &ignored, &r11);
+	move_object_projected(&ignored, &r2, &ignored, &cursor);
 	fall_to_floor(&ignored, &r1, &r2);
 	OBJECT(current_object)->speed_z += 0u - OBJECT(LINKED(WORK_RAM, OBJECT(current_object)->parent))->speed_z;
 	if ((uint16_t)(OBJECT(current_object)->floor_z_int - OBJECT(current_object)->z_int) != 0x28u)
@@ -4146,12 +4146,12 @@ void treadmill_gate_update(void)
 
 void treadmill_gate_half_update(void)
 {
-	uint32_t r11 = 0, depth = 0, draw_bucket = 0, ignored = 0;
+	uint32_t cursor = 0, depth = 0, draw_bucket = 0, ignored = 0;
 
 	current_object = LINKED(current_object, OBJECT(object_cursor)->parent);
 	OBJECT(object_cursor)->z = OBJECT(current_object)->z;
 	current_object = object_cursor;
-	unproject_object(&ignored, &ignored, &ignored, &r11);
+	unproject_object(&ignored, &ignored, &ignored, &cursor);
 	depth = (uint16_t)(((int32_t)((uint32_t)OBJECT(current_object)->projected_y + OBJECT(current_object)->previous_floor_z) >> 16) - view_y - 0x25u);
 	queue_sprite_at_depth(&ignored, &depth);
 	current_object = LINKED(current_object, OBJECT(object_cursor)->child);
@@ -4250,10 +4250,10 @@ void flame_jet_nozzle_update(void)
 {
 	uint8_t bucket = 0;
 	uint16_t offset_x = 0, offset_y = 0;
-	uint32_t r2 = 0, r3 = 0, r11 = 0, deleted = 0, ignored = 0;
+	uint32_t block_offset = 0, cursor = 0, deleted = 0, ignored = 0, slope_height = 0;
 
-	unproject_object(&ignored, &r2, &r3, &r11);
-	delete_if_off_screen(&deleted, &r2, &r3);
+	unproject_object(&ignored, &block_offset, &slope_height, &cursor);
+	delete_if_off_screen(&deleted, &block_offset, &slope_height);
 	if ((uint8_t)deleted == 1u)
 		return;
 	if (OBJECT(current_object)->spawn_arg_1 != 0u)
@@ -4332,7 +4332,7 @@ void flame_jet_ignite(void)
 void flame_jet_burn(void)
 {
 	uint16_t flame_step_y = 0, offset_x = 0, offset_y = 0, piece_number = 0;
-	uint32_t r11 = 0, depth = 0, flame_angle = 0, ignored = 0, speed = 0, speed_x = 0, speed_y = 0;
+	uint32_t cursor = 0, depth = 0, flame_angle = 0, ignored = 0, speed = 0, speed_x = 0, speed_y = 0;
 	uint16_t projected_x = 0, nozzle_x = 0, projected_y_int = 0, nozzle_y = 0;
 
 	OBJECT(current_object)->speed += OBJECT(current_object)->flame_jet.growth_rate;
@@ -4355,7 +4355,7 @@ void flame_jet_burn(void)
 		OBJECT(current_object)->projected_x -= 0x16u;
 		OBJECT(current_object)->projected_y_int += 0xDu;
 	}
-	move_object_projected(&ignored, &ignored, &ignored, &r11);
+	move_object_projected(&ignored, &ignored, &ignored, &cursor);
 	OBJECT(current_object)->speed_x = 0;
 	OBJECT(current_object)->speed_y = 0;
 	OBJECT(current_object)->flame_jet.frame_phase++;
@@ -4523,13 +4523,13 @@ void push_crate_break(void)
 	push_crate_move(r11, r16, r17);
 }
 
-void push_crate_move(uint32_t r11, uint32_t r16, uint32_t r17)
+void push_crate_move(uint32_t cursor, uint32_t random_value, uint32_t ring)
 {
-	uint32_t r2 = 0, r3 = 0, deleted = 0, depth = 0, ignored = 0;
+	uint32_t r3 = 0, block_offset = 0, deleted = 0, depth = 0, ignored = 0;
 	uint16_t ring_delay = 0;
 
-	move_object_projected(&ignored, &r2, &r3, &r11);
-	delete_if_off_screen(&deleted, &r2, &r3);
+	move_object_projected(&ignored, &block_offset, &r3, &cursor);
+	delete_if_off_screen(&deleted, &block_offset, &r3);
 	if ((uint8_t)deleted == 1u)
 		return;
 	if (OBJECT(current_object)->push_crate.break_frame != 2u)
@@ -4547,7 +4547,7 @@ void push_crate_move(uint32_t r11, uint32_t r16, uint32_t r17)
 				OBJECT(current_object)->push_crate.ring_count--;
 				OBJECT(current_object)->push_crate.ring_timer = 0x10;
 				rings_to_release = 1u;
-				push_crate_release_rings(r3, &r11, &r16, &r17);
+				push_crate_release_rings(r3, &cursor, &random_value, &ring);
 			}
 		}
 	}
@@ -4561,9 +4561,9 @@ void push_crate_move(uint32_t r11, uint32_t r16, uint32_t r17)
 void push_crate_stop_post_update(void)
 {
 	uint16_t offset_x = 0, offset_y = 0;
-	uint32_t r1 = 0, r11 = 0, depth = 0, ignored = 0;
+	uint32_t r1 = 0, cursor = 0, depth = 0, ignored = 0;
 
-	unproject_object(&ignored, &ignored, &ignored, &r11);
+	unproject_object(&ignored, &ignored, &ignored, &cursor);
 	r14 = LINKED(WORK_RAM, OBJECT(current_object)->parent);
 	distance_xy_to_object(&ignored, &r1);
 	if (distance_to_player_2 <= 0x33)
@@ -4581,22 +4581,22 @@ void push_crate_stop_post_update(void)
 	queue_sprite_at_depth(&ignored, &depth);
 }
 
-void push_crate_release_all_rings(uint32_t *p_r11, uint32_t *p_random_value, uint32_t *p_ring)
+void push_crate_release_all_rings(uint32_t *p_allocated, uint32_t *p_random_value, uint32_t *p_ring)
 {
-	uint32_t r11 = *p_r11;
+	uint32_t allocated = *p_allocated;
 	uint32_t random_value = *p_random_value;
 	uint32_t ring = *p_ring;
 
 	rings_to_release = OBJECT(current_object)->push_crate.ring_count;
-	push_crate_release_rings(0u, &r11, &random_value, &ring);
-	*p_r11 = r11;
+	push_crate_release_rings(0u, &allocated, &random_value, &ring);
+	*p_allocated = allocated;
 	*p_random_value = random_value;
 	*p_ring = ring;
 }
 
-void push_crate_release_rings(uint32_t r3, uint32_t *p_r11, uint32_t *p_random_value, uint32_t *p_ring)
+void push_crate_release_rings(uint32_t seed, uint32_t *p_allocated, uint32_t *p_random_value, uint32_t *p_ring)
 {
-	uint32_t r11 = *p_r11;
+	uint32_t allocated = *p_allocated;
 	uint32_t random_value = *p_random_value;
 	uint32_t ring = *p_ring;
 	uint32_t opposite_quadrant = 0;
@@ -4606,8 +4606,8 @@ void push_crate_release_rings(uint32_t r3, uint32_t *p_r11, uint32_t *p_random_v
 	released_ring_angle = push_crate_push_angles[opposite_quadrant & 3u];
 	released_ring_flip = 0u;
 	released_rings_random = 0u;
-	drop_rings(r3, &r11, &random_value, &ring);
-	*p_r11 = r11;
+	drop_rings(seed, &allocated, &random_value, &ring);
+	*p_allocated = allocated;
 	*p_random_value = random_value;
 	*p_ring = ring;
 }
@@ -4615,9 +4615,9 @@ void push_crate_release_rings(uint32_t r3, uint32_t *p_r11, uint32_t *p_random_v
 void sign_start_from_type(void)
 {
 	uint16_t spawn_arg_1 = 0, x_int = 0, y_int = 0, z_int = 0;
-	uint32_t r11 = 0, ignored = 0, object = 0;
+	uint32_t cursor = 0, ignored = 0, object = 0;
 
-	unproject_object(&ignored, &ignored, &ignored, &r11);
+	unproject_object(&ignored, &ignored, &ignored, &cursor);
 	x_int = (uint16_t)OBJECT(current_object)->x_int;
 	y_int = (uint16_t)OBJECT(current_object)->y_int;
 	spawn_arg_1 = OBJECT(current_object)->spawn_arg_1;
@@ -4721,9 +4721,9 @@ void handle_rod_handle_init(void)
 
 void handle_rod_wait(void)
 {
-	uint32_t r11 = 0, depth = 0, ignored = 0;
+	uint32_t cursor = 0, depth = 0, ignored = 0;
 
-	unproject_object(&ignored, &ignored, &ignored, &r11);
+	unproject_object(&ignored, &ignored, &ignored, &cursor);
 	if (OBJECT(LINKED(WORK_RAM, OBJECT(current_object)->parent))->var_81 == 0u)
 	{
 		depth = (uint16_t)OBJECT(current_object)->screen_y;
@@ -4756,7 +4756,7 @@ void handle_rod_start_swing(void)
 
 void handle_rod_swing(void)
 {
-	uint32_t r11 = 0, depth = 0, ignored = 0;
+	uint32_t cursor = 0, depth = 0, ignored = 0;
 
 	if (OBJECT(current_object)->handle_rod.end_position < scroll_position)
 	{
@@ -4764,7 +4764,7 @@ void handle_rod_swing(void)
 		OBJECT(current_object)->handler = handle_rod_remove_ADDRESS;
 		return;
 	}
-	unproject_object(&ignored, &ignored, &ignored, &r11);
+	unproject_object(&ignored, &ignored, &ignored, &cursor);
 	if (OBJECT(current_object)->handle_rod.swing_side != 0u)
 	{
 		if (OBJECT(current_object)->handle_rod.drops_players == 0u)
@@ -4830,11 +4830,11 @@ void handle_rod_swing(void)
 
 void handle_rod_hang(void)
 {
-	uint32_t r1 = 0, r11 = 0, depth = 0, ignored = 0, z = 0;
+	uint32_t r1 = 0, cursor = 0, depth = 0, ignored = 0, z = 0;
 
 	if ((OBJECT(current_object)->flags & 8u) == 0u && OBJECT(current_object)->floor_z_int >= 0x800)
 		fall_to_floor(&ignored, &r1, &z);
-	move_object_projected(&ignored, &ignored, &ignored, &r11);
+	move_object_projected(&ignored, &ignored, &ignored, &cursor);
 	if (OBJECT(current_object)->handle_rod.end_position < scroll_position)
 	{
 		OBJECT(current_object)->handle_rod.end_position = 0xFFFFu;
@@ -4849,14 +4849,14 @@ void handle_rod_hang(void)
 
 void handle_rod_remove(void)
 {
-	uint32_t r2 = 0, r3 = 0, ignored = 0;
+	uint32_t block_offset = 0, ignored = 0, slope_height = 0;
 
-	delete_object_and_children(&ignored, &r2, &r3);
+	delete_object_and_children(&ignored, &block_offset, &slope_height);
 }
 
 void handle_rod_handle_update(void)
 {
-	uint32_t r11 = 0, depth = 0, handle_distance = 0, ignored = 0, rod_angle = 0, rod_dx = 0, rod_dz = 0;
+	uint32_t cursor = 0, depth = 0, handle_distance = 0, ignored = 0, rod_angle = 0, rod_dx = 0, rod_dz = 0;
 
 	r14 = LINKED(WORK_RAM, OBJECT(current_object)->parent);
 	if (OBJECT(r14)->spawn_arg_2 == 0xFFFFu)
@@ -4868,7 +4868,7 @@ void handle_rod_handle_update(void)
 		move_object_projected_no_floor();
 	else
 	{
-		move_object_projected(&ignored, &ignored, &ignored, &r11);
+		move_object_projected(&ignored, &ignored, &ignored, &cursor);
 		add_to_touchable_list(ignored);
 		add_to_rider_list();
 	}
@@ -4913,9 +4913,9 @@ void handle_rod_handle_update(void)
 
 void handle_rod_post_init(void)
 {
-	uint32_t r3 = 0, r11 = 0, ignored = 0, object = 0;
+	uint32_t r3 = 0, cursor = 0, ignored = 0, object = 0;
 
-	unproject_object(&ignored, &ignored, &r3, &r11);
+	unproject_object(&ignored, &ignored, &r3, &cursor);
 	add_to_rider_list();
 	OBJECT(current_object)->sprite_frame = 0x74C8u;
 	if (OBJECT(current_object)->handle_rod_post.fallen != 0u)

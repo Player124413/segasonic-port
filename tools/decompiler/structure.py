@@ -25,8 +25,8 @@ from dataclasses import dataclass, field
 from v60 import ir
 
 SMALL_EXIT = 4    # statements of an ending block that is copied rather than jumped to
-COPY_LATCHES = False    # a jump to the few statements a loop goes round again after is written as a copy of
-                        # them ending in continue or break (copied_latch): the sound driver's voice walks
+COPY_LATCHES = True    # a jump to the few statements a loop goes round again after is written as a copy of
+                        # them ending in continue or break (copied_latch): a walk over objects or voices
 TAIL_COPY = 20    # statements (and block ends) of all the code a jump leads to, at most, to write it again
 
 
@@ -689,7 +689,9 @@ class Structurer:
         if current is not None:
             nodes += self.region(current, None, inner)
         out.append(Loop(nodes))
-        if follow is None:
+        if follow is None or not breaks_out(nodes):
+            # (a loop nothing leaves with a break: what follows it comes only from elsewhere, which writes it
+            # or jumps to it)
             return None
         nodes, next_label = self.jump(follow, stop, outer)
         out += nodes
@@ -828,6 +830,17 @@ def contains_break(nodes):
 # ---- conditions ----
 
 NEGATED = {"eq": "ne", "ne": "eq"}
+
+
+def breaks_out(nodes):
+    """True when 'nodes' (a loop's body) hold a break that leaves that loop: not one of an inner loop, nor of
+    a switch (where break leaves the switch)."""
+    for node in nodes:
+        if isinstance(node, Break):
+            return True
+        if isinstance(node, If) and (breaks_out(node.then) or breaks_out(node.otherwise)):
+            return True
+    return False
 
 
 def negate(condition):

@@ -3,7 +3,7 @@
  *    Description: the game's functions, part 09 (in the order of their V60 addresses)
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    13-10-2026
+ *    Modified:    14-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -141,23 +141,23 @@ void drift_ranking_background(void)
 
 void ranking_display_end(void)
 {
-	uint32_t r2 = 0, r3 = 0, ignored = 0;
+	uint32_t block_offset = 0, ignored = 0, slope_height = 0;
 
 	ranking_done = 1u;
-	delete_object_and_children(&ignored, &r2, &r3);
+	delete_object_and_children(&ignored, &block_offset, &slope_height);
 }
 
 void ranking_row_update(void)
 {
 	uint8_t bucket = 0;
-	uint32_t r3 = 0, frame_index = 0, ignored = 0, portrait_frames = 0;
+	uint32_t frame_index = 0, ignored = 0, portrait_frames = 0, slope_height = 0;
 	uint16_t direction = 0;
 
 	current_object = LINKED(current_object, OBJECT(current_object)->parent);
 	OBJECT(object_cursor)->ranking_row.animate = OBJECT(current_object)->var_80;
 	if (OBJECT(current_object)->var_81 != 0u)
 	{
-		delete_object_and_children(&ignored, &frame_index, &r3);
+		delete_object_and_children(&ignored, &frame_index, &slope_height);
 		return;
 	}
 	OBJECT(object_cursor)->screen_y = OBJECT(current_object)->screen_y;
@@ -232,7 +232,7 @@ void ranking_row_update(void)
 	queue_sprite_in_bucket(bucket);
 }
 
-void start_character_chooser(uint32_t r11)
+void start_character_chooser(uint32_t block)
 {
 	uint16_t chooser_x = 0;
 	uint32_t r0 = 0, r2 = 0, character = 0, frame_index = 0, ignored = 0, object = 0, piece_count = 0, player = 0, x_index = 0;
@@ -243,10 +243,10 @@ void start_character_chooser(uint32_t r11)
 	{
 		mem_write16(video_layer_disable, 0x2Fu);
 		mem_write16(video_backdrop_control, 0u);
-		show_nbg0_picture(&r2, &ignored, &ignored, &r11);
+		show_nbg0_picture(&r2, &ignored, &ignored, &block);
 		spawn_count = 2u;
 		spawn_count = 0xAu;
-		spawn_object_with_pieces(0x08F9E2u, &r0, &piece_count, &r2, &object, &r11);
+		spawn_object_with_pieces(0x08F9E2u, &r0, &piece_count, &r2, &object, &block);
 		OBJECT(object)->screen_x = 0x118;
 		OBJECT(object)->screen_y = 0x1F;
 		OBJECT(object)->sprite_palette = 0x8AD0u;
@@ -260,7 +260,7 @@ void start_character_chooser(uint32_t r11)
 	}
 	character_select_timer = 0x258;
 	spawn_count = 8u;
-	spawn_object_with_pieces(0x08FA36u, &r0, &piece_count, &r2, &object, &r11);
+	spawn_object_with_pieces(0x08FA36u, &r0, &piece_count, &r2, &object, &block);
 	AS32(OBJECT(object)->hitbox_size_x) = current_player;
 	player = OBJECT(object_cursor)->player;
 	OBJECT(object)->kind = player;
@@ -424,7 +424,7 @@ void character_chooser_wait(void)
 void character_chooser_confirm(void)
 {
 	uint8_t sound_id = 0;
-	uint32_t r2 = 0, character = 0, chosen_character = 0, frame_index = 0, ignored = 0, random_value = 0, x_index = 0;
+	uint32_t character = 0, chosen_character = 0, frame_index = 0, ignored = 0, random_value = 0, write_index_address = 0, x_index = 0;
 
 	while ((characters_taken & shl32(1u, (int)(character_taken_bits[OBJECT(current_object)->character_chooser.character]))) != 0u)
 	{
@@ -452,9 +452,9 @@ void character_chooser_confirm(void)
 	OBJECT(current_object)->handler = character_chooser_chosen_ADDRESS;
 	next_random(&random_value, &ignored, &ignored);
 	sound_id = mem_read8(chooser_voice_sounds_ADDRESS + (OBJECT(current_object)->character_chooser.character * 4u + (random_value & 3u)));
-	play_sound(sound_id, &chosen_character, &r2);
+	play_sound(sound_id, &chosen_character, &write_index_address);
 	sound_id = 0x20u;
-	play_sound(sound_id, &chosen_character, &r2);
+	play_sound(sound_id, &chosen_character, &write_index_address);
 	character_chooser_chosen();
 }
 
@@ -548,7 +548,6 @@ void character_chooser_turn(void)
 			r1 = character_taken_bits[OBJECT(current_object)->character_chooser.character];
 			if ((characters_taken & shl32(1u, (int)(r1))) != 0u)
 			{
-			character_chooser_start_turn:
 				OBJECT(current_object)->character_chooser.step_timer = 0;
 				OBJECT(current_object)->character_chooser.turn_timer = 0x18u;
 				OBJECT(current_object)->handler = character_chooser_turn_ADDRESS;
@@ -585,7 +584,9 @@ void character_chooser_turn(void)
 		}
 		OBJECT(current_object)->sprite_palette = chooser_portrait_palettes[character];
 		OBJECT(current_object)->sprite_palette = 0x87A0u;
-		goto character_chooser_start_turn;
+		OBJECT(current_object)->character_chooser.step_timer = 0;
+		OBJECT(current_object)->character_chooser.turn_timer = 0x18u;
+		OBJECT(current_object)->handler = character_chooser_turn_ADDRESS;
 	}
 	r14 = OBJECT(current_object)->character_chooser.turn_direction;
 	turn_step = (uint16_t)r14;
@@ -623,11 +624,11 @@ void character_chooser_turn(void)
 
 void character_chooser_chosen(void)
 {
-	uint32_t r2 = 0, r3 = 0, depth = 0, ignored = 0;
+	uint32_t block_offset = 0, depth = 0, ignored = 0, slope_height = 0;
 
 	if (character_select_timer <= 0)
 	{
-		delete_object_and_children(&ignored, &r2, &r3);
+		delete_object_and_children(&ignored, &block_offset, &slope_height);
 		return;
 	}
 	depth = queue_sprite(0u);
@@ -644,12 +645,12 @@ void character_chooser_chosen(void)
 
 void character_select_countdown_update(void)
 {
-	uint32_t r2 = 0, r3 = 0, depth = 0, ignored = 0, seconds = 0;
+	uint32_t block_offset = 0, depth = 0, ignored = 0, seconds = 0, slope_height = 0;
 	uint16_t time_left = 0, direction = 0;
 
 	if (players_choosing_character == 0u && character_select_timer <= 0)
 	{
-		delete_object_and_children(&ignored, &r2, &r3);
+		delete_object_and_children(&ignored, &block_offset, &slope_height);
 		return;
 	}
 	time_left = character_select_timer;
@@ -739,11 +740,11 @@ uint32_t start_join_character_chooser(void)
 	return x_index;
 }
 
-void join_character_chooser_update(uint32_t r0)
+void join_character_chooser_update(uint32_t text_x)
 {
 	uint8_t left_steps = 0, right_turns = 0, turn = 0;
 	uint16_t trackball_x = 0, y = 0;
-	uint32_t character = 0, kind = 0, palette = 0, player = 0, scale = 0, taken_bit = 0, text = 0, text_x = 0;
+	uint32_t character = 0, kind = 0, palette = 0, player = 0, scale = 0, taken_bit = 0, text = 0;
 	uint8_t right_steps = 0, next_character = 0;
 	uint16_t time_left = 0;
 
@@ -771,7 +772,7 @@ void join_character_chooser_update(uint32_t r0)
 	}
 	else
 	{
-		text_x = (r0 & ~0xFFFFu) | (uint16_t)OBJECT(current_object)->screen_x;
+		text_x = (text_x & ~0xFFFFu) | (uint16_t)OBJECT(current_object)->screen_x;
 		text_x = (text_x & ~0xFFFFu) | (uint16_t)(text_x - 0x25u);
 		y = (uint16_t)(OBJECT(current_object)->screen_y - 0x13u);
 		palette = 0x8AD0u;
@@ -848,7 +849,7 @@ void join_character_chooser_update(uint32_t r0)
 	current_object = object_cursor;
 }
 
-void count_free_characters(uint32_t *p_r0, uint32_t *p_r2, uint32_t *p_r3)
+void count_free_characters(uint32_t *p_characters_left, uint32_t *p_character, uint32_t *p_taken_bit)
 {
 	uint8_t free_characters = 0;
 	uint32_t character = 0, characters_left = 0, taken_bit = 0;
@@ -864,21 +865,21 @@ void count_free_characters(uint32_t *p_r0, uint32_t *p_r2, uint32_t *p_r3)
 		characters_left--;
 	} while (characters_left != 0u);
 	free_character_count = free_characters;
-	*p_r0 = characters_left;
-	*p_r2 = character;
-	*p_r3 = taken_bit;
+	*p_characters_left = characters_left;
+	*p_character = character;
+	*p_taken_bit = taken_bit;
 }
 
-void spawn_walls(uint32_t *p_spawns_offset, uint32_t *p_r2, uint32_t *p_second_sprite, uint32_t *p_point_y, uint32_t *p_z, uint32_t *p_wall)
+void spawn_walls(uint32_t *p_spawns_offset, uint32_t *p_part_size, uint32_t *p_second_sprite, uint32_t *p_point_y, uint32_t *p_z, uint32_t *p_wall)
 {
 	uint32_t spawns_offset = *p_spawns_offset;
-	uint32_t r2 = *p_r2;
+	uint32_t part_size = *p_part_size;
 	uint32_t second_sprite = *p_second_sprite;
 	uint32_t point_y = *p_point_y;
 	uint32_t z = *p_z;
 	uint32_t wall = *p_wall;
 	uint16_t blocks_needed = 0, past_spawn = 0;
-	uint32_t r1 = 0, r2_2 = 0, corner_x = 0, free_count = 0, ignored = 0, kind_record = 0, object = 0, record = 0;
+	uint32_t r1 = 0, r2 = 0, corner_x = 0, free_count = 0, ignored = 0, kind_record = 0, object = 0, record = 0;
 	uint16_t spawn_position = 0, current_scroll = 0;
 	uint32_t init_flags = 0;
 
@@ -901,7 +902,7 @@ void spawn_walls(uint32_t *p_spawns_offset, uint32_t *p_r2, uint32_t *p_second_s
 	{
 		wall_spawn_cursor += 0xEu;
 		*p_spawns_offset = spawns_offset;
-		*p_r2 = r2;
+		*p_part_size = part_size;
 		*p_second_sprite = (*p_second_sprite & 0xFFFF0000u) | (second_sprite & 0xFFFFu);
 		*p_point_y = point_y;
 		*p_z = z;
@@ -943,7 +944,7 @@ void spawn_walls(uint32_t *p_spawns_offset, uint32_t *p_r2, uint32_t *p_second_s
 		blocks_needed = (uint16_t)(blocks_needed * 2u);
 	if ((int16_t)blocks_needed < free_object_stack_2[0])
 	{
-		build_wall_parts(&r2, &second_sprite, &wall);
+		build_wall_parts(&part_size, &second_sprite, &wall);
 		kind_record = OBJECT(current_object)->sprite_frame + wall_kinds_ADDRESS;
 		OBJECT(current_object)->hitbox_offset_x = ROM8(kind_record);
 		kind_record++;
@@ -965,7 +966,7 @@ void spawn_walls(uint32_t *p_spawns_offset, uint32_t *p_r2, uint32_t *p_second_s
 		OBJECT(current_object)->speed_z_int = point_y;
 		wall_spawn_cursor += 0xEu;
 		*p_spawns_offset = spawns_offset;
-		*p_r2 = r2;
+		*p_part_size = part_size;
 		*p_second_sprite = (*p_second_sprite & 0xFFFF0000u) | (second_sprite & 0xFFFFu);
 		*p_point_y = point_y;
 		*p_z = z;
@@ -973,9 +974,9 @@ void spawn_walls(uint32_t *p_spawns_offset, uint32_t *p_r2, uint32_t *p_second_s
 		return;
 	}
 	object = current_object;
-	delete_object_outside_loop(object, &r1, &r2_2);
+	delete_object_outside_loop(object, &r1, &r2);
 	*p_spawns_offset = r1;
-	*p_r2 = r2_2;
+	*p_part_size = r2;
 	*p_wall = wall;
 }
 
@@ -1299,10 +1300,10 @@ void build_wall_parts(uint32_t *p_part_size, uint32_t *p_second_sprite, uint32_t
 	*p_part = object;
 }
 
-void spawn_object_groups(uint32_t *p_r1, uint32_t *p_r2, uint32_t *p_slope_z, uint32_t *p_count, uint32_t *p_object)
+void spawn_object_groups(uint32_t *p_r1, uint32_t *p_free_stack, uint32_t *p_slope_z, uint32_t *p_count, uint32_t *p_object)
 {
 	uint32_t r1 = *p_r1;
-	uint32_t r2 = *p_r2;
+	uint32_t free_stack = *p_free_stack;
 	uint32_t slope_z = *p_slope_z;
 	uint32_t count = *p_count;
 	uint32_t object = *p_object;
@@ -1325,7 +1326,7 @@ void spawn_object_groups(uint32_t *p_r1, uint32_t *p_r2, uint32_t *p_slope_z, ui
 		if (scroll_position < spawn_position)
 		{
 			*p_r1 = r1;
-			*p_r2 = r2;
+			*p_free_stack = free_stack;
 			*p_count = count;
 			*p_object = object;
 			return;
@@ -1343,7 +1344,7 @@ void spawn_object_groups(uint32_t *p_r1, uint32_t *p_r2, uint32_t *p_slope_z, ui
 			if (spawned == 0u)
 			{
 				*p_r1 = r1;
-				*p_r2 = r2;
+				*p_free_stack = free_stack;
 				*p_count = count;
 				*p_object = object;
 				return;
@@ -1358,7 +1359,7 @@ void spawn_object_groups(uint32_t *p_r1, uint32_t *p_r2, uint32_t *p_slope_z, ui
 			if (spawned == 0u)
 			{
 				*p_r1 = r1;
-				*p_r2 = r2;
+				*p_free_stack = free_stack;
 				*p_count = count;
 				*p_object = object;
 				return;
@@ -1370,7 +1371,7 @@ void spawn_object_groups(uint32_t *p_r1, uint32_t *p_r2, uint32_t *p_slope_z, ui
 			if (spawned == 0u)
 			{
 				*p_r1 = r1;
-				*p_r2 = r2;
+				*p_free_stack = free_stack;
 				*p_count = count;
 				*p_object = object;
 				return;
@@ -1382,7 +1383,7 @@ void spawn_object_groups(uint32_t *p_r1, uint32_t *p_r2, uint32_t *p_slope_z, ui
 			if (spawned == 0u)
 			{
 				*p_r1 = r1;
-				*p_r2 = r2;
+				*p_free_stack = free_stack;
 				*p_count = count;
 				*p_object = object;
 				return;
@@ -1392,11 +1393,11 @@ void spawn_object_groups(uint32_t *p_r1, uint32_t *p_r2, uint32_t *p_slope_z, ui
 		case 0xCu:
 			goto spawn_object_groups_mark_silent;
 		case 0xEu:
-			spawn_waterfall(record, &spawned, &r2, &object);
+			spawn_waterfall(record, &spawned, &free_stack, &object);
 			if (spawned == 0u)
 			{
 				*p_r1 = r1;
-				*p_r2 = r2;
+				*p_free_stack = free_stack;
 				*p_count = count;
 				*p_object = object;
 				return;
@@ -1407,8 +1408,6 @@ void spawn_object_groups(uint32_t *p_r1, uint32_t *p_r2, uint32_t *p_slope_z, ui
 			unknown_code(0x9125Eu + kind_index);
 		}
 	}
-spawn_object_groups_mark_silent:
-	AS8(group_previous_member) = 0xFFu;
 spawn_object_groups_no_depth_step:
 	group_depth_step = 0;
 spawn_object_groups_build_group:
@@ -1425,7 +1424,7 @@ spawn_object_groups_build_group:
 		if (free_object_stack < group_member_count)
 		{
 			*p_r1 = r1;
-			*p_r2 = r2;
+			*p_free_stack = free_stack;
 			*p_count = count;
 			*p_object = object;
 			return;
@@ -1464,7 +1463,7 @@ spawn_object_groups_build_group:
 			if (free_count == 0u)
 			{
 				*p_r1 = r1;
-				*p_r2 = r2;
+				*p_free_stack = free_stack;
 				*p_slope_z = slope_z;
 				*p_count = count;
 				*p_object = object;
@@ -1536,16 +1535,20 @@ spawn_object_groups_build_group:
 	}
 	group_spawn_cursor += 0x18u;
 	*p_r1 = r1;
-	*p_r2 = r2;
+	*p_free_stack = free_stack;
 	*p_slope_z = slope_z;
 	*p_count = count;
 	*p_object = object;
+	return;
+spawn_object_groups_mark_silent:
+	AS8(group_previous_member) = 0xFFu;
+	goto spawn_object_groups_no_depth_step;
 }
 
 void crumbling_floor_update(void)
 {
 	uint8_t sound_id = 0;
-	uint32_t r1 = 0, r2 = 0, at_last_step = 0, depth = 0, ignored = 0, sprite_depth = 0;
+	uint32_t r1 = 0, at_last_step = 0, depth = 0, ignored = 0, sprite_depth = 0, write_index_address = 0;
 
 	switch (OBJECT(current_object)->crumbling_floor.state)
 	{
@@ -1584,14 +1587,14 @@ void crumbling_floor_update(void)
 								if (OBJECT(current_object)->screen_x >= 0)
 								{
 									sound_id = 0xDu;
-									play_sound(sound_id, &r1, &r2);
+									play_sound(sound_id, &r1, &write_index_address);
 								}
 								break;
 							case 1:
 								if (OBJECT(current_object)->screen_x <= 0x180)
 								{
 									sound_id = 0xDu;
-									play_sound(sound_id, &r1, &r2);
+									play_sound(sound_id, &r1, &write_index_address);
 									add_to_platform_list();
 									if ((uint16_t)(OBJECT(current_object)->screen_x + 0xA0u) >= 0x281u)
 										return;
@@ -1605,7 +1608,7 @@ void crumbling_floor_update(void)
 								if (OBJECT(current_object)->screen_x >= -8)
 								{
 									sound_id = 0xDu;
-									play_sound(sound_id, &r1, &r2);
+									play_sound(sound_id, &r1, &write_index_address);
 									add_to_platform_list();
 									if ((uint16_t)(OBJECT(current_object)->screen_x + 0xA0u) >= 0x281u)
 										return;
@@ -1619,7 +1622,7 @@ void crumbling_floor_update(void)
 								if (OBJECT(current_object)->screen_x <= 0x1A0)
 								{
 									sound_id = 0xDu;
-									play_sound(sound_id, &r1, &r2);
+									play_sound(sound_id, &r1, &write_index_address);
 									add_to_platform_list();
 									if ((uint16_t)(OBJECT(current_object)->screen_x + 0xA0u) >= 0x281u)
 										return;
@@ -1660,14 +1663,14 @@ void crumbling_floor_update(void)
 								if (OBJECT(current_object)->screen_x >= 0)
 								{
 									sound_id = 0xDu;
-									play_sound(sound_id, &r1, &r2);
+									play_sound(sound_id, &r1, &write_index_address);
 								}
 								break;
 							case 1:
 								if (OBJECT(current_object)->screen_x <= 0x180)
 								{
 									sound_id = 0xDu;
-									play_sound(sound_id, &r1, &r2);
+									play_sound(sound_id, &r1, &write_index_address);
 									add_to_platform_list();
 									if ((uint16_t)(OBJECT(current_object)->screen_x + 0xA0u) >= 0x281u)
 										return;
@@ -1681,7 +1684,7 @@ void crumbling_floor_update(void)
 								if (OBJECT(current_object)->screen_x >= -8)
 								{
 									sound_id = 0xDu;
-									play_sound(sound_id, &r1, &r2);
+									play_sound(sound_id, &r1, &write_index_address);
 									add_to_platform_list();
 									if ((uint16_t)(OBJECT(current_object)->screen_x + 0xA0u) >= 0x281u)
 										return;
@@ -1695,7 +1698,7 @@ void crumbling_floor_update(void)
 								if (OBJECT(current_object)->screen_x <= 0x1A0)
 								{
 									sound_id = 0xDu;
-									play_sound(sound_id, &r1, &r2);
+									play_sound(sound_id, &r1, &write_index_address);
 									add_to_platform_list();
 									if ((uint16_t)(OBJECT(current_object)->screen_x + 0xA0u) >= 0x281u)
 										return;
@@ -1742,14 +1745,14 @@ void crumbling_floor_update(void)
 								if (OBJECT(current_object)->screen_x >= 0)
 								{
 									sound_id = 0xDu;
-									play_sound(sound_id, &r1, &r2);
+									play_sound(sound_id, &r1, &write_index_address);
 								}
 								break;
 							case 1:
 								if (OBJECT(current_object)->screen_x <= 0x180)
 								{
 									sound_id = 0xDu;
-									play_sound(sound_id, &r1, &r2);
+									play_sound(sound_id, &r1, &write_index_address);
 									add_to_platform_list();
 									if ((uint16_t)(OBJECT(current_object)->screen_x + 0xA0u) >= 0x281u)
 										return;
@@ -1763,7 +1766,7 @@ void crumbling_floor_update(void)
 								if (OBJECT(current_object)->screen_x >= -8)
 								{
 									sound_id = 0xDu;
-									play_sound(sound_id, &r1, &r2);
+									play_sound(sound_id, &r1, &write_index_address);
 									add_to_platform_list();
 									if ((uint16_t)(OBJECT(current_object)->screen_x + 0xA0u) >= 0x281u)
 										return;
@@ -1777,7 +1780,7 @@ void crumbling_floor_update(void)
 								if (OBJECT(current_object)->screen_x <= 0x1A0)
 								{
 									sound_id = 0xDu;
-									play_sound(sound_id, &r1, &r2);
+									play_sound(sound_id, &r1, &write_index_address);
 									add_to_platform_list();
 									if ((uint16_t)(OBJECT(current_object)->screen_x + 0xA0u) >= 0x281u)
 										return;
@@ -1819,14 +1822,14 @@ void crumbling_floor_update(void)
 								if (OBJECT(current_object)->screen_x >= 0)
 								{
 									sound_id = 0xDu;
-									play_sound(sound_id, &r1, &r2);
+									play_sound(sound_id, &r1, &write_index_address);
 								}
 								break;
 							case 1:
 								if (OBJECT(current_object)->screen_x <= 0x180)
 								{
 									sound_id = 0xDu;
-									play_sound(sound_id, &r1, &r2);
+									play_sound(sound_id, &r1, &write_index_address);
 									add_to_platform_list();
 									if ((uint16_t)(OBJECT(current_object)->screen_x + 0xA0u) >= 0x281u)
 										return;
@@ -1840,7 +1843,7 @@ void crumbling_floor_update(void)
 								if (OBJECT(current_object)->screen_x >= -8)
 								{
 									sound_id = 0xDu;
-									play_sound(sound_id, &r1, &r2);
+									play_sound(sound_id, &r1, &write_index_address);
 									add_to_platform_list();
 									if ((uint16_t)(OBJECT(current_object)->screen_x + 0xA0u) >= 0x281u)
 										return;
@@ -1854,7 +1857,7 @@ void crumbling_floor_update(void)
 								if (OBJECT(current_object)->screen_x <= 0x1A0)
 								{
 									sound_id = 0xDu;
-									play_sound(sound_id, &r1, &r2);
+									play_sound(sound_id, &r1, &write_index_address);
 									add_to_platform_list();
 									if ((uint16_t)(OBJECT(current_object)->screen_x + 0xA0u) >= 0x281u)
 										return;
@@ -1896,14 +1899,14 @@ void crumbling_floor_update(void)
 								if (OBJECT(current_object)->screen_x >= 0)
 								{
 									sound_id = 0xDu;
-									play_sound(sound_id, &r1, &r2);
+									play_sound(sound_id, &r1, &write_index_address);
 								}
 								break;
 							case 1:
 								if (OBJECT(current_object)->screen_x <= 0x180)
 								{
 									sound_id = 0xDu;
-									play_sound(sound_id, &r1, &r2);
+									play_sound(sound_id, &r1, &write_index_address);
 									add_to_platform_list();
 									if ((uint16_t)(OBJECT(current_object)->screen_x + 0xA0u) >= 0x281u)
 										return;
@@ -1917,7 +1920,7 @@ void crumbling_floor_update(void)
 								if (OBJECT(current_object)->screen_x >= -8)
 								{
 									sound_id = 0xDu;
-									play_sound(sound_id, &r1, &r2);
+									play_sound(sound_id, &r1, &write_index_address);
 									add_to_platform_list();
 									if ((uint16_t)(OBJECT(current_object)->screen_x + 0xA0u) >= 0x281u)
 										return;
@@ -1931,7 +1934,7 @@ void crumbling_floor_update(void)
 								if (OBJECT(current_object)->screen_x <= 0x1A0)
 								{
 									sound_id = 0xDu;
-									play_sound(sound_id, &r1, &r2);
+									play_sound(sound_id, &r1, &write_index_address);
 									add_to_platform_list();
 									if ((uint16_t)(OBJECT(current_object)->screen_x + 0xA0u) >= 0x281u)
 										return;
@@ -2226,7 +2229,7 @@ void lava_rock_update(void)
 {
 	uint8_t sound_id = 0;
 	uint16_t part_list = 0;
-	uint32_t r1 = 0, r2 = 0, r7 = 0, r11 = 0, at_last_step = 0, depth = 0, free_count = 0, height = 0, ignored = 0, random_value = 0, slot_entry = 0, sprite_depth = 0;
+	uint32_t r1 = 0, r7 = 0, r11 = 0, at_last_step = 0, depth = 0, free_count = 0, height = 0, ignored = 0, random_value = 0, slot_entry = 0, sprite_depth = 0, write_index_address = 0;
 	uint16_t erupt_delay = 0;
 
 	if (map_screen_active != 0u)
@@ -2485,7 +2488,7 @@ void lava_rock_update(void)
 				if (OBJECT(current_object)->screen_x >= -0x90)
 				{
 					sound_id = 7u;
-					play_sound(sound_id, &r1, &r2);
+					play_sound(sound_id, &r1, &write_index_address);
 				}
 				r11 = spawn_lava_column(r11);
 				if ((OBJECT(current_object)->sprite_flags & 0xD000u) == 0xD000u)
@@ -2824,9 +2827,9 @@ void group_slot_trigger_update(void)
 	delete_current_object();
 }
 
-void spawn_object_groups_2(uint32_t *p_r1, uint32_t *p_count, uint32_t *p_object)
+void spawn_object_groups_2(uint32_t *p_list_offset, uint32_t *p_count, uint32_t *p_object)
 {
-	uint32_t r1 = *p_r1;
+	uint32_t list_offset = *p_list_offset;
 	uint32_t count = *p_count;
 	uint32_t object = *p_object;
 	uint8_t bridge_number = 0;
@@ -2842,8 +2845,8 @@ void spawn_object_groups_2(uint32_t *p_r1, uint32_t *p_count, uint32_t *p_object
 		unused_group_spawn_word_2 = 0u;
 		unused_group_spawn_word = 0u;
 		unused_group_spawn_word_3 = 1u;
-		r1 = stage_record_spawns[stage];
-		group_spawn_cursor_2 = stage_record_spawns_ADDRESS + r1;
+		list_offset = stage_record_spawns[stage];
+		group_spawn_cursor_2 = stage_record_spawns_ADDRESS + list_offset;
 		bridge_0_plank_count = 0u;
 		bridge_1_plank_count = 0u;
 		slot_cursor = group_slots_ADDRESS;
@@ -2863,7 +2866,7 @@ void spawn_object_groups_2(uint32_t *p_r1, uint32_t *p_count, uint32_t *p_object
 		record += 2u;
 		if (scroll_position < spawn_position)
 		{
-			*p_r1 = r1;
+			*p_list_offset = list_offset;
 			*p_count = count;
 			*p_object = object;
 			return;
@@ -2879,7 +2882,7 @@ void spawn_object_groups_2(uint32_t *p_r1, uint32_t *p_count, uint32_t *p_object
 			spawn_group_leader(record, &spawned, &object);
 			if (spawned == 0u)
 			{
-				*p_r1 = r1;
+				*p_list_offset = list_offset;
 				*p_count = count;
 				*p_object = object;
 				return;
@@ -2901,7 +2904,7 @@ void spawn_object_groups_2(uint32_t *p_r1, uint32_t *p_count, uint32_t *p_object
 spawn_object_groups_2_pick_bridge:
 	if (free_object_stack < (int16_t)ROM16(record + 5u))
 	{
-		*p_r1 = r1;
+		*p_list_offset = list_offset;
 		*p_count = count;
 		*p_object = object;
 		return;
@@ -2914,7 +2917,7 @@ spawn_object_groups_2_pick_bridge:
 		plank_count_var = bridge_1_plank_count_ADDRESS;
 		if (bridge_1_plank_count != 0u)
 		{
-			*p_r1 = r1;
+			*p_list_offset = list_offset;
 			*p_count = count;
 			*p_object = object;
 			return;
@@ -2982,10 +2985,10 @@ spawn_object_groups_2_build_group:
 			member_record += 4u;
 			OBJECT(object)->animation = mem_read32(member_record);
 			member_record += 4u;
-			r1 = mem_read32(member_record);
+			list_offset = mem_read32(member_record);
 			member_record += 4u;
 			if ((group_member_number & 1u) != 0u)
-				OBJECT(object)->animation = r1;
+				OBJECT(object)->animation = list_offset;
 			OBJECT(object)->hitbox_size_x = mem_read16(member_record);
 			member_record += 2u;
 			OBJECT(object)->hitbox_size_y = mem_read16(member_record);
@@ -3024,7 +3027,7 @@ spawn_object_groups_2_build_group:
 		mem_write16(last_plank_var, object);
 	}
 	group_spawn_cursor_2 += 0x18u;
-	*p_r1 = r1;
+	*p_list_offset = list_offset;
 	*p_count = count;
 	*p_object = object;
 }
@@ -3312,11 +3315,11 @@ void event_0f_stop_scroll(void)
 	}
 }
 
-void event_0f_show_messages(uint32_t r5, uint32_t *p_frames, uint32_t *p_box)
+void event_0f_show_messages(uint32_t screen_x, uint32_t *p_frames, uint32_t *p_box)
 {
 	uint16_t frames = (uint16_t)*p_frames;
 	uint32_t box = *p_box;
-	uint16_t kind = 0, screen_x = 0, screen_y = 0;
+	uint16_t kind = 0, screen_y = 0;
 	uint32_t cursor = 0;
 	uint16_t show_time = 0;
 
@@ -3391,7 +3394,7 @@ void spawn_falling_rocks(uint32_t object)
 
 void falling_rock_bounce(void)
 {
-	uint32_t r0 = 0, r1 = 0, r7 = 0, r8 = 0, block_offset = 0, bounce_speed = 0, cursor = 0, ignored = 0, off_screen = 0;
+	uint32_t r1 = 0, r7 = 0, r8 = 0, block_offset = 0, bounce_speed = 0, cursor = 0, depth = 0, ignored = 0, off_screen = 0, x = 0;
 
 	if ((OBJECT(current_object)->flags & 0x400u) == 0u)
 	{
@@ -3399,7 +3402,7 @@ void falling_rock_bounce(void)
 		OBJECT(current_object)->y += OBJECT(current_object)->speed_y;
 		OBJECT(current_object)->speed_z += 0x6000u;
 		OBJECT(current_object)->z += OBJECT(current_object)->speed_z;
-		find_floor(&r0, &r1, &block_offset, &ignored, &cursor);
+		find_floor(&x, &r1, &block_offset, &ignored, &cursor);
 		if (OBJECT(current_object)->floor_z_int <= OBJECT(current_object)->z_int)
 		{
 			OBJECT(current_object)->z = OBJECT(current_object)->floor_z;
@@ -3411,36 +3414,36 @@ void falling_rock_bounce(void)
 		}
 		animate(&r1, &r7, &r8);
 	}
-	project_object(&ignored, &r1);
+	project_object(&ignored, &depth);
 	off_screen = check_left_screen();
 	if (off_screen == 0u)
 	{
-		r1 = queue_sprite(r1);
+		depth = queue_sprite(depth);
 		return;
 	}
 	delete_current_object();
 }
 
-void event_0c_start(uint32_t *p_r2, uint32_t *p_r3, uint32_t *p_object)
+void event_0c_start(uint32_t *p_block_offset, uint32_t *p_slope_height, uint32_t *p_object)
 {
-	uint32_t r2 = *p_r2;
-	uint32_t r3 = *p_r3;
+	uint32_t block_offset = *p_block_offset;
+	uint32_t slope_height = *p_slope_height;
 	uint32_t object = *p_object;
 
 	scene_timer = 0x3C;
-	spawn_door_rollers(&r2, &r3, &object);
+	spawn_door_rollers(&block_offset, &slope_height, &object);
 	scene_step++;
 	scroll_mode = 0u;
 	scroll_speed = 2u;
-	*p_r2 = r2;
-	*p_r3 = r3;
+	*p_block_offset = block_offset;
+	*p_slope_height = slope_height;
 	*p_object = object;
 }
 
-uint32_t event_0c_first_quake(uint32_t r2)
+uint32_t event_0c_first_quake(uint32_t write_index_address)
 {
 	uint8_t sound_id = 0;
-	uint32_t r1 = 0;
+	uint32_t write_index = 0;
 	uint16_t time_left = 0;
 
 	if (scene_timer <= 0x1E)
@@ -3449,7 +3452,7 @@ uint32_t event_0c_first_quake(uint32_t r2)
 	{
 		camera_shake_active = 1u;
 		sound_id = 0xFu;
-		play_sound(sound_id, &r1, &r2);
+		play_sound(sound_id, &write_index, &write_index_address);
 	}
 	time_left = scene_timer;
 	scene_timer = time_left - 1u;
@@ -3458,12 +3461,12 @@ uint32_t event_0c_first_quake(uint32_t r2)
 		scene_step++;
 		scene_timer = 0x3C;
 	}
-	return r2;
+	return write_index_address;
 }
 
-void event_0c_second_quake(uint32_t r5, uint32_t *p_r2, uint32_t *p_point_y, uint32_t *p_z, uint32_t *p_wall)
+void event_0c_second_quake(uint32_t second_sprite, uint32_t *p_part_size, uint32_t *p_point_y, uint32_t *p_z, uint32_t *p_wall)
 {
-	uint32_t r2 = *p_r2;
+	uint32_t part_size = *p_part_size;
 	uint32_t point_y = *p_point_y;
 	uint32_t z = *p_z;
 	uint32_t wall = *p_wall;
@@ -3475,14 +3478,14 @@ void event_0c_second_quake(uint32_t r5, uint32_t *p_r2, uint32_t *p_point_y, uin
 	{
 		camera_shake_active = 1u;
 		sound_id = 0xFu;
-		play_sound(sound_id, &r1, &r2);
+		play_sound(sound_id, &r1, &part_size);
 	}
-	spawn_walls(&r1, &r2, &r5, &point_y, &z, &wall);
+	spawn_walls(&r1, &part_size, &second_sprite, &point_y, &z, &wall);
 	time_left = scene_timer;
 	scene_timer = time_left - 1u;
 	if ((int16_t)time_left > 1)
 	{
-		*p_r2 = r2;
+		*p_part_size = part_size;
 		*p_point_y = point_y;
 		*p_z = z;
 		*p_wall = wall;
@@ -3491,8 +3494,8 @@ void event_0c_second_quake(uint32_t r5, uint32_t *p_r2, uint32_t *p_point_y, uin
 	scene_step++;
 	scene_timer = 0xA;
 	sound_id = 0xAu;
-	play_sound(sound_id, &r1, &r2);
-	*p_r2 = r2;
+	play_sound(sound_id, &r1, &part_size);
+	*p_part_size = part_size;
 	*p_point_y = point_y;
 	*p_z = z;
 	*p_wall = wall;
@@ -3511,10 +3514,10 @@ void event_0c_finish(void)
 	}
 }
 
-void update_stage_05_event(uint32_t r2, uint32_t r3, uint32_t r11, uint32_t *p_r4, uint32_t *p_r8, uint32_t *p_r9, uint32_t *p_r10)
+void update_stage_05_event(uint32_t r2, uint32_t r3, uint32_t r11, uint32_t *p_r4, uint32_t *p_count, uint32_t *p_r9, uint32_t *p_r10)
 {
 	uint32_t r4 = *p_r4;
-	uint32_t r8 = *p_r8;
+	uint32_t count = *p_count;
 	uint32_t r9 = *p_r9;
 	uint32_t r10 = *p_r10;
 	uint8_t sound_id = 0, spawned = 0;
@@ -3529,18 +3532,18 @@ void update_stage_05_event(uint32_t r2, uint32_t r3, uint32_t r11, uint32_t *p_r
 		scene_timer = 0;
 		unused_stage_05_event_long = 0u;
 		scene_step++;
-		update_player_summary(&r3, &r8, &r10, &r11);
-		update_scroll(&r2, &r3, &r4, &r5, &r8, &r9, &r10, &r11);
-		update_stage_tile_layers(&r1, &r2, &r3, &r4, &r5, &r8, &r9, &r10, &r11);
-		check_hits(&r1, &r2, &r3, &r4, &r5, &r8, &r11);
+		update_player_summary(&r3, &count, &r10, &r11);
+		update_scroll(&r2, &r3, &r4, &r5, &count, &r9, &r10, &r11);
+		update_stage_tile_layers(&r1, &r2, &r3, &r4, &r5, &count, &r9, &r10, &r11);
+		check_hits(&r1, &r2, &r3, &r4, &r5, &count, &r11);
 		check_walls(r1);
-		check_platforms(&r1, &r2, &r3, &r4, &r5, &r8, &r9, &r10_2, &r11);
+		check_platforms(&r1, &r2, &r3, &r4, &r5, &count, &r9, &r10_2, &r11);
 		goal_unlocked = 0xFFu;
-		check_stage_clear(&r8, &r10_2, &r11);
+		check_stage_clear(&count, &r10_2, &r11);
 		if (game_mode != 0x17u)
 		{
 			*p_r4 = r4;
-			*p_r8 = r8;
+			*p_count = count;
 			*p_r9 = r9;
 			*p_r10 = r10_2;
 			return;
@@ -3550,23 +3553,23 @@ void update_stage_05_event(uint32_t r2, uint32_t r3, uint32_t r11, uint32_t *p_r
 		scene_timer = 0;
 		goal_scroll_position = 0xFFFFu;
 		*p_r4 = r4;
-		*p_r8 = r8;
+		*p_count = count;
 		*p_r9 = r9;
 		*p_r10 = r10_2;
 		return;
 	case 1:
-		update_player_summary(&r3, &r8, &r10, &r11);
-		update_scroll(&r2, &r3, &r4, &r5, &r8, &r9, &r10, &r11);
-		update_stage_tile_layers(&r1, &r2, &r3, &r4, &r5, &r8, &r9, &r10, &r11);
-		check_hits(&r1, &r2, &r3, &r4, &r5, &r8, &r11);
+		update_player_summary(&r3, &count, &r10, &r11);
+		update_scroll(&r2, &r3, &r4, &r5, &count, &r9, &r10, &r11);
+		update_stage_tile_layers(&r1, &r2, &r3, &r4, &r5, &count, &r9, &r10, &r11);
+		check_hits(&r1, &r2, &r3, &r4, &r5, &count, &r11);
 		check_walls(r1);
-		check_platforms(&r1, &r2, &r3, &r4, &r5, &r8, &r9, &r10_2, &r11);
+		check_platforms(&r1, &r2, &r3, &r4, &r5, &count, &r9, &r10_2, &r11);
 		goal_unlocked = 0xFFu;
-		check_stage_clear(&r8, &r10_2, &r11);
+		check_stage_clear(&count, &r10_2, &r11);
 		if (game_mode != 0x17u)
 		{
 			*p_r4 = r4;
-			*p_r8 = r8;
+			*p_count = count;
 			*p_r9 = r9;
 			*p_r10 = r10_2;
 			return;
@@ -3576,7 +3579,7 @@ void update_stage_05_event(uint32_t r2, uint32_t r3, uint32_t r11, uint32_t *p_r
 		scene_timer = 0;
 		goal_scroll_position = 0xFFFFu;
 		*p_r4 = r4;
-		*p_r8 = r8;
+		*p_count = count;
 		*p_r9 = r9;
 		*p_r10 = r10_2;
 		return;
@@ -3593,15 +3596,15 @@ void update_stage_05_event(uint32_t r2, uint32_t r3, uint32_t r11, uint32_t *p_r
 			if (stage_05_switch_step < 0)
 				load_stage_map_pointers(&r1, &r10);
 		}
-		find_nearby_floor_blocks(&r1, &r3, &r4, &r5, &r8, &r10, &r11);
-		check_hits(&r1, &r2, &r3, &r4, &r5, &r8, &r11);
+		find_nearby_floor_blocks(&r1, &r3, &r4, &r5, &count, &r10, &r11);
+		check_hits(&r1, &r2, &r3, &r4, &r5, &count, &r11);
 		check_walls(r1);
-		check_platforms(&r1, &r2, &r3, &r4, &r5, &r8, &r9, &r10_2, &r11);
+		check_platforms(&r1, &r2, &r3, &r4, &r5, &count, &r9, &r10_2, &r11);
 		scene_timer++;
 		if (scene_timer < 0xB4)
 		{
 			*p_r4 = r4;
-			*p_r8 = r8;
+			*p_count = count;
 			*p_r9 = r9;
 			*p_r10 = r10_2;
 			return;
@@ -3610,7 +3613,7 @@ void update_stage_05_event(uint32_t r2, uint32_t r3, uint32_t r11, uint32_t *p_r
 		scene_timer = 0;
 		stage_init_flags &= ~0x20u;
 		*p_r4 = r4;
-		*p_r8 = r8;
+		*p_count = count;
 		*p_r9 = r9;
 		*p_r10 = r10_2;
 		return;
@@ -3620,18 +3623,18 @@ void update_stage_05_event(uint32_t r2, uint32_t r3, uint32_t r11, uint32_t *p_r
 		if ((uint16_t)scene_timer == 0xAu)
 		{
 			kind = 0x10u;
-			frames = (r8 & ~0xFFFFu) | 0xB4u;
+			frames = (count & ~0xFFFFu) | 0xB4u;
 			screen_y = 0x50u;
 			stage_05_event_show_message(r2, screen_y, kind, r11, &r4, &frames, &r9, &r10_2);
 			*p_r4 = r4;
-			*p_r8 = frames;
+			*p_count = frames;
 			*p_r9 = r9;
 			*p_r10 = r10_2;
 			return;
 		}
-		stage_05_event_step_3_frame(r2, r11, &r4, &r8, &r9, &r10_2);
+		stage_05_event_step_3_frame(r2, r11, &r4, &count, &r9, &r10_2);
 		*p_r4 = r4;
-		*p_r8 = r8;
+		*p_count = count;
 		*p_r9 = r9;
 		*p_r10 = r10_2;
 		return;
@@ -3640,11 +3643,11 @@ void update_stage_05_event(uint32_t r2, uint32_t r3, uint32_t r11, uint32_t *p_r
 		camera_shake_length = 0x200u;
 		camera_shake_wave = 0x200u;
 		r2_2 = update_camera_with_shake();
-		update_scroll(&r2_2, &r3, &r4, &r5, &r8, &r9, &r10, &r11);
-		update_stage_tile_layers(&r1, &r2_2, &r3, &r4, &r5, &r8, &r9, &r10, &r11);
-		check_hits(&r1, &r2_2, &r3, &r4, &r5, &r8, &r11);
+		update_scroll(&r2_2, &r3, &r4, &r5, &count, &r9, &r10, &r11);
+		update_stage_tile_layers(&r1, &r2_2, &r3, &r4, &r5, &count, &r9, &r10, &r11);
+		check_hits(&r1, &r2_2, &r3, &r4, &r5, &count, &r11);
 		check_walls(r1);
-		check_platforms(&r1, &r2_2, &r3, &r4, &r5, &r8, &r9, &r10_2, &r11);
+		check_platforms(&r1, &r2_2, &r3, &r4, &r5, &count, &r9, &r10_2, &r11);
 		if ((uint16_t)scene_timer == 1u || (uint16_t)scene_timer == 0x3Bu)
 		{
 			sound_id = 0xFu;
@@ -3654,14 +3657,14 @@ void update_stage_05_event(uint32_t r2, uint32_t r3, uint32_t r11, uint32_t *p_r
 		if (scene_timer < 0x3C)
 		{
 			*p_r4 = r4;
-			*p_r8 = r8;
+			*p_count = count;
 			*p_r9 = r9;
 			*p_r10 = r10_2;
 			return;
 		}
 		scene_step++;
 		*p_r4 = r4;
-		*p_r8 = r8;
+		*p_count = count;
 		*p_r9 = r9;
 		*p_r10 = r10_2;
 		return;
@@ -3687,7 +3690,7 @@ void update_stage_05_event(uint32_t r2, uint32_t r3, uint32_t r11, uint32_t *p_r
 				sound_id = 6u;
 				play_sound(sound_id, &r1, &r2);
 				scene_step++;
-				*p_r8 = rocks_left;
+				*p_count = rocks_left;
 				*p_r10 = object;
 				return;
 			}
@@ -3720,7 +3723,7 @@ void update_stage_05_event(uint32_t r2, uint32_t r3, uint32_t r11, uint32_t *p_r
 		sound_id = 6u;
 		play_sound(sound_id, &r1, &r2);
 		scene_step++;
-		*p_r8 = rocks_left;
+		*p_count = rocks_left;
 		*p_r10 = object;
 		return;
 	case 6:
@@ -3777,63 +3780,63 @@ void update_stage_05_event(uint32_t r2, uint32_t r3, uint32_t r11, uint32_t *p_r
 	}
 }
 
-void stage_05_event_show_message_11(uint32_t r2, uint32_t box)
+void stage_05_event_show_message_11(uint32_t part_size, uint32_t box)
 {
 	uint16_t kind = 0, screen_y = 0;
-	uint32_t r4 = 0, frames = 0, ignored = 0, z = 0;
+	uint32_t frames = 0, ignored = 0, sag = 0, z = 0;
 
 	kind = 0x11u;
 	frames = 0x78u;
 	screen_y = 0x40u;
-	stage_05_event_show_message(r2, screen_y, kind, box, &r4, &frames, &z, &ignored);
+	stage_05_event_show_message(part_size, screen_y, kind, box, &sag, &frames, &z, &ignored);
 }
 
-void stage_05_event_show_message_12(uint32_t r2, uint32_t box)
+void stage_05_event_show_message_12(uint32_t part_size, uint32_t box)
 {
 	uint16_t kind = 0, screen_y = 0;
-	uint32_t r4 = 0, frames = 0, ignored = 0, z = 0;
+	uint32_t frames = 0, ignored = 0, sag = 0, z = 0;
 
 	kind = 0x12u;
 	frames = 0x1Eu;
 	screen_y = 0x40u;
-	stage_05_event_show_message(r2, screen_y, kind, box, &r4, &frames, &z, &ignored);
+	stage_05_event_show_message(part_size, screen_y, kind, box, &sag, &frames, &z, &ignored);
 }
 
-void stage_05_event_show_message(uint32_t r2, uint16_t screen_y, uint16_t kind, uint32_t box, uint32_t *p_r4, uint32_t *p_frames, uint32_t *p_z, uint32_t *p_platform)
+void stage_05_event_show_message(uint32_t part_size, uint16_t screen_y, uint16_t kind, uint32_t box, uint32_t *p_sag, uint32_t *p_frames, uint32_t *p_z, uint32_t *p_platform)
 {
-	uint32_t r4 = *p_r4;
+	uint32_t sag = *p_sag;
 	uint32_t frames = *p_frames;
 	uint32_t z = *p_z;
 	uint8_t sound_id = 0;
 	uint16_t screen_x = 0;
-	uint32_t r1 = 0, platform = 0;
+	uint32_t platform = 0, write_index = 0;
 
 	screen_x = 0xA0u;
 	box = spawn_message_box(screen_x, screen_y, kind, (uint16_t)frames, box);
 	sound_id = 0x70u;
-	play_sound(sound_id, &r1, &r2);
-	stage_05_event_step_3_frame(r2, box, &r4, &frames, &z, &platform);
-	*p_r4 = (*p_r4 & 0xFFFF0000u) | (r4 & 0xFFFFu);
+	play_sound(sound_id, &write_index, &part_size);
+	stage_05_event_step_3_frame(part_size, box, &sag, &frames, &z, &platform);
+	*p_sag = (*p_sag & 0xFFFF0000u) | (sag & 0xFFFFu);
 	*p_frames = frames;
 	*p_z = z;
 	*p_platform = platform;
 }
 
-void stage_05_event_step_3_frame(uint32_t r2, uint32_t wall, uint32_t *p_r4, uint32_t *p_point_y, uint32_t *p_z, uint32_t *p_platform)
+void stage_05_event_step_3_frame(uint32_t part_size, uint32_t wall, uint32_t *p_sag, uint32_t *p_point_y, uint32_t *p_z, uint32_t *p_platform)
 {
-	uint32_t r4 = *p_r4;
+	uint32_t sag = *p_sag;
 	uint32_t point_y = *p_point_y;
 	uint32_t z = *p_z;
 	uint32_t r1 = 0, r3 = 0, r5 = 0, platform = 0;
 
-	spawn_walls(&r1, &r2, &r5, &point_y, &z, &wall);
-	check_hits(&r1, &r2, &r3, &r4, &r5, &point_y, &wall);
+	spawn_walls(&r1, &part_size, &r5, &point_y, &z, &wall);
+	check_hits(&r1, &part_size, &r3, &sag, &r5, &point_y, &wall);
 	check_walls(r1);
-	check_platforms(&r1, &r2, &r3, &r4, &r5, &point_y, &z, &platform, &wall);
+	check_platforms(&r1, &part_size, &r3, &sag, &r5, &point_y, &z, &platform, &wall);
 	scene_timer++;
 	if (scene_timer < 0xA0)
 	{
-		*p_r4 = (*p_r4 & 0xFFFF0000u) | (r4 & 0xFFFFu);
+		*p_sag = (*p_sag & 0xFFFF0000u) | (sag & 0xFFFFu);
 		*p_point_y = point_y;
 		*p_z = z;
 		*p_platform = platform;
@@ -3841,7 +3844,7 @@ void stage_05_event_step_3_frame(uint32_t r2, uint32_t wall, uint32_t *p_r4, uin
 	}
 	scene_step++;
 	scene_timer = 0;
-	*p_r4 = (*p_r4 & 0xFFFF0000u) | (r4 & 0xFFFFu);
+	*p_sag = (*p_sag & 0xFFFF0000u) | (sag & 0xFFFFu);
 	*p_point_y = point_y;
 	*p_z = z;
 	*p_platform = platform;
@@ -4087,36 +4090,36 @@ void event_1c_scroll(void)
 	AS8(scroll_speed) = 0xFu;
 }
 
-void update_ending(uint32_t r2, uint32_t r3, uint32_t r11, uint32_t *p_r4, uint32_t *p_r8, uint32_t *p_r9, uint32_t *p_r10)
+void update_ending(uint32_t r2, uint32_t r3, uint32_t object, uint32_t *p_r4, uint32_t *p_r8, uint32_t *p_r9, uint32_t *p_platform)
 {
 	uint32_t r4 = *p_r4;
 	uint32_t r8 = *p_r8;
 	uint32_t r9 = *p_r9;
-	uint32_t r1 = 0, r5 = 0, r10 = 0, r10_2 = 0, ignored = 0;
+	uint32_t r1 = 0, r5 = 0, ignored = 0, platform = 0;
 
 	if (scene_step == 0u)
 		scene_step = 0xFFu;
 	next_stage_slot_request = 0u;
 	joining_closed = 0xFFu;
-	build_ending_scene(&r2, &r3, &r4, &r8, &r9, &r11);
-	find_nearby_floor_blocks(&r1, &r3, &r4, &r5, &r8, &r10, &r11);
+	build_ending_scene(&r2, &r3, &r4, &r8, &r9, &object);
+	find_nearby_floor_blocks(&r1, &r3, &r4, &r5, &r8, &platform, &object);
 	r4 = update_restart_point(r4);
-	spawn_objects_by_type(&r1, &r2, &r3, &r4, &r5, &r8, &r11);
-	spawn_ring_rows(&r1, &r2, &r3, &r11);
-	spawn_walls(&r1, &r2, &r5, &r8, &r9, &r11);
-	spawn_object_groups_2(&r1, &r8, &r11);
-	spawn_object_groups(&r1, &r2, &r3, &r8, &r11);
-	spawn_objects_by_handler(&r1, &ignored, &r11);
+	spawn_objects_by_type(&r1, &r2, &r3, &r4, &r5, &r8, &object);
+	spawn_ring_rows(&r1, &r2, &r3, &object);
+	spawn_walls(&r1, &r2, &r5, &r8, &r9, &object);
+	spawn_object_groups_2(&r1, &r8, &object);
+	spawn_object_groups(&r1, &r2, &r3, &r8, &object);
+	spawn_objects_by_handler(&r1, &ignored, &object);
 	r1 = check_zones(r1);
-	check_hits(&r1, &r2, &r3, &r4, &r5, &r8, &r11);
+	check_hits(&r1, &r2, &r3, &r4, &r5, &r8, &object);
 	check_walls(r1);
-	check_platforms(&r1, &r2, &r3, &r4, &r5, &r8, &r9, &r10_2, &r11);
+	check_platforms(&r1, &r2, &r3, &r4, &r5, &r8, &r9, &platform, &object);
 	if ((player_status[0] | player_2_status | player_3_status | player_status_spare) != 0u)
 	{
 		*p_r4 = r4;
 		*p_r8 = r8;
 		*p_r9 = r9;
-		*p_r10 = r10_2;
+		*p_platform = platform;
 		return;
 	}
 	saved_game_mode = game_mode;
@@ -4125,14 +4128,14 @@ void update_ending(uint32_t r2, uint32_t r3, uint32_t r11, uint32_t *p_r4, uint3
 	*p_r4 = r4;
 	*p_r8 = r8;
 	*p_r9 = r9;
-	*p_r10 = r10_2;
+	*p_platform = platform;
 }
 
 void spawn_stage_06_lightning(uint32_t *p_record, uint32_t *p_bolt)
 {
 	uint32_t bolt = *p_bolt;
 	uint8_t sound_id = 0;
-	uint32_t r1 = 0, r2 = 0, free_count = 0, record = 0;
+	uint32_t free_count = 0, record = 0, write_index = 0, write_index_address = 0;
 	uint16_t strike_time = 0;
 	uint32_t init_flags = 0;
 
@@ -4170,7 +4173,7 @@ void spawn_stage_06_lightning(uint32_t *p_record, uint32_t *p_bolt)
 	record += 4u;
 	stage_06_lightning_cursor = record;
 	sound_id = 0xBu;
-	play_sound(sound_id, &r1, &r2);
+	play_sound(sound_id, &write_index, &write_index_address);
 	*p_record = record;
 	*p_bolt = bolt;
 }
@@ -4343,9 +4346,9 @@ void start_escape_alarm_flash(uint32_t flash)
 	}
 }
 
-uint32_t run_map_screen(uint32_t r4, uint32_t object)
+uint32_t run_map_screen(uint32_t bottom_speed, uint32_t object)
 {
-	uint32_t r4_2 = 0, free_count = 0, record = 0;
+	uint32_t r4 = 0, free_count = 0, record = 0;
 
 	switch (map_screen_step)
 	{
@@ -4362,14 +4365,14 @@ uint32_t run_map_screen(uint32_t r4, uint32_t object)
 		fade_speed = 1u;
 		window_wipe_closing = 0u;
 		record = map_wipe_in_windows_ADDRESS + stage * 6u;
-		r4_2 = start_window_wipe(record);
+		r4 = start_window_wipe(record);
 		map_screen_step++;
-		return r4_2;
+		return r4;
 	case 1:
 		update_fade(0u);
 		if (fade_kind < 0)
 			map_screen_step++;
-		return r4;
+		return bottom_speed;
 	case 2:
 		allocate_object_outside_loop(&free_count, &object);
 		if ((uint8_t)free_count != 0u)
@@ -4385,11 +4388,11 @@ uint32_t run_map_screen(uint32_t r4, uint32_t object)
 			OBJECT(object)->map_intro.offset_y = 0;
 			map_screen_step++;
 		}
-		return r4;
+		return bottom_speed;
 	case 3:
 	case 4:
 	case 5:
-		return r4;
+		return bottom_speed;
 	default:
 		unknown_code(0x95983u + map_screen_step * 3u);
 	}
@@ -5072,7 +5075,7 @@ void draw_map_trail_dot(uint32_t object)
 	}
 }
 
-uint32_t draw_map_stage_markers(uint32_t r11)
+uint32_t draw_map_stage_markers(uint32_t badge_offset)
 {
 	uint8_t current_from_end = 0, current_marker = 0;
 	uint32_t groups_left = 0, layout = 0, markers_left = 0;
@@ -5080,7 +5083,7 @@ uint32_t draw_map_stage_markers(uint32_t r11)
 	current_object = 0x209102u;
 	current_marker = stage_map_markers[stage];
 	if ((int8_t)current_marker < 0)
-		return r11;
+		return badge_offset;
 	layout = map_marker_layouts_ADDRESS;
 	groups_left = 2u;
 	do
@@ -5112,11 +5115,11 @@ uint32_t draw_map_stage_markers(uint32_t r11)
 			}
 			else
 			{
-				r11 = stage_map_markers[stage];
-				if ((int8_t)r11 < 0)
+				badge_offset = stage_map_markers[stage];
+				if ((int8_t)badge_offset < 0)
 					goto draw_map_stage_markers_show_marker;
-				r11 = r11 * 0xCu;
-				if (mem_read16(current_object + 4u) != ROM16(map_number_badge_sprites_ADDRESS + r11))
+				badge_offset = badge_offset * 0xCu;
+				if (mem_read16(current_object + 4u) != ROM16(map_number_badge_sprites_ADDRESS + badge_offset))
 					goto draw_map_stage_markers_show_marker;
 				AT16(OBJECT(object_cursor)->floor_z_int, 1)++;
 				if ((OBJECT(object_cursor)->floor_z_int & 0x800u) != 0u)
@@ -5127,7 +5130,7 @@ uint32_t draw_map_stage_markers(uint32_t r11)
 		groups_left--;
 	} while (groups_left != 0u);
 	current_object = object_cursor;
-	return r11;
+	return badge_offset;
 }
 
 void blink_current_map_marker(void)
@@ -5224,7 +5227,7 @@ uint32_t start_window_wipe(uint32_t record)
 	return bottom;
 }
 
-void update_screen_wipe(uint32_t *p_r1, uint32_t *p_r2, uint32_t *p_r3, uint32_t *p_edges_done)
+void update_screen_wipe(uint32_t *p_clip_right, uint32_t *p_clip_top, uint32_t *p_clip_bottom, uint32_t *p_edges_done)
 {
 	uint32_t edges_done = *p_edges_done;
 	uint16_t clip_left = 0;
@@ -5303,43 +5306,43 @@ void update_screen_wipe(uint32_t *p_r1, uint32_t *p_r2, uint32_t *p_r3, uint32_t
 	mem_write16(video_bitmap_clip_bottom, clip_bottom);
 	if ((uint16_t)edges_done != 0xFFFFu)
 	{
-		*p_r1 = clip_right;
-		*p_r2 = clip_top;
-		*p_r3 = clip_bottom;
+		*p_clip_right = clip_right;
+		*p_clip_top = clip_top;
+		*p_clip_bottom = clip_bottom;
 		*p_edges_done = edges_done;
 		return;
 	}
 	mem_write8(video_layer_disable, mem_read8(video_layer_disable) | 0x20u);
-	*p_r1 = clip_right;
-	*p_r2 = clip_top;
-	*p_r3 = clip_bottom;
+	*p_clip_right = clip_right;
+	*p_clip_top = clip_top;
+	*p_clip_bottom = clip_bottom;
 	*p_edges_done = edges_done;
 }
 
-void run_title_screen(uint32_t r11, uint32_t *p_r4, uint32_t *p_r8, uint32_t *p_r9, uint32_t *p_r10)
+void run_title_screen(uint32_t text_position, uint32_t *p_color, uint32_t *p_row_pairs_left, uint32_t *p_blocks_per_row, uint32_t *p_text)
 {
-	uint32_t r4 = *p_r4;
-	uint32_t r8 = *p_r8;
-	uint32_t r9 = *p_r9;
-	uint32_t r10 = *p_r10;
+	uint32_t color = *p_color;
+	uint32_t row_pairs_left = *p_row_pairs_left;
+	uint32_t blocks_per_row = *p_blocks_per_row;
+	uint32_t text = *p_text;
 	uint32_t background_script = 0, count = 0, ignored = 0, object = 0, palette_list = 0, script = 0;
 	uint8_t cnt_bits = 0;
 
-	run_sega_logo(r11, &r4, &r8, &r9, &r10);
+	run_sega_logo(text_position, &color, &row_pairs_left, &blocks_per_row, &text);
 	if (sega_logo_step != 7u)
 	{
-		*p_r4 = r4;
-		*p_r8 = r8;
-		*p_r9 = r9;
-		*p_r10 = r10;
+		*p_color = color;
+		*p_row_pairs_left = row_pairs_left;
+		*p_blocks_per_row = blocks_per_row;
+		*p_text = text;
 		return;
 	}
 	if (title_scene_built != 0u)
 	{
-		*p_r4 = r4;
-		*p_r8 = r8;
-		*p_r9 = r9;
-		*p_r10 = r10;
+		*p_color = color;
+		*p_row_pairs_left = row_pairs_left;
+		*p_blocks_per_row = blocks_per_row;
+		*p_text = text;
 		return;
 	}
 	cnt_bits = mem_read8(io_cnt);
@@ -5395,10 +5398,10 @@ void run_title_screen(uint32_t r11, uint32_t *p_r4, uint32_t *p_r8, uint32_t *p_
 	mem_write16(video_backdrop_control, 0u);
 	mem_write16(video_layer_disable, mem_read16(video_layer_disable) & 0xD0u);
 	mem_write16(video_layer_disable, mem_read16(video_layer_disable) | 0x23u);
-	*p_r4 = r4;
-	*p_r8 = r8;
-	*p_r9 = r9;
-	*p_r10 = background_script;
+	*p_color = color;
+	*p_row_pairs_left = row_pairs_left;
+	*p_blocks_per_row = blocks_per_row;
+	*p_text = background_script;
 }
 
 void title_emblem_animate(void)
@@ -6179,7 +6182,7 @@ void drift_title_cloud_2(void)
 void title_sky_wave(void)
 {
 	uint16_t halfwords = 0;
-	uint32_t r2 = 0, cycle = 0, dest = 0, ignored = 0, palette_count = 0, row_offset = 0, row_scroll = 0, sine_cursor = 0, source = 0, wave_rows_left = 0;
+	uint32_t copy_entry = 0, cycle = 0, dest = 0, ignored = 0, palette_count = 0, row_offset = 0, row_scroll = 0, sine_cursor = 0, source = 0, wave_rows_left = 0;
 
 	if (OBJECT(current_object)->title.started == 0u)
 	{
@@ -6219,18 +6222,18 @@ void title_sky_wave(void)
 	cycle = palette_cycle_0_ADDRESS;
 	palette_cycle_0 = 3u;
 	palette_cycle_0_frames = 0x10u;
-	cycle_palette(cycle, halfwords, &ignored, &r2, &palette_count, &source, &dest);
+	cycle_palette(cycle, halfwords, &ignored, &copy_entry, &palette_count, &source, &dest);
 }
 
-void run_sega_logo(uint32_t r11, uint32_t *p_r4, uint32_t *p_r8, uint32_t *p_r9, uint32_t *p_r10)
+void run_sega_logo(uint32_t logo_block, uint32_t *p_color, uint32_t *p_row_pairs_left, uint32_t *p_blocks_per_row, uint32_t *p_lower_row_cursor)
 {
-	uint32_t r4 = *p_r4;
-	uint32_t r8 = *p_r8;
-	uint32_t r9 = *p_r9;
-	uint32_t r10 = *p_r10;
+	uint32_t color = *p_color;
+	uint32_t row_pairs_left = *p_row_pairs_left;
+	uint32_t blocks_per_row = *p_blocks_per_row;
+	uint32_t lower_row_cursor = *p_lower_row_cursor;
 	uint8_t is_8bpp = 0;
 	uint16_t object = 0, scroll_x = 0, scroll_y = 0;
-	uint32_t r0 = 0, r5 = 0, ignored = 0;
+	uint32_t r0 = 0, ignored = 0, inner_count = 0;
 	uint8_t cnt_bits = 0;
 
 	if (sega_logo_step == 7u)
@@ -6240,9 +6243,9 @@ void run_sega_logo(uint32_t r11, uint32_t *p_r4, uint32_t *p_r8, uint32_t *p_r9,
 		cnt_bits = mem_read8(io_cnt);
 		mem_write8(io_cnt, cnt_bits & ~2u);
 		display_off_frames = 5u;
-		init_sprites(&r0, &r10);
-		r11 = clear_sprite_buckets();
-		clear_bitmap_layer((uint8_t)r0, &ignored, &r4, &r5, &r8, &r9, &r10);
+		init_sprites(&r0, &lower_row_cursor);
+		logo_block = clear_sprite_buckets();
+		clear_bitmap_layer((uint8_t)r0, &ignored, &color, &inner_count, &row_pairs_left, &blocks_per_row, &lower_row_cursor);
 		title_scene_built = 1u;
 		title_done = 0u;
 		scroll_x = 0u;
@@ -6266,8 +6269,8 @@ void run_sega_logo(uint32_t r11, uint32_t *p_r4, uint32_t *p_r8, uint32_t *p_r9,
 		set_halfwords(VIDEO_RAM, 0xE000u, fill_value);
 		sega_logo_step++;
 	}
-	allocate_object_2(&ignored, &ignored, &r11);
-	current_object = r11;
+	allocate_object_2(&ignored, &ignored, &logo_block);
+	current_object = logo_block;
 	screen_sprite_block = current_object;
 	switch (sega_logo_step)
 	{
@@ -6283,20 +6286,20 @@ void run_sega_logo(uint32_t r11, uint32_t *p_r4, uint32_t *p_r8, uint32_t *p_r9,
 		{
 			object = screen_sprite_block;
 			free_object_2(object);
-			*p_r4 = r4;
-			*p_r8 = r8;
-			*p_r9 = r9;
-			*p_r10 = r10;
+			*p_color = color;
+			*p_row_pairs_left = row_pairs_left;
+			*p_blocks_per_row = blocks_per_row;
+			*p_lower_row_cursor = lower_row_cursor;
 			return;
 		}
 		sega_logo_step++;
 		sega_logo_frame++;
 		object = screen_sprite_block;
 		free_object_2(object);
-		*p_r4 = r4;
-		*p_r8 = r8;
-		*p_r9 = r9;
-		*p_r10 = r10;
+		*p_color = color;
+		*p_row_pairs_left = row_pairs_left;
+		*p_blocks_per_row = blocks_per_row;
+		*p_lower_row_cursor = lower_row_cursor;
 		return;
 	case 1:
 	case 7:
@@ -6305,10 +6308,10 @@ void run_sega_logo(uint32_t r11, uint32_t *p_r4, uint32_t *p_r8, uint32_t *p_r9,
 		{
 			object = screen_sprite_block;
 			free_object_2(object);
-			*p_r4 = r4;
-			*p_r8 = r8;
-			*p_r9 = r9;
-			*p_r10 = r10;
+			*p_color = color;
+			*p_row_pairs_left = row_pairs_left;
+			*p_blocks_per_row = blocks_per_row;
+			*p_lower_row_cursor = lower_row_cursor;
 			return;
 		}
 		AS16(sega_logo_timer) = 0u;
@@ -6319,10 +6322,10 @@ void run_sega_logo(uint32_t r11, uint32_t *p_r4, uint32_t *p_r8, uint32_t *p_r9,
 		{
 			object = screen_sprite_block;
 			free_object_2(object);
-			*p_r4 = r4;
-			*p_r8 = r8;
-			*p_r9 = r9;
-			*p_r10 = r10;
+			*p_color = color;
+			*p_row_pairs_left = row_pairs_left;
+			*p_blocks_per_row = blocks_per_row;
+			*p_lower_row_cursor = lower_row_cursor;
 			return;
 		}
 		sega_logo_timer = 0;
@@ -6336,20 +6339,20 @@ void run_sega_logo(uint32_t r11, uint32_t *p_r4, uint32_t *p_r8, uint32_t *p_r9,
 		{
 			object = screen_sprite_block;
 			free_object_2(object);
-			*p_r4 = r4;
-			*p_r8 = r8;
-			*p_r9 = r9;
-			*p_r10 = r10;
+			*p_color = color;
+			*p_row_pairs_left = row_pairs_left;
+			*p_blocks_per_row = blocks_per_row;
+			*p_lower_row_cursor = lower_row_cursor;
 			return;
 		}
 		sega_logo_step++;
 		sega_logo_frame++;
 		object = screen_sprite_block;
 		free_object_2(object);
-		*p_r4 = r4;
-		*p_r8 = r8;
-		*p_r9 = r9;
-		*p_r10 = r10;
+		*p_color = color;
+		*p_row_pairs_left = row_pairs_left;
+		*p_blocks_per_row = blocks_per_row;
+		*p_lower_row_cursor = lower_row_cursor;
 		return;
 	case 2:
 		set_sega_logo_sprite();
@@ -6361,20 +6364,20 @@ void run_sega_logo(uint32_t r11, uint32_t *p_r4, uint32_t *p_r8, uint32_t *p_r9,
 		{
 			object = screen_sprite_block;
 			free_object_2(object);
-			*p_r4 = r4;
-			*p_r8 = r8;
-			*p_r9 = r9;
-			*p_r10 = r10;
+			*p_color = color;
+			*p_row_pairs_left = row_pairs_left;
+			*p_blocks_per_row = blocks_per_row;
+			*p_lower_row_cursor = lower_row_cursor;
 			return;
 		}
 		sega_logo_step++;
 		sega_logo_frame++;
 		object = screen_sprite_block;
 		free_object_2(object);
-		*p_r4 = r4;
-		*p_r8 = r8;
-		*p_r9 = r9;
-		*p_r10 = r10;
+		*p_color = color;
+		*p_row_pairs_left = row_pairs_left;
+		*p_blocks_per_row = blocks_per_row;
+		*p_lower_row_cursor = lower_row_cursor;
 		return;
 	case 3:
 		set_sega_logo_sprite();
@@ -6384,10 +6387,10 @@ void run_sega_logo(uint32_t r11, uint32_t *p_r4, uint32_t *p_r8, uint32_t *p_r9,
 		{
 			object = screen_sprite_block;
 			free_object_2(object);
-			*p_r4 = r4;
-			*p_r8 = r8;
-			*p_r9 = r9;
-			*p_r10 = r10;
+			*p_color = color;
+			*p_row_pairs_left = row_pairs_left;
+			*p_blocks_per_row = blocks_per_row;
+			*p_lower_row_cursor = lower_row_cursor;
 			return;
 		}
 		sega_logo_timer = 0;
@@ -6396,10 +6399,10 @@ void run_sega_logo(uint32_t r11, uint32_t *p_r4, uint32_t *p_r8, uint32_t *p_r9,
 		{
 			object = screen_sprite_block;
 			free_object_2(object);
-			*p_r4 = r4;
-			*p_r8 = r8;
-			*p_r9 = r9;
-			*p_r10 = r10;
+			*p_color = color;
+			*p_row_pairs_left = row_pairs_left;
+			*p_blocks_per_row = blocks_per_row;
+			*p_lower_row_cursor = lower_row_cursor;
 			return;
 		}
 		sega_logo_step++;
@@ -6411,10 +6414,10 @@ void run_sega_logo(uint32_t r11, uint32_t *p_r4, uint32_t *p_r8, uint32_t *p_r9,
 		color_offset_green = 0x3Fu;
 		object = screen_sprite_block;
 		free_object_2(object);
-		*p_r4 = r4;
-		*p_r8 = r8;
-		*p_r9 = r9;
-		*p_r10 = r10;
+		*p_color = color;
+		*p_row_pairs_left = row_pairs_left;
+		*p_blocks_per_row = blocks_per_row;
+		*p_lower_row_cursor = lower_row_cursor;
 		return;
 	case 4:
 		set_sega_logo_sprite();
@@ -6424,19 +6427,19 @@ void run_sega_logo(uint32_t r11, uint32_t *p_r4, uint32_t *p_r8, uint32_t *p_r9,
 		{
 			object = screen_sprite_block;
 			free_object_2(object);
-			*p_r4 = r4;
-			*p_r8 = r8;
-			*p_r9 = r9;
-			*p_r10 = r10;
+			*p_color = color;
+			*p_row_pairs_left = row_pairs_left;
+			*p_blocks_per_row = blocks_per_row;
+			*p_lower_row_cursor = lower_row_cursor;
 			return;
 		}
 		sega_logo_step++;
 		object = screen_sprite_block;
 		free_object_2(object);
-		*p_r4 = r4;
-		*p_r8 = r8;
-		*p_r9 = r9;
-		*p_r10 = r10;
+		*p_color = color;
+		*p_row_pairs_left = row_pairs_left;
+		*p_blocks_per_row = blocks_per_row;
+		*p_lower_row_cursor = lower_row_cursor;
 		return;
 	case 5:
 		set_sega_logo_sprite();
@@ -6448,20 +6451,20 @@ void run_sega_logo(uint32_t r11, uint32_t *p_r4, uint32_t *p_r8, uint32_t *p_r9,
 		{
 			object = screen_sprite_block;
 			free_object_2(object);
-			*p_r4 = r4;
-			*p_r8 = r8;
-			*p_r9 = r9;
-			*p_r10 = r10;
+			*p_color = color;
+			*p_row_pairs_left = row_pairs_left;
+			*p_blocks_per_row = blocks_per_row;
+			*p_lower_row_cursor = lower_row_cursor;
 			return;
 		}
 		sega_logo_step++;
 		sega_logo_timer = 0;
 		object = screen_sprite_block;
 		free_object_2(object);
-		*p_r4 = r4;
-		*p_r8 = r8;
-		*p_r9 = r9;
-		*p_r10 = r10;
+		*p_color = color;
+		*p_row_pairs_left = row_pairs_left;
+		*p_blocks_per_row = blocks_per_row;
+		*p_lower_row_cursor = lower_row_cursor;
 		return;
 	case 6:
 		sega_logo_timer++;
@@ -6469,10 +6472,10 @@ void run_sega_logo(uint32_t r11, uint32_t *p_r4, uint32_t *p_r8, uint32_t *p_r9,
 		{
 			object = screen_sprite_block;
 			free_object_2(object);
-			*p_r4 = r4;
-			*p_r8 = r8;
-			*p_r9 = r9;
-			*p_r10 = r10;
+			*p_color = color;
+			*p_row_pairs_left = row_pairs_left;
+			*p_blocks_per_row = blocks_per_row;
+			*p_lower_row_cursor = lower_row_cursor;
 			return;
 		}
 		sega_logo_step++;
@@ -6484,10 +6487,10 @@ void run_sega_logo(uint32_t r11, uint32_t *p_r4, uint32_t *p_r8, uint32_t *p_r9,
 		title_scene_built = 0u;
 		object = screen_sprite_block;
 		free_object_2(object);
-		*p_r4 = r4;
-		*p_r8 = r8;
-		*p_r9 = r9;
-		*p_r10 = r10;
+		*p_color = color;
+		*p_row_pairs_left = row_pairs_left;
+		*p_blocks_per_row = blocks_per_row;
+		*p_lower_row_cursor = lower_row_cursor;
 		return;
 	default:
 		unknown_code(0x9824Eu + sega_logo_step * 3u);
@@ -6505,10 +6508,10 @@ void set_sega_logo_sprite(void)
 	OBJECT(current_object)->sprite_frame = ((uint32_t)(uint8_t)sega_logo_frame << 3) + 0x53D0u;
 }
 
-void start_ring_tally(uint32_t *p_r2, uint32_t *p_r3, uint32_t *p_r4, uint32_t *p_r8, uint32_t *p_r9, uint32_t *p_object)
+void start_ring_tally(uint32_t *p_stage_rings_3, uint32_t *p_player_3_out_flags, uint32_t *p_ring_total, uint32_t *p_p2_object, uint32_t *p_p3_object, uint32_t *p_object)
 {
 	uint16_t bonus_percent = 0;
-	uint32_t r4 = 0, ignored = 0, object = 0, object_2 = 0, object_3 = 0, object_4 = 0, percent_fixed = 0, player = 0, player_1 = 0, player_3 = 0, player_3_out_flags = 0, stage_index = 0, stage_rings_1 = 0, stage_rings_2 = 0, stage_rings_3 = 0;
+	uint32_t ignored = 0, object = 0, object_2 = 0, object_3 = 0, object_4 = 0, percent_fixed = 0, player = 0, player_1 = 0, player_3 = 0, player_3_out_flags = 0, ring_total = 0, stage_index = 0, stage_rings_1 = 0, stage_rings_2 = 0, stage_rings_3 = 0;
 	uint32_t out_flags = 0;
 
 	stage_results_done = 0u;
@@ -6525,8 +6528,8 @@ void start_ring_tally(uint32_t *p_r2, uint32_t *p_r3, uint32_t *p_r4, uint32_t *
 	stage_rings_3 = player_3_stage_rings;
 	stage_index = stage;
 	bonus_percent = stage_ring_bonus_percents[stage_index];
-	r4 = stage_ring_counts[stage_index];
-	percent_fixed = divide_s32((uint32_t)(uint16_t)(stage_rings_1 + stage_rings_2 + stage_rings_3) << 16, r4) * 0x64u;
+	ring_total = stage_ring_counts[stage_index];
+	percent_fixed = divide_s32((uint32_t)(uint16_t)(stage_rings_1 + stage_rings_2 + stage_rings_3) << 16, ring_total) * 0x64u;
 	if ((percent_fixed & 0x800u) != 0u)
 		percent_fixed += 0x100u;
 	percent_fixed = percent_fixed >> 16;
@@ -6544,13 +6547,13 @@ void start_ring_tally(uint32_t *p_r2, uint32_t *p_r3, uint32_t *p_r4, uint32_t *
 	}
 	if ((OBJECT(object_2)->flags & 0x10000400u) == 0u)
 	{
-		r4 = (uint16_t)stage_rings_1;
+		ring_total = (uint16_t)stage_rings_1;
 		allocate_object_outside_loop(&ignored, &object);
 		OBJECT(object)->handler = ring_tally_player_1_update_ADDRESS;
 		AS8(OBJECT(object)->flags) = 0u;
 		OBJECT(object)->hitbox_height = AS8(PLAYER(player_1)->stage_rings);
-		r4 = r4 >> 8;
-		AT8(OBJECT(object)->hitbox_height, 1) = r4;
+		ring_total = ring_total >> 8;
+		AT8(OBJECT(object)->hitbox_height, 1) = ring_total;
 		AT8(OBJECT(object)->flags, 1) = 1u;
 		AS8(OBJECT(object)->touched_by) = OBJECT(object_2)->kind;
 		ring_tally_panels_counting++;
@@ -6592,11 +6595,11 @@ void start_ring_tally(uint32_t *p_r2, uint32_t *p_r3, uint32_t *p_r4, uint32_t *
 	AS8(OBJECT(object)->flags) = 0u;
 	allocate_object_outside_loop(&ignored, &object);
 	OBJECT(object)->handler = ring_tally_end_sound_wait_ADDRESS;
-	*p_r2 = (*p_r2 & 0xFFFF0000u) | (stage_rings_3 & 0xFFFFu);
-	*p_r3 = player_3_out_flags;
-	*p_r4 = r4;
-	*p_r8 = object_3;
-	*p_r9 = object_4;
+	*p_stage_rings_3 = (*p_stage_rings_3 & 0xFFFF0000u) | (stage_rings_3 & 0xFFFFu);
+	*p_player_3_out_flags = player_3_out_flags;
+	*p_ring_total = ring_total;
+	*p_p2_object = object_3;
+	*p_p3_object = object_4;
 	*p_object = object;
 }
 

@@ -79,7 +79,6 @@ def configure():
     signatures.CONTEXT = ()
     signatures.SCRATCH_CONTEXT = {}
     signatures.CONSTANT = {}
-    structure.COPY_LATCHES = True
 
 
 def build_functions(program):

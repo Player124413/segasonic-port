@@ -67,6 +67,8 @@ STRUCT_FUNCTION = "ram"        # what gives a pointer to a structure from its ad
 CONSTANTS = False              # registers keep the constants they are set to, so that a pointer moved by one
                                # (the Z80's "ld de,12h ... add iy,de") keeps its kind
 PAGED = False                  # structures a page long, one per page: (p & FF00) | n is field n of p's (page_parts)
+RUNS = set()                   # structures laid one after another wherever a pointer starts (no fixed base,
+                               # unlike ARRAYS): a pointer moved past one points into the next
 
 
 def paged(kind):
@@ -274,7 +276,7 @@ def kind_of(node, state, zeros):
             offset = signed(inner[1] + args[1].value)
             if 0 <= offset < STRUCTS[inner[0]]:
                 return inner[0], offset
-            if inner[0] in ARRAYS and offset >= 0:
+            if (inner[0] in ARRAYS or inner[0] in RUNS) and offset >= 0:
                 return inner[0], offset % STRUCTS[inner[0]]    # into the next one of the array
             return None
     if name == "add" and isinstance(args[0], ir.Const) and args[0].value & ADDRESS_MASK == VARIABLES \

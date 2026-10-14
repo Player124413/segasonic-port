@@ -3,7 +3,7 @@
  *    Description: the game's functions, part 08 (in the order of their V60 addresses)
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    13-10-2026
+ *    Modified:    14-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -1026,7 +1026,7 @@ void fire_front_chase(void)
 void falling_grate_update(void)
 {
 	uint8_t sound_id = 0;
-	uint32_t r1 = 0, r2 = 0, r7 = 0, at_last_step = 0, depth = 0, ignored = 0;
+	uint32_t r1 = 0, r7 = 0, at_last_step = 0, depth = 0, ignored = 0, write_index_address = 0;
 	uint8_t animation_timer = 0;
 
 	switch (OBJECT(current_object)->falling_grate.state)
@@ -1053,7 +1053,7 @@ void falling_grate_update(void)
 				OBJECT(current_object)->animation_frame = 0xFFu;
 				OBJECT(current_object)->animation = falling_grate_animation_ADDRESS;
 				sound_id = 0xDu;
-				play_sound(sound_id, &r1, &r2);
+				play_sound(sound_id, &r1, &write_index_address);
 			}
 			else if (OBJECT(current_object)->y_int <= (int16_t)(OBJECT(current_player)->y_int + 0x60u))
 			{
@@ -1078,7 +1078,7 @@ void falling_grate_update(void)
 				OBJECT(current_object)->animation_frame = 0xFFu;
 				OBJECT(current_object)->animation = falling_grate_animation_ADDRESS;
 				sound_id = 0xDu;
-				play_sound(sound_id, &r1, &r2);
+				play_sound(sound_id, &r1, &write_index_address);
 				add_to_platform_list();
 				if ((uint16_t)(OBJECT(current_object)->screen_x + 0xA0u) >= 0x281u)
 					return;
@@ -1117,7 +1117,7 @@ void falling_grate_update(void)
 				OBJECT(current_object)->animation_frame = 0xFFu;
 				OBJECT(current_object)->animation = falling_grate_animation_ADDRESS;
 				sound_id = 0xDu;
-				play_sound(sound_id, &r1, &r2);
+				play_sound(sound_id, &r1, &write_index_address);
 				add_to_platform_list();
 				if ((uint16_t)(OBJECT(current_object)->screen_x + 0xA0u) >= 0x281u)
 					return;
@@ -1156,7 +1156,7 @@ void falling_grate_update(void)
 				OBJECT(current_object)->animation_frame = 0xFFu;
 				OBJECT(current_object)->animation = falling_grate_animation_ADDRESS;
 				sound_id = 0xDu;
-				play_sound(sound_id, &r1, &r2);
+				play_sound(sound_id, &r1, &write_index_address);
 				add_to_platform_list();
 				if ((uint16_t)(OBJECT(current_object)->screen_x + 0xA0u) >= 0x281u)
 					return;
@@ -1222,7 +1222,7 @@ void falling_grate_update(void)
 
 void rising_saw_init(void)
 {
-	uint32_t r0 = 0, block_offset = 0, ignored = 0, object = 0, object_2 = 0, path = 0, y = 0;
+	uint32_t block_offset = 0, ignored = 0, object = 0, object_2 = 0, path = 0, x = 0, y = 0;
 	uint8_t blades_left = 0;
 
 	OBJECT(current_object)->handler = rising_saw_init_ADDRESS;
@@ -1239,7 +1239,7 @@ void rising_saw_init(void)
 	OBJECT(current_object)->z_fraction = 0u;
 	OBJECT(current_object)->rising_saw.path = path + 2u;
 	rising_saws[OBJECT(current_object)->sprite_frame] = current_object;
-	find_floor(&r0, &y, &block_offset, &ignored, &object_2);
+	find_floor(&x, &y, &block_offset, &ignored, &object_2);
 	OBJECT(current_object)->previous_floor_z_int = OBJECT(current_object)->z_int;
 	project_object(&ignored, &ignored);
 	OBJECT(current_object)->rising_saw.projected_x_whole = OBJECT(current_object)->projected_x;
@@ -1665,7 +1665,7 @@ void grate_step_update(void)
 {
 	uint8_t sound_id = 0;
 	uint16_t cut_gap = 0;
-	uint32_t r1 = 0, r2 = 0, at_last_step = 0, depth = 0, ignored = 0, object = 0, wrapped = 0;
+	uint32_t r1 = 0, at_last_step = 0, depth = 0, ignored = 0, object = 0, wrapped = 0, write_index_address = 0;
 	uint16_t cut_z = 0, saw_top_z = 0;
 
 	if (OBJECT(current_object)->screen_y >= 0x118)
@@ -1687,7 +1687,7 @@ void grate_step_update(void)
 				{
 					spawn_grate_step_debris();
 					sound_id = 0x28u;
-					play_sound(sound_id, &r1, &r2);
+					play_sound(sound_id, &r1, &write_index_address);
 				}
 				OBJECT(current_object)->grate_step_update.cut_z -= 7u;
 				at_last_step = 0u;
@@ -1776,13 +1776,13 @@ void grate_step_debris_fly(void)
 void build_saw_shaft_base(void)
 {
 	uint16_t piece_frame = 0;
-	uint32_t r0 = 0, block_offset = 0, ignored = 0, object = 0, slope_shift = 0, y = 0;
+	uint32_t block_offset = 0, ignored = 0, object = 0, slope_shift = 0, x = 0, y = 0;
 
 	OBJECT(current_object)->handler = build_saw_shaft_base_ADDRESS;
 	if (scroll_position < 0x3780u && biting_head_done == 0u)
 		return;
 	OBJECT(current_object)->flags = 0u;
-	find_floor(&r0, &y, &block_offset, &ignored, &object);
+	find_floor(&x, &y, &block_offset, &ignored, &object);
 	OBJECT(current_object)->z = OBJECT(current_object)->floor_z;
 	OBJECT(current_object)->z_int -= 0x3Au;
 	project_object(&ignored, &ignored);
@@ -2077,7 +2077,7 @@ void river_raft_foam_update(void)
 
 void clipped_copy_sprite_start(uint32_t copy)
 {
-	uint32_t r0 = 0, block_offset = 0, clips_left = 0, ignored = 0, object = 0, object_2 = 0, object_3 = 0, y = 0;
+	uint32_t block_offset = 0, clips_left = 0, ignored = 0, object = 0, object_2 = 0, object_3 = 0, x = 0, y = 0;
 
 	OBJECT(current_object)->sprite_flags = 4u;
 	OBJECT(current_object)->sprite_scale = 0x100u;
@@ -2086,7 +2086,7 @@ void clipped_copy_sprite_start(uint32_t copy)
 	OBJECT(current_object)->sprite_offset_x = 0;
 	OBJECT(current_object)->sprite_offset_y = 0;
 	OBJECT(current_object)->flags = 0u;
-	find_floor(&r0, &y, &block_offset, &ignored, &copy);
+	find_floor(&x, &y, &block_offset, &ignored, &copy);
 	OBJECT(current_object)->z = OBJECT(current_object)->floor_z;
 	project_object(&ignored, &ignored);
 	if (free_object_stack <= 0 || free_object_stack_2[0] < 2)
@@ -2229,7 +2229,7 @@ void geyser_front_rise(void)
 {
 	uint8_t sound_id = 0;
 	uint16_t wait = 0;
-	uint32_t r1 = 0, r2 = 0, r11 = 0, attribute_record = 0, cursor = 0, ignored = 0, point_x = 0, point_y = 0, row_delays = 0, row_pattern = 0, slope_step = 0, x = 0, y = 0;
+	uint32_t r1 = 0, r11 = 0, attribute_record = 0, cursor = 0, ignored = 0, point_x = 0, point_y = 0, row_delays = 0, row_pattern = 0, slope_step = 0, write_index_address = 0, x = 0, y = 0;
 	uint8_t hold_timer = 0;
 	uint16_t wait_timer = 0, geysers_remaining = 0, sound_timer = 0;
 	uint32_t flags = 0;
@@ -2381,7 +2381,7 @@ void geyser_front_rise(void)
 		{
 			OBJECT(current_object)->geyser_front.sound_timer = 0x32;
 			sound_id = 0x12u;
-			play_sound(sound_id, &r1, &r2);
+			play_sound(sound_id, &r1, &write_index_address);
 		}
 	}
 }
@@ -2455,17 +2455,17 @@ void spawn_geyser(uint32_t x, uint32_t y, uint16_t wait, uint32_t *p_spawned, ui
 
 void geyser_wait(void)
 {
-	uint32_t r1 = 0, ignored = 0;
+	uint32_t depth = 0, ignored = 0;
 	uint16_t erupt_delay = 0;
 
 	if ((OBJECT(current_object)->flags & 0x80000000u) != 0u)
 	{
-		project_object(&ignored, &r1);
+		project_object(&ignored, &depth);
 		OBJECT(current_object)->anchor_x = OBJECT(current_object)->projected_x;
 		OBJECT(current_object)->anchor_y = OBJECT(current_object)->projected_y_int;
 		if (OBJECT(LINKED(current_object, OBJECT(current_object)->parent))->var_8E == 0u && OBJECT(current_object)->geyser_wait.erupt_delay <= scroll_position)
 			OBJECT(current_object)->handler = geyser_erupt_ADDRESS;
-		r1 = queue_sprite(r1);
+		depth = queue_sprite(depth);
 		return;
 	}
 	project_object(&ignored, &ignored);
@@ -2485,7 +2485,7 @@ void geyser_wait(void)
 void geyser_erupt(void)
 {
 	uint8_t sound_id = 0;
-	uint32_t r1 = 0, r2 = 0, at_last_step = 0, depth = 0, ignored = 0;
+	uint32_t r1 = 0, at_last_step = 0, depth = 0, ignored = 0, write_index_address = 0;
 
 	if ((int8_t)OBJECT(current_object)->animation_frame >= 3)
 		OBJECT(current_object)->animation_speed = 2u;
@@ -2495,7 +2495,7 @@ void geyser_erupt(void)
 	if (OBJECT(current_object)->animation_frame == 3u && (uint8_t)OBJECT(current_object)->animation_timer == OBJECT(current_object)->animation_speed)
 	{
 		sound_id = 0xAu;
-		play_sound(sound_id, &r1, &r2);
+		play_sound(sound_id, &r1, &write_index_address);
 	}
 	update_screen_position(&ignored, &r1);
 	if (OBJECT(current_object)->screen_y > 0x180)
@@ -2569,7 +2569,7 @@ void waterfall_move(void)
 {
 	uint8_t sound_id = 0;
 	uint16_t part_list = 0;
-	uint32_t r0 = 0, r2 = 0, r3 = 0, r8 = 0, r11 = 0, cursor = 0, depth = 0, ignored = 0, speed = 0;
+	uint32_t r2 = 0, r3 = 0, r8 = 0, r11 = 0, cursor = 0, depth = 0, ignored = 0, speed = 0, x = 0;
 	uint8_t hold_timer = 0;
 	uint16_t wait_timer = 0, trigger_scroll = 0, sound_timer = 0;
 	uint32_t flags = 0;
@@ -2619,7 +2619,7 @@ void waterfall_move(void)
 		OBJECT(current_object)->waterfall.saved_threshold = OBJECT(current_object)->waterfall.screen_threshold;
 		OBJECT(current_object)->waterfall.screen_threshold = 0x160;
 	}
-	find_floor(&r0, &speed, &r2, &r3, &r11);
+	find_floor(&x, &speed, &r2, &r3, &r11);
 	project_object(&ignored, &ignored);
 	if (OBJECT(current_object)->waterfall.holding_back != 0u)
 	{
@@ -3012,7 +3012,7 @@ void geyser_burst_start(void)
 void geyser_burst_erupt(void)
 {
 	uint8_t sound_id = 0;
-	uint32_t r1 = 0, r2 = 0, r7 = 0, r8 = 0, depth = 0, ignored = 0;
+	uint32_t r1 = 0, r7 = 0, r8 = 0, depth = 0, ignored = 0, write_index_address = 0;
 
 	r8 = is_off_screen();
 	if (r8 != 0u)
@@ -3034,7 +3034,7 @@ void geyser_burst_erupt(void)
 	if (OBJECT(current_object)->animation != geyser_burst_spray_animation_ADDRESS && OBJECT(current_object)->animation_frame == 4u && OBJECT(current_object)->animation_speed == (uint8_t)OBJECT(current_object)->animation_timer)
 	{
 		sound_id = 0xAu;
-		play_sound(sound_id, &r1, &r2);
+		play_sound(sound_id, &r1, &write_index_address);
 	}
 	update_screen_position(&ignored, &r1);
 	if (OBJECT(current_object)->animation == geyser_burst_spray_animation_ADDRESS)
@@ -3245,7 +3245,7 @@ void barred_gate_init(void)
 void barred_gate_update(void)
 {
 	uint8_t sound_id = 0;
-	uint32_t r2 = 0, r7 = 0, r8 = 0, depth = 0, ignored = 0, margin = 0;
+	uint32_t r7 = 0, r8 = 0, depth = 0, ignored = 0, margin = 0, write_index_address = 0;
 
 	margin = 0x50u;
 	r8 = check_left_screen_margin((uint16_t)margin);
@@ -3261,7 +3261,7 @@ void barred_gate_update(void)
 		{
 			OBJECT(current_object)->animation_frame = 0xFFu;
 			sound_id = 0x29u;
-			play_sound(sound_id, &margin, &r2);
+			play_sound(sound_id, &margin, &write_index_address);
 		}
 	}
 	update_screen_position(&ignored, &margin);
@@ -3394,28 +3394,28 @@ void start_spawns_by_type(void)
 	stage_trigger_bits = 0u;
 }
 
-void spawn_objects_by_type(uint32_t *p_r1, uint32_t *p_r2, uint32_t *p_first, uint32_t *p_projected_x, uint32_t *p_projected_y, uint32_t *p_object_type, uint32_t *p_r11)
+void spawn_objects_by_type(uint32_t *p_player_object, uint32_t *p_player_index, uint32_t *p_first, uint32_t *p_projected_x, uint32_t *p_projected_y, uint32_t *p_object_type, uint32_t *p_object)
 {
-	uint32_t r1 = *p_r1;
-	uint32_t r2 = *p_r2;
+	uint32_t player_object = *p_player_object;
+	uint32_t player_index = *p_player_index;
 	uint32_t first = *p_first;
 	uint32_t projected_x = *p_projected_x;
 	uint32_t projected_y = *p_projected_y;
 	uint32_t object_type = *p_object_type;
-	uint32_t r11 = *p_r11;
+	uint32_t object = *p_object;
 	uint16_t spawn_z = 0;
-	uint32_t r0 = 0, r1_2 = 0, r2_2 = 0, r3 = 0, ignored = 0, record = 0, trigger_scroll = 0;
+	uint32_t r0 = 0, r3 = 0, ignored = 0, record = 0, trigger_scroll = 0;
 
 	if (type_spawn_stage != stage)
 	{
 		start_spawns_by_type();
-		*p_r1 = r1;
-		*p_r2 = r2;
+		*p_player_object = player_object;
+		*p_player_index = player_index;
 		*p_first = first;
 		*p_projected_x = projected_x;
 		*p_projected_y = projected_y;
 		*p_object_type = object_type;
-		*p_r11 = r11;
+		*p_object = object;
 		return;
 	}
 	record = type_spawn_cursor[0];
@@ -3424,9 +3424,9 @@ void spawn_objects_by_type(uint32_t *p_r1, uint32_t *p_r2, uint32_t *p_first, ui
 	record += 2u;
 	if (trigger_scroll == 0xFFFFu || r0 <= trigger_scroll)
 	{
-		count_active_players(&r1_2, &r2_2);
-		*p_r1 = r1_2;
-		*p_r2 = r2_2;
+		count_active_players(&player_object, &player_index);
+		*p_player_object = player_object;
+		*p_player_index = player_index;
 		return;
 	}
 	projected_x = ROM16(record);
@@ -3441,18 +3441,18 @@ void spawn_objects_by_type(uint32_t *p_r1, uint32_t *p_r2, uint32_t *p_first, ui
 		spawn_count = ROM32(object_type);
 		record += 2u;
 		object_type += 4u;
-		spawn_object_with_pieces(0x08DCB1u, &r0, &trigger_scroll, &r2, &first, &r11);
+		spawn_object_with_pieces(0x08DCB1u, &r0, &trigger_scroll, &player_index, &first, &object);
 		if ((uint8_t)r0 == 0u)
 		{
 			type_spawn_cursor[0] += 0xEu;
-			count_active_players(&r1_2, &r2_2);
-			*p_r1 = r1_2;
-			*p_r2 = r2_2;
+			count_active_players(&player_object, &player_index);
+			*p_player_object = player_object;
+			*p_player_index = player_index;
 			*p_first = first;
 			*p_projected_x = projected_x;
 			*p_projected_y = projected_y;
 			*p_object_type = object_type;
-			*p_r11 = r11;
+			*p_object = object;
 			return;
 		}
 		current_object = first;
@@ -3466,26 +3466,26 @@ void spawn_objects_by_type(uint32_t *p_r1, uint32_t *p_r2, uint32_t *p_first, ui
 		record += 2u;
 		OBJECT(current_object)->spawn_arg_2 = ROM16(record);
 		type_spawn_cursor[0] = record + 2u;
-		unproject_object(&ignored, &ignored, &r3, &r11);
-		count_active_players(&r1_2, &r2_2);
-		*p_r1 = r1_2;
-		*p_r2 = r2_2;
+		unproject_object(&ignored, &ignored, &r3, &object);
+		count_active_players(&player_object, &player_index);
+		*p_player_object = player_object;
+		*p_player_index = player_index;
 		*p_first = r3;
 		*p_projected_x = projected_x;
 		*p_projected_y = projected_y;
 		*p_object_type = object_type;
-		*p_r11 = r11;
+		*p_object = object;
 		return;
 	}
 	type_spawn_cursor[0] += 0xEu;
-	count_active_players(&r1_2, &r2_2);
-	*p_r1 = r1_2;
-	*p_r2 = r2_2;
+	count_active_players(&player_object, &player_index);
+	*p_player_object = player_object;
+	*p_player_index = player_index;
 	*p_first = first;
 	*p_projected_x = projected_x;
 	*p_projected_y = projected_y;
 	*p_object_type = object_type;
-	*p_r11 = r11;
+	*p_object = object;
 }
 
 void count_active_players(uint32_t *p_player_object, uint32_t *p_player_index)
@@ -3813,9 +3813,9 @@ void init_object_fields_tail(uint32_t object, uint8_t mode)
 	}
 }
 
-void move_object_projected(uint32_t *p_screen_y, uint32_t *p_r2, uint32_t *p_slope_height, uint32_t *p_r11)
+void move_object_projected(uint32_t *p_screen_y, uint32_t *p_block_offset, uint32_t *p_slope_height, uint32_t *p_cursor)
 {
-	uint32_t r11 = *p_r11;
+	uint32_t cursor = *p_cursor;
 	uint32_t r2 = 0, screen_y = 0, slope_height = 0;
 
 	OBJECT(current_object)->move_object_projected.projected_x_carry += OBJECT(current_object)->speed_x;
@@ -3823,16 +3823,16 @@ void move_object_projected(uint32_t *p_screen_y, uint32_t *p_r2, uint32_t *p_slo
 	OBJECT(current_object)->projected_y += OBJECT(current_object)->speed_y;
 	OBJECT(current_object)->z += OBJECT(current_object)->speed_z;
 	OBJECT(current_object)->move_object_projected.projected_x_carry_int = 0;
-	unproject_object(&screen_y, &r2, &slope_height, &r11);
+	unproject_object(&screen_y, &r2, &slope_height, &cursor);
 	*p_screen_y = screen_y;
-	*p_r2 = r2;
+	*p_block_offset = r2;
 	*p_slope_height = slope_height;
-	*p_r11 = r11;
+	*p_cursor = cursor;
 }
 
-void unproject_object(uint32_t *p_r0, uint32_t *p_r2, uint32_t *p_slope_height, uint32_t *p_r11)
+void unproject_object(uint32_t *p_screen_y, uint32_t *p_block_offset, uint32_t *p_slope_height, uint32_t *p_cursor)
 {
-	uint32_t r11 = *p_r11;
+	uint32_t cursor = *p_cursor;
 	uint32_t r2 = 0, scaled_x = 0, scaled_y = 0, screen_y = 0, slope_height = 0;
 
 	scaled_x = (uint32_t)OBJECT(current_object)->projected_x << 8;
@@ -3840,12 +3840,12 @@ void unproject_object(uint32_t *p_r0, uint32_t *p_r2, uint32_t *p_slope_height, 
 	r2 = scaled_x;
 	OBJECT(current_object)->x = (scaled_x - scaled_y) * 0xB5u;
 	OBJECT(current_object)->y = (scaled_y + r2) * 0xB5u;
-	find_floor(&scaled_x, &scaled_y, &r2, &slope_height, &r11);
+	find_floor(&scaled_x, &scaled_y, &r2, &slope_height, &cursor);
 	screen_y = update_screen_position_no_offset();
-	*p_r0 = screen_y;
-	*p_r2 = r2;
+	*p_screen_y = screen_y;
+	*p_block_offset = r2;
 	*p_slope_height = slope_height;
-	*p_r11 = r11;
+	*p_cursor = cursor;
 }
 
 uint32_t update_screen_position_no_offset(void)
@@ -3883,10 +3883,10 @@ uint32_t is_on_screen(void)
 	return on_screen;
 }
 
-void delete_if_off_screen(uint32_t *p_deleted, uint32_t *p_r2, uint32_t *p_r3)
+void delete_if_off_screen(uint32_t *p_deleted, uint32_t *p_block_offset, uint32_t *p_slope_height)
 {
-	uint32_t r2 = *p_r2;
-	uint32_t r3 = *p_r3;
+	uint32_t block_offset = *p_block_offset;
+	uint32_t slope_height = *p_slope_height;
 	uint16_t screen_x = 0, screen_y = 0;
 	uint32_t r0 = 0, deleted = 0;
 
@@ -3894,21 +3894,21 @@ void delete_if_off_screen(uint32_t *p_deleted, uint32_t *p_r2, uint32_t *p_r3)
 	screen_y = (uint16_t)OBJECT(current_object)->screen_y;
 	if ((int16_t)screen_x < -0xC0 || (int16_t)screen_x > 0x200 || (int16_t)screen_y < -0xC0 || (int16_t)screen_y > 0x1A0)
 	{
-		delete_object_and_children(&r0, &r2, &r3);
+		delete_object_and_children(&r0, &block_offset, &slope_height);
 		*p_deleted = r0;
-		*p_r2 = r2;
-		*p_r3 = r3;
+		*p_block_offset = block_offset;
+		*p_slope_height = slope_height;
 		return;
 	}
 	deleted = 0u;
 	*p_deleted = deleted;
 }
 
-void delete_object_and_children(uint32_t *p_deleted, uint32_t *p_r2, uint32_t *p_r3)
+void delete_object_and_children(uint32_t *p_deleted, uint32_t *p_block_offset, uint32_t *p_slope_height)
 {
-	uint32_t r2 = *p_r2;
-	uint32_t r3 = *p_r3;
-	uint32_t r2_2 = 0, r3_2 = 0, child = 0, deleted = 0, free_blocks = 0, ignored = 0, object = 0;
+	uint32_t block_offset = *p_block_offset;
+	uint32_t slope_height = *p_slope_height;
+	uint32_t r2 = 0, r3 = 0, child = 0, deleted = 0, free_blocks = 0, ignored = 0, object = 0;
 
 	if (OBJECT(object_cursor)->child == 0xFFFFu)
 	{
@@ -3923,7 +3923,7 @@ void delete_object_and_children(uint32_t *p_deleted, uint32_t *p_r2, uint32_t *p
 	{
 		if ((int16_t)child < 0x5000)
 		{
-			delete_object(child, &ignored, &r2_2);
+			delete_object(child, &ignored, &r2);
 		delete_object_and_children_next_child:
 			object = LINKED(WORK_RAM, deleted_child);
 			child = LINKED(object, OBJECT(object)->child);
@@ -3932,22 +3932,22 @@ void delete_object_and_children(uint32_t *p_deleted, uint32_t *p_r2, uint32_t *p
 				delete_current_object();
 				deleted = 1u;
 				*p_deleted = deleted;
-				*p_r2 = r2_2;
+				*p_block_offset = r2;
 				return;
 			}
 			deleted_child = child;
 			continue;
 		}
-		r2_2 = free_object_2((uint16_t)child);
+		r2 = free_object_2((uint16_t)child);
 		free_blocks = LINKED(WORK_RAM, free_object_stack_2[0]);
 		if ((int16_t)free_blocks <= 0x100)
 			goto delete_object_and_children_next_child;
 		break;
 	}
-	int_default(&free_blocks, &r2_2, &r3_2, &ignored);
+	int_default(&free_blocks, &r2, &r3, &ignored);
 	*p_deleted = free_blocks;
-	*p_r2 = r2_2;
-	*p_r3 = r3_2;
+	*p_block_offset = r2;
+	*p_slope_height = r3;
 }
 
 void copy_position_to(uint32_t object)
@@ -3986,7 +3986,7 @@ void copy_position_from_cursor(void)
 	OBJECT(current_object)->floor_z = OBJECT(object_cursor)->floor_z;
 }
 
-uint32_t face_nearest_player(uint32_t r0, uint32_t octant)
+uint32_t face_nearest_player(uint32_t direction, uint32_t octant)
 {
 	uint16_t dy = 0, player_dx = 0, player_dy = 0;
 	uint32_t abs_dy = 0, distance = 0, ignored = 0, player_index = 0, player_object = 0;
@@ -4027,10 +4027,10 @@ uint32_t face_nearest_player(uint32_t r0, uint32_t octant)
 				nearest_player_dy = player_dy;
 			}
 			RAM16(GAME_VARIABLES + distance_to_player_offsets[player_index]) = distance;
-			r0 = player_dx;
+			direction = player_dx;
 			dy = (uint16_t)player_dy;
-			angle_of_vector(dy, &r0, &octant);
-			RAM16(GAME_VARIABLES + direction_to_player_offsets[player_index]) = r0;
+			angle_of_vector(dy, &direction, &octant);
+			RAM16(GAME_VARIABLES + direction_to_player_offsets[player_index]) = direction;
 			continue;
 		}
 		RAM16(GAME_VARIABLES + distance_to_player_offsets[player_index]) = 0x7FFFu;
@@ -4041,9 +4041,9 @@ uint32_t face_nearest_player(uint32_t r0, uint32_t octant)
 	player_object = LINKED(player_object, PLAYER(player_object)->object);
 	nearest_player_z = OBJECT(player_object)->z_int;
 	nearest_player_floor_z = OBJECT(player_object)->floor_z_int;
-	r0 = (uint16_t)(r0 + direction_to_player_offsets[player_index]);
-	OBJECT(current_object)->direction = r0;
-	direction_to_nearest_player = r0;
+	direction = (uint16_t)(direction + direction_to_player_offsets[player_index]);
+	OBJECT(current_object)->direction = direction;
+	direction_to_nearest_player = direction;
 	return octant;
 }
 
@@ -4216,7 +4216,7 @@ void explode_object_medium(void)
 void explode_object(void)
 {
 	uint8_t sound_id = 0;
-	uint32_t r1 = 0, r2 = 0;
+	uint32_t write_index = 0, write_index_address = 0;
 
 	OBJECT(current_object)->explode_object.frame_index = 0x1F;
 	OBJECT(current_object)->explode_object.last_frame = 0x2B;
@@ -4224,15 +4224,15 @@ void explode_object(void)
 	OBJECT(current_object)->handler = explosion_animate_ADDRESS;
 	OBJECT(current_object)->explode_object.frame_toggle = 0u;
 	sound_id = 7u;
-	play_sound(sound_id, &r1, &r2);
+	play_sound(sound_id, &write_index, &write_index_address);
 }
 
 void explosion_animate(void)
 {
-	uint32_t r2 = 0, r3 = 0, r11 = 0, ignored = 0;
+	uint32_t block_offset = 0, cursor = 0, ignored = 0, slope_height = 0;
 	uint16_t toggle = 0;
 
-	unproject_object(&ignored, &r2, &r3, &r11);
+	unproject_object(&ignored, &block_offset, &slope_height, &cursor);
 	OBJECT(current_object)->explosion.frame_toggle++;
 	toggle = OBJECT(current_object)->explosion.frame_toggle & 1u;
 	OBJECT(current_object)->explosion.frame_toggle = toggle;
@@ -4249,12 +4249,12 @@ void explosion_animate(void)
 		queue_sprite(0u);
 		return;
 	}
-	delete_object_and_children(&ignored, &r2, &r3);
+	delete_object_and_children(&ignored, &block_offset, &slope_height);
 }
 
-void drop_rings(uint32_t r3, uint32_t *p_r11, uint32_t *p_random_value, uint32_t *p_ring)
+void drop_rings(uint32_t shadow, uint32_t *p_allocated, uint32_t *p_random_value, uint32_t *p_ring)
 {
-	uint32_t r11 = *p_r11;
+	uint32_t allocated = *p_allocated;
 	uint32_t random_value = *p_random_value;
 	uint32_t ring = *p_ring;
 	uint32_t count = 0, ignored = 0, new_ring = 0, random_bits = 0;
@@ -4266,11 +4266,11 @@ void drop_rings(uint32_t r3, uint32_t *p_r11, uint32_t *p_random_value, uint32_t
 	{
 		if (released_rings_random != 0u)
 		{
-			next_random(&r3, &ignored, &ignored);
-			random_value = r3;
+			next_random(&shadow, &ignored, &ignored);
+			random_value = shadow;
 		}
 		count = 1u;
-		scatter_rings_random(r3, count, &r11, &ring);
+		scatter_rings_random(shadow, count, &allocated, &ring);
 		new_ring = ring;
 		copy_position_to(new_ring);
 		mem_write16(new_ring + 0x26u, object_cursor);
@@ -4291,25 +4291,25 @@ void drop_rings(uint32_t r3, uint32_t *p_r11, uint32_t *p_random_value, uint32_t
 			mem_write16(new_ring + 0x24u, mem_read16(new_ring + 0x24u) + (random_bits & 0x3Fu) * 2u);
 			mem_write16(new_ring + 0x24u, mem_read16(new_ring + 0x24u) - 0x40u);
 		}
-		r3 = (new_ring & ~0xFFFFu) | mem_read16(new_ring + 0x28u);
-		mem_write16(r3 + 0x28u, 0xFFFFu);
+		shadow = (new_ring & ~0xFFFFu) | mem_read16(new_ring + 0x28u);
+		mem_write16(shadow + 0x28u, 0xFFFFu);
 		if (released_ring_flip == 1u)
 		{
 			mem_write16(ring + 6u, mem_read16(ring + 6u) | 1u);
-			mem_write16(r3 + 6u, mem_read16(r3 + 6u) | 0x2000u);
+			mem_write16(shadow + 6u, mem_read16(shadow + 6u) | 0x2000u);
 			mem_write16(ring + 6u, mem_read16(ring + 6u) ^ 0x8000u);
-			mem_write16(r3 + 6u, mem_read16(r3 + 6u) ^ 0x8000u);
+			mem_write16(shadow + 6u, mem_read16(shadow + 6u) ^ 0x8000u);
 		}
 		if (released_ring_flip == 2u)
 		{
 			mem_write16(ring + 6u, mem_read16(ring + 6u) | 0x4000u);
-			mem_write16(r3 + 6u, mem_read16(r3 + 6u) | 0x4000u);
+			mem_write16(shadow + 6u, mem_read16(shadow + 6u) | 0x4000u);
 			mem_write16(ring + 6u, mem_read16(ring + 6u) ^ 0x8000u);
-			mem_write16(r3 + 6u, mem_read16(r3 + 6u) ^ 0x8000u);
+			mem_write16(shadow + 6u, mem_read16(shadow + 6u) ^ 0x8000u);
 		}
 		rings_to_release--;
 	} while ((int16_t)rings_to_release >= 1);
-	*p_r11 = r11;
+	*p_allocated = allocated;
 	*p_random_value = random_value;
 	*p_ring = ring;
 }
@@ -4317,7 +4317,7 @@ void drop_rings(uint32_t r3, uint32_t *p_r11, uint32_t *p_random_value, uint32_t
 void released_ring_wait(void)
 {
 	uint8_t sound_id = 0;
-	uint32_t r1 = 0, r2 = 0;
+	uint32_t write_index = 0, write_index_address = 0;
 	uint16_t release_delay = 0;
 
 	release_delay = OBJECT(current_object)->released_ring.release_delay;
@@ -4325,7 +4325,7 @@ void released_ring_wait(void)
 	if (release_delay != 0u)
 		return;
 	sound_id = 0x13u;
-	play_sound(sound_id, &r1, &r2);
+	play_sound(sound_id, &write_index, &write_index_address);
 	OBJECT(current_object)->released_ring.release_delay = 0u;
 	OBJECT(current_object)->handler = released_ring_start_ADDRESS;
 	released_ring_start();
@@ -4351,7 +4351,7 @@ void released_ring_start(void)
 void released_ring_bounce(void)
 {
 	uint8_t sound_id = 0;
-	uint32_t r1 = 0, r2 = 0, r3 = 0, ignored = 0, object = 0, player = 0;
+	uint32_t r2 = 0, ignored = 0, object = 0, player = 0, slope_height = 0, write_index = 0;
 	uint16_t lifetime = 0;
 
 	lifetime = OBJECT(current_object)->released_ring.lifetime;
@@ -4374,8 +4374,8 @@ void released_ring_bounce(void)
 		if ((int8_t)OBJECT(object)->kind > 2)
 		{
 			sound_id = 0x13u;
-			play_sound(sound_id, &r1, &r2);
-			delete_object_and_children(&ignored, &r2, &r3);
+			play_sound(sound_id, &write_index, &r2);
+			delete_object_and_children(&ignored, &r2, &slope_height);
 			return;
 		}
 		player = PLAYER_BLOCK(1) + ((uint32_t)OBJECT(object)->player << 9);
@@ -4385,8 +4385,8 @@ void released_ring_bounce(void)
 			return;
 		}
 		sound_id = 0x13u;
-		play_sound(sound_id, &r1, &r2);
-		delete_object_and_children(&ignored, &r2, &r3);
+		play_sound(sound_id, &write_index, &r2);
+		delete_object_and_children(&ignored, &r2, &slope_height);
 		return;
 	}
 	OBJECT(current_object)->sprite_flags = 4u;
@@ -4398,11 +4398,11 @@ void released_ring_bounce(void)
 	scattered_ring_vanish();
 }
 
-void released_ring_move(uint32_t r11)
+void released_ring_move(uint32_t cursor)
 {
 	uint32_t r1 = 0, r2 = 0, r7 = 0, r8 = 0, bounce_speed = 0, direction = 0, height = 0, ignored = 0, speed = 0, speed_x = 0, speed_y = 0;
 
-	move_object_projected(&ignored, &r2, &ignored, &r11);
+	move_object_projected(&ignored, &r2, &ignored, &cursor);
 	fall_to_floor(&height, &r1, &r2);
 	OBJECT(current_object)->animation_frame += 3u;
 	if (height == 0u)
@@ -4420,20 +4420,20 @@ void released_ring_move(uint32_t r11)
 	OBJECT(current_object)->speed_y = speed_y;
 	animate(&speed, &r7, &r8);
 	if (OBJECT(current_object)->animation_frame == 4u)
-		spawn_ring_glint(r11);
+		spawn_ring_glint(cursor);
 	queue_sprite_at_floor();
 	add_to_touchable_list(direction);
 	add_to_rider_list();
 	draw_child_shadow();
 }
 
-void spawn_debris(uint32_t r0, uint16_t count, uint32_t r11)
+void spawn_debris(uint32_t spawned, uint16_t count, uint32_t block)
 {
 	uint32_t r3 = 0, ignored = 0, object = 0, random_byte = 0;
 
 	spawn_count = count;
-	spawn_objects(0x08E73Au, &r0, &r3, &r11);
-	if (r0 == 0u)
+	spawn_objects(0x08E73Au, &spawned, &r3, &block);
+	if (spawned == 0u)
 		return;
 	r14 = r3;
 	do
@@ -4474,11 +4474,11 @@ void spawn_debris(uint32_t r0, uint16_t count, uint32_t r11)
 
 void debris_fly(void)
 {
-	uint32_t r1 = 0, r2 = 0, r3 = 0, r11 = 0, deleted = 0, direction = 0, height = 0, ignored = 0, speed = 0, speed_x = 0, speed_y = 0;
+	uint32_t r1 = 0, r2 = 0, cursor = 0, deleted = 0, direction = 0, height = 0, ignored = 0, slope_height = 0, speed = 0, speed_x = 0, speed_y = 0;
 	uint16_t phase = 0, lifetime = 0;
 
-	move_object_projected(&ignored, &r2, &r3, &r11);
-	delete_if_off_screen(&deleted, &r2, &r3);
+	move_object_projected(&ignored, &r2, &slope_height, &cursor);
+	delete_if_off_screen(&deleted, &r2, &slope_height);
 	if ((uint8_t)deleted != 0u)
 		return;
 	fall_to_floor(&height, &r1, &r2);
@@ -4765,7 +4765,7 @@ void start_ranking_entry(void)
 	mem_write32(block + 0x1Cu, 1u);
 }
 
-void enter_ranking_initials(uint32_t r0)
+void enter_ranking_initials(uint32_t jump_offset)
 {
 	uint16_t abs_dx = 0, abs_dy = 0, dx = 0, dy = 0, speed_x_fraction = 0, y = 0;
 	uint32_t blink_timer = 0, button_bit = 0, copy_dest = 0, copy_source = 0, count = 0, crc = 0, data = 0, dest = 0, ignored = 0, letters_left = 0, links_left = 0, object = 0, palette = 0, player = 0, read_cursor = 0, record_initials = 0, record_rings = 0, records_left = 0, scale = 0, screen_x = 0, slot = 0, speed_y = 0, text = 0, text_x = 0, trackball = 0, x = 0;
@@ -4785,7 +4785,7 @@ void enter_ranking_initials(uint32_t r0)
 			ranking_entry_players &= ~shl32(1u, (int)(OBJECT(object_cursor)->player));
 			return;
 		}
-		blink_timer = (r0 & ~0xFFFFu) | OBJECT(current_object)->var_82;
+		blink_timer = (jump_offset & ~0xFFFFu) | OBJECT(current_object)->var_82;
 		if ((blink_timer & 3u) != 0u)
 		{
 			x = (blink_timer & ~0xFFFFu) | (uint16_t)OBJECT(current_object)->screen_x;
@@ -5089,15 +5089,15 @@ uint32_t ascii_to_ranking_letter(uint32_t letter)
 	return letter;
 }
 
-void start_ranking_display(uint32_t r11, uint32_t *p_rows, uint32_t *p_source)
+void start_ranking_display(uint32_t display, uint32_t *p_rows, uint32_t *p_source)
 {
 	uint32_t ignored = 0, object = 0, rows = 0, source = 0;
 
-	r11 = allocate_object_or_start_list(r11);
-	OBJECT(r11)->parent = object_cursor;
-	OBJECT(r11)->child = 0xFFFFu;
-	init_object(r11);
-	object = r11;
+	display = allocate_object_or_start_list(display);
+	OBJECT(display)->parent = object_cursor;
+	OBJECT(display)->child = 0xFFFFu;
+	init_object(display);
+	object = display;
 	show_nbg0_picture(&ignored, &rows, &source, &ignored);
 	OBJECT(object)->screen_x = 0xA0;
 	OBJECT(object)->screen_y = -0x1A4;

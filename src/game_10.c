@@ -3,7 +3,7 @@
  *    Description: the game's functions, part 10 (in the order of their V60 addresses)
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    13-10-2026
+ *    Modified:    14-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -367,7 +367,7 @@ uint32_t wait_for_frames(void)
 	return r8;
 }
 
-void wait_for_frame(uint32_t *p_r1, uint32_t *p_released, uint32_t *p_input_cursor, uint32_t *p_count, uint32_t *p_trackball_port, uint32_t *p_trackball_cursor)
+void wait_for_frame(uint32_t *p_pressed, uint32_t *p_released, uint32_t *p_input_cursor, uint32_t *p_count, uint32_t *p_trackball_port, uint32_t *p_trackball_cursor)
 {
 	uint32_t r1 = 0, r2 = 0, r3 = 0, r8 = 0, r10 = 0, r11 = 0, inputs = 0, poll_count = 0;
 	uint8_t frames_left = 0;
@@ -388,7 +388,7 @@ void wait_for_frame(uint32_t *p_r1, uint32_t *p_released, uint32_t *p_input_curs
 	AS16(sprite_list_start) = AS16(sprite_back_buffer);
 	attract_timer++;
 	read_controls(&inputs, &r1, &r2, &r3, &r8, &r10, &r11);
-	*p_r1 = r1;
+	*p_pressed = r1;
 	*p_released = r2;
 	*p_input_cursor = r3;
 	*p_count = r8;
@@ -507,7 +507,7 @@ void pause_on_start_3(void)
 	debug_pause--;
 }
 
-void square_root(uint32_t *p_value, uint32_t *p_r1)
+void square_root(uint32_t *p_value, uint32_t *p_steps_left)
 {
 	uint32_t value = *p_value;
 	uint32_t carry = 0;
@@ -534,7 +534,7 @@ void square_root(uint32_t *p_value, uint32_t *p_r1)
 			{
 				value = value >> 1;
 				*p_value = value;
-				*p_r1 = steps_left;
+				*p_steps_left = steps_left;
 				return;
 			}
 			continue;
@@ -542,13 +542,12 @@ void square_root(uint32_t *p_value, uint32_t *p_r1)
 		root_remainder -= value;
 		value++;
 		steps_left--;
-		if (steps_left != 0u)
-			continue;
-		break;
+		if (steps_left == 0u)
+			break;
 	}
 	value = value >> 1;
 	*p_value = value;
-	*p_r1 = steps_left;
+	*p_steps_left = steps_left;
 }
 
 void angle_of_vector(uint32_t dy, uint32_t *p_dx, uint32_t *p_octant)
@@ -1574,7 +1573,6 @@ void formatted_text_single(uint16_t cell, uint32_t text, uint32_t text_position)
 		if (zero)
 			return;
 	}
-	formatted_text_skip_long_single(cell, text, text_position);
 }
 
 void formatted_text_skip_single(uint16_t cell, uint32_t text, uint32_t text_position)
@@ -1681,9 +1679,6 @@ void formatted_text_double(uint16_t cell, uint32_t text, uint32_t text_position)
 			unknown_code(0x99703u + code);
 		}
 	}
-	if (zero)
-		return;
-	formatted_text_single(cell, text, text_position);
 }
 
 void formatted_text_skip_double(uint16_t cell, uint32_t text, uint32_t text_position)
@@ -1793,9 +1788,6 @@ void formatted_text_triple(uint16_t cell, uint32_t text, uint32_t text_position)
 			unknown_code(0x99764u + code);
 		}
 	}
-	if (zero)
-		return;
-	formatted_text_single(cell, text, text_position);
 }
 
 void formatted_text_skip_triple(uint16_t cell, uint32_t text, uint32_t text_position)
@@ -1900,7 +1892,6 @@ void erase_formatted_text_single(uint32_t cell, uint32_t text, uint32_t text_pos
 		if (zero)
 			return;
 	}
-	erase_formatted_text_skip_single(cell, text, text_position);
 }
 
 void erase_formatted_text_skip_single(uint32_t cell, uint32_t text, uint32_t text_position)
@@ -1990,9 +1981,6 @@ void erase_formatted_text_double(uint32_t cell, uint32_t text, uint32_t text_pos
 			unknown_code(0x997FDu + code);
 		}
 	}
-	if (zero)
-		return;
-	erase_formatted_text_single(cell, text, text_position);
 }
 
 void erase_formatted_text_skip_double(uint32_t cell, uint32_t text, uint32_t text_position)
@@ -2084,9 +2072,6 @@ void erase_formatted_text_triple(uint32_t cell, uint32_t text, uint32_t text_pos
 			unknown_code(0x99841u + code);
 		}
 	}
-	if (zero)
-		return;
-	erase_formatted_text_single(cell, text, text_position);
 }
 
 void erase_formatted_text_skip_triple(uint32_t cell, uint32_t text, uint32_t text_position)
@@ -2168,24 +2153,21 @@ void run_vram_script(uint32_t *p_count, uint32_t *p_script, uint32_t *p_dest)
 			unknown_code(0x9988Eu + script_code);
 		}
 	}
-	*p_count = count;
-	*p_script = script;
-	*p_dest = dest;
 }
 
 void vram_script_end(void)
 {
 }
 
-void vram_script_set_address(uint32_t r0, uint32_t *p_script, uint32_t *p_r11)
+void vram_script_set_address(uint32_t script_code, uint32_t *p_script, uint32_t *p_dest)
 {
 	uint32_t script = *p_script;
 	uint32_t dest = 0;
 
-	dest = 0x300000u + ((r0 & ~0xFFFFu) | mem_read16(script)) * 2u;
+	dest = 0x300000u + ((script_code & ~0xFFFFu) | mem_read16(script)) * 2u;
 	script += 2u;
 	*p_script = script;
-	*p_r11 = dest;
+	*p_dest = dest;
 }
 
 void vram_script_skip(uint32_t *p_script, uint32_t *p_dest)

@@ -3,7 +3,7 @@
  *    Description: the game's functions, part 04 (in the order of their V60 addresses)
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    13-10-2026
+ *    Modified:    14-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -13,7 +13,7 @@
 
 void breakable_panel_wait(void)
 {
-	uint32_t r11 = 0, random_value = 0, ring = 0;
+	uint32_t allocated = 0, random_value = 0, ring = 0;
 
 	if ((OBJECT(current_object)->flags & 4u) == 0u || (OBJECT(LINKED(WORK_RAM, OBJECT(current_object)->touched_by))->flags & 0x40u) == 0u)
 	{
@@ -24,7 +24,7 @@ void breakable_panel_wait(void)
 	released_rings_random = 1u;
 	released_ring_angle = OBJECT(current_object)->spawn_arg_1;
 	rings_to_release = OBJECT(current_object)->spawn_arg_2;
-	drop_rings(0u, &r11, &random_value, &ring);
+	drop_rings(0u, &allocated, &random_value, &ring);
 	OBJECT(current_object)->handler = breakable_panel_break_ADDRESS;
 	breakable_panel_break();
 }
@@ -55,11 +55,11 @@ void breakable_panel_break(void)
 void draw_breakable_panel(void)
 {
 	uint16_t offset_x = 0, offset_y = 0;
-	uint32_t r2 = 0, r3 = 0, r11 = 0, deleted = 0, depth = 0, ignored = 0;
+	uint32_t block_offset = 0, cursor = 0, deleted = 0, depth = 0, ignored = 0, slope_height = 0;
 	uint16_t direction = 0;
 
-	unproject_object(&ignored, &r2, &r3, &r11);
-	delete_if_off_screen(&deleted, &r2, &r3);
+	unproject_object(&ignored, &block_offset, &slope_height, &cursor);
+	delete_if_off_screen(&deleted, &block_offset, &slope_height);
 	if ((uint8_t)deleted != 0u)
 		return;
 	depth = (uint16_t)(OBJECT(current_object)->screen_y - 0x20u);
@@ -99,12 +99,12 @@ void white_puff_init(void)
 
 void white_puff_animate(void)
 {
-	uint32_t r2 = 0, r3 = 0, r11 = 0, deleted = 0, ignored = 0;
+	uint32_t block_offset = 0, cursor = 0, deleted = 0, ignored = 0, slope_height = 0;
 	uint8_t wrapped_frame_index = 0;
 	uint16_t frame_timer = 0;
 
-	unproject_object(&ignored, &r2, &r3, &r11);
-	delete_if_off_screen(&deleted, &r2, &r3);
+	unproject_object(&ignored, &block_offset, &slope_height, &cursor);
+	delete_if_off_screen(&deleted, &block_offset, &slope_height);
 	if ((uint16_t)deleted != 0u)
 		return;
 	frame_timer = OBJECT(current_object)->white_puff.frame_timer;
@@ -130,11 +130,11 @@ void checker_pad_init(void)
 
 void checker_pad_animate(void)
 {
-	uint32_t r2 = 0, r3 = 0, deleted = 0;
+	uint32_t block_offset = 0, deleted = 0, slope_height = 0;
 	uint16_t frame_timer = 0;
 
 	update_screen_position_no_offset();
-	delete_if_off_screen(&deleted, &r2, &r3);
+	delete_if_off_screen(&deleted, &block_offset, &slope_height);
 	if ((uint8_t)deleted != 0u)
 		return;
 	frame_timer = OBJECT(current_object)->checker_pad.frame_timer;
@@ -162,11 +162,11 @@ void static_triangle_init(void)
 void static_triangle_animate(void)
 {
 	uint16_t offset_x = 0, offset_y = 0;
-	uint32_t r2 = 0, r3 = 0, deleted = 0, depth = 0;
+	uint32_t block_offset = 0, deleted = 0, depth = 0, slope_height = 0;
 	uint16_t frame_timer = 0, direction = 0;
 
 	update_screen_position_no_offset();
-	delete_if_off_screen(&deleted, &r2, &r3);
+	delete_if_off_screen(&deleted, &block_offset, &slope_height);
 	if ((uint8_t)deleted != 0u)
 		return;
 	frame_timer = OBJECT(current_object)->static_triangle.frame_timer;
@@ -226,10 +226,10 @@ void railing_init(void)
 
 void railing_draw(void)
 {
-	uint32_t r2 = 0, r3 = 0, r11 = 0, deleted = 0, ignored = 0;
+	uint32_t block_offset = 0, cursor = 0, deleted = 0, ignored = 0, slope_height = 0;
 
-	unproject_object(&ignored, &r2, &r3, &r11);
-	delete_if_off_screen(&deleted, &r2, &r3);
+	unproject_object(&ignored, &block_offset, &slope_height, &cursor);
+	delete_if_off_screen(&deleted, &block_offset, &slope_height);
 	if ((uint8_t)deleted == 0u)
 	{
 		queue_sprite(0u);
@@ -240,9 +240,9 @@ void railing_draw(void)
 
 void railing_side_update(void)
 {
-	uint32_t r11 = 0, ignored = 0;
+	uint32_t cursor = 0, ignored = 0;
 
-	unproject_object(&ignored, &ignored, &ignored, &r11);
+	unproject_object(&ignored, &ignored, &ignored, &cursor);
 	add_to_touchable_list(ignored);
 }
 
@@ -308,9 +308,9 @@ void spike_gate_init(void)
 void spike_gate_pillar_update(void)
 {
 	uint16_t count = 0;
-	uint32_t r2 = 0, r3 = 0, r11 = 0, depth = 0, head_distance_x = 0, ignored = 0;
+	uint32_t r11 = 0, block_offset = 0, depth = 0, head_distance_x = 0, ignored = 0, slope_height = 0;
 
-	unproject_object(&ignored, &r2, &r3, &r11);
+	unproject_object(&ignored, &block_offset, &slope_height, &r11);
 	r14 = LINKED(WORK_RAM, biting_head);
 	distance_xy_to_object(&head_distance_x, &ignored);
 	if ((int32_t)head_distance_x <= 0x20 || (int16_t)OBJECT(current_object)->spawn_arg_2 < (int16_t)scroll_position)
@@ -319,7 +319,7 @@ void spike_gate_pillar_update(void)
 		OBJECT(current_object)->projected_x -= 0x90u;
 		OBJECT(current_object)->projected_y_int -= 0x40u;
 		spawn_debris(head_distance_x, count, r11);
-		delete_object_and_children(&ignored, &r2, &r3);
+		delete_object_and_children(&ignored, &block_offset, &slope_height);
 		return;
 	}
 	depth = (uint16_t)(OBJECT(current_object)->screen_y - 8u);
@@ -407,9 +407,9 @@ void spike_gate_beam_wait(void)
 void spike_gate_beam_update(void)
 {
 	uint16_t count = 0, offset_x = 0, offset_y = 0;
-	uint32_t r2 = 0, r3 = 0, r11 = 0, bucket = 0, depth = 0, head_distance_x = 0, ignored = 0;
+	uint32_t r11 = 0, block_offset = 0, bucket = 0, depth = 0, head_distance_x = 0, ignored = 0, slope_height = 0;
 
-	move_object_projected(&ignored, &r2, &r3, &r11);
+	move_object_projected(&ignored, &block_offset, &slope_height, &r11);
 	r14 = LINKED(WORK_RAM, biting_head);
 	distance_xy_to_object(&head_distance_x, &depth);
 	if ((int32_t)head_distance_x <= 0x20 || (int16_t)OBJECT(current_object)->spawn_arg_2 < (int16_t)scroll_position)
@@ -418,7 +418,7 @@ void spike_gate_beam_update(void)
 		OBJECT(current_object)->projected_x -= 0x90u;
 		OBJECT(current_object)->projected_y_int -= 0x40u;
 		spawn_debris(head_distance_x, count, r11);
-		delete_object_and_children(&ignored, &r2, &r3);
+		delete_object_and_children(&ignored, &block_offset, &slope_height);
 		return;
 	}
 	depth = cursor_floor_screen_y(depth);
@@ -465,7 +465,7 @@ void eel_den_init(void)
 
 void eel_den_wait(void)
 {
-	uint32_t r11 = 0, distance_y = 0, ignored = 0, random_value = 0, ring = 0;
+	uint32_t allocated = 0, distance_y = 0, ignored = 0, random_value = 0, ring = 0;
 
 	if ((stage_trigger_bits & shl32(1u, (int)(OBJECT(current_object)->spawn_arg_1))) == 0u)
 	{
@@ -484,7 +484,7 @@ void eel_den_wait(void)
 	rings_to_release = 3u;
 	released_ring_flip = 2u;
 	released_rings_random = 1u;
-	drop_rings(0u, &r11, &random_value, &ring);
+	drop_rings(0u, &allocated, &random_value, &ring);
 	OBJECT(current_object)->projected_y_int += 0x18u;
 	eel_den_collapse();
 }
@@ -514,10 +514,10 @@ void eel_den_collapse(void)
 
 void eel_den_draw(void)
 {
-	uint32_t r2 = 0, r3 = 0, r11 = 0, deleted = 0, depth = 0, ignored = 0;
+	uint32_t block_offset = 0, cursor = 0, deleted = 0, depth = 0, ignored = 0, slope_height = 0;
 
-	unproject_object(&ignored, &r2, &r3, &r11);
-	delete_if_off_screen(&deleted, &r2, &r3);
+	unproject_object(&ignored, &block_offset, &slope_height, &cursor);
+	delete_if_off_screen(&deleted, &block_offset, &slope_height);
 	if ((uint8_t)deleted != 1u)
 	{
 		depth = (uint16_t)(OBJECT(current_object)->screen_y - 0x18u);
@@ -544,10 +544,10 @@ void stepped_wall_init(void)
 
 void stepped_wall_draw(void)
 {
-	uint32_t r2 = 0, r3 = 0, r11 = 0, bucket = 0, deleted = 0, ignored = 0;
+	uint32_t block_offset = 0, bucket = 0, cursor = 0, deleted = 0, ignored = 0, slope_height = 0;
 
-	unproject_object(&ignored, &r2, &r3, &r11);
-	delete_if_off_screen(&deleted, &r2, &r3);
+	unproject_object(&ignored, &block_offset, &slope_height, &cursor);
+	delete_if_off_screen(&deleted, &block_offset, &slope_height);
 	if ((uint8_t)deleted == 0u)
 	{
 		bucket = 0xFFu;
@@ -557,10 +557,10 @@ void stepped_wall_draw(void)
 	}
 }
 
-void init_stage_view(uint32_t *p_r2, uint32_t *p_r3, uint32_t *p_r4, uint32_t *p_stage_offset)
+void init_stage_view(uint32_t *p_direction_y, uint32_t *p_direction_x, uint32_t *p_count, uint32_t *p_stage_offset)
 {
 	uint16_t camera_origin = 0;
-	uint32_t r4 = 0, dest = 0, direction_x = 0, direction_y = 0, direction_y_list = 0, ignored = 0, list = 0, sets_left = 0, stage_number = 0, table_offset = 0, tile_set = 0, tile_set_cursor = 0;
+	uint32_t count = 0, dest = 0, direction_x = 0, direction_y = 0, direction_y_list = 0, ignored = 0, list = 0, sets_left = 0, stage_number = 0, table_offset = 0, tile_set = 0, tile_set_cursor = 0;
 	uint8_t io_cnt_bits = 0;
 	uint32_t unrotated_sets = 0;
 
@@ -662,7 +662,7 @@ void init_stage_view(uint32_t *p_r2, uint32_t *p_r3, uint32_t *p_r4, uint32_t *p
 	dest = init_nbg2_layer(dest);
 	dest = init_nbg1_layer(dest);
 	init_nbg3_layer(dest);
-	r4 = set_stage_layer_mixing();
+	count = set_stage_layer_mixing();
 	load_stage_palette_set(&ignored, &ignored);
 	view_y = 0;
 	view_x = 0;
@@ -735,37 +735,37 @@ void init_stage_view(uint32_t *p_r2, uint32_t *p_r3, uint32_t *p_r4, uint32_t *p
 	back_edge_frames = 0u;
 	nearby_floor_blocks_locked = 0u;
 	scroll_skip_open = 0u;
-	*p_r2 = direction_y;
-	*p_r3 = direction_x;
-	*p_r4 = r4;
+	*p_direction_y = direction_y;
+	*p_direction_x = direction_x;
+	*p_count = count;
 	*p_stage_offset = table_offset;
 }
 
-void update_stage_tile_layers(uint32_t *p_shifted_tile_set, uint32_t *p_r2, uint32_t *p_columns_left, uint32_t *p_r4, uint32_t *p_stage_number, uint32_t *p_row_skip, uint32_t *p_cycle, uint32_t *p_r10, uint32_t *p_dest)
+void update_stage_tile_layers(uint32_t *p_shifted_tile_set, uint32_t *p_copy_entry, uint32_t *p_columns_left, uint32_t *p_palette_count, uint32_t *p_stage_number, uint32_t *p_row_skip, uint32_t *p_cycle, uint32_t *p_block_cursor, uint32_t *p_dest)
 {
-	uint32_t r2 = *p_r2;
+	uint32_t copy_entry = *p_copy_entry;
 	uint32_t columns_left = *p_columns_left;
-	uint32_t r4 = *p_r4;
+	uint32_t palette_count = *p_palette_count;
 	uint32_t stage_number = *p_stage_number;
 	uint32_t row_skip = *p_row_skip;
 	uint32_t cycle = *p_cycle;
-	uint32_t r10 = *p_r10;
+	uint32_t block_cursor = *p_block_cursor;
 	uint32_t dest = *p_dest;
-	uint32_t r1 = 0, r2_2 = 0, r4_2 = 0, r5 = 0, r8 = 0, block_cursor = 0, rows_left = 0, set_shift = 0, shifted_tile_set = 0;
+	uint32_t r1 = 0, r2 = 0, r4 = 0, r5 = 0, r8 = 0, rows_left = 0, set_shift = 0, shifted_tile_set = 0;
 
-	animate_stage_palette(&r1, &r2, &r4, &cycle, &r10, &dest);
+	animate_stage_palette(&r1, &copy_entry, &palette_count, &cycle, &block_cursor, &dest);
 	if (scroll_ended < 0)
 	{
 		*p_shifted_tile_set = r1;
-		*p_r2 = r2;
-		*p_r4 = r4;
+		*p_copy_entry = copy_entry;
+		*p_palette_count = palette_count;
 		*p_cycle = cycle;
-		*p_r10 = r10;
+		*p_block_cursor = block_cursor;
 		*p_dest = dest;
 		return;
 	}
 	clamp_camera_pixels();
-	set_nbg0_scroll_from_camera(r2);
+	set_nbg0_scroll_from_camera(copy_entry);
 	stage_number = stage;
 	block_cursor = stage_block_maps[stage_number] + stage_block_maps_ADDRESS + tile_block_row + tile_block_column;
 	columns_left = 2u;
@@ -794,35 +794,35 @@ void update_stage_tile_layers(uint32_t *p_shifted_tile_set, uint32_t *p_r2, uint
 	{
 		if (tile_sets_in_progress != wanted_tile_sets && (int8_t)AS8(tile_set_slot) > 1)
 			wanted_tile_sets = tile_sets_in_progress;
-		reload_changed_tile_set(&shifted_tile_set, &r2_2, &r4_2, &r5, &r8, &block_cursor, &dest);
+		reload_changed_tile_set(&shifted_tile_set, &r2, &r4, &r5, &r8, &block_cursor, &dest);
 		clamp_camera_pixels();
 		*p_shifted_tile_set = shifted_tile_set;
-		*p_r2 = r2_2;
+		*p_copy_entry = r2;
 		*p_columns_left = columns_left;
-		*p_r4 = r4_2;
+		*p_palette_count = r4;
 		*p_stage_number = r5;
 		*p_row_skip = r8;
 		*p_cycle = cycle;
-		*p_r10 = block_cursor;
+		*p_block_cursor = block_cursor;
 		*p_dest = dest;
 		return;
 	}
 	tile_set_slot = 0u;
 	clamp_camera_pixels();
 	*p_shifted_tile_set = shifted_tile_set;
-	*p_r2 = rows_left;
+	*p_copy_entry = rows_left;
 	*p_columns_left = columns_left;
-	*p_r4 = set_shift;
+	*p_palette_count = set_shift;
 	*p_stage_number = stage_number;
 	*p_row_skip = row_skip;
 	*p_cycle = cycle;
-	*p_r10 = block_cursor;
+	*p_block_cursor = block_cursor;
 	*p_dest = dest;
 }
 
-void reload_changed_tile_set(uint32_t *p_r1, uint32_t *p_r2, uint32_t *p_r4, uint32_t *p_r5, uint32_t *p_r8, uint32_t *p_script, uint32_t *p_dest)
+void reload_changed_tile_set(uint32_t *p_shifted_tile_set, uint32_t *p_slots_left, uint32_t *p_r4, uint32_t *p_slot_tile_set, uint32_t *p_loaded_shift, uint32_t *p_script, uint32_t *p_dest)
 {
-	uint32_t r1 = *p_r1;
+	uint32_t shifted_tile_set = *p_shifted_tile_set;
 	uint32_t script = *p_script;
 	uint32_t dest = *p_dest;
 	uint8_t shift_per_slot = 0;
@@ -845,12 +845,12 @@ void reload_changed_tile_set(uint32_t *p_r1, uint32_t *p_r2, uint32_t *p_r4, uin
 		slots_left--;
 		if (slots_left == 0u)
 		{
-			load_tile_set(wanted_tile_set, &r1, &r5, &r10, &dest);
-			*p_r1 = r1;
-			*p_r2 = slots_left;
+			load_tile_set(wanted_tile_set, &shifted_tile_set, &r5, &r10, &dest);
+			*p_shifted_tile_set = shifted_tile_set;
+			*p_slots_left = slots_left;
 			*p_r4 = r4;
-			*p_r5 = r5;
-			*p_r8 = loaded_shift;
+			*p_slot_tile_set = r5;
+			*p_loaded_shift = loaded_shift;
 			*p_script = r10;
 			*p_dest = dest;
 			return;
@@ -859,24 +859,24 @@ void reload_changed_tile_set(uint32_t *p_r1, uint32_t *p_r2, uint32_t *p_r4, uin
 	if ((int8_t)AS8(tile_set_slot) < 4)
 	{
 		tile_sets_in_progress = wanted_tile_sets;
-		*p_r2 = slots_left;
+		*p_slots_left = slots_left;
 		*p_r4 = r4;
-		*p_r5 = slot_tile_set;
-		*p_r8 = loaded_shift;
+		*p_slot_tile_set = slot_tile_set;
+		*p_loaded_shift = loaded_shift;
 		return;
 	}
 	loaded_tile_sets = wanted_tile_sets;
 	tile_set_slot = 0u;
 	tile_sets_in_progress = wanted_tile_sets;
-	*p_r2 = slots_left;
+	*p_slots_left = slots_left;
 	*p_r4 = r4;
-	*p_r5 = slot_tile_set;
-	*p_r8 = loaded_shift;
+	*p_slot_tile_set = slot_tile_set;
+	*p_loaded_shift = loaded_shift;
 }
 
-void load_tile_set(uint32_t tile_set, uint32_t *p_r1, uint32_t *p_stage_offset, uint32_t *p_script, uint32_t *p_dest)
+void load_tile_set(uint32_t tile_set, uint32_t *p_count, uint32_t *p_stage_offset, uint32_t *p_script, uint32_t *p_dest)
 {
-	uint32_t r1 = *p_r1;
+	uint32_t count = *p_count;
 	uint32_t dest = *p_dest;
 	uint32_t script = 0, script_list = 0, stage_offset = 0;
 
@@ -890,12 +890,12 @@ void load_tile_set(uint32_t tile_set, uint32_t *p_r1, uint32_t *p_stage_offset, 
 		if ((int32_t)script < 0)
 			break;
 		script = get_tile_set_script_bank(script);
-		run_vram_script(&r1, &script, &dest);
+		run_vram_script(&count, &script, &dest);
 	}
 	if ((int8_t)AS8(tile_set_slot) < 4)
 	{
 		tile_sets_in_progress = wanted_tile_sets;
-		*p_r1 = r1;
+		*p_count = count;
 		*p_stage_offset = stage_offset;
 		*p_script = script;
 		*p_dest = dest;
@@ -904,7 +904,7 @@ void load_tile_set(uint32_t tile_set, uint32_t *p_r1, uint32_t *p_stage_offset, 
 	loaded_tile_sets = wanted_tile_sets;
 	tile_set_slot = 0u;
 	tile_sets_in_progress = wanted_tile_sets;
-	*p_r1 = r1;
+	*p_count = count;
 	*p_stage_offset = stage_offset;
 	*p_script = script;
 	*p_dest = dest;
@@ -1034,18 +1034,18 @@ void clamp_camera_pixels(void)
 		camera_y_pixels = 0xFFFu;
 }
 
-void update_scroll(uint32_t *p_r2, uint32_t *p_speed, uint32_t *p_r4, uint32_t *p_r5, uint32_t *p_r8, uint32_t *p_r9, uint32_t *p_end_script, uint32_t *p_r11)
+void update_scroll(uint32_t *p_position, uint32_t *p_speed, uint32_t *p_speed_value, uint32_t *p_next_scroll_position, uint32_t *p_second_player_object, uint32_t *p_third_player_object, uint32_t *p_end_script, uint32_t *p_dest)
 {
-	uint32_t r2 = *p_r2;
+	uint32_t position = *p_position;
 	uint32_t speed = *p_speed;
-	uint32_t r4 = *p_r4;
-	uint32_t r5 = *p_r5;
-	uint32_t r8 = *p_r8;
-	uint32_t r9 = *p_r9;
+	uint32_t speed_value = *p_speed_value;
+	uint32_t next_scroll_position = *p_next_scroll_position;
+	uint32_t second_player_object = *p_second_player_object;
+	uint32_t third_player_object = *p_third_player_object;
 	uint32_t end_script = *p_end_script;
-	uint32_t r11 = *p_r11;
+	uint32_t dest = *p_dest;
 	uint16_t layer_scroll_x = 0, target_heading = 0;
-	uint32_t r2_2 = 0, r3 = 0, r4_2 = 0, r5_2 = 0, check_result = 0, count = 0, count_2 = 0, mode_script_cursor = 0, object = 0, object_2 = 0, object_3 = 0, player = 0, player_2 = 0, player_speed = 0, push_speed = 0, script = 0, sine_entry = 0, speed_value = 0, velocity_y = 0;
+	uint32_t r2 = 0, r3 = 0, r4 = 0, r5 = 0, check_result = 0, count = 0, count_2 = 0, mode_script_cursor = 0, object = 0, object_2 = 0, object_3 = 0, player = 0, player_2 = 0, player_speed = 0, push_speed = 0, script = 0, sine_entry = 0, velocity_y = 0;
 
 	if (scroll_ended < 0)
 	{
@@ -1071,12 +1071,12 @@ void update_scroll(uint32_t *p_r2, uint32_t *p_speed, uint32_t *p_r4, uint32_t *
 		case 16:
 		case 17:
 		case 18:
-			*p_r2 = r2;
+			*p_position = position;
 			return;
 		case 3:
 			break;
 		case 19:
-			*p_r2 = r2;
+			*p_position = position;
 			return;
 		default:
 			unknown_code(0x16BE2u + stage * 3u);
@@ -1085,9 +1085,9 @@ void update_scroll(uint32_t *p_r2, uint32_t *p_speed, uint32_t *p_r4, uint32_t *
 		{
 			stage_03_end_started++;
 			script = stage_03_end_script_1_ADDRESS;
-			run_vram_script(&count, &script, &r11);
+			run_vram_script(&count, &script, &dest);
 			end_script = stage_03_end_script_2_ADDRESS;
-			run_vram_script(&count, &end_script, &r11);
+			run_vram_script(&count, &end_script, &dest);
 			nbg0_pages = 0x2020202u;
 			scroll_mode_timer = 0x3Cu;
 			scroll_mode_duration = scroll_mode_timer;
@@ -1102,7 +1102,7 @@ void update_scroll(uint32_t *p_r2, uint32_t *p_speed, uint32_t *p_r4, uint32_t *
 		case 0:
 		case 4:
 			stage_03_end_frames++;
-			scroll_speeding_up(&r2, &speed, &r4, &r5, &end_script, &r11);
+			scroll_speeding_up(&position, &speed, &speed_value, &next_scroll_position, &end_script, &dest);
 			if (AS8(scroll_mode) == 0u)
 			{
 				speed = (speed & ~0xFFFFu) | 0x25u;
@@ -1118,7 +1118,7 @@ void update_scroll(uint32_t *p_r2, uint32_t *p_speed, uint32_t *p_r4, uint32_t *
 			{
 				camera_y = 0x10000;
 				end_script = stage_03_end_script_3_ADDRESS;
-				run_vram_script(&count, &end_script, &r11);
+				run_vram_script(&count, &end_script, &dest);
 				nbg0_pages = 0x2020200u;
 				stage_03_end_step++;
 				scroll_mode_timer = 5u;
@@ -1129,28 +1129,28 @@ void update_scroll(uint32_t *p_r2, uint32_t *p_speed, uint32_t *p_r4, uint32_t *
 			break;
 		case 2:
 			stage_03_end_frames++;
-			scroll_slowing_down(&r2, &speed, &r4, &r5, &end_script, &r11);
+			scroll_slowing_down(&position, &speed, &speed_value, &next_scroll_position, &end_script, &dest);
 			if ((int16_t)scroll_speed <= 1)
 			{
 				scroll_speed = 0u;
 				stage_03_end_step++;
 				all_players_path_request = 0x23u;
-				r11 = spawn_stage_03_end_pillar(r11);
-				*p_r2 = r2;
+				dest = spawn_stage_03_end_pillar(dest);
+				*p_position = position;
 				*p_speed = speed;
-				*p_r4 = r4;
-				*p_r5 = r5;
+				*p_speed_value = speed_value;
+				*p_next_scroll_position = next_scroll_position;
 				*p_end_script = end_script;
-				*p_r11 = r11;
+				*p_dest = dest;
 				return;
 			}
 			break;
 		case 3:
 			camera_velocity_x = 0;
 			camera_velocity_y = 0;
-			*p_r2 = r2;
+			*p_position = position;
 			*p_end_script = end_script;
-			*p_r11 = r11;
+			*p_dest = dest;
 			return;
 		default:
 			unknown_code(0x174D2u + stage_03_end_step * 3u);
@@ -1169,42 +1169,42 @@ void update_scroll(uint32_t *p_r2, uint32_t *p_speed, uint32_t *p_r4, uint32_t *
 		velocity_y = section_direction_y * speed_value;
 		camera_velocity_x = section_direction_x * speed_value;
 		camera_velocity_y = velocity_y;
-		*p_r2 = velocity_y;
+		*p_position = velocity_y;
 		*p_speed = speed;
-		*p_r4 = speed_value;
-		*p_r5 = r5;
+		*p_speed_value = speed_value;
+		*p_next_scroll_position = next_scroll_position;
 		*p_end_script = end_script;
-		*p_r11 = r11;
+		*p_dest = dest;
 		return;
 	}
-	r2 = scroll_position;
-	if ((int32_t)scroll_end <= (int32_t)r2)
+	position = scroll_position;
+	if ((int32_t)scroll_end <= (int32_t)position)
 		goto update_scroll_at_end;
 	switch (scroll_mode)
 	{
 	case 0:
-		scroll_at_scroll_speed(&r2, &speed, &r4, &r5, &end_script, &r11);
-		*p_r2 = r2;
+		scroll_at_scroll_speed(&position, &speed, &speed_value, &next_scroll_position, &end_script, &dest);
+		*p_position = position;
 		*p_speed = speed;
-		*p_r4 = r4;
-		*p_r5 = r5;
-		*p_r8 = r8;
-		*p_r9 = r9;
+		*p_speed_value = speed_value;
+		*p_next_scroll_position = next_scroll_position;
+		*p_second_player_object = second_player_object;
+		*p_third_player_object = third_player_object;
 		*p_end_script = end_script;
-		*p_r11 = r11;
+		*p_dest = dest;
 		return;
 	case 1:
 		scroll_speed = 0u;
 		speed &= ~0xFFFFu;
-		set_camera_velocity(&r2_2, &speed, &r4_2, &r5, &end_script, &r11);
-		*p_r2 = r2_2;
+		set_camera_velocity(&r2, &speed, &r4, &next_scroll_position, &end_script, &dest);
+		*p_position = r2;
 		*p_speed = speed;
-		*p_r4 = r4_2;
-		*p_r5 = r5;
-		*p_r8 = r8;
-		*p_r9 = r9;
+		*p_speed_value = r4;
+		*p_next_scroll_position = next_scroll_position;
+		*p_second_player_object = second_player_object;
+		*p_third_player_object = third_player_object;
 		*p_end_script = end_script;
-		*p_r11 = r11;
+		*p_dest = dest;
 		return;
 	case 2:
 		scroll_mode_timer--;
@@ -1213,15 +1213,15 @@ void update_scroll(uint32_t *p_r2, uint32_t *p_speed, uint32_t *p_r4, uint32_t *
 			update_camera_view();
 			speed = 0u;
 			update_camera_view();
-			set_camera_velocity(&r2_2, &speed, &r4_2, &r5, &end_script, &r11);
-			*p_r2 = r2_2;
+			set_camera_velocity(&r2, &speed, &r4, &next_scroll_position, &end_script, &dest);
+			*p_position = r2;
 			*p_speed = speed;
-			*p_r4 = r4_2;
-			*p_r5 = r5;
-			*p_r8 = r8;
-			*p_r9 = r9;
+			*p_speed_value = r4;
+			*p_next_scroll_position = next_scroll_position;
+			*p_second_player_object = second_player_object;
+			*p_third_player_object = third_player_object;
 			*p_end_script = end_script;
-			*p_r11 = r11;
+			*p_dest = dest;
 			return;
 		}
 		if (scroll_mode != 2u)
@@ -1229,15 +1229,15 @@ void update_scroll(uint32_t *p_r2, uint32_t *p_speed, uint32_t *p_r4, uint32_t *
 			scroll_mode = 0u;
 			scroll_ramp_speed = 1u;
 			update_camera_view();
-			set_camera_velocity(&r2_2, &speed, &r4_2, &r5, &end_script, &r11);
-			*p_r2 = r2_2;
+			set_camera_velocity(&r2, &speed, &r4, &next_scroll_position, &end_script, &dest);
+			*p_position = r2;
 			*p_speed = speed;
-			*p_r4 = r4_2;
-			*p_r5 = r5;
-			*p_r8 = r8;
-			*p_r9 = r9;
+			*p_speed_value = r4;
+			*p_next_scroll_position = next_scroll_position;
+			*p_second_player_object = second_player_object;
+			*p_third_player_object = third_player_object;
 			*p_end_script = end_script;
-			*p_r11 = r11;
+			*p_dest = dest;
 			return;
 		}
 		mode_script_cursor = scroll_mode_script;
@@ -1247,37 +1247,37 @@ void update_scroll(uint32_t *p_r2, uint32_t *p_speed, uint32_t *p_r4, uint32_t *
 		scroll_mode_duration = scroll_mode_timer;
 		scroll_mode_script = mode_script_cursor + 2u;
 		scroll_ramp_speed = 1u;
-		set_camera_velocity(&r2_2, &speed, &r4_2, &r5, &end_script, &r11);
-		*p_r2 = r2_2;
+		set_camera_velocity(&r2, &speed, &r4, &next_scroll_position, &end_script, &dest);
+		*p_position = r2;
 		*p_speed = speed;
-		*p_r4 = r4_2;
-		*p_r5 = r5;
-		*p_r8 = r8;
-		*p_r9 = r9;
+		*p_speed_value = r4;
+		*p_next_scroll_position = next_scroll_position;
+		*p_second_player_object = second_player_object;
+		*p_third_player_object = third_player_object;
 		*p_end_script = end_script;
-		*p_r11 = r11;
+		*p_dest = dest;
 		return;
 	case 3:
-		scroll_slowing_down(&r2, &r3, &r4, &r5, &end_script, &r11);
-		*p_r2 = r2;
+		scroll_slowing_down(&position, &r3, &speed_value, &next_scroll_position, &end_script, &dest);
+		*p_position = position;
 		*p_speed = r3;
-		*p_r4 = r4;
-		*p_r5 = r5;
-		*p_r8 = r8;
-		*p_r9 = r9;
+		*p_speed_value = speed_value;
+		*p_next_scroll_position = next_scroll_position;
+		*p_second_player_object = second_player_object;
+		*p_third_player_object = third_player_object;
 		*p_end_script = end_script;
-		*p_r11 = r11;
+		*p_dest = dest;
 		return;
 	case 4:
-		scroll_speeding_up(&r2, &speed, &r4, &r5, &end_script, &r11);
-		*p_r2 = r2;
+		scroll_speeding_up(&position, &speed, &speed_value, &next_scroll_position, &end_script, &dest);
+		*p_position = position;
 		*p_speed = speed;
-		*p_r4 = r4;
-		*p_r5 = r5;
-		*p_r8 = r8;
-		*p_r9 = r9;
+		*p_speed_value = speed_value;
+		*p_next_scroll_position = next_scroll_position;
+		*p_second_player_object = second_player_object;
+		*p_third_player_object = third_player_object;
 		*p_end_script = end_script;
-		*p_r11 = r11;
+		*p_dest = dest;
 		return;
 	case 5:
 		nearby_floor_blocks_locked = 1u;
@@ -1288,15 +1288,15 @@ void update_scroll(uint32_t *p_r2, uint32_t *p_speed, uint32_t *p_r4, uint32_t *
 		scroll_mode_duration = scroll_mode_timer;
 		scroll_mode_script = mode_script_cursor + 2u;
 		scroll_ramp_speed = 1u;
-		set_camera_velocity(&r2_2, &speed, &r4_2, &r5, &end_script, &r11);
-		*p_r2 = r2_2;
+		set_camera_velocity(&r2, &speed, &r4, &next_scroll_position, &end_script, &dest);
+		*p_position = r2;
 		*p_speed = speed;
-		*p_r4 = r4_2;
-		*p_r5 = r5;
-		*p_r8 = r8;
-		*p_r9 = r9;
+		*p_speed_value = r4;
+		*p_next_scroll_position = next_scroll_position;
+		*p_second_player_object = second_player_object;
+		*p_third_player_object = third_player_object;
 		*p_end_script = end_script;
-		*p_r11 = r11;
+		*p_dest = dest;
 		return;
 	case 6:
 		nearby_floor_blocks_locked = 0u;
@@ -1307,15 +1307,15 @@ void update_scroll(uint32_t *p_r2, uint32_t *p_speed, uint32_t *p_r4, uint32_t *
 		scroll_mode_duration = scroll_mode_timer;
 		scroll_mode_script = mode_script_cursor + 2u;
 		scroll_ramp_speed = 1u;
-		set_camera_velocity(&r2_2, &speed, &r4_2, &r5, &end_script, &r11);
-		*p_r2 = r2_2;
+		set_camera_velocity(&r2, &speed, &r4, &next_scroll_position, &end_script, &dest);
+		*p_position = r2;
 		*p_speed = speed;
-		*p_r4 = r4_2;
-		*p_r5 = r5;
-		*p_r8 = r8;
-		*p_r9 = r9;
+		*p_speed_value = r4;
+		*p_next_scroll_position = next_scroll_position;
+		*p_second_player_object = second_player_object;
+		*p_third_player_object = third_player_object;
 		*p_end_script = end_script;
-		*p_r11 = r11;
+		*p_dest = dest;
 		return;
 	case 7:
 	case 8:
@@ -1350,15 +1350,15 @@ void update_scroll(uint32_t *p_r2, uint32_t *p_speed, uint32_t *p_r4, uint32_t *
 			push_speed = 0u;
 			push_speed &= 0xFFu;
 			push_speed = (uint16_t)(push_speed + follow_base_speed);
-			advance_scroll(&r2_2, &push_speed, &r4_2, &r5_2, &player, &sine_entry);
-			*p_r2 = r2_2;
+			advance_scroll(&r2, &push_speed, &r4, &r5, &player, &sine_entry);
+			*p_position = r2;
 			*p_speed = push_speed;
-			*p_r4 = r4_2;
-			*p_r5 = r5_2;
-			*p_r8 = object_2;
-			*p_r9 = object_3;
+			*p_speed_value = r4;
+			*p_next_scroll_position = r5;
+			*p_second_player_object = object_2;
+			*p_third_player_object = object_3;
 			*p_end_script = player;
-			*p_r11 = sine_entry;
+			*p_dest = sine_entry;
 			return;
 		}
 		if ((players_in_play_bits & 1u) != 0u)
@@ -1415,15 +1415,15 @@ void update_scroll(uint32_t *p_r2, uint32_t *p_speed, uint32_t *p_r4, uint32_t *
 			push_speed = 0u;
 			push_speed &= 0xFFu;
 			push_speed = (uint16_t)(push_speed + follow_base_speed);
-			advance_scroll(&r2_2, &push_speed, &r4_2, &r5_2, &player, &sine_entry);
-			*p_r2 = r2_2;
+			advance_scroll(&r2, &push_speed, &r4, &r5, &player, &sine_entry);
+			*p_position = r2;
 			*p_speed = push_speed;
-			*p_r4 = r4_2;
-			*p_r5 = r5_2;
-			*p_r8 = object_2;
-			*p_r9 = object_3;
+			*p_speed_value = r4;
+			*p_next_scroll_position = r5;
+			*p_second_player_object = object_2;
+			*p_third_player_object = object_3;
 			*p_end_script = player;
-			*p_r11 = sine_entry;
+			*p_dest = sine_entry;
 			return;
 		}
 		players_pushing_edge &= players_facing_scroll;
@@ -1437,28 +1437,28 @@ void update_scroll(uint32_t *p_r2, uint32_t *p_speed, uint32_t *p_r4, uint32_t *
 			{
 				speed = 5u;
 				speed = (uint16_t)(speed + follow_base_speed);
-				advance_scroll(&r2_2, &speed, &r4_2, &r5_2, &player, &sine_entry);
-				*p_r2 = r2_2;
+				advance_scroll(&r2, &speed, &r4, &r5, &player, &sine_entry);
+				*p_position = r2;
 				*p_speed = speed;
-				*p_r4 = r4_2;
-				*p_r5 = r5_2;
-				*p_r8 = object_2;
-				*p_r9 = object_3;
+				*p_speed_value = r4;
+				*p_next_scroll_position = r5;
+				*p_second_player_object = object_2;
+				*p_third_player_object = object_3;
 				*p_end_script = player;
-				*p_r11 = sine_entry;
+				*p_dest = sine_entry;
 				return;
 			}
 			speed = 5u;
 			speed = (uint16_t)(speed + follow_base_speed);
-			advance_scroll(&r2_2, &speed, &r4_2, &r5_2, &player, &sine_entry);
-			*p_r2 = r2_2;
+			advance_scroll(&r2, &speed, &r4, &r5, &player, &sine_entry);
+			*p_position = r2;
 			*p_speed = speed;
-			*p_r4 = r4_2;
-			*p_r5 = r5_2;
-			*p_r8 = object_2;
-			*p_r9 = object_3;
+			*p_speed_value = r4;
+			*p_next_scroll_position = r5;
+			*p_second_player_object = object_2;
+			*p_third_player_object = object_3;
 			*p_end_script = player;
-			*p_r11 = sine_entry;
+			*p_dest = sine_entry;
 			return;
 		case 1:
 		case 9:
@@ -1467,15 +1467,15 @@ void update_scroll(uint32_t *p_r2, uint32_t *p_speed, uint32_t *p_r4, uint32_t *
 			{
 				speed = 5u;
 				speed = (uint16_t)(speed + follow_base_speed);
-				advance_scroll(&r2_2, &speed, &r4_2, &r5_2, &player, &sine_entry);
-				*p_r2 = r2_2;
+				advance_scroll(&r2, &speed, &r4, &r5, &player, &sine_entry);
+				*p_position = r2;
 				*p_speed = speed;
-				*p_r4 = r4_2;
-				*p_r5 = r5_2;
-				*p_r8 = object_2;
-				*p_r9 = object_3;
+				*p_speed_value = r4;
+				*p_next_scroll_position = r5;
+				*p_second_player_object = object_2;
+				*p_third_player_object = object_3;
 				*p_end_script = player;
-				*p_r11 = sine_entry;
+				*p_dest = sine_entry;
 				return;
 			}
 			push_speed = ((uint16_t)player_speed * 0x400u) >> 16;
@@ -1483,29 +1483,29 @@ void update_scroll(uint32_t *p_r2, uint32_t *p_speed, uint32_t *p_r4, uint32_t *
 			{
 				push_speed &= 0xFFu;
 				push_speed = (uint16_t)(push_speed + follow_base_speed);
-				advance_scroll(&r2_2, &push_speed, &r4_2, &r5_2, &player, &sine_entry);
-				*p_r2 = r2_2;
+				advance_scroll(&r2, &push_speed, &r4, &r5, &player, &sine_entry);
+				*p_position = r2;
 				*p_speed = push_speed;
-				*p_r4 = r4_2;
-				*p_r5 = r5_2;
-				*p_r8 = object_2;
-				*p_r9 = object_3;
+				*p_speed_value = r4;
+				*p_next_scroll_position = r5;
+				*p_second_player_object = object_2;
+				*p_third_player_object = object_3;
 				*p_end_script = player;
-				*p_r11 = sine_entry;
+				*p_dest = sine_entry;
 				return;
 			}
 			push_speed = (push_speed & 0xFFu) + 5u;
 			push_speed &= 0xFFu;
 			push_speed = (uint16_t)(push_speed + follow_base_speed);
-			advance_scroll(&r2_2, &push_speed, &r4_2, &r5_2, &player, &sine_entry);
-			*p_r2 = r2_2;
+			advance_scroll(&r2, &push_speed, &r4, &r5, &player, &sine_entry);
+			*p_position = r2;
 			*p_speed = push_speed;
-			*p_r4 = r4_2;
-			*p_r5 = r5_2;
-			*p_r8 = object_2;
-			*p_r9 = object_3;
+			*p_speed_value = r4;
+			*p_next_scroll_position = r5;
+			*p_second_player_object = object_2;
+			*p_third_player_object = object_3;
 			*p_end_script = player;
-			*p_r11 = sine_entry;
+			*p_dest = sine_entry;
 			return;
 		case 2:
 		case 10:
@@ -1515,15 +1515,15 @@ void update_scroll(uint32_t *p_r2, uint32_t *p_speed, uint32_t *p_r4, uint32_t *
 			{
 				speed = 5u;
 				speed = (uint16_t)(speed + follow_base_speed);
-				advance_scroll(&r2_2, &speed, &r4_2, &r5_2, &player, &sine_entry);
-				*p_r2 = r2_2;
+				advance_scroll(&r2, &speed, &r4, &r5, &player, &sine_entry);
+				*p_position = r2;
 				*p_speed = speed;
-				*p_r4 = r4_2;
-				*p_r5 = r5_2;
-				*p_r8 = object_2;
-				*p_r9 = object_3;
+				*p_speed_value = r4;
+				*p_next_scroll_position = r5;
+				*p_second_player_object = object_2;
+				*p_third_player_object = object_3;
 				*p_end_script = player;
-				*p_r11 = sine_entry;
+				*p_dest = sine_entry;
 				return;
 			}
 			push_speed = ((uint16_t)player_speed * 0x400u) >> 16;
@@ -1531,15 +1531,15 @@ void update_scroll(uint32_t *p_r2, uint32_t *p_speed, uint32_t *p_r4, uint32_t *
 				push_speed = (push_speed & 0xFFu) + 5u;
 			push_speed &= 0xFFu;
 			push_speed = (uint16_t)(push_speed + follow_base_speed);
-			advance_scroll(&r2_2, &push_speed, &r4_2, &r5_2, &player, &sine_entry);
-			*p_r2 = r2_2;
+			advance_scroll(&r2, &push_speed, &r4, &r5, &player, &sine_entry);
+			*p_position = r2;
 			*p_speed = push_speed;
-			*p_r4 = r4_2;
-			*p_r5 = r5_2;
-			*p_r8 = object_2;
-			*p_r9 = object_3;
+			*p_speed_value = r4;
+			*p_next_scroll_position = r5;
+			*p_second_player_object = object_2;
+			*p_third_player_object = object_3;
 			*p_end_script = player;
-			*p_r11 = sine_entry;
+			*p_dest = sine_entry;
 			return;
 		case 3:
 			if (OBJECT(object_2)->speed < OBJECT(object)->speed)
@@ -1549,15 +1549,15 @@ void update_scroll(uint32_t *p_r2, uint32_t *p_speed, uint32_t *p_r4, uint32_t *
 				{
 					speed = 5u;
 					speed = (uint16_t)(speed + follow_base_speed);
-					advance_scroll(&r2_2, &speed, &r4_2, &r5_2, &player, &sine_entry);
-					*p_r2 = r2_2;
+					advance_scroll(&r2, &speed, &r4, &r5, &player, &sine_entry);
+					*p_position = r2;
 					*p_speed = speed;
-					*p_r4 = r4_2;
-					*p_r5 = r5_2;
-					*p_r8 = object_2;
-					*p_r9 = object_3;
+					*p_speed_value = r4;
+					*p_next_scroll_position = r5;
+					*p_second_player_object = object_2;
+					*p_third_player_object = object_3;
 					*p_end_script = player;
-					*p_r11 = sine_entry;
+					*p_dest = sine_entry;
 					return;
 				}
 				push_speed = ((uint16_t)player_speed * 0x400u) >> 16;
@@ -1565,15 +1565,15 @@ void update_scroll(uint32_t *p_r2, uint32_t *p_speed, uint32_t *p_r4, uint32_t *
 					push_speed = (push_speed & 0xFFu) + 5u;
 				push_speed &= 0xFFu;
 				push_speed = (uint16_t)(push_speed + follow_base_speed);
-				advance_scroll(&r2_2, &push_speed, &r4_2, &r5_2, &player, &sine_entry);
-				*p_r2 = r2_2;
+				advance_scroll(&r2, &push_speed, &r4, &r5, &player, &sine_entry);
+				*p_position = r2;
 				*p_speed = push_speed;
-				*p_r4 = r4_2;
-				*p_r5 = r5_2;
-				*p_r8 = object_2;
-				*p_r9 = object_3;
+				*p_speed_value = r4;
+				*p_next_scroll_position = r5;
+				*p_second_player_object = object_2;
+				*p_third_player_object = object_3;
 				*p_end_script = player;
-				*p_r11 = sine_entry;
+				*p_dest = sine_entry;
 				return;
 			}
 			object = object_2;
@@ -1582,15 +1582,15 @@ void update_scroll(uint32_t *p_r2, uint32_t *p_speed, uint32_t *p_r4, uint32_t *
 			{
 				speed = 5u;
 				speed = (uint16_t)(speed + follow_base_speed);
-				advance_scroll(&r2_2, &speed, &r4_2, &r5_2, &player, &sine_entry);
-				*p_r2 = r2_2;
+				advance_scroll(&r2, &speed, &r4, &r5, &player, &sine_entry);
+				*p_position = r2;
 				*p_speed = speed;
-				*p_r4 = r4_2;
-				*p_r5 = r5_2;
-				*p_r8 = object_2;
-				*p_r9 = object_3;
+				*p_speed_value = r4;
+				*p_next_scroll_position = r5;
+				*p_second_player_object = object_2;
+				*p_third_player_object = object_3;
 				*p_end_script = player;
-				*p_r11 = sine_entry;
+				*p_dest = sine_entry;
 				return;
 			}
 			push_speed = ((uint16_t)player_speed * 0x400u) >> 16;
@@ -1598,15 +1598,15 @@ void update_scroll(uint32_t *p_r2, uint32_t *p_speed, uint32_t *p_r4, uint32_t *
 				push_speed = (push_speed & 0xFFu) + 5u;
 			push_speed &= 0xFFu;
 			push_speed = (uint16_t)(push_speed + follow_base_speed);
-			advance_scroll(&r2_2, &push_speed, &r4_2, &r5_2, &player, &sine_entry);
-			*p_r2 = r2_2;
+			advance_scroll(&r2, &push_speed, &r4, &r5, &player, &sine_entry);
+			*p_position = r2;
 			*p_speed = push_speed;
-			*p_r4 = r4_2;
-			*p_r5 = r5_2;
-			*p_r8 = object_2;
-			*p_r9 = object_3;
+			*p_speed_value = r4;
+			*p_next_scroll_position = r5;
+			*p_second_player_object = object_2;
+			*p_third_player_object = object_3;
 			*p_end_script = player;
-			*p_r11 = sine_entry;
+			*p_dest = sine_entry;
 			return;
 		case 4:
 			object = LINKED(object, PLAYER(r14)->object);
@@ -1615,15 +1615,15 @@ void update_scroll(uint32_t *p_r2, uint32_t *p_speed, uint32_t *p_r4, uint32_t *
 			{
 				speed = 5u;
 				speed = (uint16_t)(speed + follow_base_speed);
-				advance_scroll(&r2_2, &speed, &r4_2, &r5_2, &player, &sine_entry);
-				*p_r2 = r2_2;
+				advance_scroll(&r2, &speed, &r4, &r5, &player, &sine_entry);
+				*p_position = r2;
 				*p_speed = speed;
-				*p_r4 = r4_2;
-				*p_r5 = r5_2;
-				*p_r8 = object_2;
-				*p_r9 = object_3;
+				*p_speed_value = r4;
+				*p_next_scroll_position = r5;
+				*p_second_player_object = object_2;
+				*p_third_player_object = object_3;
 				*p_end_script = player;
-				*p_r11 = sine_entry;
+				*p_dest = sine_entry;
 				return;
 			}
 			push_speed = ((uint16_t)player_speed * 0x400u) >> 16;
@@ -1631,15 +1631,15 @@ void update_scroll(uint32_t *p_r2, uint32_t *p_speed, uint32_t *p_r4, uint32_t *
 				push_speed = (push_speed & 0xFFu) + 5u;
 			push_speed &= 0xFFu;
 			push_speed = (uint16_t)(push_speed + follow_base_speed);
-			advance_scroll(&r2_2, &push_speed, &r4_2, &r5_2, &player, &sine_entry);
-			*p_r2 = r2_2;
+			advance_scroll(&r2, &push_speed, &r4, &r5, &player, &sine_entry);
+			*p_position = r2;
 			*p_speed = push_speed;
-			*p_r4 = r4_2;
-			*p_r5 = r5_2;
-			*p_r8 = object_2;
-			*p_r9 = object_3;
+			*p_speed_value = r4;
+			*p_next_scroll_position = r5;
+			*p_second_player_object = object_2;
+			*p_third_player_object = object_3;
 			*p_end_script = player;
-			*p_r11 = sine_entry;
+			*p_dest = sine_entry;
 			return;
 		case 5:
 			if (OBJECT(object_3)->speed < OBJECT(object)->speed)
@@ -1649,15 +1649,15 @@ void update_scroll(uint32_t *p_r2, uint32_t *p_speed, uint32_t *p_r4, uint32_t *
 				{
 					speed = 5u;
 					speed = (uint16_t)(speed + follow_base_speed);
-					advance_scroll(&r2_2, &speed, &r4_2, &r5_2, &player, &sine_entry);
-					*p_r2 = r2_2;
+					advance_scroll(&r2, &speed, &r4, &r5, &player, &sine_entry);
+					*p_position = r2;
 					*p_speed = speed;
-					*p_r4 = r4_2;
-					*p_r5 = r5_2;
-					*p_r8 = object_2;
-					*p_r9 = object_3;
+					*p_speed_value = r4;
+					*p_next_scroll_position = r5;
+					*p_second_player_object = object_2;
+					*p_third_player_object = object_3;
 					*p_end_script = player;
-					*p_r11 = sine_entry;
+					*p_dest = sine_entry;
 					return;
 				}
 				push_speed = ((uint16_t)player_speed * 0x400u) >> 16;
@@ -1665,15 +1665,15 @@ void update_scroll(uint32_t *p_r2, uint32_t *p_speed, uint32_t *p_r4, uint32_t *
 					push_speed = (push_speed & 0xFFu) + 5u;
 				push_speed &= 0xFFu;
 				push_speed = (uint16_t)(push_speed + follow_base_speed);
-				advance_scroll(&r2_2, &push_speed, &r4_2, &r5_2, &player, &sine_entry);
-				*p_r2 = r2_2;
+				advance_scroll(&r2, &push_speed, &r4, &r5, &player, &sine_entry);
+				*p_position = r2;
 				*p_speed = push_speed;
-				*p_r4 = r4_2;
-				*p_r5 = r5_2;
-				*p_r8 = object_2;
-				*p_r9 = object_3;
+				*p_speed_value = r4;
+				*p_next_scroll_position = r5;
+				*p_second_player_object = object_2;
+				*p_third_player_object = object_3;
 				*p_end_script = player;
-				*p_r11 = sine_entry;
+				*p_dest = sine_entry;
 				return;
 			}
 			object = object_3;
@@ -1682,15 +1682,15 @@ void update_scroll(uint32_t *p_r2, uint32_t *p_speed, uint32_t *p_r4, uint32_t *
 			{
 				speed = 5u;
 				speed = (uint16_t)(speed + follow_base_speed);
-				advance_scroll(&r2_2, &speed, &r4_2, &r5_2, &player, &sine_entry);
-				*p_r2 = r2_2;
+				advance_scroll(&r2, &speed, &r4, &r5, &player, &sine_entry);
+				*p_position = r2;
 				*p_speed = speed;
-				*p_r4 = r4_2;
-				*p_r5 = r5_2;
-				*p_r8 = object_2;
-				*p_r9 = object_3;
+				*p_speed_value = r4;
+				*p_next_scroll_position = r5;
+				*p_second_player_object = object_2;
+				*p_third_player_object = object_3;
 				*p_end_script = player;
-				*p_r11 = sine_entry;
+				*p_dest = sine_entry;
 				return;
 			}
 			push_speed = ((uint16_t)player_speed * 0x400u) >> 16;
@@ -1698,15 +1698,15 @@ void update_scroll(uint32_t *p_r2, uint32_t *p_speed, uint32_t *p_r4, uint32_t *
 				push_speed = (push_speed & 0xFFu) + 5u;
 			push_speed &= 0xFFu;
 			push_speed = (uint16_t)(push_speed + follow_base_speed);
-			advance_scroll(&r2_2, &push_speed, &r4_2, &r5_2, &player, &sine_entry);
-			*p_r2 = r2_2;
+			advance_scroll(&r2, &push_speed, &r4, &r5, &player, &sine_entry);
+			*p_position = r2;
 			*p_speed = push_speed;
-			*p_r4 = r4_2;
-			*p_r5 = r5_2;
-			*p_r8 = object_2;
-			*p_r9 = object_3;
+			*p_speed_value = r4;
+			*p_next_scroll_position = r5;
+			*p_second_player_object = object_2;
+			*p_third_player_object = object_3;
 			*p_end_script = player;
-			*p_r11 = sine_entry;
+			*p_dest = sine_entry;
 			return;
 		case 6:
 			object = object_3;
@@ -1717,15 +1717,15 @@ void update_scroll(uint32_t *p_r2, uint32_t *p_speed, uint32_t *p_r4, uint32_t *
 				{
 					speed = 5u;
 					speed = (uint16_t)(speed + follow_base_speed);
-					advance_scroll(&r2_2, &speed, &r4_2, &r5_2, &player, &sine_entry);
-					*p_r2 = r2_2;
+					advance_scroll(&r2, &speed, &r4, &r5, &player, &sine_entry);
+					*p_position = r2;
 					*p_speed = speed;
-					*p_r4 = r4_2;
-					*p_r5 = r5_2;
-					*p_r8 = object_2;
-					*p_r9 = object_3;
+					*p_speed_value = r4;
+					*p_next_scroll_position = r5;
+					*p_second_player_object = object_2;
+					*p_third_player_object = object_3;
 					*p_end_script = player;
-					*p_r11 = sine_entry;
+					*p_dest = sine_entry;
 					return;
 				}
 				push_speed = ((uint16_t)player_speed * 0x400u) >> 16;
@@ -1733,15 +1733,15 @@ void update_scroll(uint32_t *p_r2, uint32_t *p_speed, uint32_t *p_r4, uint32_t *
 					push_speed = (push_speed & 0xFFu) + 5u;
 				push_speed &= 0xFFu;
 				push_speed = (uint16_t)(push_speed + follow_base_speed);
-				advance_scroll(&r2_2, &push_speed, &r4_2, &r5_2, &player, &sine_entry);
-				*p_r2 = r2_2;
+				advance_scroll(&r2, &push_speed, &r4, &r5, &player, &sine_entry);
+				*p_position = r2;
 				*p_speed = push_speed;
-				*p_r4 = r4_2;
-				*p_r5 = r5_2;
-				*p_r8 = object_2;
-				*p_r9 = object_3;
+				*p_speed_value = r4;
+				*p_next_scroll_position = r5;
+				*p_second_player_object = object_2;
+				*p_third_player_object = object_3;
 				*p_end_script = player;
-				*p_r11 = sine_entry;
+				*p_dest = sine_entry;
 				return;
 			}
 			object = object_2;
@@ -1750,15 +1750,15 @@ void update_scroll(uint32_t *p_r2, uint32_t *p_speed, uint32_t *p_r4, uint32_t *
 			{
 				speed = 5u;
 				speed = (uint16_t)(speed + follow_base_speed);
-				advance_scroll(&r2_2, &speed, &r4_2, &r5_2, &player, &sine_entry);
-				*p_r2 = r2_2;
+				advance_scroll(&r2, &speed, &r4, &r5, &player, &sine_entry);
+				*p_position = r2;
 				*p_speed = speed;
-				*p_r4 = r4_2;
-				*p_r5 = r5_2;
-				*p_r8 = object_2;
-				*p_r9 = object_3;
+				*p_speed_value = r4;
+				*p_next_scroll_position = r5;
+				*p_second_player_object = object_2;
+				*p_third_player_object = object_3;
 				*p_end_script = player;
-				*p_r11 = sine_entry;
+				*p_dest = sine_entry;
 				return;
 			}
 			push_speed = ((uint16_t)player_speed * 0x400u) >> 16;
@@ -1766,15 +1766,15 @@ void update_scroll(uint32_t *p_r2, uint32_t *p_speed, uint32_t *p_r4, uint32_t *
 				push_speed = (push_speed & 0xFFu) + 5u;
 			push_speed &= 0xFFu;
 			push_speed = (uint16_t)(push_speed + follow_base_speed);
-			advance_scroll(&r2_2, &push_speed, &r4_2, &r5_2, &player, &sine_entry);
-			*p_r2 = r2_2;
+			advance_scroll(&r2, &push_speed, &r4, &r5, &player, &sine_entry);
+			*p_position = r2;
 			*p_speed = push_speed;
-			*p_r4 = r4_2;
-			*p_r5 = r5_2;
-			*p_r8 = object_2;
-			*p_r9 = object_3;
+			*p_speed_value = r4;
+			*p_next_scroll_position = r5;
+			*p_second_player_object = object_2;
+			*p_third_player_object = object_3;
 			*p_end_script = player;
-			*p_r11 = sine_entry;
+			*p_dest = sine_entry;
 			return;
 		case 7:
 			if (OBJECT(object)->speed <= OBJECT(object_2)->speed)
@@ -1786,15 +1786,15 @@ void update_scroll(uint32_t *p_r2, uint32_t *p_speed, uint32_t *p_r4, uint32_t *
 				{
 					speed = 5u;
 					speed = (uint16_t)(speed + follow_base_speed);
-					advance_scroll(&r2_2, &speed, &r4_2, &r5_2, &player, &sine_entry);
-					*p_r2 = r2_2;
+					advance_scroll(&r2, &speed, &r4, &r5, &player, &sine_entry);
+					*p_position = r2;
 					*p_speed = speed;
-					*p_r4 = r4_2;
-					*p_r5 = r5_2;
-					*p_r8 = object_2;
-					*p_r9 = object_3;
+					*p_speed_value = r4;
+					*p_next_scroll_position = r5;
+					*p_second_player_object = object_2;
+					*p_third_player_object = object_3;
 					*p_end_script = player;
-					*p_r11 = sine_entry;
+					*p_dest = sine_entry;
 					return;
 				}
 				push_speed = ((uint16_t)player_speed * 0x400u) >> 16;
@@ -1802,15 +1802,15 @@ void update_scroll(uint32_t *p_r2, uint32_t *p_speed, uint32_t *p_r4, uint32_t *
 					push_speed = (push_speed & 0xFFu) + 5u;
 				push_speed &= 0xFFu;
 				push_speed = (uint16_t)(push_speed + follow_base_speed);
-				advance_scroll(&r2_2, &push_speed, &r4_2, &r5_2, &player, &sine_entry);
-				*p_r2 = r2_2;
+				advance_scroll(&r2, &push_speed, &r4, &r5, &player, &sine_entry);
+				*p_position = r2;
 				*p_speed = push_speed;
-				*p_r4 = r4_2;
-				*p_r5 = r5_2;
-				*p_r8 = object_2;
-				*p_r9 = object_3;
+				*p_speed_value = r4;
+				*p_next_scroll_position = r5;
+				*p_second_player_object = object_2;
+				*p_third_player_object = object_3;
 				*p_end_script = player;
-				*p_r11 = sine_entry;
+				*p_dest = sine_entry;
 				return;
 			}
 			object = object_3;
@@ -1819,15 +1819,15 @@ void update_scroll(uint32_t *p_r2, uint32_t *p_speed, uint32_t *p_r4, uint32_t *
 			{
 				speed = 5u;
 				speed = (uint16_t)(speed + follow_base_speed);
-				advance_scroll(&r2_2, &speed, &r4_2, &r5_2, &player, &sine_entry);
-				*p_r2 = r2_2;
+				advance_scroll(&r2, &speed, &r4, &r5, &player, &sine_entry);
+				*p_position = r2;
 				*p_speed = speed;
-				*p_r4 = r4_2;
-				*p_r5 = r5_2;
-				*p_r8 = object_2;
-				*p_r9 = object_3;
+				*p_speed_value = r4;
+				*p_next_scroll_position = r5;
+				*p_second_player_object = object_2;
+				*p_third_player_object = object_3;
 				*p_end_script = player;
-				*p_r11 = sine_entry;
+				*p_dest = sine_entry;
 				return;
 			}
 			push_speed = ((uint16_t)player_speed * 0x400u) >> 16;
@@ -1835,15 +1835,15 @@ void update_scroll(uint32_t *p_r2, uint32_t *p_speed, uint32_t *p_r4, uint32_t *
 				push_speed = (push_speed & 0xFFu) + 5u;
 			push_speed &= 0xFFu;
 			push_speed = (uint16_t)(push_speed + follow_base_speed);
-			advance_scroll(&r2_2, &push_speed, &r4_2, &r5_2, &player, &sine_entry);
-			*p_r2 = r2_2;
+			advance_scroll(&r2, &push_speed, &r4, &r5, &player, &sine_entry);
+			*p_position = r2;
 			*p_speed = push_speed;
-			*p_r4 = r4_2;
-			*p_r5 = r5_2;
-			*p_r8 = object_2;
-			*p_r9 = object_3;
+			*p_speed_value = r4;
+			*p_next_scroll_position = r5;
+			*p_second_player_object = object_2;
+			*p_third_player_object = object_3;
 			*p_end_script = player;
-			*p_r11 = sine_entry;
+			*p_dest = sine_entry;
 			return;
 		default:
 			unknown_code(0x16151u + players_pushing_edge * 3u);
@@ -2517,145 +2517,145 @@ void is_direction_in_quadrant(uint32_t count, uint32_t *p_found, uint32_t *p_sin
 	*p_sine_entry = sine_entry;
 }
 
-void scroll_slowing_down(uint32_t *p_r2, uint32_t *p_speed, uint32_t *p_r4, uint32_t *p_r5, uint32_t *p_r10, uint32_t *p_r11)
+void scroll_slowing_down(uint32_t *p_other_list, uint32_t *p_speed, uint32_t *p_speed_value, uint32_t *p_next_scroll_position, uint32_t *p_range, uint32_t *p_quadrant_cursor)
 {
-	uint32_t r2 = *p_r2;
-	uint32_t r4 = *p_r4;
-	uint32_t r5 = *p_r5;
-	uint32_t r10 = *p_r10;
-	uint32_t r11 = *p_r11;
+	uint32_t other_list = *p_other_list;
+	uint32_t speed_value = *p_speed_value;
+	uint32_t next_scroll_position = *p_next_scroll_position;
+	uint32_t range = *p_range;
+	uint32_t quadrant_cursor = *p_quadrant_cursor;
 	uint32_t speed = 0;
 
 	scroll_mode_timer--;
 	if (scroll_mode_timer != 0u || (int16_t)scroll_speed < 2)
 	{
-		scroll_at_scroll_speed(&r2, &speed, &r4, &r5, &r10, &r11);
-		*p_r2 = r2;
+		scroll_at_scroll_speed(&other_list, &speed, &speed_value, &next_scroll_position, &range, &quadrant_cursor);
+		*p_other_list = other_list;
 		*p_speed = speed;
-		*p_r4 = r4;
-		*p_r5 = r5;
-		*p_r10 = r10;
-		*p_r11 = r11;
+		*p_speed_value = speed_value;
+		*p_next_scroll_position = next_scroll_position;
+		*p_range = range;
+		*p_quadrant_cursor = quadrant_cursor;
 		return;
 	}
 	scroll_speed--;
 	scroll_mode_timer = scroll_mode_duration;
-	scroll_at_scroll_speed(&r2, &speed, &r4, &r5, &r10, &r11);
-	*p_r2 = r2;
+	scroll_at_scroll_speed(&other_list, &speed, &speed_value, &next_scroll_position, &range, &quadrant_cursor);
+	*p_other_list = other_list;
 	*p_speed = speed;
-	*p_r4 = r4;
-	*p_r5 = r5;
-	*p_r10 = r10;
-	*p_r11 = r11;
+	*p_speed_value = speed_value;
+	*p_next_scroll_position = next_scroll_position;
+	*p_range = range;
+	*p_quadrant_cursor = quadrant_cursor;
 }
 
-void scroll_speeding_up(uint32_t *p_r2, uint32_t *p_speed, uint32_t *p_r4, uint32_t *p_r5, uint32_t *p_r10, uint32_t *p_r11)
+void scroll_speeding_up(uint32_t *p_other_list, uint32_t *p_speed, uint32_t *p_speed_value, uint32_t *p_next_scroll_position, uint32_t *p_range, uint32_t *p_quadrant_cursor)
 {
-	uint32_t r2 = *p_r2;
+	uint32_t other_list = *p_other_list;
 	uint32_t speed = *p_speed;
-	uint32_t r4 = *p_r4;
-	uint32_t r5 = *p_r5;
-	uint32_t r10 = *p_r10;
-	uint32_t r11 = *p_r11;
-	uint32_t r2_2 = 0, r4_2 = 0;
+	uint32_t speed_value = *p_speed_value;
+	uint32_t next_scroll_position = *p_next_scroll_position;
+	uint32_t range = *p_range;
+	uint32_t quadrant_cursor = *p_quadrant_cursor;
+	uint32_t r2 = 0, r4 = 0;
 
 	scroll_mode_timer--;
 	if (scroll_mode_timer != 0u)
 	{
 		speed = scroll_ramp_speed;
-		advance_scroll_unless_ended(&r2, &speed, &r4, &r5, &r10, &r11);
-		*p_r2 = r2;
+		advance_scroll_unless_ended(&other_list, &speed, &speed_value, &next_scroll_position, &range, &quadrant_cursor);
+		*p_other_list = other_list;
 		*p_speed = speed;
-		*p_r4 = r4;
-		*p_r5 = r5;
-		*p_r10 = r10;
-		*p_r11 = r11;
+		*p_speed_value = speed_value;
+		*p_next_scroll_position = next_scroll_position;
+		*p_range = range;
+		*p_quadrant_cursor = quadrant_cursor;
 		return;
 	}
 	if ((int8_t)AS8(scroll_speed) <= (int8_t)scroll_ramp_speed)
 	{
 		scroll_mode = 0u;
 		scroll_ramp_speed = 1u;
-		set_camera_velocity(&r2_2, &speed, &r4_2, &r5, &r10, &r11);
-		*p_r2 = r2_2;
+		set_camera_velocity(&r2, &speed, &r4, &next_scroll_position, &range, &quadrant_cursor);
+		*p_other_list = r2;
 		*p_speed = speed;
-		*p_r4 = r4_2;
-		*p_r5 = r5;
-		*p_r10 = r10;
-		*p_r11 = r11;
+		*p_speed_value = r4;
+		*p_next_scroll_position = next_scroll_position;
+		*p_range = range;
+		*p_quadrant_cursor = quadrant_cursor;
 		return;
 	}
 	scroll_ramp_speed++;
 	scroll_mode_timer = scroll_mode_duration;
 	speed = scroll_ramp_speed;
-	advance_scroll_unless_ended(&r2, &speed, &r4, &r5, &r10, &r11);
-	*p_r2 = r2;
+	advance_scroll_unless_ended(&other_list, &speed, &speed_value, &next_scroll_position, &range, &quadrant_cursor);
+	*p_other_list = other_list;
 	*p_speed = speed;
-	*p_r4 = r4;
-	*p_r5 = r5;
-	*p_r10 = r10;
-	*p_r11 = r11;
+	*p_speed_value = speed_value;
+	*p_next_scroll_position = next_scroll_position;
+	*p_range = range;
+	*p_quadrant_cursor = quadrant_cursor;
 }
 
-void scroll_at_scroll_speed(uint32_t *p_r2, uint32_t *p_speed, uint32_t *p_r4, uint32_t *p_r5, uint32_t *p_r10, uint32_t *p_r11)
+void scroll_at_scroll_speed(uint32_t *p_other_list, uint32_t *p_speed, uint32_t *p_speed_value, uint32_t *p_next_scroll_position, uint32_t *p_range, uint32_t *p_quadrant_cursor)
 {
-	uint32_t r2 = *p_r2;
-	uint32_t r4 = *p_r4;
-	uint32_t r5 = *p_r5;
-	uint32_t r10 = *p_r10;
-	uint32_t r11 = *p_r11;
+	uint32_t other_list = *p_other_list;
+	uint32_t speed_value = *p_speed_value;
+	uint32_t next_scroll_position = *p_next_scroll_position;
+	uint32_t range = *p_range;
+	uint32_t quadrant_cursor = *p_quadrant_cursor;
 	uint32_t speed = 0;
 
 	speed = scroll_speed;
-	advance_scroll_unless_ended(&r2, &speed, &r4, &r5, &r10, &r11);
-	*p_r2 = r2;
+	advance_scroll_unless_ended(&other_list, &speed, &speed_value, &next_scroll_position, &range, &quadrant_cursor);
+	*p_other_list = other_list;
 	*p_speed = speed;
-	*p_r4 = r4;
-	*p_r5 = r5;
-	*p_r10 = r10;
-	*p_r11 = r11;
+	*p_speed_value = speed_value;
+	*p_next_scroll_position = next_scroll_position;
+	*p_range = range;
+	*p_quadrant_cursor = quadrant_cursor;
 }
 
-void advance_scroll_unless_ended(uint32_t *p_r2, uint32_t *p_speed, uint32_t *p_r4, uint32_t *p_r5, uint32_t *p_r10, uint32_t *p_r11)
+void advance_scroll_unless_ended(uint32_t *p_other_list, uint32_t *p_speed, uint32_t *p_speed_value, uint32_t *p_next_scroll_position, uint32_t *p_range, uint32_t *p_quadrant_cursor)
 {
-	uint32_t r2 = *p_r2;
+	uint32_t other_list = *p_other_list;
 	uint32_t speed = *p_speed;
-	uint32_t r4 = *p_r4;
-	uint32_t r5 = *p_r5;
-	uint32_t r10 = *p_r10;
-	uint32_t r11 = *p_r11;
-	uint32_t r2_2 = 0, r4_2 = 0, r5_2 = 0;
+	uint32_t speed_value = *p_speed_value;
+	uint32_t next_scroll_position = *p_next_scroll_position;
+	uint32_t range = *p_range;
+	uint32_t quadrant_cursor = *p_quadrant_cursor;
+	uint32_t r2 = 0, r4 = 0, r5 = 0;
 
 	if (scroll_ended < 0)
 		return;
-	advance_scroll(&r2_2, &speed, &r4_2, &r5_2, &r10, &r11);
-	*p_r2 = r2_2;
+	advance_scroll(&r2, &speed, &r4, &r5, &range, &quadrant_cursor);
+	*p_other_list = r2;
 	*p_speed = speed;
-	*p_r4 = r4_2;
-	*p_r5 = r5_2;
-	*p_r10 = r10;
-	*p_r11 = r11;
+	*p_speed_value = r4;
+	*p_next_scroll_position = r5;
+	*p_range = range;
+	*p_quadrant_cursor = quadrant_cursor;
 }
 
-void advance_scroll(uint32_t *p_other_list, uint32_t *p_speed, uint32_t *p_r4, uint32_t *p_next_scroll_position, uint32_t *p_r10, uint32_t *p_r11)
+void advance_scroll(uint32_t *p_other_list, uint32_t *p_speed, uint32_t *p_speed_value, uint32_t *p_next_scroll_position, uint32_t *p_range, uint32_t *p_quadrant_cursor)
 {
 	uint32_t speed = *p_speed;
-	uint32_t r10 = *p_r10;
-	uint32_t r11 = *p_r11;
-	uint32_t r2 = 0, r4 = 0, r5 = 0, direction_y_list = 0, limit_x_cursor = 0, limit_y_cursor = 0, list = 0, mode_script_cursor = 0;
+	uint32_t range = *p_range;
+	uint32_t quadrant_cursor = *p_quadrant_cursor;
+	uint32_t r2 = 0, r4 = 0, direction_y_list = 0, limit_x_cursor = 0, limit_y_cursor = 0, list = 0, mode_script_cursor = 0, next_scroll_position = 0;
 	uint16_t direction_y = 0;
 
-	r5 = move_camera_along_path(speed);
+	next_scroll_position = move_camera_along_path(speed);
 	update_camera_view();
 	if ((int32_t)scroll_position < (int32_t)ROM16(section_end_list))
 	{
-		set_camera_velocity(&r2, &speed, &r4, &r5, &r10, &r11);
+		set_camera_velocity(&r2, &speed, &r4, &next_scroll_position, &range, &quadrant_cursor);
 		*p_other_list = r2;
 		*p_speed = speed;
-		*p_r4 = r4;
-		*p_next_scroll_position = r5;
-		*p_r10 = r10;
-		*p_r11 = r11;
+		*p_speed_value = r4;
+		*p_next_scroll_position = next_scroll_position;
+		*p_range = range;
+		*p_quadrant_cursor = quadrant_cursor;
 		return;
 	}
 	back_edge_frames = 0u;
@@ -2686,22 +2686,22 @@ void advance_scroll(uint32_t *p_other_list, uint32_t *p_speed, uint32_t *p_r4, u
 	section_direction_y_list = direction_y_list + 2u;
 	section_end_list += 2u;
 	section_unused_cursor += 2u;
-	set_camera_velocity(&r2, &speed, &r4, &r5, &r10, &r11);
+	set_camera_velocity(&r2, &speed, &r4, &next_scroll_position, &range, &quadrant_cursor);
 	*p_other_list = r2;
 	*p_speed = speed;
-	*p_r4 = r4;
-	*p_next_scroll_position = r5;
-	*p_r10 = r10;
-	*p_r11 = r11;
+	*p_speed_value = r4;
+	*p_next_scroll_position = next_scroll_position;
+	*p_range = range;
+	*p_quadrant_cursor = quadrant_cursor;
 }
 
-void set_camera_velocity(uint32_t *p_r2, uint32_t *p_speed, uint32_t *p_r4, uint32_t *p_r5, uint32_t *p_r10, uint32_t *p_r11)
+void set_camera_velocity(uint32_t *p_scroll_y, uint32_t *p_speed, uint32_t *p_speed_value, uint32_t *p_next_scroll_position, uint32_t *p_range, uint32_t *p_quadrant_cursor)
 {
 	uint32_t speed = *p_speed;
-	uint32_t r5 = *p_r5;
-	uint32_t r10 = *p_r10;
-	uint32_t r11 = *p_r11;
-	uint32_t r2 = 0, r10_2 = 0, ignored = 0, speed_value = 0, velocity_y = 0;
+	uint32_t next_scroll_position = *p_next_scroll_position;
+	uint32_t range = *p_range;
+	uint32_t quadrant_cursor = *p_quadrant_cursor;
+	uint32_t r2 = 0, r10 = 0, ignored = 0, speed_value = 0, velocity_y = 0;
 
 	speed_value = (uint16_t)speed;
 	velocity_y = section_direction_y * speed_value;
@@ -2712,30 +2712,30 @@ void set_camera_velocity(uint32_t *p_r2, uint32_t *p_speed, uint32_t *p_r4, uint
 	r2 = update_camera_with_shake();
 	if (scroll_ended < 0)
 	{
-		*p_r2 = r2;
-		*p_r4 = speed_value;
+		*p_scroll_y = r2;
+		*p_speed_value = speed_value;
 		return;
 	}
-	update_background_scroll(&ignored, &r2, &speed, &speed_value, &r5, &r10_2, &r11);
-	*p_r2 = r2;
+	update_background_scroll(&ignored, &r2, &speed, &speed_value, &next_scroll_position, &r10, &quadrant_cursor);
+	*p_scroll_y = r2;
 	*p_speed = speed;
-	*p_r4 = speed_value;
-	*p_r5 = r5;
-	*p_r10 = r10_2;
-	*p_r11 = r11;
+	*p_speed_value = speed_value;
+	*p_next_scroll_position = next_scroll_position;
+	*p_range = r10;
+	*p_quadrant_cursor = quadrant_cursor;
 }
 
-void update_background_scroll(uint32_t *p_r1, uint32_t *p_r2, uint32_t *p_speed, uint32_t *p_r4, uint32_t *p_r5, uint32_t *p_range, uint32_t *p_r11)
+void update_background_scroll(uint32_t *p_fast_scroll_start, uint32_t *p_scroll_y, uint32_t *p_speed, uint32_t *p_speed_value, uint32_t *p_next_scroll_position, uint32_t *p_range, uint32_t *p_quadrant_cursor)
 {
-	uint32_t r2 = *p_r2;
+	uint32_t scroll_y = *p_scroll_y;
 	uint32_t speed = *p_speed;
-	uint32_t r4 = *p_r4;
-	uint32_t r5 = *p_r5;
-	uint32_t r11 = *p_r11;
+	uint32_t speed_value = *p_speed_value;
+	uint32_t next_scroll_position = *p_next_scroll_position;
+	uint32_t quadrant_cursor = *p_quadrant_cursor;
 	uint32_t current_position = 0, fast_scroll_start = 0, range = 0, section_start = 0;
 
 	update_nbg1_scroll();
-	update_nbg3_scroll(&r2, &speed, &r4, &r5, &r11);
+	update_nbg3_scroll(&scroll_y, &speed, &speed_value, &next_scroll_position, &quadrant_cursor);
 	speed = update_nbg2_scroll(speed);
 	fast_scroll_start = stage;
 	range = stage_fast_scroll_ranges[fast_scroll_start] + stage_fast_scroll_ranges_ADDRESS;
@@ -2744,13 +2744,13 @@ void update_background_scroll(uint32_t *p_r1, uint32_t *p_r2, uint32_t *p_speed,
 	{
 		if (ROM16(range) == 0xFFFFu)
 		{
-			*p_r1 = fast_scroll_start;
-			*p_r2 = r2;
+			*p_fast_scroll_start = fast_scroll_start;
+			*p_scroll_y = scroll_y;
 			*p_speed = speed;
-			*p_r4 = r4;
-			*p_r5 = r5;
+			*p_speed_value = speed_value;
+			*p_next_scroll_position = next_scroll_position;
 			*p_range = range;
-			*p_r11 = r11;
+			*p_quadrant_cursor = quadrant_cursor;
 			return;
 		}
 		fast_scroll_start = ROM16(range);
@@ -2759,23 +2759,23 @@ void update_background_scroll(uint32_t *p_r1, uint32_t *p_r2, uint32_t *p_speed,
 	current_position = scroll_position;
 	if ((int32_t)current_position < (int32_t)fast_scroll_start)
 	{
-		*p_r1 = fast_scroll_start;
-		*p_r2 = current_position;
+		*p_fast_scroll_start = fast_scroll_start;
+		*p_scroll_y = current_position;
 		*p_speed = speed;
-		*p_r4 = r4;
-		*p_r5 = r5;
+		*p_speed_value = speed_value;
+		*p_next_scroll_position = next_scroll_position;
 		*p_range = range;
-		*p_r11 = r11;
+		*p_quadrant_cursor = quadrant_cursor;
 		return;
 	}
 	follow_base_speed = 0x10u;
-	*p_r1 = fast_scroll_start;
-	*p_r2 = current_position;
+	*p_fast_scroll_start = fast_scroll_start;
+	*p_scroll_y = current_position;
 	*p_speed = speed;
-	*p_r4 = r4;
-	*p_r5 = r5;
+	*p_speed_value = speed_value;
+	*p_next_scroll_position = next_scroll_position;
 	*p_range = range;
-	*p_r11 = r11;
+	*p_quadrant_cursor = quadrant_cursor;
 }
 
 void spawn_debug_sprite_mover(uint32_t object)
@@ -2823,21 +2823,20 @@ void debug_sprite_mover_update(void)
 	draw_hex_4(&value, &attribute, &text_position);
 }
 
-void start_stage_view(uint32_t *p_r2, uint32_t *p_r3, uint32_t *p_r4, uint32_t *p_stage_offset)
+void start_stage_view(uint32_t *p_direction_y, uint32_t *p_direction_x, uint32_t *p_count, uint32_t *p_stage_offset)
 {
-	uint32_t r2 = *p_r2;
-	uint32_t r3 = *p_r3;
-	uint32_t r4 = *p_r4;
+	uint32_t direction_y = *p_direction_y;
+	uint32_t direction_x = *p_direction_x;
+	uint32_t count = *p_count;
 	uint32_t stage_offset = *p_stage_offset;
-	uint32_t r2_2 = 0, r3_2 = 0, r4_2 = 0;
 
 	if (stage != 0x11u)
 	{
 		unused_scroll_flag = 1u;
-		init_stage_view(&r2_2, &r3_2, &r4_2, &stage_offset);
-		*p_r2 = r2_2;
-		*p_r3 = r3_2;
-		*p_r4 = r4_2;
+		init_stage_view(&direction_y, &direction_x, &count, &stage_offset);
+		*p_direction_y = direction_y;
+		*p_direction_x = direction_x;
+		*p_count = count;
 		*p_stage_offset = stage_offset;
 		return;
 	}
@@ -2849,12 +2848,12 @@ void call_run_map_screen(uint32_t object)
 	run_map_screen(0u, object);
 }
 
-void run_stage_05_switch(uint32_t r3, uint32_t *p_r2, uint32_t *p_r4, uint32_t *p_dest)
+void run_stage_05_switch(uint32_t speed, uint32_t *p_scroll_y, uint32_t *p_speed_value, uint32_t *p_dest)
 {
-	uint32_t r2 = *p_r2;
-	uint32_t r4 = *p_r4;
+	uint32_t scroll_y = *p_scroll_y;
+	uint32_t speed_value = *p_speed_value;
 	uint32_t dest = *p_dest;
-	uint32_t r1 = 0, r5 = 0, camera_view_y = 0, ignored = 0, layer_scroll_x = 0, script = 0;
+	uint32_t r1 = 0, camera_view_y = 0, ignored = 0, layer_scroll_x = 0, next_scroll_position = 0, script = 0;
 
 	r1 = (uint8_t)stage_05_switch_step * 3u;
 	switch ((uint8_t)stage_05_switch_step)
@@ -2906,12 +2905,12 @@ void run_stage_05_switch(uint32_t r3, uint32_t *p_r2, uint32_t *p_r4, uint32_t *
 		nbg0_scroll_x_int &= 0x3FFu;
 		nbg0_scroll_y_int &= 0x1FFu;
 		stage = 0u;
-		update_background_scroll(&ignored, &layer_scroll_x, &r3, &r4, &r5, &ignored, &dest);
+		update_background_scroll(&ignored, &layer_scroll_x, &speed, &speed_value, &next_scroll_position, &ignored, &dest);
 		stage = 5u;
 		mem_write8(video_layer_disable, mem_read8(video_layer_disable) & 0xE6u);
 		stage_05_switch_step++;
-		*p_r2 = layer_scroll_x;
-		*p_r4 = r4;
+		*p_scroll_y = layer_scroll_x;
+		*p_speed_value = speed_value;
 		*p_dest = dest;
 		return;
 	case 3:
@@ -3046,12 +3045,12 @@ uint32_t update_fade(uint32_t delta)
 	}
 }
 
-void update_stage_00_exit_scene(uint32_t dest, uint32_t *p_r4, uint32_t *p_script)
+void update_stage_00_exit_scene(uint32_t dest, uint32_t *p_speed_value, uint32_t *p_script)
 {
-	uint32_t r4 = *p_r4;
+	uint32_t speed_value = *p_speed_value;
 	uint32_t script = *p_script;
 	uint16_t layer_zoom = 0;
-	uint32_t r5 = 0, r10 = 0, ignored = 0, layer_scroll_x = 0, scroll_y_past_trigger = 0, speed = 0;
+	uint32_t r10 = 0, ignored = 0, layer_scroll_x = 0, next_scroll_position = 0, scroll_y_past_trigger = 0, speed = 0;
 	uint16_t scroll_y_offset = 0;
 
 	if ((int8_t)stage_00_exit_step < 2)
@@ -3119,8 +3118,8 @@ void update_stage_00_exit_scene(uint32_t dest, uint32_t *p_r4, uint32_t *p_scrip
 		nbg0_scroll_x_int = layer_scroll_x;
 		nbg0_scroll_x_int &= 0x3FFu;
 		nbg0_scroll_y_int &= 0x1FFu;
-		update_background_scroll(&ignored, &layer_scroll_x, &speed, &r4, &r5, &r10, &dest);
-		*p_r4 = r4;
+		update_background_scroll(&ignored, &layer_scroll_x, &speed, &speed_value, &next_scroll_position, &r10, &dest);
+		*p_speed_value = speed_value;
 		*p_script = r10;
 		return;
 	case 3:
@@ -3143,8 +3142,8 @@ void update_stage_00_exit_scene(uint32_t dest, uint32_t *p_r4, uint32_t *p_scrip
 		nbg0_scroll_x_int = layer_scroll_x;
 		nbg0_scroll_x_int &= 0x3FFu;
 		nbg0_scroll_y_int &= 0x1FFu;
-		update_background_scroll(&ignored, &layer_scroll_x, &speed, &r4, &r5, &r10, &dest);
-		*p_r4 = r4;
+		update_background_scroll(&ignored, &layer_scroll_x, &speed, &speed_value, &next_scroll_position, &r10, &dest);
+		*p_speed_value = speed_value;
 		*p_script = r10;
 		return;
 	case 4:
@@ -3167,8 +3166,8 @@ void update_stage_00_exit_scene(uint32_t dest, uint32_t *p_r4, uint32_t *p_scrip
 		nbg0_scroll_x_int = layer_scroll_x;
 		nbg0_scroll_x_int &= 0x3FFu;
 		nbg0_scroll_y_int &= 0x1FFu;
-		update_background_scroll(&ignored, &layer_scroll_x, &speed, &r4, &r5, &r10, &dest);
-		*p_r4 = r4;
+		update_background_scroll(&ignored, &layer_scroll_x, &speed, &speed_value, &next_scroll_position, &r10, &dest);
+		*p_speed_value = speed_value;
 		*p_script = r10;
 		return;
 	case 5:
@@ -3193,8 +3192,8 @@ void update_stage_00_exit_scene(uint32_t dest, uint32_t *p_r4, uint32_t *p_scrip
 		nbg0_scroll_x_int = layer_scroll_x;
 		nbg0_scroll_x_int &= 0x3FFu;
 		nbg0_scroll_y_int &= 0x1FFu;
-		update_background_scroll(&ignored, &layer_scroll_x, &speed, &r4, &r5, &r10, &dest);
-		*p_r4 = r4;
+		update_background_scroll(&ignored, &layer_scroll_x, &speed, &speed_value, &next_scroll_position, &r10, &dest);
+		*p_speed_value = speed_value;
 		*p_script = r10;
 		return;
 	case 6:
@@ -3214,8 +3213,8 @@ void update_stage_00_exit_scene(uint32_t dest, uint32_t *p_r4, uint32_t *p_scrip
 			nbg0_scroll_x_int = layer_scroll_x;
 			nbg0_scroll_x_int &= 0x3FFu;
 			nbg0_scroll_y_int &= 0x1FFu;
-			update_background_scroll(&ignored, &layer_scroll_x, &speed, &r4, &r5, &r10, &dest);
-			*p_r4 = r4;
+			update_background_scroll(&ignored, &layer_scroll_x, &speed, &speed_value, &next_scroll_position, &r10, &dest);
+			*p_speed_value = speed_value;
 			*p_script = r10;
 			return;
 		}
@@ -3240,8 +3239,8 @@ void update_stage_00_exit_scene(uint32_t dest, uint32_t *p_r4, uint32_t *p_scrip
 			nbg0_scroll_x_int = layer_scroll_x;
 			nbg0_scroll_x_int &= 0x3FFu;
 			nbg0_scroll_y_int &= 0x1FFu;
-			update_background_scroll(&ignored, &layer_scroll_x, &speed, &r4, &r5, &r10, &dest);
-			*p_r4 = r4;
+			update_background_scroll(&ignored, &layer_scroll_x, &speed, &speed_value, &next_scroll_position, &r10, &dest);
+			*p_speed_value = speed_value;
 			*p_script = r10;
 			return;
 		}
@@ -3299,8 +3298,8 @@ void update_stage_00_exit_scene(uint32_t dest, uint32_t *p_r4, uint32_t *p_scrip
 		stage_00_exit_delay++;
 		if (stage_00_exit_delay != 3u)
 		{
-			update_background_scroll(&ignored, &layer_scroll_x, &speed, &r4, &r5, &r10, &dest);
-			*p_r4 = r4;
+			update_background_scroll(&ignored, &layer_scroll_x, &speed, &speed_value, &next_scroll_position, &r10, &dest);
+			*p_speed_value = speed_value;
 			*p_script = r10;
 			return;
 		}
@@ -3310,8 +3309,8 @@ void update_stage_00_exit_scene(uint32_t dest, uint32_t *p_r4, uint32_t *p_scrip
 		color_offset_green--;
 		if (color_offset_red != 0u)
 		{
-			update_background_scroll(&ignored, &layer_scroll_x, &speed, &r4, &r5, &r10, &dest);
-			*p_r4 = r4;
+			update_background_scroll(&ignored, &layer_scroll_x, &speed, &speed_value, &next_scroll_position, &r10, &dest);
+			*p_speed_value = speed_value;
 			*p_script = r10;
 			return;
 		}
@@ -3319,7 +3318,7 @@ void update_stage_00_exit_scene(uint32_t dest, uint32_t *p_r4, uint32_t *p_scrip
 		*p_script = script;
 		return;
 	case 10:
-		update_background_scroll(&ignored, &layer_scroll_x, &speed, &r4, &r5, &r10, &dest);
+		update_background_scroll(&ignored, &layer_scroll_x, &speed, &speed_value, &next_scroll_position, &r10, &dest);
 		if ((int16_t)stage_00_exit_zoom < 0x42)
 			stage_00_exit_zoom = 0x42u;
 		stage_00_exit_zoom--;
@@ -3328,7 +3327,7 @@ void update_stage_00_exit_scene(uint32_t dest, uint32_t *p_r4, uint32_t *p_scrip
 		mem_write16(nbg0_zoom_y, layer_zoom);
 		mem_write16(nbg1_zoom_x, layer_zoom);
 		mem_write16(nbg1_zoom_y, layer_zoom);
-		*p_r4 = r4;
+		*p_speed_value = speed_value;
 		*p_script = r10;
 		return;
 	default:
@@ -3679,14 +3678,14 @@ void snap_camera_to_section_end(void)
 	scroll_position = ROM16(section_end_list);
 }
 
-void update_stage_06_background(uint32_t r3, uint32_t dest, uint32_t *p_rolls_left, uint32_t *p_r9, uint32_t *p_r10)
+void update_stage_06_background(uint32_t random_value, uint32_t dest, uint32_t *p_rolls_left, uint32_t *p_words_left, uint32_t *p_source)
 {
 	uint32_t rolls_left = *p_rolls_left;
-	uint32_t r9 = *p_r9;
-	uint32_t r10 = *p_r10;
+	uint32_t words_left = *p_words_left;
+	uint32_t source = *p_source;
 	uint8_t sound_id = 0;
 	uint16_t shake_y = 0;
-	uint32_t r1 = 0, r2 = 0, r10_2 = 0, cycle_set = 0, ignored = 0, palette_stage = 0, script = 0;
+	uint32_t r1 = 0, cycle_set = 0, ignored = 0, palette_stage = 0, script = 0, write_index_address = 0;
 	uint8_t flipped_sign = 0;
 	uint16_t previous_shake = 0;
 
@@ -3709,11 +3708,11 @@ void update_stage_06_background(uint32_t r3, uint32_t dest, uint32_t *p_rolls_le
 		}
 		load_default_palettes();
 		palette_stage = 1u;
-		load_palette_set_and_backdrop(palette_stage, &ignored, &r10_2, &dest);
+		load_palette_set_and_backdrop(palette_stage, &ignored, &source, &dest);
 		if (mem_read16(palette_color_61D0) != 0x7B0u)
 		{
 			mixer_blend = 0xA4u;
-			*p_r10 = r10_2;
+			*p_source = source;
 			return;
 		}
 		camera_x = 0;
@@ -3734,7 +3733,7 @@ void update_stage_06_background(uint32_t r3, uint32_t dest, uint32_t *p_rolls_le
 		nbg0_pages = 0x5050505u;
 		mem_write8(video_layer_disable, mem_read8(video_layer_disable) & 0x26u);
 		stage_06_background_step++;
-		*p_r10 = script;
+		*p_source = script;
 		return;
 	case 2:
 		nbg0_scroll_x -= 0x2000u;
@@ -3762,7 +3761,7 @@ void update_stage_06_background(uint32_t r3, uint32_t dest, uint32_t *p_rolls_le
 		mem_write16(mixer_nbg0, mixer_default_nbg0 | 0xFu);
 		mem_write16(mixer_nbg3, mixer_default_nbg3 | 0xFu);
 		stage_06_background_step++;
-		*p_r10 = script;
+		*p_source = script;
 		return;
 	case 4:
 		nbg0_scroll_y_int -= 0x10u;
@@ -3777,7 +3776,7 @@ void update_stage_06_background(uint32_t r3, uint32_t dest, uint32_t *p_rolls_le
 		stage_06_shake = 0x800u;
 		stage_06_shake_sign = 0;
 		sound_id = 0x1Eu;
-		play_sound(sound_id, &r1, &r2);
+		play_sound(sound_id, &r1, &write_index_address);
 		return;
 	case 5:
 		mixer_blend &= 0x1F00u;
@@ -3819,16 +3818,16 @@ void update_stage_06_background(uint32_t r3, uint32_t dest, uint32_t *p_rolls_le
 		mem_write16(mixer_nbg0, mixer_default_nbg0);
 		mem_write16(mixer_nbg3, mixer_default_nbg3);
 		stage_06_background_step++;
-		*p_r10 = script;
+		*p_source = script;
 		return;
 	case 6:
 		if (palette_cycle_set_0_frame != 0u)
 		{
-			r10 = cycle_palette_set_0(r10);
-			r10 = cycle_palette_set_1(r10);
+			source = cycle_palette_set_0(source);
+			source = cycle_palette_set_1(source);
 			*p_rolls_left = rolls_left;
-			*p_r9 = r9;
-			*p_r10 = r10;
+			*p_words_left = words_left;
+			*p_source = source;
 			return;
 		}
 		if (palette_cycle_set_1_frame == 0u)
@@ -3836,23 +3835,23 @@ void update_stage_06_background(uint32_t r3, uint32_t dest, uint32_t *p_rolls_le
 			rolls_left = 2u;
 			do
 			{
-				next_random(&r3, &r9, &r10);
-				r3 &= 0xFu;
-				if ((int8_t)r3 > 2)
+				next_random(&random_value, &words_left, &source);
+				random_value &= 0xFu;
+				if ((int8_t)random_value > 2)
 				{
 					*p_rolls_left = rolls_left;
-					*p_r9 = r9;
-					*p_r10 = r10;
+					*p_words_left = words_left;
+					*p_source = source;
 					return;
 				}
 				rolls_left--;
 			} while (rolls_left != 0u);
-			r10 = cycle_palette_set_0(r10);
+			source = cycle_palette_set_0(source);
 		}
-		r10 = cycle_palette_set_1(r10);
+		source = cycle_palette_set_1(source);
 		*p_rolls_left = rolls_left;
-		*p_r9 = r9;
-		*p_r10 = r10;
+		*p_words_left = words_left;
+		*p_source = source;
 		return;
 	case 7:
 		if (stage_06_shake == 0u)
@@ -3877,7 +3876,7 @@ void update_stage_06_background(uint32_t r3, uint32_t dest, uint32_t *p_rolls_le
 void escape_alarm_flash(void)
 {
 	uint8_t sound_id = 0;
-	uint32_t r1 = 0, r2 = 0;
+	uint32_t write_index = 0, write_index_address = 0;
 
 	if (escape_seconds == 0u)
 	{
@@ -3911,7 +3910,7 @@ void escape_alarm_flash(void)
 		{
 			OBJECT(current_object)->escape_alarm_flash.counting_up = 0u;
 			sound_id = 0x19u;
-			play_sound(sound_id, &r1, &r2);
+			play_sound(sound_id, &write_index, &write_index_address);
 		}
 	}
 	else
@@ -3922,7 +3921,7 @@ void escape_alarm_flash(void)
 		{
 			OBJECT(current_object)->escape_alarm_flash.counting_up = 1u;
 			sound_id = 0x19u;
-			play_sound(sound_id, &r1, &r2);
+			play_sound(sound_id, &write_index, &write_index_address);
 		}
 	}
 }
@@ -4042,13 +4041,13 @@ void scroll_skip_check_call(void)
 	scroll_skip_call_armed = 1u;
 }
 
-void move_camera_to_start_section(uint32_t *p_r2, uint32_t *p_section_offset, uint32_t *p_stage_index)
+void move_camera_to_start_section(uint32_t *p_y, uint32_t *p_section_offset, uint32_t *p_stage_index)
 {
 	uint32_t r2 = 0, section_offset = 0, stage_index = 0;
 
 	load_camera_start_section(&section_offset, &stage_index);
 	r2 = update_camera_view();
-	*p_r2 = r2;
+	*p_y = r2;
 	*p_section_offset = section_offset;
 	*p_stage_index = stage_index;
 }
@@ -4196,14 +4195,14 @@ void clear_bitmap_lower_half(void)
 	bitmap_window_bottom = 0xDF;
 }
 
-void animate_stage_palette(uint32_t *p_r1, uint32_t *p_r2, uint32_t *p_palette_count, uint32_t *p_cycle, uint32_t *p_source, uint32_t *p_dest)
+void animate_stage_palette(uint32_t *p_copy_offset, uint32_t *p_copy_entry, uint32_t *p_palette_count, uint32_t *p_cycle, uint32_t *p_source, uint32_t *p_dest)
 {
-	uint32_t r2 = *p_r2;
+	uint32_t copy_entry = *p_copy_entry;
 	uint32_t palette_count = *p_palette_count;
 	uint32_t cycle = *p_cycle;
 	uint32_t source = *p_source;
 	uint32_t dest = *p_dest;
-	uint32_t r1 = 0;
+	uint32_t copy_offset = 0;
 
 	switch (stage)
 	{
@@ -4220,7 +4219,7 @@ void animate_stage_palette(uint32_t *p_r1, uint32_t *p_r2, uint32_t *p_palette_c
 		skip_stage_palette_animation();
 		break;
 	case 4:
-		animate_palette_stage_04(&r1, &r2, &palette_count, &cycle, &source, &dest);
+		animate_palette_stage_04(&copy_offset, &copy_entry, &palette_count, &cycle, &source, &dest);
 		break;
 	case 5:
 		skip_stage_palette_animation();
@@ -4235,28 +4234,28 @@ void animate_stage_palette(uint32_t *p_r1, uint32_t *p_r2, uint32_t *p_palette_c
 		skip_stage_palette_animation();
 		break;
 	case 9:
-		animate_palette_stage_09(&r1, &r2, &palette_count, &cycle, &source, &dest);
+		animate_palette_stage_09(&copy_offset, &copy_entry, &palette_count, &cycle, &source, &dest);
 		break;
 	case 10:
-		animate_palette_stage_0a(&r1, &r2, &palette_count, &cycle, &source, &dest);
+		animate_palette_stage_0a(&copy_offset, &copy_entry, &palette_count, &cycle, &source, &dest);
 		break;
 	case 11:
 		skip_stage_palette_animation();
 		break;
 	case 12:
-		animate_palette_stage_0c(&r1, &r2, &palette_count, &cycle, &source, &dest);
+		animate_palette_stage_0c(&copy_offset, &copy_entry, &palette_count, &cycle, &source, &dest);
 		break;
 	case 13:
-		animate_palette_stage_0d_0e(&r1, &r2, &palette_count, &cycle, &source, &dest);
+		animate_palette_stage_0d_0e(&copy_offset, &copy_entry, &palette_count, &cycle, &source, &dest);
 		break;
 	case 14:
-		animate_palette_stage_0d_0e(&r1, &r2, &palette_count, &cycle, &source, &dest);
+		animate_palette_stage_0d_0e(&copy_offset, &copy_entry, &palette_count, &cycle, &source, &dest);
 		break;
 	case 15:
-		animate_palette_stage_0f(&r1, &r2, &palette_count, &cycle, &source, &dest);
+		animate_palette_stage_0f(&copy_offset, &copy_entry, &palette_count, &cycle, &source, &dest);
 		break;
 	case 16:
-		animate_palette_stage_10(&r1, &r2, &palette_count, &cycle, &source, &dest);
+		animate_palette_stage_10(&copy_offset, &copy_entry, &palette_count, &cycle, &source, &dest);
 		break;
 	case 17:
 		skip_stage_palette_animation();
@@ -4270,8 +4269,8 @@ void animate_stage_palette(uint32_t *p_r1, uint32_t *p_r2, uint32_t *p_palette_c
 	default:
 		unknown_code(0x1AD41u + stage * 3u);
 	}
-	*p_r1 = r1;
-	*p_r2 = r2;
+	*p_copy_offset = copy_offset;
+	*p_copy_entry = copy_entry;
 	*p_palette_count = palette_count;
 	*p_cycle = cycle;
 	*p_source = source;
@@ -4282,11 +4281,11 @@ void skip_stage_palette_animation(void)
 {
 }
 
-void animate_palette_stage_10(uint32_t *p_r1, uint32_t *p_r2, uint32_t *p_r4, uint32_t *p_r9, uint32_t *p_r10, uint32_t *p_r11)
+void animate_palette_stage_10(uint32_t *p_copy_offset, uint32_t *p_copy_entry, uint32_t *p_palette_count, uint32_t *p_cycle, uint32_t *p_source, uint32_t *p_dest)
 {
-	uint32_t r2 = *p_r2;
+	uint32_t copy_entry = *p_copy_entry;
 	uint16_t halfwords = 0;
-	uint32_t r1 = 0, cycle = 0, cycle_1 = 0, dest = 0, dest_1 = 0, ignored = 0, palette_count = 0, palette_count_1 = 0, source = 0, source_1 = 0;
+	uint32_t copy_offset = 0, cycle = 0, cycle_1 = 0, dest = 0, dest_1 = 0, ignored = 0, palette_count = 0, palette_count_1 = 0, source = 0, source_1 = 0;
 
 	dest = PALETTE_RAM + 0x8B40u;
 	palette_count = 6u;
@@ -4295,7 +4294,7 @@ void animate_palette_stage_10(uint32_t *p_r1, uint32_t *p_r2, uint32_t *p_r4, ui
 	cycle = palette_cycle_0_ADDRESS;
 	palette_cycle_0 = 6u;
 	palette_cycle_0_frames = 8u;
-	cycle_palette(cycle, halfwords, &ignored, &r2, &palette_count, &source, &dest);
+	cycle_palette(cycle, halfwords, &ignored, &copy_entry, &palette_count, &source, &dest);
 	cycle_1 = palette_cycle_1_ADDRESS;
 	dest_1 = PALETTE_RAM + 0x8940u;
 	palette_count_1 = 1u;
@@ -4303,20 +4302,20 @@ void animate_palette_stage_10(uint32_t *p_r1, uint32_t *p_r2, uint32_t *p_r4, ui
 	halfwords = 0x10u;
 	palette_cycle_1 = 4u;
 	palette_cycle_1_frames = 8u;
-	cycle_palette(cycle_1, halfwords, &r1, &r2, &palette_count_1, &source_1, &dest_1);
-	*p_r1 = r1;
-	*p_r2 = r2;
-	*p_r4 = palette_count_1;
-	*p_r9 = cycle_1;
-	*p_r10 = source_1;
-	*p_r11 = dest_1;
+	cycle_palette(cycle_1, halfwords, &copy_offset, &copy_entry, &palette_count_1, &source_1, &dest_1);
+	*p_copy_offset = copy_offset;
+	*p_copy_entry = copy_entry;
+	*p_palette_count = palette_count_1;
+	*p_cycle = cycle_1;
+	*p_source = source_1;
+	*p_dest = dest_1;
 }
 
-void animate_palette_stage_0c(uint32_t *p_r1, uint32_t *p_r2, uint32_t *p_palette_count, uint32_t *p_cycle, uint32_t *p_source, uint32_t *p_dest)
+void animate_palette_stage_0c(uint32_t *p_copy_offset, uint32_t *p_copy_entry, uint32_t *p_palette_count, uint32_t *p_cycle, uint32_t *p_source, uint32_t *p_dest)
 {
-	uint32_t r2 = *p_r2;
+	uint32_t copy_entry = *p_copy_entry;
 	uint16_t halfwords = 0;
-	uint32_t r1 = 0, cycle = 0, dest = 0, palette_count = 0, source = 0;
+	uint32_t copy_offset = 0, cycle = 0, dest = 0, palette_count = 0, source = 0;
 
 	dest = PALETTE_RAM + 0x8800u;
 	palette_count = 1u;
@@ -4325,20 +4324,20 @@ void animate_palette_stage_0c(uint32_t *p_r1, uint32_t *p_r2, uint32_t *p_palett
 	cycle = palette_cycle_0_ADDRESS;
 	palette_cycle_0 = 6u;
 	palette_cycle_0_frames = 8u;
-	cycle_palette(cycle, halfwords, &r1, &r2, &palette_count, &source, &dest);
-	*p_r1 = r1;
-	*p_r2 = r2;
+	cycle_palette(cycle, halfwords, &copy_offset, &copy_entry, &palette_count, &source, &dest);
+	*p_copy_offset = copy_offset;
+	*p_copy_entry = copy_entry;
 	*p_palette_count = palette_count;
 	*p_cycle = cycle;
 	*p_source = source;
 	*p_dest = dest;
 }
 
-void animate_palette_stage_0d_0e(uint32_t *p_r1, uint32_t *p_r2, uint32_t *p_palette_count, uint32_t *p_cycle, uint32_t *p_source, uint32_t *p_dest)
+void animate_palette_stage_0d_0e(uint32_t *p_copy_offset, uint32_t *p_copy_entry, uint32_t *p_palette_count, uint32_t *p_cycle, uint32_t *p_source, uint32_t *p_dest)
 {
-	uint32_t r2 = *p_r2;
+	uint32_t copy_entry = *p_copy_entry;
 	uint16_t halfwords = 0;
-	uint32_t r1 = 0, cycle = 0, dest = 0, palette_count = 0, source = 0;
+	uint32_t copy_offset = 0, cycle = 0, dest = 0, palette_count = 0, source = 0;
 
 	dest = PALETTE_RAM + 0x88C0u;
 	palette_count = 1u;
@@ -4347,20 +4346,20 @@ void animate_palette_stage_0d_0e(uint32_t *p_r1, uint32_t *p_r2, uint32_t *p_pal
 	cycle = palette_cycle_0_ADDRESS;
 	palette_cycle_0 = 6u;
 	palette_cycle_0_frames = 8u;
-	cycle_palette(cycle, halfwords, &r1, &r2, &palette_count, &source, &dest);
-	*p_r1 = r1;
-	*p_r2 = r2;
+	cycle_palette(cycle, halfwords, &copy_offset, &copy_entry, &palette_count, &source, &dest);
+	*p_copy_offset = copy_offset;
+	*p_copy_entry = copy_entry;
 	*p_palette_count = palette_count;
 	*p_cycle = cycle;
 	*p_source = source;
 	*p_dest = dest;
 }
 
-void animate_palette_stage_0f(uint32_t *p_r1, uint32_t *p_r2, uint32_t *p_palette_count, uint32_t *p_cycle, uint32_t *p_source, uint32_t *p_dest)
+void animate_palette_stage_0f(uint32_t *p_copy_offset, uint32_t *p_copy_entry, uint32_t *p_palette_count, uint32_t *p_cycle, uint32_t *p_source, uint32_t *p_dest)
 {
-	uint32_t r2 = *p_r2;
+	uint32_t copy_entry = *p_copy_entry;
 	uint16_t halfwords = 0;
-	uint32_t r1 = 0, cycle = 0, dest = 0, ignored = 0, palette_count = 0, source = 0;
+	uint32_t copy_offset = 0, cycle = 0, dest = 0, ignored = 0, palette_count = 0, source = 0;
 
 	dest = PALETTE_RAM + 0x8920u;
 	palette_count = 3u;
@@ -4369,7 +4368,7 @@ void animate_palette_stage_0f(uint32_t *p_r1, uint32_t *p_r2, uint32_t *p_palett
 	cycle = palette_cycle_0_ADDRESS;
 	palette_cycle_0 = 0xCu;
 	palette_cycle_0_frames = 6u;
-	cycle_palette(cycle, halfwords, &ignored, &r2, &palette_count, &source, &dest);
+	cycle_palette(cycle, halfwords, &ignored, &copy_entry, &palette_count, &source, &dest);
 	cycle = palette_cycle_1_ADDRESS;
 	dest = PALETTE_RAM + 0x8900u;
 	palette_count = 1u;
@@ -4377,20 +4376,20 @@ void animate_palette_stage_0f(uint32_t *p_r1, uint32_t *p_r2, uint32_t *p_palett
 	halfwords = 0x10u;
 	palette_cycle_1 = 6u;
 	palette_cycle_1_frames = 6u;
-	cycle_palette(cycle, halfwords, &r1, &r2, &palette_count, &source, &dest);
-	*p_r1 = r1;
-	*p_r2 = r2;
+	cycle_palette(cycle, halfwords, &copy_offset, &copy_entry, &palette_count, &source, &dest);
+	*p_copy_offset = copy_offset;
+	*p_copy_entry = copy_entry;
 	*p_palette_count = palette_count;
 	*p_cycle = cycle;
 	*p_source = source;
 	*p_dest = dest;
 }
 
-void animate_palette_stage_0a(uint32_t *p_r1, uint32_t *p_r2, uint32_t *p_palette_count, uint32_t *p_cycle, uint32_t *p_source, uint32_t *p_dest)
+void animate_palette_stage_0a(uint32_t *p_copy_offset, uint32_t *p_copy_entry, uint32_t *p_palette_count, uint32_t *p_cycle, uint32_t *p_source, uint32_t *p_dest)
 {
-	uint32_t r2 = *p_r2;
+	uint32_t copy_entry = *p_copy_entry;
 	uint16_t halfwords = 0;
-	uint32_t r1 = 0, cycle = 0, dest = 0, ignored = 0, palette_count = 0, source = 0;
+	uint32_t copy_offset = 0, cycle = 0, dest = 0, ignored = 0, palette_count = 0, source = 0;
 
 	dest = PALETTE_RAM + 0x8A40u;
 	palette_count = 1u;
@@ -4399,7 +4398,7 @@ void animate_palette_stage_0a(uint32_t *p_r1, uint32_t *p_r2, uint32_t *p_palett
 	cycle = palette_cycle_0_ADDRESS;
 	palette_cycle_0 = 5u;
 	palette_cycle_0_frames = 6u;
-	cycle_palette(cycle, halfwords, &ignored, &r2, &palette_count, &source, &dest);
+	cycle_palette(cycle, halfwords, &ignored, &copy_entry, &palette_count, &source, &dest);
 	cycle = palette_cycle_1_ADDRESS;
 	dest = PALETTE_RAM + 0x8A60u;
 	palette_count = 9u;
@@ -4407,20 +4406,20 @@ void animate_palette_stage_0a(uint32_t *p_r1, uint32_t *p_r2, uint32_t *p_palett
 	halfwords = 0x10u;
 	palette_cycle_1 = 5u;
 	palette_cycle_1_frames = 0xAu;
-	cycle_palette(cycle, halfwords, &r1, &r2, &palette_count, &source, &dest);
-	*p_r1 = r1;
-	*p_r2 = r2;
+	cycle_palette(cycle, halfwords, &copy_offset, &copy_entry, &palette_count, &source, &dest);
+	*p_copy_offset = copy_offset;
+	*p_copy_entry = copy_entry;
 	*p_palette_count = palette_count;
 	*p_cycle = cycle;
 	*p_source = source;
 	*p_dest = dest;
 }
 
-void animate_palette_stage_09(uint32_t *p_r1, uint32_t *p_r2, uint32_t *p_palette_count, uint32_t *p_cycle, uint32_t *p_source, uint32_t *p_dest)
+void animate_palette_stage_09(uint32_t *p_copy_offset, uint32_t *p_copy_entry, uint32_t *p_palette_count, uint32_t *p_cycle, uint32_t *p_source, uint32_t *p_dest)
 {
-	uint32_t r2 = *p_r2;
+	uint32_t copy_entry = *p_copy_entry;
 	uint16_t halfwords = 0;
-	uint32_t r1 = 0, cycle = 0, dest = 0, palette_count = 0, source = 0;
+	uint32_t copy_offset = 0, cycle = 0, dest = 0, palette_count = 0, source = 0;
 
 	dest = PALETTE_RAM + 0x88A0u;
 	palette_count = 2u;
@@ -4429,20 +4428,20 @@ void animate_palette_stage_09(uint32_t *p_r1, uint32_t *p_r2, uint32_t *p_palett
 	cycle = palette_cycle_0_ADDRESS;
 	palette_cycle_0 = 3u;
 	palette_cycle_0_frames = 7u;
-	cycle_palette(cycle, halfwords, &r1, &r2, &palette_count, &source, &dest);
-	*p_r1 = r1;
-	*p_r2 = r2;
+	cycle_palette(cycle, halfwords, &copy_offset, &copy_entry, &palette_count, &source, &dest);
+	*p_copy_offset = copy_offset;
+	*p_copy_entry = copy_entry;
 	*p_palette_count = palette_count;
 	*p_cycle = cycle;
 	*p_source = source;
 	*p_dest = dest;
 }
 
-void animate_palette_stage_04(uint32_t *p_r1, uint32_t *p_r2, uint32_t *p_palette_count, uint32_t *p_cycle, uint32_t *p_source, uint32_t *p_dest)
+void animate_palette_stage_04(uint32_t *p_copy_offset, uint32_t *p_copy_entry, uint32_t *p_palette_count, uint32_t *p_cycle, uint32_t *p_source, uint32_t *p_dest)
 {
-	uint32_t r2 = *p_r2;
+	uint32_t copy_entry = *p_copy_entry;
 	uint16_t halfwords = 0;
-	uint32_t r1 = 0, cycle = 0, dest = 0, palette_count = 0, source = 0;
+	uint32_t copy_offset = 0, cycle = 0, dest = 0, palette_count = 0, source = 0;
 
 	dest = PALETTE_RAM + 0x8500u;
 	palette_count = 2u;
@@ -4451,36 +4450,36 @@ void animate_palette_stage_04(uint32_t *p_r1, uint32_t *p_r2, uint32_t *p_palett
 	cycle = palette_cycle_0_ADDRESS;
 	palette_cycle_0 = 4u;
 	palette_cycle_0_frames = 8u;
-	cycle_palette(cycle, halfwords, &r1, &r2, &palette_count, &source, &dest);
-	*p_r1 = r1;
-	*p_r2 = r2;
+	cycle_palette(cycle, halfwords, &copy_offset, &copy_entry, &palette_count, &source, &dest);
+	*p_copy_offset = copy_offset;
+	*p_copy_entry = copy_entry;
 	*p_palette_count = palette_count;
 	*p_cycle = cycle;
 	*p_source = source;
 	*p_dest = dest;
 }
 
-void cycle_palette(uint32_t cycle, uint16_t halfwords, uint32_t *p_r1, uint32_t *p_r2, uint32_t *p_palette_count, uint32_t *p_source, uint32_t *p_dest)
+void cycle_palette(uint32_t cycle, uint16_t halfwords, uint32_t *p_copy_offset, uint32_t *p_copy_entry, uint32_t *p_palette_count, uint32_t *p_source, uint32_t *p_dest)
 {
-	uint32_t r2 = *p_r2;
+	uint32_t copy_entry = *p_copy_entry;
 	uint32_t palette_count = *p_palette_count;
 	uint32_t source = *p_source;
 	uint32_t dest = *p_dest;
-	uint32_t r1 = 0, r2_2 = 0, frame_offset = 0;
+	uint32_t copy_offset = 0, frame_offset = 0;
 
 	frame_offset = (uint32_t)mem_read8(cycle + 3u) << 5;
 	source += frame_offset;
 	if ((int8_t)mem_read8(cycle + 4u) > 0)
 	{
 		mem_write8(cycle + 4u, mem_read8(cycle + 4u) - 1u);
-		*p_r1 = frame_offset;
+		*p_copy_offset = frame_offset;
 		*p_source = source;
 		return;
 	}
 	do
 	{
 		mem_write8(cycle + 4u, mem_read8(cycle));
-		queue_vblank_copy(source, dest, halfwords, &r1, &r2_2);
+		queue_vblank_copy(source, dest, halfwords, &copy_offset, &copy_entry);
 		dest += 0x20u;
 		palette_count--;
 	} while (palette_count != 0u);
@@ -4488,8 +4487,8 @@ void cycle_palette(uint32_t cycle, uint16_t halfwords, uint32_t *p_r1, uint32_t 
 	if ((int8_t)mem_read8(cycle + 3u) < (int8_t)mem_read8(cycle + 1u))
 	{
 		mem_write8(cycle + 4u, mem_read8(cycle + 4u) - 1u);
-		*p_r1 = r1;
-		*p_r2 = r2_2;
+		*p_copy_offset = copy_offset;
+		*p_copy_entry = copy_entry;
 		*p_palette_count = palette_count;
 		*p_source = source;
 		*p_dest = dest;
@@ -4497,8 +4496,8 @@ void cycle_palette(uint32_t cycle, uint16_t halfwords, uint32_t *p_r1, uint32_t 
 	}
 	mem_write8(cycle + 3u, 0u);
 	mem_write8(cycle + 4u, mem_read8(cycle + 4u) - 1u);
-	*p_r1 = r1;
-	*p_r2 = r2_2;
+	*p_copy_offset = copy_offset;
+	*p_copy_entry = copy_entry;
 	*p_palette_count = palette_count;
 	*p_source = source;
 	*p_dest = dest;
@@ -4905,9 +4904,8 @@ uint32_t init_nbg2_layer(uint32_t dest)
 		entries_left = 0x100u;
 		table_entry = VIDEO_RAM + 0xA000u;
 		tables_left--;
-		if (tables_left != 0u)
-			continue;
-		break;
+		if (tables_left == 0u)
+			break;
 	}
 	mixer_nbg2_blend |= 0x80u;
 	mixer_blend &= 0xFFu;

@@ -3,7 +3,7 @@
  *    Description: the game's functions, part 12 (in the order of their V60 addresses)
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    13-10-2026
+ *    Modified:    14-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -71,10 +71,10 @@ test_sound_ram_verify:
 	move_bytes(SOUND_RAM, VIDEO_RAM, 0x2000u);
 }
 
-void test_inputs(uint16_t r8, uint32_t *p_panel_color, uint32_t *p_r9)
+void test_inputs(uint16_t count, uint32_t *p_panel_color, uint32_t *p_blocks_per_row)
 {
 	uint32_t panel_color = *p_panel_color;
-	uint32_t r9 = *p_r9;
+	uint32_t blocks_per_row = *p_blocks_per_row;
 	uint32_t r4 = 0, r11 = 0, bottom = 0, coin_text = 0, ignored = 0, input_bits = 0, input_index = 0, inputs_left = 0, left = 0, off_texts = 0, on_texts = 0, right = 0, sprite_block = 0, text = 0, text_entry = 0, text_position = 0, top = 0, value = 0;
 
 	if (test_screen_ready != 0u)
@@ -133,11 +133,11 @@ void test_inputs(uint16_t r8, uint32_t *p_panel_color, uint32_t *p_r9)
 				coin_text = input_test_coin_3_off_text_ADDRESS;
 			print_text_list(&coin_text, &text_position);
 		}
-		move_input_test_cursors(r8, coin_text, &r4, &r9);
+		move_input_test_cursors(count, coin_text, &r4, &blocks_per_row);
 		if ((input_ports_active & 0x2002u) != 0u && input_test_switch_released == 0u)
 		{
 			*p_panel_color = r4;
-			*p_r9 = r9;
+			*p_blocks_per_row = blocks_per_row;
 			return;
 		}
 		input_test_switch_released = 1u;
@@ -146,7 +146,7 @@ void test_inputs(uint16_t r8, uint32_t *p_panel_color, uint32_t *p_r9)
 			if (input_test_switch_pressed == 0u)
 			{
 				*p_panel_color = r4;
-				*p_r9 = r9;
+				*p_blocks_per_row = blocks_per_row;
 				return;
 			}
 			sprite_block = screen_sprite_block;
@@ -160,7 +160,7 @@ void test_inputs(uint16_t r8, uint32_t *p_panel_color, uint32_t *p_r9)
 				test_screen++;
 				test_screen_ready = 0u;
 				*p_panel_color = r4;
-				*p_r9 = r9;
+				*p_blocks_per_row = blocks_per_row;
 				return;
 			}
 			test_cursor = test_menu_item;
@@ -168,12 +168,12 @@ void test_inputs(uint16_t r8, uint32_t *p_panel_color, uint32_t *p_r9)
 			test_screen_ready = 1u;
 			draw_test_menu();
 			*p_panel_color = r4;
-			*p_r9 = r9;
+			*p_blocks_per_row = blocks_per_row;
 			return;
 		}
 		input_test_switch_pressed = 1u;
 		*p_panel_color = r4;
-		*p_r9 = r9;
+		*p_blocks_per_row = blocks_per_row;
 		return;
 	}
 	test_screen_ready = 1u;
@@ -207,7 +207,7 @@ void test_inputs(uint16_t r8, uint32_t *p_panel_color, uint32_t *p_r9)
 	r4 = (panel_color & ~0xFFFFu) | 2u;
 	if ((mem_read32(video_control) & 0x200u) != 0u)
 		flip_test_coordinates(&left, &top, &right, &bottom);
-	fill_rect(top, right, bottom, &left, &r4, &r9);
+	fill_rect(top, right, bottom, &left, &r4, &blocks_per_row);
 	left = (left & ~0xFFFFu) | 0xA0u;
 	top = 0x68u;
 	right = 0x138u;
@@ -215,7 +215,7 @@ void test_inputs(uint16_t r8, uint32_t *p_panel_color, uint32_t *p_r9)
 	panel_color = (r4 & ~0xFFFFu) | 0xEu;
 	if ((mem_read32(video_control) & 0x200u) != 0u)
 		flip_test_coordinates(&left, &top, &right, &bottom);
-	fill_rect(top, right, bottom, &left, &panel_color, &r9);
+	fill_rect(top, right, bottom, &left, &panel_color, &blocks_per_row);
 	if (setting_cabinet_type != 0u)
 	{
 		left = (left & ~0xFFFFu) | 0xA0u;
@@ -225,7 +225,7 @@ void test_inputs(uint16_t r8, uint32_t *p_panel_color, uint32_t *p_r9)
 		panel_color = (panel_color & ~0xFFFFu) | 6u;
 		if ((mem_read32(video_control) & 0x200u) != 0u)
 			flip_test_coordinates(&left, &top, &right, &bottom);
-		fill_rect(top, right, bottom, &left, &panel_color, &r9);
+		fill_rect(top, right, bottom, &left, &panel_color, &blocks_per_row);
 	}
 	allocate_object_2(&ignored, &ignored, &r11);
 	screen_sprite_block = r11;
@@ -255,14 +255,14 @@ void test_inputs(uint16_t r8, uint32_t *p_panel_color, uint32_t *p_r9)
 	trackball_2_quadrants = 0u;
 	trackball_3_quadrants = 0u;
 	*p_panel_color = panel_color;
-	*p_r9 = r9;
+	*p_blocks_per_row = blocks_per_row;
 }
 
-void move_input_test_cursors(uint32_t r8, uint32_t r10, uint32_t *p_r4, uint32_t *p_r9)
+void move_input_test_cursors(uint32_t count, uint32_t text, uint32_t *p_cursors_left, uint32_t *p_height)
 {
-	uint32_t r9 = *p_r9;
+	uint32_t height = *p_height;
 	uint16_t trackball_dx = 0, trackball_dy = 0;
-	uint32_t r4 = 0, bottom_limit = 0, cursors_left = 0, ignored = 0, quadrant_bit = 0, sprite_entry = 0, text_position = 0, top_limit = 0;
+	uint32_t bottom_limit = 0, cursors_left = 0, ignored = 0, quadrant_bit = 0, sprite_entry = 0, text_position = 0, top_limit = 0;
 
 	current_object = (current_object & ~0xFFFFu) | screen_sprite_block;
 	queue_sprite_in_layer();
@@ -270,13 +270,13 @@ void move_input_test_cursors(uint32_t r8, uint32_t r10, uint32_t *p_r4, uint32_t
 	queue_sprite_in_layer();
 	if (trackball_1_quadrants == 0xFu)
 	{
-		r10 = input_test_trackball_1_good_text_ADDRESS;
-		print_text_list(&r10, &text_position);
+		text = input_test_trackball_1_good_text_ADDRESS;
+		print_text_list(&text, &text_position);
 	}
 	if (trackball_2_quadrants == 0xFu)
 	{
-		r10 = input_test_trackball_2_good_text_ADDRESS;
-		print_text_list(&r10, &text_position);
+		text = input_test_trackball_2_good_text_ADDRESS;
+		print_text_list(&text, &text_position);
 	}
 	if (setting_cabinet_type != 0u)
 	{
@@ -284,12 +284,12 @@ void move_input_test_cursors(uint32_t r8, uint32_t r10, uint32_t *p_r4, uint32_t
 		queue_sprite_in_layer();
 		if (trackball_3_quadrants == 0xFu)
 		{
-			r10 = input_test_trackball_3_good_text_ADDRESS;
-			print_text_list(&r10, &text_position);
+			text = input_test_trackball_3_good_text_ADDRESS;
+			print_text_list(&text, &text_position);
 		}
 	}
-	build_sprite_list(&r4, &r8, &r9, &r10, &sprite_entry);
-	draw_queued_strings((uint16_t)r8, (uint16_t)r10, sprite_entry, &r4, &ignored, &r9);
+	build_sprite_list(&cursors_left, &count, &height, &text, &sprite_entry);
+	draw_queued_strings((uint16_t)count, (uint16_t)text, sprite_entry, &cursors_left, &ignored, &height);
 	current_object = (current_object & ~0xFFFFu) | screen_sprite_block;
 	trackball_dx = (uint16_t)trackball_1_x;
 	trackball_dy = (uint16_t)trackball_1_y;
@@ -347,8 +347,8 @@ void move_input_test_cursors(uint32_t r8, uint32_t r10, uint32_t *p_r4, uint32_t
 		current_object = current_object + 0x10u;
 		cursors_left--;
 	} while (cursors_left != 0u);
-	*p_r4 = cursors_left;
-	*p_r9 = r9;
+	*p_cursors_left = cursors_left;
+	*p_height = height;
 }
 
 uint32_t get_trackball_quadrant(uint8_t dx, uint8_t dy, uint32_t quadrant)
@@ -439,7 +439,7 @@ void wrap_sound_test_number_down(void)
 		sound_test_number = 0x8Cu;
 }
 
-void test_crt(uint32_t r1, uint32_t *p_color, uint32_t *p_blocks_per_row)
+void test_crt(uint32_t start_y, uint32_t *p_color, uint32_t *p_blocks_per_row)
 {
 	uint32_t color = *p_color;
 	uint32_t blocks_per_row = *p_blocks_per_row;
@@ -449,7 +449,7 @@ void test_crt(uint32_t r1, uint32_t *p_color, uint32_t *p_blocks_per_row)
 	if (test_screen_ready == 0u)
 	{
 		test_screen_ready = 1u;
-		clear_text_layer(&ignored, &r1, &r11);
+		clear_text_layer(&ignored, &start_y, &r11);
 		text = crt_test_1_text_ADDRESS;
 		print_text_list(&text, &r11);
 	}
@@ -509,14 +509,14 @@ void test_crt(uint32_t r1, uint32_t *p_color, uint32_t *p_blocks_per_row)
 		{
 			start_x = (start_x & ~0xFFFFu) | ROM16(line_record);
 			line_record += 2u;
-			r1 = (r1 & ~0xFFFFu) | ROM16(line_record);
+			start_y = (start_y & ~0xFFFFu) | ROM16(line_record);
 			line_record += 2u;
 			end_x = ROM16(line_record);
 			line_record += 2u;
 			end_y = ROM16(line_record);
 			color = (color & ~0xFFu) | 0x7Eu;
 			line_record += 2u;
-			draw_line(end_x, end_y, &start_x, &r1, &color, &lines_left);
+			draw_line(end_x, end_y, &start_x, &start_y, &color, &lines_left);
 			lines_left--;
 		} while (lines_left != 0u);
 		crt_test_x = 0u;
@@ -525,11 +525,11 @@ void test_crt(uint32_t r1, uint32_t *p_color, uint32_t *p_blocks_per_row)
 		do
 		{
 			start_x &= ~0xFFFFu;
-			r1 = (r1 & ~0xFFFFu) | crt_test_x;
+			start_y = (start_y & ~0xFFFFu) | crt_test_x;
 			end_x = 0x13Fu;
 			end_y = crt_test_x;
 			color = (color & ~0xFFFFu) | 0x7Eu;
-			draw_line(end_x, end_y, &start_x, &r1, &color, &lines_left);
+			draw_line(end_x, end_y, &start_x, &start_y, &color, &lines_left);
 			crt_test_x += 8u;
 			lines_left--;
 		} while (lines_left != 0u);
@@ -537,11 +537,11 @@ void test_crt(uint32_t r1, uint32_t *p_color, uint32_t *p_blocks_per_row)
 		do
 		{
 			start_x = (start_x & ~0xFFFFu) | crt_test_y;
-			r1 &= ~0xFFFFu;
+			start_y &= ~0xFFFFu;
 			end_x = crt_test_y;
 			end_y = 0xDFu;
 			color = (color & ~0xFFFFu) | 0x7Eu;
-			draw_line(end_x, end_y, &start_x, &r1, &color, &lines_left);
+			draw_line(end_x, end_y, &start_x, &start_y, &color, &lines_left);
 			crt_test_y += 8u;
 			lines_left--;
 		} while (lines_left != 0u);
@@ -572,9 +572,9 @@ void test_crt(uint32_t r1, uint32_t *p_color, uint32_t *p_blocks_per_row)
 	}
 }
 
-void test_game_assignments(uint32_t *p_r4, uint32_t *p_blocks_per_row)
+void test_game_assignments(uint32_t *p_color, uint32_t *p_blocks_per_row)
 {
-	uint32_t r4 = *p_r4;
+	uint32_t color = *p_color;
 	uint32_t blocks_per_row = *p_blocks_per_row;
 	uint8_t mode = 0;
 	uint32_t cabinet_type = 0, cursor_positions = 0, ignored = 0, print_position = 0, text = 0;
@@ -588,8 +588,8 @@ void test_game_assignments(uint32_t *p_r4, uint32_t *p_blocks_per_row)
 		print_text_list(&text, &print_position);
 		test_cursor_positions = game_assignments_cursor_positions_ADDRESS;
 		test_cursor = 7u;
-		draw_difficulty_setting(&r4, &blocks_per_row);
-		draw_vitality_setting(&r4, &blocks_per_row);
+		draw_difficulty_setting(&color, &blocks_per_row);
+		draw_vitality_setting(&color, &blocks_per_row);
 		text = advertise_sound_off_text_ADDRESS;
 		setting_advertise_sound &= 1u;
 		if (setting_advertise_sound != 0u)
@@ -634,7 +634,7 @@ void test_game_assignments(uint32_t *p_r4, uint32_t *p_blocks_per_row)
 	blink_test_cursor();
 	if ((0x2002u & inputs_pressed) == 0u)
 	{
-		*p_r4 = r4;
+		*p_color = color;
 		*p_blocks_per_row = blocks_per_row;
 		return;
 	}
@@ -643,15 +643,15 @@ void test_game_assignments(uint32_t *p_r4, uint32_t *p_blocks_per_row)
 	case 0:
 		test_settings_changed = 1u;
 		setting_difficulty++;
-		draw_difficulty_setting(&r4, &blocks_per_row);
-		*p_r4 = r4;
+		draw_difficulty_setting(&color, &blocks_per_row);
+		*p_color = color;
 		*p_blocks_per_row = blocks_per_row;
 		return;
 	case 1:
 		test_settings_changed = 1u;
 		setting_initial_vitality++;
-		draw_vitality_setting(&r4, &blocks_per_row);
-		*p_r4 = r4;
+		draw_vitality_setting(&color, &blocks_per_row);
+		*p_color = color;
 		*p_blocks_per_row = blocks_per_row;
 		return;
 	case 2:
@@ -662,13 +662,13 @@ void test_game_assignments(uint32_t *p_r4, uint32_t *p_blocks_per_row)
 		if (setting_advertise_sound == 0u)
 		{
 			print_text_list(&text, &print_position);
-			*p_r4 = r4;
+			*p_color = color;
 			*p_blocks_per_row = blocks_per_row;
 			return;
 		}
 		text = advertise_sound_on_text_ADDRESS;
 		print_text_list(&text, &print_position);
-		*p_r4 = r4;
+		*p_color = color;
 		*p_blocks_per_row = blocks_per_row;
 		return;
 	case 3:
@@ -684,9 +684,9 @@ void test_game_assignments(uint32_t *p_r4, uint32_t *p_blocks_per_row)
 		set_halfwords(VIDEO_RAM, 0xE000u, fill_value);
 		mode = 0u;
 		set_screen_mode(mode);
-		draw_difficulty_setting(&r4, &blocks_per_row);
-		draw_vitality_setting(&r4, &blocks_per_row);
-		*p_r4 = r4;
+		draw_difficulty_setting(&color, &blocks_per_row);
+		draw_vitality_setting(&color, &blocks_per_row);
+		*p_color = color;
 		*p_blocks_per_row = blocks_per_row;
 		return;
 	case 4:
@@ -697,7 +697,7 @@ void test_game_assignments(uint32_t *p_r4, uint32_t *p_blocks_per_row)
 		print_text_list(&text, &print_position);
 		if (mem_read8(moving_seat_dip) == 0u || setting_cabinet_type == 0u)
 		{
-			*p_r4 = r4;
+			*p_color = color;
 			*p_blocks_per_row = blocks_per_row;
 			return;
 		}
@@ -709,13 +709,13 @@ void test_game_assignments(uint32_t *p_r4, uint32_t *p_blocks_per_row)
 		if (setting_moving_seat == 0u)
 		{
 			print_text_list(&text, &print_position);
-			*p_r4 = r4;
+			*p_color = color;
 			*p_blocks_per_row = blocks_per_row;
 			return;
 		}
 		text = moving_seat_use_text_ADDRESS;
 		print_text_list(&text, &print_position);
-		*p_r4 = r4;
+		*p_color = color;
 		*p_blocks_per_row = blocks_per_row;
 		return;
 	case 5:
@@ -726,19 +726,19 @@ void test_game_assignments(uint32_t *p_r4, uint32_t *p_blocks_per_row)
 		if (setting_no_start_buttons == 0u)
 		{
 			print_text_list(&text, &print_position);
-			*p_r4 = r4;
+			*p_color = color;
 			*p_blocks_per_row = blocks_per_row;
 			return;
 		}
 		text = start_button_no_use_text_ADDRESS;
 		print_text_list(&text, &print_position);
-		*p_r4 = r4;
+		*p_color = color;
 		*p_blocks_per_row = blocks_per_row;
 		return;
 	case 6:
 		if (setting_cabinet_type != 0u)
 		{
-			*p_r4 = r4;
+			*p_color = color;
 			*p_blocks_per_row = blocks_per_row;
 			return;
 		}
@@ -749,19 +749,19 @@ void test_game_assignments(uint32_t *p_r4, uint32_t *p_blocks_per_row)
 		if (setting_moving_seat == 0u)
 		{
 			print_text_list(&text, &print_position);
-			*p_r4 = r4;
+			*p_color = color;
 			*p_blocks_per_row = blocks_per_row;
 			return;
 		}
 		text = moving_seat_use_text_ADDRESS;
 		print_text_list(&text, &print_position);
-		*p_r4 = r4;
+		*p_color = color;
 		*p_blocks_per_row = blocks_per_row;
 		return;
 	case 7:
 		setting_cabinet_config = setting_cabinet_type | ((uint32_t)setting_coin_chute_type << 1);
 		if (test_settings_changed != 0u)
-			eeprom_save_and_lock(&r4, &ignored);
+			eeprom_save_and_lock(&color, &ignored);
 		mem_write32(video_control, mem_read32(video_control) | 0x800u);
 		fill_value = (fill_value & ~0xFFFFu) | 0x909u;
 		set_halfwords(VIDEO_RAM, 0xE000u, fill_value);
@@ -769,7 +769,7 @@ void test_game_assignments(uint32_t *p_r4, uint32_t *p_blocks_per_row)
 		{
 			test_screen++;
 			test_screen_ready = 0u;
-			*p_r4 = r4;
+			*p_color = color;
 			*p_blocks_per_row = blocks_per_row;
 			return;
 		}
@@ -777,7 +777,7 @@ void test_game_assignments(uint32_t *p_r4, uint32_t *p_blocks_per_row)
 		test_screen = 0u;
 		test_screen_ready = 1u;
 		draw_test_menu();
-		*p_r4 = r4;
+		*p_color = color;
 		*p_blocks_per_row = blocks_per_row;
 		return;
 	case 8:
@@ -786,7 +786,7 @@ void test_game_assignments(uint32_t *p_r4, uint32_t *p_blocks_per_row)
 		setting_small_large &= 1u;
 		text = small_large_texts[setting_small_large];
 		print_text_list(&text, &print_position);
-		*p_r4 = r4;
+		*p_color = color;
 		*p_blocks_per_row = blocks_per_row;
 		return;
 	default:
@@ -871,11 +871,11 @@ void draw_difficulty_setting(uint32_t *p_color, uint32_t *p_blocks_per_row)
 	*p_blocks_per_row = blocks_per_row;
 }
 
-uint32_t test_coin_assignments(uint32_t r4)
+uint32_t test_coin_assignments(uint32_t color)
 {
 	uint8_t mode = 0;
 	uint16_t attribute = 0;
-	uint32_t r4_2 = 0, r11 = 0, adder_setting = 0, credits_to_start = 0, cursor_positions = 0, ignored = 0, print_position = 0, setting = 0, setting_number = 0, text = 0, text_position = 0, value = 0;
+	uint32_t r4 = 0, r11 = 0, adder_setting = 0, credits_to_start = 0, cursor_positions = 0, ignored = 0, print_position = 0, setting = 0, setting_number = 0, text = 0, text_position = 0, value = 0;
 
 	if (test_screen_ready == 0u)
 	{
@@ -909,9 +909,9 @@ uint32_t test_coin_assignments(uint32_t r4)
 			if (setting_chute_1_multiplier != 1u)
 				text = chute_1_coins_text_ADDRESS;
 			print_text_list(&text, &text_position);
-			r4_2 = draw_coin_credit_table();
+			r4 = draw_coin_credit_table();
 			if (setting_coin_chute_type != 0u)
-				return r4_2;
+				return r4;
 			value = setting_chute_2_multiplier;
 			text_position = TEXT_CELL(30, 18);
 			attribute = 0x1200u;
@@ -920,7 +920,7 @@ uint32_t test_coin_assignments(uint32_t r4)
 			if (setting_chute_2_multiplier != 1u)
 				text = chute_2_coins_text_ADDRESS;
 			print_text_list(&text, &text_position);
-			return r4_2;
+			return r4;
 		}
 		cursor_positions = coin_manual_cursor_positions_ADDRESS;
 		erase_test_cursor(cursor_positions);
@@ -933,7 +933,7 @@ uint32_t test_coin_assignments(uint32_t r4)
 		}
 		blink_test_cursor();
 		if ((0x2002u & inputs_pressed) == 0u)
-			return r4;
+			return color;
 		switch (test_cursor)
 		{
 		case 0:
@@ -946,8 +946,8 @@ uint32_t test_coin_assignments(uint32_t r4)
 			print_text_list(&text, &print_position);
 			text = coin_credit_rows_erase_text_ADDRESS;
 			print_text_list(&text, &print_position);
-			r4_2 = draw_coin_credit_table();
-			return r4_2;
+			r4 = draw_coin_credit_table();
+			return r4;
 		case 1:
 			setting_coin_number = -1;
 			setting_bonus_adder++;
@@ -959,8 +959,8 @@ uint32_t test_coin_assignments(uint32_t r4)
 			print_text_list(&text, &print_position);
 			text = coin_credit_rows_erase_text_ADDRESS;
 			print_text_list(&text, &print_position);
-			r4_2 = draw_coin_credit_table();
-			return r4_2;
+			r4 = draw_coin_credit_table();
+			return r4;
 		case 2:
 			setting_coin_number = -1;
 			setting_chute_1_multiplier++;
@@ -976,8 +976,8 @@ uint32_t test_coin_assignments(uint32_t r4)
 			print_text_list(&text, &text_position);
 			text = coin_credit_rows_erase_text_ADDRESS;
 			print_text_list(&text, &text_position);
-			r4_2 = draw_coin_credit_table();
-			return r4_2;
+			r4 = draw_coin_credit_table();
+			return r4;
 		case 3:
 			setting_coin_number = -1;
 			setting_chute_2_multiplier++;
@@ -993,8 +993,8 @@ uint32_t test_coin_assignments(uint32_t r4)
 			print_text_list(&text, &text_position);
 			text = coin_credit_rows_erase_text_ADDRESS;
 			print_text_list(&text, &text_position);
-			r4_2 = draw_coin_credit_table();
-			return r4_2;
+			r4 = draw_coin_credit_table();
+			return r4;
 		case 4:
 			test_cursor = 3u;
 			mode = 0u;
@@ -1046,7 +1046,7 @@ uint32_t test_coin_assignments(uint32_t r4)
 			text = credits_to_start_texts[credits_to_start >> 1];
 			print_text_list(&text, &print_position);
 			if (setting_coin_number >= 0)
-				return r4;
+				return color;
 			setting_coin_number_individual = -1;
 			text = coin_setting_erase_text_ADDRESS;
 			print_text_list(&text, &print_position);
@@ -1056,7 +1056,7 @@ uint32_t test_coin_assignments(uint32_t r4)
 			if (setting_coin_chute_type != 0u)
 				text = coin_setting_text_manual_individual_ADDRESS;
 			print_text_list(&text, &print_position);
-			return r4;
+			return color;
 		default:
 			unknown_code(0x9E479u + test_cursor * 3u);
 		}
@@ -1072,7 +1072,7 @@ uint32_t test_coin_assignments(uint32_t r4)
 		}
 		blink_test_cursor();
 		if ((0x2002u & inputs_pressed) == 0u)
-			return r4;
+			return color;
 		switch (test_cursor)
 		{
 		case 0:
@@ -1104,7 +1104,7 @@ uint32_t test_coin_assignments(uint32_t r4)
 					text = coin_setting_text_manual_individual_ADDRESS;
 					print_text_list(&text, &print_position);
 				}
-				return r4;
+				return color;
 			}
 			text = coin_setting_erase_text_ADDRESS;
 			print_text_list(&text, &print_position);
@@ -1129,7 +1129,7 @@ uint32_t test_coin_assignments(uint32_t r4)
 				setting_coin_number_individual = 0;
 			}
 			apply_coin_setting();
-			return r4;
+			return color;
 		case 1:
 			test_settings_changed = 1u;
 			setting_credits_to_start++;
@@ -1138,12 +1138,12 @@ uint32_t test_coin_assignments(uint32_t r4)
 			credits_to_start = setting_credits_to_start;
 			text = credits_to_start_texts[credits_to_start >> 1];
 			print_text_list(&text, &print_position);
-			return r4;
+			return color;
 		case 2:
 			setting_coin_number++;
 			setting_coin_number_individual++;
 			apply_coin_setting();
-			return r4;
+			return color;
 		case 3:
 			test_settings_changed = 1u;
 			coin_manual_page++;
@@ -1155,18 +1155,18 @@ uint32_t test_coin_assignments(uint32_t r4)
 		case 4:
 			setting_cabinet_config = setting_cabinet_type | ((uint32_t)setting_coin_chute_type << 1);
 			if (test_settings_changed != 0u)
-				eeprom_save_and_lock(&r4, &ignored);
+				eeprom_save_and_lock(&color, &ignored);
 			if (test_continue_mode != 0u)
 			{
 				test_screen++;
 				test_screen_ready = 0u;
-				return r4;
+				return color;
 			}
 			test_cursor = test_menu_item;
 			test_screen = 0u;
 			test_screen_ready = 1u;
 			draw_test_menu();
-			return r4;
+			return color;
 		default:
 			unknown_code(0x9E0A9u + test_cursor * 3u);
 		}
@@ -1970,38 +1970,38 @@ void irq_timer1(void)
 	mem_write8(irq_acknowledge, 0xEFu);
 }
 
-void int_default(uint32_t *p_r0, uint32_t *p_r2, uint32_t *p_r3, uint32_t *p_r4)
+void int_default(uint32_t *p_source, uint32_t *p_dest, uint32_t *p_copies_left, uint32_t *p_copy_entry)
 {
-	uint32_t r0 = *p_r0;
-	uint32_t r2 = *p_r2;
+	uint32_t source = *p_source;
+	uint32_t dest = *p_dest;
 	uint32_t r3 = 0, r4 = 0;
 
 	halt();
 	halt();
 	halt();
 	halt();
-	int_vector_02(&r0, &r2, &r3, &r4);
-	*p_r0 = r0;
-	*p_r2 = r2;
-	*p_r3 = r3;
-	*p_r4 = r4;
+	int_vector_02(&source, &dest, &r3, &r4);
+	*p_source = source;
+	*p_dest = dest;
+	*p_copies_left = r3;
+	*p_copy_entry = r4;
 }
 
-void int_vector_02(uint32_t *p_r0, uint32_t *p_r2, uint32_t *p_r3, uint32_t *p_r4)
+void int_vector_02(uint32_t *p_source, uint32_t *p_dest, uint32_t *p_copies_left, uint32_t *p_copy_entry)
 {
-	uint32_t r0 = *p_r0;
-	uint32_t r2 = *p_r2;
+	uint32_t source = *p_source;
+	uint32_t dest = *p_dest;
 	uint32_t r3 = 0, r4 = 0;
 
 	halt();
 	halt();
 	halt();
 	halt();
-	run_vblank_copies(&r0, &r2, &r3, &r4);
-	*p_r0 = r0;
-	*p_r2 = r2;
-	*p_r3 = r3;
-	*p_r4 = r4;
+	run_vblank_copies(&source, &dest, &r3, &r4);
+	*p_source = source;
+	*p_dest = dest;
+	*p_copies_left = r3;
+	*p_copy_entry = r4;
 }
 
 void run_vblank_copies(uint32_t *p_source, uint32_t *p_dest, uint32_t *p_copies_left, uint32_t *p_copy_entry)
@@ -2586,11 +2586,11 @@ void record_player_game(void)
 	move_halfwords(bookkeeping_block + 0x40u, bookkeeping_block, 0x20u);
 }
 
-void draw_attract_credits(uint32_t *p_r1, uint32_t *p_r2, uint32_t *p_message_text, uint32_t *p_text_position)
+void draw_attract_credits(uint32_t *p_credits, uint32_t *p_blink_bit, uint32_t *p_message_text, uint32_t *p_text_position)
 {
-	uint32_t r1 = *p_r1;
-	uint32_t r2 = *p_r2;
-	uint32_t r10 = 0, credit_block = 0, message_text = 0, prompt_texts = 0, text_position = 0;
+	uint32_t credits = *p_credits;
+	uint32_t blink_bit = *p_blink_bit;
+	uint32_t r10 = 0, credit_block = 0, message_text = 0, prompt_texts = 0, text = 0, text_position = 0;
 
 	switch (cabinet_config)
 	{
@@ -2599,62 +2599,62 @@ void draw_attract_credits(uint32_t *p_r1, uint32_t *p_r2, uint32_t *p_message_te
 	case 4:
 		credit_block = p1_coins_ADDRESS;
 		text_position = 0x310000u | common_credit_position;
-		draw_credit_count(credit_block, &r1, &r2, &r10, &text_position);
-		r1 = blink_demo_prompt(r1, credit_block);
+		draw_credit_count(credit_block, &credits, &blink_bit, &r10, &text_position);
+		credits = blink_demo_prompt(credits, credit_block);
 		if (credits_per_start != 2u || free_play != 0u)
 		{
-			*p_r1 = r1;
-			*p_r2 = r2;
+			*p_credits = credits;
+			*p_blink_bit = blink_bit;
 			*p_message_text = r10;
 			*p_text_position = text_position;
 			return;
 		}
 		message_text = two_credits_one_play_text_ADDRESS;
 		print_text(&message_text, &text_position);
-		*p_r1 = r1;
-		*p_r2 = r2;
+		*p_credits = credits;
+		*p_blink_bit = blink_bit;
 		*p_message_text = message_text;
 		*p_text_position = text_position;
 		return;
 	case 2:
 		credit_block = p2_coins_ADDRESS;
 		text_position = 0x310000u | credit_position_p3;
-		draw_credit_count(credit_block, &r1, &r2, &r10, &text_position);
+		draw_credit_count(credit_block, &credits, &blink_bit, &text, &text_position);
 		text_position = 0x310000u | start_prompt_position_p3;
 		prompt_texts = start_prompt_texts_ADDRESS;
-		blink_start_prompt(credit_block, prompt_texts, &r2, &r10, &text_position);
+		blink_start_prompt(credit_block, prompt_texts, &blink_bit, &text, &text_position);
 		credit_block = p1_coins_ADDRESS;
 		text_position = 0x310000u | credit_positions_3p[0];
-		draw_credit_count(credit_block, &r1, &r2, &r10, &text_position);
+		draw_credit_count(credit_block, &credits, &blink_bit, &r10, &text_position);
 		text_position = 0x310000u | start_prompt_positions_3p[0];
 		prompt_texts = start_prompt_texts_ADDRESS;
-		blink_start_prompt(credit_block, prompt_texts, &r2, &r10, &text_position);
-		*p_r1 = r1;
-		*p_r2 = r2;
+		blink_start_prompt(credit_block, prompt_texts, &blink_bit, &r10, &text_position);
+		*p_credits = credits;
+		*p_blink_bit = blink_bit;
 		*p_message_text = r10;
 		*p_text_position = text_position;
 		return;
 	case 3:
 		credit_block = p3_coins_ADDRESS;
 		text_position = 0x310000u | credit_position_p3;
-		draw_credit_count(credit_block, &r1, &r2, &r10, &text_position);
+		draw_credit_count(credit_block, &credits, &blink_bit, &text, &text_position);
 		text_position = 0x310000u | start_prompt_position_p3;
 		prompt_texts = start_prompt_texts_ADDRESS;
-		blink_start_prompt(credit_block, prompt_texts, &r2, &r10, &text_position);
+		blink_start_prompt(credit_block, prompt_texts, &blink_bit, &text, &text_position);
 		credit_block = p2_coins_ADDRESS;
 		text_position = 0x310000u | credit_position_p2;
-		draw_credit_count(credit_block, &r1, &r2, &r10, &text_position);
+		draw_credit_count(credit_block, &credits, &blink_bit, &text, &text_position);
 		text_position = 0x310000u | start_prompt_position_p2;
 		prompt_texts = start_prompt_texts_ADDRESS;
-		blink_start_prompt(credit_block, prompt_texts, &r2, &r10, &text_position);
+		blink_start_prompt(credit_block, prompt_texts, &blink_bit, &text, &text_position);
 		credit_block = p1_coins_ADDRESS;
 		text_position = 0x310000u | credit_positions_3p[0];
-		draw_credit_count(credit_block, &r1, &r2, &r10, &text_position);
+		draw_credit_count(credit_block, &credits, &blink_bit, &r10, &text_position);
 		text_position = 0x310000u | start_prompt_positions_3p[0];
 		prompt_texts = start_prompt_texts_ADDRESS;
-		blink_start_prompt(credit_block, prompt_texts, &r2, &r10, &text_position);
-		*p_r1 = r1;
-		*p_r2 = r2;
+		blink_start_prompt(credit_block, prompt_texts, &blink_bit, &r10, &text_position);
+		*p_credits = credits;
+		*p_blink_bit = blink_bit;
 		*p_message_text = r10;
 		*p_text_position = text_position;
 		return;
@@ -2750,9 +2750,9 @@ void blink_start_prompt(uint32_t credit_block, uint32_t prompt_texts, uint32_t *
 	*p_text_position = text_position;
 }
 
-void draw_credit_count(uint32_t credit_block, uint32_t *p_r1, uint32_t *p_coins_per_credit, uint32_t *p_r10, uint32_t *p_text_position)
+void draw_credit_count(uint32_t credit_block, uint32_t *p_credits, uint32_t *p_coins_per_credit, uint32_t *p_text, uint32_t *p_text_position)
 {
-	uint32_t r1 = *p_r1;
+	uint32_t credits = *p_credits;
 	uint32_t coins_per_credit = *p_coins_per_credit;
 	uint32_t text_position = *p_text_position;
 	uint32_t r10 = 0, compared_block = 0, drawn_bit = 0;
@@ -2771,14 +2771,14 @@ void draw_credit_count(uint32_t credit_block, uint32_t *p_r1, uint32_t *p_coins_
 	stage_init_flags = old_flags | shl32(1u, (int)(drawn_bit));
 	if ((old_flags & shl32(1u, (int)(drawn_bit))) == 0u || mem_read8(credit_block + 3u) != 0u)
 	{
-		draw_credit_count_now(credit_block, &r1, &coins_per_credit, &r10, &text_position);
-		*p_r1 = r1;
+		draw_credit_count_now(credit_block, &credits, &coins_per_credit, &r10, &text_position);
+		*p_credits = credits;
 		*p_coins_per_credit = coins_per_credit;
-		*p_r10 = r10;
+		*p_text = r10;
 		*p_text_position = text_position;
 		return;
 	}
-	*p_r10 = compared_block;
+	*p_text = compared_block;
 }
 
 void draw_credit_count_now(uint32_t credit_block, uint32_t *p_credits, uint32_t *p_coins_per_credit, uint32_t *p_text, uint32_t *p_text_position)

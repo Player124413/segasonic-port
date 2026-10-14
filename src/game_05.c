@@ -3,7 +3,7 @@
  *    Description: the game's functions, part 05 (in the order of their V60 addresses)
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    13-10-2026
+ *    Modified:    14-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -195,15 +195,15 @@ void set_nbg3_page_5_flags(uint32_t *p_count, uint32_t *p_dest)
 	*p_dest = dest;
 }
 
-void update_nbg3_scroll(uint32_t *p_scroll_y, uint32_t *p_quadrants, uint32_t *p_r4, uint32_t *p_r5, uint32_t *p_quadrant_cursor)
+void update_nbg3_scroll(uint32_t *p_scroll_y, uint32_t *p_quadrants, uint32_t *p_speed_value, uint32_t *p_next_scroll_position, uint32_t *p_quadrant_cursor)
 {
 	uint32_t scroll_y = *p_scroll_y;
 	uint32_t quadrants = *p_quadrants;
-	uint32_t r4 = *p_r4;
-	uint32_t r5 = *p_r5;
+	uint32_t speed_value = *p_speed_value;
+	uint32_t next_scroll_position = *p_next_scroll_position;
 	uint32_t quadrant_cursor = *p_quadrant_cursor;
 	uint16_t half_view_y = 0, layer_scroll_y = 0;
-	uint32_t r4_2 = 0, r5_2 = 0, block_pages = 0;
+	uint32_t r4 = 0, r5 = 0, block_pages = 0;
 
 	switch (stage)
 	{
@@ -214,11 +214,11 @@ void update_nbg3_scroll(uint32_t *p_scroll_y, uint32_t *p_quadrants, uint32_t *p
 			nbg3_scroll_x = (int16_t)view_x >> 1;
 			nbg3_scroll_y = half_view_y;
 			nbg3_scroll_y += 0x80u;
-			select_nbg3_pages(&block_pages, &quadrants, &r4_2, &r5_2, &quadrant_cursor);
+			select_nbg3_pages(&block_pages, &quadrants, &r4, &r5, &quadrant_cursor);
 			*p_scroll_y = block_pages;
 			*p_quadrants = quadrants;
-			*p_r4 = r4_2;
-			*p_r5 = r5_2;
+			*p_speed_value = r4;
+			*p_next_scroll_position = r5;
 			*p_quadrant_cursor = quadrant_cursor;
 			return;
 		}
@@ -249,11 +249,11 @@ void update_nbg3_scroll(uint32_t *p_scroll_y, uint32_t *p_quadrants, uint32_t *p
 		nbg3_scroll_x = (int16_t)view_x >> 1;
 		nbg3_scroll_y = half_view_y;
 		nbg3_scroll_y += 0x80u;
-		select_nbg3_pages(&block_pages, &quadrants, &r4_2, &r5_2, &quadrant_cursor);
+		select_nbg3_pages(&block_pages, &quadrants, &r4, &r5, &quadrant_cursor);
 		*p_scroll_y = block_pages;
 		*p_quadrants = quadrants;
-		*p_r4 = r4_2;
-		*p_r5 = r5_2;
+		*p_speed_value = r4;
+		*p_next_scroll_position = r5;
 		*p_quadrant_cursor = quadrant_cursor;
 		return;
 	case 9:
@@ -282,7 +282,7 @@ void update_nbg3_scroll(uint32_t *p_scroll_y, uint32_t *p_quadrants, uint32_t *p
 	}
 }
 
-void select_nbg3_pages(uint32_t *p_block_pages, uint32_t *p_quadrants, uint32_t *p_r4, uint32_t *p_r5, uint32_t *p_quadrant_cursor)
+void select_nbg3_pages(uint32_t *p_block_pages, uint32_t *p_quadrants, uint32_t *p_byte_mask, uint32_t *p_shift, uint32_t *p_quadrant_cursor)
 {
 	uint8_t byte_shift = 0;
 	uint32_t block_column = 0, block_pages = 0, block_row = 0, byte_mask = 0, bytes_left = 0, gathered_pages = 0, gathered_quadrants = 0, map_cursor = 0, pages = 0, quadrant_cursor = 0, quadrants = 0, shift = 0, stage_index = 0;
@@ -340,8 +340,8 @@ void select_nbg3_pages(uint32_t *p_block_pages, uint32_t *p_quadrants, uint32_t 
 	nbg3_pages = pages;
 	*p_block_pages = block_pages;
 	*p_quadrants = quadrants;
-	*p_r4 = byte_mask;
-	*p_r5 = shift;
+	*p_byte_mask = byte_mask;
+	*p_shift = shift;
 	*p_quadrant_cursor = quadrant_cursor;
 }
 
@@ -356,16 +356,16 @@ void get_nbg3_block(void)
 	nbg3_block_row = (int16_t)nbg3_block_row >> 8;
 }
 
-void build_ending_scene(uint32_t *p_r2, uint32_t *p_tile_bank_bits, uint32_t *p_r4, uint32_t *p_r8, uint32_t *p_blocks_per_row, uint32_t *p_scene_actor)
+void build_ending_scene(uint32_t *p_write_index_address, uint32_t *p_tile_bank_bits, uint32_t *p_color, uint32_t *p_row_pairs_left, uint32_t *p_blocks_per_row, uint32_t *p_scene_actor)
 {
-	uint32_t r2 = *p_r2;
+	uint32_t write_index_address = *p_write_index_address;
 	uint32_t tile_bank_bits = *p_tile_bank_bits;
-	uint32_t r4 = *p_r4;
-	uint32_t r8 = *p_r8;
+	uint32_t color = *p_color;
+	uint32_t row_pairs_left = *p_row_pairs_left;
 	uint32_t blocks_per_row = *p_blocks_per_row;
 	uint32_t scene_actor = *p_scene_actor;
 	uint8_t is_8bpp = 0, sound_id = 0;
-	uint32_t r1 = 0, r2_2 = 0, r4_2 = 0, r5 = 0, r10 = 0, r11 = 0, ignored = 0, script = 0;
+	uint32_t r1 = 0, r4 = 0, r11 = 0, ignored = 0, inner_count = 0, lower_row_cursor = 0, script = 0;
 	uint8_t io_cnt_bits = 0;
 
 	is_8bpp = (uint8_t)(ending_scene_step * 3u);
@@ -375,13 +375,13 @@ void build_ending_scene(uint32_t *p_r2, uint32_t *p_tile_bank_bits, uint32_t *p_
 		io_cnt_bits = mem_read8(io_cnt);
 		mem_write8(io_cnt, io_cnt_bits & ~2u);
 		display_off_frames = 0x10u;
-		r4_2 = set_stage_layer_mixing();
+		r4 = set_stage_layer_mixing();
 		clear_sprite_buckets();
-		clear_bitmap_layer(is_8bpp, &ignored, &r4_2, &r5, &r8, &blocks_per_row, &r10);
+		clear_bitmap_layer(is_8bpp, &ignored, &r4, &inner_count, &row_pairs_left, &blocks_per_row, &lower_row_cursor);
 		init_video_registers();
 		load_stage_palette_set(&tile_bank_bits, &r11);
 		sound_id = 0x94u;
-		queue_sound(sound_id, &r1, &r2_2);
+		queue_sound(sound_id, &r1, &write_index_address);
 		color_offset_red = 0x20u;
 		color_offset_blue = 0x20u;
 		color_offset_green = 0x20u;
@@ -437,10 +437,10 @@ void build_ending_scene(uint32_t *p_r2, uint32_t *p_tile_bank_bits, uint32_t *p_
 		nbg0_pages = 0x8080707u;
 		nbg1_pages = 0x1010101u;
 		nbg2_pages = 0x5050505u;
-		*p_r2 = r2_2;
+		*p_write_index_address = write_index_address;
 		*p_tile_bank_bits = tile_bank_bits;
-		*p_r4 = r4_2;
-		*p_r8 = r8;
+		*p_color = r4;
+		*p_row_pairs_left = row_pairs_left;
 		*p_blocks_per_row = blocks_per_row;
 		*p_scene_actor = r11;
 		return;
@@ -2577,10 +2577,10 @@ void animate_ending_runner_across(void)
 	}
 }
 
-void spawn_ring_rows(uint32_t *p_stage_list_offset, uint32_t *p_r2, uint32_t *p_slope_height, uint32_t *p_object)
+void spawn_ring_rows(uint32_t *p_stage_list_offset, uint32_t *p_free_stack, uint32_t *p_slope_height, uint32_t *p_object)
 {
 	uint32_t stage_list_offset = *p_stage_list_offset;
-	uint32_t r2 = *p_r2;
+	uint32_t free_stack = *p_free_stack;
 	uint32_t slope_height = *p_slope_height;
 	uint32_t object = *p_object;
 	uint16_t scroll_past_row = 0;
@@ -2663,12 +2663,12 @@ void spawn_ring_rows(uint32_t *p_stage_list_offset, uint32_t *p_r2, uint32_t *p_
 			ring_row_x += ring_row_dx;
 			ring_row_y += ring_row_dy;
 			current_object = object;
-			find_floor(&r0, &stage_list_offset, &r2, &slope_height, &object);
+			find_floor(&r0, &stage_list_offset, &free_stack, &slope_height, &object);
 			OBJECT(current_object)->z = OBJECT(current_object)->floor_z;
 			OBJECT(current_object)->z_int -= OBJECT(current_object)->var_82;
 			project_object(&ignored, &stage_list_offset);
 			object_cursor = current_object;
-			allocate_object_2(&ignored, &r2, &object);
+			allocate_object_2(&ignored, &free_stack, &object);
 			OBJECT(object)->sprite_flags = 0x1000u;
 			OBJECT(object)->sprite_palette = 0x9FFEu;
 			OBJECT(object)->sprite_frame = 0x5D90u;
@@ -2681,7 +2681,7 @@ void spawn_ring_rows(uint32_t *p_stage_list_offset, uint32_t *p_r2, uint32_t *p_
 	}
 	ring_spawn_cursor += 0xCu;
 	*p_stage_list_offset = stage_list_offset;
-	*p_r2 = r2;
+	*p_free_stack = free_stack;
 	*p_slope_height = slope_height;
 	*p_object = object;
 }
@@ -2690,7 +2690,7 @@ void ring_spin(void)
 {
 	uint8_t sound_id = 0;
 	uint16_t child = 0;
-	uint32_t r1 = 0, r2 = 0, r7 = 0, r8 = 0, depth = 0, ignored = 0, object = 0, off_screen = 0, player = 0;
+	uint32_t r1 = 0, r7 = 0, r8 = 0, depth = 0, ignored = 0, object = 0, off_screen = 0, player = 0, write_index_address = 0;
 
 	if (map_screen_active != 0u || current_game_mode == 0x20u)
 	{
@@ -2743,7 +2743,7 @@ void ring_spin(void)
 	if ((int8_t)OBJECT(object)->kind > 2)
 	{
 		sound_id = 0x13u;
-		play_sound(sound_id, &r1, &r2);
+		play_sound(sound_id, &r1, &write_index_address);
 		spawn_ring_sparkle(player);
 		child = OBJECT(current_object)->child;
 		free_object_2(child);
@@ -2754,7 +2754,7 @@ void ring_spin(void)
 	if ((PLAYER(player)->state == 0xDu || PLAYER(player)->state == 0x20u) && (uint8_t)PLAYER(player)->hurt_contact_delay != 0u)
 		goto ring_spin_keep_spinning;
 	sound_id = 0x13u;
-	play_sound(sound_id, &r1, &r2);
+	play_sound(sound_id, &r1, &write_index_address);
 	spawn_ring_sparkle(player);
 	child = OBJECT(current_object)->child;
 	free_object_2(child);
@@ -2765,12 +2765,12 @@ void still_ring_wait(void)
 {
 	uint8_t sound_id = 0;
 	uint16_t child = 0;
-	uint32_t r1 = 0, r2 = 0, ignored = 0, off_screen = 0;
+	uint32_t r1 = 0, ignored = 0, off_screen = 0, write_index_address = 0;
 
 	if ((OBJECT(current_object)->flags & 4u) != 0u)
 	{
 		sound_id = 0x13u;
-		play_sound(sound_id, &r1, &r2);
+		play_sound(sound_id, &r1, &write_index_address);
 		child = OBJECT(current_object)->child;
 		free_object_2(child);
 		delete_current_object();
@@ -2802,7 +2802,7 @@ void carried_ring_spin(void)
 {
 	uint8_t sound_id = 0;
 	uint16_t child = 0;
-	uint32_t r1 = 0, r2 = 0, r7 = 0, r8 = 0, ignored = 0, object = 0, off_screen = 0, platform_z = 0, player = 0;
+	uint32_t r1 = 0, r7 = 0, r8 = 0, ignored = 0, object = 0, off_screen = 0, platform_z = 0, player = 0, write_index_address = 0;
 
 	if (map_screen_active != 0u)
 	{
@@ -2848,7 +2848,7 @@ void carried_ring_spin(void)
 	if ((int8_t)OBJECT(object)->kind > 2)
 	{
 		sound_id = 0x13u;
-		play_sound(sound_id, &r1, &r2);
+		play_sound(sound_id, &r1, &write_index_address);
 		spawn_ring_sparkle(player);
 		child = OBJECT(current_object)->child;
 		free_object_2(child);
@@ -2859,7 +2859,7 @@ void carried_ring_spin(void)
 	if ((PLAYER(player)->state == 0xDu || PLAYER(player)->state == 0x20u) && (uint8_t)PLAYER(player)->hurt_contact_delay != 0u)
 		goto carried_ring_keep_spinning;
 	sound_id = 0x13u;
-	play_sound(sound_id, &r1, &r2);
+	play_sound(sound_id, &r1, &write_index_address);
 	spawn_ring_sparkle(player);
 	child = OBJECT(current_object)->child;
 	free_object_2(child);
@@ -3007,7 +3007,7 @@ void scattered_ring_live(void)
 {
 	uint8_t sound_id = 0;
 	uint16_t child = 0;
-	uint32_t r1 = 0, r2 = 0, object = 0, player = 0;
+	uint32_t object = 0, player = 0, write_index = 0, write_index_address = 0;
 	uint16_t lifetime = 0;
 
 	lifetime = OBJECT(current_object)->scattered_ring.lifetime;
@@ -3039,21 +3039,21 @@ void scattered_ring_live(void)
 		}
 	}
 	sound_id = 0x13u;
-	play_sound(sound_id, &r1, &r2);
+	play_sound(sound_id, &write_index, &write_index_address);
 	spawn_ring_sparkle(player);
 	child = OBJECT(current_object)->child;
 	free_object_2(child);
 	delete_current_object();
 }
 
-void move_scattered_ring(uint32_t r11)
+void move_scattered_ring(uint32_t cursor)
 {
 	uint16_t margin_x = 0, margin_y = 0;
 	uint32_t r1 = 0, r7 = 0, r8 = 0, block_offset = 0, ignored = 0, object = 0, off_screen = 0, rebound_speed = 0, y = 0;
 
 	OBJECT(current_object)->x += OBJECT(current_object)->speed_x;
 	OBJECT(current_object)->y += OBJECT(current_object)->speed_y;
-	find_floor(&rebound_speed, &y, &block_offset, &ignored, &r11);
+	find_floor(&rebound_speed, &y, &block_offset, &ignored, &cursor);
 	if ((int16_t)(OBJECT(current_object)->z_int - OBJECT(current_object)->floor_z_int) > 8)
 	{
 		OBJECT(current_object)->x -= OBJECT(current_object)->speed_x;
@@ -3074,7 +3074,7 @@ void move_scattered_ring(uint32_t r11)
 	project_object(&ignored, &r1);
 	animate(&r1, &r7, &r8);
 	if (OBJECT(current_object)->animation_speed == (uint8_t)OBJECT(current_object)->animation_timer && OBJECT(current_object)->animation_frame == 0x15u)
-		spawn_ring_glint(r11);
+		spawn_ring_glint(cursor);
 	margin_x = 0x20u;
 	margin_y = 0x58u;
 	off_screen = is_off_screen_margin(margin_x, margin_y);
@@ -3190,7 +3190,7 @@ void sparkle_animate(void)
 void spawn_gauge_ring(uint32_t ring)
 {
 	uint8_t sound_id = 0;
-	uint32_t r1 = 0, r2 = 0, free_count = 0;
+	uint32_t free_count = 0, write_index = 0, write_index_address = 0;
 
 	allocate_object(&free_count, &ring);
 	if (free_count != 0u)
@@ -3222,7 +3222,7 @@ void spawn_gauge_ring(uint32_t ring)
 		OBJECT(ring)->gauge_ring.turn_speed = 0x88u;
 		OBJECT(ring)->gauge_ring.hop_timer = 0x1E;
 		sound_id = 0x7Fu;
-		play_sound(sound_id, &r1, &r2);
+		play_sound(sound_id, &write_index, &write_index_address);
 	}
 }
 
@@ -3951,7 +3951,7 @@ void spiked_roller_chase(void)
 {
 	uint8_t sound_id = 0;
 	uint16_t height_above_floor = 0;
-	uint32_t r0 = 0, r2 = 0, r3 = 0, r7 = 0, chase_speed = 0, cursor = 0, event_kind = 0, ignored = 0, move_step = 0, off_screen = 0, record_cursor = 0, speed_level = 0, y = 0;
+	uint32_t r2 = 0, r3 = 0, r7 = 0, chase_speed = 0, cursor = 0, event_kind = 0, ignored = 0, move_step = 0, off_screen = 0, record_cursor = 0, speed_level = 0, x = 0, y = 0;
 	uint8_t hold_timer = 0, rumble_timer = 0;
 	uint16_t record_position = 0, z_int = 0, floor_z_int = 0, event_position = 0, max_y = 0, min_x = 0, min_y = 0, max_x = 0;
 	uint32_t flags = 0;
@@ -4025,7 +4025,7 @@ void spiked_roller_chase(void)
 	}
 	if (OBJECT(current_object)->platform != 5u && OBJECT(current_object)->platform != 2u)
 	{
-		find_floor(&r0, &y, &r2, &r3, &cursor);
+		find_floor(&x, &y, &r2, &r3, &cursor);
 		z_int = OBJECT(current_object)->z_int;
 		floor_z_int = OBJECT(current_object)->floor_z_int;
 		height_above_floor = (uint16_t)(floor_z_int - z_int);

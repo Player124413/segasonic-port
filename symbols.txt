@@ -9911,15 +9911,16 @@ local flood_fill 09BCE3 r16 span_right_x             # 09BD99: the span's right 
 104B76  data  fraction_digit_font                       # build_fraction_glyph: digits 0-9, 8 bytes each (rows 3-7, 4 pixels in the low nibble), then a slash (10 20 40 80 at 104BCC)
 
 # The flood fill queue records (0x1A bytes) as flood_fill_push_span writes them through R23 (object_cursor)
-scoped object flood_fill 00 direction_and_y u16         # low byte the direction (R9), high byte the row (R11 + R9): popped into flood_fill_direction/flood_fill_y
-scoped object flood_fill 02 right_x u16                 # flood_fill_span's R16
-scoped object flood_fill 04 right_address u32           # flood_fill_span's R15
-scoped object flood_fill 08 left_x u16                  # flood_fill_span's R10
-scoped object flood_fill 0A left_address u32            # flood_fill_span's R14
-scoped object flood_fill 0E parent_right_x u16          # flood_fill_push_parent_right_x
-scoped object flood_fill 10 parent_right_address u32    # flood_fill_push_parent_right_address
-scoped object flood_fill 14 parent_left_x u16           # flood_fill_push_parent_left_x
-scoped object flood_fill 16 parent_left_address u32     # flood_fill_push_parent_left_address
+struct flood_fill_record 1A                     # one span the unused flood_fill queues (ring of them at 20B500-20CCC3, written through R23, read through R24)
+field flood_fill_record 00 direction_and_y u16  # low byte the direction (R9), high byte the row (R11 + R9): popped into flood_fill_direction/flood_fill_y
+field flood_fill_record 02 right_x u16  # flood_fill_span's R16
+field flood_fill_record 04 right_address u32  # flood_fill_span's R15
+field flood_fill_record 08 left_x u16  # flood_fill_span's R10
+field flood_fill_record 0A left_address u32  # flood_fill_span's R14
+field flood_fill_record 0E parent_right_x u16  # flood_fill_push_parent_right_x
+field flood_fill_record 10 parent_right_address u32  # flood_fill_push_parent_right_address
+field flood_fill_record 14 parent_left_x u16  # flood_fill_push_parent_left_x
+field flood_fill_record 16 parent_left_address u32  # flood_fill_push_parent_left_address
 
 # Parameters
 param flood_fill_push_span R4 window_left           # bitmap_window_left, for flood_fill_span
@@ -10338,3 +10339,427 @@ param stage_05_event_show_message_12 R11 box              # the same
 # skip scroll_speeding_up_spare_branch r5: passed on to set_camera_velocity
 # skip scroll_speeding_up_spare_branch r10: passed on to set_camera_velocity
 # skip scroll_speeding_up_spare_branch r11: passed on to set_camera_velocity
+
+local flood_fill 09BCCB r23 queue_write flood_fill_record   # R23 (object_cursor in C): where the next span record goes
+local flood_fill 09BCD0,09BD44 r24 queue_read flood_fill_record  # R24 (last_object in C): the next record to take; back to the start past 20CCC4
+local flood_fill_push_span entry r23 queue_write flood_fill_record  # R23: where the record goes (moved on 1A, back to 20B500 past 20CCC4)
+# ======== parameters and results handed on from call to call (param lines, second round: build/naming/params2_1..3.txt) ========
+param project_object R0 screen_y  # out only: update_screen_position's R0, the new screen_y ((projected_y + z) >> 16 - view_y + sprite_offset_y), handed back
+param project_object R1 depth  # out only: update_screen_position's R1: sprite_offset_y in the low half, projected_y's high half above it; callers hand it to queue_sprite / queue_sprite_at_base (their R1 depth, whose low half they replace with screen_y) or keep_player_on_screen
+param find_floor R0 x  # the object's x tested against each nearby block's x min/max (with R1 y); out: the found block's floor type index (byte 12), or the slope factor on a slope; the caller's R0 when no block is near
+param queue_sound R1 write_index  # out only: sound_queue_write + 1 & 1F, stored back (the next free slot of sound_queue)
+param queue_sound R2 write_index_address  # out only: &sound_queue_write (20ED81), read with [R2+] and written back with [-R2]
+param check_walls R1 hitbox_offset  # low half: each wall's hitbox_offset_x, then hitbox_offset_y, added to its x_int / y_int for the box start; the last tested wall's is handed back
+param check_platforms R1 middle  # compute_bridge_sag's R1 handed back (low half): plank_count >> 1
+param check_platforms R2 plank  # compute_bridge_sag's R2 handed back: the last load entry's plank number
+param check_platforms R3 span  # compute_bridge_sag's R3 handed back: planks left in the last span (0)
+param check_platforms R4 sag  # compute_bridge_sag's R4 handed back (low half): the last sag written + sag_step
+param check_platforms R5 sag_step  # compute_bridge_sag's R5 handed back (low half)
+param check_platforms R9 passes_left  # compute_bridge_sag's R9 handed back: the sort's pass counter (0)
+param update_scroll R2 position  # scroll_position, compared with scroll_end (>= runs stage 3's end); out: what the scroll routines leave (set_camera_velocity's scroll_y), camera_velocity_y in stage 3's end
+param update_scroll R4 speed_value  # set_camera_velocity's R4 handed back: the speed's low 16 bits (the velocity factor); update_scroll's own in stage 3's end
+param update_scroll R5 next_scroll_position  # passed through the scroll routines (advance_scroll's / set_camera_velocity's R5)
+param update_scroll R8 second_player_object  # modes 7/8: player_2_object's object, handed back; otherwise the caller's
+param update_scroll R9 third_player_object  # modes 7/8: player_3_object's object, handed back; otherwise the caller's
+param update_scroll R11 dest  # run_vram_script's video RAM write address for stage 3's end scripts; otherwise the scroll routines' R11 (update_nbg3_scroll's quadrant_cursor), spawn_stage_03_end_pillar's object at the end step
+param player_state_hurt R1 depth  # player chain R1 (see player_animate): handed in/out of project_object, update_screen_position, keep_player_on_screen, queue_sprite_at_base, animate_with_flags, find_floor, play_sound and passed on to the next state
+param player_state_hurt R11 cursor  # player chain R11 (see player_animate): find_floor's / check_player_contacts' / push_player_out_of_wall's R11, passed on to the next state
+param player_state_tripped R11 cursor  # player chain R11: only handed to check_player_contacts (its R11)
+param player_state_stuck R11 cursor  # player chain R11: find_floor's cursor; player_stuck_begin's object slot (kept when nothing is allocated)
+param player_state_stage_b_sequence R1 depth  # player chain R1: update_screen_position's R1 handed to queue_sprite; passed on to player_move
+param player_state_stage_b_sequence R11 cursor  # player chain R11: only passed on to player_move
+param player_state_over_edge R0 jump_offset  # what player_dispatch_state leaves in R0: state x 3, the jump table offset; only its upper bytes survive the substate load (switch on substate)
+param player_state_over_edge R11 cursor  # player chain R11: get_ledge_side's / find_floor's / check_player_contacts' R11; the near-edge hang animation table for a while
+param player_state_entering_stage R1 depth  # player chain R1: play_sound's R1; passed on to player_move
+param player_state_entering_stage R11 cursor  # player chain R11: only passed on to player_move
+param player_state_carried_off R1 depth  # player chain R1: find_floor's / animate's / project_object's R1; animation_frame when it hands over to player_state_hurt
+param player_state_carried_off R11 cursor  # player chain R11: find_floor's cursor; the animation step (animation + 2 + frame x 4) when it hands over to player_state_hurt
+param player_state_stunned R1 depth  # player chain R1: update_screen_position's R1 into queue_sprite_at_base; animate's / find_floor's; passed on to the next state
+param player_state_stunned R11 cursor  # player chain R11: check_player_contacts' / find_floor's R11, passed on to the next state
+param player_state_knocked_off R1 depth  # player chain R1: play_sound's / find_floor's R1, passed on to the next state
+param player_state_knocked_off R11 cursor  # player chain R11: find_floor's cursor, passed on to the next state
+param player_state_floor_8_sequence R11 cursor  # player chain R11: find_floor's / player_move_with_scroll's R11; spawn_player_effect's and spawn_struggle_marker's object slot, then spawn_sign_2's sign
+param compute_camera_ground_speed R3 octant  # angle_of_vector's R3 for the map direction (camera_velocity >> 8), handed back; the caller's when the velocity did not change
+param set_camera_velocity R2 scroll_y  # out only: update_background_scroll's R2 (update_nbg3_scroll's scroll_y or block_pages; scroll_position past a fast-scroll start); update_camera_with_shake's (view_y) once the scroll ended
+param set_camera_velocity R4 speed_value  # out: the speed's low 16 bits (camera_velocity_x/_y = section_direction_x/_y x it), through update_background_scroll (select_nbg3_pages' byte mask on stages with NBG3 pages)
+param set_camera_velocity R5 next_scroll_position  # advance_scroll's R5 (move_camera_along_path's result) passed through update_background_scroll; select_nbg3_pages' R5 comes back on stages with NBG3 pages
+param set_camera_velocity R10 range  # update_background_scroll's R10: its cursor in stage_fast_scroll_ranges; the caller's once the scroll ended
+param set_camera_velocity R11 quadrant_cursor  # update_background_scroll's R11 (update_nbg3_scroll's / select_nbg3_pages' quadrant_cursor); the caller's otherwise
+param compute_camera_slope_speed R3 octant  # angle_of_vector's R3 for camera_scroll_direction (velocity >> 5), handed back; the caller's when nothing changed
+param drop_rings R3 shadow  # each new ring's child (28: its shadow), which gets the ring's flip bits too and is handed on to the next round; before that only handed to scatter_rings_random as its random_value (next_random's result when released_rings_random, else the caller's leftover)
+param drop_rings R11 allocated  # scatter_rings_random's R11 (the last block it allocated), handed in and back ring after ring
+param centipede_move R11 block  # only handed to spawn_centipede_sand_puff (spawn_object_with_pieces' R11 block, kept when nothing is spawned); centipede_chase passes move_object_projected's R11
+param attract_ranking R4 rows  # step 0: start_ranking_display's R4 handed back; the caller's on the other steps
+param attract_ranking R10 source  # step 0: start_ranking_display's R10 handed back; the caller's on the other steps
+param attract_demo_1 R1 pressed  # run_frame's R1 (wait_for_frame / read_controls: the bits just pressed), only passed on to run_game_mode
+param attract_demo_1 R2 released  # run_frame's R2 (read_controls' released bits), only passed on to run_game_mode
+param attract_demo_1 R3 input_cursor  # run_frame's R3 (read_controls' input_cursor, or credits_needed), only passed on to run_game_mode
+param attract_demo_1 R4 scale  # run_frame's R4 (the last frame's draw_queued_strings scale), in and out of run_game_mode
+param attract_demo_1 R5 cursor  # run_frame's R5 (draw_queued_strings' string cursor), only passed on to run_game_mode
+param attract_demo_1 R8 count  # run_frame's R8 (read_controls' count, 0), in and out of run_game_mode
+param attract_demo_1 R9 height  # run_frame's R9 (draw_queued_strings' height), in and out of run_game_mode
+param attract_demo_1 R10 trackball_port  # run_frame's R10 (read_controls' trackball_port), in and out of run_game_mode
+param attract_demo_1 R11 trackball_cursor  # run_frame's R11 (read_controls' trackball_cursor, or draw_attract_credits' text position), only passed on to run_game_mode
+param spawn_sign R1 depth  # place_sign's R1 (init_sign_from_kind's: project_object's R1) handed back when a sign is made
+param polar_to_xy R1 cos_part  # out only: cosine(angle) x length >> 6 (dy is its negation)
+param wait_for_frame R1 pressed  # read_controls' R1 handed back: inputs_pressed (the bits just pressed)
+param metal_wall_update R3 octant  # metal_wall_wait passes face_nearest_player's R3 (octant); only handed to scatter_rings_random (random_value, replaced) and delete_if_off_screen
+param start_stage_view R2 direction_y  # init_stage_view's R2 handed back: the stage's first section_direction_y; the caller's for stage 11
+param start_stage_view R3 direction_x  # init_stage_view's R3 handed back: the first section_direction_x
+param start_stage_view R4 count  # init_stage_view's R4 handed back: set_stage_layer_mixing's count (0)
+param set_facing R0 facing  # returned: facing_angle + 20 >> 6 & F (the 16-way facing) in the low half, the caller's high half above it
+param released_ring_move R11 cursor  # handed in/out of move_object_projected (find_floor's cursor), then to spawn_ring_glint (its sparkle slot)
+param player_animate R1 depth  # the player chain's R1: after player_move, keep_player_on_screen's R1 (sprite_offset_y in the low half, what update_screen_position leaves and queue_sprite takes as depth); player_update hands player_hud_update's R1 (digit_attribute); passed on to the states
+param player_animate R11 cursor  # the player chain's R11: after player_move, find_floor's cursor (or check_player_floor_edge's); player_update hands check_scene_states' R11; passed on to the states
+param move_camera_to_start_section R2 y  # update_camera_view's R2: view_y (camera_y_pixels - view_offset_y)
+param vram_script_set_address R0 script_code  # run_vram_script's command byte; only its upper bytes survive (the cell address word replaces the low half)
+param vram_script_set_address R11 dest  # out only: 300000 + the script's halfword x 2, the next video RAM write address
+param update_stage_00_exit_scene R4 speed_value  # only handed in/out of update_background_scroll (its R4, set_camera_velocity's speed_value)
+param stage_05_event_step_3_frame R2 part_size  # the caller's R2 (stage_05_event_show_message's), handed to spawn_walls (its R2) and through check_hits / check_platforms; not handed back
+param stage_05_event_step_3_frame R4 sag  # check_hits' then check_platforms' R4 (compute_bridge_sag's sag, low half), handed back
+param scroll_speeding_up R2 other_list  # advance_scroll_unless_ended's R2 (advance_scroll's other_list), or set_camera_velocity's on the frame the ramp ends
+param scroll_speeding_up R4 speed_value  # advance_scroll_unless_ended's / set_camera_velocity's R4 (the speed's low 16 bits)
+param scroll_speeding_up R5 next_scroll_position  # advance_scroll_unless_ended's / set_camera_velocity's R5
+param scroll_speeding_up R10 range  # advance_scroll_unless_ended's / set_camera_velocity's R10 (update_background_scroll's range)
+param scroll_speeding_up R11 quadrant_cursor  # advance_scroll_unless_ended's / set_camera_velocity's R11 (update_nbg3_scroll's quadrant_cursor)
+param run_map_screen R4 bottom_speed  # step 0: start_window_wipe's R4 (window_wipe_bottom_speed); the caller's on the other steps
+param player_steer R0 wanted_speed  # follow_player_path's target speed (path_speed << 16), through apply_speed_scale; the trackball's speed^2 x 1.5 without a path; the caller's leftover only goes into follow_player_path
+param load_tile_set R1 count  # run_vram_script's R1 handed back (the last command's count: 0)
+param event_0c_start R2 block_offset  # spawn_door_rollers' R2 (find_floor's block_offset), handed back
+param event_0c_start R3 slope_height  # spawn_door_rollers' R3 (find_floor's slope_height), handed back
+param compute_bridge_sag R3 span  # out: the planks between two loads, counted down by the fill (0); unchanged when only the end loads are on the bridge
+param compute_bridge_sag R11 sag_curve  # out only: bridge_sag_curve; past the cleared sag table (clear_dest) when only the end loads are on the bridge
+param animate_palette_stage_0d_0e R1 copy_offset  # cycle_palette's R1 (queue_vblank_copy's copy_offset, or the frame offset x 20 while waiting)
+param animate_palette_stage_0d_0e R2 copy_entry  # cycle_palette's R2 (queue_vblank_copy's copy_entry), handed back
+param update_nbg3_scroll R4 speed_value  # update_background_scroll's R4 (set_camera_velocity's speed_value) handed back; select_nbg3_pages' R4 (its byte mask, 0) on stages 0, 3, 5, 6, 7, A
+param update_nbg3_scroll R5 next_scroll_position  # update_background_scroll's R5 handed back; select_nbg3_pages' R5 (its last shift) on stages 0, 3, 5, 6, 7, A
+param tornado_throw_whirlwinds R2 free_count  # only handed to spawn_whirlwind (spawn_object_with_pieces' R2: its high half survives the free-stack load)
+param test_inputs R8 count  # run_test_mode's R8 (wait_for_frame's count), only handed to move_input_test_cursors (build_sprite_list's R8 there)
+param test_inputs R9 blocks_per_row  # fill_rect's R9 / move_input_test_cursors' R9 handed back
+param test_coin_assignments R4 color  # run_test_mode's R4 (the test screens' fill colour) handed back; draw_coin_credit_table's R4 (0) after the manual page is drawn, eeprom_save_and_lock's command when it saves on exit
+param start_climb_at_spawn R0 climbed_height  # only its high half survives: the low half becomes the wall's climb height (floor_types record + E)
+param spawn_whirlwind R2 free_count  # spawn_object_with_pieces' R2: only its high half survives the free_object_stack load
+param side_of_box R1 hitbox_offset_y  # out (low half): the other's hitbox_offset_y, used for the y box start
+param run_sega_logo R4 color  # step 0: clear_bitmap_layer's R4 (the fill colour, 0) handed back; the caller's otherwise
+param run_sega_logo R8 row_pairs_left  # step 0: clear_bitmap_layer's R8 (fill_rect_unclipped's row_pairs_left) handed back
+param run_sega_logo R9 blocks_per_row  # step 0: clear_bitmap_layer's R9 handed back
+param run_sega_logo R10 lower_row_cursor  # step 0: init_sprites' R10, then clear_bitmap_layer's R10 handed back; the caller's (run_title_screen's text) otherwise
+param run_sega_logo R11 logo_block  # allocate_object_2's block every frame: the logo sprite (screen_sprite_block, freed again); step 0 clear_sprite_buckets' R11 before it; the incoming value is a leftover kept when no block is free
+param push_crate_release_all_rings R11 allocated  # push_crate_release_rings' R11 (drop_rings' allocated), handed in and back
+param player_animate_jumping R11 sign  # only handed to spawn_sign_2 (stage 5 before the cage bar is hit): allocate_object's slot
+param join_character_chooser_update R0 text_x  # only its high half survives: the low half becomes screen_x (the text x)
+param init_system R4 polynomial  # init_game_settings' R4 (load_ranking's: compute_crc16's CRC polynomial), handed back; unused
+param init_system R5 words_left  # check_moving_seat_dip's R5 (eeprom_save_and_lock's words_left, or load_text_font's R5), handed back
+param flame_machine_arm_take_disc R2 free_count  # spawn_object_with_pieces' R2: only its high half survives the free_object_stack load
+param flame_machine_arm_take_disc R11 block  # spawn_object_with_pieces' R11: the last block it allocated
+param event_0c_first_quake R2 write_index_address  # play_sound's R2 at 3C (queue_sound's &sound_queue_write); the caller's otherwise
+param check_scene_states R11 object  # spawn_player_ride's object (event 1C, nothing riding yet); otherwise the caller's R11 (player_hud_update's text_position) handed back
+param build_ending_scene R2 write_index_address  # step 0: queue_sound's R2 (&sound_queue_write); unchanged in the other steps
+param build_ending_scene R4 color  # step 0: clear_bitmap_layer's R4 (set_stage_layer_mixing's 0, then the replicated fill colour); unchanged in the other steps
+param build_ending_scene R8 row_pairs_left  # step 0: clear_bitmap_layer's R8 (fill_rect_unclipped's row_pairs_left); unchanged in the other steps
+param animate_palette_stage_0c R1 copy_offset  # cycle_palette's R1 (queue_vblank_copy's copy_offset, or the frame offset x 20 while waiting)
+param animate_palette_stage_0c R2 copy_entry  # cycle_palette's R2 (queue_vblank_copy's copy_entry), handed back
+param animate_palette_stage_04 R1 copy_offset  # cycle_palette's R1 (queue_vblank_copy's copy_offset, or the frame offset x 20 while waiting)
+param animate_palette_stage_04 R2 copy_entry  # cycle_palette's R2 (queue_vblank_copy's copy_entry), handed back
+
+param play_sound R1 write_index  # out: queue_sound's R1 (sound_queue_write after the + 1, & 1F); in attract with the id masked off, the id's bit number (& 1F); unchanged when advertise sound is off (queue_sound R1's name)
+param play_sound R2 write_index_address  # out: queue_sound's R2 (sound_queue_write's address); in attract with the id masked off, the id's word index (>> 5) into attract_sound_mask; unchanged when advertise sound is off
+param add_to_touchable_list R0 old_head  # out: the list head before the push (stored as the object's hit_list_next); in: only its high half is used (the work RAM base for LINKED)
+param unproject_object R0 screen_y  # out only: update_screen_position_no_offset's R0
+param unproject_object R2 block_offset  # find_floor's R2 (the floor block's offset in nearby_floor_blocks); scaled x (projected_x << 8) is what goes in
+param unproject_object R11 cursor  # find_floor's cursor (nearby_floor_blocks, then the slope record), handed in and back
+param move_object_projected R2 block_offset  # unproject_object's (find_floor's R2), out only
+param move_object_projected R11 cursor  # unproject_object's / find_floor's cursor, handed in and back
+param keep_player_on_screen R1 depth  # low half = sprite_offset_y (sprite_offset_x before it): the caller's project_object R1; high half kept; the carry path leaves the y step (cos x slope speed >> 8); push_player_from_screen_edge's R1 on its exits
+param advance_scroll R4 speed_value  # out only: set_camera_velocity's R4 (the u16 speed it multiplied by; select_nbg3_pages' byte_mask on NBG3 parallax stages)
+param advance_scroll R10 range  # out: set_camera_velocity's R10, update_background_scroll's pointer into stage_fast_scroll_ranges; the incoming value (update_scroll's end_script) is only handed on
+param advance_scroll R11 quadrant_cursor  # set_camera_velocity's R11: update_nbg3_scroll's / select_nbg3_pages' pointer into the 1BCBC table on NBG3 parallax stages, else unchanged
+param update_stage_tile_layers R2 copy_entry  # handed to animate_stage_palette (cycle_palette's queue_vblank_copy entry comes back); 0 (rows_left) after the block map read, or reload_changed_tile_set's R2
+param update_stage_tile_layers R4 palette_count  # handed to animate_stage_palette (cycle_palette's count); 20 (set_shift) after the block map read, or reload_changed_tile_set's R4
+param update_stage_tile_layers R10 block_cursor  # into stage_block_maps (tile_block_row + tile_block_column), past the 2 x 2 blocks read; animate_stage_palette's source goes in; reload_changed_tile_set's script when it reloads
+param square_root R1 steps_left  # the 16 rounds, counted down: 0 when it returns
+param face_movement_direction R0 facing  # set_facing's result: the 16-way facing (heading + 20 >> 6 & F); only the incoming high half survives
+param check_zones R1 box_edge  # low half: the zone's hitbox offsets, then its bottom (z - hitbox_height) and the hitter's, last compared; the caller's value when zone_list is empty
+param spawn_object_groups_2 R1 list_offset  # stage_record_spawns[stage] the first time (group_spawn_cursor_2 = 093xxx + it); a member's alternate animation (record +10) when spawning; otherwise the caller's value back (spawn_objects_by_handler R1's name)
+param check_player_contacts R1 health_limit  # ring kinds (3, 2A): low byte = rings per health point (4, 8 at setting 3, halved with 2+ players in play), then the max health it caps at (max_health_by_setting); the solid/hurt paths leave side_of_box's / aim_at_screen_centre's R1; else the caller's R1 (the player states' offset_y) back
+param check_player_contacts R11 cursor  # the player states' R11 (find_floor's cursor) handed back; kinds 6/7 leave the touched launcher, kind 1A the climbed object (parent of the touched one); no caller reads it
+param add_to_zone_list R0 old_head  # out: the list head before the push (stored as the object's hit_list_next); in: only its high half is used
+param player_state_teetering R11 cursor  # player_move's R11 (find_floor's cursor), handed to check_player_contacts; substate 0 puts teetering_animations in it
+param player_state_stage_exit R1 depth  # player_animate's R1 (keep_player_on_screen's sprite y offset), handed to player_move; update_screen_position's R1 later
+param player_state_stage_exit R11 cursor  # player_animate's R11 (find_floor's cursor), handed to player_move
+param player_state_scene_thrown R1 depth  # player_animate's R1, handed to player_state_hurt / find_floor; the hurt animation offset is loaded into it
+param player_state_scene_thrown R11 cursor  # player_animate's R11 (find_floor's cursor), handed to find_floor and player_state_hurt
+param player_state_game_over R0 jump_offset  # the dispatcher's state x 3 (branch table offset); the player number on the first frame; handed to enter_ranking_initials, which keeps only its high half
+param player_state_climbing_object R11 cursor  # player_animate's R11, handed to player_object_climb_push (spawn_climb_hand's hand comes back there)
+param player_state_caught R11 cursor  # player_animate's R11 (find_floor's cursor), handed to find_floor; spawn_player_effect's effect lands in it
+param player_state_trapped R1 depth  # player_animate's R1 (keep_player_on_screen's sprite y offset), handed to check_player_contacts / player_move
+param player_state_trapped R11 cursor  # player_animate's R11 (find_floor's cursor), handed to check_player_contacts / player_move
+param player_state_pulled R11 cursor  # player_animate's R11 (find_floor's cursor), handed to find_floor and player_move_with_scroll
+param player_state_in_zone R1 depth  # player_animate's R1 (keep_player_on_screen's sprite y offset), handed to check_player_contacts / player_move
+param player_state_in_zone R11 cursor  # player_animate's R11 (find_floor's cursor), handed to spawn_sign_2 / check_player_contacts / player_move
+param player_state_climbing R1 depth  # player_animate's R1 (keep_player_on_screen's sprite y offset), handed to check_player_contacts / player_move
+param player_state_climbing R11 cursor  # player_animate's R11 (find_floor's cursor), handed to check_player_contacts / player_move
+param update_background_scroll R1 fast_scroll_start  # out only: the stage_fast_scroll_ranges start word read last (the range past section_start, or the FFFF end)
+param update_background_scroll R2 scroll_y  # update_nbg3_scroll's R2 (its NBG3 y, or select_nbg3_pages' block_pages); scroll_position when the stage has a fast scroll range past the section start
+param update_background_scroll R4 speed_value  # set_camera_velocity's u16 speed goes in; update_nbg3_scroll's R4 comes back (select_nbg3_pages' byte_mask on NBG3 parallax stages)
+param update_background_scroll R5 next_scroll_position  # advance_scroll's (via set_camera_velocity) goes in; update_nbg3_scroll's R5 comes back (select_nbg3_pages' shift on NBG3 parallax stages)
+param update_background_scroll R11 quadrant_cursor  # update_nbg3_scroll's R11, handed in and back
+param push_crate_move R11 cursor  # handed to move_object_projected (find_floor's cursor comes back), then to push_crate_release_rings
+param push_crate_move R16 random_value  # handed to push_crate_release_rings (drop_rings' random_value)
+param push_crate_move R17 ring  # handed to push_crate_release_rings (drop_rings' ring)
+param attract_title R4 color  # run_title_screen's R4 (clear_bitmap_layer's color on run_sega_logo's first step); otherwise the caller's value back
+param attract_title R8 row_pairs_left  # run_title_screen's R8 (clear_bitmap_layer's row_pairs_left on run_sega_logo's first step); otherwise the caller's value back
+param attract_title R9 blocks_per_row  # run_title_screen's R9 (clear_bitmap_layer's blocks_per_row on run_sega_logo's first step); otherwise the caller's value back
+param attract_title R10 text  # out only: print_text's text (past the record at 000644), handed to run_title_screen; its R10 comes back (the background vram script when it builds the scene)
+param update_screen_wipe R1 clip_right  # out only: the right edge written to video_bitmap_clip_right
+param update_screen_wipe R2 clip_top  # out only: the top edge written to video_bitmap_clip_top
+param update_screen_wipe R3 clip_bottom  # out only: the bottom edge written to video_bitmap_clip_bottom
+param spawn_centipede_sand_puff R2 free_count  # spawn_object_with_pieces' R2
+param spawn_centipede_sand_puff R11 block  # spawn_object_with_pieces' R11 (the last block it allocated)
+param player_animate_run_from_table R10 animation_table  # per-facing offsets table of the run animation (player_animate_run_cycle R10's name)
+param draw_credit_count R1 credits  # draw_credit_count_now's R1, handed back when it redraws
+param draw_credit_count R10 text  # draw_credit_count_now's text (past it) when it redraws; else the coin block compared (p1_coins or p2_coins)
+param spawn_debris R0 spawned  # spawn_objects' R0: 1 when made, 0 when the pool is short (then nothing happens); the caller's value only when count <= 0
+param spawn_debris R11 block  # spawn_objects' R11: each block it allocates
+param draw_line R8 unclipped_y  # clip_line_to_window's R8, handed back
+param clear_bitmap_layer R5 inner_count  # fill_rect_unclipped's R5, handed back
+param clear_bitmap_layer R8 row_pairs_left  # fill_rect_unclipped's R8, handed back
+param clear_bitmap_layer R10 lower_row_cursor  # fill_rect_unclipped's R10, handed back
+param spawn_eggman_booth R1 piece_count  # spawn_object_with_pieces' R1 (spawn_count - 1)
+param spawn_eggman_booth R2 free_count  # spawn_object_with_pieces' R2, handed back
+param spawn_eggman_booth R11 block  # spawn_object_with_pieces' R11 (the last block it allocated), handed back
+param player_move_with_scroll R1 depth  # out only: queue_sprite's depth key (or queue_sprite_at_depth's screen_y - 20 in sequence step A of state 25); keep_player_on_screen's R1 on the exits before drawing
+param player_move_with_scroll R11 cursor  # push_player_out_of_wall's and find_floor's R11 (find_floor's cursor), handed in and back
+param place_sign R1 depth  # out only: init_sign_from_kind's R1 (project_object's R1 for the sign)
+param int_default R0 source  # run_vblank_copies' R0 (via int_vector_02)
+param int_default R2 dest  # run_vblank_copies' R2 (via int_vector_02)
+param int_default R3 copies_left  # run_vblank_copies' R3: 0 at the end
+param int_default R4 copy_entry  # run_vblank_copies' R4: past the last vblank_copies entry
+param update_sinking_floor R1 sink_offset  # sink_depth << 8 added to floor_z for z (floor type A with a floor block); the caller's value otherwise
+param select_nbg3_pages R4 byte_mask  # out only: the byte mask of the page packing loop, shifted out to 0 when it returns
+param select_nbg3_pages R5 shift  # out only: the packing loop's shift, - 8 per byte: -20 when it returns
+param scroll_slowing_down R2 other_list  # scroll_at_scroll_speed's R2 (advance_scroll's other_list), handed back
+param scroll_slowing_down R4 speed_value  # scroll_at_scroll_speed's R4 (advance_scroll's speed_value), handed back
+param scroll_slowing_down R5 next_scroll_position  # scroll_at_scroll_speed's R5 (advance_scroll's), handed back
+param scroll_slowing_down R10 range  # update_scroll's end_script, handed on; advance_scroll's range pointer comes back
+param scroll_slowing_down R11 quadrant_cursor  # scroll_at_scroll_speed's R11 (advance_scroll's quadrant_cursor), handed back
+param push_crate_release_rings R3 seed  # handed to drop_rings (scatter_rings_random's random_value when released_rings_random is 0)
+param push_crate_release_rings R11 allocated  # drop_rings' R11 (scatter_rings_random's last allocated block), handed in and back
+param player_animate_skidding R1 depth  # player_animate's R1, handed back to player_animate (state 4); play_sound's / animate_with_flags' R1 land in it
+param player_animate_skidding R11 cursor  # player_animate's R11 (find_floor's cursor), handed to player_animate / player_animate_skidding_slow_down
+param fill_rect_unclipped R10 lower_row_cursor  # out only: 8 bpp, the second row's write cursor of the 16-byte block fill; 4 bpp, the halfwords left in a row (0), or 100 (the row step) for a single column
+param compute_scroll_drift R9 drift_byte  # stored in unused_drift_byte (callers pass 0)
+param clip_rect_to_window R5 window_min  # out only (low half): bitmap_window_left, then bitmap_window_top: the last window edge compared
+param aim_at_screen_centre R1 cos_part  # out only: polar_to_xy's R1 (cosine x 200 >> 6, the negated dy)
+param update_stage_05_event R8 count  # update_player_summary's / check_stage_clear's count in steps 0-1; the message frames (B4) in step 3, the rocks left in the geyser step
+param test_memory R9 blocks_per_row  # clear_bitmap_layer's when it redraws the screen (run_test_mode's R9); memory_test_result_texts while the results are printed
+param test_game_assignments R4 color  # draw_difficulty_setting / draw_vitality_setting color (fill_rect's), eeprom_save_and_lock's command when it saves; handed back
+param start_ring_tally R2 stage_rings_3  # out only (low half): player 3's stage rings | 100 when it gets the bonus, >> 8 when its panel is made
+param start_ring_tally R3 player_3_out_flags  # out only: player 3's object flags & 10000400 (0: a panel was made for it)
+param start_ring_tally R4 ring_total  # out only: stage_ring_counts[stage] (the percentage's divisor); player 1's bonus flag (its rings word >> 8) when its panel is made
+param start_ring_tally R8 p2_object  # out only: player 2's object (player_2_object)
+param start_ring_tally R9 p3_object  # out only: player 3's object (player_3_object)
+param spawn_mine_splash R2 free_count  # spawn_object_with_pieces' R2
+param spawn_mine_splash R11 block  # spawn_object_with_pieces' R11 (the last block it allocated)
+param run_title_screen R4 color  # run_sega_logo's R4 (clear_bitmap_layer's color on its first step); otherwise the caller's value back
+param run_title_screen R8 row_pairs_left  # run_sega_logo's R8 (clear_bitmap_layer's on its first step); otherwise the caller's value back
+param run_title_screen R9 blocks_per_row  # run_sega_logo's R9 (clear_bitmap_layer's on its first step); otherwise the caller's value back
+param run_title_screen R10 text  # attract_title's print_text text, handed to run_sega_logo; background_script (the background vram script) when the scene is built
+param run_title_screen R11 text_position  # attract_title's print_text text_position, only handed to run_sega_logo (allocate_object_2 replaces it there)
+param run_frame R1 pressed  # wait_for_frame's R1 (read_controls' pressed bits), handed to the system mode handlers and draw_attract_credits
+param run_frame R2 released  # wait_for_frame's R2, handed on
+param run_frame R3 input_cursor  # wait_for_frame's R3; its high half goes with credits_per_start (credits_needed)
+param run_frame R8 count  # wait_for_frame's R8 (0), handed to the mode handlers; build_sprite_list's scale_x replaces it for draw_queued_strings
+param run_frame R10 trackball_port  # wait_for_frame's R10, handed to the mode handlers; build_sprite_list's sprite_flags replaces it for draw_queued_strings
+param run_frame R11 trackball_cursor  # wait_for_frame's R11, handed to the mode handlers
+param run_frame R4 scale  # draw_queued_strings' R4 (the last string's scale) when it returns; boot hands it back next frame
+param run_frame R5 cursor  # draw_queued_strings' R5 (past the last string's characters) when it returns; the incoming low half goes to the mode handlers
+param run_frame R9 height  # draw_queued_strings' R9 when it returns
+param move_input_test_cursors R8 count  # test_inputs' R8 (wait_for_frame's count); build_sprite_list's scale_x replaces it for draw_queued_strings
+param move_input_test_cursors R10 text  # test_inputs' coin_text; input_test_trackball_*_good_text for print_text_list; build_sprite_list's sprite_flags for draw_queued_strings
+param move_input_test_cursors R4 cursors_left  # out only: the three trackball cursors, counted down: 0
+param move_input_test_cursors R9 height  # draw_queued_strings' R9 when it returns
+param init_stage_view R2 direction_y  # out only: the first section's y direction (section_direction_y)
+param init_stage_view R3 direction_x  # out only: the first section's x direction (section_direction_x)
+param init_stage_view R4 count  # out only: set_stage_layer_mixing's count (0)
+param event_0f_show_messages R5 screen_x  # spawn_message_box's R5: each record's screen x (16-bit load: only the incoming high half survives)
+param enter_ranking_initials R0 jump_offset  # player_state_game_over's R0 (the dispatcher's state x 3): only its high half survives into the blink timer
+param check_player_step R11 cursor  # player_move's R11 (find_floor's cursor) handed back; the player's x (get_floor_block_side's) on the bounce path
+param animate_stage_palette R1 copy_offset  # out only: the stage function's R1 (cycle_palette's: queue_vblank_copy's copy_offset, or the frame offset while it waits)
+param animate_stage_palette R2 copy_entry  # the stage function's R2 (cycle_palette's: queue_vblank_copy's copy_entry when it copied), handed in and back
+param animate_palette_stage_0f R1 copy_offset  # out only: the second cycle_palette's R1
+param animate_palette_stage_0f R2 copy_entry  # cycle_palette's R2 (queue_vblank_copy's copy_entry when it copied), handed in and back
+param animate_palette_stage_0a R1 copy_offset  # out only: the second cycle_palette's R1
+param animate_palette_stage_0a R2 copy_entry  # cycle_palette's R2 (queue_vblank_copy's copy_entry when it copied), handed in and back
+param stage_05_event_show_message_12 R2 part_size  # as stage_05_event_show_message_11: play_sound's R2, handed on to stage_05_event_show_message (spawn_walls' R2)
+
+# params2_3: parameters and results of the functions in params2_work_3.txt (helper 3)
+
+param update_screen_position R0 screen_y     # out: (projected_y + z) >> 16 - view_y + sprite_offset_y, also stored in screen_y (callers mostly ignore it)
+param update_screen_position R1 depth        # out: low half = sprite_offset_y, high half the caller's; callers hand it to queue_sprite / queue_sprite_at_base (their R1 depth, whose low half they overwrite with screen_y) or keep_player_on_screen
+
+param player_move R1 depth                   # the player code's leftover R1, handed through every call and back to player_animate; on the move path the last one is keep_player_on_screen's (project_object's sprite_offset_y half), which the animation states give update_screen_position and queue_sprite as depth
+param player_move R11 cursor                 # the player code's leftover R11 (player_animate's name): check_player_contacts', find_floor's cursor, check_player_floor_edge's; the states that take it allocate their effect objects in it (allocate_object, spawn_player_effect)
+
+param delete_if_off_screen R2 block_offset   # the caller's R2 (unproject_object / move_object_projected: find_floor's block offset), handed back; when the object is deleted, delete_object_and_children's (the callers return then)
+param delete_if_off_screen R3 slope_height   # the caller's R3 (unproject_object / move_object_projected: find_floor's slope part of floor_z), handed back; delete_object_and_children's when deleted
+
+param delete_object_and_children R2 block_offset  # the caller's R2 (find_floor's block offset in most handlers) when there is no child; else the last child's delete_object R2 (previous) or free_object_2's free stack (20EA10); the callers return after it
+param delete_object_and_children R3 slope_height  # the caller's R3 (find_floor's slope part), handed back; changed only on the trap path (int_default) when free_object_stack_2 goes past 0x100
+
+param check_hits R1 box_edge                     # check_hit's R1 of the last pair tested, handed back
+param check_hits R2 distance                 # check_hit's R2 of the last pair tested (low half), handed back
+param check_hits R5 radius                   # check_hit's R5 of the last pair tested (low half), handed back
+param check_hits R8 centre_offset            # check_hit's R8 of the last pair tested (low half), handed back
+
+param spawn_walls R2 part_size               # build_wall_parts' R2 handed back (the part size, or allocate_object_2's free stack once parts were made); delete_object_outside_loop's previous when pool 2 is too short; else the caller's
+
+param spawn_objects_by_type R1 player_object # count_active_players' R1 (the last player object checked, player 1's); the caller's on the stage's first call
+param spawn_objects_by_type R2 player_index  # count_active_players' R2 (2, 1, 0 counted down: FFFFFFFF at the end); the caller's on the stage's first call
+param spawn_objects_by_type R11 object       # spawn_object_with_pieces' R11 (the last block it allocated), then unproject_object's R11 (find_floor's cursor) once it spawned; the caller's when nothing is due
+
+param spawn_ring_rows R2 free_stack          # find_floor's block offset for each ring, then allocate_object_2's R2 for its shadow: 20EA10 (free_object_stack_2) once a ring spawned; else the caller's
+
+param spawn_object_groups R2 free_stack      # spawn_waterfall's R2 (allocate_object_2's free stack, 20EA10); otherwise the caller's
+
+param player_state_tumbling R1 depth         # the player code's leftover R1 (player_move's name), handed to check_player_contacts, push_player_out_of_wall, find_floor and the animate calls
+param player_state_tumbling R11 cursor       # the player code's leftover R11 (player_move's name): handed to player_tumbling_launch / player_tumbling_set_launch_speed, which allocate the tumble effect in it
+
+param player_state_stage_scene R1 depth      # the player code's leftover R1, handed back to player_move or to play_sound / animate / update_screen_position / queue_sprite
+param player_state_stage_scene R11 cursor    # the player code's leftover R11, handed back to player_move
+
+param player_state_sinking R11 cursor        # the player code's leftover R11: spawn_player_effect allocates the sinking effect in it (handler sinking_effect_update)
+
+param player_state_intro_turn R1 depth       # the player code's leftover R1, handed to player_move
+param player_state_intro_turn R11 cursor     # the player code's leftover R11, handed to player_move
+
+param player_state_dropping R11 cursor       # the player code's leftover R11: allocate_object's slip effect (handler slip_effect_update), then spawn_slip_piece's / spawn_slip_pieces' piece
+
+param player_state_choosing_character R11 cursor  # the player code's leftover R11, handed to start_character_chooser
+
+param player_state_blown_away R11 cursor     # the player code's leftover R11: allocate_object's blown-away effect (handler blown_away_effect_update)
+
+param player_state_stuck_on_object R1 depth  # the player code's leftover R1: check_player_contacts', handed to the next state, then update_screen_position / find_floor / keep_player_on_screen / queue_sprite
+param player_state_stuck_on_object R11 cursor  # the player code's leftover R11: check_player_contacts', handed to the next state or to player_stuck_on_object_begin (its sign)
+
+param player_state_held R1 depth             # the player code's leftover R1, handed to the state it switches to
+param player_state_held R11 cursor           # the player code's leftover R11, handed to the state it switches to
+
+param cycle_palette R1 copy_offset           # out: queue_vblank_copy's R1 after a copy; on the waiting frames the frame's offset into the source (frame x 20)
+param cycle_palette R2 copy_entry            # out: queue_vblank_copy's R2 (past the vblank_copies entry it wrote) after a copy; else the caller's
+
+param project_point R1 projected_y           # out: point_to_screen's R1: (projected y + z) >> 16 - view_y, the point's screen y (32 bits; R8 gets its low half); what callers pass is not read
+
+param attract_demo_2 R1 pressed              # run_frame's R1 (wait_for_frame / read_controls: the bits just pressed), only passed on to run_game_mode (as attract_demo_1)
+param attract_demo_2 R2 released             # run_frame's R2 (read_controls' released bits), only passed on to run_game_mode
+param attract_demo_2 R3 input_cursor         # run_frame's R3 (read_controls' input_cursor), only passed on to run_game_mode
+param attract_demo_2 R5 cursor               # run_frame's R5 (draw_queued_strings' string cursor, low half), only passed on to run_game_mode
+param attract_demo_2 R11 trackball_cursor    # run_frame's R11 (read_controls' trackball_cursor), only passed on to run_game_mode
+param attract_demo_2 R4 scale                # run_frame's R4 (the last frame's draw_queued_strings scale), in and out of run_game_mode
+param attract_demo_2 R8 count                # run_frame's R8 (read_controls' count, 0), in and out of run_game_mode
+param attract_demo_2 R9 height               # run_frame's R9 (draw_queued_strings' height), in and out of run_game_mode
+param attract_demo_2 R10 trackball_port      # run_frame's R10 (read_controls' trackball_port), in and out of run_game_mode
+
+param face_nearest_player R0 direction       # angle_of_vector's R0 for each active player (dx in, the angle out); the last one + direction_to_player_offsets[nearest_player] is stored in direction; the caller's value only when no player is in play
+
+param centipede_hop R0 height                # fall_to_floor's R0 (floor_z - z while still above the floor, 0 once on it) when 86 = 0; else the caller's
+param centipede_hop R2 z                     # fall_to_floor's R2 (the z it loaded while falling) when 86 = 0; else the caller's
+
+param draw_map_stage_markers R11 badge_offset  # result: stage_map_markers[stage] x C, the current marker's offset in map_number_badge_sprites (set while it blinks); else the caller's
+
+param update_stage_06_background R3 random_value  # next_random's R3 (step 6's two rolls, & F); the caller's value is not read
+param update_stage_06_background R9 words_left    # next_random's R9 (0 after a roll); else the caller's, handed back
+param update_stage_06_background R10 source       # step 6: cycle_palette_set_0/_1's R10 (the frame queued, or handed back) and next_random's R10 in between; the vram script past its end after steps 1, 3 and 5
+
+param stage_05_event_show_message R2 part_size  # play_sound's R2, handed to stage_05_event_step_3_frame as spawn_walls' R2
+param stage_05_event_show_message R4 sag        # stage_05_event_step_3_frame's R4 handed back (low half): check_platforms' (compute_bridge_sag's sag)
+
+param scroll_at_scroll_speed R2 other_list   # advance_scroll_unless_ended's R2 handed back (advance_scroll's other_list)
+param scroll_at_scroll_speed R4 speed_value  # advance_scroll_unless_ended's R4 handed back (set_camera_velocity's: the speed's low half, or what update_background_scroll leaves)
+param scroll_at_scroll_speed R5 next_scroll_position  # advance_scroll_unless_ended's R5 handed back (advance_scroll's)
+param scroll_at_scroll_speed R10 range       # advance_scroll_unless_ended's R10 handed back (update_background_scroll's fast scroll range cursor)
+param scroll_at_scroll_speed R11 quadrant_cursor  # advance_scroll_unless_ended's R11 handed back (update_nbg3_scroll's / select_nbg3_pages')
+
+param move_scattered_ring R11 cursor         # find_floor's R11 (callers pass the player or 0, overwritten), then handed to spawn_ring_glint as the register it allocates the glint in
+
+param advance_scroll_unless_ended R2 other_list  # advance_scroll's R2 (cursor into the section lists); the caller's when scroll_ended < 0
+param advance_scroll_unless_ended R4 speed_value  # advance_scroll's R4 (set_camera_velocity's: the speed's low half, or what update_background_scroll leaves); the caller's when scroll_ended < 0
+param advance_scroll_unless_ended R5 next_scroll_position  # advance_scroll's R5 (move_camera_along_path's); the caller's when scroll_ended < 0
+param advance_scroll_unless_ended R10 range  # advance_scroll's R10 (update_background_scroll's range cursor); the caller's when scroll_ended < 0
+param advance_scroll_unless_ended R11 quadrant_cursor  # advance_scroll's R11 (update_nbg3_scroll's, select_nbg3_pages' quadrant cursor); the caller's when scroll_ended < 0
+
+param start_stage R4 bounds_offset           # out: find_nearby_floor_blocks' R4 (offset of the last block's bounds record)
+param start_stage R5 stage_offset            # start_stage_view's R5 (stage x 2), handed to move_camera_to_start_section and find_nearby_floor_blocks; the caller's value is not read
+param start_stage R8 corners_left            # apply_stage_layer_blending's count, then find_nearby_floor_blocks' corner counter (out)
+param start_stage R9 palette_record          # out: load_stage_palette's R9 (stage_palettes + stage x 8, + 4)
+param start_stage R10 source                 # load_stage_map_pointers' bounds list, find_nearby_floor_blocks' R10, then load_stage_palette's source (out)
+param start_stage R11 object                 # in: handed to start_player_objects_alt (its object) and find_nearby_floor_blocks; out: load_stage_palette's R11 (60B800)
+
+param run_test_mode R1 pressed               # wait_for_frame's R1 (read_controls': the bits just pressed); only handed to test_crt, which overwrites it
+param run_test_mode R8 count                 # wait_for_frame's R8 (read_controls' counter); only handed to test_inputs
+param run_test_mode R4 color                 # the screen routine's R4 handed back: fill_rect's colour (start_test_mode, test_crt, test_inputs' panel_color), test_memory's results_left, test_backup_clear's polynomial
+param run_test_mode R9 blocks_per_row        # the screen routine's R9 handed back (fill_rect's leftover, as start_test_mode and test_crt)
+
+param player_animate_skidding_slow_down R11 cursor  # the player code's leftover R11, handed to spawn_skid_dust as the register it allocates the dust in
+
+param init_sign_from_kind R1 depth           # project_object's R1 handed back (low half sprite_offset_y; update_screen_position R1)
+
+param count_free_characters R0 characters_left  # 3 counted down: 0 at the end
+param count_free_characters R2 character     # the character checked (2, 1, 0): 0 at the end
+param count_free_characters R3 taken_bit     # character_taken_bits[character]: character 0's at the end
+
+param check_hit R1 box_edge                      # the far edge of a box (x_int + offset or +- size) a coordinate is compared with, the slope correction in the round test; last the hitter's z_int - hitbox_height (low half)
+param check_hit R2 distance                  # round test: dx, then dx^2 + dy^2 compared with R5; box tests: the hitter's box start; stored in both objects' touch_distance on a hit
+param check_hit R5 radius                    # round test: the two hitbox_size_x summed, then squared (compared with R2); box/box: the other's hitbox offset (x, then y)
+
+param update_quicksand_object R1 sink_offset # result: 4EC4 x (68 - touch_distance), added to floor_z (and z) while the object is drawn into the quicksand (flags bit 31); else the caller's
+
+param update_ending R10 platform             # out: check_platforms' R10 (the last platform tested)
+param update_ending R11 object               # handed through build_ending_scene, find_nearby_floor_blocks and the spawners (their new objects), then check_hits and check_platforms
+
+param test_crt R1 start_y                    # draw_line's R1 (each line's first y) in step 3; clear_text_layer's count before it; the caller's value is not read
+
+param start_ranking_display R11 display      # allocate_object_or_start_list's object: the ranking display (handler build_ranking_display); the caller's value only when none is free
+
+param start_character_chooser R11 block      # show_nbg0_picture's R11, then spawn_object_with_pieces' R11 (the last piece it allocated)
+
+param spawn_door_rollers R2 block_offset     # find_floor's R2 for the last roller (its floor block); else the caller's
+
+param run_stage_05_switch R3 speed           # handed to update_background_scroll (its R3) in step 2; the caller's value
+param run_stage_05_switch R2 scroll_y        # out after step 2: update_background_scroll's R2 (update_nbg3_scroll's scroll y); the camera's x pixels go in
+param run_stage_05_switch R4 speed_value     # update_background_scroll's R4 handed back after step 2; else the caller's
+
+param reload_changed_tile_set R1 shifted_tile_set  # the caller's (update_stage_tile_layers' shifted_tile_set) handed back; load_tile_set's R1 (run_vram_script's count, 0) when a set was loaded
+param reload_changed_tile_set R2 slots_left  # the 4 loaded slots, counted down to the one holding the wanted set: 0 when none did (load_tile_set ran)
+param reload_changed_tile_set R5 slot_tile_set  # the tile set byte of the loaded slot that matched (the wanted one); load_tile_set's R5 (stage x 2) when none did and it loaded the set
+param reload_changed_tile_set R8 loaded_shift  # 0, -8, -10, -18: the shift of the slot compared last in loaded_tile_sets
+
+param player_object_climb_push R11 cursor    # the player code's leftover R11 (player_state_climbing_object's), handed to spawn_climb_hand as the register it allocates the hand in
+
+param metal_wall_rise R3 octant              # metal_wall_wait's face_nearest_player result, handed to metal_wall_update
+
+param int_vector_02 R0 source                # run_vblank_copies' R0 handed back (the last copy's source)
+param int_vector_02 R2 dest                  # run_vblank_copies' R2 handed back (the last copy's destination)
+param int_vector_02 R3 copies_left           # run_vblank_copies' R3 (vblank_copy_count, counted down: 0)
+param int_vector_02 R4 copy_entry            # run_vblank_copies' R4 (past the last vblank_copies entry)
+
+param event_0c_second_quake R5 second_sprite # handed to spawn_walls (its R5), the caller's value
+param event_0c_second_quake R2 part_size     # spawn_walls' R2 handed back, or play_sound's after it at the end of the step
+
+param draw_attract_credits R1 credits        # draw_credit_count's R1 (draw_credit_count_now's credits); blink_demo_prompt's prompt frame in the demo-prompt setup
+param draw_attract_credits R2 blink_bit      # blink_start_prompt's R2 (the frame_counter bit of the blink); draw_credit_count's coins_per_credit in the demo-prompt setup
+
+param check_player_floor_edge R1 depth       # the player's fall draw depth (fall_draw_depth before its - 10/20) when it jumps off an edge; polar_to_xy's R1 when it starts over the edge; else the caller's
+param check_player_floor_edge R11 block      # get_ledge_side's R11 (the previous floor block's record) when it jumps off an edge; else the caller's
+
+param animate_palette_stage_10 R1 copy_offset   # cycle_palette's R1 (the second cycle's)
+param animate_palette_stage_10 R2 copy_entry    # cycle_palette's R2 (vblank_copies entry), else the caller's
+param animate_palette_stage_10 R4 palette_count # 6, then 1
+param animate_palette_stage_10 R9 cycle         # 20CA00, then 20CA05
+param animate_palette_stage_10 R10 source       # 108990, then 108A90
+param animate_palette_stage_10 R11 dest         # 608B40, then 608940
+
+param animate_palette_stage_09 R1 copy_offset   # cycle_palette's R1
+param animate_palette_stage_09 R2 copy_entry    # cycle_palette's R2 (vblank_copies entry), else the caller's
+
+param stage_05_event_show_message_11 R2 part_size  # handed to stage_05_event_show_message (play_sound's, then spawn_walls' R2)

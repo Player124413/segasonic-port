@@ -494,9 +494,28 @@ def write_c(program, out_dir, trace=False, variables_path=None, split_webs=False
         live_after[entry] = after
         live_at_start[entry] = start
     known = disassemble.load_names(SYMBOLS)
+    # the structures: the object and the player, and any other symbols.txt declares (flood_fill_record)
+    pointers.STRUCTS.update(known.structs)
+    # records of their own (not the object's or the player's blocks) come one after another: the flood
+    # fill's queue is walked a record at a time
+    pointers.RUNS = set(known.structs) - {"object", "player"}
+    # what symbols.txt says a parameter, or a local variable where an instruction writes it, points at
+    entries_by_name = {program.names[entry]: entry for entry in built}
+    hints = {}
+    for (function, register), struct in known.param_structs.items():
+        if function in entries_by_name:
+            hints.setdefault(entries_by_name[function], {})[register] = (struct, 0)
+    site_hints = {}
+    for (function, spot, value), struct in known.local_structs.items():
+        if not value.startswith("r"):
+            continue    # (a temporary or a stack slot: the structure is for registers only)
+        if spot == "entry" and function in entries_by_name:
+            hints.setdefault(entries_by_name[function], {})[int(value[1:])] = (struct, 0)
+        elif spot != "entry":
+            site_hints[(spot, int(value[1:]))] = (struct, 0)
     typing = pointers.Program(built, flow, found,
                               {entry: call_results(function, found, flow) for entry, function in built.items()},
-                              signatures.CONTEXT, known.targets)
+                              signatures.CONTEXT, known.targets, hints, site_hints)
     fields, accesses = typing.run()
     through = [(hit[1], hit[2]) for found_fields in fields.values() for hit in found_fields.values()
                if hit[0] == "global"]
