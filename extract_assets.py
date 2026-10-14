@@ -22,6 +22,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT / "tools"))
 import asset_formats  # noqa: E402
+import data_formats  # noqa: E402
 import sonic_rom  # noqa: E402
 
 MANIFEST = ROOT / "assets.json"
@@ -159,6 +160,8 @@ def extract(asset, data, region_of):
     kind = asset["type"]
     if kind == "sprite_frames":
         return extract_sprites(asset, data, region_of("program"), path)
+    if kind == "program_data":
+        return data_formats.export(data, asset["offset"], ROOT / "symbols.txt", ROOT / asset["formats"], path)
     if kind == "tiles_16x16x4":
         path.parent.mkdir(parents=True, exist_ok=True)
         columns = asset["columns"]
@@ -205,6 +208,7 @@ def write_state(version, paths):
 
 REBUILDERS = {
     "sprite_frames": lambda asset: asset_formats.build_sprite_rom(ROOT / asset["path"], asset["size"]),
+    "program_data": lambda asset: data_formats.build(ROOT / asset["path"], asset["size"]),
     "tiles_16x16x4": lambda asset: asset_formats.tiles_from_sheet(
         asset_formats.read_png_indexed(ROOT / asset["path"])[0], asset["columns"],
         asset["size"] // asset_formats.TILE_BYTES),

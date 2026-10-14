@@ -1,9 +1,9 @@
 {
-  "manifest_version": 4,
+  "manifest_version": 5,
   "rom_set": "sonic",
   "notes": [
     "Positions only: every byte comes from the user's own ROM at extraction time.",
-    "Only decoded resources are listed. Data whose format is still unknown (the game data at 0x100000) stays in the ROM images the build reads; it is added here as each format is worked out.",
+    "Program data (0x100000-0x17FFFF): one text file a piece, cut where symbols.txt names a place, in the format data_formats.json gives it (16-bit words in hex where it gives none); layout.json lists the pieces in order.",
     "Sprites: every frame of sprite_frame_records (program ROM 0x130000) as an indexed PNG, 4 or 8 bits a pixel, with the palette sprite_palettes.json says it is drawn with (positions in the program ROM, tools/palette_census.py); pen 0 is transparent. frames.json says where each goes back in the sprite ROM.",
     "Tile sheets are 8-bit indexed PNGs in color: the 16 palettes the sheet's tiles are shown with the most (tile_palettes.json, positions in the program ROM), a tile's pixels at its palette's slot * 16 + pen, so index & 15 is the pen; pen 0 is transparent. Each sheet's JSON says every tile's palette.",
     "PCM rate is nominal (half the RF5C68 output rate): the real pitch is set per sample by the Z80 driver."
@@ -25,6 +25,8 @@
     {"path": "assets/tiles/tiles_13.png", "region": "tiles", "offset": "0x1A0000", "size": "0x20000", "type": "tiles_16x16x4", "columns": 32, "palettes": "tile_palettes.json"},
     {"path": "assets/tiles/tiles_14.png", "region": "tiles", "offset": "0x1C0000", "size": "0x20000", "type": "tiles_16x16x4", "columns": 32, "palettes": "tile_palettes.json"},
     {"path": "assets/tiles/tiles_15.png", "region": "tiles", "offset": "0x1E0000", "size": "0x20000", "type": "tiles_16x16x4", "columns": 32, "palettes": "tile_palettes.json"},
+
+    {"path": "assets/data", "region": "program", "offset": "0x100000", "size": "0x80000", "type": "program_data", "formats": "data_formats.json"},
 
     {"path": "assets/sprites", "region": "sprites", "offset": "0x000000", "size": "0x1000000", "type": "sprite_frames", "records": "0x130000", "count": 6138, "palettes": "sprite_palettes.json"},
 

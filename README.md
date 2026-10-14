@@ -29,8 +29,10 @@ decompiled game plays the scenarios of <code>tests/controls/</code>.</sub></p>
       or overlapping paths, and every executed address lands on a decoded instruction
 - [x] Asset extraction into plain resources: 16 tile sheets and every sprite frame (6,138 of them) as
       indexed PNGs in the colors the game shows them with, showing what the board draws, and 175 PCM
-      samples (WAV); the tile and sprite ROMs build back from those PNGs byte for byte
-      (`extract_assets.py --check`). The game's data tables join them as their formats are worked out
+      samples (WAV); and the program's data as text, 1,169 pieces each in a format of its own: palettes,
+      the scripts that build the stages' maps, the characters' animations, floor blocks, object
+      placements, restart points and paths, texts, fonts, the demos' recorded inputs. The tile and sprite
+      ROMs and the data area build back from those files byte for byte (`extract_assets.py --check`)
 - [x] System 32 board model in C (`runtime/`): memory map, interrupt controller and timers, I/O chip,
       EEPROM, trackballs, palette and mixer registers, and the FD1149 (317-0213) level-load protection
 - [x] Reference run of the original program on MAME's V60 core against that model: boots, shows the
@@ -107,8 +109,8 @@ Without SDL2 only the headless builds are made.
    python tools/verify_rom.py
    ```
 
-2. Extract the assets into `assets/` (the tile sheets, the sprites and the samples, so far; the game does
-   not read them yet), and check that they build back into your ROM byte for byte:
+2. Extract the assets into `assets/` (the tile sheets, the sprites, the samples and the program's data;
+   the game does not read them yet), and check that they build back into your ROM byte for byte:
 
    ```bash
    python extract_assets.py
@@ -234,6 +236,7 @@ assets.json             asset manifest: positions and formats, no data
 extract_assets.py       extracts assets/ from your ROM, and checks they build back into it (--check)
 sprite_palettes.json    where in the program ROM each sprite frame's palette is (positions only)
 tile_palettes.json      the same for each tile
+data_formats.json       the format of each piece of the program's data (tools/formats/), by its name
 src/                    the game's C, decompiled from the program (tools/decompile.py writes it)
 src/sound/              the sound driver's C, decompiled from the sound program
                         (tools/decompile_sound.py writes it)
@@ -253,6 +256,9 @@ docs/unreachable.txt    the code no scenario runs, and why
 tools/sonic_rom.py      ROM set definition and memory region layouts
 tools/embed_data.py     writes the game's data from your ROM set as C, for the executables to carry
 tools/asset_formats.py  the board's data formats to standard files (PNG, WAV) and back
+tools/data_formats.py   the program's data as text files and back, cut where symbols.txt names a place;
+                        tools/formats/ holds a module a family (palettes, scripts, animations, stages,
+                        texts and the rest)
 tools/palette_census.py runs the scenarios with the sprite and tile censuses on (sonic_game_headless
                         --sprite-census, --tile-census) and finds each frame's and tile's palette in the
                         program ROM: writes sprite_palettes.json and tile_palettes.json

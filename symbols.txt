@@ -45,8 +45,8 @@
 # spawners walk the current stage's list and start every object whose position has been reached.
 # A new object runs the handler stored at 1C of its slot ("jsr [1C[R20]]" in the object loop).
 100000  data  object_types             record=8 count=45 code=4   # +0 a word read into 8[R25], +4 handler
-100168  data  stage_spawns_by_type     # 19 pointers, one per stage, to lists of 14-byte records: position,
-                                       # 2A, x, y, object type (index into object_types), 92, 94; FFFF ends
+100168  data  stage_spawns_by_type     # 19 pointers, one per stage, to lists of 14-byte records: scroll position,
+                                       # projected_x (2A), projected_y (2C), z, object type (index into object_types), 92, 94; FFFF ends
 081224  data  stage_spawns_by_handler  lists=19 record=12 end=FFFF code=8   # position, 4E, 52, 04, handler
 01F206  data  stage_template_spawns    # func_01E37E: 19 offsets to lists of 12-byte records: position, offset
                                        # into stage_object_templates, count, x, y, dx, dy; FFFF ends
@@ -336,7 +336,7 @@ D0000A  io  timer_1_reload   u16
 0993A5  func  clear_text_layer          # zeroes the text map 31F000-31FDFF (0xE0 x 16 bytes)
 0993B3  func  expand_font               # 1-bit font rows from R10 into 4-bit characters at R11 with color R0 (R1 characters)
 09A4A9  func  load_default_palettes     # vblank_copies_pending = 0, vblank_copy_count = 0, then load_palette_list(104D60)
-09A4BC  func  load_palette_list         # R12 = count, then (source, palette RAM offset, kind, ...) entries into 600000+: kind 0 copy_palettes_with_pen_0, 1 copy_palette_block, 2 repeat_palette_block
+09A4BC  func  load_palette_list         # R12 = count, then (source, palette RAM offset, kind, ...) entries into 600000+: kind 0 copy_palettes_with_pen_0, 2 copy_palette_block, 4 repeat_palette_block (offsets into the jump table at 09A4DF; 6 would be copy_palettes_with_pen_0 with pen 0 = 0006, no list has it)
 09A4E5  func  copy_palettes_with_pen_0  # 16-color palettes: pen 0 = R0 (0), pens 1-15 from the source
 09A512  func  copy_palette_block        # R1 halfwords from R10 to R11
 09A523  func  repeat_palette_block      # each 16-color block of the source repeated by a count list
@@ -10763,3 +10763,838 @@ param animate_palette_stage_09 R1 copy_offset   # cycle_palette's R1
 param animate_palette_stage_09 R2 copy_entry    # cycle_palette's R2 (vblank_copies entry), else the caller's
 
 param stage_05_event_show_message_11 R2 part_size  # handed to stage_05_event_show_message (play_sound's, then spawn_walls' R2)
+
+# ======== the program data cut where each thing starts (data lines from build/naming/formats_*_labels.txt) ========
+# -- palettes --
+# Labels proposed by the palettes family (FORMATS_GUIDE.md): where the pieces of the palette data start.
+104D92  data  text_palettes                     # default_palette_list entry 0 (kind 0, copy_palettes_with_pen_0): 16 palettes of pens 1-15 (480 bytes) to 609000, colours 800-8FF: the text layer's palette base (mixer_defaults text 002F); palettes 0-6 hold text colours (white, greys, a blue ramp), 7-F look like noise (bit 15 set at random), probably never shown
+104F72  data  tile_bank_0_palette_repeats       # default_palette_list entry 1 and tile_bank_0_palette_list (kind 4, repeat_palette_block's source): 46 u16 counts that fill the 128 tile palettes at 608000
+104FCE  data  tile_bank_0_palettes              # the same entries' second pointer: the 46 palettes those counts repeat (16 colours each); tile_palettes.json finds the stage tiles drawn with them
+10558E  data  sprite_palettes                   # default_palette_list entry 2 (kind 2, copy_palette_block): 4048 colours (253 palettes) to 609800, colours C00-1BCF: the sprite groups' palette base (mixer_defaults 003x); sprite_palettes.json finds most sprite frames drawn with them (the players' 130/140/150 among them)
+10752E  data  bitmap_palettes                   # default_palette_list entry 3 (kind 2): 11 palettes to 609200, colours 900-9AF: the bitmap layer's (mixer base 800 + video_bitmap palette 31FF8C = 0010 from video_register_defaults): ramps of 32 reds, greens, blues and greys at pixel values 10, 30, 50, 70, the bars test_crt draws from crt_test_color_bars (10/30/50/70)
+10768E  data  backdrop_palette                  # default_palette_list entry 4 (kind 2): 16 colours to 609400; the first is backdrop_color (load_palette_set_and_backdrop writes it again by stage)
+1076CA  data  tile_bank_1_palette_repeats       # tile_bank_1_palette_list (kind 4, repeat_palette_block's source): 67 u16 counts that fill the 128 tile palettes at 608000
+107750  data  tile_bank_1_palettes              # tile_bank_1_palette_list's second pointer: the 67 palettes those counts repeat (16 colours each); tile_palettes.json finds the tiles of the bank 1 stages and screens drawn with them
+108D6C  data  stages_00_to_03_sprite_palettes   # stage_palettes[0-3] (load_stage_palette to 60B800, colour 1C00 on): 784 colours (49 palettes); sprite_palettes.json finds stage objects drawn with them
+10938C  data  stage_04_sprite_palettes          # stage_palettes[4]: 592 colours (37 palettes)
+10982C  data  stages_05_to_08_sprite_palettes   # stage_palettes[5-8]: 624 colours (39 palettes)
+109D0C  data  stage_09_sprite_palettes          # stage_palettes[9]: 480 colours (30 palettes)
+10A0CC  data  stage_0a_sprite_palettes          # stage_palettes[0A]: 640 colours (40 palettes)
+10A5CC  data  stages_10_12_sprite_palettes      # stage_palettes[10] and [12]: 912 colours (57 palettes); also the source of the 4 bytes after the 19 records (a 20th record, stage 13, whose count would be the first colours of stages_00_to_03_sprite_palettes)
+10ACEC  data  stages_0b_to_0f_sprite_palettes   # stage_palettes[0B-0F]: 560 colours (35 palettes)
+10B14C  data  stage_11_sprite_palettes          # stage_palettes[11]: 704 colours (44 palettes)
+113E3D  data  sonic_palette_list                # player_palette_lists[stage][0] for every stage but 8: last index 1, sprite palettes 8130 8340, then 8130 again (player_reset puts word +2 in sprite_palette)
+113E45  data  ray_palette_list                  # player_palette_lists[stage][1] for every stage but 8: 8140 8720 (8140)
+113E4D  data  mighty_palette_list               # player_palette_lists[stage][2] for every stage but 8: 8150 8730 (8150)
+113E55  data  sonic_stage_08_palette_list       # player_palette_lists[8][0]: C130 C340 (C130): the same palettes in another priority group
+113E5D  data  ray_stage_08_palette_list         # player_palette_lists[8][1]: C140 C720 (C140)
+113E65  data  mighty_stage_08_palette_list      # player_palette_lists[8][2]: C150 C730 (C150); after it three more lists of the same shape for group A (A130, A140, A150) that nothing points at, then 16 bytes nothing reads
+# -- animations --
+1128BA  data  sonic_near_edge_teeter_animation   # teetering_animations[0*2+1] = +0C: first frame 1658, then the 13-frame teeter animation (animation = +2); the table and this record were one piece
+1128EE  data  sonic_far_edge_teeter_animation    # teetering_animations[0*2+0] = +40: first frame 16C8, then frames 16D0-1730; was inside sonic_near_edge_fall_animation
+11290C  data  sonic_far_edge_fall_animation      # state 6 (5843): animation += 1C from the far teeter animation (1128F0 + 1C): last step 3, (frame, dx, dy) 1598-15B0 (animate_and_move)
+11291E  data  mighty_near_edge_teeter_animation  # teetering_animations[2*2+1] = +70: first frame 3248, then frames 3250-32B0; its + 1C is mighty_near_edge_fall_animation
+112952  data  mighty_far_edge_teeter_animation   # teetering_animations[2*2+0] = +A4: first frame 32B8, then frames 32C0-3320
+112970  data  mighty_far_edge_fall_animation     # 112954 + 1C (state 6): last step 3, (frame, dx, dy) 31C0-31D8
+112982  data  ray_near_edge_teeter_animation     # teetering_animations[1*2+1] = +D4: first frame 4E00, then frames 4E08-4E68; its + 1C is ray_near_edge_fall_animation
+1129B6  data  ray_far_edge_teeter_animation      # teetering_animations[1*2+0] = +108: first frame 4E70, then frames 4E78-4ED8
+1129D4  data  ray_far_edge_fall_animation        # 1129B8 + 1C (state 6): last step 3, (frame, dx, dy) 4D40-4D58
+113C46  data  sonic_stuck_struggle_level_animations  # the three two-frame animations sonic_stuck_struggle_animations points at (113C46, 113C4C, 113C52): 1A68-1A80
+113C6A  data  ray_stuck_struggle_level_animations    # the same for Ray (ray_stuck_struggle_animations): 51A8-51C0
+113C8E  data  mighty_stuck_struggle_level_animations # the same for Mighty (mighty_stuck_struggle_animations): 35F0-3608
+114AD0  data  sonic_trap_struggle_level_animations   # the four two-frame animations sonic_trap_struggle_animations points at (114AD0-114AE2): B4C0-B4E0; they lay inside mighty_trap_struggle_animations
+114AE8  data  ray_trap_struggle_level_animations     # the four of ray_trap_struggle_animations (114AE8-114AFA): B558-B578
+114B00  data  mighty_trap_struggle_level_animations  # the four of mighty_trap_struggle_animations (114B00-114B12): B440-B460
+# -- scripts --
+# Proposed data lines for symbols.txt (formats, family scripts). Pieces of formats_work_scripts.txt cut
+# where the scripts and tables they hold start.
+#
+# The tile set scripts: load_tile_set runs, for stages 3-10, every script of the set's list:
+# stage_tile_sets[stage] (01A695) -> a per-stage table of u32 list pointers (140000-14090F) -> lists of u32
+# script pointers ending in FFFFFFFF (140910-141A0F); both +100000 (get_tile_set_list_bank,
+# get_tile_set_script_bank). Sets 00-13 are the same lists in every table. A script is named after the
+# first stage (and set) that loads it, _N its place in that list when the list has several; the 24-byte
+# scripts that only clear a page (shared by many sets) after the page.
+
+# ---- inside the pieces of formats_work_scripts.txt ----
+145A4E  data  stage_03_tile_set_42_script_1             # vram script, tile set 42 of stages 3, 7 (list 140AA4[1] of 3): page 11
+145B2B  data  stage_03_tile_set_43_script               # vram script, tile set 43 of stages 3, 7 (list 140AB4): page 00
+145E52  data  stage_03_tile_set_44_script               # vram script, tile set 44 of stages 3, 7 (list 140ABC): page 02
+146169  data  stage_03_tile_set_45_script               # vram script, tile set 45 of stages 3, 7 (list 140AC4): page 00
+146456  data  stage_03_tile_set_46_script               # vram script, tile set 46 of stages 3, 7 (list 140ACC): page 03
+1464CF  data  stage_03_tile_set_47_script               # vram script, tile set 47 of stages 3, 7 (list 140AD4): page 01
+1467A0  data  stage_03_tile_set_48_script               # vram script, tile set 48 of stages 3, 7 (list 140ADC): page 03
+1469B5  data  stage_03_tile_set_49_script_0             # vram script, tile set 49 of stages 3, 7 (list 140AE4[0] of 2): page 01
+146A1A  data  stage_03_tile_set_4a_script_0             # vram script, tile set 4A of stages 3, 7 (list 140AF0[0] of 2): page 03
+146C1E  data  stage_03_tile_set_4b_script               # vram script, tile set 4B of stages 3, 7 (list 140AFC): page 01
+146CE1  data  stage_03_tile_set_4c_script               # vram script, tile set 4C of stages 3, 7 (list 140B04): page 02
+146DD9  data  stage_03_tile_set_42_script_0             # vram script, tile set 42 of stages 3, 7 (list 140AA4[0] of 3): page 0C
+147041  data  stage_05_tile_set_14_script               # vram script, tile set 14 of stages 5, 6 (list 140B14): page 02
+1472C9  data  stage_05_tile_set_15_script               # vram script, tile set 15 of stages 5, 6 (list 140B1C): page 00
+14739D  data  stage_05_tile_set_16_script               # vram script, tile set 16 of stages 5, 6 (list 140B24): page 03
+147442  data  stage_05_tile_set_17_script               # vram script, tile set 17 of stages 5, 6 (list 140B2C): page 01
+1474F6  data  stage_04_tile_set_56_script_0             # vram script, tile set 56 of stage 4 (list 140B34[0] of 2): page 02
+147550  data  stage_04_tile_set_56_script_1             # vram script, tile set 56 of stage 4 (list 140B34[1] of 2): page 0C
+1475E5  data  stage_04_tile_set_57_script               # vram script, tile set 57 of stage 4 (list 140B40): page 02
+147652  data  stage_04_tile_set_58_script_0             # vram script, tile set 58 of stage 4 (list 140B48[0] of 2): page 00
+1477C4  data  stage_04_tile_set_58_script_1             # vram script, tile set 58 of stage 4 (list 140B48[1] of 2): page 0A
+1477FA  data  stage_04_tile_set_59_script_0             # vram script, tile set 59 of stage 4 (list 140B54[0] of 2): page 01
+147854  data  stage_04_tile_set_59_script_1             # vram script, tile set 59 of stage 4 (list 140B54[1] of 2): page 0B
+1478E9  data  stage_04_tile_set_5a_script               # vram script, tile set 5A of stage 4 (list 140B60): page 01
+147956  data  stage_04_tile_set_5b_script_0             # vram script, tile set 5B of stage 4 (list 140B68[0] of 2): page 03
+147AC8  data  stage_04_tile_set_5b_script_1             # vram script, tile set 5B of stage 4 (list 140B68[1] of 2): page 0D
+147AFE  data  stage_04_tile_set_5c_script_0             # vram script, tile set 5C of stage 4 (list 140B74[0] of 2): page 01
+147C92  data  stage_04_tile_set_5d_script_0             # vram script, tile set 5D of stage 4 (list 140B80[0] of 3): page 03
+147EFC  data  stage_04_tile_set_5d_script_1             # vram script, tile set 5D of stage 4 (list 140B80[1] of 3): page 0D
+14806F  data  stage_04_tile_set_5e_script               # vram script, tile set 5E of stage 4 (list 140B90): page 02
+1481E4  data  stage_04_tile_set_5f_script_0             # vram script, tile set 5F of stage 4 (list 140B98[0] of 2): page 00
+14843F  data  stage_04_tile_set_5f_script_1             # vram script, tile set 5F of stage 4 (list 140B98[1] of 2): page 0A
+14859F  data  stage_04_tile_set_60_script_0             # vram script, tile set 60 of stage 4 (list 140BA4[0] of 2): page 02
+14863C  data  stage_04_tile_set_60_script_1             # vram script, tile set 60 of stage 4 (list 140BA4[1] of 2): page 0C
+14872C  data  stage_04_tile_set_61_script               # vram script, tile set 61 of stage 4 (list 140BB0): page 01
+1488A1  data  stage_04_tile_set_62_script_0             # vram script, tile set 62 of stage 4 (list 140BB8[0] of 3): page 03
+148AFC  data  stage_04_tile_set_62_script_1             # vram script, tile set 62 of stage 4 (list 140BB8[1] of 3): page 0D
+148C5C  data  stage_04_tile_set_63_script_0             # vram script, tile set 63 of stage 4 (list 140BC8[0] of 2): page 01
+148CF9  data  stage_04_tile_set_63_script_1             # vram script, tile set 63 of stage 4 (list 140BC8[1] of 2): page 0B
+148DE9  data  stage_04_tile_set_64_script_0             # vram script, tile set 64 of stage 4 (list 140BD4[0] of 2): page 03
+149009  data  stage_04_tile_set_64_script_1             # vram script, tile set 64 of stage 4 (list 140BD4[1] of 2): page 0D
+149047  data  stage_04_tile_set_5d_script_2             # vram script, tile set 5D of stage 4 (list 140B80[2] of 3): page 12
+1490FD  data  stage_04_tile_set_14_script               # vram script, tile set 14 of stage 4 (list 140BE0): page 02
+14938C  data  stage_04_tile_set_15_script               # vram script, tile set 15 of stage 4 (list 140BE8): page 00
+1494C2  data  stage_04_tile_set_16_script               # vram script, tile set 16 of stage 4 (list 140BF0): page 03
+149545  data  stage_04_tile_set_17_script               # vram script, tile set 17 of stage 4 (list 140BF8): page 01
+1495A2  data  stage_04_tile_set_18_script               # vram script, tile set 18 of stage 4 (list 140C00): page 02
+1495FB  data  stage_04_tile_set_19_script               # vram script, tile set 19 of stage 4 (list 140C08): page 00
+14966A  data  stage_04_tile_set_1a_script               # vram script, tile set 1A of stage 4 (list 140C10): page 02
+1496C4  data  stage_04_tile_set_1b_script               # vram script, tile set 1B of stage 4 (list 140C18): page 01
+149732  data  stage_04_tile_set_1c_script               # vram script, tile set 1C of stage 4 (list 140C20): page 03
+14980D  data  stage_04_tile_set_1d_script               # vram script, tile set 1D of stage 4 (list 140C28): page 01
+14985F  data  stage_04_tile_set_1e_script               # vram script, tile set 1E of stage 4 (list 140C30): page 02
+14988D  data  stage_04_tile_set_1f_script               # vram script, tile set 1F of stage 4 (list 140C38): page 00
+14993F  data  stage_04_tile_set_20_script               # vram script, tile set 20 of stage 4 (list 140C40): page 01
+149962  data  stage_04_tile_set_21_script               # vram script, tile set 21 of stage 4 (list 140C48): page 03
+149A14  data  stage_04_tile_set_22_script               # vram script, tile set 22 of stage 4 (list 140C50): page 01
+149A8D  data  stage_04_tile_set_23_script               # vram script, tile set 23 of stage 4 (list 140C58): page 03
+149B9F  data  stage_04_tile_set_24_script               # vram script, tile set 24 of stage 4 (list 140C60): page 02
+149DD6  data  stage_04_tile_set_25_script_0             # vram script, tile set 25 of stage 4 (list 140C68[0] of 2): page 00
+14A046  data  stage_04_tile_set_26_script_0             # vram script, tile set 26 of stage 4 (list 140C74[0] of 2): page 02
+14A2B1  data  stage_04_tile_set_27_script_0             # vram script, tile set 27 of stage 4 (list 140C80[0] of 2): page 00
+14A342  data  stage_04_tile_set_28_script_0             # vram script, tile set 28 of stage 4 (list 140C8C[0] of 2): page 02
+14A391  data  stage_04_tile_set_29_script               # vram script, tile set 29 of stage 4 (list 140C98): page 00
+14A3EB  data  stage_04_tile_set_2a_script               # vram script, tile set 2A of stage 4 (list 140CA0): page 01
+14A560  data  stage_04_tile_set_2b_script_0             # vram script, tile set 2B of stage 4 (list 140CA8[0] of 2): page 03
+14A629  data  stage_04_tile_set_2e_script               # vram script, tile set 2E of stage 4 (list 140CC0): page 00
+14A69C  data  stage_04_tile_set_2f_script               # vram script, tile set 2F of stage 4 (list 140CC8): page 02
+14A790  data  stage_04_tile_set_30_script               # vram script, tile set 30 of stage 4 (list 140CD0): page 03
+14A7EA  data  stage_04_tile_set_31_script               # vram script, tile set 31 of stage 4 (list 140CD8): page 01
+14A8EC  data  stage_04_tile_set_32_script               # vram script, tile set 32 of stage 4 (list 140CE0): page 00
+14A95A  data  stage_04_tile_set_33_script               # vram script, tile set 33 of stage 4 (list 140CE8): page 02
+14A9CC  data  stage_04_tile_set_34_script               # vram script, tile set 34 of stage 4 (list 140CF0): page 03
+14AA55  data  stage_04_tile_set_35_script               # vram script, tile set 35 of stage 4 (list 140CF8): page 01
+14AB66  data  stage_04_tile_set_36_script               # vram script, tile set 36 of stage 4 (list 140D00): page 00
+14ABC5  data  stage_04_tile_set_37_script               # vram script, tile set 37 of stage 4 (list 140D08): page 02
+14AD00  data  stage_04_tile_set_38_script               # vram script, tile set 38 of stage 4 (list 140D10): page 03
+14AE78  data  stage_04_tile_set_39_script               # vram script, tile set 39 of stage 4 (list 140D18): page 01
+14B22F  data  stage_04_tile_set_3b_script               # vram script, tile set 3B of stage 4 (list 140D24): page 03
+14B2A2  data  stage_04_tile_set_3c_script               # vram script, tile set 3C of stage 4 (list 140D2C): page 01
+14B3D2  data  stage_04_tile_set_3d_script               # vram script, tile set 3D of stage 4 (list 140D34): page 02
+14B487  data  stage_04_tile_set_3e_script               # vram script, tile set 3E of stage 4 (list 140D3C): page 00
+14B5AE  data  stage_04_tile_set_40_script               # vram script, tile set 40 of stage 4 (list 140D4C): page 00
+14B5FD  data  stage_04_tile_set_41_script               # vram script, tile set 41 of stage 4 (list 140D54): page 02
+14B68E  data  stage_09_tile_set_14_script_0             # vram script, tile set 14 of stage 9 (list 140D5C[0] of 3): page 02
+14B6E9  data  stage_09_tile_set_14_script_1             # vram script, tile set 14 of stage 9 (list 140D5C[1] of 3): page 11
+14B8CE  data  stage_09_tile_set_14_script_2             # vram script, tile set 14 of stage 9 (list 140D5C[2] of 3): page 0C
+14B8E1  data  stage_09_tile_set_15_script_0             # vram script, tile set 15 of stage 9 (list 140D6C[0] of 3): page 00
+14BAC6  data  stage_09_tile_set_15_script_1             # vram script, tile set 15 of stage 9 (list 140D6C[1] of 3): page 0F
+14BD02  data  stage_09_tile_set_15_script_2             # vram script, tile set 15 of stage 9 (list 140D6C[2] of 3): page 0A
+14BE20  data  stage_09_tile_set_16_script_0             # vram script, tile set 16 of stage 9 (list 140D7C[0] of 3): page 02
+14BE6A  data  stage_09_tile_set_16_script_1             # vram script, tile set 16 of stage 9 (list 140D7C[1] of 3): page 11
+14BEE7  data  stage_09_tile_set_16_script_2             # vram script, tile set 16 of stage 9 (list 140D7C[2] of 3): page 0C
+14BFDE  data  stage_09_tile_set_17_script_1             # vram script, tile set 17 of stage 9 (list 140D8C[1] of 3): page 12
+14C025  data  stage_09_tile_set_18_script_0             # vram script, tile set 18 of stage 9 (list 140D9C[0] of 3): page 01
+14C062  data  stage_09_tile_set_18_script_1             # vram script, tile set 18 of stage 9 (list 140D9C[1] of 3): page 10
+14C1F3  data  stage_09_tile_set_19_script_0             # vram script, tile set 19 of stage 9 (list 140DAC[0] of 3): page 03
+14C341  data  stage_09_tile_set_19_script_1             # vram script, tile set 19 of stage 9 (list 140DAC[1] of 3): page 12
+14C557  data  stage_09_tile_set_19_script_2             # vram script, tile set 19 of stage 9 (list 140DAC[2] of 3): page 0D
+14C5F5  data  stage_09_tile_set_1a_script_0             # vram script, tile set 1A of stage 9 (list 140DBC[0] of 3): page 01
+14C653  data  stage_09_tile_set_1a_script_1             # vram script, tile set 1A of stage 9 (list 140DBC[1] of 3): page 10
+14C6DC  data  stage_09_tile_set_1a_script_2             # vram script, tile set 1A of stage 9 (list 140DBC[2] of 3): page 0B
+14C7CF  data  stage_09_tile_set_1b_script_0             # vram script, tile set 1B of stage 9 (list 140DCC[0] of 3): page 02
+14C805  data  stage_09_tile_set_1b_script_1             # vram script, tile set 1B of stage 9 (list 140DCC[1] of 3): page 11
+14C918  data  stage_09_tile_set_1c_script_0             # vram script, tile set 1C of stage 9 (list 140DDC[0] of 3): page 00
+14CAC0  data  stage_09_tile_set_1c_script_1             # vram script, tile set 1C of stage 9 (list 140DDC[1] of 3): page 0F
+14CCF0  data  stage_09_tile_set_1c_script_2             # vram script, tile set 1C of stage 9 (list 140DDC[2] of 3): page 0A
+14CD8E  data  stage_09_tile_set_1d_script_0             # vram script, tile set 1D of stage 9 (list 140DEC[0] of 3): page 02
+14CDF0  data  stage_09_tile_set_1d_script_1             # vram script, tile set 1D of stage 9 (list 140DEC[1] of 3): page 11
+14CED3  data  stage_09_tile_set_1d_script_2             # vram script, tile set 1D of stage 9 (list 140DEC[2] of 3): page 0C
+14CFA3  data  stage_09_tile_set_1e_script_0             # vram script, tile set 1E of stage 9 (list 140DFC[0] of 3): page 01
+14CFD9  data  stage_09_tile_set_1e_script_1             # vram script, tile set 1E of stage 9 (list 140DFC[1] of 3): page 10
+14D0F6  data  stage_09_tile_set_1f_script_0             # vram script, tile set 1F of stage 9 (list 140E0C[0] of 3): page 03
+14D285  data  stage_09_tile_set_1f_script_1             # vram script, tile set 1F of stage 9 (list 140E0C[1] of 3): page 12
+14D4D0  data  stage_09_tile_set_1f_script_2             # vram script, tile set 1F of stage 9 (list 140E0C[2] of 3): page 0D
+14D56B  data  stage_09_tile_set_20_script_0             # vram script, tile set 20 of stage 9 (list 140E1C[0] of 3): page 01
+14D5C9  data  stage_09_tile_set_20_script_1             # vram script, tile set 20 of stage 9 (list 140E1C[1] of 3): page 10
+14D63E  data  stage_09_tile_set_20_script_2             # vram script, tile set 20 of stage 9 (list 140E1C[2] of 3): page 0B
+14D6F0  data  stage_09_tile_set_21_script_0             # vram script, tile set 21 of stage 9 (list 140E2C[0] of 3): page 02
+14D726  data  stage_09_tile_set_21_script_1             # vram script, tile set 21 of stage 9 (list 140E2C[1] of 3): page 11
+14D843  data  stage_09_tile_set_22_script_0             # vram script, tile set 22 of stage 9 (list 140E3C[0] of 3): page 00
+14D9D2  data  stage_09_tile_set_22_script_1             # vram script, tile set 22 of stage 9 (list 140E3C[1] of 3): page 0F
+14DC1D  data  stage_09_tile_set_22_script_2             # vram script, tile set 22 of stage 9 (list 140E3C[2] of 3): page 0A
+14DCB8  data  stage_09_tile_set_23_script_0             # vram script, tile set 23 of stage 9 (list 140E4C[0] of 3): page 02
+14DD16  data  stage_09_tile_set_23_script_2             # vram script, tile set 23 of stage 9 (list 140E4C[2] of 3): page 0C
+14DDC8  data  stage_09_tile_set_23_script_1             # vram script, tile set 23 of stage 9 (list 140E4C[1] of 3): page 11
+14DE3D  data  stage_09_tile_set_24_script_0             # vram script, tile set 24 of stage 9 (list 140E5C[0] of 3): page 02
+14DE73  data  stage_09_tile_set_24_script_1             # vram script, tile set 24 of stage 9 (list 140E5C[1] of 3): page 11
+14DFF5  data  stage_09_tile_set_25_script_0             # vram script, tile set 25 of stage 9 (list 140E6C[0] of 3): page 00
+14E0A9  data  stage_09_tile_set_25_script_1             # vram script, tile set 25 of stage 9 (list 140E6C[1] of 3): page 0F
+14E334  data  stage_09_tile_set_25_script_2             # vram script, tile set 25 of stage 9 (list 140E6C[2] of 3): page 0A
+14E3ED  data  stage_09_tile_set_26_script_1             # vram script, tile set 26 of stage 9 (list 140E7C[1] of 3): page 10
+14E4FC  data  stage_09_tile_set_27_script_1             # vram script, tile set 27 of stage 9 (list 140E8C[1] of 3): page 12
+14E7CB  data  stage_09_tile_set_28_script_1             # vram script, tile set 28 of stage 9 (list 140E9C[1] of 3): page 10
+14EAE2  data  stage_09_tile_set_29_script_1             # vram script, tile set 29 of stage 9 (list 140EAC[1] of 3): page 11
+14EBF1  data  stage_09_tile_set_2a_script_1             # vram script, tile set 2A of stage 9 (list 140EBC[1] of 3): page 0F
+14EEC0  data  stage_09_tile_set_2b_script_1             # vram script, tile set 2B of stage 9 (list 140ECC[1] of 3): page 11
+14F1D7  data  stage_09_tile_set_2c_script_0             # vram script, tile set 2C of stage 9 (list 140EDC[0] of 3): page 03
+14F1E7  data  stage_09_tile_set_2c_script_1             # vram script, tile set 2C of stage 9 (list 140EDC[1] of 3): page 12
+14F43B  data  stage_09_tile_set_2d_script_0             # vram script, tile set 2D of stage 9 (list 140EEC[0] of 3): page 01
+14F652  data  stage_09_tile_set_2d_script_1             # vram script, tile set 2D of stage 9 (list 140EEC[1] of 3): page 10
+14F96A  data  stage_09_tile_set_2d_script_2             # vram script, tile set 2D of stage 9 (list 140EEC[2] of 3): page 0B
+14F9F0  data  stage_09_tile_set_2e_script_0             # vram script, tile set 2E of stage 9 (list 140EFC[0] of 3): page 03
+14FA0B  data  stage_09_tile_set_2e_script_1             # vram script, tile set 2E of stage 9 (list 140EFC[1] of 3): page 12
+14FBDD  data  stage_09_tile_set_2e_script_2             # vram script, tile set 2E of stage 9 (list 140EFC[2] of 3): page 0D
+14FC5D  data  stage_09_tile_set_2f_script_1             # vram script, tile set 2F of stage 9 (list 140F0C[1] of 3): page 11
+14FC7F  data  stage_09_tile_set_30_script_0             # vram script, tile set 30 of stage 9 (list 140F1C[0] of 3): page 00
+14FD3D  data  stage_09_tile_set_30_script_1             # vram script, tile set 30 of stage 9 (list 140F1C[1] of 3): page 0F
+14FEF5  data  stage_09_tile_set_31_script_0             # vram script, tile set 31 of stage 9 (list 140F2C[0] of 3): page 02
+15013A  data  stage_09_tile_set_31_script_1             # vram script, tile set 31 of stage 9 (list 140F2C[1] of 3): page 11
+1503B5  data  stage_09_tile_set_31_script_2             # vram script, tile set 31 of stage 9 (list 140F2C[2] of 3): page 0C
+150477  data  stage_09_tile_set_32_script_0             # vram script, tile set 32 of stage 9 (list 140F3C[0] of 3): page 00
+150572  data  stage_09_tile_set_32_script_1             # vram script, tile set 32 of stage 9 (list 140F3C[1] of 3): page 0F
+15065A  data  stage_09_tile_set_32_script_2             # vram script, tile set 32 of stage 9 (list 140F3C[2] of 3): page 0A
+150745  data  stage_09_tile_set_33_script_0             # vram script, tile set 33 of stage 9 (list 140F4C[0] of 3): page 03
+150882  data  stage_09_tile_set_33_script_1             # vram script, tile set 33 of stage 9 (list 140F4C[1] of 3): page 12
+150B6F  data  stage_09_tile_set_34_script_0             # vram script, tile set 34 of stage 9 (list 140F5C[0] of 3): page 01
+150E06  data  stage_09_tile_set_34_script_1             # vram script, tile set 34 of stage 9 (list 140F5C[1] of 3): page 10
+151033  data  stage_09_tile_set_34_script_2             # vram script, tile set 34 of stage 9 (list 140F5C[2] of 3): page 0B
+151187  data  stage_09_tile_set_35_script_0             # vram script, tile set 35 of stage 9 (list 140F6C[0] of 3): page 03
+1511B4  data  stage_09_tile_set_35_script_1             # vram script, tile set 35 of stage 9 (list 140F6C[1] of 3): page 12
+1511D8  data  stage_09_tile_set_35_script_2             # vram script, tile set 35 of stage 9 (list 140F6C[2] of 3): page 0D
+151266  data  stage_09_tile_set_36_script_0             # vram script, tile set 36 of stage 9 (list 140F7C[0] of 3): page 02
+151287  data  stage_09_tile_set_36_script_1             # vram script, tile set 36 of stage 9 (list 140F7C[1] of 3): page 11
+1513AE  data  stage_09_tile_set_37_script_0             # vram script, tile set 37 of stage 9 (list 140F8C[0] of 3): page 00
+15154B  data  stage_09_tile_set_37_script_1             # vram script, tile set 37 of stage 9 (list 140F8C[1] of 3): page 0F
+15187A  data  stage_09_tile_set_37_script_2             # vram script, tile set 37 of stage 9 (list 140F8C[2] of 3): page 0A
+1518AE  data  stage_09_tile_set_38_script_0             # vram script, tile set 38 of stage 9 (list 140F9C[0] of 4): page 02
+151B34  data  stage_09_tile_set_38_script_1             # vram script, tile set 38 of stage 9 (list 140F9C[1] of 4): page 11
+151D7D  data  stage_09_tile_set_38_script_2             # vram script, tile set 38 of stage 9 (list 140F9C[2] of 4): page 0C
+151E7A  data  stage_09_tile_set_38_script_3             # vram script, tile set 38 of stage 9 (list 140F9C[3] of 4): page 07
+151EB4  data  stage_09_tile_set_39_script_0             # vram script, tile set 39 of stage 9 (list 140FB0[0] of 3): page 00
+151FC4  data  stage_09_tile_set_39_script_1             # vram script, tile set 39 of stage 9 (list 140FB0[1] of 3): page 0F
+1520A6  data  stage_09_tile_set_39_script_2             # vram script, tile set 39 of stage 9 (list 140FB0[2] of 3): page 0A
+152190  data  stage_09_tile_set_3a_script_0             # vram script, tile set 3A of stage 9 (list 140FC0[0] of 3): page 01
+152372  data  stage_09_tile_set_3a_script_1             # vram script, tile set 3A of stage 9 (list 140FC0[1] of 3): page 10
+152509  data  stage_09_tile_set_3a_script_2             # vram script, tile set 3A of stage 9 (list 140FC0[2] of 3): page 0B
+15254D  data  stage_09_tile_set_3b_script_0             # vram script, tile set 3B of stage 9 (list 140FD0[0] of 3): page 03
+15273A  data  stage_09_tile_set_3b_script_1             # vram script, tile set 3B of stage 9 (list 140FD0[1] of 3): page 12
+1528B2  data  stage_09_tile_set_3b_script_2             # vram script, tile set 3B of stage 9 (list 140FD0[2] of 3): page 0D
+1529B0  data  stage_09_tile_set_3c_script_0             # vram script, tile set 3C of stage 9 (list 140FE0[0] of 3): page 01
+1529FD  data  stage_09_tile_set_3c_script_1             # vram script, tile set 3C of stage 9 (list 140FE0[1] of 3): page 10
+152A41  data  stage_09_tile_set_3c_script_2             # vram script, tile set 3C of stage 9 (list 140FE0[2] of 3): page 0B
+152AD3  data  stage_09_tile_set_3d_script_0             # vram script, tile set 3D of stage 9 (list 140FF0[0] of 3): page 02
+152B68  data  stage_09_tile_set_3d_script_1             # vram script, tile set 3D of stage 9 (list 140FF0[1] of 3): page 11
+152BD0  data  stage_09_tile_set_3e_script_0             # vram script, tile set 3E of stage 9 (list 141000[0] of 3): page 00
+152E4E  data  stage_09_tile_set_3e_script_1             # vram script, tile set 3E of stage 9 (list 141000[1] of 3): page 0F
+1530A5  data  stage_09_tile_set_3e_script_2             # vram script, tile set 3E of stage 9 (list 141000[2] of 3): page 0A
+15317E  data  stage_09_tile_set_3f_script_0             # vram script, tile set 3F of stage 9 (list 141010[0] of 4): page 02
+1531CE  data  stage_09_tile_set_3f_script_1             # vram script, tile set 3F of stage 9 (list 141010[1] of 4): page 11
+153233  data  stage_09_tile_set_3f_script_2             # vram script, tile set 3F of stage 9 (list 141010[2] of 4): page 0C
+1532D8  data  stage_09_tile_set_40_script_0             # vram script, tile set 40 of stage 9 (list 141024[0] of 3): page 01
+153341  data  stage_09_tile_set_40_script_1             # vram script, tile set 40 of stage 9 (list 141024[1] of 3): page 10
+15337A  data  stage_09_tile_set_40_script_2             # vram script, tile set 40 of stage 9 (list 141024[2] of 3): page 0B
+153386  data  stage_09_tile_set_41_script_0             # vram script, tile set 41 of stage 9 (list 141034[0] of 3): page 03
+1534FE  data  stage_09_tile_set_41_script_1             # vram script, tile set 41 of stage 9 (list 141034[1] of 3): page 12
+15364F  data  stage_09_tile_set_41_script_2             # vram script, tile set 41 of stage 9 (list 141034[2] of 3): page 0D
+15373A  data  stage_09_tile_set_42_script_0             # vram script, tile set 42 of stage 9 (list 141044[0] of 3): page 01
+15378A  data  stage_09_tile_set_42_script_1             # vram script, tile set 42 of stage 9 (list 141044[1] of 3): page 10
+1537EF  data  stage_09_tile_set_42_script_2             # vram script, tile set 42 of stage 9 (list 141044[2] of 3): page 0B
+153894  data  stage_09_tile_set_43_script_0             # vram script, tile set 43 of stage 9 (list 141054[0] of 3): page 02
+1538FD  data  stage_09_tile_set_43_script_1             # vram script, tile set 43 of stage 9 (list 141054[1] of 3): page 11
+153936  data  stage_09_tile_set_43_script_2             # vram script, tile set 43 of stage 9 (list 141054[2] of 3): page 0C
+153942  data  stage_09_tile_set_44_script_0             # vram script, tile set 44 of stage 9 (list 141064[0] of 3): page 00
+153ABA  data  stage_09_tile_set_44_script_1             # vram script, tile set 44 of stage 9 (list 141064[1] of 3): page 0F
+153C0B  data  stage_09_tile_set_44_script_2             # vram script, tile set 44 of stage 9 (list 141064[2] of 3): page 0A
+153CF6  data  stage_09_tile_set_45_script_0             # vram script, tile set 45 of stage 9 (list 141074[0] of 3): page 02
+153D46  data  stage_09_tile_set_45_script_1             # vram script, tile set 45 of stage 9 (list 141074[1] of 3): page 11
+153DAB  data  stage_09_tile_set_45_script_2             # vram script, tile set 45 of stage 9 (list 141074[2] of 3): page 0C
+153E50  data  stage_09_tile_set_46_script_0             # vram script, tile set 46 of stage 9 (list 141084[0] of 3): page 00
+153F7F  data  stage_09_tile_set_46_script_1             # vram script, tile set 46 of stage 9 (list 141084[1] of 3): page 0F
+1540AE  data  stage_09_tile_set_46_script_2             # vram script, tile set 46 of stage 9 (list 141084[2] of 3): page 0A
+1541C3  data  stage_09_tile_set_47_script_0             # vram script, tile set 47 of stage 9 (list 141094[0] of 3): page 03
+154245  data  stage_09_tile_set_47_script_1             # vram script, tile set 47 of stage 9 (list 141094[1] of 3): page 12
+1542F1  data  stage_09_tile_set_48_script_0             # vram script, tile set 48 of stage 9 (list 1410A4[0] of 3): page 01
+154402  data  stage_09_tile_set_48_script_1             # vram script, tile set 48 of stage 9 (list 1410A4[1] of 3): page 10
+1544E7  data  stage_09_tile_set_48_script_2             # vram script, tile set 48 of stage 9 (list 1410A4[2] of 3): page 0B
+1545E2  data  stage_0a_tile_set_14_script               # vram script, tile set 14 of stage A (list 1410B4): page 00
+1546FD  data  stage_0a_tile_set_15_script               # vram script, tile set 15 of stage A (list 1410BC): page 02
+154786  data  stage_0a_tile_set_16_script               # vram script, tile set 16 of stage A (list 1410C4): page 03
+1548A1  data  stage_0a_tile_set_17_script               # vram script, tile set 17 of stage A (list 1410CC): page 01
+15492A  data  stage_0a_tile_set_18_script               # vram script, tile set 18 of stage A (list 1410D4): page 03
+1549E3  data  stage_0a_tile_set_19_script_0             # vram script, tile set 19 of stage A (list 1410DC[0] of 3): page 02
+154B79  data  stage_0a_tile_set_19_script_1             # vram script, tile set 19 of stage A (list 1410DC[1] of 3): page 11
+154C71  data  stage_0a_tile_set_1a_script_1             # vram script, tile set 1A of stage A (list 1410EC[1] of 2): page 12
+154DCD  data  stage_0a_tile_set_1b_script               # vram script, tile set 1B of stage A (list 1410F8): page 00
+154EB9  data  stage_0a_tile_set_1c_script_0             # vram script, tile set 1C of stage A (list 141100[0] of 2): page 01
+155043  data  stage_0a_tile_set_1c_script_1             # vram script, tile set 1C of stage A (list 141100[1] of 2): page 10
+15521F  data  stage_0a_tile_set_1d_script_1             # vram script, tile set 1D of stage A (list 14110C[1] of 2): page 0F
+15535B  data  stage_0a_tile_set_1e_script_1             # vram script, tile set 1E of stage A (list 141118[1] of 3): page 11
+155397  data  stage_0a_tile_set_1f_script_0             # vram script, tile set 1F of stage A (list 141128[0] of 3): page 03
+1554E8  data  stage_0a_tile_set_1f_script_1             # vram script, tile set 1F of stage A (list 141128[1] of 3): page 12
+155621  data  stage_0a_tile_set_20_script_0             # vram script, tile set 20 of stage A (list 141138[0] of 3): page 02
+155718  data  stage_0a_tile_set_20_script_1             # vram script, tile set 20 of stage A (list 141138[1] of 3): page 11
+1558F4  data  stage_0a_tile_set_21_script_0             # vram script, tile set 21 of stage A (list 141148[0] of 2): page 00
+155996  data  stage_0a_tile_set_21_script_1             # vram script, tile set 21 of stage A (list 141148[1] of 2): page 0F
+155B5F  data  stage_0a_tile_set_22_script_0             # vram script, tile set 22 of stage A (list 141154[0] of 3): page 01
+155C6E  data  stage_0a_tile_set_22_script_1             # vram script, tile set 22 of stage A (list 141154[1] of 3): page 10
+155CBB  data  stage_0a_tile_set_23_script_0             # vram script, tile set 23 of stage A (list 141164[0] of 2): page 00
+155CF2  data  stage_0a_tile_set_24_script_0             # vram script, tile set 24 of stage A (list 141170[0] of 2): page 02
+155DCF  data  stage_0a_tile_set_24_script_1             # vram script, tile set 24 of stage A (list 141170[1] of 2): page 11
+155E26  data  stage_0a_tile_set_25_script_0             # vram script, tile set 25 of stage A (list 14117C[0] of 3): page 03
+155E5D  data  stage_0a_tile_set_26_script_1             # vram script, tile set 26 of stage A (list 14118C[1] of 3): page 10
+1560B5  data  stage_0a_tile_set_27_script_1             # vram script, tile set 27 of stage A (list 14119C[1] of 3): page 12
+156236  data  stage_0a_tile_set_28_script_1             # vram script, tile set 28 of stage A (list 1411AC[1] of 2): page 0F
+1563B7  data  stage_0a_tile_set_29_script_1             # vram script, tile set 29 of stage A (list 1411B8[1] of 2): page 11
+156538  data  stage_0a_tile_set_2a_script               # vram script, tile set 2A of stage A (list 1411C4): page 0F
+156832  data  stage_0a_tile_set_2b_script               # vram script, tile set 2B of stage A (list 1411CC): page 11
+156B2C  data  stage_0a_tile_set_2d_script               # vram script, tile set 2D of stage A (list 1411D8): page 10
+156E26  data  stage_0a_tile_set_2e_script_0             # vram script, tile set 2E of stage A (list 1411E0[0] of 2): page 01
+156E92  data  stage_0a_tile_set_2e_script_1             # vram script, tile set 2E of stage A (list 1411E0[1] of 2): page 10
+15705F  data  stage_0a_tile_set_2f_script               # vram script, tile set 2F of stage A (list 1411EC): page 12
+1570EC  data  stage_0a_tile_set_30_script_0             # vram script, tile set 30 of stage A (list 1411F4[0] of 2): pages 0A 00
+157246  data  stage_0a_tile_set_30_script_1             # vram script, tile set 30 of stage A (list 1411F4[1] of 2): page 0F
+1572A0  data  stage_0a_tile_set_31_script               # vram script, tile set 31 of stage A (list 141200): page 11
+1572FD  data  stage_0a_tile_set_32_script_0             # vram script, tile set 32 of stage A (list 141208[0] of 2): page 02
+157357  data  stage_0a_tile_set_33_script_0             # vram script, tile set 33 of stage A (list 141214[0] of 2): page 03
+15754D  data  stage_0a_tile_set_34_script_0             # vram script, tile set 34 of stage A (list 141220[0] of 2): page 02
+15760E  data  stage_0a_tile_set_35_script_0             # vram script, tile set 35 of stage A (list 14122C[0] of 2): page 01
+157668  data  stage_0a_tile_set_36_script_0             # vram script, tile set 36 of stage A (list 141238[0] of 2): page 00
+157807  data  stage_0a_tile_set_37_script_0             # vram script, tile set 37 of stage A (list 141244[0] of 2): page 01
+1578B4  data  stage_0a_tile_set_38_script_0             # vram script, tile set 38 of stage A (list 141250[0] of 2): page 03
+157984  data  stage_0a_tile_set_38_script_1             # vram script, tile set 38 of stage A (list 141250[1] of 2): page 12
+1579D8  data  stage_0a_tile_set_39_script_0             # vram script, tile set 39 of stage A (list 14125C[0] of 2): page 02
+157A63  data  stage_0a_tile_set_39_script_1             # vram script, tile set 39 of stage A (list 14125C[1] of 2): page 11
+157B03  data  stage_0a_tile_set_3a_script_0             # vram script, tile set 3A of stage A (list 141268[0] of 2): pages 0D 03
+157B7C  data  stage_0a_tile_set_3a_script_1             # vram script, tile set 3A of stage A (list 141268[1] of 2): page 12
+157BEE  data  stage_0a_tile_set_3b_script_0             # vram script, tile set 3B of stage A (list 141274[0] of 2): page 01
+157E70  data  stage_0a_tile_set_3b_script_1             # vram script, tile set 3B of stage A (list 141274[1] of 2): page 10
+157F10  data  stage_0a_tile_set_3c_script_0             # vram script, tile set 3C of stage A (list 141280[0] of 2): page 00
+158149  data  stage_0a_tile_set_3c_script_1             # vram script, tile set 3C of stage A (list 141280[1] of 2): page 0F
+15822D  data  stage_0a_tile_set_3d_script_0             # vram script, tile set 3D of stage A (list 14128C[0] of 2): page 01
+158363  data  stage_0a_tile_set_3d_script_1             # vram script, tile set 3D of stage A (list 14128C[1] of 2): page 10
+15845A  data  stage_0a_tile_set_3e_script_0             # vram script, tile set 3E of stage A (list 141298[0] of 2): page 00
+15850F  data  stage_0a_tile_set_3e_script_1             # vram script, tile set 3E of stage A (list 141298[1] of 2): page 0F
+158563  data  stage_0a_tile_set_3f_script               # vram script, tile set 3F of stage A (list 1412A4): page 03
+15866E  data  stage_0a_tile_set_40_script_0             # vram script, tile set 40 of stage A (list 1412AC[0] of 2): page 02
+1587B7  data  stage_0a_tile_set_41_script_0             # vram script, tile set 41 of stage A (list 1412B8[0] of 2): page 03
+1587D8  data  stage_0a_tile_set_41_script_1             # vram script, tile set 41 of stage A (list 1412B8[1] of 2): page 12
+15880A  data  stage_0a_tile_set_42_script_0             # vram script, tile set 42 of stage A (list 1412C4[0] of 2): page 02
+15899D  data  stage_0a_tile_set_42_script_1             # vram script, tile set 42 of stage A (list 1412C4[1] of 2): page 11
+1589FB  data  stage_0a_tile_set_43_script_0             # vram script, tile set 43 of stage A (list 1412D0[0] of 3): page 03
+158B8A  data  stage_0a_tile_set_1a_script_0             # vram script, tile set 1A of stage A (list 1410EC[0] of 2): page 03
+158BAB  data  stage_0a_tile_set_1d_script_0             # vram script, tile set 1D of stage A (list 14110C[0] of 2): page 00
+158BCC  data  stage_0a_tile_set_44_script               # vram script, tile set 44 of stage A (list 1412E0): page 01
+158C08  data  stage_0a_tile_set_45_script               # vram script, tile set 45 of stage A (list 1412E8): page 02
+158C44  data  stage_0a_tile_set_19_script_2             # vram script, tile set 19 of stage A (list 1410DC[2] of 3): page 0C
+158D1D  data  stage_0a_tile_set_1f_script_2             # vram script, tile set 1F of stage A (list 141128[2] of 3): page 0D
+158DC4  data  stage_0a_tile_set_22_script_2             # vram script, tile set 22 of stage A (list 141154[2] of 3): page 0B
+15997A  data  stage_0b_tile_set_14_script               # vram script, tile set 14 of stages B, C, D, E, F (list 1412F0): page 03
+159AB6  data  stage_0b_tile_set_15_script               # vram script, tile set 15 of stages B, C, D, E, F (list 1412F8): page 01
+159D6D  data  stage_0b_tile_set_16_script               # vram script, tile set 16 of stages B, C, D, E, F (list 141300): page 00
+159EBB  data  stage_0b_tile_set_17_script               # vram script, tile set 17 of stages B, C, D, E, F (list 141308): page 02
+15A18B  data  stage_0b_tile_set_18_script               # vram script, tile set 18 of stages B, C, D, E, F (list 141310): page 00
+15A2D4  data  stage_0b_tile_set_19_script_0             # vram script, tile set 19 of stages B, C, D, E, F (list 141318[0] of 2): page 01
+15A58F  data  stage_0b_tile_set_19_script_1             # vram script, tile set 19 of stages B, C, D, E, F (list 141318[1] of 2): page 10
+15A5B7  data  stage_0b_tile_set_1a_script_0             # vram script, tile set 1A of stages B, C, D, E, F (list 141324[0] of 2): page 03
+15A7A3  data  stage_0b_tile_set_1a_script_1             # vram script, tile set 1A of stages B, C, D, E, F (list 141324[1] of 2): page 12
+15A951  data  stage_0b_tile_set_1b_script_0             # vram script, tile set 1B of stages B, C, D, E, F (list 141330[0] of 2): page 00
+15A95D  data  stage_0b_tile_set_1b_script_1             # vram script, tile set 1B of stages B, C, D, E, F (list 141330[1] of 2): page 0F
+15A9BA  data  stage_0b_tile_set_1c_script_0             # vram script, tile set 1C of stages B, C, D, E, F (list 14133C[0] of 2): page 02
+15AB0E  data  stage_0b_tile_set_1c_script_1             # vram script, tile set 1C of stages B, C, D, E, F (list 14133C[1] of 2): page 11
+15ABCD  data  stage_0b_tile_set_1d_script_0             # vram script, tile set 1D of stages B, C, D, E, F (list 141348[0] of 2): page 01
+15AC10  data  stage_0b_tile_set_1d_script_1             # vram script, tile set 1D of stages B, C, D, E, F (list 141348[1] of 2): page 10
+15AD02  data  stage_0b_tile_set_1e_script_0             # vram script, tile set 1E of stages B, C, D, E, F (list 141354[0] of 2): page 03
+15AF32  data  stage_0b_tile_set_1e_script_1             # vram script, tile set 1E of stages B, C, D, E, F (list 141354[1] of 2): page 12
+15B01C  data  stage_0b_tile_set_1f_script_0             # vram script, tile set 1F of stages B, C, D, E, F (list 141360[0] of 2): page 00
+15B288  data  stage_0b_tile_set_1f_script_1             # vram script, tile set 1F of stages B, C, D, E, F (list 141360[1] of 2): page 0F
+15B3D6  data  stage_0b_tile_set_20_script_0             # vram script, tile set 20 of stages B, C, D, E, F (list 14136C[0] of 2): page 02
+15B47B  data  stage_0b_tile_set_20_script_1             # vram script, tile set 20 of stages B, C, D, E, F (list 14136C[1] of 2): page 11
+15B62B  data  stage_0b_tile_set_21_script_0             # vram script, tile set 21 of stages B, C, D, E, F (list 141378[0] of 2): page 01
+15B740  data  stage_0b_tile_set_21_script_1             # vram script, tile set 21 of stages B, C, D, E, F (list 141378[1] of 2): page 10
+15B905  data  stage_0b_tile_set_22_script_0             # vram script, tile set 22 of stages B, C, D, E, F (list 141384[0] of 2): page 00
+15BA59  data  stage_0b_tile_set_22_script_1             # vram script, tile set 22 of stages B, C, D, E, F (list 141384[1] of 2): page 0F
+15BB18  data  stage_0b_tile_set_23_script_0             # vram script, tile set 23 of stages B, C, D, E, F (list 141390[0] of 2): page 03
+15BB5B  data  stage_0b_tile_set_23_script_1             # vram script, tile set 23 of stages B, C, D, E, F (list 141390[1] of 2): page 12
+15BC4D  data  stage_0b_tile_set_24_script_0             # vram script, tile set 24 of stages B, C, D, E, F (list 14139C[0] of 2): page 01
+15BE7D  data  stage_0b_tile_set_24_script_1             # vram script, tile set 24 of stages B, C, D, E, F (list 14139C[1] of 2): page 10
+15BF67  data  stage_0b_tile_set_25_script_0             # vram script, tile set 25 of stages B, C, D, E, F (list 1413A8[0] of 2): page 02
+15C1D3  data  stage_0b_tile_set_25_script_1             # vram script, tile set 25 of stages B, C, D, E, F (list 1413A8[1] of 2): page 11
+15C321  data  stage_0b_tile_set_26_script_0             # vram script, tile set 26 of stages B, C, D, E, F (list 1413B4[0] of 2): page 00
+15C3C6  data  stage_0b_tile_set_26_script_1             # vram script, tile set 26 of stages B, C, D, E, F (list 1413B4[1] of 2): page 0F
+15C576  data  stage_0b_tile_set_27_script_0             # vram script, tile set 27 of stages B, C, D, E, F (list 1413C0[0] of 2): page 03
+15C68B  data  stage_0b_tile_set_27_script_1             # vram script, tile set 27 of stages B, C, D, E, F (list 1413C0[1] of 2): page 12
+15C850  data  stage_0b_tile_set_28_script_0             # vram script, tile set 28 of stages B, C, D, E, F (list 1413CC[0] of 2): page 01
+15CB37  data  stage_0b_tile_set_28_script_1             # vram script, tile set 28 of stages B, C, D, E, F (list 1413CC[1] of 2): page 10
+15CBC3  data  stage_0b_tile_set_29_script_0             # vram script, tile set 29 of stages B, C, D, E, F (list 1413D8[0] of 2): page 00
+15CC6F  data  stage_0b_tile_set_2a_script_0             # vram script, tile set 2A of stages B, C, D, E, F (list 1413E4[0] of 2): page 02
+15CCAC  data  stage_0b_tile_set_2b_script_0             # vram script, tile set 2B of stages B, C, D, E, F (list 1413F0[0] of 2): page 03
+15CDAE  data  stage_0b_tile_set_2c_script_0             # vram script, tile set 2C of stages B, C, D, E, F (list 1413FC[0] of 2): page 01
+15CDEB  data  stage_0b_tile_set_2d_script_0             # vram script, tile set 2D of stages B, C, D, E, F (list 141408[0] of 2): page 02
+15D05A  data  stage_0b_tile_set_2d_script_1             # vram script, tile set 2D of stages B, C, D, E, F (list 141408[1] of 2): page 11
+15D08B  data  stage_0b_tile_set_2e_script_0             # vram script, tile set 2E of stages B, C, D, E, F (list 141414[0] of 2): page 00
+15D10D  data  stage_0b_tile_set_2f_script               # vram script, tile set 2F of stages B, C, D, E, F (list 141420): page 00
+15D31B  data  stage_0b_tile_set_30_script               # vram script, tile set 30 of stages B, C, D, E, F (list 141428): page 02
+15D4D4  data  stage_0b_tile_set_31_script               # vram script, tile set 31 of stages B, C, D, E, F (list 141430): page 01
+15D5C9  data  stage_0b_tile_set_32_script               # vram script, tile set 32 of stages B, C, D, E, F (list 141438): page 03
+15D9C6  data  stage_0b_tile_set_33_script               # vram script, tile set 33 of stages B, C, D, E, F (list 141440): page 01
+15DC8F  data  stage_0b_tile_set_34_script               # vram script, tile set 34 of stages B, C, D, E, F (list 141448): page 02
+15DE3B  data  stage_0b_tile_set_35_script               # vram script, tile set 35 of stages B, C, D, E, F (list 141450): page 00
+15E1A6  data  stage_0b_tile_set_36_script               # vram script, tile set 36 of stages B, C, D, E, F (list 141458): page 02
+15E358  data  stage_0b_tile_set_37_script               # vram script, tile set 37 of stages B, C, D, E, F (list 141460): page 01
+15E4B9  data  stage_0b_tile_set_38_script               # vram script, tile set 38 of stages B, C, D, E, F (list 141468): page 03
+15E8CE  data  stage_0b_tile_set_39_script               # vram script, tile set 39 of stages B, C, D, E, F (list 141470): page 01
+15EAE4  data  stage_0b_tile_set_3a_script               # vram script, tile set 3A of stages B, C, D, E, F (list 141478): page 00
+15ED1C  data  stage_0b_tile_set_3b_script               # vram script, tile set 3B of stages B, C, D, E, F (list 141480): page 02
+15EECA  data  stage_0b_tile_set_3c_script               # vram script, tile set 3C of stages B, C, D, E, F (list 141488): page 00
+15F0DE  data  stage_0b_tile_set_3d_script               # vram script, tile set 3D of stages B, C, D, E, F (list 141490): page 02
+15F13D  data  stage_0b_tile_set_3e_script               # vram script, tile set 3E of stages B, C, D, E, F (list 141498): page 00
+15F336  data  stage_0b_tile_set_3f_script               # vram script, tile set 3F of stages B, C, D, E, F (list 1414A0): page 02
+15F461  data  stage_0b_tile_set_40_script               # vram script, tile set 40 of stages B, C, D, E, F (list 1414A8): page 01
+15F4CA  data  stage_0b_tile_set_41_script               # vram script, tile set 41 of stages B, C, D, E, F (list 1414B0): page 03
+15F6AC  data  stage_0b_tile_set_42_script               # vram script, tile set 42 of stages B, C, D, E, F (list 1414B8): page 01
+15F81B  data  stage_0b_tile_set_43_script               # vram script, tile set 43 of stages B, C, D, E, F (list 1414C0): page 03
+15F835  data  stage_0b_tile_set_44_script               # vram script, tile set 44 of stages B, C, D, E, F (list 1414C8): page 00
+15F919  data  stage_0b_tile_set_45_script               # vram script, tile set 45 of stages B, C, D, E, F (list 1414D0): page 02
+15FB36  data  stage_0b_tile_set_46_script               # vram script, tile set 46 of stages B, C, D, E, F (list 1414D8): page 00
+15FB97  data  stage_0b_tile_set_47_script               # vram script, tile set 47 of stages B, C, D, E, F (list 1414E0): page 01
+15FBB5  data  stage_0b_tile_set_48_script               # vram script, tile set 48 of stages B, C, D, E, F (list 1414E8): page 03
+15FD6B  data  stage_0b_tile_set_49_script               # vram script, tile set 49 of stages B, C, D, E, F (list 1414F0): page 01
+15FF9A  data  stage_0b_tile_set_4a_script               # vram script, tile set 4A of stages B, C, D, E, F (list 1414F8): page 03
+15FFF7  data  stage_0b_tile_set_4b_script               # vram script, tile set 4B of stages B, C, D, E, F (list 141500): page 02
+160015  data  stage_0b_tile_set_4c_script               # vram script, tile set 4C of stages B, C, D, E, F (list 141508): page 00
+1601CB  data  stage_0b_tile_set_4d_script               # vram script, tile set 4D of stages B, C, D, E, F (list 141510): page 02
+1603FA  data  stage_0b_tile_set_4e_script               # vram script, tile set 4E of stages B, C, D, E, F (list 141518): page 00
+160457  data  stage_0b_tile_set_4f_script               # vram script, tile set 4F of stages B, C, D, E, F (list 141520): page 00
+1606AC  data  stage_0b_tile_set_50_script               # vram script, tile set 50 of stages B, C, D, E, F (list 141528): page 02
+1609CB  data  stage_0b_tile_set_51_script               # vram script, tile set 51 of stages B, C, D, E, F (list 141530): page 00
+160CA9  data  stage_0b_tile_set_52_script               # vram script, tile set 52 of stages B, C, D, E, F (list 141538): page 02
+160DC2  data  stage_0b_tile_set_53_script               # vram script, tile set 53 of stages B, C, D, E, F (list 141540): page 02
+160E21  data  stage_0b_tile_set_54_script               # vram script, tile set 54 of stages B, C, D, E, F (list 141548): page 00
+16111C  data  stage_0b_tile_set_55_script               # vram script, tile set 55 of stages B, C, D, E, F (list 141550): page 02
+1612C7  data  stage_0b_tile_set_56_script               # vram script, tile set 56 of stages B, C, D, E, F (list 141558): page 01
+161330  data  stage_0b_tile_set_57_script               # vram script, tile set 57 of stages B, C, D, E, F (list 141560): page 03
+1615D3  data  stage_0b_tile_set_58_script               # vram script, tile set 58 of stages B, C, D, E, F (list 141568): page 01
+161823  data  stage_0b_tile_set_59_script               # vram script, tile set 59 of stages B, C, D, E, F (list 141570): page 03
+161849  data  stage_0b_tile_set_5a_script               # vram script, tile set 5A of stages B, C, D, E, F (list 141578): page 00
+161977  data  stage_0b_tile_set_5b_script               # vram script, tile set 5B of stages B, C, D, E, F (list 141580): page 02
+161CEB  data  stage_0b_tile_set_5c_script               # vram script, tile set 5C of stages B, C, D, E, F (list 141588): page 00
+161DA2  data  stage_0b_tile_set_5d_script               # vram script, tile set 5D of stages B, C, D, E, F (list 141590): page 01
+161DC0  data  stage_0b_tile_set_5e_script               # vram script, tile set 5E of stages B, C, D, E, F (list 141598): page 03
+161FD5  data  stage_0b_tile_set_5f_script               # vram script, tile set 5F of stages B, C, D, E, F (list 1415A0): page 01
+16233E  data  stage_0b_tile_set_60_script               # vram script, tile set 60 of stages B, C, D, E, F (list 1415A8): page 03
+1623E0  data  stage_0b_tile_set_61_script               # vram script, tile set 61 of stages B, C, D, E, F (list 1415B0): page 02
+1623FE  data  stage_0b_tile_set_62_script               # vram script, tile set 62 of stages B, C, D, E, F (list 1415B8): page 00
+162613  data  stage_0b_tile_set_63_script               # vram script, tile set 63 of stages B, C, D, E, F (list 1415C0): page 02
+16297C  data  stage_0b_tile_set_64_script               # vram script, tile set 64 of stages B, C, D, E, F (list 1415C8): page 00
+162A1E  data  stage_0b_tile_set_65_script               # vram script, tile set 65 of stages B, C, D, E, F (list 1415D0): page 00
+162C73  data  stage_0b_tile_set_66_script               # vram script, tile set 66 of stages B, C, D, E, F (list 1415D8): page 02
+162F92  data  stage_0b_tile_set_67_script               # vram script, tile set 67 of stages B, C, D, E, F (list 1415E0): page 00
+1632B1  data  stage_0b_tile_set_68_script               # vram script, tile set 68 of stages B, C, D, E, F (list 1415E8): page 02
+163436  data  stage_0b_tile_set_69_script_0             # vram script, tile set 69 of stages B, C, D, E, F (list 1415F0[0] of 2): page 00
+1634D4  data  stage_0b_tile_set_69_script_1             # vram script, tile set 69 of stages B, C, D, E, F (list 1415F0[1] of 2): page 0F
+16360D  data  stage_10_tile_set_14_script               # vram script, tile set 14 of stage 10 (list 1415FC): page 0F
+1636BF  data  stage_10_tile_set_16_script               # vram script, tile set 16 of stage 10 (list 141608): page 0F
+1637D1  data  stage_10_tile_set_17_script               # vram script, tile set 17 of stage 10 (list 141610): page 11
+1638C9  data  stage_10_tile_set_18_script               # vram script, tile set 18 of stage 10 (list 141618): page 0F
+1639ED  data  stage_10_tile_set_19_script_1             # vram script, tile set 19 of stage 10 (list 141620[1] of 2): page 02
+163A8E  data  stage_10_tile_set_19_script_0             # vram script, tile set 19 of stage 10 (list 141620[0] of 2): page 11
+163CEC  data  stage_10_tile_set_1a_script_1             # vram script, tile set 1A of stage 10 (list 14162C[1] of 2): page 00
+163F9A  data  stage_10_tile_set_1a_script_0             # vram script, tile set 1A of stage 10 (list 14162C[0] of 2): page 0F
+164299  data  stage_10_tile_set_1b_script_1             # vram script, tile set 1B of stage 10 (list 141638[1] of 2): page 02
+164312  data  stage_10_tile_set_1b_script_0             # vram script, tile set 1B of stage 10 (list 141638[0] of 2): page 11
+164491  data  stage_10_tile_set_1c_script_1             # vram script, tile set 1C of stage 10 (list 141644[1] of 2): page 02
+164532  data  stage_10_tile_set_1c_script_0             # vram script, tile set 1C of stage 10 (list 141644[0] of 2): page 11
+16463A  data  stage_10_tile_set_1d_script_1             # vram script, tile set 1D of stage 10 (list 141650[1] of 2): page 01
+1646DB  data  stage_10_tile_set_1d_script_0             # vram script, tile set 1D of stage 10 (list 141650[0] of 2): page 10
+1647E3  data  stage_10_tile_set_1e_script_1             # vram script, tile set 1E of stage 10 (list 14165C[1] of 2): page 03
+164A91  data  stage_10_tile_set_1e_script_0             # vram script, tile set 1E of stage 10 (list 14165C[0] of 2): page 12
+164D90  data  stage_10_tile_set_1f_script_1             # vram script, tile set 1F of stage 10 (list 141668[1] of 2): page 01
+164E09  data  stage_10_tile_set_1f_script_0             # vram script, tile set 1F of stage 10 (list 141668[0] of 2): page 10
+164F88  data  stage_10_tile_set_20_script_1             # vram script, tile set 20 of stage 10 (list 141674[1] of 2): page 03
+165236  data  stage_10_tile_set_20_script_0             # vram script, tile set 20 of stage 10 (list 141674[0] of 2): page 12
+165557  data  stage_10_tile_set_21_script_1             # vram script, tile set 21 of stage 10 (list 141680[1] of 2): page 01
+1655F8  data  stage_10_tile_set_21_script_0             # vram script, tile set 21 of stage 10 (list 141680[0] of 2): page 10
+16573C  data  stage_10_tile_set_22_script_1             # vram script, tile set 22 of stage 10 (list 14168C[1] of 2): page 00
+1658E9  data  stage_10_tile_set_22_script_0             # vram script, tile set 22 of stage 10 (list 14168C[0] of 2): page 0F
+165AF5  data  stage_10_tile_set_23_script_1             # vram script, tile set 23 of stage 10 (list 141698[1] of 2): page 02
+165B96  data  stage_10_tile_set_23_script_0             # vram script, tile set 23 of stage 10 (list 141698[0] of 2): page 11
+165DBE  data  stage_10_tile_set_24_script_0             # vram script, tile set 24 of stage 10 (list 1416A4[0] of 2): page 0F
+166048  data  stage_10_tile_set_25_script_0             # vram script, tile set 25 of stage 10 (list 1416B0[0] of 2): page 11
+166310  data  stage_10_tile_set_26_script_0             # vram script, tile set 26 of stage 10 (list 1416BC[0] of 2): page 0F
+16644D  data  stage_10_tile_set_26_script_1             # vram script, tile set 26 of stage 10 (list 1416BC[1] of 2): page 0A
+1667B0  data  stage_10_tile_set_27_script_0             # vram script, tile set 27 of stage 10 (list 1416C8[0] of 2): page 0C
+166A2C  data  stage_10_tile_set_28_script_0             # vram script, tile set 28 of stage 10 (list 1416D4[0] of 2): page 0B
+166CA8  data  stage_10_tile_set_29_script_0             # vram script, tile set 29 of stage 10 (list 1416E0[0] of 3): page 10
+166D96  data  stage_10_tile_set_29_script_1             # vram script, tile set 29 of stage 10 (list 1416E0[1] of 3): page 0B
+166DE6  data  stage_10_tile_set_2a_script_0             # vram script, tile set 2A of stage 10 (list 1416F0[0] of 3): page 12
+166F24  data  stage_10_tile_set_2a_script_1             # vram script, tile set 2A of stage 10 (list 1416F0[1] of 3): page 0D
+167287  data  stage_10_tile_set_2b_script_0             # vram script, tile set 2B of stage 10 (list 141700[0] of 2): page 11
+167375  data  stage_10_tile_set_2b_script_1             # vram script, tile set 2B of stage 10 (list 141700[1] of 2): page 0C
+1673C5  data  stage_10_tile_set_2c_script_0             # vram script, tile set 2C of stage 10 (list 14170C[0] of 2): page 0F
+167503  data  stage_10_tile_set_2c_script_1             # vram script, tile set 2C of stage 10 (list 14170C[1] of 2): page 0A
+167784  data  stage_10_tile_set_2d_script_0             # vram script, tile set 2D of stage 10 (list 141718[0] of 2): page 0C
+1679DC  data  stage_10_tile_set_2e_script_0             # vram script, tile set 2E of stage 10 (list 141724[0] of 2): page 0F
+167BFF  data  stage_10_tile_set_2e_script_1             # vram script, tile set 2E of stage 10 (list 141724[1] of 2): page 0A
+167D94  data  stage_10_tile_set_2f_script_0             # vram script, tile set 2F of stage 10 (list 141730[0] of 2): page 11
+167DEF  data  stage_10_tile_set_2f_script_1             # vram script, tile set 2F of stage 10 (list 141730[1] of 2): page 0C
+16816F  data  stage_10_tile_set_30_script_0             # vram script, tile set 30 of stage 10 (list 14173C[0] of 2): page 0A
+16821C  data  stage_10_tile_set_31_script_0             # vram script, tile set 31 of stage 10 (list 141748[0] of 2): page 10
+168242  data  stage_10_tile_set_32_script_0             # vram script, tile set 32 of stage 10 (list 141754[0] of 2): page 12
+16847E  data  stage_10_tile_set_32_script_1             # vram script, tile set 32 of stage 10 (list 141754[1] of 2): page 0D
+168613  data  stage_10_tile_set_33_script_0             # vram script, tile set 33 of stage 10 (list 141760[0] of 2): page 10
+16866E  data  stage_10_tile_set_33_script_1             # vram script, tile set 33 of stage 10 (list 141760[1] of 2): page 0B
+1689F6  data  stage_10_tile_set_34_script_0             # vram script, tile set 34 of stage 10 (list 14176C[0] of 2): page 0D
+168B47  data  stage_10_tile_set_35_script_0             # vram script, tile set 35 of stage 10 (list 141778[0] of 2): page 0C
+168D3A  data  stage_10_tile_set_36_script_0             # vram script, tile set 36 of stage 10 (list 141784[0] of 2): page 0F
+168E84  data  stage_10_tile_set_36_script_1             # vram script, tile set 36 of stage 10 (list 141784[1] of 2): page 0A
+168FDC  data  stage_10_tile_set_37_script_0             # vram script, tile set 37 of stage 10 (list 141790[0] of 2): page 11
+169002  data  stage_08_tile_set_14_script_1             # vram script, tile set 14 of stage 8 (list 14179C[1] of 2): page 0F
+169119  data  stage_08_tile_set_15_script_0             # vram script, tile set 15 of stage 8 (list 1417A8[0] of 2): page 02
+169172  data  stage_08_tile_set_15_script_1             # vram script, tile set 15 of stage 8 (list 1417A8[1] of 2): page 11
+1691F4  data  stage_08_tile_set_16_script_0             # vram script, tile set 16 of stage 8 (list 1417B4[0] of 2): page 00
+169213  data  stage_08_tile_set_17_script_0             # vram script, tile set 17 of stage 8 (list 1417C0[0] of 2): page 10
+16933C  data  stage_08_tile_set_18_script_0             # vram script, tile set 18 of stage 8 (list 1417CC[0] of 2): page 03
+1693AA  data  stage_08_tile_set_18_script_1             # vram script, tile set 18 of stage 8 (list 1417CC[1] of 2): page 12
+169613  data  stage_08_tile_set_19_script_0             # vram script, tile set 19 of stage 8 (list 1417D8[0] of 2): page 01
+1697B9  data  stage_08_tile_set_19_script_1             # vram script, tile set 19 of stage 8 (list 1417D8[1] of 2): page 10
+1699C6  data  stage_08_tile_set_1a_script_0             # vram script, tile set 1A of stage 8 (list 1417E4[0] of 2): page 03
+169B31  data  stage_08_tile_set_1a_script_1             # vram script, tile set 1A of stage 8 (list 1417E4[1] of 2): page 12
+169BA7  data  stage_08_tile_set_1b_script_0             # vram script, tile set 1B of stage 8 (list 1417F0[0] of 2): page 01
+169BC6  data  stage_08_tile_set_1c_script_0             # vram script, tile set 1C of stage 8 (list 1417FC[0] of 2): page 11
+169BE0  data  stage_08_tile_set_1d_script_0             # vram script, tile set 1D of stage 8 (list 141808[0] of 2): page 0F
+169D4A  data  stage_08_tile_set_1e_script_0             # vram script, tile set 1E of stage 8 (list 141814[0] of 2): page 02
+169DC8  data  stage_08_tile_set_1e_script_1             # vram script, tile set 1E of stage 8 (list 141814[1] of 2): page 11
+16A0AF  data  stage_08_tile_set_1f_script_0             # vram script, tile set 1F of stage 8 (list 141820[0] of 2): page 00
+16A255  data  stage_08_tile_set_1f_script_1             # vram script, tile set 1F of stage 8 (list 141820[1] of 2): page 0F
+16A462  data  stage_08_tile_set_20_script_0             # vram script, tile set 20 of stage 8 (list 14182C[0] of 2): page 02
+16A5CD  data  stage_08_tile_set_20_script_1             # vram script, tile set 20 of stage 8 (list 14182C[1] of 2): page 11
+16A643  data  stage_08_tile_set_21_script_0             # vram script, tile set 21 of stage 8 (list 141838[0] of 2): page 12
+16A65D  data  stage_08_tile_set_22_script_0             # vram script, tile set 22 of stage 8 (list 141844[0] of 2): page 10
+16A7C7  data  stage_08_tile_set_23_script_0             # vram script, tile set 23 of stage 8 (list 141850[0] of 2): page 03
+16A845  data  stage_08_tile_set_23_script_1             # vram script, tile set 23 of stage 8 (list 141850[1] of 2): page 12
+16AB2C  data  stage_08_tile_set_24_script_0             # vram script, tile set 24 of stage 8 (list 14185C[0] of 2): page 02
+16ABAA  data  stage_08_tile_set_24_script_1             # vram script, tile set 24 of stage 8 (list 14185C[1] of 2): page 11
+16AE85  data  stage_08_tile_set_25_script_0             # vram script, tile set 25 of stage 8 (list 141868[0] of 2): page 00
+16AFDC  data  stage_08_tile_set_25_script_1             # vram script, tile set 25 of stage 8 (list 141868[1] of 2): page 0F
+16B1F5  data  stage_08_tile_set_26_script_0             # vram script, tile set 26 of stage 8 (list 141874[0] of 2): page 02
+16B334  data  stage_08_tile_set_26_script_1             # vram script, tile set 26 of stage 8 (list 141874[1] of 2): page 11
+16B4B3  data  stage_08_tile_set_27_script_0             # vram script, tile set 27 of stage 8 (list 141880[0] of 2): page 00
+16B568  data  stage_08_tile_set_27_script_1             # vram script, tile set 27 of stage 8 (list 141880[1] of 2): page 0F
+16B6FB  data  stage_08_tile_set_28_script_0             # vram script, tile set 28 of stage 8 (list 14188C[0] of 2): page 02
+16B7B0  data  stage_08_tile_set_28_script_1             # vram script, tile set 28 of stage 8 (list 14188C[1] of 2): page 11
+16B943  data  stage_08_tile_set_29_script_0             # vram script, tile set 29 of stage 8 (list 141898[0] of 2): page 10
+16BA6D  data  stage_08_tile_set_2a_script_0             # vram script, tile set 2A of stage 8 (list 1418A4[0] of 2): page 03
+16BAAB  data  stage_08_tile_set_2a_script_1             # vram script, tile set 2A of stage 8 (list 1418A4[1] of 2): page 12
+16BEAA  data  stage_08_tile_set_2b_script_0             # vram script, tile set 2B of stage 8 (list 1418B0[0] of 2): page 01
+16BEFE  data  stage_08_tile_set_2b_script_1             # vram script, tile set 2B of stage 8 (list 1418B0[1] of 2): page 10
+16C31D  data  stage_08_tile_set_2d_script_0             # vram script, tile set 2D of stage 8 (list 1418C0[0] of 2): page 10
+16C719  data  stage_08_tile_set_2e_script_0             # vram script, tile set 2E of stage 8 (list 1418CC[0] of 2): page 12
+16CB15  data  stage_08_tile_set_2f_script_0             # vram script, tile set 2F of stage 8 (list 1418D8[0] of 2): page 10
+16CE31  data  stage_08_tile_set_30_script_0             # vram script, tile set 30 of stage 8 (list 1418E4[0] of 2): page 12
+16CFCF  data  stage_08_tile_set_31_script_0             # vram script, tile set 31 of stage 8 (list 1418F0[0] of 2): page 11
+16D059  data  stage_08_tile_set_32_script_0             # vram script, tile set 32 of stage 8 (list 1418FC[0] of 2): page 00
+16D093  data  stage_08_tile_set_32_script_1             # vram script, tile set 32 of stage 8 (list 1418FC[1] of 2): page 0F
+16D402  data  stage_08_tile_set_33_script_0             # vram script, tile set 33 of stage 8 (list 141908[0] of 2): page 02
+16D614  data  stage_08_tile_set_33_script_1             # vram script, tile set 33 of stage 8 (list 141908[1] of 2): page 11
+16D800  data  stage_08_tile_set_34_script_0             # vram script, tile set 34 of stage 8 (list 141914[0] of 2): page 00
+16D84E  data  stage_08_tile_set_35_script_0             # vram script, tile set 35 of stage 8 (list 141920[0] of 2): page 10
+16D8D8  data  stage_08_tile_set_36_script_0             # vram script, tile set 36 of stage 8 (list 14192C[0] of 2): page 03
+16D915  data  stage_08_tile_set_36_script_1             # vram script, tile set 36 of stage 8 (list 14192C[1] of 2): page 12
+16DC84  data  stage_08_tile_set_37_script_0             # vram script, tile set 37 of stage 8 (list 141938[0] of 2): page 01
+16DE96  data  stage_08_tile_set_37_script_1             # vram script, tile set 37 of stage 8 (list 141938[1] of 2): page 10
+16E082  data  stage_08_tile_set_38_script_0             # vram script, tile set 38 of stage 8 (list 141944[0] of 2): page 03
+16E0D0  data  stage_08_tile_set_39_script_0             # vram script, tile set 39 of stage 8 (list 141950[0] of 2): page 0F
+16E217  data  stage_08_tile_set_3a_script_0             # vram script, tile set 3A of stage 8 (list 14195C[0] of 2): page 02
+16E46A  data  stage_08_tile_set_3a_script_1             # vram script, tile set 3A of stage 8 (list 14195C[1] of 2): page 11
+16E62F  data  stage_08_tile_set_3b_script_0             # vram script, tile set 3B of stage 8 (list 141968[0] of 2): page 12
+16E88E  data  stage_08_tile_set_3c_script_0             # vram script, tile set 3C of stage 8 (list 141974[0] of 2): page 01
+16E99C  data  stage_08_tile_set_3c_script_1             # vram script, tile set 3C of stage 8 (list 141974[1] of 2): page 10
+16ECD9  data  stage_08_tile_set_3d_script_0             # vram script, tile set 3D of stage 8 (list 141980[0] of 2): page 03
+16EE6E  data  stage_08_tile_set_3d_script_1             # vram script, tile set 3D of stage 8 (list 141980[1] of 2): page 12
+16F115  data  stage_08_tile_set_3e_script_0             # vram script, tile set 3E of stage 8 (list 14198C[0] of 2): page 01
+16F2AA  data  stage_08_tile_set_3e_script_1             # vram script, tile set 3E of stage 8 (list 14198C[1] of 2): page 10
+16F400  data  stage_08_tile_set_3f_script_0             # vram script, tile set 3F of stage 8 (list 141998[0] of 2): page 11
+16F4B8  data  stage_08_tile_set_40_script_0             # vram script, tile set 40 of stage 8 (list 1419A4[0] of 2): page 00
+16F54D  data  stage_08_tile_set_40_script_1             # vram script, tile set 40 of stage 8 (list 1419A4[1] of 2): page 0F
+16F70B  data  stage_08_tile_set_41_script_0             # vram script, tile set 41 of stage 8 (list 1419B0[0] of 2): page 02
+16F951  data  stage_08_tile_set_41_script_1             # vram script, tile set 41 of stage 8 (list 1419B0[1] of 2): page 11
+16F9A0  data  stage_08_tile_set_42_script_0             # vram script, tile set 42 of stage 8 (list 1419BC[0] of 2): page 10
+16FA54  data  stage_08_tile_set_43_script_0             # vram script, tile set 43 of stage 8 (list 1419C8[0] of 2): page 03
+16FAE9  data  stage_08_tile_set_43_script_1             # vram script, tile set 43 of stage 8 (list 1419C8[1] of 2): page 12
+16FC86  data  stage_08_tile_set_44_script_0             # vram script, tile set 44 of stage 8 (list 1419D4[0] of 2): page 01
+16FECC  data  stage_08_tile_set_44_script_1             # vram script, tile set 44 of stage 8 (list 1419D4[1] of 2): page 10
+16FF1B  data  stage_08_tile_set_45_script_0             # vram script, tile set 45 of stage 8 (list 1419E0[0] of 2): page 11
+16FFCF  data  stage_08_tile_set_46_script_0             # vram script, tile set 46 of stage 8 (list 1419EC[0] of 2): page 00
+170064  data  stage_08_tile_set_46_script_1             # vram script, tile set 46 of stage 8 (list 1419EC[1] of 2): page 0F
+170201  data  stage_08_tile_set_47_script_0             # vram script, tile set 47 of stage 8 (list 1419F8[0] of 2): page 10
+17030F  data  stage_08_tile_set_48_script_0             # vram script, tile set 48 of stage 8 (list 141A04[0] of 2): page 03
+1703A4  data  stage_08_tile_set_48_script_1             # vram script, tile set 48 of stage 8 (list 141A04[1] of 2): page 12
+1705DA  data  blank_tile_set_list_offsets               # u16 per tile set: get_tile_set_list adds blank_tile_set_lists (170602) for stages 0-2, 11, 12 (stage_tile_sets[0-2, 11, 12] = 1705DA)
+170662  data  clear_tile_page_01_script                 # vram script: clears page 1 and fills its 200 cells with 0; blank_tile_set_lists' list at 17060A holds it (as 070662, no bank added)
+17067A  data  clear_tile_page_02_script                 # as clear_tile_page_01_script, page 2 (blank_tile_set_lists' list at 170612)
+1706AA  data  unused_clear_tile_page_03_script          # vram script: a second copy of clear_tile_page_03_script (same 24 bytes); nothing points at it
+172055  data  unused_tiles_0d00_page_05_script          # vram script: clears page 5, then fills all of it with tiles 0D00-0D77 (default_nbg3_script does the same with 1D80-1DFF); nothing points at it
+1720E5  data  unused_tiles_0d00_page_06_script          # vram script: unused_tiles_0d00_page_05_script on page 6 (only its two page bytes differ); nothing points at it
+17235E  data  unused_tiles_0700_page_00_script          # vram script: clears page 0, then tiles 0700-0720 in rows 9-13 (33 cells; map_eggman_head_script before it puts 06C0-06DC in rows 10-13); nothing points at it
+172AA5  data  unused_tiles_1700_page_05_script          # vram script: clears page 5, then tiles 1E40-1E63 in rows 2-6 and 1700-1749 down to row 13 (155 cells); nothing points at it
+
+# ---- inside sprite_frame_records (130000, formats_work_misc.txt): the tile set scripts before 145A46 ----
+# (the misc family's piece; the same format fits them: formats_scripts.json names them)
+141A10  data  tile_set_clear_page_00_script             # vram script: clears page 0 and fills its 200 cells with 0 (24 bytes); in the lists of 15 tile sets, first list 140910 (stage 3 set 00)
+141A28  data  tile_set_clear_page_01_script             # vram script: clears page 1 and fills its 200 cells with 0 (24 bytes); in the lists of 21 tile sets, first list 140918 (stage 3 set 01)
+141A40  data  tile_set_clear_page_02_script             # vram script: clears page 2 and fills its 200 cells with 0 (24 bytes); in the lists of 20 tile sets, first list 140920 (stage 3 set 02)
+141A58  data  tile_set_clear_page_03_script             # vram script: clears page 3 and fills its 200 cells with 0 (24 bytes); in the lists of 17 tile sets, first list 140928 (stage 3 set 03)
+141A70  data  unused_tile_set_clear_page_03_script      # vram script: the same 24 bytes as tile_set_clear_page_03_script (clears page 3); no list points at it
+141A88  data  tile_set_clear_page_0a_script             # vram script: clears page A and fills its 200 cells with 0 (24 bytes); in the lists of 15 tile sets, first list 140934 (stage 3 set 05)
+141AA0  data  tile_set_clear_page_0b_script             # vram script: clears page B and fills its 200 cells with 0 (24 bytes); in the lists of 17 tile sets, first list 14093C (stage 3 set 06)
+141AB8  data  tile_set_clear_page_0c_script             # vram script: clears page C and fills its 200 cells with 0 (24 bytes); in the lists of 22 tile sets, first list 140944 (stage 3 set 07)
+141AD0  data  tile_set_clear_page_0d_script             # vram script: clears page D and fills its 200 cells with 0 (24 bytes); in the lists of 18 tile sets, first list 14094C (stage 3 set 08)
+141AE8  data  tile_set_clear_page_0f_script             # vram script: clears page F and fills its 200 cells with 0 (24 bytes); in the lists of 6 tile sets, first list 1417B4[1] of 2 (stage 8 set 16)
+141B00  data  tile_set_clear_page_10_script             # vram script: clears page 10 and fills its 200 cells with 0 (24 bytes); in the lists of 5 tile sets, first list 1417F0[1] of 2 (stage 8 set 1B)
+141B18  data  tile_set_clear_page_11_script             # vram script: clears page 11 and fills its 200 cells with 0 (24 bytes); in the lists of 8 tile sets, first list 141208[1] of 2 (stage A set 32)
+141B30  data  tile_set_clear_page_12_script             # vram script: clears page 12 and fills its 200 cells with 0 (24 bytes); in the lists of 8 tile sets, first list 140A14[1] of 2 (stage 3 set 31)
+141B48  data  tile_set_clear_page_05_script             # vram script: clears page 5 and fills its 200 cells with 0 (24 bytes); in the lists of 1 tile set, first list 14173C[1] of 2 (stage 10 set 30)
+141B60  data  unused_tile_set_clear_page_06_script      # vram script: clears page 6 and fills its 200 cells with 0, as the tile_set_clear_page scripts; no list points at it
+141B78  data  tile_set_clear_page_07_script             # vram script: clears page 7 and fills its 200 cells with 0 (24 bytes); in the lists of 1 tile set, first list 141010[3] of 4 (stage 9 set 3F)
+141B90  data  unused_tile_set_clear_page_08_script      # vram script: the same for page 8; no list points at it
+141BA8  data  stage_04_tile_set_25_script_1             # vram script, tile set 25 of stage 4 (list 140C68[1] of 2): page 0A
+141C90  data  stage_04_tile_set_26_script_1             # vram script, tile set 26 of stage 4 (list 140C74[1] of 2): page 0C
+141D76  data  stage_04_tile_set_2b_script_1             # vram script, tile set 2B of stage 4 (list 140CA8[1] of 2): page 0D
+141DBF  data  stage_03_tile_set_17_script               # vram script, tile set 17 of stages 3, 7 (list 14095C): page 01
+142072  data  stage_03_tile_set_19_script               # vram script, tile set 19 of stages 3, 7 (list 140968): page 01
+14216A  data  stage_03_tile_set_1a_script               # vram script, tile set 1A of stages 3, 7 (list 140970): page 00
+1421E3  data  stage_03_tile_set_1b_script               # vram script, tile set 1B of stages 3, 7 (list 140978): page 02
+1424B4  data  stage_03_tile_set_1c_script               # vram script, tile set 1C of stages 3, 7 (list 140980): page 00
+1426C9  data  stage_03_tile_set_1d_script_0             # vram script, tile set 1D of stages 3, 7 (list 140988[0] of 2): page 02
+1429A1  data  stage_03_tile_set_1d_script_1             # vram script, tile set 1D of stages 3, 7 (list 140988[1] of 2): page 0C
+142AA4  data  stage_03_tile_set_1e_script_0             # vram script, tile set 1E of stages 3, 7 (list 140994[0] of 2): page 00
+142D00  data  stage_03_tile_set_1e_script_1             # vram script, tile set 1E of stages 3, 7 (list 140994[1] of 2): page 0A
+142F4D  data  stage_03_tile_set_1f_script               # vram script, tile set 1F of stages 3, 7 (list 1409A0): page 02
+143028  data  stage_03_tile_set_20_script_0             # vram script, tile set 20 of stages 3, 7 (list 1409A8[0] of 2): page 02
+14308D  data  stage_03_tile_set_21_script_0             # vram script, tile set 21 of stages 3, 7 (list 1409B4[0] of 2): page 00
+143291  data  stage_03_tile_set_22_script               # vram script, tile set 22 of stages 3, 7 (list 1409C0): page 02
+143354  data  stage_03_tile_set_29_script               # vram script, tile set 29 of stages 3, 7 (list 1409CC): page 03
+14356B  data  stage_03_tile_set_2a_script               # vram script, tile set 2A of stages 3, 7 (list 1409D4): page 01
+14369A  data  stage_03_tile_set_2b_script_0             # vram script, tile set 2B of stages 3, 7 (list 1409DC[0] of 2): page 00
+143714  data  stage_03_tile_set_2c_script               # vram script, tile set 2C of stages 3, 7 (list 1409E8): page 02
+143983  data  stage_03_tile_set_2d_script_0             # vram script, tile set 2D of stages 3, 7 (list 1409F0[0] of 2): page 00
+143A3A  data  stage_03_tile_set_2e_script               # vram script, tile set 2E of stages 3, 7 (list 1409FC): page 01
+143B2F  data  stage_03_tile_set_2f_script               # vram script, tile set 2F of stages 3, 7 (list 140A04): page 03
+143BD3  data  stage_03_tile_set_30_script               # vram script, tile set 30 of stages 3, 7 (list 140A0C): page 01
+143E42  data  stage_03_tile_set_31_script_0             # vram script, tile set 31 of stages 3, 7 (list 140A14[0] of 2): page 03
+143F39  data  stage_03_tile_set_32_script               # vram script, tile set 32 of stages 3, 7 (list 140A20): page 00
+144039  data  stage_03_tile_set_33_script               # vram script, tile set 33 of stages 3, 7 (list 140A28): page 02
+1441D4  data  stage_03_tile_set_34_script               # vram script, tile set 34 of stages 3, 7 (list 140A30): page 00
+14436B  data  stage_03_tile_set_35_script               # vram script, tile set 35 of stages 3, 7 (list 140A38): page 02
+1444EA  data  stage_03_tile_set_36_script               # vram script, tile set 36 of stages 3, 7 (list 140A40): page 00
+1446A5  data  stage_03_tile_set_37_script               # vram script, tile set 37 of stages 3, 7 (list 140A48): page 02
+14480F  data  stage_03_tile_set_38_script               # vram script, tile set 38 of stages 3, 7 (list 140A50): page 00
+1448BE  data  stage_03_tile_set_39_script               # vram script, tile set 39 of stages 3, 7 (list 140A58): page 03
+144973  data  stage_03_tile_set_3a_script               # vram script, tile set 3A of stages 3, 7 (list 140A60): page 01
+144A54  data  stage_03_tile_set_3b_script               # vram script, tile set 3B of stages 3, 7 (list 140A68): page 03
+144B65  data  stage_03_tile_set_3c_script               # vram script, tile set 3C of stages 3, 7 (list 140A70): page 01
+144D6E  data  stage_03_tile_set_3d_script_0             # vram script, tile set 3D of stages 3, 7 (list 140A78[0] of 2): page 03
+144DE3  data  stage_03_tile_set_3d_script_1             # vram script, tile set 3D of stages 3, 7 (list 140A78[1] of 2): page 12
+145030  data  stage_03_tile_set_3e_script               # vram script, tile set 3E of stages 3, 7 (list 140A84): page 01
+1451F5  data  stage_03_tile_set_3f_script               # vram script, tile set 3F of stages 3, 7 (list 140A8C): page 03
+1453BA  data  stage_03_tile_set_40_script               # vram script, tile set 40 of stages 3, 7 (list 140A94): page 01
+14557F  data  stage_03_tile_set_41_script               # vram script, tile set 41 of stages 3, 7 (list 140A9C): page 00
+145727  data  stage_03_tile_set_42_script_2             # vram script, tile set 42 of stages 3, 7 (list 140AA4[2] of 3): page 02
+# -- stages --
+# Proposed data labels for the stage family (FORMATS_GUIDE.md): they cut the pointer tables off the lists
+# they point at, one list a stage (stages that share a list share its label: the stage numbers in hex).
+# The player paths and the goal records stay one piece each (one list of short records).
+1001B4  data  stage_00_type_spawns               # stage_spawns_by_type[0]: spawn_objects_by_type's 14-byte records, FFFF ends
+1001B8  data  stage_01_type_spawns               # stage_spawns_by_type[1]: spawn_objects_by_type's 14-byte records, FFFF ends
+1001BC  data  stage_02_type_spawns               # stage_spawns_by_type[2]: spawn_objects_by_type's 14-byte records, FFFF ends
+1001C4  data  stage_03_type_spawns               # stage_spawns_by_type[3]: spawn_objects_by_type's 14-byte records, FFFF ends
+10043E  data  stage_04_type_spawns               # stage_spawns_by_type[4]: spawn_objects_by_type's 14-byte records, FFFF ends
+1004C0  data  stage_05_type_spawns               # stage_spawns_by_type[5]: spawn_objects_by_type's 14-byte records, FFFF ends
+1004C4  data  stage_06_type_spawns               # stage_spawns_by_type[6]: spawn_objects_by_type's 14-byte records, FFFF ends
+1004C8  data  stage_07_type_spawns               # stage_spawns_by_type[7]: spawn_objects_by_type's 14-byte records, FFFF ends
+1004E8  data  stage_08_type_spawns               # stage_spawns_by_type[8]: spawn_objects_by_type's 14-byte records, FFFF ends
+1005E8  data  stage_09_type_spawns               # stage_spawns_by_type[9]: spawn_objects_by_type's 14-byte records, FFFF ends
+100B2C  data  stage_0a_type_spawns               # stage_spawns_by_type[A]: spawn_objects_by_type's 14-byte records, FFFF ends
+101038  data  stage_0b_type_spawns               # stage_spawns_by_type[B]: spawn_objects_by_type's 14-byte records, FFFF ends
+101082  data  stage_0c_type_spawns               # stage_spawns_by_type[C]: spawn_objects_by_type's 14-byte records, FFFF ends
+10122A  data  stage_0d_type_spawns               # stage_spawns_by_type[D]: spawn_objects_by_type's 14-byte records, FFFF ends
+10122E  data  stage_0e_type_spawns               # stage_spawns_by_type[E]: spawn_objects_by_type's 14-byte records, FFFF ends
+1012F6  data  stage_0f_type_spawns               # stage_spawns_by_type[F]: spawn_objects_by_type's 14-byte records, FFFF ends
+1012FA  data  stage_10_type_spawns               # stage_spawns_by_type[10]: spawn_objects_by_type's 14-byte records, FFFF ends
+10162A  data  stage_11_type_spawns               # stage_spawns_by_type[11]: spawn_objects_by_type's 14-byte records, FFFF ends
+10162E  data  stage_12_type_spawns               # stage_spawns_by_type[12]: spawn_objects_by_type's 14-byte records, FFFF ends
+10B6F2  data  stage_00_floor_blocks              # 10B6CC + stage_floor_blocks[0] (load_stage_map_pointers): count, then 22-byte floor blocks
+10B720  data  stage_01_02_03_07_floor_blocks     # 10B6CC + stage_floor_blocks[1, 2, 3, 7] (load_stage_map_pointers): count, then 22-byte floor blocks
+10BC08  data  stage_04_floor_blocks              # 10B6CC + stage_floor_blocks[4] (load_stage_map_pointers): count, then 22-byte floor blocks
+10C18A  data  stage_05_06_floor_blocks           # 10B6CC + stage_floor_blocks[5, 6] (load_stage_map_pointers): count, then 22-byte floor blocks
+10C1E4  data  stage_08_floor_blocks              # 10B6CC + stage_floor_blocks[8] (load_stage_map_pointers): count, then 22-byte floor blocks
+10C6B6  data  stage_09_11_12_floor_blocks        # 10B6CC + stage_floor_blocks[9, 11, 12] (load_stage_map_pointers): count, then 22-byte floor blocks
+10CB30  data  stage_0a_floor_blocks              # 10B6CC + stage_floor_blocks[A] (load_stage_map_pointers): count, then 22-byte floor blocks
+10D3CA  data  stage_0b_floor_blocks              # 10B6CC + stage_floor_blocks[B] (load_stage_map_pointers): count, then 22-byte floor blocks
+10D6A2  data  stage_0c_0e_floor_blocks           # 10B6CC + stage_floor_blocks[C, E] (load_stage_map_pointers): count, then 22-byte floor blocks
+10D846  data  stage_0d_0f_floor_blocks           # 10B6CC + stage_floor_blocks[D, F] (load_stage_map_pointers): count, then 22-byte floor blocks
+10D93A  data  stage_10_floor_blocks              # 10B6CC + stage_floor_blocks[10] (load_stage_map_pointers): count, then 22-byte floor blocks
+10E2C2  data  stage_00_floor_block_bounds        # 10E29C + stage_floor_block_bounds[0] (floor_block_bounds): count, then 16-byte outlines (find_nearby_floor_blocks)
+10E2D4  data  stage_01_02_03_07_floor_block_bounds # 10E29C + stage_floor_block_bounds[1, 2, 3, 7] (floor_block_bounds): count, then 16-byte outlines (find_nearby_floor_blocks)
+10E666  data  stage_04_floor_block_bounds        # 10E29C + stage_floor_block_bounds[4] (floor_block_bounds): count, then 16-byte outlines (find_nearby_floor_blocks)
+10E7C8  data  stage_05_06_floor_block_bounds     # 10E29C + stage_floor_block_bounds[5, 6] (floor_block_bounds): count, then 16-byte outlines (find_nearby_floor_blocks)
+10E80A  data  stage_08_floor_block_bounds        # 10E29C + stage_floor_block_bounds[8] (floor_block_bounds): count, then 16-byte outlines (find_nearby_floor_blocks)
+10EA1C  data  stage_09_floor_block_bounds        # 10E29C + stage_floor_block_bounds[9] (floor_block_bounds): count, then 16-byte outlines (find_nearby_floor_blocks)
+10ECDE  data  stage_0a_floor_block_bounds        # 10E29C + stage_floor_block_bounds[A] (floor_block_bounds): count, then 16-byte outlines (find_nearby_floor_blocks)
+10F020  data  stage_0b_floor_block_bounds        # 10E29C + stage_floor_block_bounds[B] (floor_block_bounds): count, then 16-byte outlines (find_nearby_floor_blocks)
+10F232  data  stage_0c_0e_floor_block_bounds     # 10E29C + stage_floor_block_bounds[C, E] (floor_block_bounds): count, then 16-byte outlines (find_nearby_floor_blocks)
+10F364  data  stage_0d_0f_floor_block_bounds     # 10E29C + stage_floor_block_bounds[D, F] (floor_block_bounds): count, then 16-byte outlines (find_nearby_floor_blocks)
+10F386  data  stage_10_floor_block_bounds        # 10E29C + stage_floor_block_bounds[10] (floor_block_bounds): count, then 16-byte outlines (find_nearby_floor_blocks)
+10F69A  data  stage_11_12_floor_block_bounds     # 10E29C + stage_floor_block_bounds[11, 12] (floor_block_bounds): count, then 16-byte outlines (find_nearby_floor_blocks)
+1141C0  data  stage_goal_records                 # 11419A + stage_goals[stage] (load_stage_goal): 12-byte goal records (the lowest offset, 26; 11 records to 114244)
+114BAA  data  stage_00_restart_points            # 114B84 + stage_restart_points[0] - 6 (place_player_at_restart_point reads the start there): start, then 8-byte points
+114C08  data  stage_01_restart_points            # 114B84 + stage_restart_points[1] - 6 (place_player_at_restart_point reads the start there): start, then 8-byte points
+114D1E  data  stage_02_restart_points            # 114B84 + stage_restart_points[2] - 6 (place_player_at_restart_point reads the start there): start, then 8-byte points
+114DDC  data  stage_03_07_restart_points         # 114B84 + stage_restart_points[3, 7] - 6 (place_player_at_restart_point reads the start there): start, then 8-byte points
+114E92  data  stage_04_restart_points            # 114B84 + stage_restart_points[4] - 6 (place_player_at_restart_point reads the start there): start, then 8-byte points
+114FD0  data  stage_05_06_restart_points         # 114B84 + stage_restart_points[5, 6] - 6 (place_player_at_restart_point reads the start there): start, then 8-byte points
+114FE6  data  stage_08_restart_points            # 114B84 + stage_restart_points[8] - 6 (place_player_at_restart_point reads the start there): start, then 8-byte points
+1150E4  data  stage_09_restart_points            # 114B84 + stage_restart_points[9] - 6 (place_player_at_restart_point reads the start there): start, then 8-byte points
+115252  data  stage_0a_restart_points            # 114B84 + stage_restart_points[A] - 6 (place_player_at_restart_point reads the start there): start, then 8-byte points
+1152F8  data  stage_0b_restart_points            # 114B84 + stage_restart_points[B] - 6 (place_player_at_restart_point reads the start there): start, then 8-byte points
+11540E  data  stage_0c_0e_restart_points         # 114B84 + stage_restart_points[C, E] - 6 (place_player_at_restart_point reads the start there): start, then 8-byte points
+11545C  data  stage_0d_0f_restart_points         # 114B84 + stage_restart_points[D, F] - 6 (place_player_at_restart_point reads the start there): start, then 8-byte points
+11547A  data  stage_10_restart_points            # 114B84 + stage_restart_points[10] - 6 (place_player_at_restart_point reads the start there): start, then 8-byte points
+11551A  data  stage_11_12_restart_points         # 114B84 + stage_restart_points[11, 12] - 6 (place_player_at_restart_point reads the start there): start, then 8-byte points
+1155D4  data  player_paths                       # 115528 + player_path_offsets[2] (the lowest non-zero offset, follow_player_path): 8-byte path records, a word with bit 15 set ends a path; to 115A32
+# -- text, fonts, demos and the rest --
+# Proposed data lines for symbols.txt (formats, family misc). Pieces of formats_work_misc.txt cut where
+# the tables, texts and recordings they hold start. Coin setting numbers are decimal, as the test mode
+# shows them (COIN/CREDIT SETTING #1-#26; coin_setting_text_1 already follows it).
+
+# ---- after the text font and the warning text ----
+103876  data  unused_103876                        # text_font + 1740: past the 9A 4-bit characters (load_text_font) and the 80 1-bit ones (ASCII 00-7F, expand_font takes 00-5A): 300 bytes no code address reaches, up to ending_eggman_flight_path
+104D0E  data  unused_warning_border_script         # after warning_screen_text's list (its 0000): a vram script on the text map (page 7C = 31F000) drawing two boxes of characters 15-1A (corners, edges) around the warning; attract_warning only prints the list, nothing runs it
+
+# ---- the bounce records: 4 records, then the two animations they point at (offsets 18 and 2C) ----
+113A00  data  sonic_bounce_200_animation           # sonic_bounce_records + 18 (records 0-1: directions 200, 300): last step 8, frames 1870-18B0
+113A14  data  sonic_bounce_000_animation           # sonic_bounce_records + 2C (records 2-3: directions 000, 100): last step 8, frames 1828-1868
+113A40  data  ray_bounce_200_animation             # ray_bounce_records + 18: frames 5018-5058
+113A54  data  ray_bounce_000_animation             # ray_bounce_records + 2C: frames 4FD0-5010
+113A80  data  mighty_bounce_200_animation          # mighty_bounce_records + 18: frames 3460-34A0
+113A94  data  mighty_bounce_000_animation          # mighty_bounce_records + 2C: frames 3418-3458
+
+# ---- the HUD prompts after hud_prompt_positions_2p (same shape as hud_wait_text; no code address found) ----
+113FC1  data  hud_insert_coins_text                # print_text_lines text: attribute 0, "Insert Coins"
+113FCF  data  hud_push_start_text                  # print_text_lines text: attribute 0, "Push Start  "
+
+# ---- test mode: the lists the text pointer tables point at ----
+115F36  data  cabinet_type_2p_text                 # cabinet_type_texts[0]: "2P" at row 17 col 25
+115F3E  data  cabinet_type_3p_text                 # cabinet_type_texts[1]: "3P"
+1161BF  data  credits_to_start_1_text              # credits_to_start_texts[0]: "1 CREDIT " at row 5 col 24
+1161CE  data  credits_to_start_2_text              # credits_to_start_texts[1]: "2 CREDITS"
+11644A  data  coins_per_credit_1_text              # coins_per_credit_texts[0] and [1]: "1 COIN " at row 5 col 25
+116457  data  coins_per_credit_2_text              # coins_per_credit_texts[2]: "2 COINS"
+116464  data  coins_per_credit_3_text              # [3]: "3 COINS"
+116471  data  coins_per_credit_4_text              # [4]: "4 COINS"
+11647E  data  coins_per_credit_5_text              # [5]: "5 COINS"
+11648B  data  coins_per_credit_6_text              # [6]: "6 COINS"
+116498  data  coins_per_credit_7_text              # [7]: "7 COINS"
+1164A5  data  coins_per_credit_8_text              # [8]: "8 COINS"
+1164B2  data  coins_per_credit_9_text              # [9]: "9 COINS"
+1164E7  data  bonus_adder_none_text                # bonus_adder_texts[0] and [1]: "            NO BONUS ADDER" at row 9 col 24
+116507  data  bonus_adder_2_text                   # bonus_adder_texts[2]: " 2 COINS GIVE 1 EXTRA COIN"
+116527  data  bonus_adder_3_text                   # [3]: " 3 COINS GIVE 1 EXTRA COIN"
+116547  data  bonus_adder_4_text                   # [4]
+116567  data  bonus_adder_5_text                   # [5]
+116587  data  bonus_adder_6_text                   # [6]
+1165A7  data  bonus_adder_7_text                   # [7]
+1165C7  data  bonus_adder_8_text                   # [8]
+1165E7  data  bonus_adder_9_text                   # [9]: " 9 COINS GIVE 1 EXTRA COIN"; after its list 43 bytes no code address reaches (53 00, 40 spaces, 00)
+1167EE  data  coin_setting_text_2                  # coin_setting_texts[1]: "1 COIN  2 CREDITS" (row 17), then the chute 1 line (row 11)
+116819  data  coin_setting_text_3                  # coin_setting_texts[2]
+116844  data  coin_setting_text_4                  # [3]
+11686F  data  coin_setting_text_5                  # [4]
+11689A  data  coin_setting_text_6                  # [5]: its chute 1 line is coin_setting_text_6_individual
+1168AF  data  coin_setting_text_6_individual       # coin_setting_texts_individual[1] (individual_coin_setting_numbers[1] = 6): "1 COIN  2 CREDITS" at row 11
+1168C6  data  coin_setting_text_7                  # coin_setting_texts[6]
+1168F2  data  coin_setting_text_8                  # [7]
+116907  data  coin_setting_text_8_individual       # coin_setting_texts_individual[2]
+11691E  data  coin_setting_text_9                  # coin_setting_texts[8]
+116933  data  coin_setting_text_9_individual       # coin_setting_texts_individual[3]
+11694A  data  coin_setting_text_10                 # coin_setting_texts[9]
+11695F  data  coin_setting_text_10_individual      # coin_setting_texts_individual[4]
+116976  data  coin_setting_text_11                 # coin_setting_texts[10]
+11698B  data  coin_setting_text_11_individual      # coin_setting_texts_individual[5]
+1169A2  data  coin_setting_text_12                 # coin_setting_texts[11]: "2 COINS 1 CREDIT"
+1169B6  data  coin_setting_text_12_individual      # coin_setting_texts_individual[6]
+1169CC  data  coin_setting_text_13                 # coin_setting_texts[12]
+1169F6  data  coin_setting_text_14                 # [13]
+116A21  data  coin_setting_text_15                 # [14]: two chute 2 lines (rows 17-18), then the chute 1 lines
+116A4A  data  coin_setting_text_15_individual      # coin_setting_texts_individual[7]: rows 11-12
+116A75  data  coin_setting_text_16                 # coin_setting_texts[15]
+116AB5  data  coin_setting_text_17                 # [16]: "3 COINS 1 CREDIT"
+116AC9  data  coin_setting_text_17_individual      # coin_setting_texts_individual[8]
+116ADF  data  coin_setting_text_18                 # coin_setting_texts[17]
+116AF3  data  coin_setting_text_18_individual      # coin_setting_texts_individual[9]
+116B09  data  coin_setting_text_19                 # coin_setting_texts[18]: four chute 2 lines (rows 17-20)
+116B5C  data  coin_setting_text_19_individual      # coin_setting_texts_individual[10]: rows 11-14
+116BB1  data  coin_setting_text_20                 # coin_setting_texts[19]
+116C1B  data  coin_setting_text_21                 # [20]: "1 COIN 2 CREDITS" (one space, sic)
+116C2F  data  coin_setting_text_21_individual      # coin_setting_texts_individual[11]
+116C5A  data  coin_setting_text_22                 # coin_setting_texts[21]
+116C98  data  coin_setting_text_22_individual      # coin_setting_texts_individual[12]
+116CD8  data  coin_setting_text_23                 # coin_setting_texts[22]: "1 COIN  3 CREDIT" (sic)
+116D2C  data  coin_setting_text_24                 # [23]: five chute 2 lines
+116D94  data  coin_setting_text_24_individual      # coin_setting_texts_individual[13]
+116DFE  data  coin_setting_text_25                 # coin_setting_texts[24]
+116E7D  data  coin_setting_text_26                 # [25]: "   FREE PLAY" (rows 17 and 11)
+116E8D  data  coin_setting_text_26_individual      # coin_setting_texts_individual[14]: "   FREE PLAY" at row 11
+117119  data  input_test_start_3_on_text           # input_test_on_texts_3p[0] (bit 07): "ON " at row 15 col 12 (PLAYER 3 START)
+117122  data  input_test_attack_3_on_text          # [1] (bit 12): row 16
+11712B  data  input_test_start_1_on_text           # [2] (bit 04): row 5
+117134  data  input_test_attack_1_on_text          # [3] (bit 10): row 6
+11713D  data  input_test_start_2_on_text           # [4] (bit 05): row 10
+117146  data  input_test_attack_2_on_text          # [5] (bit 18): row 11
+11714F  data  input_test_service_on_text           # [6] and [7] (bits 00, 0C): row 22 col 16 (SERVICE BUTTON)
+117158  data  input_test_test_button_on_text       # [8] and [9] (bits 01, 0D): row 24 col 16 (TEST BUTTON)
+117161  data  input_test_start_3_off_text          # input_test_off_texts_3p[0]: "OFF" at row 15 col 12
+11716A  data  input_test_attack_3_off_text         # [1]: row 16
+117173  data  input_test_start_1_off_text          # [2]: row 5
+11717C  data  input_test_attack_1_off_text         # [3]: row 6
+117185  data  input_test_start_2_off_text          # [4]: row 10
+11718E  data  input_test_attack_2_off_text         # [5]: row 11
+117197  data  input_test_service_off_text          # [6] and [7]: row 22 col 16
+1171A0  data  input_test_test_button_off_text      # [8] and [9]: row 24 col 16
+11781E  data  eeprom_write_count_text              # after eeprom_caution_text's list, no code address found: "A WRITTEN NUMBER OF EEPROM IS " at row 2 col 1 (attribute 1C)
+117843  data  control_ball_text                    # no code address found: "  CONTROL BALL" at row 3 col 9
+117857  data  control_ball_small_text              # small_large_texts[0]: "SMALL" at row 3 col 25 (beside "  CONTROL BALL")
+117862  data  control_ball_large_text              # small_large_texts[1]: "LARGE"
+
+# ---- after the attract demos ----
+119876  data  unused_fill_119876                   # attract_demo_2_inputs + 1000 (both recordings are 1000 bytes): CD 00, then FF up to 130000; no code address reaches it
+
+# ---- sprite_frame_records: 6138 records (13BFD0), FF, then the tile set tables (the scripts family labels the scripts from 141A10) ----
+13BFD0  data  unused_fill_13BFD0                   # FF up to 140000 after the 6138th frame record (assets.json count 6138)
+140000  data  stage_04_tile_sets                   # stage_tile_sets[4]: per tile set a u32 pointer (+100000, get_tile_set_list_bank) to its script list in tile_set_script_lists
+140194  data  stage_05_tile_sets                   # stage_tile_sets[5] and [6]
+1401F4  data  stage_03_tile_sets                   # stage_tile_sets[3] and [7]
+140328  data  stage_09_tile_sets                   # stage_tile_sets[9]
+14044C  data  stage_0a_tile_sets                   # stage_tile_sets[A]
+140564  data  stage_0b_tile_sets                   # stage_tile_sets[B]-[F]
+14070C  data  stage_10_tile_sets                   # stage_tile_sets[10]
+1407EC  data  stage_08_tile_sets                   # stage_tile_sets[8]
+140910  data  tile_set_script_lists                # the lists the stage_*_tile_sets point at: u32 script pointers (+100000, get_tile_set_script_bank), FFFFFFFF ends each; up to the scripts (141A10)
