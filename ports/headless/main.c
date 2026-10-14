@@ -5,7 +5,7 @@
  *                 format tools/reference/s32ref uses
  *    Version:     0.1.0
  *    Created:     11-10-2026
- *    Modified:    13-10-2026
+ *    Modified:    14-10-2026
  *    Author:      Sebastian Toyos
  *
  *    license:BSD-3-Clause
@@ -34,8 +34,9 @@
 
 #define USAGE "Usage: sonic_headless [--frames N] [--hashes FILE] [--script FILE]" \
 	" [--dump-frame N --dump-dir DIR] [--video-hashes FILE] [--video-dump N ... --video-dir DIR]" \
-	" [--sound-hashes FILE]\n"
+	" [--sound-hashes FILE] [--sprite-census FILE]\n"
 #define MAX_VIDEO_DUMPS 64
+#define CENSUS_SLOTS (1u << 20)
 
 static jmp_buf finished;
 static uint64_t frames_wanted = 600;
@@ -48,6 +49,35 @@ static uint64_t video_dumps[MAX_VIDEO_DUMPS];
 static int video_dump_count;
 static const char *video_dir;
 static FILE *sound_hashes;
+static FILE *sprite_census;
+static uint64_t *census_seen;    /* hashes of the sprite and color sets written, open addressing (0 = free) */
+
+/* --sprite-census: every sprite of the ROM the list draws, with the colors its pens show, once per set of
+   colors: "ADDRESS WORDS ROWS BITS COLOR..." (hex; colors RGB555, one a pen) */
+static void on_sprite_drawn(uint32_t address, int words, int rows, bool bits8, const uint16_t *pixels)
+{
+	const int pens = bits8 ? 256 : 16;
+	uint16_t colors[256];
+	uint64_t hash = 0xcbf29ce484222325ull;
+	uint32_t slot;
+
+	for (int pen = 0; pen < pens; pen++)
+		colors[pen] = s32_video_sprite_pixel_color(pixels[pen]);
+	hash = (hash ^ address) * 0x100000001b3ull;
+	hash = (hash ^ (uint64_t)((uint32_t)words << 16 | (uint32_t)rows << 1 | (bits8 ? 1u : 0u))) * 0x100000001b3ull;
+	for (int pen = 0; pen < pens; pen++)
+		hash = (hash ^ colors[pen]) * 0x100000001b3ull;
+	if (hash == 0)
+		hash = 1;
+	for (slot = (uint32_t)hash & (CENSUS_SLOTS - 1); census_seen[slot] != 0; slot = (slot + 1) & (CENSUS_SLOTS - 1))
+		if (census_seen[slot] == hash)
+			return;
+	census_seen[slot] = hash;
+	fprintf(sprite_census, "%06X %d %d %d", address, words, rows, bits8 ? 8 : 4);
+	for (int pen = 0; pen < pens; pen++)
+		fprintf(sprite_census, " %04X", colors[pen]);
+	fputc('\n', sprite_census);
+}
 
 static void write_file(const char *name, const void *data, size_t size)
 {
@@ -170,6 +200,7 @@ int main(int argc, char **argv)
 	const char *script_path = NULL;
 	const char *video_hashes_path = NULL;
 	const char *sound_hashes_path = NULL;
+	const char *sprite_census_path = NULL;
 	bool frames_given = false;
 
 	for (int index = 1; index < argc; index++)
@@ -195,6 +226,8 @@ int main(int argc, char **argv)
 			video_dir = argv[++index];
 		else if (strcmp(argv[index], "--sound-hashes") == 0 && index + 1 < argc)
 			sound_hashes_path = argv[++index];
+		else if (strcmp(argv[index], "--sprite-census") == 0 && index + 1 < argc)
+			sprite_census_path = argv[++index];
 		else
 		{
 			fprintf(stderr, USAGE);
@@ -216,11 +249,22 @@ int main(int argc, char **argv)
 	}
 	if (hashes_path)
 		hashes = fopen(hashes_path, "w");
-	if (video_hashes_path || video_dump_count)
+	if (video_hashes_path || video_dump_count || sprite_census_path)
 	{
 		s32_video_init(game_tile_rom, GAME_TILE_ROM_SIZE, game_sprite_rom, GAME_SPRITE_ROM_SIZE);
 		if (video_hashes_path)
 			video_hashes = fopen(video_hashes_path, "w");
+	}
+	if (sprite_census_path)
+	{
+		sprite_census = fopen(sprite_census_path, "w");
+		census_seen = calloc(CENSUS_SLOTS, sizeof(*census_seen));
+		if (!sprite_census || !census_seen)
+		{
+			fprintf(stderr, "%s: cannot be written\n", sprite_census_path);
+			return 1;
+		}
+		s32_video_sprite_observer = on_sprite_drawn;
 	}
 	if (sound_hashes_path)
 	{
@@ -247,6 +291,9 @@ int main(int argc, char **argv)
 		fclose(video_hashes);
 	if (sound_hashes)
 		fclose(sound_hashes);
+	if (sprite_census)
+		fclose(sprite_census);
+	free(census_seen);
 	s32_script_free(script);
 	printf("frames:            %" PRIu64 "\n", program_frames());
 	printf("interrupts taken:  %u\n", program_interrupts());

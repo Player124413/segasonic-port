@@ -4,7 +4,7 @@
  *                 buffers and the mixer, drawing each frame from the board's memories
  *    Version:     0.1.0
  *    Created:     13-10-2026
- *    Modified:    13-10-2026
+ *    Modified:    14-10-2026
  *    Author:      Sebastian Toyos
  *
  *    license:BSD-3-Clause
@@ -672,6 +672,8 @@ static int draw_layers(void)
 
 /* ---- sprites ---- */
 
+s32_sprite_observer s32_video_sprite_observer = NULL;
+
 static void put_sprite_pixel(const sprite_drawing *sprite, int x, int pen, int skipped_pen)
 {
 	int pixel;
@@ -801,6 +803,18 @@ static int draw_sprite(uint32_t entry, int x_offset, int y_offset, const area *i
 		for (int index = 0; index < 16; index++)
 			sprite.table[index] = (uint16_t)((sprite_word(table + (uint32_t)index) & (sprite.bits8 ? 0xfff0 : 0xffff)) |
 				(bit(latched[5], 0) ? 0x8000 : 0));
+	}
+
+	if (s32_video_sprite_observer != NULL && !from_ram)
+	{
+		/* the pixel each pen puts in the buffer, as put_sprite_pixel works it out */
+		uint16_t pixels[256];
+		const int pens = sprite.bits8 ? 256 : 16;
+
+		for (int pen = 0; pen < pens; pen++)
+			pixels[pen] = (uint16_t)(!sprite.indirect ? (sprite.color | pen)
+				: (sprite.bits8 ? sprite.table[pen >> 4] | (pen & 0x0f) : sprite.table[pen]));
+		s32_video_sprite_observer(bank << 20 | (address & 0xfffff), source_width, source_height, sprite.bits8, pixels);
 	}
 
 	x_zoom = (((sprite.bits8 ? 4 : 8) * source_width) << 16) / width;
@@ -973,6 +987,14 @@ typedef struct sprite_grouping
 	uint8_t base;       /* the first group's priority register */
 } sprite_grouping;
 
+/* The sprite groupings register 0x4C picks */
+static const sprite_grouping groupings[16] = {
+	{ 14, 0x00, 0x01 }, { 14, 0x01, 0x02 }, { 13, 0x03, 0x04 }, { 12, 0x07, 0x08 },
+	{ 14, 0x01, 0x00 }, { 13, 0x03, 0x00 }, { 12, 0x07, 0x00 }, { 11, 0x0f, 0x00 },
+	{ 14, 0x01, 0x00 }, { 13, 0x03, 0x00 }, { 12, 0x07, 0x00 }, { 11, 0x0f, 0x00 },
+	{ 13, 0x01, 0x00 }, { 12, 0x03, 0x00 }, { 11, 0x07, 0x00 }, { 10, 0x0f, 0x00 }
+};
+
 /* The first layer down the list that is not transparent there; the backdrop always is. A sprite pixel
    all ones lets the layers below show, and the shadow pen darkens them. */
 static const mix_layer *top_layer(const mix_layer *entry, const uint16_t *const *rows, int x, int sprite_pixel,
@@ -1004,17 +1026,24 @@ static uint16_t palette_color(const mix_layer *entry, int pixel)
 	return s32_board.palette[(entry->palette_base + ((pixel >> entry->shift) & 0xfff0) + (pixel & 0x0f)) & 0x3fff];
 }
 
+uint16_t s32_video_sprite_pixel_color(uint16_t pixel)
+{
+	const uint16_t sprite_control = mixer_register(0x4c);
+	const sprite_grouping grouping = groupings[sprite_control & 0x0f];
+	const int group = (pixel >> grouping.shift) & grouping.mask;
+	const uint16_t control = mixer_register(2 * (uint32_t)(grouping.base | group));
+	mix_layer sprites;
+
+	sprites.palette_base = (uint16_t)((((sprite_control & 3) != 3) ? control : sprite_control) & 0x00f0) << 6;
+	sprites.shift = (control >> 8) & 3;
+	return palette_color(&sprites, pixel & (((1 << grouping.shift) - 1) & 0x3fff));
+}
+
 /* The frame from the layers: registers 0x00-0x1E give each sprite group its priority and palette, 0x20-0x2C
    each layer, 0x30-0x3A what each blends with, 0x40-0x4A two color offsets, 0x4C the sprite grouping and
    shadows, 0x4E blending */
 static void mix(int drawn)
 {
-	static const sprite_grouping groupings[16] = {
-		{ 14, 0x00, 0x01 }, { 14, 0x01, 0x02 }, { 13, 0x03, 0x04 }, { 12, 0x07, 0x08 },
-		{ 14, 0x01, 0x00 }, { 13, 0x03, 0x00 }, { 12, 0x07, 0x00 }, { 11, 0x0f, 0x00 },
-		{ 14, 0x01, 0x00 }, { 13, 0x03, 0x00 }, { 12, 0x07, 0x00 }, { 11, 0x0f, 0x00 },
-		{ 13, 0x01, 0x00 }, { 12, 0x03, 0x00 }, { 11, 0x07, 0x00 }, { 10, 0x0f, 0x00 }
-	};
 	const uint16_t blend_control = mixer_register(0x4e);
 	const bool blending = bit(blend_control, 11);
 	const int blend_factor = (blend_control >> 8) & 7;

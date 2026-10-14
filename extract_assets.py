@@ -4,13 +4,14 @@ Name:        extract_assets.py
 Description: extracts the game's assets from the user's own ROM, driven by assets.json (as in n64decomp/sm64)
 Version:     0.1.0
 Created:     11-10-2026
-Modified:    11-10-2026
+Modified:    14-10-2026
 Author:      Sebastian Toyos
 
 Usage:
   python extract_assets.py [rom folder or .zip]   extract what is missing (default ROM location: rom/)
   python extract_assets.py --force [rom]          extract everything again
   python extract_assets.py --clean                delete every extracted asset
+  python extract_assets.py --check [rom]          build back what can go into the ROM and compare the bytes
 """
 import json
 import shutil
@@ -44,9 +45,78 @@ def load_manifest():
     return manifest
 
 
-def extract(asset, data):
+def sprite_palette_colors(program, offset, count):
+    """'count' palette entries at 'offset' of the program ROM, as the game keeps them (the palette window's
+    alternate format: the low bit of blue, green and red in bits 14-12), as (red, green, blue)."""
+    colors = []
+    for index in range(count):
+        value = int.from_bytes(program[offset + index * 2:offset + index * 2 + 2], "little")
+        red = ((value >> 12) & 1) | ((value << 1) & 0x1E)
+        green = ((value >> 13) & 1) | ((value >> 3) & 0x1E)
+        blue = ((value >> 14) & 1) | ((value >> 7) & 0x1E)
+        colors.append(asset_formats.rgb555(blue << 10 | green << 5 | red))
+    return colors
+
+
+def extract_sprites(asset, sprites, program, path):
+    """Every frame of the sprite ROM as an indexed PNG with its palette, what no frame covers as small
+    PNGs of its own, and frames.json: how each one goes back into the sprite ROM."""
+    frames = asset_formats.sprite_frames(program, int(asset["records"], 0), asset["count"])
+    known = json.loads((ROOT / asset["palettes"]).read_text(encoding="ascii"))
+    palettes = {int(number, 16): (int(offset, 0), source)
+                for source in ("drawn", "nearby") for number, offset in known[source].items()}
+    path.mkdir(parents=True, exist_ok=True)
+    index = {"notes": ["Each frame goes back into the sprite ROM at 'word' (32-bit words, bank << 20 | address); "
+                       "'bits' is 4 or 8 a pen. A 4-bit frame's PNG has 32 colors: index & 15 is the pen, and "
+                       "16-31 are the pens the board does not draw there (pen 0, the end code 15 at "
+                       "a word's edges, and what follows a word that ends with it), shown see-through.",
+                       "'palette' is where the colors come from in the program ROM ('palette_from': 'drawn' in "
+                       "the scenarios, or 'nearby': a frame no scenario draws, given its neighbour's)."],
+             "frames": [], "leftovers": []}
+    covered = bytearray(len(sprites) // 4)
+    for frame in frames:
+        rows = asset_formats.sprite_pens(sprites, frame)
+        pens = 1 << frame["bits"]
+        offset, source = palettes.get(frame["number"], (None, "none"))
+        colors = sprite_palette_colors(program, offset, pens) if offset is not None \
+            else [(level * 255 // (pens - 1),) * 3 for level in range(pens)]
+        name = f"frame_{frame['number']:04X}.png"
+        if frame["bits"] == 4:
+            # 32 entries: pens 0-15 where the board draws them, then the same pens where it does not (seen
+            # through): the picture is what the game shows, and index & 15 is the pen
+            drawn = asset_formats.sprite_drawn(rows, 4)
+            rows = [[pen if shown else pen + 16 for pen, shown in zip(row, flags)] for row, flags in zip(rows, drawn)]
+            asset_formats.write_png_indexed(path / name, rows, colors + colors, 8, alphas=[255] * 16 + [0] * 16)
+        else:
+            asset_formats.write_png_indexed(path / name, rows, colors, 8, transparent=0)
+        index["frames"].append({"frame": f"{frame['number']:04X}", "file": name, "width": frame["width"],
+                                "height": frame["height"], "bits": frame["bits"], "word": f"{frame['word']:06X}",
+                                "palette": f"0x{offset:06X}" if offset is not None else None,
+                                "palette_from": source})
+        covered[frame["word"]:frame["word"] + frame["words"]] = b"\x01" * frame["words"]
+    # what no frame covers and is not empty (0xFF): kept as 8-pixel-wide 4-bit strips
+    word = 0
+    while word < len(covered):
+        if covered[word] or sprites[word * 4:word * 4 + 4] == b"\xff\xff\xff\xff":
+            word += 1
+            continue
+        start = word
+        while word < len(covered) and not covered[word] and sprites[word * 4:word * 4 + 4] != b"\xff\xff\xff\xff":
+            word += 1
+        name = f"leftover_{start:06X}.png"
+        strip = {"number": None, "width": 8, "height": word - start, "word": start, "bits": 4}
+        asset_formats.write_png_indexed(path / name, asset_formats.sprite_pens(sprites, strip),
+                                        [(level * 17,) * 3 for level in range(16)], 4)
+        index["leftovers"].append({"file": name, "word": f"{start:06X}", "words": word - start})
+    (path / "frames.json").write_text(json.dumps(index, indent=1) + "\n", encoding="ascii")
+    return len(index["frames"]) + len(index["leftovers"]) + 1
+
+
+def extract(asset, data, region_of):
     path = ROOT / asset["path"]
     kind = asset["type"]
+    if kind == "sprite_frames":
+        return extract_sprites(asset, data, region_of("program"), path)
     if kind == "tiles_16x16x4":
         path.parent.mkdir(parents=True, exist_ok=True)
         columns = asset["columns"]
@@ -89,6 +159,32 @@ def write_state(version, paths):
     STATE.write_text("\n".join([version] + paths) + "\n", encoding="utf-8")
 
 
+REBUILDERS = {
+    "sprite_frames": lambda asset: asset_formats.build_sprite_rom(ROOT / asset["path"], asset["size"]),
+}
+
+
+def check(manifest, rom):
+    """Builds every asset that can go back into the ROM from its extracted files and compares the bytes."""
+    regions = {}
+    failed = 0
+    for asset in manifest["assets"]:
+        rebuild = REBUILDERS.get(asset["type"])
+        if rebuild is None:
+            continue
+        if asset["region"] not in regions:
+            regions[asset["region"]] = REGION_BUILDERS[asset["region"]](rom)
+        original = regions[asset["region"]][asset["offset"]:asset["offset"] + asset["size"]]
+        built = rebuild(asset)
+        if built == original:
+            print(f"  {asset['path']}: identical ({len(built)} bytes)")
+            continue
+        failed += 1
+        first = next(index for index, (a, b) in enumerate(zip(built, original)) if a != b)
+        print(f"  {asset['path']}: differs from byte {first:#x} of the region")
+    return 1 if failed else 0
+
+
 def main():
     arguments = sys.argv[1:]
     manifest = load_manifest()
@@ -102,8 +198,11 @@ def main():
         return 0
 
     force = "--force" in arguments
-    arguments = [argument for argument in arguments if argument != "--force"]
+    checking = "--check" in arguments
+    arguments = [argument for argument in arguments if argument not in ("--force", "--check")]
     source = Path(arguments[0]) if arguments else ROOT / "rom"
+    if checking:
+        return check(manifest, sonic_rom.load_set(source))
     version = str(manifest["manifest_version"])
     up_to_date = saved_version == version
     # Assets an earlier manifest listed and this one no longer does
@@ -121,14 +220,16 @@ def main():
 
     rom = sonic_rom.load_set(source)
     regions = {}
+
+    def region_of(name):
+        if name not in regions:
+            regions[name] = REGION_BUILDERS[name](rom)
+        return regions[name]
     files = 0
     for asset in todo:
-        region = asset["region"]
-        if region not in regions:
-            regions[region] = REGION_BUILDERS[region](rom)
         remove(asset["path"])
-        data = regions[region][asset["offset"]:asset["offset"] + asset["size"]]
-        files += extract(asset, data)
+        data = region_of(asset["region"])[asset["offset"]:asset["offset"] + asset["size"]]
+        files += extract(asset, data, region_of)
         print(f"  {asset['path']}")
     write_state(version, listed)
     print(f"{len(todo)} assets extracted ({files} files)")

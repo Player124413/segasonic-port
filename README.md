@@ -27,8 +27,10 @@ decompiled game plays the scenarios of <code>tests/controls/</code>.</sub></p>
 - [x] Recursive disassembly that follows branch tables, pointer tables and stored code pointers,
       cross-checked against real execution: 541 functions, about 26,000 instructions, no invalid
       or overlapping paths, and every executed address lands on a decoded instruction
-- [x] Asset extraction into plain resources: 16 tile sheets (PNG) and 175 PCM samples (WAV); sprites
-      and the game's data tables join them as their formats are worked out
+- [x] Asset extraction into plain resources: 16 tile sheets (PNG), 175 PCM samples (WAV), and every
+      sprite frame (6,138 of them) as an indexed PNG with the palette the game draws it with, showing
+      what the board draws; the sprite ROM builds back from those PNGs byte for byte
+      (`extract_assets.py --check`). The game's data tables join them as their formats are worked out
 - [x] System 32 board model in C (`runtime/`): memory map, interrupt controller and timers, I/O chip,
       EEPROM, trackballs, palette and mixer registers, and the FD1149 (317-0213) level-load protection
 - [x] Reference run of the original program on MAME's V60 core against that model: boots, shows the
@@ -105,11 +107,15 @@ Without SDL2 only the headless builds are made.
    python tools/verify_rom.py
    ```
 
-2. Extract the assets into `assets/` (the tile sheets and the samples, so far; the game does not read them
-   yet):
+2. Extract the assets into `assets/` (the tile sheets, the sprites and the samples, so far; the game does
+   not read them yet), and check that they build back into your ROM byte for byte:
 
    ```bash
    python extract_assets.py
+   ```
+
+   ```bash
+   python extract_assets.py --check
    ```
 
 3. Build the game and the development tools into `build/bin/`. The build writes the game's data from your
@@ -225,7 +231,8 @@ Other tools:
 ```
 rom/                    your ROM (ignored by git)
 assets.json             asset manifest: positions and formats, no data
-extract_assets.py       extracts assets/ from your ROM
+extract_assets.py       extracts assets/ from your ROM, and checks they build back into it (--check)
+sprite_palettes.json    where in the program ROM each sprite frame's palette is (positions only)
 src/                    the game's C, decompiled from the program (tools/decompile.py writes it)
 src/sound/              the sound driver's C, decompiled from the sound program
                         (tools/decompile_sound.py writes it)
@@ -244,6 +251,9 @@ tests/controls/         control scripts: coins, buttons, trackball moves and pok
 docs/unreachable.txt    the code no scenario runs, and why
 tools/sonic_rom.py      ROM set definition and memory region layouts
 tools/embed_data.py     writes the game's data from your ROM set as C, for the executables to carry
+tools/asset_formats.py  the board's data formats to standard files (PNG, WAV) and back
+tools/sprite_census.py  runs the scenarios with the sprite census on (sonic_game_headless --sprite-census)
+                        and finds each frame's palette in the program ROM: writes sprite_palettes.json
 tools/v60/              NEC V60 instruction decoder and C translation of each instruction
 tools/z80/              Zilog Z80 instruction decoder, analysis, lifting and timing (the sound program)
 tools/disassemble.py    recursive disassembler, listing and analysis report

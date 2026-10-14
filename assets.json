@@ -1,9 +1,10 @@
 {
-  "manifest_version": 2,
+  "manifest_version": 3,
   "rom_set": "sonic",
   "notes": [
     "Positions only: every byte comes from the user's own ROM at extraction time.",
-    "Only decoded resources are listed. Data whose format is still unknown (sprite ROM, the game data at 0x100000) stays in the ROM images the build reads from build/rom/; it is added here as each format is worked out.",
+    "Only decoded resources are listed. Data whose format is still unknown (the game data at 0x100000) stays in the ROM images the build reads; it is added here as each format is worked out.",
+    "Sprites: every frame of sprite_frame_records (program ROM 0x130000) as an indexed PNG, 4 or 8 bits a pixel, with the palette sprite_palettes.json says it is drawn with (positions in the program ROM, tools/sprite_census.py); pen 0 is transparent. frames.json says where each goes back in the sprite ROM.",
     "Tile sheets keep the original 4-bit pens as palette indices; colors are grayscale until palettes are mapped.",
     "PCM rate is nominal (half the RF5C68 output rate): the real pitch is set per sample by the Z80 driver."
   ],
@@ -24,6 +25,8 @@
     {"path": "assets/tiles/tiles_13.png", "region": "tiles", "offset": "0x1A0000", "size": "0x20000", "type": "tiles_16x16x4", "columns": 32},
     {"path": "assets/tiles/tiles_14.png", "region": "tiles", "offset": "0x1C0000", "size": "0x20000", "type": "tiles_16x16x4", "columns": 32},
     {"path": "assets/tiles/tiles_15.png", "region": "tiles", "offset": "0x1E0000", "size": "0x20000", "type": "tiles_16x16x4", "columns": 32},
+
+    {"path": "assets/sprites", "region": "sprites", "offset": "0x000000", "size": "0x1000000", "type": "sprite_frames", "records": "0x130000", "count": 6138, "palettes": "sprite_palettes.json"},
 
     {"path": "assets/sound/pcm_bank_1", "region": "sound", "offset": "0x100000", "size": "0x100000", "type": "pcm_rf5c68", "rate": 16276},
     {"path": "assets/sound/pcm_bank_2", "region": "sound", "offset": "0x200000", "size": "0x100000", "type": "pcm_rf5c68", "rate": 16276},
