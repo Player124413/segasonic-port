@@ -3,7 +3,7 @@ Name:        function.py
 Description: the game's functions as control-flow graphs of IR blocks, built from the analysed program
 Version:     0.1.0
 Created:     11-10-2026
-Modified:    13-10-2026
+Modified:    14-10-2026
 Author:      Sebastian Toyos
 
 Takes the functions tools/recompile.py splits the program into and lifts every instruction to IR
@@ -343,8 +343,9 @@ class Builder:
                 cases[case] = label
             block.end = ir.Switch(location.address, cases)
             return
-        table = self.analysis.jump_tables.get(instruction.address)
+        table = self.analysis.jump_tables.get(instruction.address) or self.analysis.pointer_tables.get(instruction.address)
         if table:
+            # a run of branches, or a table of code addresses the jump reads its target from (099C22)
             block.end = ir.Switch(location.address, {case: case for case in table})
             return
         block.end = ir.ComputedJump(location.address)

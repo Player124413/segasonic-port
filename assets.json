@@ -1,12 +1,13 @@
 {
-  "manifest_version": 5,
+  "manifest_version": 8,
   "rom_set": "sonic",
   "notes": [
     "Positions only: every byte comes from the user's own ROM at extraction time.",
-    "Program data (0x100000-0x17FFFF): one text file a piece, cut where symbols.txt names a place, in the format data_formats.json gives it (16-bit words in hex where it gives none); layout.json lists the pieces in order.",
+    "Program data (0x100000-0x17FFFF, and what the code chips hold besides the code at 0x000000-0x01FFFF and 0x080000-0x09FFFF): one text file a piece, cut where symbols.txt names a place, in the format data_formats.json gives it (16-bit words in hex where it gives none); the code is left out (the C replaces it) and the build takes it from the ROM; layout.json lists the pieces in order.",
     "Sprites: every frame of sprite_frame_records (program ROM 0x130000) as an indexed PNG, 4 or 8 bits a pixel, with the palette sprite_palettes.json says it is drawn with (positions in the program ROM, tools/palette_census.py); pen 0 is transparent. frames.json says where each goes back in the sprite ROM.",
     "Tile sheets are 8-bit indexed PNGs in color: the 16 palettes the sheet's tiles are shown with the most (tile_palettes.json, positions in the program ROM), a tile's pixels at its palette's slot * 16 + pen, so index & 15 is the pen; pen 0 is transparent. Each sheet's JSON says every tile's palette.",
-    "PCM rate is nominal (half the RF5C68 output rate): the real pitch is set per sample by the Z80 driver."
+    "Sound program (epr-15785, the first 0x40000 bytes of the sound region; the board repeats it four times): its data as text files, cut where sound_symbols.txt names a place, in the format sound_formats.json gives it; its code is left out (the C replaces it) and the build takes it from the ROM. layout.json lists the pieces in order. The songs (the banked part from 0x010000, 'movable') may change size: the build lays them out one after another and the song records find them by name.",
+    "PCM samples (0x100000-0x3FFFFF of the sound region): one 8-bit WAV a sample of pcm_sample_headers (sound program 0x6429, 175 of them), one ROM byte a WAV sample, so they go back exactly; samples.json says where each goes. The rate is nominal (half the RF5C68 output rate): the driver sets the pitch of every note."
   ],
   "assets": [
     {"path": "assets/tiles/tiles_00.png", "region": "tiles", "offset": "0x000000", "size": "0x20000", "type": "tiles_16x16x4", "columns": 32, "palettes": "tile_palettes.json"},
@@ -27,11 +28,12 @@
     {"path": "assets/tiles/tiles_15.png", "region": "tiles", "offset": "0x1E0000", "size": "0x20000", "type": "tiles_16x16x4", "columns": 32, "palettes": "tile_palettes.json"},
 
     {"path": "assets/data", "region": "program", "offset": "0x100000", "size": "0x80000", "type": "program_data", "formats": "data_formats.json"},
+    {"path": "assets/code_data/000000", "region": "program", "offset": "0x000000", "size": "0x20000", "type": "program_data", "formats": "data_formats.json"},
+    {"path": "assets/code_data/080000", "region": "program", "offset": "0x080000", "size": "0x20000", "type": "program_data", "formats": "data_formats.json"},
 
     {"path": "assets/sprites", "region": "sprites", "offset": "0x000000", "size": "0x1000000", "type": "sprite_frames", "records": "0x130000", "count": 6138, "palettes": "sprite_palettes.json"},
 
-    {"path": "assets/sound/pcm_bank_1", "region": "sound", "offset": "0x100000", "size": "0x100000", "type": "pcm_rf5c68", "rate": 16276},
-    {"path": "assets/sound/pcm_bank_2", "region": "sound", "offset": "0x200000", "size": "0x100000", "type": "pcm_rf5c68", "rate": 16276},
-    {"path": "assets/sound/pcm_bank_3", "region": "sound", "offset": "0x300000", "size": "0x100000", "type": "pcm_rf5c68", "rate": 16276}
+    {"path": "assets/sound/data", "region": "sound", "offset": "0x000000", "size": "0x40000", "type": "sound_data", "symbols": "sound_symbols.txt", "formats": "sound_formats.json", "movable": ["0x010000", "0x040000"]},
+    {"path": "assets/sound/samples", "region": "sound", "offset": "0x100000", "size": "0x300000", "type": "pcm_samples", "headers": "0x6429", "count": 175, "rate": 16276}
   ]
 }

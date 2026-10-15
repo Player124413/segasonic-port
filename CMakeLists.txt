@@ -2,7 +2,7 @@
 # Description: build of the SegaSonic runtime and its development tools
 # Version:     0.1.0
 # Created:     11-10-2026
-# Modified:    13-10-2026
+# Modified:    14-10-2026
 # Author:      Sebastian Toyos
 cmake_minimum_required(VERSION 3.20)
 project(segasonic C CXX)
@@ -39,7 +39,9 @@ target_include_directories(s32runtime PUBLIC runtime/include)
 
 # The game's data, carried inside the executables that run it: the board's ROM regions, written from the
 # player's ROM set (rom/, its files or its .zip; SONIC_ROM picks another) by tools/embed_data.py when the
-# set changes. The C it writes stays in the build folder: the ROM never goes into the repository
+# set changes; when assets/ holds the extracted assets (extract_assets.py), they stand for their part of
+# the ROM, and a change to them goes into the game. The C it writes stays in the build folder: the ROM
+# never goes into the repository
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
 set(SONIC_ROM ${CMAKE_SOURCE_DIR}/rom CACHE PATH "The ROM set the game's data is written from")
 if(IS_DIRECTORY ${SONIC_ROM})
@@ -47,13 +49,18 @@ if(IS_DIRECTORY ${SONIC_ROM})
 else()
 	set(SONIC_ROM_FILES ${SONIC_ROM})
 endif()
+file(GLOB_RECURSE SONIC_ASSET_FILES CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/assets/*)
+file(GLOB SONIC_FORMAT_TOOLS CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/tools/formats/*.py)
 set(SONIC_DATA_DIR ${CMAKE_BINARY_DIR}/data)
 set(SONIC_DATA_SOURCES
 	${SONIC_DATA_DIR}/program.c ${SONIC_DATA_DIR}/tiles.c ${SONIC_DATA_DIR}/sprites.c ${SONIC_DATA_DIR}/sound.c)
 add_custom_command(OUTPUT ${SONIC_DATA_SOURCES}
 	COMMAND Python3::Interpreter ${CMAKE_SOURCE_DIR}/tools/embed_data.py ${SONIC_ROM} ${SONIC_DATA_DIR}
-	DEPENDS ${SONIC_ROM_FILES} ${CMAKE_SOURCE_DIR}/tools/embed_data.py ${CMAKE_SOURCE_DIR}/tools/sonic_rom.py
-	COMMENT "Writing the game's data from the ROM set")
+	DEPENDS ${SONIC_ROM_FILES} ${SONIC_ASSET_FILES} ${SONIC_FORMAT_TOOLS} ${CMAKE_SOURCE_DIR}/assets.json
+		${CMAKE_SOURCE_DIR}/extract_assets.py ${CMAKE_SOURCE_DIR}/tools/embed_data.py
+		${CMAKE_SOURCE_DIR}/tools/sonic_rom.py ${CMAKE_SOURCE_DIR}/tools/asset_formats.py
+		${CMAKE_SOURCE_DIR}/tools/data_formats.py
+	COMMENT "Writing the game's data from the ROM set and the assets")
 add_library(sonic_data STATIC ${SONIC_DATA_SOURCES})
 target_include_directories(sonic_data PUBLIC runtime/include)
 

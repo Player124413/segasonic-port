@@ -5,7 +5,7 @@ Name:        analysis.py
 Description: the Z80 sound program, found from its entry points and split into functions
 Version:     0.1.0
 Created:     13-10-2026
-Modified:    13-10-2026
+Modified:    14-10-2026
 Author:      Sebastian Toyos
 
 Starts at the reset (0000) and at the interrupt handler (0038: the board's Z80 runs in interrupt mode
@@ -13,10 +13,12 @@ Starts at the reset (0000) and at the interrupt handler (0038: the board's Z80 r
 sound_symbols.txt describes. Every call target is a function, as is every "func" line; a function's
 body is the code reachable from its entry without going through another function's entry (running
 into one is a tail call). The program lives in 0000-9FFF: the banked page at A000-BFFF only ever
-holds data.
+holds data. Code the reset and the interrupt never reach (routines nothing calls) comes in through its
+"func" lines: such a function is in 'unreached'.
 
 Program has the attributes the decompiler takes from tools/recompile.py's: entries, bodies, names,
-symbols, mem, successors(), and an analysis with instructions and jump_tables.
+symbols, mem, successors(), and an analysis with instructions and jump_tables; and 'reached', the
+addresses the program runs, and 'unreached', the functions outside them.
 """
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -97,13 +99,33 @@ class Program:
         self.decode_all()
         self.entries |= {instruction.target for instruction in self.analysis.instructions.values()
                          if instruction.flow == dis.FLOW_CALL and instruction.target is not None}
+        # code nothing reaches from the reset and the interrupt is decompiled too, from its "func" lines
+        self.reached = self.reachable()
+        self.unreached = {entry for entry in self.entries if entry not in self.reached}
         self.bodies = {entry: self.walk(entry) for entry in sorted(self.entries)}
         self.split_shared_code()
         self.names = self.choose_names()
 
+    def reachable(self):
+        """The addresses the program runs from the reset and the interrupt handler: every jump, branch, call
+        and jump table followed."""
+        found = set()
+        work = list(ENTRIES)
+        while work:
+            address = work.pop()
+            if address in found:
+                continue
+            found.add(address)
+            instruction = self.analysis.instructions[address]
+            work += self.successors(instruction)
+            if instruction.flow == dis.FLOW_CALL and instruction.target is not None:
+                work.append(instruction.target)
+        return found
+
     def split_shared_code(self):
         """Code two functions both run into (one jumps into the middle of the other) becomes a function of
-        its own, which both reach with a tail call: it is written once."""
+        its own, which both reach with a tail call: it is written once (also when one of them is code the
+        program never reaches)."""
         while True:
             owners = {}
             for entry, body in self.bodies.items():

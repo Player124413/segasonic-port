@@ -4,7 +4,7 @@ Description: makes the statements of a function read as expressions: temporaries
              uses them, constants fold, and register writes that keep bits nobody reads write the value
 Version:     0.1.0
 Created:     11-10-2026
-Modified:    13-10-2026
+Modified:    14-10-2026
 Author:      Sebastian Toyos
 
 The lifter binds every value an instruction reads or computes to a temporary, in the order MAME's core
@@ -506,6 +506,9 @@ def switch_values(function, flow):
                    if isinstance(statement, ir.Call) and statement.choices and statement.address is not None]
         for position, holder in places:
             address = holder.address
+            if isinstance(holder, ir.Switch) and table_read_index(statements, position, holder, flow):
+                changed += 1
+                continue
             if not isinstance(address, ir.Op) or address.name != "add":
                 continue
             left, right = address.args
@@ -518,6 +521,45 @@ def switch_values(function, flow):
             holder.address = ir.op("add", (base, value), 32)
             changed += 1
     return changed
+
+
+def table_read_index(statements, position, switch, flow):
+    """"r0 = table[index]; ...; jump to r0" (a table of code addresses, 099C1C): the index is kept in a
+    temporary where the table is read, and the jump goes to table + index * 4 read with it, so that the
+    switch reads the index (emit.switch_index) even when what the index was worked out from changes before
+    the jump. True if it did that."""
+    address = switch.address
+    if not isinstance(address, ir.Reg):
+        return False
+    for index in range(position - 1, -1, -1):
+        statement = statements[index]
+        if isinstance(statement, ir.SetReg) and statement.index == address.index:
+            break
+        if writes_register(statement, flow, address.index):
+            return False
+    else:
+        return False
+    load = statement.value
+    if not isinstance(load, ir.Load) or load.bits != 32 or not isinstance(load.address, ir.Op) \
+            or load.address.name != "add":
+        return False
+    left, right = load.address.args
+    base, offset = (left, right) if isinstance(left, ir.Const) else (right, left)
+    if not isinstance(base, ir.Const) or not isinstance(offset, ir.Op) or offset.name != "mul" \
+            or offset.args[1] != ir.const(4) or isinstance(offset.args[0], ir.Temp):
+        return False
+    # named as the instruction's own temporaries are (t0 of the table read: "local" lines name it)
+    origin = getattr(statement, "origin", None)
+    name = f"t{origin:06X}_0_index" if origin is not None else f"s{base.value & 0xFFFFFF:06X}_index"
+    temp = ir.Temp(name, offset.args[0].bits)
+    read = ir.Load(ir.op("add", (base, ir.op("mul", (temp, ir.const(4)), 32)), 32), 32)
+    setting = ir.SetTemp(temp, offset.args[0])
+    if origin is not None:
+        setting.origin = origin
+    statements.insert(index, setting)
+    statement.value = read
+    switch.address = read
+    return True
 
 
 def reads_register(expression, register):
@@ -600,6 +642,9 @@ def propagate_constants(function, call_results, context):
             elif isinstance(statement, ir.Effect):
                 for index in (27, 28) if statement.name in ("move_string", "move_bits_down", "move_bits_up") else ():
                     known.pop(index, None)
+                if statement.name == "search_bits_up":
+                    known.pop(statement.args[4].value, None)
+                    known.pop(28, None)
                 if statement.name in ("divx", "divux"):
                     register = statement.args[1]
                     if isinstance(register, ir.Const):

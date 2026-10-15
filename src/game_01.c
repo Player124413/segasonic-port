@@ -2180,16 +2180,16 @@ void player_object_climb_begin(void)
 	OBJECT(current_object)->sprite_offset_y = -0x26;
 	PLAYER(current_player)->screen_x = ((int32_t)((uint32_t)OBJECT(current_object)->x + OBJECT(current_object)->y) >> 8) * 0xB5u;
 	AS16(PLAYER(current_player)->step_accumulator) = OBJECT(current_object)->x_int;
-	animation = 0x9CB3u;
+	animation = object_climb_animation_sonic_ADDRESS;
 	if (OBJECT(current_object)->kind != 0u)
-		animation = 0x9CDDu;
+		animation = object_climb_animation_mighty_ADDRESS;
 	OBJECT(current_object)->animation = animation;
 	PLAYER(current_player)->climb_hand = 0;
 	if (OBJECT(current_object)->kind == 1u)
 	{
 		OBJECT(current_object)->sprite_offset_x = -0x16;
 		OBJECT(current_object)->sprite_offset_y = -0x33;
-		OBJECT(current_object)->animation = 0x9CCFu;
+		OBJECT(current_object)->animation = object_climb_animation_ray_ADDRESS;
 		PLAYER(current_player)->climb_hand = -1;
 	}
 	OBJECT(current_object)->sprite_frame = mem_read16(OBJECT(current_object)->animation + 2u);
@@ -2245,13 +2245,13 @@ void player_object_climb_move(void)
 	{
 		if (negative)
 		{
-			OBJECT(current_object)->animation = 0x9CCFu;
+			OBJECT(current_object)->animation = object_climb_animation_ray_ADDRESS;
 			OBJECT(current_object)->sprite_offset_x = -0x16;
 			OBJECT(current_object)->sprite_offset_y = -0x33;
 		}
 		else
 		{
-			OBJECT(current_object)->animation = 0x9CC1u;
+			OBJECT(current_object)->animation = object_climb_animation_ray_2_ADDRESS;
 			OBJECT(current_object)->sprite_offset_x = -0x10;
 			OBJECT(current_object)->sprite_offset_y = -0x2A;
 		}
@@ -3587,7 +3587,7 @@ uint32_t spawn_player_effect(uint32_t effect)
 		OBJECT(effect)->y_int -= 0x10u;
 		OBJECT(effect)->z = OBJECT(current_object)->z;
 		OBJECT(effect)->z_int += 0x10u;
-		OBJECT(effect)->animation = 0x9BF7u;
+		OBJECT(effect)->animation = player_effect_animation_ADDRESS;
 		OBJECT(effect)->animation_frame = 0xFFu;
 		OBJECT(effect)->animation_speed = 4u;
 		OBJECT(effect)->animation_timer = 0;
@@ -4727,7 +4727,7 @@ void player_hud_init(void)
 	PLAYER(player - 0x142u)->hud_gauge_palette = 0x88E0u;
 	PLAYER(player - 0x142u)->hud_gauge_height = 8u;
 	PLAYER(current_player)->hud_gauge = player;
-	PLAYER(player - 0x142u)->hud_gauge_anim = 0xCD4Du;
+	PLAYER(player - 0x142u)->hud_gauge_anim = hud_gauge_hit_palettes_ADDRESS;
 	PLAYER(player - 0x142u)->hud_gauge_anim_delay = 3u;
 	PLAYER(player - 0x142u)->hud_gauge_frame = 0u;
 	PLAYER(player - 0x142u)->hud_gauge_anim_repeats = 0xFFu;
@@ -4748,12 +4748,12 @@ void player_hud_init(void)
 	PLAYER(player - 0x172u)->hud_portrait_anim_delay = 3u;
 	PLAYER(player - 0x172u)->hud_portrait_frame = 0u;
 	PLAYER(player - 0x172u)->hud_portrait_anim_repeats = 0xFFu;
-	portrait_anim = 0xCD63u;
+	portrait_anim = hud_portrait_hurt_palettes_sonic_ADDRESS;
 	if (OBJECT(current_object)->kind != 0u)
 	{
-		portrait_anim = 0xCD6Bu;
+		portrait_anim = hud_portrait_hurt_palettes_ray_ADDRESS;
 		if (OBJECT(current_object)->kind != 1u)
-			portrait_anim = 0xCD73u;
+			portrait_anim = hud_portrait_hurt_palettes_mighty_ADDRESS;
 	}
 	PLAYER(player - 0x172u)->hud_portrait_anim = portrait_anim;
 	player = current_player + 0x1A2u;
@@ -4863,12 +4863,12 @@ void player_hud_update(uint32_t *p_digit_attribute, uint32_t *p_text_position)
 			AS8(OBJECT(object)->projected_y) = 0u;
 			AS8(OBJECT(current_object)->projected_y) = 0u;
 			OBJECT(object)->sprite_palette = mem_read16(AS32(OBJECT(object)->child) + 2u);
-			portrait_anim = 0xCD63u;
+			portrait_anim = hud_portrait_hurt_palettes_sonic_ADDRESS;
 			if (OBJECT(object_cursor)->kind != 0u)
 			{
-				portrait_anim = 0xCD6Bu;
+				portrait_anim = hud_portrait_hurt_palettes_ray_ADDRESS;
 				if (OBJECT(object_cursor)->kind != 1u)
-					portrait_anim = 0xCD73u;
+					portrait_anim = hud_portrait_hurt_palettes_mighty_ADDRESS;
 			}
 			AS32(OBJECT(current_object)->child) = portrait_anim;
 			OBJECT(current_object)->sprite_palette = mem_read16(AS32(OBJECT(current_object)->child) + 2u);
@@ -4884,12 +4884,12 @@ void player_hud_update(uint32_t *p_digit_attribute, uint32_t *p_text_position)
 				AT8(OBJECT(object)->direction, 1) = 0u;
 				AT8(OBJECT(object)->parent, 1) = 0u;
 				AS8(OBJECT(object)->projected_y) = 3u;
-				portrait_anim = 0xCD63u;
+				portrait_anim = hud_portrait_hurt_palettes_sonic_ADDRESS;
 				if (OBJECT(object_cursor)->kind != 0u)
 				{
-					portrait_anim = 0xCD6Bu;
+					portrait_anim = hud_portrait_hurt_palettes_ray_ADDRESS;
 					if (OBJECT(object_cursor)->kind != 1u)
-						portrait_anim = 0xCD73u;
+						portrait_anim = hud_portrait_hurt_palettes_mighty_ADDRESS;
 				}
 				AS32(OBJECT(current_object)->child) = portrait_anim;
 				AT8(OBJECT(current_object)->direction, 1) = 0u;
@@ -4914,12 +4914,12 @@ void player_hud_update(uint32_t *p_digit_attribute, uint32_t *p_text_position)
 			AT8(OBJECT(object)->direction, 1) = 0u;
 			AT8(OBJECT(object)->parent, 1) = 0u;
 			AS8(OBJECT(object)->projected_y) = 3u;
-			portrait_anim = 0xCD7Bu;
+			portrait_anim = hud_portrait_low_health_palettes_sonic_ADDRESS;
 			if (OBJECT(object_cursor)->kind != 0u)
 			{
-				portrait_anim = 0xCD89u;
+				portrait_anim = hud_portrait_low_health_palettes_ray_ADDRESS;
 				if (OBJECT(object_cursor)->kind != 1u)
-					portrait_anim = 0xCD97u;
+					portrait_anim = hud_portrait_low_health_palettes_mighty_ADDRESS;
 			}
 			AS32(OBJECT(current_object)->child) = portrait_anim;
 			AT8(OBJECT(current_object)->direction, 1) = 0u;
@@ -5020,7 +5020,7 @@ void player_hud_update(uint32_t *p_digit_attribute, uint32_t *p_text_position)
 	text_position = 0x310000u | start_prompt_positions_3p[player];
 	if ((cabinet_config & 1u) == 0u)
 		text_position = (text_position & ~0xFFFFu) | start_prompt_positions_2p[player];
-	text = 0xCDA5u;
+	text = hud_no_continue_text_ADDRESS;
 	print_text_lines(&text, &text_position);
 	*p_text_position = text_position;
 }

@@ -11,6 +11,523 @@
  */
 #include "game.h"
 
+void stage_03_floor_block_update(void)
+{
+	uint32_t r1 = 0, r7 = 0, at_last_step = 0, depth = 0, ignored = 0;
+
+	if (stage_03_floor_block_falls[OBJECT(current_object)->speed_x_fraction] != 0u)
+	{
+		OBJECT(current_object)->speed_z += 0x1000u;
+		OBJECT(current_object)->z += OBJECT(current_object)->speed_z;
+		if (OBJECT(current_object)->speed_x_int < 4)
+		{
+			OBJECT(current_object)->sprite_offset_x = 0;
+			OBJECT(current_object)->sprite_offset_y = 0;
+		}
+		if ((int8_t)OBJECT(current_object)->animation_speed >= 0)
+		{
+			animate(&r1, &r7, &at_last_step);
+			if ((uint8_t)at_last_step != 0u)
+				OBJECT(current_object)->animation_speed = 0xFFu;
+		}
+	}
+	update_screen_position(&ignored, &r1);
+	if (OBJECT(current_object)->screen_y < 0x158)
+	{
+		depth = (uint16_t)(OBJECT(current_object)->screen_y - OBJECT(current_object)->speed_y_fraction - OBJECT(current_object)->sprite_offset_y);
+		queue_sprite_at_depth(&ignored, &depth);
+		return;
+	}
+	delete_current_object();
+}
+
+void spiked_roller_start(void)
+{
+	uint32_t r11 = 0, block_offset = 0, free_count = 0, ignored = 0, object = 0, record_cursor = 0, roller_kind = 0, y = 0, zone_index = 0;
+	uint8_t parts_left = 0;
+
+	roller_kind = OBJECT(current_object)->sprite_frame;
+	OBJECT(current_object)->platform = roller_kind;
+	OBJECT(current_object)->spiked_roller.event_offset = spiked_roller_events[roller_kind];
+	record_cursor = spiked_roller_kinds_ADDRESS + spiked_roller_kinds[roller_kind];
+	roller_parts_left = ROM8(record_cursor);
+	record_cursor++;
+	r11 = ROM16(record_cursor);
+	record_cursor += 2u;
+	roller_first_state = ROM16(record_cursor);
+	record_cursor += 2u;
+	roller_back_zone_index = ROM16(record_cursor);
+	OBJECT(current_object)->spiked_roller.path = record_cursor + 2u;
+	r11 += 0x8219Cu;
+	roller_step_x = (uint32_t)(int8_t)ROM8(r11) << 16;
+	r11++;
+	roller_step_y = (uint32_t)(int8_t)ROM8(r11) << 16;
+	r11++;
+	roller_part_record = r11;
+	OBJECT(current_object)->flags = 0u;
+	find_floor(&roller_kind, &y, &block_offset, &ignored, &r11);
+	OBJECT(current_object)->z = OBJECT(current_object)->floor_z;
+	OBJECT(current_object)->spiked_roller.screen_threshold = 0;
+	OBJECT(current_object)->spiked_roller.catch_up_factor = 0u;
+	OBJECT(current_object)->spiked_roller.base_speed = 0;
+	OBJECT(current_object)->spiked_roller.wait_timer = 0;
+	OBJECT(current_object)->spiked_roller.rumble_timer = 0u;
+	OBJECT(current_object)->spiked_roller.substate = 0u;
+	OBJECT(current_object)->player = 0u;
+	OBJECT(current_object)->spiked_roller.holding_back = 0u;
+	roller_ram_count = 0u;
+	roller_ram_hit = 0u;
+	machine_fire_done = 0u;
+	OBJECT(current_object)->spiked_roller.rumble_off_screen = 0xFFu;
+	if (chaser_object == 0u)
+		chaser_object = current_object;
+	roller_part_x = OBJECT(current_object)->x;
+	roller_part_y = OBJECT(current_object)->y;
+	roller_part_frame_cursor = spiked_roller_part_frames_ADDRESS;
+	object = current_object;
+	for (;;)
+	{
+		OBJECT(current_object)->sprite_palette = 0x82F0u;
+		OBJECT(current_object)->hitbox_height = 0xF0u;
+		OBJECT(current_object)->kind = 0xCu;
+		OBJECT(current_object)->handler = spiked_roller_update_ADDRESS;
+		OBJECT(current_object)->sprite_offset_x = 0;
+		OBJECT(current_object)->sprite_offset_y = 5;
+		OBJECT(current_object)->speed_z = 0;
+		OBJECT(current_object)->var_80 = 2u;
+		OBJECT(current_object)->player = 0u;
+		OBJECT(current_object)->speed_x = 0;
+		OBJECT(current_object)->speed_y = 0;
+		record_cursor = roller_part_record;
+		OBJECT(current_object)->sprite_flags = mem_read16(record_cursor);
+		record_cursor += 2u;
+		OBJECT(current_object)->hitbox_size_x = mem_read16(record_cursor);
+		record_cursor += 2u;
+		OBJECT(current_object)->hitbox_size_y = mem_read16(record_cursor);
+		record_cursor += 2u;
+		OBJECT(current_object)->spawn_arg_2 = mem_read16(record_cursor);
+		record_cursor += 2u;
+		OBJECT(current_object)->flags = mem_read32(record_cursor);
+		record_cursor += 4u;
+		OBJECT(current_object)->hitbox_offset_x = mem_read8(record_cursor);
+		OBJECT(current_object)->hitbox_offset_y = mem_read8(record_cursor + 1u);
+		OBJECT(current_object)->direction = (uint32_t)OBJECT(current_object)->spawn_arg_2 << 8;
+		OBJECT(current_object)->var_86 = object_cursor;
+		OBJECT(current_object)->parent = object;
+		OBJECT(object)->child = current_object;
+		object = (object & ~0xFFFFu) | (uint16_t)current_object;
+		OBJECT(current_object)->animation_timer = 0;
+		OBJECT(current_object)->animation = spiked_roller_animation_ADDRESS;
+		OBJECT(current_object)->animation_frame = mem_read8(roller_part_frame_cursor);
+		roller_part_frame_cursor++;
+		OBJECT(current_object)->sprite_frame = spiked_roller_frames[OBJECT(current_object)->animation_frame];
+		parts_left = roller_parts_left;
+		roller_parts_left = parts_left - 1u;
+		if ((int8_t)parts_left <= 1)
+			break;
+		allocate_object(&free_count, &r11);
+		if (free_count == 0u)
+			return;
+		current_object = r11;
+		roller_part_x += roller_step_x;
+		OBJECT(current_object)->x = roller_part_x;
+		roller_part_y += roller_step_y;
+		OBJECT(current_object)->y = roller_part_y;
+		OBJECT(current_object)->z = OBJECT(object_cursor)->z;
+		OBJECT(current_object)->spawn_arg_2 = OBJECT(object_cursor)->spiked_roller.path_direction;
+	}
+	OBJECT(current_object)->child = 0xFFFFu;
+	AS16(OBJECT(object_cursor)->spiked_roller.state) = roller_first_state;
+	zone_index = roller_back_zone_index;
+	spawn_roller_back_zone(zone_index, r11);
+	if (OBJECT(object_cursor)->spiked_roller.state == 0u)
+		players_frozen = 0xFFu;
+	if (OBJECT(object_cursor)->spiked_roller.state == 0xEu)
+	{
+		OBJECT(object_cursor)->speed_z = -0x100000;
+		OBJECT(object_cursor)->z = 0x500000;
+		OBJECT(object_cursor)->speed_x = 0x8000;
+		OBJECT(object_cursor)->speed_y = 0;
+		OBJECT(object_cursor)->flags |= 1u;
+	}
+}
+
+void spiked_roller_update(void)
+{
+	uint32_t r1 = 0, ignored = 0;
+
+	switch (OBJECT(current_object)->spiked_roller.state)
+	{
+	case 0:
+		spiked_roller_chase();
+		break;
+	case 1:
+		spiked_roller_fall_off_ledge();
+		break;
+	case 2:
+		spiked_roller_follow_leader();
+		break;
+	case 3:
+		spiked_roller_drop_in();
+		break;
+	case 4:
+		spiked_roller_ram();
+		break;
+	case 5:
+		spiked_roller_remove();
+		break;
+	case 6:
+		spiked_roller_crash_into_machine();
+		break;
+	case 7:
+		spiked_roller_sink_and_jump();
+		break;
+	case 8:
+		spiked_roller_fall();
+		break;
+	case 9:
+		spiked_roller_burst_out();
+		break;
+	case 10:
+		spiked_roller_smash_wall();
+		break;
+	case 11:
+		spiked_roller_wait_for_turn();
+		break;
+	case 12:
+		spiked_roller_wait_to_burst_out();
+		break;
+	case 13:
+		spiked_roller_shift_box();
+		break;
+	case 14:
+		spiked_roller_wait_hidden();
+		break;
+	case 15:
+		spiked_roller_spawn_fixed_zone();
+		break;
+	case 16:
+		spiked_roller_chase();
+		break;
+	default:
+		unknown_code(0x803BBu + OBJECT(current_object)->spiked_roller.state * 3u);
+	}
+	if (OBJECT(current_object)->player == 0u)
+	{
+		if ((OBJECT(current_object)->flags & 1u) != 0u)
+			return;
+		add_to_zone_list(0u);
+		if (OBJECT(current_object)->spiked_roller.state == 1u)
+		{
+			ignored = queue_sprite_at_previous_floor();
+			return;
+		}
+		r1 = queue_sprite_at_base(0u);
+		return;
+	}
+	if (chaser_object == (uint16_t)current_object)
+		chaser_object = 0u;
+	delete_current_object();
+}
+
+void spiked_roller_chase(void)
+{
+	uint8_t sound_id = 0;
+	uint16_t height_above_floor = 0;
+	uint32_t r2 = 0, r3 = 0, r7 = 0, chase_speed = 0, cursor = 0, event_kind = 0, ignored = 0, move_step = 0, off_screen = 0, record_cursor = 0, speed_level = 0, x = 0, y = 0;
+	uint8_t hold_timer = 0, rumble_timer = 0;
+	uint16_t record_position = 0, z_int = 0, floor_z_int = 0, event_position = 0, max_y = 0, min_x = 0, min_y = 0, max_x = 0;
+	uint32_t flags = 0;
+
+	flags = OBJECT(current_object)->flags;
+	OBJECT(current_object)->flags = flags | 0x80000000u;
+	if ((flags & 0x80000000u) == 0u)
+	{
+	spiked_roller_chase_read_script:
+		if ((uint16_t)OBJECT(current_object)->spiked_roller.wait_timer == 0u)
+		{
+			record_cursor = OBJECT(current_object)->spiked_roller.path;
+			record_position = mem_read16(record_cursor);
+			record_cursor += 2u;
+			if (record_position <= scroll_position)
+			{
+				if ((int16_t)mem_read16(record_cursor + 2u) >= 0)
+				{
+					OBJECT(current_object)->spiked_roller.screen_threshold = mem_read16(record_cursor);
+					record_cursor += 2u;
+					OBJECT(current_object)->spiked_roller.catch_up_factor = mem_read16(record_cursor);
+					record_cursor += 2u;
+					OBJECT(current_object)->spiked_roller.base_speed = mem_read16(record_cursor);
+					record_cursor += 2u;
+					OBJECT(current_object)->spiked_roller.wait_timer = mem_read16(record_cursor);
+					OBJECT(current_object)->spiked_roller.path = record_cursor + 2u;
+					if ((uint16_t)OBJECT(current_object)->spiked_roller.wait_timer == 0u)
+					{
+						OBJECT(current_object)->kind = 0x18u;
+						players_frozen = 0u;
+					}
+				}
+				else
+				{
+					OBJECT(current_object)->spiked_roller.catch_up_factor = 0u;
+					OBJECT(current_object)->spiked_roller.base_speed = 0;
+					off_screen = is_off_screen();
+					if (off_screen != 0u)
+					{
+						OBJECT(current_object)->spiked_roller.state = 5u;
+						return;
+					}
+				}
+			}
+		}
+	}
+	else if (OBJECT(current_object)->spiked_roller.holding_back == 0u)
+	{
+		if (no_player_in_play == 0u && player_mishap == 0u && player_dropping_in == 0u)
+			goto spiked_roller_chase_read_script;
+		OBJECT(current_object)->spiked_roller.holding_back = 0xFFu;
+		OBJECT(current_object)->spiked_roller.saved_base_speed = OBJECT(current_object)->spiked_roller.base_speed;
+		OBJECT(current_object)->spiked_roller.base_speed = 0;
+		OBJECT(current_object)->spiked_roller.hold_start_position = scroll_position;
+		OBJECT(current_object)->spiked_roller.hold_timer = 0xFFu;
+		OBJECT(current_object)->spiked_roller.saved_threshold = OBJECT(current_object)->spiked_roller.screen_threshold;
+		switch (OBJECT(current_object)->spiked_roller.path_direction)
+		{
+		case 0:
+		case 3:
+		case 4:
+			OBJECT(current_object)->spiked_roller.screen_threshold = 0x160;
+			break;
+		case 1:
+		case 2:
+			OBJECT(current_object)->spiked_roller.screen_threshold = -0x20;
+			break;
+		default:
+			unknown_code(0x80448u + OBJECT(current_object)->spiked_roller.path_direction * 2u);
+		}
+	}
+	if (OBJECT(current_object)->platform != 5u && OBJECT(current_object)->platform != 2u)
+	{
+		find_floor(&x, &y, &r2, &r3, &cursor);
+		z_int = OBJECT(current_object)->z_int;
+		floor_z_int = OBJECT(current_object)->floor_z_int;
+		height_above_floor = (uint16_t)(floor_z_int - z_int);
+		if (floor_z_int == z_int || (int16_t)height_above_floor <= 8)
+			OBJECT(current_object)->z = OBJECT(current_object)->floor_z;
+		else
+		{
+			OBJECT(current_object)->spiked_roller.state = 1u;
+			chaser_object = 0u;
+		}
+	}
+	project_object(&ignored, &ignored);
+	if (OBJECT(current_object)->spiked_roller.holding_back != 0u)
+	{
+		if ((int16_t)(scroll_position - OBJECT(current_object)->spiked_roller.hold_start_position) >= 0x300)
+			goto spiked_roller_chase_stop_holding_back;
+		if (no_player_in_play != 0u)
+			OBJECT(current_object)->spiked_roller.hold_timer = 0xFFu;
+		hold_timer = OBJECT(current_object)->spiked_roller.hold_timer;
+		OBJECT(current_object)->spiked_roller.hold_timer = hold_timer - 1u;
+		if (hold_timer == 0u || AS32(players_finished[0]) == 0xFFFFFFu)
+			goto spiked_roller_chase_stop_holding_back;
+	}
+	switch (OBJECT(current_object)->spiked_roller.path_direction)
+	{
+	case 0:
+	case 3:
+		if (OBJECT(current_object)->screen_x <= OBJECT(current_object)->spiked_roller.screen_threshold)
+		{
+		spiked_roller_chase_use_base_speed:
+			chase_speed = (uint16_t)OBJECT(current_object)->spiked_roller.base_speed;
+		}
+		else
+		{
+		spiked_roller_chase_catch_up:
+			OBJECT(current_object)->spiked_roller.wait_timer = 0;
+			if (OBJECT(current_object)->spiked_roller.holding_back != 0u)
+			{
+			spiked_roller_chase_stop_holding_back:
+				OBJECT(current_object)->spiked_roller.holding_back = 0u;
+				OBJECT(current_object)->spiked_roller.screen_threshold = OBJECT(current_object)->spiked_roller.saved_threshold;
+				OBJECT(current_object)->spiked_roller.base_speed = OBJECT(current_object)->spiked_roller.saved_base_speed;
+			}
+			compute_camera_ground_speed(r3);
+			chase_speed = (uint16_t)((uint32_t)camera_ground_speed_int * OBJECT(current_object)->spiked_roller.catch_up_factor) >> 8;
+			if ((int16_t)chase_speed <= OBJECT(current_object)->spiked_roller.base_speed)
+				goto spiked_roller_chase_use_base_speed;
+		}
+		break;
+	case 1:
+	case 2:
+	case 4:
+		if (OBJECT(current_object)->spiked_roller.screen_threshold <= OBJECT(current_object)->screen_x)
+			goto spiked_roller_chase_use_base_speed;
+		goto spiked_roller_chase_catch_up;
+	default:
+		unknown_code(0x80548u + OBJECT(current_object)->spiked_roller.path_direction * 2u);
+	}
+	chaser_speed = chase_speed;
+	if (current_game_mode != 0x11u)
+		OBJECT(current_object)->spiked_roller.wait_timer--;
+	if (OBJECT(current_object)->spiked_roller.wait_timer <= 0)
+	{
+		OBJECT(current_object)->spiked_roller.wait_timer = 0;
+		if (grey_screen_active == 0u)
+		{
+			switch (OBJECT(current_object)->spiked_roller.path_direction)
+			{
+			case 0:
+				move_step = (uint32_t)chaser_speed << 12;
+				OBJECT(current_object)->y -= move_step;
+				OBJECT(current_object)->speed_y = move_step;
+				OBJECT(current_object)->speed_x = 0;
+				break;
+			case 1:
+				move_step = (uint32_t)chaser_speed << 12;
+				OBJECT(current_object)->x += move_step;
+				OBJECT(current_object)->speed_x = move_step;
+				OBJECT(current_object)->speed_y = 0;
+				break;
+			case 2:
+			case 4:
+				move_step = (uint32_t)chaser_speed << 12;
+				OBJECT(current_object)->y += move_step;
+				OBJECT(current_object)->speed_y = move_step;
+				OBJECT(current_object)->speed_x = 0;
+				break;
+			case 3:
+				move_step = (uint32_t)chaser_speed << 12;
+				OBJECT(current_object)->x -= move_step;
+				OBJECT(current_object)->speed_x = move_step;
+				OBJECT(current_object)->speed_y = 0;
+				break;
+			default:
+				unknown_code(0x805E4u + OBJECT(current_object)->spiked_roller.path_direction * 2u);
+			}
+		}
+		else
+			chaser_speed = 0;
+	}
+	if ((uint16_t)chaser_speed != 0u)
+	{
+		speed_level = (uint16_t)chaser_speed >> 4;
+		if ((int16_t)speed_level > 5)
+			speed_level = 5u;
+		OBJECT(current_object)->animation_speed = spiked_roller_animation_speeds[speed_level];
+		animate(&chase_speed, &r7, &off_screen);
+	}
+	switch (OBJECT(current_object)->spiked_roller.path_direction)
+	{
+	case 0:
+	case 4:
+		if (OBJECT(current_object)->screen_x > 0x140)
+		{
+		spiked_roller_chase_no_rumble:
+			OBJECT(current_object)->spiked_roller.rumble_off_screen = 0xFFu;
+		}
+		else
+		{
+		spiked_roller_chase_rumble:
+			if (OBJECT(current_object)->spiked_roller.rumble_off_screen != 0u)
+			{
+				OBJECT(current_object)->spiked_roller.rumble_off_screen = 0u;
+				OBJECT(current_object)->spiked_roller.rumble_timer = 0u;
+			}
+			if ((uint16_t)chaser_speed == 0u)
+				goto spiked_roller_chase_no_rumble;
+			rumble_timer = OBJECT(current_object)->spiked_roller.rumble_timer;
+			OBJECT(current_object)->spiked_roller.rumble_timer = rumble_timer - 1u;
+			if (rumble_timer == 0u)
+			{
+				sound_id = 0xBu;
+				play_sound(sound_id, &chase_speed, &r2);
+				speed_level = (uint16_t)chaser_speed;
+				speed_level = speed_level >> 4;
+				if ((int16_t)speed_level < 0)
+					speed_level = 0u;
+				if ((int16_t)speed_level > 4)
+					speed_level = 4u;
+				OBJECT(current_object)->spiked_roller.rumble_timer = spiked_roller_rumble_delays[speed_level];
+			}
+		}
+		break;
+	case 1:
+		if (OBJECT(current_object)->screen_x < -0x50)
+			goto spiked_roller_chase_no_rumble;
+		goto spiked_roller_chase_rumble;
+	case 2:
+		if (OBJECT(current_object)->screen_x < 0)
+			goto spiked_roller_chase_no_rumble;
+		goto spiked_roller_chase_rumble;
+	case 3:
+		if (OBJECT(current_object)->screen_x > 0x140)
+			goto spiked_roller_chase_no_rumble;
+		goto spiked_roller_chase_rumble;
+	default:
+		unknown_code(0x80678u + OBJECT(current_object)->spiked_roller.path_direction * 2u);
+	}
+	record_cursor = OBJECT(current_object)->spiked_roller.event_offset + spiked_roller_events_ADDRESS;
+	event_position = ROM16(record_cursor);
+	record_cursor += 2u;
+	if (scroll_position < event_position || OBJECT(current_object)->spiked_roller.substate != 0u)
+	{
+		roller_ram_hit = 0u;
+		return;
+	}
+	event_kind = ROM16(record_cursor) * 2u;
+	record_cursor += 2u;
+	switch (event_kind)
+	{
+	case 0x0u:
+	case 0x8u:
+		max_y = ROM16(record_cursor);
+		record_cursor += 2u;
+		if (OBJECT(current_object)->y_int <= (int16_t)max_y)
+		{
+			OBJECT(current_object)->spiked_roller.state = (uint8_t)ROM16(record_cursor);
+			AS32(OBJECT(current_object)->spiked_roller.event_offset) += 8u;
+		}
+		break;
+	case 0x2u:
+		min_x = ROM16(record_cursor);
+		record_cursor += 2u;
+		if ((int16_t)min_x <= OBJECT(current_object)->x_int)
+		{
+			OBJECT(current_object)->spiked_roller.state = (uint8_t)ROM16(record_cursor);
+			AS32(OBJECT(current_object)->spiked_roller.event_offset) += 8u;
+			roller_ram_hit = 0u;
+			return;
+		}
+		break;
+	case 0x4u:
+		min_y = ROM16(record_cursor);
+		record_cursor += 2u;
+		if ((int16_t)min_y <= OBJECT(current_object)->y_int)
+		{
+			OBJECT(current_object)->spiked_roller.state = (uint8_t)ROM16(record_cursor);
+			AS32(OBJECT(current_object)->spiked_roller.event_offset) += 8u;
+			roller_ram_hit = 0u;
+			return;
+		}
+		break;
+	case 0x6u:
+		max_x = ROM16(record_cursor);
+		record_cursor += 2u;
+		if (OBJECT(current_object)->x_int <= (int16_t)max_x)
+		{
+			OBJECT(current_object)->spiked_roller.state = (uint8_t)ROM16(record_cursor);
+			AS32(OBJECT(current_object)->spiked_roller.event_offset) += 8u;
+			roller_ram_hit = 0u;
+			return;
+		}
+		break;
+	default:
+		unknown_code(0x8071Bu + event_kind);
+	}
+	roller_ram_hit = 0u;
+}
+
 void spiked_roller_fall_off_ledge(void)
 {
 	OBJECT(current_object)->sprite_palette |= 0x4000u;
@@ -1510,7 +2027,7 @@ void fireball_emitter_update(void)
 		AS8(OBJECT(object)->hitbox_size_y) = ROM8(type_record);
 		type_record++;
 		AT8(OBJECT(object)->hitbox_size_y, 1) = ROM8(type_record);
-		OBJECT(object)->animation = ROM16(type_record + 1u) + 0x83329u;
+		OBJECT(object)->animation = ROM16(type_record + 1u) + blank_fireball_animation_ADDRESS;
 		OBJECT(object)->animation_frame = 0u;
 		OBJECT(object)->animation_timer = 0;
 		OBJECT(object)->animation_speed = 4u;
@@ -3406,101 +3923,4 @@ void cage_bar_start(void)
 	project_object(&ignored, &ignored);
 	OBJECT(current_object)->handler = cage_bar_update_ADDRESS;
 	cage_bar_update();
-}
-
-void cage_bar_update(void)
-{
-	uint8_t sound_id = 0;
-	uint32_t r1 = 0, animation_frame = 0, depth = 0, ignored = 0, off_screen = 0, step_list = 0, write_index_address = 0;
-	uint8_t animation_timer = 0;
-	uint16_t last_step = 0;
-
-	OBJECT(current_object)->health = 5;
-	if ((int16_t)OBJECT((current_object & ~0xFFFFu) | spiked_press_object)->var_82 >= 0xC8 && (int8_t)OBJECT(current_object)->animation_frame >= 0 && (OBJECT(current_object)->flags & 4u) != 0u && (OBJECT(current_object)->flags & 0x40u) != 0u)
-	{
-		OBJECT(current_object)->animation_frame++;
-		animation_frame = OBJECT(current_object)->animation_frame;
-		step_list = OBJECT(current_object)->animation;
-		last_step = mem_read16(step_list);
-		step_list += 2u;
-		if ((int16_t)animation_frame < (int16_t)last_step)
-		{
-			OBJECT(current_object)->sprite_frame = mem_read16(step_list + animation_frame * 2u);
-			OBJECT(current_object)->health = 1;
-			cage_bar_hit = 0xFFu;
-		}
-		else
-		{
-			OBJECT(current_object)->animation_timer = 8;
-			OBJECT(current_object)->animation_frame = 0xFFu;
-		}
-		sound_id = 0x21u;
-		play_sound(sound_id, &r1, &write_index_address);
-	}
-	if ((int8_t)OBJECT(current_object)->animation_frame < 0 && OBJECT(current_object)->animation_timer >= 0)
-	{
-		animation_timer = OBJECT(current_object)->animation_timer;
-		OBJECT(current_object)->animation_timer = animation_timer - 1u;
-		if ((int8_t)animation_timer < 1)
-		{
-			OBJECT(current_object)->sprite_frame = mem_read16(OBJECT(current_object)->animation + 6u);
-			OBJECT(current_object)->projected_x++;
-		}
-	}
-	update_screen_position(&ignored, &r1);
-	if (stage != 5u)
-	{
-		delete_current_object();
-		return;
-	}
-	off_screen = check_left_screen();
-	if (off_screen != 0u)
-	{
-		delete_current_object();
-		return;
-	}
-	if ((int8_t)OBJECT(current_object)->animation_frame >= 0)
-		add_to_touchable_list(ignored);
-	depth = (uint16_t)(OBJECT(current_object)->screen_y - 8u);
-	queue_sprite_at_depth(&ignored, &depth);
-}
-
-void sign_start(void)
-{
-	uint32_t ignored = 0, kind_record = 0, sign = 0;
-
-	kind_record = OBJECT(current_object)->sprite_frame * 0xCu + object_kinds_ADDRESS;
-	OBJECT(current_object)->z_int = mem_read16(kind_record);
-	OBJECT(current_object)->z_fraction = 0u;
-	sign = current_object;
-	kind_record += 2u;
-	init_sign_from_kind(kind_record, &ignored, &sign);
-}
-
-void spawn_sign(uint16_t x, uint16_t y, uint16_t kind, uint16_t z, uint32_t *p_depth, uint32_t *p_sign)
-{
-	uint32_t depth = *p_depth;
-	uint32_t sign = *p_sign;
-	uint32_t r1 = 0, free_count = 0;
-
-	allocate_object_outside_loop(&free_count, &sign);
-	if (free_count == 0u)
-	{
-		*p_sign = sign;
-		return;
-	}
-	place_sign(x, y, kind, z, &r1, &sign);
-	*p_depth = r1;
-	*p_sign = sign;
-}
-
-uint32_t spawn_sign_2(uint16_t x, uint16_t y, uint16_t kind, uint16_t z, uint32_t sign)
-{
-	uint32_t free_count = 0, ignored = 0;
-
-	allocate_object(&free_count, &sign);
-	if (free_count == 0u)
-		return sign;
-	place_sign(x, y, kind, z, &ignored, &sign);
-	return sign;
 }

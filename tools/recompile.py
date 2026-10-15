@@ -3,7 +3,7 @@ Name:        recompile.py
 Description: translates the game's V60 program into C, one C function per V60 function
 Version:     0.1.0
 Created:     11-10-2026
-Modified:    11-10-2026
+Modified:    14-10-2026
 Author:      Sebastian Toyos
 
 Usage: python tools/recompile.py [rom folder or .zip] --trace build/trace/executed.txt
@@ -74,8 +74,10 @@ class Program:
         self.entries.add(key(RESET_ADDRESS))
         for table_entries in self.analysis.call_tables.values():
             self.entries.update(table_entries)
-        for targets in self.analysis.pointer_tables.values():
-            self.entries.update(targets)
+        # the code a table of addresses calls; the code a jump through one goes to (099C22) stays in its function
+        for origin, targets in self.analysis.pointer_tables.items():
+            if instructions[origin].flow == dis.FLOW_CALL:
+                self.entries.update(targets)
 
         self.bodies = {}
         for entry in sorted(self.entries):
@@ -194,6 +196,7 @@ class Program:
             elif instruction.target is not None:
                 following.append(key(instruction.target))
             following += self.analysis.jump_tables.get(instruction.address, [])
+            following += self.analysis.pointer_tables.get(instruction.address, [])
         if flow == dis.FLOW_RETURN and instruction.address in self.analysis.return_jumps:
             following.append(self.analysis.return_jumps[instruction.address])
         pushed = self.continuation(instruction)

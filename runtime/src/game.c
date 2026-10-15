@@ -1,10 +1,10 @@
 /**
  *    Name:        game.c
  *    Description: runtime of the decompiled game program: processor status, the frame loop and its
- *                 interrupts, calls by address, and the V60's string and bit-string moves
+ *                 interrupts, calls by address, and the V60's string and bit-string moves and searches
  *    Version:     0.1.0
  *    Created:     11-10-2026
- *    Modified:    12-10-2026
+ *    Modified:    14-10-2026
  *    Author:      Sebastian Toyos
  *
  *    license:BSD-3-Clause
@@ -390,6 +390,32 @@ void move_bits_up(uint32_t source, uint32_t source_offset, uint32_t dest, uint32
 	}
 	if (dest_offset != 0)
 		mem_write8(dest, dest_data);
+}
+
+/* ---- SCH0BSU / SCH1BSU (op7a.hxx, opSCHBS) ---- */
+
+uint32_t search_bits_up(uint32_t address, uint32_t offset, uint32_t length, uint32_t bit, uint32_t *work)
+{
+	uint8_t data;
+	uint32_t count;
+
+	address += offset / 8;
+	data = mem_read8(address);
+	offset &= 7;
+	for (count = 0; count < length; count++)
+	{
+		*work = address;
+		if (((data >> offset) & 1u) == bit)
+			break;
+		offset++;
+		if (offset == 8)
+		{
+			offset = 0;
+			address++;
+			data = mem_read8(address);
+		}
+	}
+	return count;
 }
 
 /* ---- DIVX / DIVUX ---- */

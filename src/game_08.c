@@ -11,6 +11,201 @@
  */
 #include "game.h"
 
+void rimmed_sinkhole_edge_zone_update(void)
+{
+	uint32_t r0 = 0, object = 0;
+
+	if ((OBJECT(current_object)->flags & 0x400u) == 0u)
+	{
+		object = LINKED(current_object, OBJECT(current_object)->parent);
+		OBJECT(current_object)->sprite_scale = OBJECT(object)->sprite_scale;
+		OBJECT(current_object)->rimmed_sinkhole.draw_depth = OBJECT(object)->var_88;
+		r0 = add_to_touchable_list(0u);
+		return;
+	}
+	delete_current_object();
+}
+
+void spawn_sand_block_leader(uint32_t record, uint32_t *p_spawned, uint32_t *p_leader)
+{
+	uint32_t leader = *p_leader;
+	uint32_t free_count = 0, spawned = 0;
+
+	allocate_object_outside_loop(&free_count, &leader);
+	if (free_count == 0u)
+	{
+		*p_spawned = free_count;
+		*p_leader = leader;
+		return;
+	}
+	group_leaders[mem_read8(record) & 3u] = leader;
+	record++;
+	OBJECT(leader)->x_int = mem_read16(record);
+	OBJECT(leader)->x_fraction = 0u;
+	record += 2u;
+	OBJECT(leader)->y_int = mem_read16(record);
+	OBJECT(leader)->y_fraction = 0u;
+	record += 2u;
+	OBJECT(leader)->z_int = mem_read16(record);
+	OBJECT(leader)->z_fraction = 0u;
+	OBJECT(leader)->floor_z = OBJECT(leader)->z;
+	record += 2u;
+	OBJECT(leader)->direction = mem_read16(record);
+	OBJECT(leader)->sand_block_leader.path = mem_read16(record + 2u) + group_leader_data_ADDRESS;
+	OBJECT(leader)->handler = sand_block_leader_move_ADDRESS;
+	OBJECT(leader)->flags = 0u;
+	OBJECT(leader)->sprite_offset_x = 0;
+	OBJECT(leader)->sprite_offset_y = 0;
+	OBJECT(leader)->sand_block_leader.holding_back = 0u;
+	OBJECT(leader)->sand_block_leader.wait_timer = 1;
+	sand_block_leader_active = 0xFFu;
+	if (group_leader_0_held != 0u)
+		OBJECT(leader)->handler = sand_block_leader_wait_ADDRESS;
+	spawned = 0xFFFFFFFFu;
+	*p_spawned = spawned;
+	*p_leader = leader;
+}
+
+void sand_block_leader_wait(void)
+{
+	if (scroll_position >= 0x5100u || group_leader_0_held == 0u)
+		OBJECT(current_object)->handler = sand_block_leader_move_ADDRESS;
+}
+
+void sand_block_leader_move(void)
+{
+	uint16_t move_speed = 0;
+	uint32_t r3 = 0, block_offset = 0, block_record = 0, hold_threshold = 0, ignored = 0, path_cursor = 0, x = 0;
+	uint8_t hold_timer = 0;
+	uint16_t wait_timer = 0, record_scroll = 0;
+	uint32_t flags = 0;
+
+	flags = OBJECT(current_object)->flags;
+	OBJECT(current_object)->flags = flags | 0x80000000u;
+	if ((flags & 0x80000000u) == 0u)
+	{
+	sand_block_leader_read_script:
+		wait_timer = OBJECT(current_object)->sand_block_leader.wait_timer;
+		OBJECT(current_object)->sand_block_leader.wait_timer = wait_timer - 1u;
+		if ((int16_t)wait_timer <= 1)
+		{
+			OBJECT(current_object)->sand_block_leader.wait_timer = 0;
+			path_cursor = OBJECT(current_object)->sand_block_leader.path;
+			record_scroll = mem_read16(path_cursor);
+			path_cursor += 2u;
+			if (record_scroll <= scroll_position)
+			{
+				if ((int16_t)mem_read16(path_cursor + 2u) < 0)
+				{
+					delete_current_object();
+					return;
+				}
+				OBJECT(current_object)->sand_block_leader.screen_threshold = mem_read16(path_cursor);
+				path_cursor += 2u;
+				OBJECT(current_object)->sand_block_leader.catch_up_factor = mem_read16(path_cursor);
+				path_cursor += 2u;
+				OBJECT(current_object)->sand_block_leader.base_speed = mem_read16(path_cursor);
+				path_cursor += 2u;
+				OBJECT(current_object)->sand_block_leader.wait_timer = mem_read16(path_cursor);
+				OBJECT(current_object)->sand_block_leader.path = path_cursor + 2u;
+			}
+		}
+	}
+	else if (OBJECT(current_object)->sand_block_leader.holding_back == 0u)
+	{
+		if (no_player_in_play == 0u && player_mishap == 0u && player_dropping_in == 0u)
+			goto sand_block_leader_read_script;
+		OBJECT(current_object)->sand_block_leader.holding_back = 0xFFu;
+		OBJECT(current_object)->sand_block_leader.saved_base_speed = OBJECT(current_object)->sand_block_leader.base_speed;
+		OBJECT(current_object)->sand_block_leader.base_speed = 0;
+		OBJECT(current_object)->sand_block_leader.hold_start_position = scroll_position;
+		OBJECT(current_object)->sand_block_leader.hold_timer = 0xFFu;
+		OBJECT(current_object)->sand_block_leader.saved_threshold = OBJECT(current_object)->sand_block_leader.screen_threshold;
+		hold_threshold = 0xFFE0u;
+		if ((OBJECT(current_object)->direction & 1u) != 0u)
+			hold_threshold = 0x160u;
+		OBJECT(current_object)->sand_block_leader.screen_threshold = hold_threshold;
+	}
+	find_floor(&x, &hold_threshold, &block_offset, &r3, &block_record);
+	project_object(&ignored, &ignored);
+	add_to_rider_list();
+	if (OBJECT(current_object)->sand_block_leader.holding_back != 0u)
+	{
+		if ((int16_t)(scroll_position - OBJECT(current_object)->sand_block_leader.hold_start_position) >= 0x300)
+			goto sand_block_leader_stop_holding_back;
+		if (no_player_in_play != 0u)
+			OBJECT(current_object)->sand_block_leader.hold_timer = 0xFFu;
+		hold_timer = OBJECT(current_object)->sand_block_leader.hold_timer;
+		OBJECT(current_object)->sand_block_leader.hold_timer = hold_timer - 1u;
+		if (hold_timer == 0u)
+			goto sand_block_leader_stop_holding_back;
+	}
+	switch (OBJECT(current_object)->direction)
+	{
+	case 0:
+	case 2:
+	case 4:
+		if (OBJECT(current_object)->sand_block_leader.screen_threshold <= OBJECT(current_object)->screen_x)
+		{
+		sand_block_leader_use_base_speed:
+			move_speed = (uint16_t)OBJECT(current_object)->sand_block_leader.base_speed;
+		}
+		else
+		{
+		sand_block_leader_catch_up:
+			OBJECT(current_object)->sand_block_leader.wait_timer = 0;
+			if (OBJECT(current_object)->sand_block_leader.holding_back != 0u)
+			{
+			sand_block_leader_stop_holding_back:
+				OBJECT(current_object)->sand_block_leader.holding_back = 0u;
+				OBJECT(current_object)->sand_block_leader.screen_threshold = OBJECT(current_object)->sand_block_leader.saved_threshold;
+				OBJECT(current_object)->sand_block_leader.base_speed = OBJECT(current_object)->sand_block_leader.saved_base_speed;
+			}
+			compute_camera_ground_speed(r3);
+			move_speed = (uint16_t)((uint32_t)camera_ground_speed_int * OBJECT(current_object)->sand_block_leader.catch_up_factor) >> 8;
+			if ((int16_t)move_speed <= OBJECT(current_object)->sand_block_leader.base_speed)
+				goto sand_block_leader_use_base_speed;
+		}
+		break;
+	case 1:
+	case 3:
+		if (OBJECT(current_object)->sand_block_leader.screen_threshold < OBJECT(current_object)->screen_x || OBJECT(current_object)->screen_y > 0xE0)
+			goto sand_block_leader_catch_up;
+		goto sand_block_leader_use_base_speed;
+	default:
+		unknown_code(0x8A046u + OBJECT(current_object)->direction * 2u);
+	}
+	chaser_speed = move_speed;
+	if (OBJECT(current_object)->sand_block_leader.wait_timer <= 0)
+	{
+		block_record = floor_blocks + 2u + OBJECT(current_object)->floor_block;
+		switch (OBJECT(current_object)->direction)
+		{
+		case 0:
+		case 4:
+			OBJECT(current_object)->y += (uint32_t)chaser_speed << 12;
+			OBJECT(current_object)->x = ((int32_t)(mem_read32(block_record + 4u) - mem_read32(block_record)) >> 1) + mem_read32(block_record);
+			break;
+		case 1:
+			OBJECT(current_object)->y -= (uint32_t)chaser_speed << 12;
+			OBJECT(current_object)->x = ((int32_t)(mem_read32(block_record + 4u) - mem_read32(block_record)) >> 1) + mem_read32(block_record);
+			break;
+		case 2:
+			OBJECT(current_object)->x += (uint32_t)chaser_speed << 12;
+			OBJECT(current_object)->y = ((int32_t)(mem_read32(block_record + 0xCu) - mem_read32(block_record + 8u)) >> 1) + mem_read32(block_record + 8u);
+			break;
+		case 3:
+			OBJECT(current_object)->x -= (uint32_t)chaser_speed << 12;
+			OBJECT(current_object)->y = ((int32_t)(mem_read32(block_record + 0xCu) - mem_read32(block_record + 8u)) >> 1) + mem_read32(block_record + 8u);
+			break;
+		default:
+			unknown_code(0x8A0D4u + OBJECT(current_object)->direction * 2u);
+		}
+	}
+	if (OBJECT(current_object)->y_int <= 0xA2B)
+		sand_block_leader_active = 0u;
+}
+
 void sand_block_update(void)
 {
 	uint8_t sound_id = 0;
@@ -3986,6 +4181,12 @@ void copy_position_from_cursor(void)
 	OBJECT(current_object)->floor_z = OBJECT(object_cursor)->floor_z;
 }
 
+void copy_screen_position_from_cursor(void)
+{
+	OBJECT(current_object)->screen_x = OBJECT(object_cursor)->screen_x;
+	OBJECT(current_object)->screen_y = OBJECT(object_cursor)->screen_y;
+}
+
 uint32_t face_nearest_player(uint32_t direction, uint32_t octant)
 {
 	uint16_t dy = 0, player_dx = 0, player_dy = 0;
@@ -4810,14 +5011,14 @@ void enter_ranking_initials(uint32_t jump_offset)
 			y = (uint16_t)(OBJECT(current_object)->screen_y - 0x20u);
 			palette = 0x8AD0u;
 			scale = 0x100u;
-			text = 0x8F08Eu + (int32_t)OBJECT(current_object)->var_84 / 0x3C * 3u;
+			text = countdown_second_texts_ADDRESS + (int32_t)OBJECT(current_object)->var_84 / 0x3C * 3u;
 			queue_string_at(screen_x, y, &palette, &scale, &text);
 			text_x = (uint16_t)OBJECT(current_object)->screen_x;
 			text_x = (uint16_t)(text_x + 0x20u);
 			y = (uint16_t)(OBJECT(current_object)->screen_y - 0x20u);
 			palette = 0x8AD0u;
 			scale = 0x100u;
-			text = 0x8EFF8u + OBJECT(current_object)->direction * 0xAu;
+			text = ranking_rank_texts_ADDRESS + OBJECT(current_object)->direction * 0xAu;
 			queue_string_at(text_x, y, &palette, &scale, &text);
 			trackball = OBJECT(current_object)->speed_z;
 			abs_dx = mem_read16(trackball);
@@ -5087,191 +5288,4 @@ uint32_t ascii_to_ranking_letter(uint32_t letter)
 	} while ((uint8_t)letter != 0x33u);
 	letter = (letter & ~0xFFu) | 0x23u;
 	return letter;
-}
-
-void start_ranking_display(uint32_t display, uint32_t *p_rows, uint32_t *p_source)
-{
-	uint32_t ignored = 0, object = 0, rows = 0, source = 0;
-
-	display = allocate_object_or_start_list(display);
-	OBJECT(display)->parent = object_cursor;
-	OBJECT(display)->child = 0xFFFFu;
-	init_object(display);
-	object = display;
-	show_nbg0_picture(&ignored, &rows, &source, &ignored);
-	OBJECT(object)->screen_x = 0xA0;
-	OBJECT(object)->screen_y = -0x1A4;
-	OBJECT(object)->handler = build_ranking_display_ADDRESS;
-	*p_rows = rows;
-	*p_source = source;
-}
-
-void build_ranking_display(void)
-{
-	uint32_t block = 0, character = 0, first_initial = 0, free_count = 0, hundreds_digit = 0, label_second_char = 0, object = 0, rank_label = 0, record = 0, remainder = 0, rows_left = 0, second_initial = 0, stages = 0, tens_digit = 0, third_initial = 0, thousands_digit = 0;
-
-	record = ranking_ADDRESS;
-	current_player = 0u;
-	rows_left = 0xFu;
-	OBJECT(current_object)->speed_z = 0x180;
-	OBJECT(current_object)->handler = ranking_display_scroll_in_ADDRESS;
-	do
-	{
-		spawn_count = 0xCu;
-		spawn_object_with_pieces(0x08F28Bu, &third_initial, &tens_digit, &free_count, &object, &block);
-		OBJECT(object)->screen_x = 0xC;
-		rank_label = 0x8F858u + ((current_player & ~0xFFu) | (uint8_t)(current_player * 2u));
-		OBJECT(object)->sprite_frame = ranking_letter_sprites[mem_read8(rank_label)];
-		OBJECT(object)->sprite_palette = 0x8AD0u;
-		OBJECT(object)->spawn_arg_1 = rows_left;
-		OBJECT(object)->handler = ranking_row_update_ADDRESS;
-		object = LINKED(object, OBJECT(object)->child);
-		OBJECT(object)->screen_x = 0x18;
-		label_second_char = mem_read8(rank_label + 1u);
-		OBJECT(object)->sprite_frame = ranking_letter_sprites[label_second_char];
-		OBJECT(object)->sprite_palette = 0x8AD0u;
-		remainder = mem_read16(record);
-		remainder = remainder & 0x7FFFu;
-		object = LINKED(object, OBJECT(object)->child);
-		OBJECT(object)->screen_x = 0xC0;
-		thousands_digit = (int32_t)remainder / 0x3E8;
-		thousands_digit = (thousands_digit & ~0xFFu) | (uint8_t)(thousands_digit + 0x20u);
-		OBJECT(object)->sprite_frame = ranking_letter_sprites[thousands_digit];
-		OBJECT(object)->sprite_palette = 0x8AC0u;
-		record += 2u;
-		if ((uint8_t)thousands_digit != 0x20u)
-			remainder -= ((thousands_digit & ~0xFFu) | (uint8_t)(thousands_digit - 0x20u)) * 0x3E8u;
-		object = LINKED(object, OBJECT(object)->child);
-		OBJECT(object)->screen_x = 0xCC;
-		hundreds_digit = (int32_t)(uint16_t)remainder / 0x64;
-		hundreds_digit = (hundreds_digit & ~0xFFu) | (uint8_t)(hundreds_digit + 0x20u);
-		OBJECT(object)->sprite_frame = ranking_letter_sprites[hundreds_digit];
-		OBJECT(object)->sprite_palette = 0x8AC0u;
-		if ((uint8_t)hundreds_digit != 0x20u)
-			remainder -= ((hundreds_digit & ~0xFFu) | (uint8_t)(hundreds_digit - 0x20u)) * 0x64u;
-		object = LINKED(object, OBJECT(object)->child);
-		OBJECT(object)->screen_x = 0xD8;
-		tens_digit = (int32_t)(uint16_t)remainder / 0xA;
-		tens_digit = (tens_digit & ~0xFFu) | (uint8_t)(tens_digit + 0x20u);
-		OBJECT(object)->sprite_frame = ranking_letter_sprites[tens_digit];
-		OBJECT(object)->sprite_palette = 0x8AC0u;
-		if ((uint8_t)tens_digit != 0x20u)
-			remainder -= ((tens_digit & ~0xFFu) | (uint8_t)(tens_digit - 0x20u)) * 0xAu;
-		object = LINKED(object, OBJECT(object)->child);
-		OBJECT(object)->screen_x = 0xE4;
-		OBJECT(object)->sprite_frame = ranking_letter_sprites[(remainder & ~0xFFu) | (uint8_t)(remainder + 0x20u)];
-		OBJECT(object)->sprite_palette = 0x8AC0u;
-		character = mem_read8(record);
-		character = character % 3u;
-		object = LINKED(object, OBJECT(object)->child);
-		OBJECT(object)->sprite_flags |= 0x100u;
-		OBJECT(object)->screen_x = 0x68;
-		OBJECT(object)->sprite_palette = ranking_portrait_palettes[character];
-		AS8(OBJECT(object)->projected_y_int) = character;
-		object = LINKED(object, OBJECT(object)->child);
-		OBJECT(object)->screen_x = 0x96;
-		OBJECT(object)->sprite_frame = ranking_name_sprites[character];
-		OBJECT(object)->sprite_palette = 0x8B10u;
-		record++;
-		stages = mem_read8(record);
-		stages = stages % 9u;
-		object = LINKED(object, OBJECT(object)->child);
-		OBJECT(object)->screen_x = 0x114;
-		OBJECT(object)->sprite_frame = ranking_stage_sprites[(uint8_t)(stages - 1u)];
-		OBJECT(object)->sprite_palette = 0x8AD0u;
-		object = LINKED(object, OBJECT(object)->child);
-		OBJECT(object)->screen_x = 0x30;
-		record++;
-		first_initial = mem_read8(record);
-		OBJECT(object)->sprite_frame = ranking_letter_sprites[first_initial % 0x2Cu];
-		OBJECT(object)->sprite_palette = 0x8AD0u;
-		object = LINKED(object, OBJECT(object)->child);
-		OBJECT(object)->screen_x = 0x3C;
-		record++;
-		second_initial = mem_read8(record);
-		OBJECT(object)->sprite_frame = ranking_letter_sprites[second_initial % 0x2Cu];
-		OBJECT(object)->sprite_palette = 0x8AD0u;
-		object = LINKED(object, OBJECT(object)->child);
-		OBJECT(object)->screen_x = 0x48;
-		record++;
-		third_initial = mem_read8(record);
-		OBJECT(object)->sprite_frame = ranking_letter_sprites[third_initial % 0x2Cu];
-		OBJECT(object)->sprite_palette = 0x8AD0u;
-		current_player = (current_player & ~0xFFu) | (uint8_t)(current_player + 1u);
-		rows_left--;
-		record += 2u;
-	} while (rows_left != 0u);
-	spawn_count = 5u;
-	spawn_object_with_pieces(0x08F482u, &third_initial, &tens_digit, &free_count, &object, &block);
-	ranking_title_layout++;
-	ranking_title_layout &= 1u;
-	OBJECT(object)->screen_x = 0xA0;
-	OBJECT(object)->screen_y = 0x70;
-	OBJECT(object)->sprite_scale = 0x10u;
-	OBJECT(object)->sprite_frame = 0xA2B0u;
-	OBJECT(object)->sprite_palette = 0x8B20u;
-	OBJECT(object)->handler = ranking_title_spin_in_ADDRESS;
-	object = LINKED(object, OBJECT(object)->child);
-	OBJECT(object)->sprite_frame = 0xA2A8u;
-	OBJECT(object)->sprite_palette = 0x8B20u;
-	object = LINKED(object, OBJECT(object)->child);
-	OBJECT(object)->sprite_frame = 0xA340u;
-	OBJECT(object)->sprite_palette = 0x8B20u;
-	object = LINKED(object, OBJECT(object)->child);
-	OBJECT(object)->sprite_frame = 0xA2D0u;
-	OBJECT(object)->sprite_palette = 0x8B20u;
-	object = LINKED(object, OBJECT(object)->child);
-	OBJECT(object)->sprite_frame = 0xA360u;
-	OBJECT(object)->sprite_palette = 0x8B20u;
-}
-
-void ranking_title_spin_in(void)
-{
-	uint32_t direction = 0, speed = 0, speed_x = 0, speed_y = 0;
-
-	if ((int16_t)OBJECT(current_object)->sprite_scale < 0x200)
-		OBJECT(current_object)->sprite_scale += 2u;
-	OBJECT(current_object)->direction += 8u;
-	OBJECT(current_object)->direction &= 0x3FFu;
-	direction = OBJECT(current_object)->direction;
-	speed = 0x2000u;
-	direction_to_speed(speed, &direction, &speed_x, &speed_y);
-	OBJECT(current_object)->speed_x = speed_x;
-	OBJECT(current_object)->speed_y = speed_y;
-	if ((int16_t)OBJECT(current_object)->sprite_scale < 0x200 || OBJECT(current_object)->direction != 0x300u)
-	{
-		draw_ranking_title();
-		return;
-	}
-	OBJECT(current_object)->ranking_title.pause_timer = 0x1C;
-	OBJECT(current_object)->handler = ranking_title_pause_ADDRESS;
-	ranking_title_pause();
-}
-
-void ranking_title_pause(void)
-{
-	uint16_t pause_timer = 0;
-
-	pause_timer = OBJECT(current_object)->ranking_title.pause_timer;
-	OBJECT(current_object)->ranking_title.pause_timer = pause_timer - 1u;
-	if (pause_timer != 0u)
-	{
-		draw_ranking_title();
-		return;
-	}
-	OBJECT(current_object)->handler = ranking_title_rise_ADDRESS;
-	ranking_title_rise();
-}
-
-void ranking_title_rise(void)
-{
-	OBJECT(current_object)->screen_y--;
-	if (OBJECT(current_object)->screen_y > 0x23)
-	{
-		draw_ranking_title();
-		return;
-	}
-	OBJECT(current_object)->screen_y = 0x23;
-	OBJECT(current_object)->handler = draw_ranking_title_ADDRESS;
-	draw_ranking_title();
 }

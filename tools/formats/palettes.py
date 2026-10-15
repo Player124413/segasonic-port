@@ -1,6 +1,7 @@
 """
 Name:        palettes.py
-Description: the game's palettes as text: palette lists, colours, cycles and the per-stage and per-player tables
+Description: the game's palettes as text: palette lists, colours, cycles, sprite palette words and the
+             per-stage and per-player tables
 Version:     0.1.0
 Created:     14-10-2026
 Modified:    14-10-2026
@@ -33,6 +34,10 @@ The formats:
 - sprite_palette_lists: lists of sprite palette words (animate_sign's and the player's 80 palette_list):
   "last 1: 8130 8340 8130" (the last index, then the words).
 - sprite_palettes_by_character: sprite palette words, 8 a character: "sonic: 8130 8370 ...".
+- sprite_palette_cycles: animate_hud's and animate_sign's cycles, one after the other: "last 3: 84A0 84B0
+  84C0 84D0" (the last index, then that many words and one more); a comment marks where each one starts.
+- palette_table, fire_vent_blast_palettes: sprite palette words one a line, "palette word 0x9110  # index
+  00" (records in columns, tools/formats/common.py).
 
 Pointers read as the name of the place symbols.txt names there, or as 0x10ABCD; both go back. '#'
 followed by a space starts a comment (a colour's '#' is followed by its digits). What a format cannot
@@ -41,6 +46,8 @@ read as its records stays as "bytes 01 02 ..." lines, so every piece goes back b
 import re
 import struct
 from pathlib import Path
+
+from formats.common import Rec, indexed
 
 SYMBOLS = Path(__file__).resolve().parents[2] / "symbols.txt"
 
@@ -402,6 +409,27 @@ def sprite_palette_lists_from_text(text):
     return bytes(out)
 
 
+def sprite_palette_cycles_to_text(data):
+    """Lists of a last index N, then N + 1 sprite palette words, one after the other; a word that is no
+    last index (above 0x40) or a list that runs past the piece ends them."""
+    lines = [
+        "# sprite palette cycles (animate_hud, animate_sign, cycle_part_palettes): the last index (the cycle goes",
+        "# back to the first word after it), then the sprite palette words, one a step (sprite_palette: the",
+        "# palette, the bits above it the mixer's priority group); the comments mark where each list starts",
+    ]
+    values = _u16s(data)
+    at = 0
+    while at < len(values):
+        last = values[at]
+        if last > 0x40 or at + 2 + last > len(values):
+            break
+        if at:
+            lines.append(f"# +{at * 2:04X}")
+        lines.append(f"last {last}: " + " ".join(f"{palette:04X}" for palette in values[at + 1:at + 2 + last]))
+        at += 2 + last
+    return _text(lines, _bytes_lines(data[at * 2:]))
+
+
 def sprite_palettes_by_character_to_text(data):
     lines = [
         "# sprite palette words (sprite_palette), 8 a character: [character x 8 + animation_frame]",
@@ -435,4 +463,20 @@ FORMATS = {
     "player_palette_list_table": (".txt", player_palette_list_table_to_text, player_palette_list_table_from_text),
     "sprite_palette_lists": (".txt", sprite_palette_lists_to_text, sprite_palette_lists_from_text),
     "sprite_palettes_by_character": (".txt", sprite_palettes_by_character_to_text, sprite_palettes_by_character_from_text),
+    "sprite_palette_cycles": (".txt", sprite_palette_cycles_to_text, sprite_palette_lists_from_text),
 }
+
+
+# ---- tables of sprite palette words, one a line ----
+
+def _palette_table(header, label=None):
+    """A table of sprite palette words (sprite_palette: the palette, the mixer group above it), one a line."""
+    return indexed(header, Rec("palette", 2, [("word", 0, "H", "x")]), label)
+
+
+FORMATS.update({
+    "palette_table": _palette_table(["Sprite palette words (sprite_palette: the palette, the mixer group above",
+                                     "it), one a line, by index."], "index"),
+    "fire_vent_blast_palettes": _palette_table(
+        ["fire_vent_blast_palettes (fire_vent_blast): the blast's sprite palette by its animation step."], "step"),
+})

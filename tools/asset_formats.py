@@ -8,7 +8,8 @@ Author:      Sebastian Toyos
 
 Formats follow MAME's segas32 driver (BSD-3-Clause):
   - tiles: 16x16 pixels, 4 bpp, 128 bytes per tile; gfx_layout bgcharlayout in segas32.cpp
-  - PCM: RF5C68 sign-magnitude bytes (bit 7 set = positive), 0xFF ends a sample; sound/rf5c68.cpp
+  - PCM: RF5C68 sign-magnitude bytes (bit 7 set = positive), 0xFF ends a sample; sound/rf5c68.cpp;
+    the samples are written as 8-bit WAVs one byte for one (rf5c68_to_unsigned), so they go back exactly
   - sprites: rows of 32-bit words (big endian in the ROM image), 8 pens of 4 bits or 4 of 8 bits each, top
     bits first; a frame is a record of sprite_frame_records in the program ROM (symbols.txt): width in
     pixels, height (low byte) and address bits 16-19 (high nibble), bank bits (0x0800, 0x4000), address
@@ -16,6 +17,7 @@ PNGs keep the original pen numbers as palette indices, so they can be converted 
 """
 import struct
 import zlib
+from pathlib import Path
 
 TILE_BYTES = 128
 TILE_SIZE = 16
@@ -61,34 +63,94 @@ def tile_sheet_rows(data, columns):
     return rows
 
 
-def split_rf5c68(data, minimum=16):
-    """Split a PCM bank into samples: runs of bytes between 0xFF end markers. Returns [(offset, bytes)]."""
-    samples = []
-    start = None
-    for offset, value in enumerate(data):
-        if value != 0xFF and start is None:
-            start = offset
-        elif value == 0xFF and start is not None:
-            if offset - start >= minimum:
-                samples.append((start, data[start:offset]))
-            start = None
-    if start is not None and len(data) - start >= minimum:
-        samples.append((start, data[start:]))
-    return samples
+PCM_END = 0xFF       # the RF5C68 stops (or loops) at this byte: no sample holds it
+PCM_PAGE = 0x100     # samples start at a page of the ROM window
 
 
-def rf5c68_to_pcm16(data):
-    """Sign-magnitude 8-bit (bit 7 set = positive) to signed 16-bit little-endian samples."""
-    values = [((value & 0x7F) << 8) if value & 0x80 else -((value & 0x7F) << 8) for value in data]
-    return struct.pack(f"<{len(values)}h", *values)
+def rf5c68_to_unsigned(data):
+    """Sign-magnitude bytes (bit 7 set = positive) as 8-bit unsigned WAV samples, one for one: +m is
+    128 + m and -m is 127 - m, so both zeros (80h and 00h) stay apart (128 and 127, half a step from the
+    middle each) and 255 is the end byte, which no sample holds."""
+    return bytes(0x80 + (value & 0x7F) if value & 0x80 else 0x7F - value for value in data)
 
 
-def write_wav(path, pcm16, rate):
-    """Write mono 16-bit PCM."""
+def unsigned_to_rf5c68(data):
+    """rf5c68_to_unsigned's way back (255, the end byte, is taken as 254)."""
+    return bytes(0x80 | min(value - 0x80, 0x7E) if value >= 0x80 else 0x7F - value for value in data)
+
+
+def pcm_sample_starts(chip, headers, count):
+    """{offset in the sound region: [sample numbers]} from the 'count' pointers of pcm_sample_headers at
+    'headers' in the sound program's chip: a header's byte 0 goes to port B0 (the bank's high bits), byte 1
+    to port A0 (its low 6 bits), byte 2 is the page where the sample starts in the A000-BFFF window; the
+    board's bank is A0 | (B0 bit 2) << 6 | (B0 bits 0-1) << 7, 2000h bytes each."""
+    starts = {}
+    for number in range(count):
+        header = chip[headers + number * 2] | chip[headers + number * 2 + 1] << 8
+        high, low, page = chip[header:header + 3]
+        bank = (low & 0x3F) | (high & 0x04) << 4 | (high & 0x03) << 7
+        starts.setdefault(bank * 0x2000 + (page * PCM_PAGE & 0x1FFF), []).append(number)
+    return starts
+
+
+def pcm_pieces(data, starts):
+    """The samples and what else the PCM area holds, [(offset, bytes, sample numbers)]: each sample from
+    its start up to the end byte (or the next sample's start), then every other run of bytes that is not
+    the end byte (sample numbers []: data no header points at). Offsets are the area's; what the pieces
+    leave is end bytes."""
+    pieces = []
+    taken = bytearray(len(data))
+    ordered = sorted(starts)
+    for index, start in enumerate(ordered):
+        limit = ordered[index + 1] if index + 1 < len(ordered) else len(data)
+        end = data.find(PCM_END, start, limit)
+        end = limit if end < 0 else end
+        pieces.append((start, data[start:end], starts[start]))
+        taken[start:end] = b"\x01" * (end - start)
+    at = 0
+    while at < len(data):
+        if taken[at] or data[at] == PCM_END:
+            at += 1
+            continue
+        start = at
+        while at < len(data) and not taken[at] and data[at] != PCM_END:
+            at += 1
+        pieces.append((start, data[start:at], []))
+    return sorted(pieces, key=lambda piece: piece[0])
+
+
+def write_wav(path, samples, rate, bits=16):
+    """Write mono PCM: 16-bit signed little endian, or 8-bit unsigned."""
+    size = bits // 8
     with open(path, "wb") as out:
-        out.write(b"RIFF" + struct.pack("<I", 36 + len(pcm16)) + b"WAVE")
-        out.write(b"fmt " + struct.pack("<IHHIIHH", 16, 1, 1, rate, rate * 2, 2, 16))
-        out.write(b"data" + struct.pack("<I", len(pcm16)) + pcm16)
+        out.write(b"RIFF" + struct.pack("<I", 36 + len(samples)) + b"WAVE")
+        out.write(b"fmt " + struct.pack("<IHHIIHH", 16, 1, 1, rate, rate * size, size, bits))
+        out.write(b"data" + struct.pack("<I", len(samples)) + samples)
+
+
+def read_wav_unsigned(path):
+    """A mono PCM WAV (8-bit unsigned, or 16-bit signed: its high byte) as 8-bit unsigned samples, and
+    its rate."""
+    data = Path(path).read_bytes()
+    if data[:4] != b"RIFF" or data[8:12] != b"WAVE":
+        raise ValueError(f"{path}: not a WAV file")
+    at, rate, bits, channels, samples = 12, None, None, None, None
+    while at + 8 <= len(data):
+        kind, size = data[at:at + 4], struct.unpack("<I", data[at + 4:at + 8])[0]
+        body = data[at + 8:at + 8 + size]
+        if kind == b"fmt ":
+            form, channels, rate = struct.unpack("<HHI", body[:8])
+            bits = struct.unpack("<H", body[14:16])[0]
+            if form != 1:
+                raise ValueError(f"{path}: not PCM")
+        elif kind == b"data":
+            samples = body
+        at += 8 + size + (size & 1)
+    if samples is None or bits not in (8, 16) or channels != 1:
+        raise ValueError(f"{path}: not a mono 8 or 16-bit PCM WAV")
+    if bits == 16:
+        samples = bytes((value >> 8) + 0x80 for (value,) in struct.iter_unpack("<h", samples[:len(samples) // 2 * 2]))
+    return samples, rate
 
 
 # ---- sprites ----

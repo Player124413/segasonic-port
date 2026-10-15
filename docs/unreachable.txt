@@ -1,9 +1,12 @@
 # SegaSonic The Hedgehog (V60 program): the code no control script runs, and why
 #
-# Coverage: 43042 of the 43667 instructions the static analysis finds (tools/disassemble.py with
+# Coverage: 43042 of the 47575 instructions the static analysis finds (tools/disassemble.py with
 # symbols.txt, no traces) ran in at least one of the 98 scenarios of tests/controls (the union of
 # build/scenarios/*/executed.txt, ROM mirrors folded, as tools/check_scenarios.py compares them).
-# The other 625 are listed here, one line per piece, by address:
+# 3908 of the other 4533 are the code nothing in the program calls, which the analysis reaches only
+# through symbols.txt's func lines for it ("unused: ..."; most of it in the unused code section): dead
+# by definition, and symbols.txt says what each piece is. The other 625 are listed here, one line per
+# piece, by address:
 #     START-END  function  [category] evidence
 # START-END runs from the first byte of the first instruction to the last byte of the last one;
 # function is the label (symbols.txt name) the piece belongs to. Categories:
@@ -68,8 +71,8 @@
 00BDBF-00BDC0  compute_ground_speed  [D] the rounding inc runs only if bit 11 of ground_speed (player 64) is set: the only call is the jsr at 008EF9 (player_state_pulled substate 5), and 008EF0 sets object speed 6E = 5000000 just before, so 64 = (6E >> 8) * direction factor is a multiple of 10000 and bit 11 is always 0
 00F359-00F36D  spike_panel_update  [D] needs field 80 of object_cursor < 3 (bge at 00F34F) and = 5 (bne at 00F357), and nothing changes it between the two tests (the frame-5 sound sits in the frame < 3 branch)
 0120FC-01210A  cactus_update  [D] repeats the test at 0120E4 (nearest_player_distance 16[R25] <= 60) that has just failed; fall_to_floor (08E391), the only call in between, does not write it
-014DC2-014E51  draw_eel_piece_parts_unused  [D] no jump, call, table or 32-bit value in the program refers to it (ROM search); it follows an rsr
-0156F4-015705  spawn_eel_den_unused  [D] no jump, call, table or 32-bit value in the program refers to it (ROM search); it follows an rsr
+014DC2-014E51  draw_eel_piece_parts  [D] no jump, call, table or 32-bit value in the program refers to it (ROM search); it follows an rsr
+0156F4-015705  spawn_eel_den  [D] no jump, call, table or 32-bit value in the program refers to it (ROM search); it follows an rsr
 015A33-015A3B  init_stage_view  [D] stage slots 00, 01, 02, 11 and 12 only: init_stage_view's only caller start_stage_view (016CE3) skips stage 11; slots 01, 02 and 12 are never entered (stage_order at 002639 never gives them and Stage Select slots 01/02 come back as 07); stage 0 is entered only through run_stage_05_switch, which loads fixed VRAM scripts with the scroll already ended, so no tile set is loaded for it; poking the stage to any of these slots before start_stage stops the V60 in the first load_tile_set (their tile set lists at 1705DA hold 0007xxxx pointers without the 100000 bank: "AM1" at 099902 for slot 00, "unhandled opcode 37" at 099892 for 01, 02, 12)
 015A66-015A6B  init_stage_view  [D] stage slots 00, 01, 02, 11 and 12 only: init_stage_view's only caller start_stage_view (016CE3) skips stage 11; slots 01, 02 and 12 are never entered (stage_order at 002639 never gives them and Stage Select slots 01/02 come back as 07); stage 0 is entered only through run_stage_05_switch, which loads fixed VRAM scripts with the scroll already ended, so no tile set is loaded for it; poking the stage to any of these slots before start_stage stops the V60 in the first load_tile_set (their tile set lists at 1705DA hold 0007xxxx pointers without the 100000 bank: "AM1" at 099902 for slot 00, "unhandled opcode 37" at 099892 for 01, 02, 12)
 015E85-015E8A  get_tile_set_script_bank  [D] stage slots 00, 01, 02, 11 and 12 only: init_stage_view's only caller start_stage_view (016CE3) skips stage 11; slots 01, 02 and 12 are never entered (stage_order at 002639 never gives them and Stage Select slots 01/02 come back as 07); stage 0 is entered only through run_stage_05_switch, which loads fixed VRAM scripts with the scroll already ended, so no tile set is loaded for it; poking the stage to any of these slots before start_stage stops the V60 in the first load_tile_set (their tile set lists at 1705DA hold 0007xxxx pointers without the 100000 bank: "AM1" at 099902 for slot 00, "unhandled opcode 37" at 099892 for 01, 02, 12)
@@ -124,7 +127,7 @@
 080B48-080B4A  spiked_roller_roll_into_machine  [D] sign test (bp) of a 16-bit value just shifted right logically by 4 (shl.h #FC): it can never be negative
 084089-08408B  opening_machine_update  [D] scene_step 0's case: game mode 10 (094502) runs before the objects and turns scene_step 0 into 1 (09451C) before it spawns the machine (094526), and the machine exists only in mode 10
 08E0FF-08E104  delete_object_and_children  [D] a debugging trap (jmp int_default) when free_object_stack_2 exceeds 100 after a free: needs a double free (a corrupt pool)
-08E1A8-08E1B4  func_08E1A8  [D] its only caller (014E32) is inside draw_eel_piece_parts_unused (014DC2), which nothing refers to
+08E1A8-08E1B4  copy_screen_position_from_cursor  [D] its only caller (014E32) is inside draw_eel_piece_parts (014DC2), which nothing refers to
 08E5D2-08E5EB  drop_rings  [D] needs released_ring_flip (208034) = 1: it is written only with 0 (0113E8, 012EDB, 013088, 0132DF, 0150A2) or 2 (0147D6, 0157A9), each time right before calling drop_rings
 09016D-09016D  join_character_chooser_update  [D] needs its player's bit clear in players_in_join_chooser (208091): the bit is set at 0900D0 and cleared at 090206 when the chooser ends, so the update never runs without it (a one-frame poke would reach it)
 0916CF-0916D4  crumbling_floor_start_falling  [D] state 2 starts at animation frame 4 (091605) and the animation stops at step 6, so its test of field 46 <= 2 never holds

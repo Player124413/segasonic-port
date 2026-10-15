@@ -3,7 +3,7 @@ Name:        decompile.py
 Description: decompiles the game's V60 program into readable C, one C function per original function
 Version:     0.1.0
 Created:     11-10-2026
-Modified:    13-10-2026
+Modified:    14-10-2026
 Author:      Sebastian Toyos
 
 Usage: python tools/decompile.py [rom folder or .zip] [--check] [--trace] [--out DIR] [--symbols FILE]
@@ -340,7 +340,7 @@ IDENTIFIER = re.compile(r"[A-Za-z_][A-Za-z0-9_]*\Z")
 # names the runtime the decompiled code includes already uses (game/support.h, s32/bus.h, v60/arith.h)
 TAKEN = {"psw", "psw_read", "psw_write", "psw_update", "load_privileged", "frame_wait", "take_interrupts",
          "frame_end", "halt", "call_code", "unknown_code", "move_string", "move_bits_down", "move_bits_up",
-         "divx_pair", "divux_pair", "game_code", "game_code_count", "game_entry", "main"}
+         "search_bits_up", "divx_pair", "divux_pair", "game_code", "game_code_count", "game_entry", "main"}
 
 
 def needs_return_address(built):
@@ -456,6 +456,25 @@ def trampolines(built):
     return found
 
 
+def family_accesses(built, names, known):
+    """The functions' reads and writes of memory, as memory.accesses_of: (those of the whole program, {family:
+    those that index a table at work RAM a family of functions names its own way (scoped global)})."""
+    families = {family: set(found) for (struct, family), found in known.scoped.items() if struct == "global"}
+    shared = []
+    own = {}
+    for entry, function in built.items():
+        name = names[entry]
+        family = max((family for family in families if name == family or name.startswith(family + "_")),
+                     key=len, default=None)
+        for access in memory.accesses_of([function]):
+            parts = memory.based(access[0])
+            if family is not None and parts is not None and parts[0] in families[family]:
+                own.setdefault(family, []).append(access)
+            else:
+                shared.append(access)
+    return shared, own
+
+
 def write_c(program, out_dir, trace=False, variables_path=None, split_webs=False, fields_path=None):
     built, failures = build_functions(program)
     if failures:
@@ -520,7 +539,8 @@ def write_c(program, out_dir, trace=False, variables_path=None, split_webs=False
     through = [(hit[1], hit[2]) for found_fields in fields.values() for hit in found_fields.values()
                if hit[0] == "global"]
     data_names = {address: symbol.name for address, symbol in program.symbols.items() if symbol.kind == "data"}
-    named = memory.Memory(known, memory.accesses_of(built.values()) + through, data_names)
+    shared, own = family_accesses(built, names, known)
+    named = memory.Memory(known, shared + through, data_names, own)
     always = {entry: set(summary.always) for entry, summary in flow.summaries.items()}
     emitter = emit.Emitter(built, found, names, signatures.CONTEXT, needs_return_address(built), named, always,
                            program.mem.r32, trace)

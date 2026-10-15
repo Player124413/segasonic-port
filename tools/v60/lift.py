@@ -5,7 +5,7 @@ Name:        lift.py
 Description: translates decoded V60 data instructions into IR statements that do what MAME's V60 core does
 Version:     0.1.0
 Created:     11-10-2026
-Modified:    13-10-2026
+Modified:    14-10-2026
 Author:      Sebastian Toyos
 
 The same rules as codegen.py, which this replaces for data instructions: operands are decoded in
@@ -553,6 +553,42 @@ def lift_data(lifter, instruction):
         dest_address, dest_offset = lifter.bit_address_of(dest)
         helper = "move_bits_down" if mnemonic == "movbsd" else "move_bits_up"
         emit(ir.Effect(helper, (source_address, source_offset, dest_address, dest_offset, bits)))
+        return True
+
+    if mnemonic in ("extbfz", "insbfr"):
+        # MAME's opEXTBFZ / opINSBFR: the 32 bits at the bit address's byte (address + offset / 8), from
+        # bit offset & 7, 'length' of them (the mask (1 << length) - 1, its count taken like x86 does)
+        if mnemonic == "extbfz":
+            field, length, dest = instruction.operands
+        else:
+            source, field, length = instruction.operands
+            value = lifter.read_value(source, 2, "value")
+        address, offset = lifter.bit_address_of(field)
+        count = lifter.read_value(length, 2, "length") if length.mode == "reg" else ir.const(length.value)
+        byte = lifter.temp(ir.op("add", (address, ir.op("shr", (offset, ir.const(3, 8)), 32)), 32), "field_address")
+        word = lifter.load(byte, 32, "field")
+        shift = ir.op("and", (offset, ir.const(7)), 32)
+        mask = ir.op("sub", (ir.op("shl", (ir.const(1), count), 32), ir.const(1)), 32)
+        if mnemonic == "extbfz":
+            lifter.write_value(dest, 2, lifter.temp(ir.op("and", (ir.op("shr", (word, shift), 32), mask), 32), "bits"))
+        else:
+            kept = ir.op("and", (word, ir.op("not", (ir.op("shl", (mask, shift), 32),), 32)), 32)
+            inserted = ir.op("shl", (ir.op("and", (mask, value), 32), shift), 32)
+            emit(ir.Store(byte, ir.op("or", (kept, inserted), 32), 32))
+        return True
+
+    if mnemonic in ("sch0bsu", "sch1bsu"):
+        # MAME's opSCHBS: how many bits up from the bit address differ from the one searched for (the
+        # length when none matches) into the destination, Z set when none matched; R28 is left at the byte
+        # of the last bit looked at (the runtime's search_bits_up)
+        field, length, dest = instruction.operands
+        if dest.mode != "reg":
+            raise Unsupported(f"{mnemonic} into memory")
+        address, offset = lifter.bit_address_of(field)
+        count = lifter.read_value(length, 2, "length") if length.mode == "reg" else ir.const(length.value)
+        searched = ir.const(1 if mnemonic == "sch1bsu" else 0)
+        emit(ir.Effect("search_bits_up", (address, offset, count, searched, ir.const(dest.reg))))
+        emit(ir.SetFlag("z", ir.op("eq", (ir.Reg(dest.reg), count), 1)))
         return True
 
     if mnemonic == "nop":

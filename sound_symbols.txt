@@ -7,8 +7,11 @@
 #   code     a code label
 #   jumps    NAME COUNT: a table of COUNT 16-bit code addresses
 #   via      TABLE: the JP (HL), JP (IX) or JP (IY) at ADDRESS goes to an entry of TABLE
+#   data     where a piece of data starts (the pieces of assets/sound/data, tools/data_formats.py)
 # Addresses are the Z80's: 0000-9FFF is the start of the sound ROM, A000-BFFF a banked page of it,
-# C000-DFFF the RF5C68, E000-FFFF the RAM shared with the V60 (V60 700000-701FFF).
+# C000-DFFF the RF5C68, E000-FFFF the RAM shared with the V60 (V60 700000-701FFF). The data in the banked
+# part has lines of its own, with the offset in the chip (bank * 2000h + the address in A000-BFFF - A000h):
+#   OFFSET   banked NAME                 where a piece of data starts there (6 hex digits)
 #
 # Names for the decompiled C (tools/decompile_sound.py), as symbols.txt has them (disassemble.load_names):
 #   ADDRESS  var    NAME TYPE [STRUCT]   a variable in the shared RAM (TYPE: u8 s8 u16 s16); a struct name
@@ -22,6 +25,8 @@
 #   field    STRUCT OFFSET NAME TYPE [STRUCT]  one of its fields
 #   param    FUNCTION REGISTER NAME      what a function takes or hands back in a register (bc, de, hl, ix,
 #                                        iy, a)
+#   result   FUNCTION REGISTER NAME      what a function nothing calls hands back in a register (no
+#                                        caller says it: the unused code at the end)
 #   local    FUNCTION WHERE REGISTER NAME  the local variable that holds what the instructions at WHERE
 #                                        (addresses separated by commas) write in REGISTER; "entry" is
 #                                        what it holds when the function starts (build/sound/variables.txt
@@ -169,7 +174,7 @@
 1360  table  fm_level_registers  u8         # 40 44 48 4C: the operators' total level registers (1161-117A, 12B5, 130D)
 137C  table  fm_fnum_tables  u16            # by semitone: where its run of YM3438 F-numbers starts (13D4 + 20h each), indexed by the pitch bend (1133, 120B, 6213)
 1594  table  part_templates  u16            # by CC 20's value: 8 parts (48h bytes) copied to E300 (0AB8); 03B5 copies [1] there and the first 2Dh bytes of [0] (channels A-E) to E348 at init
-193B  table  instruments  u16               # by program (below F0): a 6-byte header: flags (bit 1: FM), sample or patch, ?, pan, sample detune, ? (0510, 071A, 12A1)
+193B  table  instruments  u16               # by program (below F0): a 5-byte header (the pointers are 5 bytes apart): flags (bit 1: FM), sample or patch, a byte no one reads (00 in all of them), pan, sample detune (0510, 071A, 12A1)
 1A3E  table  note_codes  u8                 # by MIDI note number: semitone in the low nibble, octave in the high one (80-FB for notes 0-95, then 00-27): the RF5C68 FD shift (068D-06AE) and the YM3438 block (1142)
 1BFE  table  velocity_levels  u8            # by note on velocity 0-127: 00-FF on a curve (04B4)
 1E96  table  pcm_pitch_tables  u16          # by semitone: where its run of RF5C68 FD values starts (202E + 20h each: 16 steps per semitone), indexed by the pitch bend (067D, 07FF)
@@ -180,11 +185,305 @@
 4A78  table sound_groups         u16  # poll_sound_command by sound_command_group & 7F: 80 control (4A80, numbers 0-3), 81 music (4A89, 0-9: playlists for E900), 82 effects (4AC8, 0-31h: mostly one note on MIDI channel E for EB00), 83 the third set (4BCD, 0-4Bh: one note on channel D for EB00); each list starts with its last number
 4C66  table songs  u16              # by song number (start_song 4919): pointers to {20h, bank, address lo, address hi} (start_sequence copies bank and address to fields 1B and 02)
 6429  table pcm_sample_headers  u16   # by sample number (E00D, 0BA9 through sound_03FF): 175 pointers to 6-byte headers (6587-69A0): byte 0 the bank's high bits (port B0: 1-3, 5-7), byte 1 its low bits (port A0), byte 2 the start page in the window (A0h-BFh), bytes 3-5 copied to the voice and not used; samples are whole pages, the last one padded with FFh
+
+# Where the data the tables lead to starts (the pieces of assets/sound/data: tools/formats/sound_tables.py
+# and sound_music.py write them). A 'banked' line is an offset in the chip, in the part the Z80 sees
+# through the bank window: bank * 2000h + the address in A000-BFFF - A000h.
+# -- what lies past the tables the driver reads
+1364  data  unused_fm_fnum_tables_below    # fm_level_registers + 4 (load_fm_patch and the volume code read 4 registers there: 1161-117A, 12B5, 130D): 12 words in the shape of fm_fnum_tables' pointers, by semitone of the octave below: C..A -> 1394 (the A# run a block down), B -> 13B4 (the B run); fm_fnum_tables follows them; nothing reads them (1133, 120B, 6213 index 137C by note & 0F)
+1AFE  data  unused_velocity_curve_0        # note_codes + C0, past its 192 codes (MIDI notes 0-191: 80-FB, then 00-7B): 128 levels in the shape of velocity_levels, 2 x the index (00-FC, then FF); nothing reads it (04A5/0708 reach it only when transpose + note wraps past BF)
+1B7E  data  unused_velocity_curve_1        # 128 levels 00-FF, a gentler curve than velocity_levels (40h -> 6C, velocity_levels 55); nothing reads it
+1C7E  data  unused_velocity_curve_3        # velocity_levels + 80 (04B4 reads velocity_levels + the velocity, 0-7F): 128 levels 00-FF, steeper (40h -> 41); nothing reads it
+1CFE  data  unused_velocity_curve_4        # 128 levels 00-FF, steeper still (40h -> 1B); nothing reads it
+1D7E  data  unused_velocity_curve_5        # the same 128 bytes as unused_velocity_curve_4; nothing reads it
+1DFE  data  unused_velocity_curve_6        # 128 levels 00-FF that rise fast and flatten (00 02 0C 14 ..., 40h -> EB); nothing reads it
+1E7E  data  unused_pcm_pitch_tables_below  # 12 words in the shape of pcm_pitch_tables' pointers, by semitone: 1EAE + 20h each, the runs of the octave below the ones pcm_pitch_tables points at (202E + 20h each); it follows them; nothing reads them (067D, 07FF index 1E96 by note & 0F)
+# -- the music and the sounds: playlists, song records, sound headers with their sequences, the songs
+4D66  data    playlist_stages_b_to_f              # group 81 number 00 (V60 id 00: stage_start_sounds for stages B-F): song 04, then song 04 again, on and on
+4D6B  data    playlist_stage_3                    # group 81 number 01 (V60 id 01: stage_start_sounds for stage 3 and stage 7 (game_mode_intro)): songs 05, 06, then song 06 again, on and on
+4D71  data    playlist_stages_4_8                 # group 81 number 02 (V60 id 02: stage_start_sounds for stages 4 and 8): songs 07, 08, then song 08 again, on and on
+4D77  data    playlist_map                        # group 81 number 03 (V60 id 03: game mode 4, the island map (95 then 03, game_00.c:917-919)): song 09, then song 09 again, on and on
+4D7C  data    playlist_stages_5_6                 # group 81 number 04 (V60 id 04: stage_start_sounds for stages 6 (the opening scene) and 5): song 0A, then song 0A again, on and on
+4D81  data    playlist_escape                     # group 81 number 05 (V60 id 7C: game mode 1Fh, stage B's escape, at escape_alarm_timer 1 and 30Ch (game_00.c:2261)): song 0B, then the player stops
+4D84  data    playlist_stage_clear                # group 81 number 06 (V60 id 7B (7E sends it too): game mode 17h, the stage clear, after 94 (game_00.c:1721-1723)): song 0C, then the player stops
+4D87  data    playlist_stage_a                    # group 81 number 07 (V60 id 7D: stage_start_sounds for stage A): songs 0D, 0E, then song 0E again, on and on
+4D8D  data    playlist_stages_9_10                # group 81 number 08 (V60 id 81: stage_start_sounds for stages 9 and 10h): songs 10, 0F, then song 0F again, on and on
+4D93  data    playlist_ending                     # group 81 number 09 (V60 id 82 (8D-93 send it too, unused): ending_music_play after 94 (game_05.c:1236-1238)): song 11, then the player stops
+4D96  data    unplayed_music_playlists            # group 81 numbers 0A-0E: sound_groups' list for group 81 has entries up to 1E but its last number is 09 (poll_sound_command ignores the rest): 5 playlists of songs 0E-11 and 03 (stop_player, stop_all_players)
+4DAC  data    playlist_reset_music                # group 80 number 01 (V60 id 96: init_sound puts it first in sound_queue; ending_music_cues at E9Ch; song 01 (stop_music_sequence), then stop_player)
+4DB0  data    unplayed_music_playlists_2          # group 81 numbers 10-1D, never played (past the last number 09): playlists of songs 56-5F and 6F-70 (songs points every song from 12 on at the record of song 0A), and twelve of song 03 then stop_all_players
+4E01  data    playlist_stop_all                   # group 80 number 03 (V60 id 94: before the stage clear, game over, YOU FAILED, the ending music and every sound of test_sound; song 03 (stop_all_voices_sequence), then stop_all_players)
+4E05  data    unlisted_music_playlists            # 16 playlists no list points at, after the last one group 80 plays: songs 60-72 (all the record of song 0A in songs), 15 of them looping
+4E54  data    song_records                        # songs points at them (start_song 4919): 17 sound headers {20h, bank, address of the sequence} that start_sequence (4937) reads; songs 12-7F all point at the last one, bank 08 A000 (the sequence of song 0A)
+4E98  data    stop_music_sequence                 # songs 00 and 01 (playlist_reset_music plays 01): CC 50h 7Eh on channel 14 (the music's voices stop, drum kit notes of channels 0-14 go on: 0AA9), CC 20h 00h (part_templates[0]), CC 10h 00h (master volume 0), CC 50h 7Eh
+4EA9  data    stop_all_voices_sequence            # songs 02 and 03 (playlist_stop_all plays 03): CC 50h 7Fh on channel 14, every sample and FM voice stops (0A55, 0A59)
+4EAF  data    sfx_00                              # group 82 number 00: V60 id 2E: no use found on the V60 side (the sound test plays it); header 8Fh (player EB00, priority 15): note 00h on ch 14
+4EB7  data    sfx_crash                           # group 82 number 01: V60 id 06: spiked_roller_crash_into_machine (stage 3, game_06.c:314), the rocks that burst around stage 0's platform (update_stage_05_event, game_09.c:3691-3741); probably a crash; header 8Fh (player EB00, priority 15): note 01h on ch 14
+4EBF  data    sfx_explosion                       # group 82 number 02: V60 id 07: explode_object (game_08.c:4227), ending_big_explosion, the spiked roller's ram and burst, fire_wall_start, lava_rock_update and more explosions; header 8Fh (player EB00, priority 15): notes 02h 02h on ch 14
+4ECB  data    sfx_saw                             # group 82 number 03: V60 id 08: saw_blade_update every 60h frames while it follows its saw (stages C/E, game_08.c:1527); header 8Fh (player EB00, priority 15): note 03h on ch 14
+4ED3  data    sfx_fire                            # group 82 number 04: V60 id 09: machine_fire_update and bridge_fire_rise every 3Ch frames (stages 4, 8), ending_horizon_blast_1-9; probably fire; header 8Fh (player EB00, priority 15): notes 04h 04h on ch 14
+4EDF  data    sfx_blast                           # group 82 number 05: V60 id 0A: fire_vent_update's burst (stage 3, game_07.c:945), geyser_erupt (stage 10h), ending_tower_blast_1-3, the landings of the opening machine and the burning boulder; header 8Fh (player EB00, priority 15): note 05h on ch 14
+4EE7  data    sfx_rumble                          # group 82 number 06: V60 id 0B (2D sends it too): the spiked roller chase's rumble timer (stage 3, game_05.c:4161), propeller_machine_chase every 60h frames, ending_debris_1-3_fly; header 8Fh (player EB00, priority 15): note 06h on ch 14
+4EEF  data    sfx_gate_move                       # group 82 number 07: V60 id 0C: treadmill_gate_update while the gate moves (stage 8, game_02.c:4116); header 8Fh (player EB00, priority 15): note 07h on ch 14
+4EF7  data    sfx_alarm                           # group 82 number 08: V60 id 19: escape_alarm_flash at each end of its swing (stage B, game_04.c:3913, 3924); header 8Fh (player EB00, priority 15): notes 08h 08h on ch 14
+4F03  data    sfx_crumble                         # group 82 number 09: V60 id 0D: crumbling_floor_update (stages 4, 9), falling_grate_update (stages D, F), the spiked press creeping (stage 5), the burning boulder rolling; header 8Fh (player EB00, priority 15): note 09h on ch 14
+4F0B  data    sfx_0a                              # group 82 number 0A: V60 id 0E: no use found on the V60 side (the sound test plays it); header 8Fh (player EB00, priority 15): note 0Ah on ch 14
+4F13  data    sfx_quake                           # group 82 number 0B: V60 id 0F: the camera-shake quakes (event_0c, stage 5's event, the escape's start), sinkhole_open (stage A), boulder_roll; header 8Fh (player EB00, priority 15): note 0Bh on ch 14
+4F1B  data    sfx_flow                            # group 82 number 0C: V60 id 10: lava_flow_advance while on screen (stage 8, game_07.c:2605), waterfall_move every 60h frames (stage 10h); header 8Fh (player EB00, priority 15): note 0Ch on ch 14
+4F23  data    sfx_0d                              # group 82 number 0D: V60 id 11: lid_trap snapping shut (stage 10h, game_03.c:2899), a sand_block cut on screen (stage A, game_08.c:156); header 8Fh (player EB00, priority 15): note 0Dh on ch 14
+4F2B  data    sfx_0e                              # group 82 number 0E: V60 id 12: tornado_move's timer (stage A, game_07.c:4310, 4336), geyser_front_rise every 50h frames (stage 10h); header 8Fh (player EB00, priority 15): note 0Eh on ch 14
+4F33  data    sfx_ice_block_shake                 # group 82 number 0F: V60 id 14: ice_floor_block when stood on, it shakes (stage 9, game_07.c:3105); header 8Fh (player EB00, priority 15): note 0Fh on ch 14
+4F3B  data    sfx_10                              # group 82 number 10: V60 id 15: no use found on the V60 side (the sound test plays it); header 8Fh (player EB00, priority 15): note 10h on ch 14
+4F43  data    sfx_fall                            # group 82 number 11: V60 id 16: player state 8 drops into the pit (game_00.c:6375), stage 4's exit hop, the stage 0/5 scene's shrink-away, mine_fall reaching the water; probably a fall; header 8Fh (player EB00, priority 15): note 11h on ch 14
+4F4B  data    sfx_12                              # group 82 number 12: V60 id 17: no use found on the V60 side (the sound test plays it); header 8Fh (player EB00, priority 15): note 12h on ch 14
+4F53  data    sfx_electric_shock                  # group 82 number 13: V60 id 18: player_state_hurt when an electric fence or pole shocks the player (game_00.c:8236); header 8Fh (player EB00, priority 15): note 13h on ch 14
+4F5B  data    sfx_14                              # group 82 number 14: V60 ids 1A and 26: no use found on the V60 side (the sound test plays it); header 8Fh (player EB00, priority 15): note 14h on ch 14
+4F63  data    sfx_15                              # group 82 number 15: V60 id 1B: stage_clear_banner_hold, the name banner breaks into letters (game_00.c:2725), spear_trap_rise (stage 9, game_03.c:162); header 8Fh (player EB00, priority 15): note 15h on ch 14
+4F6B  data    sfx_16                              # group 82 number 16: V60 id 1C: no use found on the V60 side (the sound test plays it); header 8Fh (player EB00, priority 15): note 16h on ch 14
+4F73  data    sfx_launch                          # group 82 number 17: V60 id 1D: catapult_launch (stage 4, game_06.c:751), player_state_knocked_off (game_01.c:4590); header 8Fh (player EB00, priority 15): note 17h on ch 14
+4F7B  data    sfx_18                              # group 82 number 18: V60 id 1E: the flame machine's flash steps after a hit (stage 4, game_02.c:3347), treadmill_gate, update_stage_06_background, the map's Eggman (stage_map_sounds_2); header 8Fh (player EB00, priority 15): note 18h on ch 14
+4F83  data    sfx_jump                            # group 82 number 19: V60 id 1F: player_animate_jumping (game_00.c:5460); header 8Fh (player EB00, priority 15): note 19h on ch 14
+4F8B  data    sfx_land                            # group 82 number 1A: V60 id 20: landings: hurt (game_00.c:7826), tumbling (game_00.c:9578), mine_sink at the bottom, spiked_roller_drop_in, the log bridge's swing; also character_chooser_confirm (game_09.c:457); header 8Fh (player EB00, priority 15): note 1Ah on ch 14
+4F93  data    sfx_hit                             # group 82 number 1B: V60 id 21: player_state_hurt's start (game_00.c:7768), player_state_trapped, the flame machine hit, a bouncing fireball's bounce, cage_bar hit; header 8Fh (player EB00, priority 15): note 1Bh on ch 14
+4F9B  data    sfx_1c                              # group 82 number 1C: V60 id 22: no use found on the V60 side (the sound test plays it); header 8Fh (player EB00, priority 15): note 1Ch on ch 14
+4FA3  data    sfx_stuck                           # group 82 number 1D: V60 id 23: player_stuck_begin and player_stuck_on_object_begin (game_01.c:870, 3962); header 8Fh (player EB00, priority 15): note 1Dh on ch 14
+4FAB  data    sfx_underwater_explosion            # group 82 number 1E: V60 id 24: mine_explode, eel_piece_start_explosion and eel_piece_explode (stage 10h, game_03.c:2304, 3477, 3501); header 8Fh (player EB00, priority 15): note 1Eh on ch 14
+4FB3  data    sfx_bounce                          # group 82 number 1F: V60 id 25: player_state_bouncing (state E, game_00.c:8362), a spike panel flipping up (stage 3, game_02.c:2721); probably a bounce; header 8Fh (player EB00, priority 15): note 1Fh on ch 14
+4FBB  data    sfx_break_free                      # group 82 number 20: V60 id 2B: player_stuck_shake and player_stuck_on_object_shake when the player escapes (game_01.c:947, 4042); header 8Fh (player EB00, priority 15): note 20h on ch 14
+4FC3  data    sfx_skid                            # group 82 number 21: V60 id 27: player_animate_skidding (game_00.c:7259); header 8Fh (player EB00, priority 15): note 21h on ch 14
+4FCB  data    sfx_22                              # group 82 number 22: V60 id 28: grate_step cut by the saw (stages C/E, game_08.c:1690), a rope_bridge_plank falling (stage 10h, game_09.c:3104); header 8Fh (player EB00, priority 15): note 22h on ch 14
+4FD3  data    sfx_23                              # group 82 number 23: V60 id 29: an icicle landing (stage 9, game_07.c:3665), barred_gate closed (game_08.c:3264); header 8Fh (player EB00, priority 15): note 23h on ch 14
+4FDB  data    sfx_ice_block_fall                  # group 82 number 24: V60 id 2A: ice_floor_block falling (stage 9, game_07.c:3124); header 8Fh (player EB00, priority 15): note 24h on ch 14
+4FE3  data    sfx_ring                            # group 82 number 25: V60 id 13: a ring taken (ring_spin, still_ring_wait, carried_ring_spin, scattered_ring_live, released_ring_wait, released_ring_bounce); header 8Fh (player EB00, priority 15): note 25h on ch 14
+4FEB  data    sfx_26                              # group 82 number 26: V60 ids 05 and 2C: no use found on the V60 side (the sound test plays it); header 8Fh (player EB00, priority 15): note 26h on ch 14
+4FF3  data    sfx_coin                            # group 82 number 27: V60 id 7F: update_coins, for every coin and service credit (game_12.c:2150, 2156); header 8Fh (player EB00, priority 15): note 27h on ch 14
+4FFB  data    sfx_tally_tick                      # group 82 number 28: V60 id 83: ring_tally_ticker_update, every 6 frames while it counts (game_10.c:34); header 8Fh (player EB00, priority 15): note 28h on ch 14
+5003  data    sfx_29                              # group 82 number 29: V60 id 84: no use found on the V60 side (the sound test plays it); header 8Fh (player EB00, priority 15): note 29h on ch 14
+500B  data    sfx_you_failed                      # group 82 number 2A: V60 id 85: YOU FAILED (game mode 20h) when the white fade completes (game_00.c:2387); header 8Fh (player EB00, priority 15): note 2Ah on ch 14
+5013  data    sfx_2b                              # group 82 number 2B: V60 id 86: no use found on the V60 side (the sound test plays it); header 8Fh (player EB00, priority 15): note 2Bh on ch 14
+501B  data    sfx_2c                              # group 82 number 2C: V60 id 87: player_state_caught (state 30h, game_01.c:4185), player_state_sinking (state 33h, game_01.c:4283); header 8Fh (player EB00, priority 15): note 2Ch on ch 14
+5023  data    sfx_tally_bonus                     # group 82 number 2D: V60 id 88: the ring tally panel with a bonus, after the character's voice (game_10.c:259); header 8Fh (player EB00, priority 15): note 2Dh on ch 14
+502B  data    sfx_tally_no_bonus                  # group 82 number 2E: V60 id 89: the ring tally panel without a bonus (game_10.c:291); header 8Fh (player EB00, priority 15): note 2Eh on ch 14
+5033  data    sfx_2f                              # group 82 number 2F: no V60 id sends it; header 8Fh (player EB00, priority 15): note 2Fh on ch 14
+503B  data    unplayed_sfx_32                     # group 82 number 32 (past the list's last number): never played; header 8Fh (player EB00, priority 15): note 30h on ch 14
+5043  data    unplayed_sfx_33                     # group 82 number 33 (past the list's last number): never played; header 8Fh (player EB00, priority 15): note 31h on ch 14
+504B  data    unplayed_sfx_34                     # group 82 number 34 (past the list's last number): never played; header 8Fh (player EB00, priority 15): note 32h on ch 14
+5053  data    unplayed_sfx_35                     # group 82 number 35 (past the list's last number): never played; header 8Fh (player EB00, priority 15): note 33h on ch 14
+505B  data    unplayed_sfx_36                     # group 82 number 36 (past the list's last number): never played; header 8Fh (player EB00, priority 15): note 34h on ch 14
+5063  data    unplayed_sfx_37                     # group 82 number 37 (past the list's last number): never played; header 8Fh (player EB00, priority 15): note 35h on ch 14
+506B  data    unplayed_sfx_38                     # group 82 number 38 (past the list's last number): never played; header 8Fh (player EB00, priority 15): note 36h on ch 14
+5073  data    unplayed_sfx_39                     # group 82 number 39 (past the list's last number): never played; header 8Fh (player EB00, priority 15): note 37h on ch 14
+507B  data    unplayed_sfx_3a                     # group 82 number 3A (past the list's last number): never played; header 8Fh (player EB00, priority 15): note 38h on ch 14
+5083  data    unplayed_sfx_3b                     # group 82 number 3B (past the list's last number): never played; header 8Fh (player EB00, priority 15): note 39h on ch 14
+508B  data    unplayed_sfx_3c                     # group 82 number 3C (past the list's last number): never played; header 8Fh (player EB00, priority 15): note 3Ah on ch 14
+5093  data    unplayed_sfx_3d                     # group 82 number 3D (past the list's last number): never played; header 8Fh (player EB00, priority 15): note 3Bh on ch 14
+509B  data    unplayed_sfx_3e                     # group 82 number 3E (past the list's last number): never played; header 8Fh (player EB00, priority 15): note 3Ch on ch 14
+50A3  data    unplayed_sfx_3f                     # group 82 number 3F (past the list's last number): never played; header 8Fh (player EB00, priority 15): note 3Dh on ch 14
+50AB  data    unplayed_sfx_40                     # group 82 number 40 (past the list's last number): never played; header 8Fh (player EB00, priority 15): note 3Eh on ch 14
+50B3  data    unplayed_sfx_41                     # group 82 number 41 (past the list's last number): never played; header 8Fh (player EB00, priority 15): note 3Fh on ch 14
+50BB  data    unplayed_sfx_42                     # group 82 number 42 (past the list's last number): never played; header 8Fh (player EB00, priority 15): note 40h on ch 14
+50C3  data    unplayed_sfx_43                     # group 82 number 43 (past the list's last number): never played; header 8Fh (player EB00, priority 15): note 41h on ch 14
+50CB  data    unplayed_sfx_44                     # group 82 number 44 (past the list's last number): never played; header 8Fh (player EB00, priority 15): note 42h on ch 14
+50D3  data    unplayed_sfx_45                     # group 82 number 45 (past the list's last number): never played; header 8Fh (player EB00, priority 15): note 43h on ch 14
+50DB  data    unplayed_sfx_46                     # group 82 number 46 (past the list's last number): never played; header 8Fh (player EB00, priority 15): note 44h on ch 14
+50E3  data    unplayed_sfx_47                     # group 82 number 47 (past the list's last number): never played; header 8Fh (player EB00, priority 15): note 45h on ch 14
+50EB  data    unplayed_sfx_48                     # group 82 number 48 (past the list's last number): never played; header 8Fh (player EB00, priority 15): note 46h on ch 14
+50F3  data    unplayed_sfx_49                     # group 82 number 49 (past the list's last number): never played; header 8Fh (player EB00, priority 15): note 47h on ch 14
+50FB  data    unplayed_sfx_4a                     # group 82 number 4A (past the list's last number): never played; header 8Fh (player EB00, priority 15): note 48h on ch 14
+5103  data    unplayed_sfx_4b                     # group 82 number 4B (past the list's last number): never played; header 8Fh (player EB00, priority 15): note 49h on ch 14
+510B  data    unplayed_sfx_4c                     # group 82 number 4C (past the list's last number): never played; header 8Fh (player EB00, priority 15): note 4Ah on ch 14
+5113  data    unplayed_sfx_4d                     # group 82 number 4D (past the list's last number): never played; header 8Fh (player EB00, priority 15): note 4Bh on ch 14
+511B  data    unplayed_sfx_4e                     # group 82 number 4E (past the list's last number): never played; header 8Fh (player EB00, priority 15): note 4Ch on ch 14
+5123  data    unplayed_sfx_4f                     # group 82 number 4F (past the list's last number): never played; header 8Fh (player EB00, priority 15): note 4Dh on ch 14
+512B  data    unplayed_sfx_50                     # group 82 number 50 (past the list's last number): never played; header 8Fh (player EB00, priority 15): note 4Eh on ch 14
+5133  data    unplayed_sfx_51                     # group 82 number 51 (past the list's last number): never played; header 8Fh (player EB00, priority 15): note 4Fh on ch 14
+513B  data    unplayed_sfx_52                     # group 82 number 52 (past the list's last number): never played; header 8Fh (player EB00, priority 15): note 50h on ch 14
+5143  data    unplayed_sfx_53                     # group 82 number 53 (past the list's last number): never played; header 8Fh (player EB00, priority 15): note 51h on ch 14
+514B  data    unplayed_sfx_54                     # group 82 number 54 (past the list's last number): never played; header 8Fh (player EB00, priority 15): note 52h on ch 14
+5153  data    unplayed_sfx_55                     # group 82 number 55 (past the list's last number): never played; header 8Fh (player EB00, priority 15): note 53h on ch 14
+515B  data    unplayed_sfx_56                     # group 82 number 56 (past the list's last number): never played; header 8Fh (player EB00, priority 15): note 54h on ch 14
+5163  data    unplayed_sfx_57                     # group 82 number 57 (past the list's last number): never played; header 8Fh (player EB00, priority 15): note 55h on ch 14
+516B  data    unplayed_sfx_58                     # group 82 number 58 (past the list's last number): never played; header 8Fh (player EB00, priority 15): note 56h on ch 14
+5173  data    unplayed_sfx_59                     # group 82 number 59 (past the list's last number): never played; header 8Fh (player EB00, priority 15): note 57h on ch 14
+517B  data    unplayed_sfx_5a                     # group 82 number 5A (past the list's last number): never played; header 8Fh (player EB00, priority 15): note 58h on ch 14
+5183  data    unplayed_sfx_5b                     # group 82 number 5B (past the list's last number): never played; header 8Fh (player EB00, priority 15): note 59h on ch 14
+518B  data    unplayed_sfx_5c                     # group 82 number 5C (past the list's last number): never played; header 8Fh (player EB00, priority 15): note 5Ah on ch 14
+5193  data    unplayed_sfx_5d                     # group 82 number 5D (past the list's last number): never played; header 8Fh (player EB00, priority 15): note 5Bh on ch 14
+519B  data    unplayed_sfx_5e                     # group 82 number 5E (past the list's last number): never played; header 8Fh (player EB00, priority 15): note 5Ch on ch 14
+51A3  data    unplayed_sfx_5f                     # group 82 number 5F (past the list's last number): never played; header 8Fh (player EB00, priority 15): note 5Dh on ch 14
+51AB  data    unplayed_sfx_60                     # group 82 number 60 (past the list's last number): never played; header 8Fh (player EB00, priority 15): note 5Eh on ch 14
+51B3  data    unplayed_sfx_61                     # group 82 number 61 (past the list's last number): never played; header 8Fh (player EB00, priority 15): note 5Fh on ch 14
+51BB  data    unplayed_sfx_62                     # group 82 number 62 (past the list's last number): never played; header 8Fh (player EB00, priority 15): note 60h on ch 14
+51C3  data    unplayed_sfx_63                     # group 82 number 63 (past the list's last number): never played; header 8Fh (player EB00, priority 15): note 61h on ch 14
+51CB  data    unplayed_sfx_64                     # group 82 number 64 (past the list's last number): never played; header 8Fh (player EB00, priority 15): note 62h on ch 14
+51D3  data    unplayed_sfx_65                     # group 82 number 65 (past the list's last number): never played; header 8Fh (player EB00, priority 15): note 63h on ch 14
+51DB  data    unplayed_sfx_66                     # group 82 number 66 (past the list's last number): never played; header 8Fh (player EB00, priority 15): note 64h on ch 14
+51E3  data    unplayed_sfx_67                     # group 82 number 67 (past the list's last number): never played; header 8Fh (player EB00, priority 15): note 65h on ch 14
+51EB  data    unplayed_sfx_68                     # group 82 number 68 (past the list's last number): never played; header 8Fh (player EB00, priority 15): note 66h on ch 14
+51F3  data    unplayed_sfx_69                     # group 82 number 69 (past the list's last number): never played; header 8Fh (player EB00, priority 15): note 67h on ch 14
+51FB  data    unplayed_sfx_6a                     # group 82 number 6A (past the list's last number): never played; header 8Fh (player EB00, priority 15): note 68h on ch 14
+5203  data    unplayed_sfx_6b                     # group 82 number 6B (past the list's last number): never played; header 8Fh (player EB00, priority 15): note 69h on ch 14
+520B  data    unplayed_sfx_6c                     # group 82 number 6C (past the list's last number): never played; header 8Fh (player EB00, priority 15): note 6Ah on ch 14
+5213  data    unplayed_sfx_6d                     # group 82 number 6D (past the list's last number): never played; header 8Fh (player EB00, priority 15): note 6Bh on ch 14
+521B  data    unplayed_sfx_6e                     # group 82 number 6E (past the list's last number): never played; header 8Fh (player EB00, priority 15): note 6Ch on ch 14
+5223  data    unplayed_sfx_6f                     # group 82 number 6F (past the list's last number): never played; header 8Fh (player EB00, priority 15): note 6Dh on ch 14
+522B  data    unplayed_sfx_70                     # group 82 number 70 (past the list's last number): never played; header 8Fh (player EB00, priority 15): note 6Eh on ch 14
+5233  data    unplayed_sfx_71                     # group 82 number 71 (past the list's last number): never played; header 8Fh (player EB00, priority 15): note 6Fh on ch 14
+523B  data    unplayed_load_part_template_00      # group 82 number 72 (past the list's last number): never played; header 8Fh (player EB00, priority 15): CC 20h 00h (part template) ch 14
+5243  data    unplayed_load_part_template_01      # group 82 number 73 (past the list's last number): never played; header 8Fh (player EB00, priority 15): CC 20h 01h (part template) ch 14
+524B  data    unplayed_load_part_template_02      # group 82 number 74 (past the list's last number): never played; header 8Fh (player EB00, priority 15): CC 20h 02h (part template) ch 14
+5253  data    unplayed_load_part_template_03      # group 82 number 75 (past the list's last number): never played; header 8Fh (player EB00, priority 15): CC 20h 03h (part template) ch 14
+525B  data    unplayed_load_part_template_04      # group 82 number 76 (past the list's last number): never played; header 8Fh (player EB00, priority 15): CC 20h 04h (part template) ch 14
+5263  data    unplayed_load_part_template_05      # group 82 number 77 (past the list's last number): never played; header 8Fh (player EB00, priority 15): CC 20h 05h (part template) ch 14
+526B  data    unplayed_load_part_template_06      # group 82 number 78 (past the list's last number): never played; header 8Fh (player EB00, priority 15): CC 20h 06h (part template) ch 14
+5273  data    unplayed_load_part_template_07      # group 82 number 79 (past the list's last number): never played; header 8Fh (player EB00, priority 15): CC 20h 07h (part template) ch 14
+527B  data    unplayed_load_part_template_08      # group 82 number 7A (past the list's last number): never played; header 8Fh (player EB00, priority 15): CC 20h 08h (part template) ch 14
+5283  data    unplayed_load_part_template_09      # group 82 number 7B (past the list's last number): never played; header 8Fh (player EB00, priority 15): CC 20h 09h (part template) ch 14
+528B  data    unplayed_load_part_template_0a      # group 82 number 7C (past the list's last number): never played; header 8Fh (player EB00, priority 15): CC 20h 0Ah (part template) ch 14
+5293  data    unplayed_load_part_template_0b      # group 82 number 7D (past the list's last number): never played; header 8Fh (player EB00, priority 15): CC 20h 0Bh (part template) ch 14
+529B  data    unplayed_channel_10_notes_off       # group 82 number 7E (past the list's last number): never played; header 8Fh (player EB00, priority 15): CC 7Bh 00h (notes off) ch 10
+52A3  data    unplayed_channel_10_volume          # group 82 number 7F (past the list's last number): never played; header 8Fh (player EB00, priority 15): CC 07h 7Fh (volume) ch 10
+52AB  data    control_stop_all_voices             # group 80 number 00, group 82 number 80 (past the list's last number): V60 id 95: game mode 4 before the map music, test_sound before every sound, stage_map_sounds' filler; CC 50h 7Dh: every sample and FM voice stops (0A55, 0A59); header 8Fh (player EB00, priority 15): CC 50h 7Dh (stop voices) ch 14
+52B3  data    unsent_stop_all_voices              # group 80 number 02, group 82 number 81 (past the list's last number): no V60 id sends 80 02; CC 50h 7Fh: every sample and FM voice stops (0A55, 0A59); header 8Fh (player EB00, priority 15): CC 50h 7Fh (stop voices) ch 14
+52BB  data    voice_sonic_scream                  # group 83 number 00: V60 id 2F: Sonic falling off an edge or dropping with health 8 or less (game_00.c:5866, 6385), shocked, swept away; header 8Fh (player EB00, priority 15): note 00h on ch 13
+52C3  data    voice_eggman_01                     # group 83 number 01: V60 id 30: Eggman's speech kind 3 (stage A), stage B's scene (eggman_scene_sounds), the map after stage 9; header 8Fh (player EB00, priority 15): notes 01h 01h on ch 13
+52CF  data    voice_ray_struggle                  # group 83 number 02: V60 id 31: Ray stuck (game_01.c:892, 3987), sinking in quicksand; header 8Fh (player EB00, priority 15): note 02h on ch 13
+52D7  data    voice_eggman_03                     # group 83 number 03: V60 id 32: Eggman's stage B scene, the second box (game_03.c:2556); header 8Fh (player EB00, priority 15): notes 03h 03h on ch 13
+52E3  data    voice_04                            # group 83 number 04: V60 id 33: no use found on the V60 side (the sound test plays it); header 8Fh (player EB00, priority 15): notes 04h 04h on ch 13
+52EF  data    voice_05                            # group 83 number 05: V60 id 34: the stage 5 cage, spiked_press frame 14h with the message box (game_06.c:3316), the map after stage A; probably Eggman; header 8Fh (player EB00, priority 15): notes 05h 05h on ch 13
+52FB  data    voice_sonic_struggle                # group 83 number 06: V60 id 35: Sonic stuck, sinking in quicksand; header 8Fh (player EB00, priority 15): note 06h on ch 13
+5303  data    voice_sonic_cry                     # group 83 number 07: V60 id 36: Sonic in the opening scene, thrown, carried off, caught, pulled, caught in quicksand (game_02.c:2201); header 8Fh (player EB00, priority 15): note 07h on ch 13
+530B  data    voice_ray_scream                    # group 83 number 08: V60 id 37: Ray falling off an edge, thrown, carried off, caught; header 8Fh (player EB00, priority 15): note 08h on ch 13
+5313  data    voice_sonic_teeter                  # group 83 number 09: V60 id 38: Sonic teetering (state 5, game_00.c:5695); header 8Fh (player EB00, priority 15): note 09h on ch 13
+531B  data    voice_sonic_screen_edge             # group 83 number 0A: V60 id 39: Sonic held at the screen's edge with two or more players (keep_player_on_screen, game_01.c:5233); header 8Fh (player EB00, priority 15): note 0Ah on ch 13
+5323  data    voice_sonic_tumble                  # group 83 number 0B: V60 id 3A: Sonic tumbling (game_00.c:9528), blown away; header 8Fh (player EB00, priority 15): note 0Bh on ch 13
+532B  data    voice_eggman_0c                     # group 83 number 0C: V60 id 3B: Eggman's speech kind 1 (stage 3), the map after stage 10h; header 8Fh (player EB00, priority 15): notes 0Ch 0Ch on ch 13
+5337  data    voice_ray_teeter                    # group 83 number 0D: V60 id 3C: Ray teetering; header 8Fh (player EB00, priority 15): note 0Dh on ch 13
+533F  data    voice_mighty_struggle               # group 83 number 0E: V60 id 3D: Mighty stuck, sinking in quicksand; header 8Fh (player EB00, priority 15): note 0Eh on ch 13
+5347  data    voice_eggman_0f                     # group 83 number 0F: V60 id 3E: Eggman's stage B scene, the first box; the map after stages 3, 9, 10h; header 8Fh (player EB00, priority 15): notes 0Fh 0Fh on ch 13
+5353  data    voice_sonic_caged                   # group 83 number 10: V60 id 3F: caged Sonic, spiked_press frame 50h (game_06.c:3327); header 8Fh (player EB00, priority 15): notes 10h 10h on ch 13
+535F  data    voice_mighty_caged                  # group 83 number 11: V60 id 40: caged Mighty, spiked_press frame 50h; header 8Fh (player EB00, priority 15): notes 11h 11h on ch 13
+536B  data    voice_eggman_booth                  # group 83 number 12: V60 id 41: draw_eggman_booth when frame B shows (game_03.c:1347); the map after stages 4, 8, A; header 8Fh (player EB00, priority 15): notes 12h 12h on ch 13
+5377  data    voice_13                            # group 83 number 13: V60 id 42: no use found on the V60 side (the sound test plays it); header 8Fh (player EB00, priority 15): note 13h on ch 13
+537F  data    voice_ray_screen_edge               # group 83 number 14: V60 id 43: Ray held at the screen's edge with two or more players; header 8Fh (player EB00, priority 15): note 14h on ch 13
+5387  data    voice_mighty_teeter                 # group 83 number 15: V60 id 44: Mighty teetering; header 8Fh (player EB00, priority 15): note 15h on ch 13
+538F  data    voice_16                            # group 83 number 16: V60 id 45: no use found on the V60 side (the sound test plays it); header 8Fh (player EB00, priority 15): note 16h on ch 13
+5397  data    voice_ray_cry                       # group 83 number 17: V60 id 46: Ray in the opening scene, pulled, caught in quicksand; header 8Fh (player EB00, priority 15): note 17h on ch 13
+539F  data    voice_sonic_over_edge               # group 83 number 18: V60 id 47: Sonic over an edge (state 7, game_00.c:6194), tripped; header 8Fh (player EB00, priority 15): note 18h on ch 13
+53A7  data    voice_sonic_19                      # group 83 number 19: V60 id 48: Sonic at the end of being pulled (game_01.c:2645), the character chooser, the ring tally bonus; header 8Fh (player EB00, priority 15): note 19h on ch 13
+53AF  data    voice_mighty_1a                     # group 83 number 1A: V60 id 49: Mighty at the end of being pulled, the character chooser; header 8Fh (player EB00, priority 15): note 1Ah on ch 13
+53B7  data    voice_ray_hurt                      # group 83 number 1B: V60 id 4A: Ray hurt (game_00.c:7776), knocked off; header 8Fh (player EB00, priority 15): note 1Bh on ch 13
+53BF  data    voice_ray_chooser                   # group 83 number 1C: V60 id 4B: Ray in the character chooser (chooser_voice_sounds); header 8Fh (player EB00, priority 15): note 1Ch on ch 13
+53C7  data    voice_mighty_screen_edge            # group 83 number 1D: V60 id 4C: Mighty held at the screen's edge with two or more players; header 8Fh (player EB00, priority 15): note 1Dh on ch 13
+53CF  data    voice_1e                            # group 83 number 1E: V60 id 4D: no use found on the V60 side (the sound test plays it); header 8Fh (player EB00, priority 15): note 1Eh on ch 13
+53D7  data    voice_ray_stage_b                   # group 83 number 1F: V60 id 4E: Ray in stage B's sequence after the sliding door opens (game_01.c:1110); header 8Fh (player EB00, priority 15): note 1Fh on ch 13
+53DF  data    voice_ray_over_edge                 # group 83 number 20: V60 id 4F: Ray over an edge, tripped; the character chooser, the ring tally bonus; header 8Fh (player EB00, priority 15): note 20h on ch 13
+53E7  data    voice_sonic_join                    # group 83 number 21: V60 id 50: Sonic joining (player_reset, game_00.c:4228); the character chooser; header 8Fh (player EB00, priority 15): note 21h on ch 13
+53EF  data    voice_mighty_entry                  # group 83 number 22: V60 id 51: Mighty entering the stage (state 2Ah, game_00.c:9023), a climb push step; header 8Fh (player EB00, priority 15): note 22h on ch 13
+53F7  data    voice_mighty_restart                # group 83 number 23: V60 id 52: Mighty's player_reset at a stage start and a respawn; header 8Fh (player EB00, priority 15): note 23h on ch 13
+53FF  data    voice_sonic_chooser                 # group 83 number 24: V60 id 53: Sonic in the character chooser (chooser_voice_sounds); header 8Fh (player EB00, priority 15): note 24h on ch 13
+5407  data    voice_25                            # group 83 number 25: V60 ids 54 and 8A: no use found on the V60 side (the sound test plays it); header 8Fh (player EB00, priority 15): note 25h on ch 13
+540F  data    voice_sonic_hurt                    # group 83 number 26: V60 id 55: Sonic hurt, knocked off; header 8Fh (player EB00, priority 15): note 26h on ch 13
+5417  data    voice_mighty_cry                    # group 83 number 27: V60 id 56: Mighty pulled, caught in quicksand; header 8Fh (player EB00, priority 15): note 27h on ch 13
+541F  data    voice_sonic_28                      # group 83 number 28: V60 id 57: Sonic in the floor 8 sequence, its hurt step (game_01.c:2713); header 8Fh (player EB00, priority 15): note 28h on ch 13
+5427  data    voice_sonic_stage_b                 # group 83 number 29: V60 id 58: Sonic in stage B's sequence; header 8Fh (player EB00, priority 15): note 29h on ch 13
+542F  data    voice_2a                            # group 83 number 2A: V60 id 59: no use found on the V60 side (the sound test plays it); header 8Fh (player EB00, priority 15): note 2Ah on ch 13
+5437  data    voice_2b                            # group 83 number 2B: V60 id 5A: no use found on the V60 side (the sound test plays it); header 8Fh (player EB00, priority 15): note 2Bh on ch 13
+543F  data    voice_mighty_hurt                   # group 83 number 2C: V60 id 5B: Mighty hurt, knocked off; header 8Fh (player EB00, priority 15): note 2Ch on ch 13
+5447  data    voice_ray_caged                     # group 83 number 2D: V60 id 5C: caged Ray, spiked_press frame 50h; header 8Fh (player EB00, priority 15): notes 2Dh 2Dh on ch 13
+5453  data    voice_sonic_restart                 # group 83 number 2E: V60 id 5D: Sonic's player_reset at a stage start and a respawn; the character chooser; header 8Fh (player EB00, priority 15): note 2Eh on ch 13
+545B  data    voice_2f                            # group 83 number 2F: V60 id 5E: no use found on the V60 side (the sound test plays it); header 8Fh (player EB00, priority 15): note 2Fh on ch 13
+5463  data    voice_30                            # group 83 number 30: V60 id 5F: no use found on the V60 side (the sound test plays it); header 8Fh (player EB00, priority 15): note 30h on ch 13
+546B  data    voice_mighty_stage_b                # group 83 number 31: V60 id 60: Mighty in stage B's sequence; header 8Fh (player EB00, priority 15): note 31h on ch 13
+5473  data    voice_ray_tumble                    # group 83 number 32: V60 id 61: Ray tumbling, blown away; header 8Fh (player EB00, priority 15): note 32h on ch 13
+547B  data    voice_mighty_join                   # group 83 number 33: V60 id 62: Mighty joining; the character chooser; header 8Fh (player EB00, priority 15): note 33h on ch 13
+5483  data    voice_34                            # group 83 number 34: V60 id 63: no use found on the V60 side (the sound test plays it); header 8Fh (player EB00, priority 15): note 34h on ch 13
+548B  data    voice_sonic_entry                   # group 83 number 35: V60 id 64: Sonic entering the stage, a climb push step; header 8Fh (player EB00, priority 15): note 35h on ch 13
+5493  data    voice_ray_36                        # group 83 number 36: V60 id 65: Ray in the floor 8 sequence; header 8Fh (player EB00, priority 15): note 36h on ch 13
+549B  data    voice_37                            # group 83 number 37: V60 id 66: no use found on the V60 side (the sound test plays it); header 8Fh (player EB00, priority 15): note 37h on ch 13
+54A3  data    voice_mighty_over_edge              # group 83 number 38: V60 id 67: Mighty over an edge, tripped, the floor 8 sequence; the character chooser; header 8Fh (player EB00, priority 15): note 38h on ch 13
+54AB  data    voice_ray_restart                   # group 83 number 39: V60 id 68: Ray's player_reset at a stage start and a respawn; the character chooser; header 8Fh (player EB00, priority 15): note 39h on ch 13
+54B3  data    voice_3a                            # group 83 number 3A: V60 id 69: no use found on the V60 side (the sound test plays it); header 8Fh (player EB00, priority 15): note 3Ah on ch 13
+54BB  data    voice_3b                            # group 83 number 3B: V60 id 6A: no use found on the V60 side (the sound test plays it); header 8Fh (player EB00, priority 15): note 3Bh on ch 13
+54C3  data    voice_ray_entry                     # group 83 number 3C: V60 id 6B: Ray entering the stage, a climb push step; header 8Fh (player EB00, priority 15): note 3Ch on ch 13
+54CB  data    voice_mighty_3d                     # group 83 number 3D: V60 id 6C: Mighty in the character chooser, the ring tally bonus; header 8Fh (player EB00, priority 15): note 3Dh on ch 13
+54D3  data    voice_ray_3e                        # group 83 number 3E: V60 id 6D: Ray at the end of being pulled; header 8Fh (player EB00, priority 15): note 3Eh on ch 13
+54DB  data    voice_mighty_tumble                 # group 83 number 3F: V60 id 6E: Mighty tumbling, blown away; header 8Fh (player EB00, priority 15): note 3Fh on ch 13
+54E3  data    voice_ray_join                      # group 83 number 40: V60 id 6F: Ray joining; the character chooser; header 8Fh (player EB00, priority 15): note 40h on ch 13
+54EB  data    voice_eggman_41                     # group 83 number 41: V60 id 70: stage 0's scene, Eggman's booth with message box kind 10h (stage_05_event_show_message, game_09.c:3817); header 8Fh (player EB00, priority 15): notes 41h 41h on ch 13
+54F7  data    voice_42                            # group 83 number 42: V60 id 71: the map after stage 8 (stage_map_sounds_3, with Eggman's voices); probably Eggman; header 8Fh (player EB00, priority 15): notes 42h 42h on ch 13
+5503  data    voice_eggman_43                     # group 83 number 43: V60 id 72: ending_eggman_fly_away's start (game_05.c:2296); header 8Fh (player EB00, priority 15): notes 43h 43h on ch 13
+550F  data    voice_44                            # group 83 number 44: V60 id 73: game over on every stage but 11h (game_00.c:2472), the ring tally under the bonus, the map after stage 4; header 8Fh (player EB00, priority 15): notes 44h 44h on ch 13
+551B  data    voice_eggman_45                     # group 83 number 45: V60 id 74: Eggman's speech kind 0 (stage 8); header 8Fh (player EB00, priority 15): notes 45h 45h on ch 13
+5527  data    voice_eggman_46                     # group 83 number 46: V60 id 75: ending_eggman_fly_in (game_05.c:2054); header 8Fh (player EB00, priority 15): notes 46h 46h on ch 13
+5533  data    voice_47                            # group 83 number 47: V60 id 76: game over on stage 11h, after the ending (game_00.c:2473); header 8Fh (player EB00, priority 15): notes 47h 47h on ch 13
+553F  data    voice_mighty_scream                 # group 83 number 48: V60 id 77: Mighty falling off an edge, in the opening scene, thrown, carried off, caught; header 8Fh (player EB00, priority 15): note 48h on ch 13
+5547  data    voice_49                            # group 83 number 49: V60 id 78: no use found on the V60 side (the sound test plays it); header 8Fh (player EB00, priority 15): notes 49h 49h on ch 13
+5553  data    voice_4a                            # group 83 number 4A: V60 ids 79 and 80: no use found on the V60 side (the sound test plays it); header 8Fh (player EB00, priority 15): note 4Ah on ch 13
+555B  data    voice_eggman_4b                     # group 83 number 4B: V60 id 7A: Eggman's speech kind 2 (stage 9), the map after stage 3; header 8Fh (player EB00, priority 15): notes 4Bh 4Bh on ch 13
+5567  data    unlisted_bend_sweep_program_79      # no list points at it; header CFh (player ED00, its first event's channel 11, priority 15): note 5Bh on ch 11, CC 7Bh 00h (notes off) ch 11, pitch bends ch 11, program change ch 11
+5689  data    unlisted_bend_sweep_program_7a      # no list points at it; header CFh (player ED00, its first event's channel 11, priority 15): note 5Bh on ch 11, CC 7Bh 00h (notes off) ch 11, pitch bends ch 11, program change ch 11
+57AB  data    unlisted_bend_sweep_program_7b      # no list points at it; header CFh (player ED00, its first event's channel 11, priority 15): note 5Bh on ch 11, CC 7Bh 00h (notes off) ch 11, pitch bends ch 11, program change ch 11
+58CD  data    unlisted_bend_sweep_program_7c      # no list points at it; header CFh (player ED00, its first event's channel 11, priority 15): note 5Bh on ch 11, CC 7Bh 00h (notes off) ch 11, pitch bends ch 11, program change ch 11
+59EF  data    unlisted_bend_sweep_program_7d      # no list points at it; header CFh (player ED00, its first event's channel 11, priority 15): note 5Bh on ch 11, CC 7Bh 00h (notes off) ch 11, pitch bends ch 11, program change ch 11
+5B11  data    unlisted_bend_sweep_program_7e      # no list points at it; header CFh (player ED00, its first event's channel 11, priority 15): note 5Bh on ch 11, CC 7Bh 00h (notes off) ch 11, pitch bends ch 11, program change ch 11
+5C33  data    unlisted_bend_sweep_program_7f      # no list points at it; header CFh (player ED00, its first event's channel 11, priority 15): note 5Bh on ch 11, CC 7Bh 00h (notes off) ch 11, pitch bends ch 11, program change ch 11
+5D55  data    sfx_30                              # group 82 number 30: V60 id 8B: no use found on the V60 side (the sound test plays it); a jingle on channel 10; header CFh (player EC00, its first event's channel 10, priority 15): notes 4Dh 51h 54h on ch 10, CC 80h 00h (FM notes off) ch 10
+5D74  data    sfx_31                              # group 82 number 31: V60 id 8C: no use found on the V60 side (the sound test plays it); a jingle on channel 10; header CFh (player EC00, its first event's channel 10, priority 15): notes 4Dh 51h 58h 5Dh 61h on ch 10, CC 80h 00h (FM notes off) ch 10
+5DA5  data    unlisted_sound_5da5                 # no list points at it; header CFh (player F000, its first event's channel 14, priority 15): notes 48h 49h 4Ch on ch 14, CC 80h 00h (FM notes off) ch 14
+5DC7  data    unlisted_sound_5dc7                 # no list points at it; header CFh (player F000, its first event's channel 14, priority 15): notes 48h 49h 4Dh on ch 14, CC 80h 00h (FM notes off) ch 14
+5DE9  data    unlisted_sound_5de9                 # no list points at it; header CFh (player F000, its first event's channel 14, priority 15): notes 48h 49h 4Eh on ch 14, CC 80h 00h (FM notes off) ch 14
+5E0B  data    unlisted_sound_5e0b                 # no list points at it; header CFh (player F000, its first event's channel 14, priority 15): notes 48h 49h 4Fh on ch 14, CC 80h 00h (FM notes off) ch 14
+5E2D  data    unlisted_sound_5e2d                 # no list points at it; header CFh (player F000, its first event's channel 14, priority 15): notes 48h 49h 50h on ch 14, CC 80h 00h (FM notes off) ch 14
+5E4F  data    unlisted_sound_5e4f                 # no list points at it; header CFh (player F000, its first event's channel 14, priority 15): notes 48h 49h 51h on ch 14, CC 80h 00h (FM notes off) ch 14
+5E71  data    unlisted_sound_5e71                 # no list points at it; header CFh (player F000, its first event's channel 14, priority 15): notes 61h 4Ah on ch 14, CC 80h 00h (FM notes off) ch 14
+5E89  data    unlisted_sound_5e89                 # no list points at it; header CFh (player F000, its first event's channel 14, priority 15): notes 61h 4Bh on ch 14, CC 80h 00h (FM notes off) ch 14
+5EA1  data    unlisted_sound_5ea1                 # no list points at it; header CFh (player F000, its first event's channel 14, priority 15): notes 61h 4Ch on ch 14, CC 80h 00h (FM notes off) ch 14
+5EB9  data    unlisted_sound_5eb9                 # no list points at it; header CFh (player F000, its first event's channel 14, priority 15): notes 61h 4Dh on ch 14, CC 80h 00h (FM notes off) ch 14
+5ED1  data    unlisted_sound_5ed1                 # no list points at it; header CFh (player F000, its first event's channel 14, priority 15): notes 61h 4Eh on ch 14, CC 80h 00h (FM notes off) ch 14
+5EE9  data    unlisted_sound_5ee9                 # no list points at it; header CFh (player F000, its first event's channel 14, priority 15): notes 61h 4Fh on ch 14, CC 80h 00h (FM notes off) ch 14
+5F01  data    unlisted_sound_5f01                 # no list points at it; header CFh (player F000, its first event's channel 14, priority 15): notes 61h 50h on ch 14, CC 80h 00h (FM notes off) ch 14
+5F19  data    unlisted_sound_5f19                 # no list points at it; header CFh (player F000, its first event's channel 14, priority 15): notes 61h 51h on ch 14, CC 80h 00h (FM notes off) ch 14
+5F31  data    unlisted_sound_5f31                 # no list points at it; header CFh (player F000, its first event's channel 14, priority 15): notes 49h 4Ah 64h on ch 14, CC 80h 00h (FM notes off) ch 14
+5F53  data    unlisted_sound_5f53                 # no list points at it; header CFh (player F000, its first event's channel 14, priority 15): notes 49h 4Bh 64h on ch 14, CC 80h 00h (FM notes off) ch 14
+5F75  data    unlisted_sound_5f75                 # no list points at it; header CFh (player F000, its first event's channel 14, priority 15): notes 49h 4Ch 64h on ch 14, CC 80h 00h (FM notes off) ch 14
+5F97  data    unlisted_sound_5f97                 # no list points at it; header CFh (player F000, its first event's channel 14, priority 15): notes 49h 4Dh 64h on ch 14, CC 80h 00h (FM notes off) ch 14
+5FB9  data    unlisted_sound_5fb9                 # no list points at it; header CFh (player F000, its first event's channel 14, priority 15): notes 49h 4Eh 64h on ch 14, CC 80h 00h (FM notes off) ch 14
+5FDB  data    unlisted_sound_5fdb                 # no list points at it; header CFh (player F000, its first event's channel 14, priority 15): notes 49h 4Fh 64h on ch 14, CC 80h 00h (FM notes off) ch 14
+5FFD  data    unlisted_sound_5ffd                 # no list points at it; header CFh (player F000, its first event's channel 14, priority 15): notes 49h 50h 64h on ch 14, CC 80h 00h (FM notes off) ch 14
+601F  data    unlisted_sound_601f                 # no list points at it; header CFh (player F000, its first event's channel 14, priority 15): notes 49h 51h 64h on ch 14, CC 80h 00h (FM notes off) ch 14
+6041  data    unlisted_sound_6041                 # no list points at it; header CFh (player F000, its first event's channel 14, priority 15): notes 60h 49h 4Ah 69h on ch 14, CC 80h 00h (FM notes off) ch 14
+606D  data    unlisted_sound_606d                 # no list points at it; header CFh (player F000, its first event's channel 14, priority 15): notes 60h 49h 4Bh 69h on ch 14, CC 80h 00h (FM notes off) ch 14
+6099  data    unlisted_sound_6099                 # no list points at it; header CFh (player F000, its first event's channel 14, priority 15): notes 60h 49h 4Ch 69h on ch 14, CC 80h 00h (FM notes off) ch 14
+60C5  data    unlisted_sound_60c5                 # no list points at it; header CFh (player F000, its first event's channel 14, priority 15): notes 60h 49h 4Dh 69h on ch 14, CC 80h 00h (FM notes off) ch 14
+60F1  data    unlisted_sound_60f1                 # no list points at it; header CFh (player F000, its first event's channel 14, priority 15): notes 60h 49h 4Eh 69h on ch 14, CC 80h 00h (FM notes off) ch 14
+611D  data    unlisted_sound_611d                 # no list points at it; header CFh (player F000, its first event's channel 14, priority 15): notes 60h 49h 4Fh 69h on ch 14, CC 80h 00h (FM notes off) ch 14
+6149  data    unlisted_sound_6149                 # no list points at it; header CFh (player F000, its first event's channel 14, priority 15): notes 60h 49h 50h 69h on ch 14, CC 80h 00h (FM notes off) ch 14
+6175  data    unlisted_sound_6175                 # no list points at it; header CFh (player F000, its first event's channel 14, priority 15): notes 60h 49h 51h 69h on ch 14, CC 80h 00h (FM notes off) ch 14
+61A1  data    unlisted_sound_61a1                 # no list points at it; header CFh (player F000, its first event's channel 14, priority 15): notes 62h 67h 65h on ch 14, CC 80h 00h (FM notes off) ch 14
+61C3  data    unlisted_sound_61c3                 # no list points at it; header CFh (player F000, its first event's channel 14, priority 15): notes 34h 35h 36h 37h on ch 14, CC 80h 00h (FM notes off) ch 14
+00A000  banked  unused_sequence_banks               # chip 00A000-00FFFF, banks 05-07: FFh; no song record points here (the songs start in bank 08, 010000)
+010000  banked  music_stages_5_6                    # song 0A (record 4E74: bank 08, A000), songs 12-7F (record 4E94: bank 08, A000): playlist_stages_5_6 plays it, on and on (V60 id 04: stage_start_sounds for stages 6 (the opening scene) and 5); 29.0 s, notes on channels 0 1 2 3 4 5 6 F
+011DFD  banked  music_stages_b_to_f                 # song 04 (record 4E5C: bank 08, BDFD): playlist_stages_b_to_f plays it, on and on (V60 id 00: stage_start_sounds for stages B-F); 91.2 s, notes on channels 0 1 2 3 4 5 6 F
+0174B3  banked  music_stage_3_intro                 # song 05 (record 4E60: bank 0B, B4B3): playlist_stage_3 plays it first (V60 id 01: stage_start_sounds for stage 3 and stage 7 (game_mode_intro)); 21.0 s, notes on channels 0 1 2 F
+017D26  banked  music_stage_3                       # song 06 (record 4E64: bank 0B, BD26): playlist_stage_3 plays it, on and on (V60 id 01: stage_start_sounds for stage 3 and stage 7 (game_mode_intro)); 48.6 s, notes on channels 0 1 2 F
+01A40D  banked  music_stages_4_8_intro              # song 07 (record 4E68: bank 0D, A40D): playlist_stages_4_8 plays it first (V60 id 02: stage_start_sounds for stages 4 and 8); 24.3 s, notes on channels 0 3 4 5 F
+01B5B8  banked  music_stages_4_8                    # song 08 (record 4E6C: bank 0D, B5B8): playlist_stages_4_8 plays it, on and on (V60 id 02: stage_start_sounds for stages 4 and 8); 39.1 s, notes on channels 0 1 2 4 5 F
+01DB9A  banked  music_map                           # song 09 (record 4E70: bank 0E, BB9A): playlist_map plays it, on and on (V60 id 03: game mode 4, the island map (95 then 03, game_00.c:917-919)); 32.8 s, notes on channels 0 1 2 3 4 5 F
+01EDE7  banked  music_escape                        # song 0B (record 4E78: bank 0F, ADE7): playlist_escape plays it once (V60 id 7C: game mode 1Fh, stage B's escape, at escape_alarm_timer 1 and 30Ch (game_00.c:2261)); 14.7 s, notes on channels 0 2 4 5 6 F
+020373  banked  music_stage_clear                   # song 0C (record 4E7C: bank 10, A373): playlist_stage_clear plays it once (V60 id 7B (7E sends it too): game mode 17h, the stage clear, after 94 (game_00.c:1721-1723)); 3.9 s, notes on channels 0 2 3 4 F
+0206B2  banked  music_stage_a_intro                 # song 0D (record 4E80: bank 10, A6B2): playlist_stage_a plays it first (V60 id 7D: stage_start_sounds for stage A); 27.6 s, notes on channels 0 1 3 4 F
+021276  banked  music_stage_a                       # song 0E (record 4E84: bank 10, B276): playlist_stage_a plays it, on and on (V60 id 7D: stage_start_sounds for stage A); 109.1 s, notes on channels 0 1 2 3 4 5 F
+0270AB  banked  music_stages_9_10                   # song 0F (record 4E88: bank 13, B0AB): playlist_stages_9_10 plays it, on and on (V60 id 81: stage_start_sounds for stages 9 and 10h); 83.1 s, notes on channels 0 1 2 3 4 5 6 F
+02C7F5  banked  music_stages_9_10_intro             # song 10 (record 4E8C: bank 16, A7F5): playlist_stages_9_10 plays it first (V60 id 81: stage_start_sounds for stages 9 and 10h); 15.3 s, notes on channels 0 3 F
+02CD18  banked  music_ending                        # song 11 (record 4E90: bank 16, AD18): playlist_ending plays it once (V60 id 82 (8D-93 send it too, unused): ending_music_play after 94 (game_05.c:1236-1238)); 141.1 s, notes on channels 0 1 2 3 4 5 6 F
+0371F3  banked  sequence_banks_padding              # FFh to the end of the chip, after the last song's FF 2F 00
+
 A000  io    ROM_BANK_WINDOW      u8    # the 8 KB page of the sound ROM the ports A0 and B0 pick (A000-BFFF): sample data (start_pcm_sample, refill_pcm_voice) and sequence data (step_player)
 C007  io    PCM_CONTROL          u8    # RF5C68 register 7: refill_pcm_voice writes 80h|2*channel (chip on, the channel's ring buffer's 4 KB bank in D000-DFFF, 0C36); write_pcm_register reaches it with C = 7
 D000  io    PCM_WAVE_WINDOW      u8    # the 4 KB window on the wave memory: 02D1 fills every even bank with 80h (silence, the ring buffers) and every odd one with FFh (loop marks)
 D2BC  io    PCM_SILENT_LOOP     u8    # 02D1: 801h bytes of 80h from offset 2BCh of every odd bank, between FFh marks: stop_pcm_voice loops a channel at N*2000h+1800h, inside it
-E000  var   unread_e000      u8       # uncertain: sound_init sets 2 (init_pcm_chip's fills wrote 80 and FF there before); nothing reads it, neither the Z80 nor the V60
+E000  var   midi_in_message_length  u8   # the length (status byte included) of the last message receive_midi_byte took in from the MIDI port, for the messages that follow with running status; sound_init sets 2 (init_pcm_chip's fills wrote 80 and FF there before); nothing else reads it, as receive_midi_byte is never called
 E002  var  midi_queue_read  u8              # low byte of the address of the last byte read from the MIDI queue E100-E1FF (0B92: one more, then reads E1xx); 040B puts it back for every part (0446); FF at init (0180)
 E008  var  midi_status  u8                  # the status byte of the message being played (running status: 040B keeps it when the first byte has bit 7 clear): high nibble the event (046F), low nibble the MIDI channel
 E00D  var  sample_or_patch  u8              # what the note plays: a sample (6429 headers, 0B9C) on the RF5C68 or an fm_patches entry (load_fm_patch) on a YM3438; instrument header byte 1 (051D, 102C) or drum kit byte 3 (04E4, FF: no sound, 04E9)
@@ -298,6 +597,8 @@ field sequence_player 1B bank u8    # the sound ROM bank of the sequence data (p
 field sequence_player 20 playlist u16   # the next playlist byte (4883, stored back at 4896); 48E0 sets it (492C) to the byte after the first song
 
 # Parameters and results
+param allocate_sample_voice bc note_velocity      # C: the note on's velocity (play_midi_message keeps it in velocity_then_steal_low)
+param allocate_sample_voice ix part midi_part
 param apply_fm_channel_volume bc chip_channel
 param apply_fm_channel_volume hl level
 param apply_fm_channel_volume ix part midi_part
@@ -779,3 +1080,52 @@ local play_midi_message 0965,0A4D,0A69,0AA9,0B43,0B6A,1163 s10002 saved_value   
 local start_pcm_sample 0BCD s10003 saved_start_page  # D of the PUSH DE: the page the sample starts at (header byte 2); popped into HL as its address
 local start_pcm_sample 0BCD s10004 saved_start_offset  # E of the PUSH DE: 0
 local update_fm_modulation 1244 s10001 saved_count   # B of the PUSH BC: the caller's count of voices left
+
+# ======== unused code ========
+# Code the reset (0000) and the interrupt (0038) never lead to: routines nothing calls, decompiled like the
+# rest from their func lines (tools/z80/analysis.py). A function nothing calls takes every register it reads
+# as a parameter, hands back what its result lines say, and keeps its own copy of any code of another
+# function it runs into.
+
+# ---- the drum kit note on's voice scan, jumped over ----
+04ED  func  scan_drum_note_voices    # unused: the drum kit note on (play_midi_message) jumps over it to allocate_sample_voice (04EA JP 052B) from right where it would run on, with the MIDI note number still in B (049D): for note 2Ch it walks the 8 sample voices for one whose note is CAh and tests its bit 6 (sounding), but both ways of the test go on (0505 JP Z,0508, the next instruction), so nothing changes; then the sample voice set-up (052B-06EE: in the C a copy of play_midi_message's). uncertain what it was for: note 2Ch is 44, General MIDI's pedal hi-hat, which cuts an open hi-hat off; whatever it did to the voice is gone
+param scan_drum_note_voices bc note_and_velocity  # B the MIDI note number (049D), C the velocity (04AD), as the drum kit note on leaves them at 04EA
+param scan_drum_note_voices ix part midi_part     # the part the note is for, as in play_midi_message
+local scan_drum_note_voices 04F3,0509,050A r2 voice_field     # HL: the note of each sample voice (E402, then 12h further each)
+local scan_drum_note_voices 0502 r2 voice_field sample_voice  # HL two bytes back (0501-0502): the voice's flags, for the BIT 6 at 0503
+local scan_drum_note_voices 04F6 r1 voice_step                # DE: 12h, a sample_voice's size
+local scan_drum_note_voices 04F9,050B r11 voices_left         # B: the 8 sample voices (DJNZ at 050B)
+
+# ---- a MIDI port: an 8251 USART at ports F0 and F1 ----
+0D64  func  receive_midi_byte    # unused: one byte from the USART into midi_queue, as handle_midi_message reads it: waits while the status (MIDI_USART_CONTROL) has an error bit (38h: parity, overrun, framing), resetting them (reset_midi_errors); reads the data (MIDI_USART_DATA) without looking at RxRDY (status bit 1); F2h becomes 80h, the other bytes F0h-FFh are dropped; a status byte sets midi_in_bytes_left and midi_in_message_length to its message's length (3; 2 for C0h-DFh), a data byte with no message open starts one under running status (midi_in_message_length - 1 bytes); after a message's last byte midi_queue_count + 1
+0DB9  func  receive_midi_byte_spare_return_1   # unused: a lone RET after receive_midi_byte's last one (0DB8)
+0DBA  func  receive_midi_byte_spare_return_2   # unused: a second lone RET; send_midi_byte follows
+0DBB  func  send_midi_byte       # unused: C out to the USART (MIDI_USART_DATA) once its status says the transmitter is ready (bit 0, TxRDY); an error bit (38h) resets the errors (reset_midi_errors) and starts over; EX (SP),HL pairs as delays before the polling and before the write
+0DD6  func  reset_midi_errors    # unused (only receive_midi_byte and send_midi_byte call it): command 37h to the USART: error reset (bit 4), transmitter and receiver on, DTR and RTS; an EX (SP),HL pair after it (a delay); the LD A,A before it does nothing
+0DDE  func  init_midi_port       # unused: the 8251's software reset and set-up on MIDI_USART_CONTROL: 00h three times, then 40h (internal reset); mode 4Eh (asynchronous, clock / 16, 8 data bits, no parity, 1 stop bit: MIDI's frame); command 37h (as reset_midi_errors); an EX (SP),HL pair after each write (a delay)
+00F0  port  MIDI_USART_DATA      # the 8251 USART's data, as the unused MIDI port code uses it (receive_midi_byte, send_midi_byte); on System 32 nothing answers there (runtime/src/sound.c: reads FFh, writes go nowhere)
+00F1  port  MIDI_USART_CONTROL   # the USART's status when read (bit 0 TxRDY, bits 3-5 parity, overrun and framing errors) and its mode and commands when written (init_midi_port, reset_midi_errors), as the same code uses it; on System 32 only a byte that reads back what was written (runtime/src/sound.c; MAME's sound_dummy)
+E001  var   midi_in_bytes_left  u8   # the bytes of the message receive_midi_byte is taking in still to come: its length at a status byte (0DA0), midi_in_message_length - 1 for a data byte under running status (0D8E); one less a byte (0DB2), and at 0 the message is counted
+param send_midi_byte bc midi_byte                       # C: the byte to send (B is overwritten)
+local receive_midi_byte 0D70,0D77,0D94 r6 received      # A: the byte from MIDI_USART_DATA (80h for F2h); again at 0D94 for the status byte's compares
+local receive_midi_byte 0D7C r12 midi_byte              # C: the byte that goes into midi_queue
+local receive_midi_byte 0D7D r2 bytes_left_address      # HL: &midi_in_bytes_left
+local receive_midi_byte 0D92,0D9F r11 message_length    # B: a status byte's message length, 2, plus 1 below C0h and from E0h on
+local receive_midi_byte 0DA8 r14 write_index            # E: midi_queue_write, the byte's place in midi_queue (D = E1h)
+local receive_midi_byte 0DB2 t1 old_bytes_left          # midi_in_bytes_left before the DEC (HL) at 0DB2: 1 means the message is complete
+local send_midi_byte 0DBD r6 status                     # A: the USART's status
+local send_midi_byte 0DBF r11 status_copy               # B: the status again; RR B moves its bit 0 (TxRDY) into the carry
+
+# ---- the lowest of three sequence players ----
+4993  func  find_lowest_player   # unused: of the byte at HL and the same byte one and two pages on (HL + 100h, + 200h: the same field of three sequence_players), hands back in HL the address of the lowest (the first of equal ones; C the byte), kept in lowest_player_field; uncertain what for: probably the choice of the player a sound takes by their flags (0 when free, the priority in the low nibble: poll_sound_command) before select_channel_player, right after it, picked them by channel
+E770  var   lowest_player_field  u16   # find_lowest_player's: the address of the lowest byte so far (4996, 49A0), handed back from here (49A5)
+param find_lowest_player hl player_field     # in: the byte in the first of the three pages; handed back: the address of the lowest of the three
+result find_lowest_player hl player_field
+local find_lowest_player 4993,49A3 r11 players_left   # B: the two pages after the first (DJNZ at 49A3)
+local find_lowest_player 4995,499F r12 lowest         # C: the lowest byte so far
+local find_lowest_player 499A r6 byte                 # A: the byte in the next page
+
+# ---- a fixed FM frequency ----
+62E0  func  load_fixed_fm_frequency   # unused; uncertain: hands back HL = 03AEh, in the form step_fm_vibrato writes to registers A4 (H: block 0 and the F-number's high bits) and A0 (L): the F-number 3AEh, one of fm_fnum_tables' (14BEh); between step_fm_vibrato's register writes (62DF) and its countdowns (62E5)
+result load_fixed_fm_frequency hl fixed_frequency     # 03AEh
+local load_fixed_fm_frequency 62E4 r2 fixed_frequency # HL as the RET hands it back

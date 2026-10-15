@@ -613,6 +613,8 @@ const game_code_entry game_code[] =
 	{ 0x099530u, empty_vblank_hook },
 	{ 0x099531u, apply_video_registers },
 	{ 0x09A1E9u, swap_sprite_buffers },
+	{ 0x09A1FBu, swap_sprite_buffers_now },
+	{ 0x09A229u, cancel_sprite_buffer_swap },
 	{ 0x0FF500u, irq_vblank_start },
 	{ 0x0FF560u, irq_vblank_end },
 	{ 0x0FF578u, irq_sound },
@@ -620,7 +622,7 @@ const game_code_entry game_code[] =
 	{ 0x0FF59Cu, irq_timer1 },
 };
 
-const size_t game_code_count = 570;
+const size_t game_code_count = 572;
 
 /* the code at the reset vector */
 void game_entry(void)

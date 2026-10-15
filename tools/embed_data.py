@@ -4,16 +4,18 @@ Description: writes the game's data as C for the executable to carry: the board'
              from the player's ROM set
 Version:     0.1.0
 Created:     13-10-2026
-Modified:    13-10-2026
+Modified:    14-10-2026
 Author:      Sebastian Toyos
 
 Usage: python tools/embed_data.py [ROM folder or .zip] [output folder]
        (default: rom/, and build/cmake/data; a folder holding the set's .zip is read through the .zip)
 
-Writes program.c, tiles.c, sprites.c and sound.c, the arrays runtime/include/game/data.h declares, with
-the same bytes as the regions tools/sonic_rom.py builds. CMake runs it when the ROM set changes; the C it
-writes stays in the build folder, as the ROM never goes into the repository. The data comes from the ROM
-until the assets in assets/ can stand for it.
+Writes program.c, tiles.c, sprites.c and sound.c, the arrays runtime/include/game/data.h declares, laid
+out as the regions tools/sonic_rom.py builds. When assets/ holds the extraction of assets.json
+(extract_assets.py), every asset is built from its files and stands for its part of the ROM: what is
+changed there goes into the game; the code, which the C replaces, and what no asset holds come from the
+ROM set. Without the assets the data is the ROM set's as it is. CMake runs it when the ROM set or the
+assets change; the C it writes stays in the build folder, as the ROM never goes into the repository.
 """
 import sys
 from pathlib import Path
@@ -21,6 +23,8 @@ from pathlib import Path
 TOOLS = Path(__file__).resolve().parent
 ROOT = TOOLS.parent
 sys.path.insert(0, str(TOOLS))
+sys.path.insert(0, str(ROOT))
+import extract_assets  # noqa: E402
 import sonic_rom  # noqa: E402
 
 # file -> (array, builder)
@@ -64,6 +68,15 @@ def main():
     if not source.exists():
         raise SystemExit(f"{source}: no such ROM folder or file")
     rom = find_set(source)
+    manifest = extract_assets.load_manifest()
+    if extract_assets.assets_ready(manifest):
+        chips = sonic_rom.chips_from_regions(extract_assets.regions_from_assets(rom, manifest))
+        changed = sorted(name for name in rom if chips[name] != rom[name])
+        print(f"  data from assets/ ({len(changed)} chips differ from the ROM set"
+              + (f": {', '.join(changed)})" if changed else ")"))
+        rom = chips
+    else:
+        print("  data from the ROM set (assets/ does not hold this manifest's extraction)")
     out_dir.mkdir(parents=True, exist_ok=True)
     for file_name, (name, builder) in REGIONS.items():
         data = builder(rom)

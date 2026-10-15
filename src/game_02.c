@@ -1492,7 +1492,7 @@ void spawn_climb_zone_effect(uint32_t object)
 		OBJECT(object)->sprite_offset_x = 0;
 		OBJECT(object)->sprite_offset_y = 0;
 		OBJECT(object)->handler = climb_zone_effect_start_ADDRESS;
-		OBJECT(object)->animation = 0xE459u;
+		OBJECT(object)->animation = climb_zone_effect_animation_ADDRESS;
 		OBJECT(object)->animation_frame = 0u;
 		OBJECT(object)->animation_speed = 3u;
 		OBJECT(object)->animation_timer = 0;
@@ -1544,7 +1544,7 @@ void spawn_intro_marker(uint32_t object)
 		OBJECT(object)->sprite_offset_y = -0x50;
 		OBJECT(object)->sprite_offset_x = 8;
 		OBJECT(object)->handler = intro_marker_update_ADDRESS;
-		OBJECT(object)->animation = 0xE46Du;
+		OBJECT(object)->animation = intro_marker_animation_ADDRESS;
 		OBJECT(object)->animation_frame = 0u;
 		OBJECT(object)->animation_speed = 3u;
 		OBJECT(object)->animation_timer = 0;

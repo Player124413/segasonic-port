@@ -944,10 +944,10 @@ void run_game_mode(uint32_t r1, uint32_t r2, uint32_t r3, uint32_t r5, uint32_t 
 			if ((stage_select_init_flags & 0x40u) == 0u)
 			{
 				stage = 3u;
-				text = 0x255Au;
+				text = stage_select_mode_text_ADDRESS;
 				text_position = TEXT_CELL(14, 20);
 				print_text_here(&r0, &text, &text_position);
-				text = 0x256Du;
+				text = stage_number_text_ADDRESS;
 				text_position = TEXT_CELL(18, 21);
 				print_text_here(&r0, &text, &text_position);
 				player_number = 0u;
@@ -995,14 +995,14 @@ void run_game_mode(uint32_t r1, uint32_t r2, uint32_t r3, uint32_t r5, uint32_t 
 			game_mode = 2u;
 			stage_init_flags &= ~0x40u;
 			stage_start_kind = 1u;
-			text = 0x255Au;
+			text = stage_select_mode_text_ADDRESS;
 			text_position = TEXT_CELL(14, 20);
 			cell = 0u;
 			erase_text_here(cell, &text, &text_position);
-			text = 0x256Du;
+			text = stage_number_text_ADDRESS;
 			text_position = TEXT_CELL(18, 21);
 			erase_text_here(cell, &text, &text_position);
-			text = 0x256Du;
+			text = stage_number_text_ADDRESS;
 			text_position = TEXT_CELL(24, 21);
 			erase_text_here(cell, &text, &text_position);
 			*p_r4 = r4;
@@ -1134,7 +1134,7 @@ void run_game_mode(uint32_t r1, uint32_t r2, uint32_t r3, uint32_t r5, uint32_t 
 		case 14:
 			if (continue_count == 9u)
 			{
-				text = 0x25C2u;
+				text = continue_text_ADDRESS;
 				print_text(&text, &r11);
 			}
 			current_game_mode = 0xEu;
@@ -1198,7 +1198,7 @@ void run_game_mode(uint32_t r1, uint32_t r2, uint32_t r3, uint32_t r5, uint32_t 
 						rider_list = 0xFFFFu;
 						platform_list = 0xFFFFu;
 						zone_list = 0xFFFFu;
-						text = 0x25C2u;
+						text = continue_text_ADDRESS;
 						erase_text(text);
 						cell = 0u;
 						count_text = 0x25C4u;
@@ -1236,7 +1236,7 @@ void run_game_mode(uint32_t r1, uint32_t r2, uint32_t r3, uint32_t r5, uint32_t 
 				game_mode = 7u;
 				game_mode_timer = 0;
 			}
-			text = 0x25C2u;
+			text = continue_text_ADDRESS;
 			erase_text(text);
 			cell = 0u;
 			count_text = 0x25C4u;
@@ -1713,7 +1713,7 @@ void run_game_mode(uint32_t r1, uint32_t r2, uint32_t r3, uint32_t r5, uint32_t 
 						OBJECT(r11)->var_81 = 0u;
 						OBJECT(r11)->screen_x = cleared_banner_x;
 						OBJECT(r11)->screen_y = cleared_banner_y;
-						OBJECT(r11)->animation = 0x26F9u;
+						OBJECT(r11)->animation = cleared_banner_animation_ADDRESS;
 						OBJECT(r11)->animation_frame = 0xFFu;
 						OBJECT(r11)->animation_speed = 4u;
 						OBJECT(r11)->animation_timer = 4;
@@ -2388,7 +2388,7 @@ void run_game_mode(uint32_t r1, uint32_t r2, uint32_t r3, uint32_t r5, uint32_t 
 			}
 			if (game_mode_timer >= 0x78)
 			{
-				record = 0x25FAu;
+				record = you_failed_string_ADDRESS;
 				queue_string_record(record, (uint16_t)r1, r3, &r2, &r4);
 				mixer_sprite_control &= ~0x8000u;
 			}
@@ -2480,7 +2480,7 @@ game_mode_game_over:
 		draw_game_over_banner();
 	else
 	{
-		record = 0x25D0u;
+		record = game_over_string_ADDRESS;
 		queue_string_record(record, (uint16_t)r1, r3, &r2, &r4);
 	}
 	r1 = check_zones(r1);
@@ -2735,7 +2735,7 @@ void stage_clear_banner_hold(void)
 			OBJECT(object)->flags = 0u;
 			OBJECT(object)->handler = banner_letter_spin_ADDRESS;
 			OBJECT(object)->kind = (uint8_t)banner_letters_left;
-			OBJECT(object)->animation = 0x279Du;
+			OBJECT(object)->animation = banner_letter_animation_ADDRESS;
 			OBJECT(object)->animation_frame = 0xFFu;
 			OBJECT(object)->animation_timer = 0;
 			OBJECT(object)->animation_speed = 2u;
@@ -2807,7 +2807,7 @@ void banner_letter_spin(void)
 			OBJECT(object)->sprite_palette = 0x8990u;
 			OBJECT(object)->flags = 0u;
 			OBJECT(object)->handler = banner_sparkle_animate_ADDRESS;
-			OBJECT(object)->animation = 0x27BDu;
+			OBJECT(object)->animation = banner_sparkle_animation_ADDRESS;
 			OBJECT(object)->animation_frame = 0xFFu;
 			OBJECT(object)->animation_timer = 0;
 			OBJECT(object)->animation_speed = 2u;
@@ -8480,7 +8480,7 @@ void player_state_out_of_game(void)
 		text_position = 0x310000u | hud_name_positions_3p[player];
 		if ((cabinet_config & 1u) == 0u)
 			text_position = (text_position & ~0xFFFFu) | hud_name_positions_2p[player];
-		text = 0xCD2Fu;
+		text = hud_mighty_name_text_ADDRESS;
 		cell = 0u;
 		erase_text_here(cell, &text, &text_position);
 		text = hud_game_over_text_ADDRESS;

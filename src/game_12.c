@@ -11,6 +11,980 @@
  */
 #include "game.h"
 
+void load_settings(uint32_t crc)
+{
+	uint32_t ignored = 0;
+	uint8_t port_f_bits = 0;
+
+	eeprom_read_all(crc);
+	if (eeprom_magic == 0x53333241u)
+	{
+		if (eeprom_rom_stamp != (uint16_t)(rom_checksums + rom_checksum_ic8))
+		{
+			move_halfwords(setting_advertise_sound_ADDRESS, default_settings_ADDRESS, 0x19u);
+			port_f_bits = mem_read8(io_port_f);
+			mem_write8(moving_seat_dip, port_f_bits & 1u);
+			mem_write16(bookkeeping_rom_stamp, 0u);
+			eeprom_rom_stamp = rom_checksums + rom_checksum_ic8;
+			compute_eeprom_checksum(&crc, &ignored);
+			eeprom_checksum = crc;
+			eeprom_save(&ignored, &ignored);
+			return;
+		}
+		compute_eeprom_checksum(&crc, &ignored);
+		if ((uint16_t)crc == eeprom_checksum)
+		{
+			crc = compute_eeprom_backup_checksum();
+			if ((uint16_t)crc != eeprom_backup_checksum || (uint16_t)crc != eeprom_checksum)
+			{
+				eeprom_save(&ignored, &ignored);
+				return;
+			}
+			return;
+		}
+		crc = compute_eeprom_backup_checksum();
+		if ((uint16_t)crc == eeprom_backup_checksum)
+		{
+			move_halfwords(eeprom_magic_ADDRESS, eeprom_backup_ADDRESS, 0x20u);
+			eeprom_save(&ignored, &ignored);
+			return;
+		}
+		move_halfwords(setting_advertise_sound_ADDRESS, default_settings_ADDRESS, 0x19u);
+		port_f_bits = mem_read8(io_port_f);
+		mem_write8(moving_seat_dip, port_f_bits & 1u);
+		mem_write16(bookkeeping_rom_stamp, 0u);
+		eeprom_rom_stamp = rom_checksums + rom_checksum_ic8;
+		compute_eeprom_checksum(&crc, &ignored);
+		eeprom_checksum = crc;
+		eeprom_save(&ignored, &ignored);
+		return;
+	}
+	if (eeprom_magic != 0x41474553u)
+	{
+		move_halfwords(eeprom_magic_ADDRESS, eeprom_defaults_ADDRESS, 0x20u);
+		port_f_bits = mem_read8(io_port_f);
+		mem_write8(moving_seat_dip, port_f_bits & 1u);
+		mem_write16(bookkeeping_rom_stamp, 0u);
+		eeprom_rom_stamp = rom_checksums + rom_checksum_ic8;
+		compute_eeprom_checksum(&crc, &ignored);
+		eeprom_checksum = crc;
+		eeprom_save(&ignored, &ignored);
+		return;
+	}
+	move_halfwords(eeprom_magic_ADDRESS, eeprom_defaults_ADDRESS, 0x20u);
+	eeprom_write_count = 0x64u;
+	port_f_bits = mem_read8(io_port_f);
+	mem_write8(moving_seat_dip, port_f_bits & 1u);
+	mem_write16(bookkeeping_rom_stamp, 0u);
+	eeprom_rom_stamp = rom_checksums + rom_checksum_ic8;
+	compute_eeprom_checksum(&crc, &ignored);
+	eeprom_checksum = crc;
+	eeprom_save(&ignored, &ignored);
+}
+
+void eeprom_read_all_and_enable_interrupts(uint32_t data)
+{
+	eeprom_read_all(data);
+	interrupts_on();
+}
+
+void eeprom_read_all(uint32_t data)
+{
+	uint8_t command = 0;
+	uint32_t eeprom_words_left = 0, lines = 0, port_d = 0, port_f = 0, word_dest = 0;
+
+	word_dest = eeprom_magic_ADDRESS;
+	command = 0x80u;
+	eeprom_words_left = 0x40u;
+	eeprom_select(&lines, &port_f, &port_d);
+	do
+	{
+		eeprom_read_word(command, port_f, port_d, &data, &lines);
+		command++;
+		mem_write16(word_dest, data);
+		eeprom_words_left--;
+		word_dest += 2u;
+	} while (eeprom_words_left != 0u);
+}
+
+void eeprom_write_word_at(uint16_t data, uint8_t command)
+{
+	uint32_t lines = 0, port_d = 0, port_f = 0;
+
+	command |= 0x40u;
+	eeprom_select(&lines, &port_f, &port_d);
+	eeprom_write_word(data, lines, command, port_f, port_d);
+	interrupts_on();
+}
+
+void eeprom_save_and_lock(uint32_t *p_command, uint32_t *p_words_left)
+{
+	uint32_t command = 0, words_left = 0;
+
+	eeprom_save(&command, &words_left);
+	eeprom_lock();
+	*p_command = command;
+	*p_words_left = words_left;
+}
+
+void eeprom_save(uint32_t *p_command, uint32_t *p_words_left)
+{
+	uint16_t data = 0;
+	uint32_t command = 0, crc = 0, ignored = 0, lines = 0, polynomial = 0, port_d = 0, port_f = 0, word_source = 0, words_left = 0;
+
+	eeprom_write_count++;
+	compute_eeprom_checksum(&crc, &polynomial);
+	eeprom_checksum = crc;
+	move_halfwords(eeprom_backup_ADDRESS, eeprom_magic_ADDRESS, 0x20u);
+	command = (polynomial & ~0xFFu) | 0x30u;
+	eeprom_select(&lines, &ignored, &port_d);
+	eeprom_send_command(lines, (uint8_t)command, port_d);
+	word_source = eeprom_magic_ADDRESS;
+	command = (command & ~0xFFu) | 0x40u;
+	words_left = 0x40u;
+	eeprom_select(&lines, &port_f, &port_d);
+	do
+	{
+		data = mem_read16(word_source);
+		word_source += 2u;
+		lines = eeprom_write_word(data, lines, (uint8_t)command, port_f, port_d);
+		command = (command & ~0xFFu) | (uint8_t)(command + 1u);
+		words_left--;
+	} while (words_left != 0u);
+	*p_command = command;
+	*p_words_left = words_left;
+}
+
+void eeprom_read_word(uint8_t command, uint32_t port_f, uint32_t port_d, uint32_t *p_data, uint32_t *p_lines)
+{
+	uint32_t data = *p_data;
+	uint32_t lines = *p_lines;
+	uint32_t bits_left = 0;
+
+	lines = eeprom_send_command(lines, command, port_d);
+	lines = (lines & 0x3Fu) | 0x20u;
+	bits_left = 0x12u;
+	do
+	{
+		data = eeprom_set_lines(data, (uint8_t)lines, port_d);
+		data = ((data & ~0xFFu) | mem_read8(port_f)) * 2u;
+		lines = lines ^ 0x40u;
+		data = eeprom_set_lines(data, (uint8_t)lines, port_d);
+		lines = lines ^ 0x40u;
+		bits_left--;
+	} while (bits_left != 0u);
+	lines = eeprom_deselect(lines, port_d);
+	data = data >> 9;
+	*p_data = data;
+	*p_lines = (*p_lines & 0xFFFFFF00u) | (lines & 0xFFu);
+}
+
+uint32_t eeprom_write_word(uint32_t data, uint32_t lines, uint8_t command, uint32_t port_f, uint32_t port_d)
+{
+	uint16_t data_bits = 0;
+	uint32_t clocks_left = 0;
+
+	data_bits = (uint16_t)data;
+	lines = eeprom_send_command(lines, command, port_d);
+	data_bits = (uint16_t)(((uint32_t)data_bits << 8) | (data_bits >> 8));
+	clocks_left = 0x10u;
+	do
+	{
+		data = (data & ~0xFFu) | (uint8_t)data_bits;
+		data = (data & ~0xFFu) | (data & 0x80u);
+		data_bits = (uint16_t)(((uint32_t)data_bits << 1) | (data_bits >> 15));
+		lines = ((lines & ~0xFFu) | (lines & 0x1Fu)) + 0x20u + data;
+		data = eeprom_set_lines(data, (uint8_t)lines, port_d);
+		lines = (lines & ~0xFFu) | (uint8_t)(lines ^ 0x40u);
+		data = eeprom_set_lines(data, (uint8_t)lines, port_d);
+		clocks_left--;
+	} while (clocks_left != 0u);
+	clocks_left = 2u;
+	do
+	{
+		lines = (lines & ~0xFFu) | (lines & 0x1Fu);
+		data = eeprom_set_lines(data, (uint8_t)lines, port_d);
+		lines = (lines & ~0xFFu) | (uint8_t)(lines ^ 0x40u);
+		data = eeprom_set_lines(data, (uint8_t)lines, port_d);
+		clocks_left--;
+	} while (clocks_left != 0u);
+	lines = (lines & ~0xFFu) | (lines & 0x1Fu);
+	do
+	{
+		lines = (lines & ~0xFFu) | (uint8_t)(lines | 0x20u);
+		eeprom_set_lines(data, (uint8_t)lines, port_d);
+		data = mem_read8(port_f);
+		lines = (lines & ~0xFFu) | (uint8_t)(lines ^ 0x40u);
+		data = eeprom_set_lines(data, (uint8_t)lines, port_d);
+	} while ((int8_t)data >= 0);
+	lines = eeprom_deselect(lines, port_d);
+	return lines;
+}
+
+uint32_t eeprom_send_command(uint32_t lines, uint8_t command, uint32_t port_d)
+{
+	uint8_t command_bits = 0;
+	uint32_t bits_left = 0, data = 0, data_bit = 0;
+
+	command_bits = (uint8_t)command;
+	lines = (lines & ~0xFFu) | (lines & 0x1Fu);
+	data = eeprom_set_lines(0u, (uint8_t)lines, port_d);
+	lines = (lines & ~0xFFu) | (uint8_t)(lines ^ 0x40u);
+	data = eeprom_set_lines(data, (uint8_t)lines, port_d);
+	lines = (lines & ~0xFFu) | (uint8_t)(lines ^ 0x60u);
+	data = eeprom_set_lines(data, (uint8_t)lines, port_d);
+	lines = (lines & ~0xFFu) | (uint8_t)(lines ^ 0x40u);
+	data = eeprom_set_lines(data, (uint8_t)lines, port_d);
+	lines = (lines & ~0xFFu) | (uint8_t)(lines ^ 0xC0u);
+	data = eeprom_set_lines(data, (uint8_t)lines, port_d);
+	lines = (lines & ~0xFFu) | (uint8_t)(lines ^ 0x40u);
+	eeprom_set_lines(data, (uint8_t)lines, port_d);
+	bits_left = 8u;
+	do
+	{
+		data_bit = command_bits;
+		command_bits = (uint8_t)(command_bits * 2u);
+		data_bit = data_bit & 0x80u;
+		lines = (lines & ~0xFFu) | (lines & 0x3Fu);
+		lines = (lines & ~0xFFu) | (uint8_t)(lines | data_bit);
+		data_bit = eeprom_set_lines(data_bit, (uint8_t)lines, port_d);
+		lines = (lines & ~0xFFu) | (uint8_t)(lines ^ 0x40u);
+		eeprom_set_lines(data_bit, (uint8_t)lines, port_d);
+		bits_left--;
+	} while (bits_left != 0u);
+	return lines;
+}
+
+void eeprom_select(uint32_t *p_lines, uint32_t *p_port_f, uint32_t *p_port_d)
+{
+	uint8_t lines = 0;
+	uint32_t port_d = 0, port_f = 0;
+
+	port_d = io_port_d;
+	port_f = io_port_f;
+	lines = mem_read8(io_port_d);
+	interrupts_off();
+	*p_lines = (*p_lines & 0xFFFFFF00u) | lines;
+	*p_port_f = port_f;
+	*p_port_d = port_d;
+}
+
+uint32_t compute_eeprom_backup_checksum(void)
+{
+	uint32_t crc = 0, ignored = 0;
+
+	current_object = 0x20F64Au;
+	compute_eeprom_crc(&crc, &ignored);
+	return crc;
+}
+
+void compute_eeprom_checksum(uint32_t *p_crc, uint32_t *p_polynomial)
+{
+	uint32_t r4 = 0, crc = 0;
+
+	current_object = eeprom_write_count_ADDRESS;
+	compute_eeprom_crc(&crc, &r4);
+	*p_crc = crc;
+	*p_polynomial = r4;
+}
+
+void compute_eeprom_crc(uint32_t *p_crc, uint32_t *p_polynomial)
+{
+	uint32_t carry = 0;
+	uint32_t bits_left = 0, crc = 0, polynomial = 0;
+
+	free_objects = 0x36u;
+	polynomial = 0x10210000u;
+	crc = 0xDEBDEB00u;
+	do
+	{
+		crc = (crc & ~0xFFu) | mem_read8(current_object);
+		bits_left = 8u;
+		current_object = current_object + 1u;
+		do
+		{
+			carry = crc * 2u < crc;
+			crc = crc * 2u;
+			if (carry)
+				crc ^= polynomial;
+			bits_left--;
+		} while (bits_left != 0u);
+		free_objects = free_objects - 1u;
+	} while (free_objects != 0u);
+	bits_left = 8u;
+	do
+	{
+		carry = crc * 2u < crc;
+		crc = crc * 2u;
+		if (carry)
+			crc ^= polynomial;
+		bits_left--;
+	} while (bits_left != 0u);
+	crc = crc >> 16;
+	*p_crc = crc;
+	*p_polynomial = polynomial;
+}
+
+uint32_t eeprom_deselect(uint32_t lines, uint32_t port_d)
+{
+	uint32_t data = 0;
+
+	lines = (lines & ~0xFFu) | (lines & 0x1Fu);
+	data = eeprom_set_lines(0u, (uint8_t)lines, port_d);
+	return lines;
+}
+
+uint32_t eeprom_set_lines(uint32_t data, uint8_t lines, uint32_t port_d)
+{
+	mem_write8(port_d, lines);
+	return data;
+}
+
+void start_test_mode(uint32_t *p_color, uint32_t *p_blocks_per_row)
+{
+	uint32_t color = *p_color;
+	uint32_t blocks_per_row = *p_blocks_per_row;
+	uint8_t is_8bpp = 0, mode = 0, sound_id = 0;
+	uint16_t scroll_x = 0;
+	uint32_t r0 = 0, r8 = 0, r10 = 0, ignored = 0, inner_count = 0, scroll_y = 0;
+	uint8_t cnt_bits = 0, port_d_bits = 0, seat_port_bits = 0;
+
+	cnt_bits = mem_read8(io_cnt);
+	mem_write8(io_cnt, cnt_bits & ~2u);
+	show_eeprom_write_count = 0u;
+	if ((0x1001u & input_ports_active) != 0u)
+		show_eeprom_write_count = 1u;
+	display_off_frames = 0x14u;
+	load_default_palettes();
+	init_video_registers();
+	init_sprites(&r0, &r10);
+	init_sound();
+	port_d_bits = mem_read8(io_port_d);
+	mem_write8(io_port_d, port_d_bits & ~8u);
+	sound_id = 0x94u;
+	queue_sound(sound_id, &ignored, &ignored);
+	r8 = wait_for_frames();
+	reset_objects(&ignored, &ignored);
+	clear_sprite_buckets();
+	mode = 0u;
+	set_screen_mode(mode);
+	clear_text_layer(&r0, &ignored, &ignored);
+	clear_bitmap_layer((uint8_t)r0, &scroll_y, &color, &inner_count, &r8, &blocks_per_row, &r10);
+	mem_write16(video_layer_disable, 0xFu);
+	scroll_x = 0u;
+	scroll_y &= ~0xFFFFu;
+	is_8bpp = 1u;
+	set_bitmap_scroll(scroll_x, (uint16_t)scroll_y, is_8bpp);
+	test_mode = 0xFFu;
+	test_screen = 0u;
+	test_cursor = 0u;
+	test_continue_mode = 0u;
+	test_screen_ready = 0u;
+	seat_port_bits = mem_read8(io_port_d);
+	mem_write8(io_port_d, seat_port_bits & ~0xCu);
+	color_offset_red = 0u;
+	color_offset_blue = 0u;
+	color_offset_green = 0u;
+	color_offset_2_red = 0u;
+	color_offset_2_blue = 0u;
+	color_offset_2_green = 0u;
+	backup_clear_timer = 0u;
+	mem_write16(mixer_bitmap, 0x21u);
+	mem_write32(video_control, mem_read32(video_control) | 0x800u);
+	fill_value = (fill_value & ~0xFFFFu) | 0x909u;
+	set_halfwords(VIDEO_RAM, 0xE000u, fill_value);
+	run_test_mode(scroll_y, (uint16_t)r8, &color, &blocks_per_row);
+	*p_color = color;
+	*p_blocks_per_row = blocks_per_row;
+}
+
+void run_test_mode(uint32_t pressed, uint16_t count, uint32_t *p_color, uint32_t *p_blocks_per_row)
+{
+	uint32_t color = *p_color;
+	uint32_t blocks_per_row = *p_blocks_per_row;
+
+	switch (test_screen)
+	{
+	case 0:
+		test_menu();
+		break;
+	case 1:
+		toggle_test_continue_mode();
+		break;
+	case 2:
+		test_memory(&color, &blocks_per_row);
+		break;
+	case 3:
+		test_inputs(count, &color, &blocks_per_row);
+		break;
+	case 4:
+		test_sound();
+		break;
+	case 5:
+		test_crt(pressed, &color, &blocks_per_row);
+		break;
+	case 6:
+		test_game_assignments(&color, &blocks_per_row);
+		break;
+	case 7:
+		color = test_coin_assignments(color);
+		break;
+	case 8:
+		test_bookkeeping();
+		break;
+	case 9:
+		color = test_backup_clear(color);
+		break;
+	case 10:
+		test_outputs();
+		break;
+	case 11:
+		exit_test_mode();
+		break;
+	case 12:
+		test_menu();
+		break;
+	default:
+		unknown_code(0x9CA0Eu + test_screen * 3u);
+	}
+	*p_color = color;
+	*p_blocks_per_row = blocks_per_row;
+}
+
+void test_menu(void)
+{
+	uint32_t cursor_entry = 0, cursor_positions = 0, ignored = 0;
+
+	cursor_positions = test_menu_cursor_positions_ADDRESS;
+	erase_test_cursor(cursor_positions);
+	if (test_screen_ready == 0u)
+	{
+		test_screen_ready++;
+		clear_text_layer(&ignored, &ignored, &ignored);
+		test_cursor = 0xAu;
+		draw_test_menu();
+		return;
+	}
+	if ((inputs_pressed & 1u) != 0u || (inputs_pressed & 0x1000u) != 0u)
+	{
+		test_cursor++;
+		if (mem_read8(moving_seat_dip) == 0u && test_cursor == 9u)
+			test_cursor++;
+	}
+	for (;;)
+	{
+		cursor_entry = test_menu_cursor_positions_ADDRESS + ((uint32_t)test_cursor << 1);
+		if ((int8_t)ROM8(cursor_entry) >= 0)
+			break;
+		test_cursor = 0u;
+	}
+	test_cursor_column = ROM8(cursor_entry);
+	test_cursor_row = ROM8(cursor_entry + 1u);
+	blink_test_cursor();
+	if ((inputs_pressed & 2u) != 0u || (inputs_pressed & 0x2000u) != 0u)
+	{
+		test_screen = test_cursor;
+		test_screen++;
+		test_menu_item = test_cursor;
+		test_screen_ready = 0u;
+	}
+}
+
+void draw_test_menu(void)
+{
+	uint16_t attribute = 0;
+	uint32_t ignored = 0, print_position = 0, text = 0, write_count_bcd = 0;
+
+	test_cursor_positions = test_menu_cursor_positions_ADDRESS;
+	clear_text_layer(&ignored, &ignored, &print_position);
+	if (show_eeprom_write_count != 0u)
+	{
+		write_count_bcd = AS16(eeprom_write_count);
+		convert_to_bcd(&write_count_bcd, &ignored);
+		write_count_bcd &= 0xFFFFFu;
+		print_position = TEXT_CELL(31, 26);
+		attribute = 0x1C00u;
+		draw_hex_8(write_count_bcd, attribute, print_position);
+	}
+	text = test_menu_text_ADDRESS;
+	print_text_list(&text, &print_position);
+	if (mem_read8(moving_seat_dip) != 0u)
+	{
+		text = test_menu_output_test_text_ADDRESS;
+		print_text_list(&text, &print_position);
+	}
+}
+
+void toggle_test_continue_mode(void)
+{
+	uint32_t text = 0, text_position = 0;
+
+	text = individual_mode_text_ADDRESS;
+	test_continue_mode = ~test_continue_mode;
+	if (test_continue_mode != 0u)
+		text = continue_mode_text_ADDRESS;
+	print_text_list(&text, &text_position);
+	test_screen = 0u;
+	test_screen_ready = 1u;
+}
+
+void test_memory(uint32_t *p_results_left, uint32_t *p_blocks_per_row)
+{
+	uint32_t results_left = *p_results_left;
+	uint32_t blocks_per_row = *p_blocks_per_row;
+	uint8_t is_8bpp = 0, mode = 0;
+	uint16_t scroll_x = 0, scroll_y = 0;
+	uint32_t r0 = 0, r4 = 0, r5 = 0, r10 = 0, r11 = 0, delay_count = 0, ignored = 0, offset_entry = 0, result_index = 0, row_pairs_left = 0, text = 0;
+	uint8_t cnt_bits = 0;
+
+	if (test_screen_ready == 0u)
+	{
+		interrupts_off();
+		test_screen_ready++;
+		clear_text_layer(&ignored, &ignored, &r11);
+		text = memory_test_text_ADDRESS;
+		print_text_list(&text, &r11);
+		text = memory_test_dashes_text_ADDRESS;
+		print_text_list(&text, &r11);
+		memory_test_errors = 0u;
+		mem_write8(sound_cpu_hold, 1u);
+		delay_count = 0x1000u;
+		do
+		{
+			delay_count--;
+		} while (delay_count != 0u);
+		check_rom_checksums();
+		test_work_ram();
+		test_video_ram();
+		test_sprite_ram();
+		test_palette_ram();
+		test_sound_ram();
+		cnt_bits = mem_read8(io_cnt);
+		mem_write8(io_cnt, cnt_bits & ~2u);
+		interrupts_on();
+		display_off_frames = 0x78u;
+		delay_count = 0x3Cu;
+		do
+		{
+			delay_count--;
+		} while (delay_count != 0u);
+		load_default_palettes();
+		load_text_font(&r4, &r5);
+		init_video_registers();
+		reset_objects(&ignored, &ignored);
+		init_sound();
+		init_sprites(&ignored, &r10);
+		clear_sprite_buckets();
+		mode = 0u;
+		set_screen_mode(mode);
+		clear_text_layer(&r0, &ignored, &r11);
+		clear_bitmap_layer((uint8_t)r0, &ignored, &r4, &r5, &row_pairs_left, &blocks_per_row, &r10);
+		mem_write16(video_layer_disable, 0xFu);
+		scroll_x = 0u;
+		scroll_y = 0u;
+		is_8bpp = 1u;
+		set_bitmap_scroll(scroll_x, scroll_y, is_8bpp);
+		mem_write32(video_control, mem_read32(video_control) | 0x800u);
+		fill_value = (fill_value & ~0xFFFFu) | 0x909u;
+		set_halfwords(VIDEO_RAM, 0xE000u, fill_value);
+		color_offset_red = 0u;
+		color_offset_blue = 0u;
+		color_offset_green = 0u;
+		color_offset_2_red = 0u;
+		color_offset_2_blue = 0u;
+		color_offset_2_green = 0u;
+		text = memory_test_text_ADDRESS;
+		print_text_list(&text, &r11);
+		text = memory_test_done_text_ADDRESS;
+		print_text_list(&text, &r11);
+		text = memory_test_dashes_text_ADDRESS;
+		print_text_list(&text, &r11);
+		if (memory_test_errors != 0u)
+		{
+			text = memory_test_error_text_ADDRESS;
+			print_text_list(&text, &r11);
+		}
+		results_left = 0x13u;
+		result_index = 0u;
+		do
+		{
+			offset_entry = memory_test_good_offsets_ADDRESS + result_index * 2u;
+			if ((memory_test_errors & shl32(1u, (int)(result_index))) != 0u)
+				offset_entry = memory_test_bad_offsets_ADDRESS + result_index * 2u;
+			blocks_per_row = memory_test_result_texts_ADDRESS;
+			text = ROM16(offset_entry) + memory_test_result_texts_ADDRESS;
+			print_text_list(&text, &r11);
+			result_index = (uint8_t)(result_index + 1u);
+			results_left--;
+		} while (results_left != 0u);
+	}
+	if ((0x2002u & inputs_pressed) == 0u)
+	{
+		*p_results_left = results_left;
+		*p_blocks_per_row = blocks_per_row;
+		return;
+	}
+	if (test_continue_mode != 0u)
+	{
+		test_screen++;
+		test_screen_ready = 0u;
+		*p_results_left = results_left;
+		*p_blocks_per_row = blocks_per_row;
+		return;
+	}
+	test_cursor = test_menu_item;
+	test_screen = 0u;
+	test_screen_ready = 1u;
+	draw_test_menu();
+	*p_results_left = results_left;
+	*p_blocks_per_row = blocks_per_row;
+}
+
+void check_rom_checksums(void)
+{
+	uint32_t count = 0, crc = 0, data = 0, ignored = 0, stored_crc = 0;
+	uint16_t ic8_crc = 0, ic18_crc = 0;
+
+	data = 0u;
+	count = 0x20000u;
+	compute_crc16(count, &crc, &data, &ignored);
+	stored_crc = rom_checksum_ic8_ADDRESS;
+	if ((uint16_t)crc != rom_checksums)
+		memory_test_errors |= 1u;
+	data = 0x80000u;
+	count = 0x1F000u;
+	compute_crc16(count, &crc, &data, &ignored);
+	ic8_crc = ROM16(stored_crc);
+	stored_crc += 2u;
+	if ((uint16_t)crc != ic8_crc)
+		memory_test_errors |= 4u;
+	data = 0x100000u;
+	count = 0x40000u;
+	crc = compute_crc16_alternate_bytes(data, count);
+	ic18_crc = ROM16(stored_crc);
+	stored_crc += 2u;
+	if ((uint16_t)crc != ic18_crc)
+		memory_test_errors |= 2u;
+	data = 0x100001u;
+	count = 0x3FFFFu;
+	crc = compute_crc16_alternate_bytes(data, count);
+	if ((uint16_t)crc != ROM16(stored_crc))
+		memory_test_errors |= 8u;
+}
+
+void test_work_ram(void)
+{
+	uint32_t bytes_left = 0, passes_left = 0, pattern = 0, pattern_index = 0, ram_cursor = 0;
+	uint8_t expected = 0, actual = 0;
+
+	move_bytes(VIDEO_RAM, WORK_RAM, 0x10000u);
+	ram_cursor = 0x200000u;
+	passes_left = 0x42u;
+	do
+	{
+		pattern_index = 4u;
+		do
+		{
+			pattern = ram_test_patterns[pattern_index];
+			bytes_left = 0xF9u;
+			do
+			{
+				mem_write8(ram_cursor, ROM8(pattern));
+				pattern++;
+				ram_cursor++;
+				if ((int32_t)ram_cursor >= 0x210000)
+					goto test_work_ram_verify;
+				bytes_left--;
+			} while (bytes_left != 0u);
+			pattern_index--;
+		} while (pattern_index != 0u);
+		passes_left--;
+	} while (passes_left != 0u);
+test_work_ram_verify:
+	ram_cursor = 0x200000u;
+	passes_left = 0x42u;
+	do
+	{
+		pattern_index = 4u;
+		do
+		{
+			pattern = ram_test_patterns[pattern_index];
+			bytes_left = 0xF9u;
+			do
+			{
+				expected = ROM8(pattern);
+				actual = mem_read8(ram_cursor);
+				pattern++;
+				ram_cursor++;
+				if (actual != expected)
+				{
+					if ((ram_cursor & 1u) != 0u)
+						mem_write32(memory_test_video_word, mem_read32(memory_test_video_word) | 0x20u);
+					else
+						mem_write32(memory_test_video_word, mem_read32(memory_test_video_word) | 0x40u);
+				}
+				if ((int32_t)ram_cursor >= 0x210000)
+				{
+					move_bytes(WORK_RAM, VIDEO_RAM, 0x10000u);
+					return;
+				}
+				bytes_left--;
+			} while (bytes_left != 0u);
+			pattern_index--;
+		} while (pattern_index != 0u);
+		passes_left--;
+	} while (passes_left != 0u);
+	move_bytes(WORK_RAM, VIDEO_RAM, 0x10000u);
+}
+
+void test_video_ram(void)
+{
+	uint32_t bytes_left = 0, passes_left = 0, pattern = 0, pattern_index = 0, ram_cursor = 0;
+	uint8_t expected = 0, actual = 0;
+
+	ram_cursor = 0x300000u;
+	passes_left = 0x84u;
+	do
+	{
+		pattern_index = 4u;
+		do
+		{
+			pattern = ram_test_patterns[pattern_index];
+			bytes_left = 0xF9u;
+			do
+			{
+				mem_write8(ram_cursor, ROM8(pattern));
+				ram_cursor++;
+				pattern++;
+				if ((int32_t)ram_cursor >= 0x320000)
+					goto test_video_ram_verify;
+				bytes_left--;
+			} while (bytes_left != 0u);
+			pattern_index--;
+		} while (pattern_index != 0u);
+		passes_left--;
+	} while (passes_left != 0u);
+test_video_ram_verify:
+	ram_cursor = 0x300000u;
+	passes_left = 0x84u;
+	do
+	{
+		pattern_index = 4u;
+		do
+		{
+			pattern = ram_test_patterns[pattern_index];
+			bytes_left = 0xF9u;
+			do
+			{
+				expected = ROM8(pattern);
+				actual = mem_read8(ram_cursor);
+				ram_cursor++;
+				pattern++;
+				if (actual != expected)
+				{
+					if ((ram_cursor & 1u) != 0u)
+					{
+						if ((mem_read8(ram_cursor - 1u) & 0xFu) != (mem_read8(pattern - 1u) & 0xFu))
+							memory_test_errors |= 0x10000u;
+						if ((mem_read8(ram_cursor - 1u) & ~0xFu) != (mem_read8(pattern - 1u) & ~0xFu))
+							memory_test_errors |= 0x8000u;
+					}
+					if ((mem_read8(ram_cursor - 1u) & 0xFu) != (mem_read8(pattern - 1u) & 0xFu))
+						memory_test_errors |= 0x4000u;
+					if ((mem_read8(ram_cursor - 1u) & ~0xFu) != (mem_read8(pattern - 1u) & ~0xFu))
+						memory_test_errors |= 0x2000u;
+				}
+				if ((int32_t)ram_cursor >= 0x320000)
+					return;
+				bytes_left--;
+			} while (bytes_left != 0u);
+			pattern_index--;
+		} while (pattern_index != 0u);
+		passes_left--;
+	} while (passes_left != 0u);
+}
+
+void test_sprite_ram(void)
+{
+	uint32_t bytes_left = 0, passes_left = 0, pattern = 0, pattern_index = 0, ram_cursor = 0;
+	uint8_t expected = 0, actual = 0;
+
+	ram_cursor = 0x400000u;
+	passes_left = 0x84u;
+	do
+	{
+		pattern_index = 4u;
+		do
+		{
+			pattern = ram_test_patterns[pattern_index];
+			bytes_left = 0xF9u;
+			do
+			{
+				mem_write8(ram_cursor, ROM8(pattern));
+				ram_cursor++;
+				pattern++;
+				if ((int32_t)ram_cursor >= 0x420000)
+					goto test_sprite_ram_verify;
+				bytes_left--;
+			} while (bytes_left != 0u);
+			pattern_index--;
+		} while (pattern_index != 0u);
+		passes_left--;
+	} while (passes_left != 0u);
+test_sprite_ram_verify:
+	ram_cursor = 0x400000u;
+	passes_left = 0x84u;
+	do
+	{
+		pattern_index = 4u;
+		do
+		{
+			pattern = ram_test_patterns[pattern_index];
+			bytes_left = 0xF9u;
+			do
+			{
+				expected = ROM8(pattern);
+				actual = mem_read8(ram_cursor);
+				ram_cursor++;
+				pattern++;
+				if (actual != expected)
+				{
+					if ((ram_cursor & 1u) != 0u)
+					{
+						if ((mem_read8(ram_cursor - 1u) & 0xFu) != (mem_read8(pattern - 1u) & 0xFu))
+							memory_test_errors |= 0x1000u;
+						if ((mem_read8(ram_cursor - 1u) & ~0xFu) != (mem_read8(pattern - 1u) & ~0xFu))
+							memory_test_errors |= 0x800u;
+					}
+					if ((mem_read8(ram_cursor - 1u) & 0xFu) != (mem_read8(pattern - 1u) & 0xFu))
+						memory_test_errors |= 0x400u;
+					if ((mem_read8(ram_cursor - 1u) & ~0xFu) != (mem_read8(pattern - 1u) & ~0xFu))
+						memory_test_errors |= 0x200u;
+				}
+				if ((int32_t)ram_cursor >= 0x420000)
+					return;
+				bytes_left--;
+			} while (bytes_left != 0u);
+			pattern_index--;
+		} while (pattern_index != 0u);
+		passes_left--;
+	} while (passes_left != 0u);
+}
+
+void test_palette_ram(void)
+{
+	uint32_t halfwords_left = 0, passes_left = 0, pattern = 0, pattern_index = 0, ram_cursor = 0;
+	uint16_t expected_first = 0, actual_first = 0, expected_second = 0, actual_second = 0;
+
+	ram_cursor = 0x600000u;
+	passes_left = 8u;
+	do
+	{
+		pattern_index = 4u;
+		do
+		{
+			pattern = ram_test_patterns[pattern_index];
+			halfwords_left = 0xF9u;
+			do
+			{
+				mem_write16(ram_cursor, ROM16(pattern));
+				ram_cursor += 2u;
+				pattern += 2u;
+				if ((int32_t)ram_cursor >= 0x604000)
+					goto test_palette_ram_verify_first_half;
+				halfwords_left--;
+			} while (halfwords_left != 0u);
+			pattern_index--;
+		} while (pattern_index != 0u);
+		passes_left--;
+	} while (passes_left != 0u);
+test_palette_ram_verify_first_half:
+	ram_cursor = 0x600000u;
+	passes_left = 8u;
+	do
+	{
+		pattern_index = 4u;
+		do
+		{
+			pattern = ram_test_patterns[pattern_index];
+			halfwords_left = 0xF9u;
+			do
+			{
+				expected_first = ROM16(pattern);
+				actual_first = mem_read16(ram_cursor);
+				ram_cursor += 2u;
+				pattern += 2u;
+				if (actual_first != expected_first)
+				{
+					if ((mem_read16(ram_cursor - 2u) & 0xFFu) != (mem_read16(pattern - 2u) & 0xFFu))
+						memory_test_errors |= 0x100u;
+					if ((mem_read16(ram_cursor - 2u) & ~0xFFu) != (mem_read16(pattern - 2u) & ~0xFFu))
+						memory_test_errors |= 0x80u;
+				}
+				if ((int32_t)ram_cursor >= 0x604000)
+					goto test_palette_ram_fill_second_half;
+				halfwords_left--;
+			} while (halfwords_left != 0u);
+			pattern_index--;
+		} while (pattern_index != 0u);
+		passes_left--;
+	} while (passes_left != 0u);
+test_palette_ram_fill_second_half:
+	ram_cursor = PALETTE_RAM + 0x4000u;
+	passes_left = 8u;
+	do
+	{
+		pattern_index = 4u;
+		do
+		{
+			pattern = ram_test_patterns[pattern_index];
+			halfwords_left = 0xF9u;
+			do
+			{
+				mem_write16(ram_cursor, ROM16(pattern));
+				ram_cursor += 2u;
+				pattern += 2u;
+				if ((int32_t)ram_cursor >= 0x608000)
+					goto test_palette_ram_verify_second_half;
+				halfwords_left--;
+			} while (halfwords_left != 0u);
+			pattern_index--;
+		} while (pattern_index != 0u);
+		passes_left--;
+	} while (passes_left != 0u);
+test_palette_ram_verify_second_half:
+	ram_cursor = PALETTE_RAM + 0x4000u;
+	passes_left = 8u;
+	do
+	{
+		pattern_index = 4u;
+		do
+		{
+			pattern = ram_test_patterns[pattern_index];
+			halfwords_left = 0xF9u;
+			do
+			{
+				expected_second = ROM16(pattern);
+				actual_second = mem_read16(ram_cursor);
+				ram_cursor += 2u;
+				pattern += 2u;
+				if (actual_second != expected_second)
+				{
+					if ((mem_read16(ram_cursor - 2u) & 0xFFu) != (mem_read16(pattern - 2u) & 0xFFu))
+						memory_test_errors |= 0x40000u;
+					if ((mem_read16(ram_cursor - 2u) & ~0xFFu) != (mem_read16(pattern - 2u) & ~0xFFu))
+						memory_test_errors |= 0x20000u;
+				}
+				if ((int32_t)ram_cursor >= 0x608000)
+					return;
+				halfwords_left--;
+			} while (halfwords_left != 0u);
+			pattern_index--;
+		} while (pattern_index != 0u);
+		passes_left--;
+	} while (passes_left != 0u);
+}
+
 void test_sound_ram(void)
 {
 	uint32_t bytes_left = 0, passes_left = 0, pattern = 0, pattern_index = 0, ram_cursor = 0;

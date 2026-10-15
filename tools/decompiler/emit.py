@@ -4,7 +4,7 @@ Description: writes the decompiled functions as C: one C function per V60 functi
              variables, results through pointers
 Version:     0.1.0
 Created:     11-10-2026
-Modified:    13-10-2026
+Modified:    14-10-2026
 Author:      Sebastian Toyos
 
 Every function becomes "void name(parameters)", or returns the one value it hands back. Its parameters
@@ -66,7 +66,7 @@ rotate_with_carry_by byte_swap32 mem_read8 mem_read16 mem_read32 mem_write8 mem_
 call_code unknown_code invalid_operand frame_wait take_interrupts frame_end halt move_string game_trace game_trace_block
 GAME_VARIABLES PLAYER_BLOCK WORK_RAM VIDEO_RAM SPRITE_RAM SPRITE_CONTROL PALETTE_RAM MIXER_REGISTERS SOUND_RAM IO_PORTS
 INTERRUPT_CONTROL RANDOM_GENERATOR TEXT_LAYER TEXT_CELL RAM8S RAM16S RAM32S ROM8S ROM16S ROM32S move_bytes move_halfwords move_bytes_backward
-move_halfwords_backward set_bytes set_halfwords move_bits_down move_bits_up divx_pair divux_pair""".split())
+move_halfwords_backward set_bytes set_halfwords move_bits_down move_bits_up search_bits_up divx_pair divux_pair""".split())
 
 
 # the board's memories, as game/support.h names them (addresses the code computes into them)
@@ -689,7 +689,23 @@ class FunctionWriter:
             own = self.own_variable(value, bits)
             if own is not None:
                 return own
+        own = self.own_element(address, bits)
+        if own is not None:
+            return own
         return self.emitter.memory.access(address, bits, self.exact)
+
+    def own_element(self, address, bits):
+        """(C, signed, True) for an element of a table in work RAM the function's family names its own way
+        ("scoped global" of the elements' type), read or written by index; None for any other access."""
+        items = self.emitter.memory.scoped.get(self.global_family) if self.global_family else None
+        parts = memory.based(address) if items else None
+        if parts is None:
+            return None
+        item = items.get(parts[0])
+        index = memory.element_index(parts[1], bits)
+        if item is None or not item.indexed or item.bits != bits or index is None:
+            return None
+        return f"{item.name}[{self.exact(index)}]", item.signed, True
 
     def own_variable(self, address, bits):
         """(C, signed, True) for work RAM the function's family names its own way ("scoped global"): the
@@ -700,12 +716,13 @@ class FunctionWriter:
             return None
         item = items.get(address)
         if item is not None and item.bits == bits:
-            return item.name, item.signed, True
+            return (f"{item.name}[0]" if item.indexed else item.name), item.signed, True
         for start, item in items.items():
             if start <= address and address + bits // 8 <= start + item.bits // 8 and bits < item.bits:
+                name = f"{item.name}[0]" if item.indexed else item.name
                 if address == start:
-                    return f"AS{bits}({item.name})", False, True
-                return f"AT{bits}({item.name}, {address - start})", False, True
+                    return f"AS{bits}({name})", False, True
+                return f"AT{bits}({name}, {address - start})", False, True
         return None
 
     def split_store(self, statement):
@@ -777,7 +794,7 @@ class FunctionWriter:
         scoped = self.emitter.memory.scoped.get(self.global_family) if self.global_family else None
         if scoped and address in scoped:
             item = scoped[address]
-            return item.name, item.bits, item.signed
+            return (f"{item.name}[0]" if item.indexed else item.name), item.bits, item.signed
         item = variables.get(address)
         if item is not None:
             return (f"{item.name}[0]" if item.indexed else item.name), item.bits, item.signed
@@ -1356,6 +1373,9 @@ class FunctionWriter:
         if name in ("move_bits_down", "move_bits_up"):
             values = ", ".join(self.exact(arg) for arg in args)
             return [f"{name}({values}, &{self.register_set(27)}, &{self.register_set(28)});"]
+        if name == "search_bits_up":
+            values = ", ".join(self.exact(arg) for arg in args[:4])
+            return [f"{self.register_set(args[4].value)} = {name}({values}, &{self.register_set(28)});"]
         if name in ("divx", "divux"):
             divisor, register, _ = args
             if not isinstance(register, ir.Const) or register.value >= 29:

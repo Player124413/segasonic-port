@@ -5,7 +5,7 @@ Description: the game's variables, tables and hardware registers by name: work R
              named addresses
 Version:     0.1.0
 Created:     12-10-2026
-Modified:    13-10-2026
+Modified:    14-10-2026
 Author:      Sebastian Toyos
 
 Work RAM (0x200000-0x20FFFF) stays the board's byte array, so the state compares byte for byte with the
@@ -177,10 +177,12 @@ class Item:
 
 
 class Memory:
-    def __init__(self, names, accesses, data_names=None):
+    def __init__(self, names, accesses, data_names=None, own=None):
         """'names': disassemble.Names; 'accesses': (address expression, bits) of every read and write;
         'data_names': {address: name} of the data labels symbols.txt has (tables of code addresses), which
-        name the tables that start there."""
+        name the tables that start there; 'own': {family: accesses} of the reads and writes a family of
+        functions makes of work RAM it names its own way (scoped global): an indexed one makes the family's
+        variable an array, and leaves alone the variable the rest of the program knows there."""
         self.variables = {}
         self.tables = {}
         self.hardware = {}
@@ -235,6 +237,12 @@ class Memory:
             for items in (self.variables, self.tables):
                 if address in items:
                     items[address].indexed = True
+        for family, found in (own or {}).items():
+            items = self.scoped.get(family, {})
+            for address_expression, bits in found:
+                parts = based(address_expression)
+                if parts is not None and parts[0] in items and table_index(parts[1], bits):
+                    items[parts[0]].indexed = True
 
     def add_unnamed(self, items, widths, name_of):
         for address, counts in sorted(widths.items()):

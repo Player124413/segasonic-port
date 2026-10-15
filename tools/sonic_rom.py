@@ -3,7 +3,7 @@ Name:        sonic_rom.py
 Description: MAME 'sonic' ROM set (SegaSonic The Hedgehog, Japan rev. C) and memory region builders
 Version:     0.1.0
 Created:     11-10-2026
-Modified:    11-10-2026
+Modified:    14-10-2026
 Author:      Sebastian Toyos
 
 Files are identified by CRC32 + SHA1, not by name: dumps circulate with old names
@@ -115,6 +115,13 @@ def build_tiles(rom):
     return bytes(interleave16(rom["mpr-15789.ic14"], rom["mpr-15788.ic5"]))
 
 
+# the sprite chips: four 16-bit lanes of 8-byte groups from each base
+SPRITE_CHIPS = [
+    (0x000000, ["mpr-15790.ic32", "mpr-15792.ic30", "mpr-15794.ic28", "mpr-15796.ic26"]),
+    (0x800000, ["mpr-15791.ic31", "mpr-15793.ic29", "mpr-15795.ic27", "mpr-15797.ic25"]),
+]
+
+
 def build_sprites(rom):
     """mainpcb:sprites region (16 MB) in file byte order: every 32-bit word is big endian.
 
@@ -122,11 +129,7 @@ def build_sprites(rom):
     The four chips at 0x800000 are 16 Mbit parts whose upper half is 0xFF; the rest stays 0xFF.
     """
     image = bytearray(b"\xff" * 0x1000000)
-    groups = [
-        (0x000000, ["mpr-15790.ic32", "mpr-15792.ic30", "mpr-15794.ic28", "mpr-15796.ic26"]),
-        (0x800000, ["mpr-15791.ic31", "mpr-15793.ic29", "mpr-15795.ic27", "mpr-15797.ic25"]),
-    ]
-    for base, chips in groups:
+    for base, chips in SPRITE_CHIPS:
         for lane, name in enumerate(chips):
             data = rom[name]
             end = base + (len(data) // 2) * 8
@@ -143,6 +146,34 @@ def build_sound(rom):
     image[0x200000:0x300000] = rom["mpr-15783.ic34"]
     image[0x300000:0x400000] = rom["mpr-15782.ic33"]
     return bytes(image)
+
+
+def chips_from_regions(regions):
+    """The set's chips back from the regions build_program, build_tiles, build_sprites and build_sound
+    lay out ({region name: bytes}, every one of the four): {mame_name: bytes}. Each chip is read from
+    the copy its region's builder writes first; the mirrors are not read."""
+    program, tiles, sprites, sound = (regions[name] for name in ("program", "tiles", "sprites", "sound"))
+    chips = {
+        "epr-15787c.ic17": program[0x000000:0x020000],
+        "epr-15786c.ic8": program[0x080000:0x0A0000],
+        "epr-15781c.ic18": program[0x100000:0x180000:2],
+        "epr-15780c.ic9": program[0x100001:0x180000:2],
+        "mpr-15789.ic14": tiles[0::2],
+        "mpr-15788.ic5": tiles[1::2],
+        "epr-15785.ic36": sound[0x000000:0x040000],
+        "mpr-15784.ic35": sound[0x100000:0x200000],
+        "mpr-15783.ic34": sound[0x200000:0x300000],
+        "mpr-15782.ic33": sound[0x300000:0x400000],
+    }
+    for base, names in SPRITE_CHIPS:
+        for lane, name in enumerate(names):
+            size = ROM_FILES[name][2]
+            end = base + (size // 2) * 8
+            chip = bytearray(size)
+            chip[0::2] = sprites[base + lane * 2:end:8]
+            chip[1::2] = sprites[base + lane * 2 + 1:end:8]
+            chips[name] = chip
+    return {name: bytes(chip) for name, chip in chips.items()}
 
 
 def canonical_address(address):

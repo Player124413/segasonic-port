@@ -584,6 +584,8 @@ extern uint32_t r14, current_player, current_object, free_objects, first_object,
 #define empty_vblank_hook_ADDRESS 0x099530u
 #define apply_video_registers_ADDRESS 0x099531u
 #define swap_sprite_buffers_ADDRESS 0x09A1E9u
+#define swap_sprite_buffers_now_ADDRESS 0x09A1FBu
+#define cancel_sprite_buffer_swap_ADDRESS 0x09A229u
 #define irq_vblank_start_ADDRESS 0x0FF500u
 #define irq_vblank_end_ADDRESS 0x0FF560u
 #define irq_sound_ADDRESS 0x0FF578u
@@ -1009,6 +1011,7 @@ void snow_mound_init(void);
 void snow_mound_update(void);
 void rock_wall_init(void);
 void rock_wall_update(void);
+void spawn_eggman_teleport(uint32_t free_count, uint32_t teleport, uint32_t block);
 void eggman_teleport_init(void);
 void eggman_teleport_animate(void);
 void sand_arch_init(void);
@@ -1022,6 +1025,7 @@ void fence_post_init(void);
 void fence_post_start(void);
 void fence_post_update(void);
 void fence_post_draw(void);
+void spawn_bubble_column(uint32_t spawned, uint32_t free_count, uint32_t column, uint32_t block);
 void bubble_column_init(void);
 void bubble_column_animate(void);
 void mine_init(void);
@@ -1063,6 +1067,7 @@ void eel_anchor_wait_explode(void);
 void eel_anchor_wait_explode_spare_return(void);
 void eel_head_move(void);
 void eel_segment_move(void);
+void draw_eel_piece_parts(void);
 void place_eel_piece(void);
 void eel_head_explode_delay(void);
 void eel_segment_explode_delay(void);
@@ -1089,6 +1094,7 @@ void spike_gate_beam_hold(void);
 void spike_gate_beam_drop(void);
 void spike_gate_beam_wait(void);
 void spike_gate_beam_update(void);
+void spawn_eel_den(uint32_t spawned, uint32_t free_count, uint32_t den, uint32_t block);
 void eel_den_init(void);
 void eel_den_wait(void);
 void eel_den_collapse(void);
@@ -1635,6 +1641,7 @@ void copy_position_to(uint32_t object);
 void place_sprite_near_cursor(uint16_t offset_x, uint16_t offset_y);
 void copy_position_to_cursor(void);
 void copy_position_from_cursor(void);
+void copy_screen_position_from_cursor(void);
 uint32_t face_nearest_player(uint32_t direction, uint32_t octant);
 void find_nearest_player_x(void);
 uint32_t face_object(void);
@@ -1676,6 +1683,7 @@ void ranking_display_hold(void);
 void drift_ranking_background(void);
 void ranking_display_end(void);
 void ranking_row_update(void);
+void reset_character_select(void);
 void start_character_chooser(uint32_t block);
 void character_chooser_wait(void);
 void character_chooser_confirm(void);
@@ -1776,6 +1784,7 @@ void title_land_slide(void);
 void timed_spawner_run(void);
 void title_flying_craft_move(void);
 void title_smoke_puff_animate(void);
+void init_title_puff_sprite(uint32_t puff);
 void title_clouds_1_drift(void);
 void title_clouds_2_drift(void);
 void title_clouds_3_drift(void);
@@ -1914,7 +1923,24 @@ void draw_bcd_4(uint32_t value, uint32_t attribute, uint32_t text_position);
 void draw_bcd_6(uint32_t value, uint32_t attribute, uint32_t text_position);
 void draw_bcd_8(uint32_t value, uint32_t attribute, uint32_t text_position);
 void draw_bcd_digits(uint32_t value, uint32_t digit_count, uint32_t *p_attribute, uint32_t *p_text_position);
+void draw_packed_picture(uint32_t picture);
+void init_picture_unpacker(uint32_t *p_colour_cache, uint32_t *p_newest_slot, uint32_t *p_done_bits);
+void init_picture_colour_cache(uint32_t colour_cache);
+uint32_t read_picture_size(uint32_t stream);
+void unpack_picture_pixels(uint32_t stream, uint32_t width, uint32_t colour_cache, uint32_t newest_slot, uint32_t done_bits);
+void read_picture_colour(uint32_t stream, uint32_t colour_cache, uint32_t *p_colour, uint32_t *p_newest_slot);
+void rotate_bitmap_for_monitor_flip(void);
+void init_bitmap_layer(uint8_t is_8bpp);
+void get_bitmap_address_2(uint16_t x, uint16_t y);
+void set_bitmap_scroll_2(uint16_t scroll_x, uint16_t scroll_y, uint8_t is_8bpp);
+void set_bitmap_window_2(uint16_t left, uint16_t top, uint16_t right, uint16_t bottom);
+void set_bitmap_clip_2(uint16_t left, uint16_t top, uint16_t right, uint16_t bottom);
+void unpack_lz_bytes(uint32_t packed, uint32_t dest);
+void init_sprites_without_swaps(void);
+void init_sprites_swapping_every_frame(void);
 void init_sprites(uint32_t *p_end_mark, uint32_t *p_source);
+void init_sprites_from_frame_wait(uint32_t *p_end_mark, uint32_t *p_source);
+void init_sprite_hardware(uint32_t *p_end_mark, uint32_t *p_source);
 uint32_t clear_sprite_buckets(void);
 uint32_t queue_sprite(uint32_t depth);
 void queue_sprite_at_depth(uint32_t *p_bucket_head, uint32_t *p_depth);
@@ -1929,6 +1955,7 @@ void queue_sprite_at_depth_offset(uint16_t depth, uint8_t bucket_offset);
 void queue_sprite_at_previous_floor_2(void);
 void get_previous_floor_bucket(uint32_t top_bucket, uint32_t *p_floor_depth, uint32_t *p_bucket);
 void swap_sprite_buffers(void);
+void swap_sprite_buffers_now(void);
 void cancel_sprite_buffer_swap(void);
 void load_sized_frame_address_at_row(uint16_t row);
 void load_sized_frame_address(void);
@@ -2001,6 +2028,7 @@ void clip_rect_to_window(uint32_t *p_left, uint32_t *p_top, uint32_t *p_right, u
 void attract_warning(uint32_t *p_pixels, uint32_t *p_text);
 void system_mode_idle(void);
 void wait_attract_timer(void);
+uint32_t compute_crc16_strided(uint32_t crc, uint32_t count, uint32_t data, uint32_t byte_gap);
 void eeprom_lock(void);
 void eeprom_unlock(void);
 uint32_t eeprom_read_word_at(uint32_t data, uint8_t command);

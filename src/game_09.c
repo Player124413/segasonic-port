@@ -11,6 +11,193 @@
  */
 #include "game.h"
 
+void start_ranking_display(uint32_t display, uint32_t *p_rows, uint32_t *p_source)
+{
+	uint32_t ignored = 0, object = 0, rows = 0, source = 0;
+
+	display = allocate_object_or_start_list(display);
+	OBJECT(display)->parent = object_cursor;
+	OBJECT(display)->child = 0xFFFFu;
+	init_object(display);
+	object = display;
+	show_nbg0_picture(&ignored, &rows, &source, &ignored);
+	OBJECT(object)->screen_x = 0xA0;
+	OBJECT(object)->screen_y = -0x1A4;
+	OBJECT(object)->handler = build_ranking_display_ADDRESS;
+	*p_rows = rows;
+	*p_source = source;
+}
+
+void build_ranking_display(void)
+{
+	uint32_t block = 0, character = 0, first_initial = 0, free_count = 0, hundreds_digit = 0, label_second_char = 0, object = 0, rank_label = 0, record = 0, remainder = 0, rows_left = 0, second_initial = 0, stages = 0, tens_digit = 0, third_initial = 0, thousands_digit = 0;
+
+	record = ranking_ADDRESS;
+	current_player = 0u;
+	rows_left = 0xFu;
+	OBJECT(current_object)->speed_z = 0x180;
+	OBJECT(current_object)->handler = ranking_display_scroll_in_ADDRESS;
+	do
+	{
+		spawn_count = 0xCu;
+		spawn_object_with_pieces(0x08F28Bu, &third_initial, &tens_digit, &free_count, &object, &block);
+		OBJECT(object)->screen_x = 0xC;
+		rank_label = ranking_row_numbers_ADDRESS + ((current_player & ~0xFFu) | (uint8_t)(current_player * 2u));
+		OBJECT(object)->sprite_frame = ranking_letter_sprites[mem_read8(rank_label)];
+		OBJECT(object)->sprite_palette = 0x8AD0u;
+		OBJECT(object)->spawn_arg_1 = rows_left;
+		OBJECT(object)->handler = ranking_row_update_ADDRESS;
+		object = LINKED(object, OBJECT(object)->child);
+		OBJECT(object)->screen_x = 0x18;
+		label_second_char = mem_read8(rank_label + 1u);
+		OBJECT(object)->sprite_frame = ranking_letter_sprites[label_second_char];
+		OBJECT(object)->sprite_palette = 0x8AD0u;
+		remainder = mem_read16(record);
+		remainder = remainder & 0x7FFFu;
+		object = LINKED(object, OBJECT(object)->child);
+		OBJECT(object)->screen_x = 0xC0;
+		thousands_digit = (int32_t)remainder / 0x3E8;
+		thousands_digit = (thousands_digit & ~0xFFu) | (uint8_t)(thousands_digit + 0x20u);
+		OBJECT(object)->sprite_frame = ranking_letter_sprites[thousands_digit];
+		OBJECT(object)->sprite_palette = 0x8AC0u;
+		record += 2u;
+		if ((uint8_t)thousands_digit != 0x20u)
+			remainder -= ((thousands_digit & ~0xFFu) | (uint8_t)(thousands_digit - 0x20u)) * 0x3E8u;
+		object = LINKED(object, OBJECT(object)->child);
+		OBJECT(object)->screen_x = 0xCC;
+		hundreds_digit = (int32_t)(uint16_t)remainder / 0x64;
+		hundreds_digit = (hundreds_digit & ~0xFFu) | (uint8_t)(hundreds_digit + 0x20u);
+		OBJECT(object)->sprite_frame = ranking_letter_sprites[hundreds_digit];
+		OBJECT(object)->sprite_palette = 0x8AC0u;
+		if ((uint8_t)hundreds_digit != 0x20u)
+			remainder -= ((hundreds_digit & ~0xFFu) | (uint8_t)(hundreds_digit - 0x20u)) * 0x64u;
+		object = LINKED(object, OBJECT(object)->child);
+		OBJECT(object)->screen_x = 0xD8;
+		tens_digit = (int32_t)(uint16_t)remainder / 0xA;
+		tens_digit = (tens_digit & ~0xFFu) | (uint8_t)(tens_digit + 0x20u);
+		OBJECT(object)->sprite_frame = ranking_letter_sprites[tens_digit];
+		OBJECT(object)->sprite_palette = 0x8AC0u;
+		if ((uint8_t)tens_digit != 0x20u)
+			remainder -= ((tens_digit & ~0xFFu) | (uint8_t)(tens_digit - 0x20u)) * 0xAu;
+		object = LINKED(object, OBJECT(object)->child);
+		OBJECT(object)->screen_x = 0xE4;
+		OBJECT(object)->sprite_frame = ranking_letter_sprites[(remainder & ~0xFFu) | (uint8_t)(remainder + 0x20u)];
+		OBJECT(object)->sprite_palette = 0x8AC0u;
+		character = mem_read8(record);
+		character = character % 3u;
+		object = LINKED(object, OBJECT(object)->child);
+		OBJECT(object)->sprite_flags |= 0x100u;
+		OBJECT(object)->screen_x = 0x68;
+		OBJECT(object)->sprite_palette = ranking_portrait_palettes[character];
+		AS8(OBJECT(object)->projected_y_int) = character;
+		object = LINKED(object, OBJECT(object)->child);
+		OBJECT(object)->screen_x = 0x96;
+		OBJECT(object)->sprite_frame = ranking_name_sprites[character];
+		OBJECT(object)->sprite_palette = 0x8B10u;
+		record++;
+		stages = mem_read8(record);
+		stages = stages % 9u;
+		object = LINKED(object, OBJECT(object)->child);
+		OBJECT(object)->screen_x = 0x114;
+		OBJECT(object)->sprite_frame = ranking_stage_sprites[(uint8_t)(stages - 1u)];
+		OBJECT(object)->sprite_palette = 0x8AD0u;
+		object = LINKED(object, OBJECT(object)->child);
+		OBJECT(object)->screen_x = 0x30;
+		record++;
+		first_initial = mem_read8(record);
+		OBJECT(object)->sprite_frame = ranking_letter_sprites[first_initial % 0x2Cu];
+		OBJECT(object)->sprite_palette = 0x8AD0u;
+		object = LINKED(object, OBJECT(object)->child);
+		OBJECT(object)->screen_x = 0x3C;
+		record++;
+		second_initial = mem_read8(record);
+		OBJECT(object)->sprite_frame = ranking_letter_sprites[second_initial % 0x2Cu];
+		OBJECT(object)->sprite_palette = 0x8AD0u;
+		object = LINKED(object, OBJECT(object)->child);
+		OBJECT(object)->screen_x = 0x48;
+		record++;
+		third_initial = mem_read8(record);
+		OBJECT(object)->sprite_frame = ranking_letter_sprites[third_initial % 0x2Cu];
+		OBJECT(object)->sprite_palette = 0x8AD0u;
+		current_player = (current_player & ~0xFFu) | (uint8_t)(current_player + 1u);
+		rows_left--;
+		record += 2u;
+	} while (rows_left != 0u);
+	spawn_count = 5u;
+	spawn_object_with_pieces(0x08F482u, &third_initial, &tens_digit, &free_count, &object, &block);
+	ranking_title_layout++;
+	ranking_title_layout &= 1u;
+	OBJECT(object)->screen_x = 0xA0;
+	OBJECT(object)->screen_y = 0x70;
+	OBJECT(object)->sprite_scale = 0x10u;
+	OBJECT(object)->sprite_frame = 0xA2B0u;
+	OBJECT(object)->sprite_palette = 0x8B20u;
+	OBJECT(object)->handler = ranking_title_spin_in_ADDRESS;
+	object = LINKED(object, OBJECT(object)->child);
+	OBJECT(object)->sprite_frame = 0xA2A8u;
+	OBJECT(object)->sprite_palette = 0x8B20u;
+	object = LINKED(object, OBJECT(object)->child);
+	OBJECT(object)->sprite_frame = 0xA340u;
+	OBJECT(object)->sprite_palette = 0x8B20u;
+	object = LINKED(object, OBJECT(object)->child);
+	OBJECT(object)->sprite_frame = 0xA2D0u;
+	OBJECT(object)->sprite_palette = 0x8B20u;
+	object = LINKED(object, OBJECT(object)->child);
+	OBJECT(object)->sprite_frame = 0xA360u;
+	OBJECT(object)->sprite_palette = 0x8B20u;
+}
+
+void ranking_title_spin_in(void)
+{
+	uint32_t direction = 0, speed = 0, speed_x = 0, speed_y = 0;
+
+	if ((int16_t)OBJECT(current_object)->sprite_scale < 0x200)
+		OBJECT(current_object)->sprite_scale += 2u;
+	OBJECT(current_object)->direction += 8u;
+	OBJECT(current_object)->direction &= 0x3FFu;
+	direction = OBJECT(current_object)->direction;
+	speed = 0x2000u;
+	direction_to_speed(speed, &direction, &speed_x, &speed_y);
+	OBJECT(current_object)->speed_x = speed_x;
+	OBJECT(current_object)->speed_y = speed_y;
+	if ((int16_t)OBJECT(current_object)->sprite_scale < 0x200 || OBJECT(current_object)->direction != 0x300u)
+	{
+		draw_ranking_title();
+		return;
+	}
+	OBJECT(current_object)->ranking_title.pause_timer = 0x1C;
+	OBJECT(current_object)->handler = ranking_title_pause_ADDRESS;
+	ranking_title_pause();
+}
+
+void ranking_title_pause(void)
+{
+	uint16_t pause_timer = 0;
+
+	pause_timer = OBJECT(current_object)->ranking_title.pause_timer;
+	OBJECT(current_object)->ranking_title.pause_timer = pause_timer - 1u;
+	if (pause_timer != 0u)
+	{
+		draw_ranking_title();
+		return;
+	}
+	OBJECT(current_object)->handler = ranking_title_rise_ADDRESS;
+	ranking_title_rise();
+}
+
+void ranking_title_rise(void)
+{
+	OBJECT(current_object)->screen_y--;
+	if (OBJECT(current_object)->screen_y > 0x23)
+	{
+		draw_ranking_title();
+		return;
+	}
+	OBJECT(current_object)->screen_y = 0x23;
+	OBJECT(current_object)->handler = draw_ranking_title_ADDRESS;
+	draw_ranking_title();
+}
+
 void draw_ranking_title(void)
 {
 	uint32_t r1 = 0, layout_offset = 0;
@@ -230,6 +417,15 @@ void ranking_row_update(void)
 	OBJECT(current_object)->screen_y = OBJECT(object_cursor)->screen_y;
 	bucket = 0u;
 	queue_sprite_in_bucket(bucket);
+}
+
+void reset_character_select(void)
+{
+	characters_taken = 0u;
+	players_in_join_chooser = 0u;
+	free_character_count = 0u;
+	character_select_timer = 0;
+	character_select_timer = 0;
 }
 
 void start_character_chooser(uint32_t block)
@@ -777,7 +973,7 @@ void join_character_chooser_update(uint32_t text_x)
 		y = (uint16_t)(OBJECT(current_object)->screen_y - 0x13u);
 		palette = 0x8AD0u;
 		scale = 0x140u;
-		text = 0x8F08Eu + (int32_t)OBJECT(current_object)->var_82 / 0x3C * 3u;
+		text = countdown_second_texts_ADDRESS + (int32_t)OBJECT(current_object)->var_82 / 0x3C * 3u;
 		queue_string_at(text_x, y, &palette, &scale, &text);
 		text_x = (text_x & ~0xFFFFu) | (uint16_t)OBJECT(current_object)->screen_x;
 		text_x = (text_x & ~0xFFFFu) | (uint16_t)(text_x + 9u);
@@ -5464,7 +5660,7 @@ void title_emblem_animate(void)
 		for (;;)
 		{
 			sonic_step = (uint8_t)title_sonic_step;
-			loop_entry = 0x96E02u + (uint8_t)(sonic_step - 0x14u);
+			loop_entry = title_sonic_loop_frames_ADDRESS + (uint8_t)(sonic_step - 0x14u);
 			if (ROM8(loop_entry) != 0xFFu)
 				break;
 			title_sonic_step = 0x14;
@@ -5699,7 +5895,7 @@ void title_smoke_puff_animate(void)
 	OBJECT(current_object)->title.timer = 0;
 	puff_frame = OBJECT(current_object)->title.frame_index;
 	OBJECT(current_object)->title.frame_index++;
-	puff_frame = 0x97538u + puff_frame * 2u;
+	puff_frame = title_smoke_puff_frames_ADDRESS + puff_frame * 2u;
 	OBJECT(current_object)->sprite_frame = ROM16(puff_frame);
 	if (ROM16(puff_frame) != 0xFFFFu)
 	{
@@ -5707,6 +5903,15 @@ void title_smoke_puff_animate(void)
 		return;
 	}
 	delete_current_object();
+}
+
+void init_title_puff_sprite(uint32_t puff)
+{
+	OBJECT(puff)->screen_y = 0x7A;
+	OBJECT(puff)->sprite_layer = 7u;
+	OBJECT(puff)->sprite_scale = 0x100u;
+	OBJECT(puff)->sprite_flags = 0u;
+	OBJECT(puff)->sprite_palette = 0xEB0u;
 }
 
 void title_clouds_1_drift(void)
@@ -6223,604 +6428,4 @@ void title_sky_wave(void)
 	palette_cycle_0 = 3u;
 	palette_cycle_0_frames = 0x10u;
 	cycle_palette(cycle, halfwords, &ignored, &copy_entry, &palette_count, &source, &dest);
-}
-
-void run_sega_logo(uint32_t logo_block, uint32_t *p_color, uint32_t *p_row_pairs_left, uint32_t *p_blocks_per_row, uint32_t *p_lower_row_cursor)
-{
-	uint32_t color = *p_color;
-	uint32_t row_pairs_left = *p_row_pairs_left;
-	uint32_t blocks_per_row = *p_blocks_per_row;
-	uint32_t lower_row_cursor = *p_lower_row_cursor;
-	uint8_t is_8bpp = 0;
-	uint16_t object = 0, scroll_x = 0, scroll_y = 0;
-	uint32_t r0 = 0, ignored = 0, inner_count = 0;
-	uint8_t cnt_bits = 0;
-
-	if (sega_logo_step == 7u)
-		return;
-	if (sega_logo_step == 0u)
-	{
-		cnt_bits = mem_read8(io_cnt);
-		mem_write8(io_cnt, cnt_bits & ~2u);
-		display_off_frames = 5u;
-		init_sprites(&r0, &lower_row_cursor);
-		logo_block = clear_sprite_buckets();
-		clear_bitmap_layer((uint8_t)r0, &ignored, &color, &inner_count, &row_pairs_left, &blocks_per_row, &lower_row_cursor);
-		title_scene_built = 1u;
-		title_done = 0u;
-		scroll_x = 0u;
-		scroll_y = 0u;
-		is_8bpp = 1u;
-		set_bitmap_scroll(scroll_x, scroll_y, is_8bpp);
-		mixer_text_blend &= 0xBFFFu;
-		mixer_bitmap_blend |= 0x4000u;
-		mixer_sprite_control |= 0x8000u;
-		color_offset_red = 0x20u;
-		color_offset_blue = 0x20u;
-		color_offset_green = 0x20u;
-		mem_write16(video_layer_disable, mem_read16(video_layer_disable) | 0xFu);
-		mem_write32(video_backdrop_control, mem_read32(video_backdrop_control) & ~0x200u);
-		sega_logo_frame = 0;
-		sega_logo_timer = 0;
-		sega_logo_scale = 0;
-		mem_write16(mixer_bitmap, 0x21u);
-		mem_write32(video_control, mem_read32(video_control) | 0x800u);
-		fill_value = (fill_value & ~0xFFFFu) | 0x8E8Eu;
-		set_halfwords(VIDEO_RAM, 0xE000u, fill_value);
-		sega_logo_step++;
-	}
-	allocate_object_2(&ignored, &ignored, &logo_block);
-	current_object = logo_block;
-	screen_sprite_block = current_object;
-	switch (sega_logo_step)
-	{
-	case 0:
-		sega_logo_timer = 0;
-		sega_logo_step++;
-		set_sega_logo_sprite();
-		OBJECT(current_object)->sprite_scale = sega_logo_scale;
-		OBJECT(current_object)->sprite_frame = 0x53D0u;
-		queue_sprite_in_layer();
-		sega_logo_scale += 0x18u;
-		if (sega_logo_scale < 0xFF)
-		{
-			object = screen_sprite_block;
-			free_object_2(object);
-			*p_color = color;
-			*p_row_pairs_left = row_pairs_left;
-			*p_blocks_per_row = blocks_per_row;
-			*p_lower_row_cursor = lower_row_cursor;
-			return;
-		}
-		sega_logo_step++;
-		sega_logo_frame++;
-		object = screen_sprite_block;
-		free_object_2(object);
-		*p_color = color;
-		*p_row_pairs_left = row_pairs_left;
-		*p_blocks_per_row = blocks_per_row;
-		*p_lower_row_cursor = lower_row_cursor;
-		return;
-	case 1:
-	case 7:
-		sega_logo_timer++;
-		if (sega_logo_timer < 2)
-		{
-			object = screen_sprite_block;
-			free_object_2(object);
-			*p_color = color;
-			*p_row_pairs_left = row_pairs_left;
-			*p_blocks_per_row = blocks_per_row;
-			*p_lower_row_cursor = lower_row_cursor;
-			return;
-		}
-		AS16(sega_logo_timer) = 0u;
-		color_offset_red++;
-		color_offset_blue++;
-		color_offset_green++;
-		if ((int16_t)color_offset_red < 0x3F)
-		{
-			object = screen_sprite_block;
-			free_object_2(object);
-			*p_color = color;
-			*p_row_pairs_left = row_pairs_left;
-			*p_blocks_per_row = blocks_per_row;
-			*p_lower_row_cursor = lower_row_cursor;
-			return;
-		}
-		sega_logo_timer = 0;
-		sega_logo_step++;
-		set_sega_logo_sprite();
-		OBJECT(current_object)->sprite_scale = sega_logo_scale;
-		OBJECT(current_object)->sprite_frame = 0x53D0u;
-		queue_sprite_in_layer();
-		sega_logo_scale += 0x18u;
-		if (sega_logo_scale < 0xFF)
-		{
-			object = screen_sprite_block;
-			free_object_2(object);
-			*p_color = color;
-			*p_row_pairs_left = row_pairs_left;
-			*p_blocks_per_row = blocks_per_row;
-			*p_lower_row_cursor = lower_row_cursor;
-			return;
-		}
-		sega_logo_step++;
-		sega_logo_frame++;
-		object = screen_sprite_block;
-		free_object_2(object);
-		*p_color = color;
-		*p_row_pairs_left = row_pairs_left;
-		*p_blocks_per_row = blocks_per_row;
-		*p_lower_row_cursor = lower_row_cursor;
-		return;
-	case 2:
-		set_sega_logo_sprite();
-		OBJECT(current_object)->sprite_scale = sega_logo_scale;
-		OBJECT(current_object)->sprite_frame = 0x53D0u;
-		queue_sprite_in_layer();
-		sega_logo_scale += 0x18u;
-		if (sega_logo_scale < 0xFF)
-		{
-			object = screen_sprite_block;
-			free_object_2(object);
-			*p_color = color;
-			*p_row_pairs_left = row_pairs_left;
-			*p_blocks_per_row = blocks_per_row;
-			*p_lower_row_cursor = lower_row_cursor;
-			return;
-		}
-		sega_logo_step++;
-		sega_logo_frame++;
-		object = screen_sprite_block;
-		free_object_2(object);
-		*p_color = color;
-		*p_row_pairs_left = row_pairs_left;
-		*p_blocks_per_row = blocks_per_row;
-		*p_lower_row_cursor = lower_row_cursor;
-		return;
-	case 3:
-		set_sega_logo_sprite();
-		queue_sprite_in_layer();
-		sega_logo_timer++;
-		if ((sega_logo_timer & 2u) == 0u)
-		{
-			object = screen_sprite_block;
-			free_object_2(object);
-			*p_color = color;
-			*p_row_pairs_left = row_pairs_left;
-			*p_blocks_per_row = blocks_per_row;
-			*p_lower_row_cursor = lower_row_cursor;
-			return;
-		}
-		sega_logo_timer = 0;
-		sega_logo_frame++;
-		if (sega_logo_frame <= 0x1E)
-		{
-			object = screen_sprite_block;
-			free_object_2(object);
-			*p_color = color;
-			*p_row_pairs_left = row_pairs_left;
-			*p_blocks_per_row = blocks_per_row;
-			*p_lower_row_cursor = lower_row_cursor;
-			return;
-		}
-		sega_logo_step++;
-		sega_logo_frame--;
-		sega_logo_timer = 0;
-		sega_logo_scale = 0;
-		color_offset_red = 0x3Fu;
-		color_offset_blue = 0x3Fu;
-		color_offset_green = 0x3Fu;
-		object = screen_sprite_block;
-		free_object_2(object);
-		*p_color = color;
-		*p_row_pairs_left = row_pairs_left;
-		*p_blocks_per_row = blocks_per_row;
-		*p_lower_row_cursor = lower_row_cursor;
-		return;
-	case 4:
-		set_sega_logo_sprite();
-		queue_sprite_in_layer();
-		sega_logo_timer++;
-		if (sega_logo_timer < 0x69)
-		{
-			object = screen_sprite_block;
-			free_object_2(object);
-			*p_color = color;
-			*p_row_pairs_left = row_pairs_left;
-			*p_blocks_per_row = blocks_per_row;
-			*p_lower_row_cursor = lower_row_cursor;
-			return;
-		}
-		sega_logo_step++;
-		object = screen_sprite_block;
-		free_object_2(object);
-		*p_color = color;
-		*p_row_pairs_left = row_pairs_left;
-		*p_blocks_per_row = blocks_per_row;
-		*p_lower_row_cursor = lower_row_cursor;
-		return;
-	case 5:
-		set_sega_logo_sprite();
-		queue_sprite_in_layer();
-		color_offset_red--;
-		color_offset_blue--;
-		color_offset_green--;
-		if ((int16_t)color_offset_red >= 0x21)
-		{
-			object = screen_sprite_block;
-			free_object_2(object);
-			*p_color = color;
-			*p_row_pairs_left = row_pairs_left;
-			*p_blocks_per_row = blocks_per_row;
-			*p_lower_row_cursor = lower_row_cursor;
-			return;
-		}
-		sega_logo_step++;
-		sega_logo_timer = 0;
-		object = screen_sprite_block;
-		free_object_2(object);
-		*p_color = color;
-		*p_row_pairs_left = row_pairs_left;
-		*p_blocks_per_row = blocks_per_row;
-		*p_lower_row_cursor = lower_row_cursor;
-		return;
-	case 6:
-		sega_logo_timer++;
-		if (sega_logo_timer < 0x3C)
-		{
-			object = screen_sprite_block;
-			free_object_2(object);
-			*p_color = color;
-			*p_row_pairs_left = row_pairs_left;
-			*p_blocks_per_row = blocks_per_row;
-			*p_lower_row_cursor = lower_row_cursor;
-			return;
-		}
-		sega_logo_step++;
-		mem_write32(video_control, mem_read32(video_control) | 0x800u);
-		fill_value = fill_value & ~0xFFFFu;
-		set_halfwords(VIDEO_RAM, 0xE000u, fill_value);
-		mixer_sprite_control &= ~0x8000u;
-		mixer_bitmap_blend &= 0xBFFFu;
-		title_scene_built = 0u;
-		object = screen_sprite_block;
-		free_object_2(object);
-		*p_color = color;
-		*p_row_pairs_left = row_pairs_left;
-		*p_blocks_per_row = blocks_per_row;
-		*p_lower_row_cursor = lower_row_cursor;
-		return;
-	default:
-		unknown_code(0x9824Eu + sega_logo_step * 3u);
-	}
-}
-
-void set_sega_logo_sprite(void)
-{
-	OBJECT(current_object)->screen_x = 0xA0;
-	OBJECT(current_object)->screen_y = 0x70;
-	OBJECT(current_object)->sprite_palette = 0x420u;
-	OBJECT(current_object)->sprite_layer = 0u;
-	OBJECT(current_object)->sprite_scale = 0x100u;
-	OBJECT(current_object)->sprite_flags = 0u;
-	OBJECT(current_object)->sprite_frame = ((uint32_t)(uint8_t)sega_logo_frame << 3) + 0x53D0u;
-}
-
-void start_ring_tally(uint32_t *p_stage_rings_3, uint32_t *p_player_3_out_flags, uint32_t *p_ring_total, uint32_t *p_p2_object, uint32_t *p_p3_object, uint32_t *p_object)
-{
-	uint16_t bonus_percent = 0;
-	uint32_t ignored = 0, object = 0, object_2 = 0, object_3 = 0, object_4 = 0, percent_fixed = 0, player = 0, player_1 = 0, player_3 = 0, player_3_out_flags = 0, ring_total = 0, stage_index = 0, stage_rings_1 = 0, stage_rings_2 = 0, stage_rings_3 = 0;
-	uint32_t out_flags = 0;
-
-	stage_results_done = 0u;
-	ring_tally_panels_counting = 0u;
-	ring_tally_counted = 0u;
-	player_1 = PLAYER_BLOCK(1);
-	object = PLAYER_BLOCK(2);
-	player_3 = PLAYER_BLOCK(3);
-	object_2 = LINKED(WORK_RAM, player_1_object);
-	object_3 = LINKED(WORK_RAM, player_2_object);
-	object_4 = LINKED(WORK_RAM, player_3_object);
-	stage_rings_1 = player_1_stage_rings;
-	stage_rings_2 = player_2_stage_rings;
-	stage_rings_3 = player_3_stage_rings;
-	stage_index = stage;
-	bonus_percent = stage_ring_bonus_percents[stage_index];
-	ring_total = stage_ring_counts[stage_index];
-	percent_fixed = divide_s32((uint32_t)(uint16_t)(stage_rings_1 + stage_rings_2 + stage_rings_3) << 16, ring_total) * 0x64u;
-	if ((percent_fixed & 0x800u) != 0u)
-		percent_fixed += 0x100u;
-	percent_fixed = percent_fixed >> 16;
-	ring_tally_percent = percent_fixed;
-	stage_rings_1 = stage_rings_1 | 0x100u;
-	stage_rings_2 = stage_rings_2 | 0x100u;
-	stage_rings_3 = stage_rings_3 | 0x100u;
-	player = object;
-	pick_ring_bonus_players(&stage_rings_1, &stage_rings_2, &stage_rings_3);
-	if ((int16_t)percent_fixed < (int16_t)bonus_percent)
-	{
-		stage_rings_1 = stage_rings_1 & 0xFFu;
-		stage_rings_2 = stage_rings_2 & 0xFFu;
-		stage_rings_3 = stage_rings_3 & 0xFFu;
-	}
-	if ((OBJECT(object_2)->flags & 0x10000400u) == 0u)
-	{
-		ring_total = (uint16_t)stage_rings_1;
-		allocate_object_outside_loop(&ignored, &object);
-		OBJECT(object)->handler = ring_tally_player_1_update_ADDRESS;
-		AS8(OBJECT(object)->flags) = 0u;
-		OBJECT(object)->hitbox_height = AS8(PLAYER(player_1)->stage_rings);
-		ring_total = ring_total >> 8;
-		AT8(OBJECT(object)->hitbox_height, 1) = ring_total;
-		AT8(OBJECT(object)->flags, 1) = 1u;
-		AS8(OBJECT(object)->touched_by) = OBJECT(object_2)->kind;
-		ring_tally_panels_counting++;
-		OBJECT(object)->speed_x = 0x208400;
-	}
-	if ((OBJECT(object_3)->flags & 0x10000400u) == 0u)
-	{
-		allocate_object_outside_loop(&ignored, &object);
-		OBJECT(object)->handler = ring_tally_player_2_update_ADDRESS;
-		AS8(OBJECT(object)->flags) = 0u;
-		OBJECT(object)->hitbox_height = AS8(PLAYER(player)->stage_rings);
-		AT8(OBJECT(object)->hitbox_height, 1) = (uint16_t)stage_rings_2 >> 8;
-		AT8(OBJECT(object)->flags, 1) = 2u;
-		AS8(OBJECT(object)->touched_by) = OBJECT(object_3)->kind;
-		ring_tally_panels_counting++;
-		OBJECT(object)->speed_x = 0x208600;
-	}
-	out_flags = OBJECT(object_4)->flags & 0x10000400u;
-	player_3_out_flags = out_flags;
-	if (out_flags == 0u)
-	{
-		allocate_object_outside_loop(&ignored, &object);
-		OBJECT(object)->handler = ring_tally_player_3_update_ADDRESS;
-		AS8(OBJECT(object)->flags) = 0u;
-		OBJECT(object)->hitbox_height = AS8(PLAYER(player_3)->stage_rings);
-		stage_rings_3 = (uint16_t)stage_rings_3 >> 8;
-		AT8(OBJECT(object)->hitbox_height, 1) = stage_rings_3;
-		AT8(OBJECT(object)->flags, 1) = 3u;
-		AS8(OBJECT(object)->touched_by) = OBJECT(object_4)->kind;
-		ring_tally_panels_counting++;
-		OBJECT(object)->speed_x = 0x208800;
-	}
-	allocate_object_outside_loop(&ignored, &object);
-	OBJECT(object)->handler = ring_tally_percent_update_ADDRESS;
-	AS8(OBJECT(object)->flags) = 0u;
-	OBJECT(object)->hit_list_next = ring_tally_percent;
-	allocate_object_outside_loop(&ignored, &object);
-	OBJECT(object)->handler = ring_tally_ticker_update_ADDRESS;
-	AS8(OBJECT(object)->flags) = 0u;
-	allocate_object_outside_loop(&ignored, &object);
-	OBJECT(object)->handler = ring_tally_end_sound_wait_ADDRESS;
-	*p_stage_rings_3 = (*p_stage_rings_3 & 0xFFFF0000u) | (stage_rings_3 & 0xFFFFu);
-	*p_player_3_out_flags = player_3_out_flags;
-	*p_ring_total = ring_total;
-	*p_p2_object = object_3;
-	*p_p3_object = object_4;
-	*p_object = object;
-}
-
-void pick_ring_bonus_players(uint32_t *p_player_1_rings, uint32_t *p_player_2_rings, uint32_t *p_player_3_rings)
-{
-	uint16_t player_1_rings = (uint16_t)*p_player_1_rings;
-	uint16_t player_2_rings = (uint16_t)*p_player_2_rings;
-	uint16_t player_3_rings = (uint16_t)*p_player_3_rings;
-
-	if ((uint8_t)player_2_rings == (uint8_t)player_1_rings)
-	{
-		if ((uint8_t)player_3_rings == (uint8_t)player_1_rings)
-			return;
-		if ((int8_t)player_3_rings < (int8_t)player_1_rings)
-		{
-			player_3_rings &= 0xFFu;
-			*p_player_3_rings = (*p_player_3_rings & 0xFFFF0000u) | player_3_rings;
-			return;
-		}
-		player_1_rings &= 0xFFu;
-		player_2_rings &= 0xFFu;
-		*p_player_1_rings = (*p_player_1_rings & 0xFFFF0000u) | player_1_rings;
-		*p_player_2_rings = (*p_player_2_rings & 0xFFFF0000u) | player_2_rings;
-		return;
-	}
-	if ((uint8_t)player_3_rings == (uint8_t)player_2_rings)
-	{
-		if ((int8_t)player_2_rings < (int8_t)player_1_rings)
-		{
-			player_2_rings &= 0xFFu;
-			player_3_rings &= 0xFFu;
-			*p_player_2_rings = (*p_player_2_rings & 0xFFFF0000u) | player_2_rings;
-			*p_player_3_rings = (*p_player_3_rings & 0xFFFF0000u) | player_3_rings;
-			return;
-		}
-		player_1_rings &= 0xFFu;
-		*p_player_1_rings = (*p_player_1_rings & 0xFFFF0000u) | player_1_rings;
-		return;
-	}
-	if ((uint8_t)player_3_rings == (uint8_t)player_1_rings)
-	{
-		if ((int8_t)player_2_rings < (int8_t)player_1_rings)
-		{
-			player_2_rings &= 0xFFu;
-			*p_player_2_rings = (*p_player_2_rings & 0xFFFF0000u) | player_2_rings;
-			return;
-		}
-		player_1_rings &= 0xFFu;
-		player_3_rings &= 0xFFu;
-		*p_player_1_rings = (*p_player_1_rings & 0xFFFF0000u) | player_1_rings;
-		*p_player_3_rings = (*p_player_3_rings & 0xFFFF0000u) | player_3_rings;
-		return;
-	}
-	if ((int8_t)player_2_rings < (int8_t)player_1_rings)
-	{
-		if ((int8_t)player_3_rings < (int8_t)player_1_rings)
-		{
-			player_2_rings &= 0xFFu;
-			player_3_rings &= 0xFFu;
-			*p_player_2_rings = (*p_player_2_rings & 0xFFFF0000u) | player_2_rings;
-			*p_player_3_rings = (*p_player_3_rings & 0xFFFF0000u) | player_3_rings;
-			return;
-		}
-		player_1_rings &= 0xFFu;
-		player_2_rings &= 0xFFu;
-		*p_player_1_rings = (*p_player_1_rings & 0xFFFF0000u) | player_1_rings;
-		*p_player_2_rings = (*p_player_2_rings & 0xFFFF0000u) | player_2_rings;
-		return;
-	}
-	if ((int8_t)player_3_rings < (int8_t)player_2_rings)
-	{
-		player_1_rings &= 0xFFu;
-		player_3_rings &= 0xFFu;
-		*p_player_1_rings = (*p_player_1_rings & 0xFFFF0000u) | player_1_rings;
-		*p_player_3_rings = (*p_player_3_rings & 0xFFFF0000u) | player_3_rings;
-		return;
-	}
-	player_1_rings &= 0xFFu;
-	player_2_rings &= 0xFFu;
-	*p_player_1_rings = (*p_player_1_rings & 0xFFFF0000u) | player_1_rings;
-	*p_player_2_rings = (*p_player_2_rings & 0xFFFF0000u) | player_2_rings;
-}
-
-void ring_tally_percent_update(void)
-{
-	uint32_t digit = 0, ignored = 0, object = 0, percent_bcd = 0, percent_digit = 0, shown_percent = 0;
-
-	if (OBJECT(current_object)->ring_tally_percent_view.started != 0u)
-	{
-		if (stage_results_done != 0u)
-		{
-			delete_current_object();
-			return;
-		}
-		queue_sprite_in_layer();
-		current_object = OBJECT(object_cursor)->speed_y;
-		queue_sprite_in_layer();
-		if (ring_tally_counted != 0u)
-		{
-			shown_percent = OBJECT(object_cursor)->hit_list_next;
-			update_ring_tally_percent();
-			goto ring_tally_percent_set_digits;
-		}
-		OBJECT(object_cursor)->ring_tally_percent_view.roll_delay--;
-		if (OBJECT(object_cursor)->ring_tally_percent_view.roll_delay == 0u)
-		{
-			OBJECT(object_cursor)->ring_tally_percent_view.roll_delay = 1u;
-			next_random(&shown_percent, &ignored, &ignored);
-		ring_tally_percent_set_digits:
-			percent_bcd = shown_percent & 0xFFu;
-			convert_to_bcd(&percent_bcd, &digit);
-			current_object = OBJECT(object_cursor)->z;
-			percent_bcd &= 0x1FFu;
-			percent_digit = (digit & ~0xFFFFu) | percent_bcd;
-			percent_digit = (percent_digit & ~0xFFFFu) | (percent_digit & 0xFu);
-			OBJECT(current_object)->sprite_frame = percent_digit_sprites[percent_digit];
-			current_object = OBJECT(object_cursor)->ring_tally_percent_view.tens_digit;
-			percent_digit = (percent_digit & ~0xFFFFu) | percent_bcd;
-			percent_digit = (percent_digit & ~0xFFFFu) | (percent_digit & 0xF0u);
-			percent_digit = (percent_digit & ~0xFFFFu) | ((uint16_t)percent_digit >> 4);
-			OBJECT(current_object)->sprite_frame = percent_digit_sprites[percent_digit];
-			current_object = OBJECT(object_cursor)->animation;
-			percent_digit = (percent_digit & ~0xFFFFu) | percent_bcd;
-			percent_digit = (percent_digit & ~0xFFFFu) | (percent_digit & 0xF00u);
-			OBJECT(current_object)->sprite_frame = percent_digit_sprites[(percent_digit & ~0xFFFFu) | ((uint16_t)percent_digit >> 8)];
-		}
-		current_object = OBJECT(object_cursor)->z;
-		queue_sprite_in_layer();
-		current_object = OBJECT(object_cursor)->ring_tally_percent_view.tens_digit;
-		queue_sprite_in_layer();
-		current_object = OBJECT(object_cursor)->animation;
-		if (OBJECT(current_object)->sprite_frame == 0x9DF0u)
-			queue_sprite_in_layer();
-		return;
-	}
-	OBJECT(current_object)->ring_tally_percent_view.started = 1u;
-	OBJECT(current_object)->sprite_frame = 0x9E38u;
-	OBJECT(current_object)->sprite_palette = 0xC00u;
-	OBJECT(current_object)->sprite_palette |= 0x8000u;
-	OBJECT(current_object)->sprite_scale = 0x100u;
-	OBJECT(current_object)->screen_y = 0x10;
-	OBJECT(current_object)->screen_x = 0xA0;
-	OBJECT(current_object)->sprite_layer = 0u;
-	OBJECT(current_object)->sprite_flags = 0u;
-	allocate_object_2(&ignored, &ignored, &object);
-	OBJECT(current_object)->speed_y = object;
-	OBJECT(object)->sprite_frame = 0x9DE0u;
-	OBJECT(object)->sprite_palette = 0xBA0u;
-	OBJECT(object)->sprite_palette |= 0x8000u;
-	OBJECT(object)->sprite_scale = 0x100u;
-	OBJECT(object)->screen_y = 0x30;
-	OBJECT(object)->screen_x = 0xA0;
-	OBJECT(object)->sprite_layer = 1u;
-	OBJECT(object)->sprite_flags = 0u;
-	allocate_object_2(&ignored, &ignored, &object);
-	OBJECT(current_object)->z = object;
-	OBJECT(object)->sprite_palette = 0xBF0u;
-	OBJECT(object)->sprite_palette |= 0x8000u;
-	OBJECT(object)->sprite_scale = 0x100u;
-	OBJECT(object)->screen_y = 0x31;
-	OBJECT(object)->screen_x = 0x9E;
-	OBJECT(object)->sprite_layer = 0u;
-	OBJECT(object)->sprite_flags = 0u;
-	allocate_object_2(&ignored, &ignored, &object);
-	OBJECT(current_object)->ring_tally_percent_view.tens_digit = object;
-	OBJECT(object)->sprite_palette = 0xBF0u;
-	OBJECT(object)->sprite_palette |= 0x8000u;
-	OBJECT(object)->sprite_scale = 0x100u;
-	OBJECT(object)->screen_y = 0x31;
-	OBJECT(object)->screen_x = 0x8E;
-	OBJECT(object)->sprite_layer = 0u;
-	OBJECT(object)->sprite_flags = 0u;
-	allocate_object_2(&ignored, &ignored, &object);
-	OBJECT(current_object)->animation = object;
-	OBJECT(object)->sprite_palette = 0xBF0u;
-	OBJECT(object)->sprite_palette |= 0x8000u;
-	OBJECT(object)->sprite_scale = 0x100u;
-	OBJECT(object)->screen_y = 0x31;
-	OBJECT(object)->screen_x = 0x7E;
-	OBJECT(object)->sprite_layer = 0u;
-	OBJECT(object)->sprite_flags = 0u;
-	OBJECT(current_object)->ring_tally_percent_view.roll_delay = 1u;
-	OBJECT(current_object)->ring_tally_percent_view.blink_delay = 2u;
-	OBJECT(current_object)->ring_tally_percent_view.blink_index = 0u;
-	OBJECT(current_object)->ring_tally_percent_view.results_timer = 0x12Cu;
-}
-
-void update_ring_tally_percent(void)
-{
-	uint16_t results_timer = 0;
-
-	results_timer = OBJECT(object_cursor)->update_ring_tally_percent.results_timer;
-	OBJECT(object_cursor)->update_ring_tally_percent.results_timer = results_timer - 1u;
-	if (results_timer == 1u)
-		stage_results_done = 1u;
-	if ((int16_t)stage_ring_bonus_percents[stage] <= (int16_t)OBJECT(object_cursor)->hit_list_next)
-	{
-		OBJECT(object_cursor)->update_ring_tally_percent.blink_delay--;
-		if (OBJECT(object_cursor)->update_ring_tally_percent.blink_delay == 0u)
-		{
-			OBJECT(object_cursor)->update_ring_tally_percent.blink_delay = 2u;
-			OBJECT(object_cursor)->update_ring_tally_percent.blink_index++;
-			OBJECT(object_cursor)->update_ring_tally_percent.blink_index &= 3u;
-			current_object = OBJECT(object_cursor)->speed_y;
-			OBJECT(current_object)->sprite_palette = ring_tally_blink_palettes[OBJECT(object_cursor)->update_ring_tally_percent.blink_index];
-			OBJECT(current_object)->sprite_palette |= 0x8000u;
-		}
-	}
-}
-
-void ring_tally_end_sound_wait(void)
-{
-	uint8_t sound_id = 0;
-	uint32_t ignored = 0;
-
-	if (ring_tally_counted == 0u)
-		return;
-	if ((int16_t)ring_tally_percent < (int16_t)stage_ring_bonus_percents[stage])
-	{
-		sound_id = 0x73u;
-		queue_sound(sound_id, &ignored, &ignored);
-	}
-	delete_current_object();
 }

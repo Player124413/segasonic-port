@@ -3,7 +3,7 @@
  *    Description: the sound program's functions, part 00 (in the order of their Z80 addresses)
  *    Version:     0.1.0
  *    Created:     13-10-2026
- *    Modified:    13-10-2026
+ *    Modified:    14-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the Z80 sound program decompiled into C by
@@ -18,8 +18,8 @@ void sound_reset(void)
 	z80_block(14);
 	interrupts_off();
 	z80_block(201);
-	unread_e000 = 0u;
-	move_block(unread_e000_ADDRESS, 0xE001u, 0x1EFFu, 1u);
+	midi_in_message_length = 0u;
+	move_block(midi_in_message_length_ADDRESS, midi_in_bytes_left_ADDRESS, 0x1EFFu, 1u);
 	unused_c = 0u;
 	port_out(IRQ_VECTOR0_INPUT, 0u);
 	port_out(IRQ_VECTOR1_INPUT, 1u);
@@ -106,7 +106,7 @@ void sound_init(uint8_t unused_c)
 	fm_voices_to_end = 0xCu;
 	music_volume = 0xFFu;
 	midi_status = 0x80u;
-	unread_e000 = 2u;
+	midi_in_message_length = 2u;
 	refill_voices_left = 8u;
 	refill_voice = SAMPLE_VOICE_ADDRESS(0);
 	vibrato_voice = FM_VOICE_ADDRESS(0);
@@ -568,11 +568,11 @@ void skip_midi_data(uint8_t first_byte)
 void play_midi_message(uint16_t message_byte, uint16_t part)
 {
 	uint32_t carry = 0;
-	uint8_t bend = 0, bend_high = 0, bend_low = 0, bend_sign = 0, bend_steps = 0, channel = 0, channel_index = 0, channels_left = 0, chip_channel = 0, control_register = 0, control_value = 0, controller = 0, controller_number = 0, controls = 0, count_or_channel = 0, depth = 0, detune = 0, detune_low = 0, detune_sign = 0, effective_volume = 0, event = 0, first_byte = 0, first_data_byte = 0, flags = 0, fm_detune = 0, fm_register = 0, ignored8 = 0, keys_on = 0, level = 0, level_register = 0, lowest_order = 0, modulation_depth = 0, note = 0, note_number = 0, note_to_mark = 0, octave = 0, old_controls = 0, operators_left = 0, order = 0, part_channel = 0, parts_left = 0, pcm_register = 0, pitch_bend_high = 0, pitch_bend_low = 0, preset = 0, program = 0, register_number = 0, register_value = 0, rounded_volume = 0, sample = 0, scale = 0, setup = 0, total_level = 0, velocity = 0, velocity_then_steal_low = 0, vibrato_preset = 0, voice_channel = 0, voice_chip_channel = 0, voice_note = 0, voices_left = 0, voices_or_bytes_left = 0, voices_unchecked = 0, volume = 0, volume_curve = 0, volume_scale = 0;
-	uint16_t bend_entry = 0, bend_index = 0, channel_in_part = 0, channel_offset = 0, controls_entry = 0, each_part = 0, fnum = 0, fnum_entry = 0, fnum_table_entry = 0, free_fm_voice = 0, free_voice = 0, ignored16 = 0, instrument = 0, kept_channel = 0, kit_note = 0, level_product = 0, new_voice = 0, new_voice_field = 0, note_index = 0, order_entry = 0, patch_levels = 0, pitch = 0, pitch_entry = 0, pitch_table_entry = 0, preset_address = 0, preset_data = 0, preset_target = 0, register_channel = 0, register_list = 0, scaled_part_volume = 0, setup_data = 0, velocity_index = 0, voice = 0, voice_field = 0, voice_size = 0, voices_left_pair = 0, voices_to_end_at = 0;
+	uint8_t bend = 0, bend_high = 0, bend_low = 0, bend_sign = 0, bend_steps = 0, channel = 0, channel_index = 0, channels_left = 0, chip_channel = 0, control_value = 0, controller = 0, controller_number = 0, controls = 0, depth = 0, detune_low = 0, detune_sign = 0, effective_volume = 0, event = 0, first_byte = 0, first_data_byte = 0, flags = 0, fm_detune = 0, fm_register = 0, ignored8 = 0, level = 0, level_register = 0, modulation_depth = 0, note = 0, note_number = 0, note_to_mark = 0, note_velocity = 0, old_controls = 0, operators_left = 0, part_channel = 0, parts_left = 0, pcm_register = 0, pitch_bend_high = 0, pitch_bend_low = 0, preset = 0, program = 0, register_number = 0, register_value = 0, rounded_volume = 0, sample = 0, scale = 0, setup = 0, total_level = 0, velocity = 0, velocity_then_steal_low = 0, vibrato_preset = 0, voice_channel = 0, voice_chip_channel = 0, voice_note = 0, voices_left = 0, voices_or_bytes_left = 0, voices_unchecked = 0, volume = 0, volume_curve = 0, volume_scale = 0;
+	uint16_t bend_entry = 0, bend_index = 0, channel_in_part = 0, channel_offset = 0, controls_entry = 0, each_part = 0, fnum = 0, fnum_entry = 0, fnum_table_entry = 0, free_fm_voice = 0, ignored16 = 0, instrument = 0, kept_channel = 0, kit_note = 0, level_product = 0, new_voice = 0, new_voice_field = 0, note_index = 0, patch_levels = 0, preset_address = 0, preset_data = 0, preset_target = 0, register_channel = 0, register_list = 0, scaled_part_volume = 0, setup_data = 0, velocity_index = 0, voice = 0, voice_field = 0, voice_size = 0, voices_left_pair = 0, voices_to_end_at = 0;
 	uint8_t saved_channel = 0, saved_count = 0, saved_value = 0, saved_voices_left = 0;
 	uint16_t saved_outer = 0, saved_inner = 0;
-	uint8_t old_voices_to_end = 0, note_level_byte = 0, level_rotated = 0, fm_detune_byte = 0, sample_detune_byte = 0, octave_bits = 0, negated_bend = 0, negated_steps = 0, modulation_value = 0, modulation_rotated_1 = 0, modulation_rotated_2 = 0, doubled_volume = 0, doubled_music_volume = 0;
+	uint8_t old_voices_to_end = 0, note_level_byte = 0, level_rotated = 0, fm_detune_byte = 0, negated_bend = 0, negated_steps = 0, modulation_value = 0, modulation_rotated_1 = 0, modulation_rotated_2 = 0, doubled_volume = 0, doubled_music_volume = 0;
 
 	first_data_byte = (uint8_t)message_byte;
 	z80_block(37);
@@ -869,236 +869,8 @@ void play_midi_message(uint16_t message_byte, uint16_t part)
 			instrument += 2u;
 			note_pan = z80_read8(instrument);
 			sample_detune = z80_read8((uint16_t)(instrument + 1u));
-		allocate_sample_voice:
-			z80_block(31);
-			free_voice = SAMPLE_VOICE_ADDRESS(0);
-			voice_size = 0x12u;
-			count_or_channel = 8u;
-			lowest_order = 0u;
-			for (;;)
-			{
-				z80_block(17);
-				if (lowest_order == SAMPLE_VOICE(free_voice)->flags)
-				{
-					z80_block(25);
-					saved_outer = free_voice;
-					new_voice = saved_outer;
-					goto start_sample_voice;
-				}
-				z80_block(19);
-				free_voice += voice_size;
-				count_or_channel--;
-				if (count_or_channel == 0u)
-					break;
-				z80_cycles(5);
-			}
-			z80_block(21);
-			order_entry = voice_0_allocation_order_ADDRESS;
-			count_or_channel = 8u;
-			lowest_order--;
-			for (;;)
-			{
-				z80_block(17);
-				if (SAMPLE_VOICE(order_entry - 0x6u)->allocation_order <= lowest_order)
-				{
-					z80_block(11);
-					lowest_order = SAMPLE_VOICE(order_entry - 0x6u)->allocation_order;
-					velocity_then_steal_low = (uint8_t)order_entry;
-				}
-				z80_block(19);
-				order_entry += voice_size;
-				count_or_channel--;
-				if (count_or_channel == 0u)
-					break;
-				z80_cycles(5);
-			}
-			z80_block(333);
-			new_voice = 0xFFFAu + ((order_entry & ~0xFFu) | velocity_then_steal_low);
-			voice_0_allocation_order--;
-			voice_1_allocation_order--;
-			voice_2_allocation_order--;
-			voice_3_allocation_order--;
-			voice_4_allocation_order--;
-			voice_5_allocation_order--;
-			voice_6_allocation_order--;
-			voice_7_allocation_order--;
-			pcm_voices_used = 7u;
-			keys_on = pcm_channels_on ^ pcm_channel_bits[SAMPLE_VOICE(new_voice)->chip_channel];
-			pcm_channels_on = keys_on;
-			keys_on = ~keys_on;
-			pcm_register = 8u;
-			write_pcm_register(pcm_register, keys_on);
-			z80_block(67);
-			SAMPLE_VOICE(new_voice)->wave_page = 0xD0u;
-			AS8(SAMPLE_VOICE(new_voice)->stream_position) = 0xFFu;
-			AT8(SAMPLE_VOICE(new_voice)->stream_position, 1) = 7u;
-		start_sample_voice:
-			z80_block(36);
-			if (MIDI_PART(part)->program < 0xF0u)
-			{
-				z80_block(63);
-				register_value = SAMPLE_VOICE(new_voice)->chip_channel;
-				pcm_note_channel = register_value;
-				register_value |= 0xC0u;
-				control_register = 7u;
-				pcm_register = 7u;
-				write_pcm_register(pcm_register, register_value);
-				z80_block(35);
-				register_value = ((register_value & 7u) * 2u) | 0x80u;
-				pcm_register = control_register;
-				write_pcm_register(pcm_register, register_value);
-				z80_block(47);
-				register_value = ((uint32_t)register_value << 1) | (register_value >> 7);
-				register_value = ((uint32_t)register_value << 1) | (register_value >> 7);
-				register_value = ((uint32_t)register_value << 1) | (register_value >> 7);
-				register_value = (((uint32_t)register_value << 1) | (register_value >> 7)) & 0xF0u;
-				pcm_register = 5u;
-				write_pcm_register(pcm_register, register_value);
-				z80_block(24);
-				pcm_register = 6u;
-				write_pcm_register(pcm_register, register_value);
-				z80_block(177);
-				note = note_code;
-				SAMPLE_VOICE(new_voice)->note = note;
-				voice_note = note;
-				channel = midi_status & 0xFu;
-				SAMPLE_VOICE(new_voice)->midi_channel = channel;
-				count_or_channel = channel;
-				SAMPLE_VOICE(new_voice)->level = note_level;
-				order = pcm_voices_used;
-				SAMPLE_VOICE(new_voice)->allocation_order = order;
-				pcm_voices_used = order + 1u;
-				start_pcm_sample(new_voice);
-				z80_block(282);
-				SAMPLE_VOICE(new_voice)->flags = 0x40u;
-				bend_entry = channel_pitch_bends_ADDRESS + (uint8_t)(count_or_channel * 2u);
-				detune = sample_detune;
-				detune_low = detune;
-				sample_detune_byte = detune;
-				detune_sign = ((uint32_t)sample_detune_byte << 1) | (sample_detune_byte >> 7);
-				carry = sample_detune_byte >> 7;
-				saved_outer = z80_read16(bend_entry) + (detune_low | ((uint32_t)(uint8_t)(0u - carry) << 8));
-				pitch_table_entry = pcm_pitch_tables_ADDRESS + (uint8_t)((voice_note & 0xFu) * 2u);
-				pitch_entry = SOUND_ROM16(pitch_table_entry) + saved_outer + saved_outer;
-				pitch = z80_read16(pitch_entry);
-				octave_bits = voice_note & ~0xFu;
-				octave = octave_bits;
-				if (octave_bits != 0u)
-				{
-					z80_block(33);
-					octave = (octave >> 1) | ((uint32_t)octave << 7);
-					octave = (octave >> 1) | ((uint32_t)octave << 7);
-					octave = (octave >> 1) | ((uint32_t)octave << 7);
-					octave = (octave >> 1) | ((uint32_t)octave << 7);
-					if (octave < 8u)
-					{
-						z80_block(4);
-						count_or_channel = octave;
-						for (;;)
-						{
-							z80_block(24);
-							carry = (uint8_t)pitch >> 7;
-							pitch = (pitch & ~0xFFu) | (uint8_t)((uint32_t)pitch << 1);
-							pitch = (pitch & 0xFFu) | ((uint32_t)(uint8_t)(((uint32_t)(pitch >> 8) << 1) | carry) << 8);
-							count_or_channel--;
-							if (count_or_channel == 0u)
-								break;
-							z80_cycles(5);
-						}
-					}
-					else
-					{
-						z80_block(19);
-						count_or_channel = (~octave + 1u) & 0xFu;
-						for (;;)
-						{
-							z80_block(24);
-							carry = (pitch >> 8) & 1u;
-							pitch = (pitch & 0xFFu) | ((uint32_t)((pitch >> 8) >> 1) << 8);
-							pitch = (pitch & ~0xFFu) | (uint8_t)(((uint8_t)pitch >> 1) | (carry << 7));
-							count_or_channel--;
-							if (count_or_channel == 0u)
-								break;
-							z80_cycles(5);
-						}
-						z80_block(10);
-					}
-				}
-			}
-			else
-			{
-				z80_block(63);
-				register_value = SAMPLE_VOICE(new_voice)->chip_channel;
-				pcm_note_channel = register_value;
-				register_value |= 0xC0u;
-				control_register = 7u;
-				pcm_register = 7u;
-				write_pcm_register(pcm_register, register_value);
-				z80_block(35);
-				register_value = ((register_value & 7u) * 2u) | 0x80u;
-				pcm_register = control_register;
-				write_pcm_register(pcm_register, register_value);
-				z80_block(47);
-				register_value = ((uint32_t)register_value << 1) | (register_value >> 7);
-				register_value = ((uint32_t)register_value << 1) | (register_value >> 7);
-				register_value = ((uint32_t)register_value << 1) | (register_value >> 7);
-				register_value = (((uint32_t)register_value << 1) | (register_value >> 7)) & 0xF0u;
-				pcm_register = 5u;
-				write_pcm_register(pcm_register, register_value);
-				z80_block(24);
-				pcm_register = 6u;
-				write_pcm_register(pcm_register, register_value);
-				z80_block(140);
-				SAMPLE_VOICE(new_voice)->note = note_code;
-				SAMPLE_VOICE(new_voice)->midi_channel = midi_status & 0xFu;
-				SAMPLE_VOICE(new_voice)->level = note_level;
-				if ((midi_status & 0xFu) == 0xFu)
-				{
-					z80_block(49);
-					order = pcm_voices_used;
-					SAMPLE_VOICE(new_voice)->allocation_order = order;
-					pcm_voices_used = order + 1u;
-				}
-				else
-				{
-					z80_block(73);
-					order = pcm_voices_used | 0xF0u;
-					SAMPLE_VOICE(new_voice)->allocation_order = order;
-					pcm_voices_used = (order & 0xFu) + 1u;
-				}
-				z80_block(17);
-				start_pcm_sample(new_voice);
-				z80_block(63);
-				SAMPLE_VOICE(new_voice)->flags = 0x50u;
-				pitch = AS16(kit_pitch_low);
-			}
-			z80_block(28);
-			register_value = (uint8_t)(pitch >> 8);
-			pcm_register = 3u;
-			write_pcm_register(pcm_register, register_value);
-			z80_block(28);
-			register_value = (uint8_t)pitch;
-			pcm_register = 2u;
-			write_pcm_register(pcm_register, register_value);
-			z80_block(91);
-			SAMPLE_VOICE(new_voice)->pitch_step = pitch;
-			level_product = (pitch & 0xFFu) | ((uint32_t)note_level << 8);
-			scale = MIDI_PART(part)->effective_volume;
-			level_product = multiply_bytes(scale, level_product);
-			z80_block(28);
-			register_value = (uint8_t)(level_product >> 8);
-			pcm_register = 0u;
-			write_pcm_register(pcm_register, register_value);
-			z80_block(37);
-			register_value = note_pan;
-			pcm_register = 1u;
-			write_pcm_register(pcm_register, register_value);
-			z80_block(99);
-			keys_on = pcm_channels_on | pcm_channel_bits[pcm_note_channel];
-			pcm_channels_on = keys_on;
-			keys_on = ~keys_on;
-			pcm_register = 8u;
-			write_pcm_register(pcm_register, keys_on);
+			note_velocity = velocity_then_steal_low;
+			allocate_sample_voice(note_velocity, part);
 			return;
 		}
 		z80_block(34);
@@ -1121,7 +893,9 @@ void play_midi_message(uint16_t message_byte, uint16_t part)
 			return;
 		}
 		z80_block(10);
-		goto allocate_sample_voice;
+		note_velocity = velocity_then_steal_low;
+		allocate_sample_voice(note_velocity, part);
+		return;
 	}
 	z80_block(17);
 	if (event == 0x80u)
@@ -2018,6 +1792,289 @@ void play_midi_message(uint16_t message_byte, uint16_t part)
 	z80_block(10);
 }
 
+void scan_drum_note_voices(uint16_t note_and_velocity, uint16_t part)
+{
+	uint8_t voices_left = 0;
+	uint16_t voice_field = 0, voice_step = 0;
+
+	z80_block(21);
+	if (note_and_velocity >> 8 != 0x2Cu)
+	{
+		allocate_sample_voice((uint8_t)note_and_velocity, part);
+		return;
+	}
+	z80_block(27);
+	voice_field = 0xE402u;
+	voice_step = 0x12u;
+	voices_left = 8u;
+	for (;;)
+	{
+		z80_block(24);
+		if (SAMPLE_VOICE(voice_field - 0x2u)->note != 0xCAu)
+		{
+			z80_block(19);
+			voice_field += voice_step;
+			voices_left--;
+			if (voices_left == 0u)
+				break;
+			z80_cycles(5);
+			continue;
+		}
+		z80_block(34);
+		voice_field = voice_field - 1u - 1u;
+		z80_block(12);
+		voice_field += 2u;
+		z80_block(19);
+		voice_field += voice_step;
+		voices_left--;
+		if (voices_left == 0u)
+			break;
+		z80_cycles(5);
+	}
+	z80_block(10);
+	allocate_sample_voice((uint8_t)note_and_velocity, part);
+}
+
+void allocate_sample_voice(uint8_t note_velocity, uint16_t part)
+{
+	uint32_t carry = 0;
+	uint8_t channel = 0, control_register = 0, count_or_channel = 0, detune = 0, detune_low = 0, detune_sign = 0, keys_on = 0, lowest_order = 0, note = 0, octave = 0, order = 0, pcm_register = 0, register_value = 0, scale = 0, velocity_then_steal_low = 0, voice_note = 0;
+	uint16_t bend_entry = 0, free_voice = 0, level_product = 0, new_voice = 0, order_entry = 0, pitch = 0, pitch_entry = 0, pitch_table_entry = 0, voice_size = 0;
+	uint16_t saved_outer = 0;
+	uint8_t sample_detune_byte = 0, octave_bits = 0;
+
+	velocity_then_steal_low = (uint8_t)note_velocity;
+	z80_block(31);
+	free_voice = SAMPLE_VOICE_ADDRESS(0);
+	voice_size = 0x12u;
+	count_or_channel = 8u;
+	lowest_order = 0u;
+	for (;;)
+	{
+		z80_block(17);
+		if (lowest_order == SAMPLE_VOICE(free_voice)->flags)
+		{
+			z80_block(25);
+			saved_outer = free_voice;
+			new_voice = saved_outer;
+			goto start_sample_voice;
+		}
+		z80_block(19);
+		free_voice += voice_size;
+		count_or_channel--;
+		if (count_or_channel == 0u)
+			break;
+		z80_cycles(5);
+	}
+	z80_block(21);
+	order_entry = voice_0_allocation_order_ADDRESS;
+	count_or_channel = 8u;
+	lowest_order--;
+	for (;;)
+	{
+		z80_block(17);
+		if (SAMPLE_VOICE(order_entry - 0x6u)->allocation_order <= lowest_order)
+		{
+			z80_block(11);
+			lowest_order = SAMPLE_VOICE(order_entry - 0x6u)->allocation_order;
+			velocity_then_steal_low = (uint8_t)order_entry;
+		}
+		z80_block(19);
+		order_entry += voice_size;
+		count_or_channel--;
+		if (count_or_channel == 0u)
+			break;
+		z80_cycles(5);
+	}
+	z80_block(333);
+	new_voice = 0xFFFAu + ((order_entry & ~0xFFu) | velocity_then_steal_low);
+	voice_0_allocation_order--;
+	voice_1_allocation_order--;
+	voice_2_allocation_order--;
+	voice_3_allocation_order--;
+	voice_4_allocation_order--;
+	voice_5_allocation_order--;
+	voice_6_allocation_order--;
+	voice_7_allocation_order--;
+	pcm_voices_used = 7u;
+	keys_on = pcm_channels_on ^ pcm_channel_bits[SAMPLE_VOICE(new_voice)->chip_channel];
+	pcm_channels_on = keys_on;
+	keys_on = ~keys_on;
+	pcm_register = 8u;
+	write_pcm_register(pcm_register, keys_on);
+	z80_block(67);
+	SAMPLE_VOICE(new_voice)->wave_page = 0xD0u;
+	AS8(SAMPLE_VOICE(new_voice)->stream_position) = 0xFFu;
+	AT8(SAMPLE_VOICE(new_voice)->stream_position, 1) = 7u;
+start_sample_voice:
+	z80_block(36);
+	if (MIDI_PART(part)->program < 0xF0u)
+	{
+		z80_block(63);
+		register_value = SAMPLE_VOICE(new_voice)->chip_channel;
+		pcm_note_channel = register_value;
+		register_value |= 0xC0u;
+		control_register = 7u;
+		pcm_register = 7u;
+		write_pcm_register(pcm_register, register_value);
+		z80_block(35);
+		register_value = ((register_value & 7u) * 2u) | 0x80u;
+		pcm_register = control_register;
+		write_pcm_register(pcm_register, register_value);
+		z80_block(47);
+		register_value = ((uint32_t)register_value << 1) | (register_value >> 7);
+		register_value = ((uint32_t)register_value << 1) | (register_value >> 7);
+		register_value = ((uint32_t)register_value << 1) | (register_value >> 7);
+		register_value = (((uint32_t)register_value << 1) | (register_value >> 7)) & 0xF0u;
+		pcm_register = 5u;
+		write_pcm_register(pcm_register, register_value);
+		z80_block(24);
+		pcm_register = 6u;
+		write_pcm_register(pcm_register, register_value);
+		z80_block(177);
+		note = note_code;
+		SAMPLE_VOICE(new_voice)->note = note;
+		voice_note = note;
+		channel = midi_status & 0xFu;
+		SAMPLE_VOICE(new_voice)->midi_channel = channel;
+		count_or_channel = channel;
+		SAMPLE_VOICE(new_voice)->level = note_level;
+		order = pcm_voices_used;
+		SAMPLE_VOICE(new_voice)->allocation_order = order;
+		pcm_voices_used = order + 1u;
+		start_pcm_sample(new_voice);
+		z80_block(282);
+		SAMPLE_VOICE(new_voice)->flags = 0x40u;
+		bend_entry = channel_pitch_bends_ADDRESS + (uint8_t)(count_or_channel * 2u);
+		detune = sample_detune;
+		detune_low = detune;
+		sample_detune_byte = detune;
+		detune_sign = ((uint32_t)sample_detune_byte << 1) | (sample_detune_byte >> 7);
+		carry = sample_detune_byte >> 7;
+		saved_outer = z80_read16(bend_entry) + (detune_low | ((uint32_t)(uint8_t)(0u - carry) << 8));
+		pitch_table_entry = pcm_pitch_tables_ADDRESS + (uint8_t)((voice_note & 0xFu) * 2u);
+		pitch_entry = SOUND_ROM16(pitch_table_entry) + saved_outer + saved_outer;
+		pitch = z80_read16(pitch_entry);
+		octave_bits = voice_note & ~0xFu;
+		octave = octave_bits;
+		if (octave_bits != 0u)
+		{
+			z80_block(33);
+			octave = (octave >> 1) | ((uint32_t)octave << 7);
+			octave = (octave >> 1) | ((uint32_t)octave << 7);
+			octave = (octave >> 1) | ((uint32_t)octave << 7);
+			octave = (octave >> 1) | ((uint32_t)octave << 7);
+			if (octave < 8u)
+			{
+				z80_block(4);
+				count_or_channel = octave;
+				for (;;)
+				{
+					z80_block(24);
+					carry = (uint8_t)pitch >> 7;
+					pitch = (pitch & ~0xFFu) | (uint8_t)((uint32_t)pitch << 1);
+					pitch = (pitch & 0xFFu) | ((uint32_t)(uint8_t)(((uint32_t)(pitch >> 8) << 1) | carry) << 8);
+					count_or_channel--;
+					if (count_or_channel == 0u)
+						break;
+					z80_cycles(5);
+				}
+			}
+			else
+			{
+				z80_block(19);
+				count_or_channel = (~octave + 1u) & 0xFu;
+				for (;;)
+				{
+					z80_block(24);
+					carry = (pitch >> 8) & 1u;
+					pitch = (pitch & 0xFFu) | ((uint32_t)((pitch >> 8) >> 1) << 8);
+					pitch = (pitch & ~0xFFu) | (uint8_t)(((uint8_t)pitch >> 1) | (carry << 7));
+					count_or_channel--;
+					if (count_or_channel == 0u)
+						break;
+					z80_cycles(5);
+				}
+				z80_block(10);
+			}
+		}
+	}
+	else
+	{
+		z80_block(63);
+		register_value = SAMPLE_VOICE(new_voice)->chip_channel;
+		pcm_note_channel = register_value;
+		register_value |= 0xC0u;
+		control_register = 7u;
+		pcm_register = 7u;
+		write_pcm_register(pcm_register, register_value);
+		z80_block(35);
+		register_value = ((register_value & 7u) * 2u) | 0x80u;
+		pcm_register = control_register;
+		write_pcm_register(pcm_register, register_value);
+		z80_block(47);
+		register_value = ((uint32_t)register_value << 1) | (register_value >> 7);
+		register_value = ((uint32_t)register_value << 1) | (register_value >> 7);
+		register_value = ((uint32_t)register_value << 1) | (register_value >> 7);
+		register_value = (((uint32_t)register_value << 1) | (register_value >> 7)) & 0xF0u;
+		pcm_register = 5u;
+		write_pcm_register(pcm_register, register_value);
+		z80_block(24);
+		pcm_register = 6u;
+		write_pcm_register(pcm_register, register_value);
+		z80_block(140);
+		SAMPLE_VOICE(new_voice)->note = note_code;
+		SAMPLE_VOICE(new_voice)->midi_channel = midi_status & 0xFu;
+		SAMPLE_VOICE(new_voice)->level = note_level;
+		if ((midi_status & 0xFu) == 0xFu)
+		{
+			z80_block(49);
+			order = pcm_voices_used;
+			SAMPLE_VOICE(new_voice)->allocation_order = order;
+			pcm_voices_used = order + 1u;
+		}
+		else
+		{
+			z80_block(73);
+			order = pcm_voices_used | 0xF0u;
+			SAMPLE_VOICE(new_voice)->allocation_order = order;
+			pcm_voices_used = (order & 0xFu) + 1u;
+		}
+		z80_block(17);
+		start_pcm_sample(new_voice);
+		z80_block(63);
+		SAMPLE_VOICE(new_voice)->flags = 0x50u;
+		pitch = AS16(kit_pitch_low);
+	}
+	z80_block(28);
+	register_value = (uint8_t)(pitch >> 8);
+	pcm_register = 3u;
+	write_pcm_register(pcm_register, register_value);
+	z80_block(28);
+	register_value = (uint8_t)pitch;
+	pcm_register = 2u;
+	write_pcm_register(pcm_register, register_value);
+	z80_block(91);
+	SAMPLE_VOICE(new_voice)->pitch_step = pitch;
+	level_product = (pitch & 0xFFu) | ((uint32_t)note_level << 8);
+	scale = MIDI_PART(part)->effective_volume;
+	level_product = multiply_bytes(scale, level_product);
+	z80_block(28);
+	register_value = (uint8_t)(level_product >> 8);
+	pcm_register = 0u;
+	write_pcm_register(pcm_register, register_value);
+	z80_block(37);
+	register_value = note_pan;
+	pcm_register = 1u;
+	write_pcm_register(pcm_register, register_value);
+	z80_block(99);
+	keys_on = pcm_channels_on | pcm_channel_bits[pcm_note_channel];
+	pcm_channels_on = keys_on;
+	keys_on = ~keys_on;
+	pcm_register = 8u;
+	write_pcm_register(pcm_register, keys_on);
+}
+
 uint16_t retune_voice(uint16_t loop_count, uint16_t part, uint16_t voice)
 {
 	uint32_t carry = 0;
@@ -2502,6 +2559,159 @@ void stop_pcm_voice(uint16_t voice)
 		z80_cycles(5);
 	}
 	z80_block(10);
+}
+
+void receive_midi_byte(void)
+{
+	uint8_t message_length = 0, midi_byte = 0, received = 0, write_index = 0;
+	uint16_t bytes_left_address = 0;
+	uint8_t old_bytes_left = 0;
+
+	for (;;)
+	{
+		z80_block(25);
+		if ((port_in(MIDI_USART_CONTROL) & 0x38u) == 0u)
+			break;
+		z80_block(17);
+		reset_midi_errors();
+		z80_block(10);
+	}
+	z80_cycles(5);
+	z80_block(28);
+	received = port_in(MIDI_USART_DATA);
+	if (received == 0xF2u)
+	{
+		z80_block(7);
+		received = 0x80u;
+	}
+	z80_block(12);
+	if (received >= 0xF0u)
+	{
+		z80_cycles(6);
+		return;
+	}
+	z80_block(35);
+	midi_byte = received;
+	bytes_left_address = midi_in_bytes_left_ADDRESS;
+	if (midi_in_bytes_left == 0u)
+	{
+		z80_block(18);
+		if (midi_byte >> 7 != 0u)
+		{
+			z80_block(28);
+			message_length = 2u;
+			received = midi_byte;
+			if (received < 0xC0u)
+			{
+				z80_block(4);
+				message_length++;
+			}
+			else
+			{
+				z80_block(17);
+				if (received >= 0xE0u)
+				{
+					z80_block(4);
+					message_length++;
+					z80_block(24);
+					midi_in_bytes_left = message_length;
+					midi_in_message_length = message_length;
+					z80_block(72);
+					write_index = midi_queue_write;
+					z80_write8(0xE100u | write_index, midi_byte);
+					midi_queue_write = write_index + 1u;
+					old_bytes_left = midi_in_bytes_left;
+					midi_in_bytes_left = old_bytes_left - 1u;
+					if (old_bytes_left != 1u)
+					{
+						z80_cycles(6);
+						return;
+					}
+					z80_block(31);
+					midi_queue_count++;
+					return;
+				}
+			}
+			z80_block(24);
+			midi_in_bytes_left = message_length;
+			midi_in_message_length = message_length;
+		}
+		else
+		{
+			z80_block(34);
+			midi_in_bytes_left = midi_in_message_length - 1u;
+		}
+	}
+	z80_block(72);
+	write_index = midi_queue_write;
+	z80_write8(0xE100u | write_index, midi_byte);
+	midi_queue_write = write_index + 1u;
+	old_bytes_left = midi_in_bytes_left;
+	midi_in_bytes_left = old_bytes_left - 1u;
+	if (old_bytes_left != 1u)
+	{
+		z80_cycles(6);
+		return;
+	}
+	z80_block(31);
+	midi_queue_count++;
+}
+
+void receive_midi_byte_spare_return_1(void)
+{
+	z80_block(10);
+}
+
+void receive_midi_byte_spare_return_2(void)
+{
+	z80_block(10);
+}
+
+void send_midi_byte(uint8_t midi_byte)
+{
+	uint32_t carry = 0;
+	uint8_t status = 0, status_copy = 0;
+
+	for (;;)
+	{
+		z80_block(38);
+		for (;;)
+		{
+			z80_block(32);
+			status = port_in(MIDI_USART_CONTROL);
+			status_copy = status;
+			if ((status & 0x38u) != 0u)
+				break;
+			z80_block(18);
+			carry = status_copy & 1u;
+			if (carry)
+			{
+				z80_block(63);
+				port_out(MIDI_USART_DATA, (uint8_t)midi_byte);
+				return;
+			}
+		}
+		z80_block(17);
+		reset_midi_errors();
+		z80_block(10);
+	}
+}
+
+void reset_midi_errors(void)
+{
+	z80_block(70);
+	port_out(MIDI_USART_CONTROL, 0x37u);
+}
+
+void init_midi_port(void)
+{
+	z80_block(329);
+	port_out(MIDI_USART_CONTROL, 0u);
+	port_out(MIDI_USART_CONTROL, 0u);
+	port_out(MIDI_USART_CONTROL, 0u);
+	port_out(MIDI_USART_CONTROL, 0x40u);
+	port_out(MIDI_USART_CONTROL, 0x4Eu);
+	port_out(MIDI_USART_CONTROL, 0x37u);
 }
 
 uint16_t multiply_bytes(uint16_t factor, uint16_t value)
@@ -3568,6 +3778,42 @@ void start_sequence(uint16_t header, uint16_t player)
 	SEQUENCE_PLAYER(player_field)->flags |= 0x80u;
 }
 
+uint16_t find_lowest_player(uint16_t player_field)
+{
+	uint8_t byte = 0, lowest = 0, players_left = 0;
+
+	z80_block(30);
+	players_left = 2u;
+	lowest = z80_read8(player_field);
+	lowest_player_field = player_field;
+	for (;;)
+	{
+		z80_block(25);
+		player_field = (player_field & 0xFFu) | ((uint32_t)(uint8_t)((player_field >> 8) + 1u) << 8);
+		byte = z80_read8(player_field);
+		if (lowest <= byte)
+		{
+			z80_block(8);
+			players_left--;
+			if (players_left == 0u)
+				break;
+			z80_cycles(5);
+			continue;
+		}
+		z80_block(20);
+		lowest = byte;
+		lowest_player_field = player_field;
+		z80_block(8);
+		players_left--;
+		if (players_left == 0u)
+			break;
+		z80_cycles(5);
+	}
+	z80_block(26);
+	player_field = lowest_player_field;
+	return player_field;
+}
+
 void select_channel_player(uint16_t *p_header, uint16_t *p_player)
 {
 	uint16_t header = (uint16_t)*p_header;
@@ -3972,4 +4218,13 @@ void step_fm_vibrato(uint16_t voice)
 	fm_register = 0xA0u | (frequency >> 8);
 	write_fm_channel(fm_register, value);
 	z80_block(10);
+}
+
+uint16_t load_fixed_fm_frequency(void)
+{
+	uint16_t fixed_frequency = 0;
+
+	z80_block(24);
+	fixed_frequency = 0x3AEu;
+	return fixed_frequency;
 }

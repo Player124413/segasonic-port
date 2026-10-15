@@ -28,11 +28,19 @@ decompiled game plays the scenarios of <code>tests/controls/</code>.</sub></p>
       cross-checked against real execution: 541 functions, about 26,000 instructions, no invalid
       or overlapping paths, and every executed address lands on a decoded instruction
 - [x] Asset extraction into plain resources: 16 tile sheets and every sprite frame (6,138 of them) as
-      indexed PNGs in the colors the game shows them with, showing what the board draws, and 175 PCM
-      samples (WAV); and the program's data as text, 1,169 pieces each in a format of its own: palettes,
-      the scripts that build the stages' maps, the characters' animations, floor blocks, object
-      placements, restart points and paths, texts, fonts, the demos' recorded inputs. The tile and sprite
-      ROMs and the data area build back from those files byte for byte (`extract_assets.py --check`)
+      indexed PNGs in the colors the game shows them with, showing what the board draws; the program's
+      data as text, each piece in a format of its own (palettes, the scripts that build the stages' maps,
+      the characters' animations, floor blocks, object placements and spawn lists, restart points and
+      paths, texts, fonts, the demos' recorded inputs), both the data area and what the code chips hold
+      besides the code; and the sound: the driver's tables as text (instruments, FM patches as an FM
+      editor shows them, drum kits, pitch tables), the music and every sound effect and voice as a
+      Standard MIDI File that plays at the game's speed, named by where the game plays it, and the 175
+      PCM samples as WAV. Everything but the code builds back from those files byte for byte
+      (`extract_assets.py --check`)
+- [x] The game built from its assets: the build makes the game's data from `assets/` (the code, which the
+      C replaces, comes from the ROM), so that what is changed there goes into the game: a sprite, a
+      palette, a stage's spawn list, an instrument, a sample, a song (the songs may change length: the
+      build lays them out anew)
 - [x] System 32 board model in C (`runtime/`): memory map, interrupt controller and timers, I/O chip,
       EEPROM, trackballs, palette and mixer registers, and the FD1149 (317-0213) level-load protection
 - [x] Reference run of the original program on MAME's V60 core against that model: boots, shows the
@@ -48,8 +56,8 @@ decompiled game plays the scenarios of <code>tests/controls/</code>.</sub></p>
       `PALETTE_RAM + 0x83A0u`, `NAME_ADDRESS`). Code two functions share is written once (the player's
       update runs into the state code of its animation, which takes an `entry_point`; each player state
       the update jumps to is a function of its own). The code nothing in the program reaches (about
-      12.5 KB: drawing routines, object types never spawned, earlier versions of live routines) is
-      decompiled too, so the C holds the whole program. It matches the reference frame by frame in every
+      14 KB: drawing routines, a packed picture decoder and an LZ unpacker, object types never spawned,
+      earlier versions of live routines) is decompiled too, so the C holds the whole program. It matches the reference frame by frame in every
       scenario of `tests/controls/`
 - [x] Names: every function, variable, table, structure field and board register has one in
       `symbols.txt`, with the evidence for it, and so do the parameters and results of the functions,
@@ -62,9 +70,10 @@ decompiled game plays the scenarios of <code>tests/controls/</code>.</sub></p>
 - [x] Code coverage: the static analysis follows the game's object tables described in `symbols.txt`,
       so the C comes from the ROM alone, and it finds all the code the reference runs. The 98 scenarios
       of `tests/controls/` (attract mode, games for one, two and three players, every stage, the ending,
-      the test mode, and pokes that reach what the game itself never does) run 98.6% of its instructions;
-      `docs/unreachable.txt` says, for each of the other 625, why no scenario runs it (dead code, a
-      hardware fault the board model cannot produce, or a rare situation)
+      the test mode, and pokes that reach what the game itself never does) run 43,042 of its 47,575
+      instructions: 3,908 of the others are the code nothing in the program calls (`symbols.txt` says
+      what each piece is), and `docs/unreachable.txt` says, for each of the other 625, why no scenario
+      runs it (dead code, a hardware fault the board model cannot produce, or a rare situation)
 - [x] System 32 video library (`runtime/src/video.c`): the four tilemaps (zoom, row scroll and row
       select, clip windows), the text and bitmap layers, the backdrop, the two sprite frame buffers with
       their list processor, and the mixer (priorities, blending, shadows, color offsets). It draws each
@@ -84,10 +93,6 @@ decompiled game plays the scenarios of <code>tests/controls/</code>.</sub></p>
 - [x] PC port (`ports/sdl2/`): the game in a window, with its sound, the mouse, the keyboard and game
       controllers, on SDL2; its settings in `sonic.ini`. Built and played on Windows; SDL2's own packages
       should build it on Linux and macOS (not tried yet)
-- [ ] The game built from its assets: every part of the ROM decoded into plain, editable resources in
-      `assets/` (sprites as PNG, the data tables and levels in readable form), and the build making the
-      game's data from them instead of from the ROM, so that edited assets (a new character, sprites at a
-      higher resolution) go into the game
 - [ ] Ports, in a repository of their own built on this one (`segasonic-port`), so that this one stays the
       faithful reference: Windows and macOS, Android, Nintendo Switch and Linux ARM handhelds (Anbernic);
       released as downloads with no game data in them (the first run takes the player's own ROM set and
@@ -109,8 +114,8 @@ Without SDL2 only the headless builds are made.
    python tools/verify_rom.py
    ```
 
-2. Extract the assets into `assets/` (the tile sheets, the sprites, the samples and the program's data;
-   the game does not read them yet), and check that they build back into your ROM byte for byte:
+2. Extract the assets into `assets/` (the tile sheets, the sprites, the program's data, the sound
+   driver's data, the music and the samples), and check that they build back into your ROM byte for byte:
 
    ```bash
    python extract_assets.py
@@ -120,8 +125,10 @@ Without SDL2 only the headless builds are made.
    python extract_assets.py --check
    ```
 
-3. Build the game and the development tools into `build/bin/`. The build writes the game's data from your
-   ROM set into the executables (`tools/embed_data.py`), so they need no other file to run:
+3. Build the game and the development tools into `build/bin/`. The build writes the game's data into the
+   executables (`tools/embed_data.py`), so they need no other file to run: from the assets, when
+   `assets/` holds them, with the code from your ROM set (without the assets, all of it from the ROM
+   set). Change an asset and build again, and the change is in the game:
 
    ```bash
    cmake -S . -B build/cmake
@@ -237,6 +244,7 @@ extract_assets.py       extracts assets/ from your ROM, and checks they build ba
 sprite_palettes.json    where in the program ROM each sprite frame's palette is (positions only)
 tile_palettes.json      the same for each tile
 data_formats.json       the format of each piece of the program's data (tools/formats/), by its name
+sound_formats.json      the same for the sound program's data
 src/                    the game's C, decompiled from the program (tools/decompile.py writes it)
 src/sound/              the sound driver's C, decompiled from the sound program
                         (tools/decompile_sound.py writes it)
@@ -254,11 +262,13 @@ ports/sdl2/             the game in a window, on SDL2: picture, sound, controls,
 tests/controls/         control scripts: coins, buttons, trackball moves and pokes per frame
 docs/unreachable.txt    the code no scenario runs, and why
 tools/sonic_rom.py      ROM set definition and memory region layouts
-tools/embed_data.py     writes the game's data from your ROM set as C, for the executables to carry
+tools/embed_data.py     writes the game's data from the assets (or your ROM set) as C, for the
+                        executables to carry
 tools/asset_formats.py  the board's data formats to standard files (PNG, WAV) and back
-tools/data_formats.py   the program's data as text files and back, cut where symbols.txt names a place;
+tools/data_formats.py   the program's and the sound program's data as files and back, cut where
+                        symbols.txt and sound_symbols.txt name a place, the code left out;
                         tools/formats/ holds a module a family (palettes, scripts, animations, stages,
-                        texts and the rest)
+                        texts and the rest; the sound driver's tables and the music, as MIDI files)
 tools/palette_census.py runs the scenarios with the sprite and tile censuses on (sonic_game_headless
                         --sprite-census, --tile-census) and finds each frame's and tile's palette in the
                         program ROM: writes sprite_palettes.json and tile_palettes.json
@@ -329,15 +339,18 @@ registers and structures), `game_NN.c` (the functions, in the order of their V60
   `MIDI_PART(part)->`, and what it reads through an address it computes goes through the board's bus
   (`z80_read8`, `z80_write8`); `z80_block(cycles)` opens each
   stretch of code with the time it takes, so the chips' timers, the interrupt and the samples happen when
-  they did on the board.
+  they did on the board. Its unused routines are in the C too, as the game's are (the last section of
+  `sound_symbols.txt`): among them a driver for a MIDI port, an 8251 USART at ports F0 and F1 that the
+  System 32 board does not have.
 
 ## How the port works
 
 - **Game code.** The V60 machine code is decompiled to C (`src/`), so the game runs natively with no CPU
   emulation. The program reads its data tables and level data, and the video and sound chips their
   graphics and samples, from the ROM regions the build writes from your ROM set into the executable
-  (`runtime/include/game/data.h`), as the original reads them from its ROM chips. As each part of the ROM
-  is decoded into `assets/`, the build makes that part from the assets instead.
+  (`runtime/include/game/data.h`), as the original reads them from its ROM chips. The build makes that
+  data from the assets in `assets/`: each asset builds back into its part of the ROM, and the code the C
+  replaces comes from your ROM set.
 - **Video.** The System 32 video hardware is a library (`runtime/src/video.c`) that draws every frame
   from the board's memories, as the board does, into a 320 or 416 x 224 picture; a platform shows that
   picture as a texture, scaled and filtered as it likes.

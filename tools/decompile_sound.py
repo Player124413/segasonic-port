@@ -3,7 +3,7 @@ Name:        decompile_sound.py
 Description: decompiles the Z80 sound program into readable C, one C function per original function
 Version:     0.1.0
 Created:     13-10-2026
-Modified:    13-10-2026
+Modified:    14-10-2026
 Author:      Sebastian Toyos
 
 Usage: python tools/decompile_sound.py [--check] [--out DIR] [--timing FILE]
@@ -22,6 +22,10 @@ through the decompiler the V60 program goes through (tools/decompiler/), with th
 tools/z80/function.py lifts them to IR with the sound board's timing model, and the passes work out
 what each function takes and hands back. It writes src/sound/: sound.h (prototypes) and sound_NN.c (the
 functions, in the order of their Z80 addresses).
+
+Code the program never runs (routines nothing calls) is decompiled too, from its "func" lines: as on the
+V60's side (decompile.py), a function nothing calls takes every register it reads as a parameter, and
+hands back what sound_symbols.txt's "result" lines say.
 """
 import re
 import sys
@@ -93,11 +97,41 @@ def build_functions(program):
     return built, failures
 
 
+def open_entries(program, built):
+    """The functions nothing in the program reaches and no other function calls or jumps to: what they
+    take has no caller to say it (signatures.OPEN). A function only code nothing reaches calls takes what
+    those callers give it."""
+    called = set()
+    for function in built.values():
+        for block in function.blocks.values():
+            for statement in block.statements + [block.end]:
+                if isinstance(statement, (ir.Call, ir.TailCall)) and statement.target is not None:
+                    called.add(statement.target)
+    return {entry for entry in program.unreached if entry in built and entry not in called}
+
+
+def declared_results(program, open_entries):
+    """What the functions nothing calls hand back, from the "result" lines of sound_symbols.txt:
+    {entry: {register numbers}}."""
+    entries = {name: entry for entry, name in program.names.items()}
+    found = {}
+    for function_name, register in disassemble.load_names(SYMBOLS, REGISTERS).results:
+        entry = entries.get(function_name)
+        if entry is None:
+            raise SystemExit(f"{SYMBOLS.name}: a result of {function_name}, which is no function")
+        if entry not in open_entries:
+            raise SystemExit(f"{SYMBOLS.name}: a result of {function_name}, whose callers say what it hands back")
+        found.setdefault(entry, set()).add(register)
+    return found
+
+
 def analyse(program, built):
     """Stack slots, preserved registers and the data flow summaries, in place."""
     for function in built.values():
         stack.analyse(function)
     flow = dataflow.Program(built, program.analysis, [INTERRUPT_HANDLER], signatures.CONTEXT)
+    signatures.OPEN = open_entries(program, built)
+    flow.declared = declared_results(program, signatures.OPEN)
     flow.solve()
     while sum(len(preserved.analyse(function, flow.call_writes, context=signatures.CONTEXT))
               for function in built.values()):
@@ -278,6 +312,8 @@ def write_c(program, out_dir, variables_path=None):
               + ", ".join(unknown[:5]))
     emitter.param_names = {(entries_by_name[function], register): name
                            for (function, register), name in known.params.items() if function in entries_by_name}
+    emitter.result_names = {(entries_by_name[function], register): name
+                            for (function, register), name in known.results.items() if function in entries_by_name}
     emitter.local_sites = {(spot, value): name for (function, spot, value), name in known.locals.items()
                            if spot != "entry"}
     emitter.local_names = {(entries_by_name[function], spot, value): name
@@ -385,7 +421,8 @@ def write_reports(program, built, flow, names, out_dir):
              "# (tools/decompile_sound.py; computed addresses, such as fields reached through IX and IY, are not listed)"]
     for entry in sorted(built):
         callees, reads, writes, ports = uses[entry]
-        lines.append(f"{names[entry]} ({entry:04X})")
+        lines.append(f"{names[entry]} ({entry:04X})" + ("    never run: the reset and the interrupt do not reach it"
+                                                         if entry in program.unreached else ""))
         lines.append("  called by: " + " ".join(sorted(names[c] for c in callers.get(entry, ()))))
         lines.append("  calls:     " + " ".join(sorted(names.get(c, f"{c:04X}") for c in callees)))
         lines.append("  reads:     " + " ".join(f"{a:04X}" for a in sorted(reads)))
@@ -402,12 +439,14 @@ def write_timing(program, path):
     builder = functions.Builder(program)
     lines = ["# the sound program's timing model (tools/decompile_sound.py): see runtime/src/sound_cpu.c",
              f"loop {builder.loop:04X}", f"irq {INTERRUPT_HANDLER:04X}"]
+    written = set()    # (a function nothing calls has its own copy of blocks another function has too)
     for entry in sorted(program.entries):
         function = builder.build(entry)
         body = program.bodies[entry]
         for label, block in function.blocks.items():
-            if not isinstance(label, int):
+            if not isinstance(label, int) or label in written:
                 continue
+            written.add(label)
             last = body[block.addresses[-1]]
             taken, short = functions.timing.cycles(last)
             lines.append(f"block {label:04X} {builder.block_cycles(body, block)} {last.address:04X} {last.length} "

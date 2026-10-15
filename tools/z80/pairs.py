@@ -5,7 +5,7 @@ Name:        pairs.py
 Description: splits the bytes the Z80's register pairs hold apart into variables of their own
 Version:     0.1.0
 Created:     13-10-2026
-Modified:    13-10-2026
+Modified:    14-10-2026
 Author:      Sebastian Toyos
 
 The IR keeps BC, DE and HL whole (tools/z80/lift.py): a byte of one is a part of it, which is how the
@@ -508,8 +508,22 @@ def next_address(first, second):
         and isinstance(second.args[1], ir.Const) and second.args[1].value == (first.args[1].value + 1) & 0xFFFF
 
 
+def kept_low_byte(node):
+    """The pair of "(high << 8) | (pair & 0xFF)", a split high byte put back over the low byte its pair
+    kept (an RR B before LD A,C), or None: its low byte is the pair's."""
+    if not (isinstance(node, ir.Op) and node.name == "or" and node.bits == 16):
+        return None
+    for high, low in (node.args, tuple(reversed(node.args))):
+        if isinstance(high, ir.Op) and high.name == "shl" and is_const(high.args[1], 8) \
+                and isinstance(low, ir.Op) and low.name == "and" and is_const(low.args[1], 0xFF) \
+                and low.args[0].bits == 16:
+            return low.args[0]
+    return None
+
+
 def tidy_change(node):
-    """A byte of a pair put together is the byte it was put together from; a word put together from the
+    """A byte of a pair put together is the byte it was put together from (the low byte of a split high
+    byte put back over its pair: the pair's low byte, kept_low_byte); a word put together from the
     two bytes after one another in memory (LD E,(HL); INC HL; LD D,(HL)) is the word read there; what SBC A,A
     leaves (A - A - carry) is 0 - carry."""
     if not isinstance(node, ir.Op):
@@ -532,6 +546,9 @@ def tidy_change(node):
         found = halves(inner)
         if found is not None:
             return found[1]
+        low = kept_low_byte(inner)
+        if low is not None:
+            return ir.trunc(low, 8)
         if isinstance(inner, ir.Op) and inner.name == "shr" and is_const(inner.args[1], 8):
             found = halves(inner.args[0])
             if found is not None:

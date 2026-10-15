@@ -4,7 +4,7 @@ Description: finds registers a function saves on the stack and puts back before 
              removes the saving and the putting back
 Version:     0.1.0
 Created:     11-10-2026
-Modified:    13-10-2026
+Modified:    14-10-2026
 Author:      Sebastian Toyos
 
 A register is preserved when, on every path to every return, it holds again the value it had when the
@@ -62,6 +62,8 @@ def writes_register(statement, register, call_writes):
         return isinstance(target, ir.Const) and register in (target.value, target.value + 1)
     if isinstance(statement, ir.Effect) and statement.name in ("move_string", "move_bits_down", "move_bits_up"):
         return register in (27, 28)
+    if isinstance(statement, ir.Effect) and statement.name == "search_bits_up":
+        return register in (statement.args[4].value, 28)
     if isinstance(statement, ir.Call):
         return ("r", register) in call_writes(statement)
     return False

@@ -6,13 +6,18 @@ Created:     14-10-2026
 Modified:    14-10-2026
 Author:      Sebastian Toyos
 
-The data area of the program ROM (0x100000-0x17FFFF: the tables, palettes, scripts, level data the code
-reads) is cut where symbols.txt names a place, and each piece goes to a text file of its own in a format
+The data of the program ROM (the data area, 0x100000-0x17FFFF, and what the code chips hold besides the
+code, at 0x000000-0x01FFFF and 0x080000-0x09FFFF: the tables, palettes, scripts, level data the code
+reads) is cut where symbols.txt names a place, the code left out (the C replaces it; the build takes
+those bytes from the ROM), and each piece goes to a text file of its own in a format
 that says what it is: data_formats.json gives a piece's format by its name; a piece it does not name is
-written as 16-bit words in hex (bytes when its size is odd), which goes back just as well. Each format is a
+written as 16-bit words in hex (bytes when its size is odd; a fill when it is one byte over and over),
+which goes back just as well. The sound program's chip goes the same way, cut where sound_symbols.txt
+names a place (sound_formats.json gives the formats), its code left out: the C replaces it, and the
+build takes those bytes from the ROM. Each format is a
 pair: to_text(bytes) -> text, and from_text(text) -> bytes, with from_text(to_text(data)) == data.
 
-The program ROM is the V60's: little endian.
+The program ROM is the V60's and the sound program the Z80's: both little endian.
 """
 import json
 import re
@@ -74,20 +79,77 @@ def palette_from_text(text):
     return bytes(out)
 
 
+FILL_RUN = 16    # runs of one byte this long or longer are written as 'fill'
+
+
+def fill_to_text(data):
+    """Padding: runs of one byte as 'fill XX COUNT' (COUNT in decimal), the bytes between them as
+    'bytes XX XX ...' lines, sixteen a line."""
+    lines = ["# 'fill XX COUNT': COUNT bytes XX (count in decimal); other bytes as 'bytes' lines"]
+    loose = bytearray()
+
+    def flush():
+        lines.extend("bytes " + " ".join(f"{byte:02X}" for byte in loose[at:at + 16]) for at in range(0, len(loose), 16))
+        loose.clear()
+    at = 0
+    while at < len(data):
+        end = at
+        while end < len(data) and data[end] == data[at]:
+            end += 1
+        if end - at >= FILL_RUN:
+            flush()
+            lines.append(f"fill {data[at]:02X} {end - at}")
+        else:
+            loose += data[at:end]
+        at = end
+    flush()
+    return "\n".join(lines) + "\n"
+
+
+def fill_from_text(text):
+    out = bytearray()
+    for line in text.split("\n"):
+        words = line.split()
+        if not words or words[0].startswith("#"):
+            continue
+        if words[0] == "bytes":
+            out += bytes(int(word, 16) for word in words[1:])
+        elif words[0] == "fill" and len(words) == 3:
+            out += bytes([int(words[1], 16)]) * int(words[2])
+        else:
+            raise ValueError(f"not a fill line: {line.strip()}")
+    return bytes(out)
+
+
 FORMATS = {
     "words": (".txt", words_to_text, words_from_text),
     "bytes": (".txt", bytes_to_text, bytes_from_text),
+    "fill": (".txt", fill_to_text, fill_from_text),
     "palette": (".pal.txt", palette_to_text, palette_from_text),
 }
 
 
+def is_binary(kind):
+    """A format whose files are not text (a standard file format, such as a MIDI file): FORMATS gives it
+    a fourth element, "binary"; its to_text returns bytes and its from_text takes them."""
+    return FORMATS[kind][3:] == ("binary",)
+
+
+def plain_format(data):
+    """The format of a piece data_formats.json gives none: a fill when it is one byte over and over, else
+    16-bit words (bytes when its size is odd)."""
+    if len(data) >= 16 and data.count(data[0]) == len(data):
+        return "fill"
+    return "bytes" if len(data) % 2 else "words"
+
+
 def _gather():
-    """The formats of tools/formats/, one module a family of data."""
+    """The formats of tools/formats/, one module a family of data (a module with no FORMATS holds helpers)."""
     import importlib
     import pkgutil
     import formats
     for module in pkgutil.iter_modules(formats.__path__):
-        FORMATS.update(importlib.import_module(f"formats.{module.name}").FORMATS)
+        FORMATS.update(getattr(importlib.import_module(f"formats.{module.name}"), "FORMATS", {}))
 
 
 _gather()
@@ -109,40 +171,166 @@ def pieces(symbols_path, start, end):
     return sorted(found.items())
 
 
-def export(region, base, symbols_path, formats_path, folder):
-    """Every piece of 'region' (which starts at program address 'base') to a file in 'folder', and
-    layout.json, the pieces in order. Returns how many files."""
+_v60_instructions = {}
+
+
+def v60_code(image, symbols_path, start, end):
+    """[(start, end)] of the V60 program's code in start..end (what the static analysis reaches from
+    symbols.txt, as tools/disassemble.py finds it in the program image): the C replaces it, so the asset
+    does not hold it."""
+    if not _v60_instructions:
+        import disassemble
+        analysis = disassemble.Analysis(image, disassemble.load_symbols(symbols_path))
+        analysis.run()
+        _v60_instructions.update({address: instruction.length for address, instruction in analysis.instructions.items()})
+    spans = []
+    for address in sorted(address for address in _v60_instructions if start <= address < end):
+        finish = address + _v60_instructions[address]
+        if spans and spans[-1][1] == address:
+            spans[-1][1] = finish
+        else:
+            spans.append([address, finish])
+    return [tuple(span) for span in spans]
+
+
+SOUND_WINDOW = 0xA000    # the Z80 sees the start of the sound program's chip below here, a bank of it above
+
+
+def sound_pieces(symbols_path, size):
+    """[(offset in the chip, name)] of the places sound_symbols.txt names in the sound program's chip: its
+    table and data lines below A000 (Z80 addresses, the chip's own offsets there) and its banked lines
+    (offsets in the chip: bank * 2000h + the address in the A000-BFFF window - A000h)."""
+    found = {}
+    for line in symbols_path.read_text(encoding="utf-8").splitlines():
+        match = re.match(r"([0-9A-F]{4,6})\s+(data|table|banked)\s+(\w+)", line)
+        if not match:
+            continue
+        offset = int(match.group(1), 16)
+        if (offset < SOUND_WINDOW) == (match.group(2) != "banked") and offset < size:
+            found.setdefault(offset, match.group(3))
+    found.setdefault(0, "data_000000")
+    return sorted(found.items())
+
+
+def z80_code(chip, symbols_path):
+    """[(start, end)] of the sound program's code (what the Z80 analysis reaches from sound_symbols.txt's
+    entries, and its jump tables): the C replaces it, so the asset does not hold it."""
+    from z80 import analysis
+    program = analysis.load_program(chip, symbols_path)
+    instructions = program.analysis.instructions
+    lengths = {address: instruction.length for address, instruction in instructions.items()}
+    lengths.update({address: symbol.count * 2 for address, symbol in program.symbols.items() if symbol.kind == "jumps"})
+    spans = []
+    for address in sorted(lengths):
+        end = address + lengths[address]
+        if spans and spans[-1][1] == address:
+            spans[-1][1] = end
+        else:
+            spans.append([address, end])
+    return [tuple(span) for span in spans]
+
+
+def export(region, base, places, formats_path, folder, kept=(), movable=None):
+    """Every piece of 'region' (which starts at address 'base') to a file in 'folder', and layout.json, the
+    pieces in order. 'places' are [(address, name)] where pieces start (pieces() for the program ROM);
+    'kept' are (start, end) ranges the asset does not hold (code): pieces of their own that build() takes
+    from the ROM; 'movable', (start, end), a range whose pieces build() may lay out anew (see build()).
+    Returns how many files."""
     chosen = json.loads(formats_path.read_text(encoding="ascii"))["formats"] if formats_path.exists() else {}
-    places = pieces(symbols_path, base, base + len(region))
+    cuts = dict(places)
+    if base not in cuts:
+        cuts[base] = f"data_{base:06X}"
+    kept_starts = {start for start, _ in kept}
+    for start, finish in kept:
+        cuts[start] = f"code_{start:06X}"
+        cuts.setdefault(finish, f"data_{finish:06X}")
+    inside_kept = {address for address in cuts for start, finish in kept if start < address < finish}
+    ordered = sorted((address, name) for address, name in cuts.items()
+                     if base <= address < base + len(region) and address not in inside_kept)
     folder.mkdir(parents=True, exist_ok=True)
     layout = []
-    for index, (address, name) in enumerate(places):
-        end = places[index + 1][0] if index + 1 < len(places) else base + len(region)
+    for index, (address, name) in enumerate(ordered):
+        end = ordered[index + 1][0] if index + 1 < len(ordered) else base + len(region)
         data = region[address - base:end - base]
-        kind = chosen.get(name, "words")
-        if kind not in FORMATS or (kind == "words" and len(data) % 2):
-            kind = "bytes" if len(data) % 2 or kind not in FORMATS else kind
-        suffix, to_text, from_text = FORMATS[kind]
+        if address in kept_starts:
+            layout.append({"address": f"{address:06X}", "name": name, "size": len(data), "format": "kept"})
+            continue
+        kind = chosen.get(name)
+        if kind not in FORMATS:
+            kind = plain_format(data)
+        suffix, to_text, from_text = FORMATS[kind][:3]
         text = to_text(data)
         if from_text(text) != data:    # a format that does not fit this piece: keep it as bytes
             kind = "bytes"
             suffix, to_text, _ = FORMATS[kind]
             text = to_text(data)
         file_name = f"{address:06X}_{name}{suffix}"
-        (folder / file_name).write_text(text, encoding="ascii")
+        if isinstance(text, bytes):
+            (folder / file_name).write_bytes(text)
+        else:
+            (folder / file_name).write_text(text, encoding="ascii")
         layout.append({"address": f"{address:06X}", "name": name, "size": len(data), "format": kind, "file": file_name})
-    (folder / "layout.json").write_text(json.dumps({"base": f"{base:06X}", "pieces": layout}, indent=1) + "\n",
-                                        encoding="ascii")
+    document = {"base": f"{base:06X}", "pieces": layout}
+    if movable:
+        document["movable"] = [f"{movable[0]:06X}", f"{movable[1]:06X}"]
+    (folder / "layout.json").write_text(json.dumps(document, indent=1) + "\n", encoding="ascii")
     return len(layout) + 1
 
 
-def build(folder, size):
-    """The region back from 'folder': every piece's file, in the order layout.json gives."""
+PLACES = {}    # while build() reads the pieces: where this build lays out each one, by its name
+
+
+def build(folder, size, original=None):
+    """The region back from 'folder': every piece's file, in the order layout.json gives; the kept pieces
+    (code) from 'original', the region as the ROM has it. A piece keeps its size (the code reaches it at a
+    fixed address), except in the layout's 'movable' range: there the pieces are laid out one after another
+    whatever their sizes, and the last one, a fill, takes what room is left up to the range's end; the
+    formats that point at a piece by its name (PLACES) find it where it went."""
     layout = json.loads((folder / "layout.json").read_text(encoding="ascii"))
+    base = int(layout["base"], 16)
+    movable = [int(value, 16) for value in layout.get("movable", ())]
+    pieces = layout["pieces"]
+    addresses = [int(piece["address"], 16) for piece in pieces]
+
+    def read_all():
+        found = []
+        for piece, address in zip(pieces, addresses):
+            if piece["format"] == "kept":
+                found.append(original[address - base:address - base + piece["size"]])
+                continue
+            _, _, from_text = FORMATS[piece["format"]][:3]
+            path = folder / piece["file"]
+            found.append(from_text(path.read_bytes() if is_binary(piece["format"]) else path.read_text(encoding="ascii")))
+        return found
+
+    PLACES.clear()
+    PLACES.update({piece["name"]: address for piece, address in zip(pieces, addresses)})
+    try:
+        datas = read_all()
+        if movable:
+            moving = [index for index, address in enumerate(addresses) if movable[0] <= address < movable[1]]
+            at = movable[0]
+            for index in moving[:-1]:
+                addresses[index] = at
+                at += len(datas[index])
+            last = moving[-1]
+            if pieces[last]["format"] != "fill" or at > movable[1]:
+                raise ValueError(f"{folder}: the pieces from {movable[0]:06X} make {at - movable[0]} bytes, "
+                                 f"more than the {movable[1] - movable[0]} up to {movable[1]:06X}")
+            addresses[last] = at
+            datas[last] = datas[last][:1] * (movable[1] - at)
+            for index in moving:
+                pieces[index]["size"] = len(datas[index])
+            PLACES.update({piece["name"]: address for piece, address in zip(pieces, addresses)})
+            sizes = [len(data) for data in datas]
+            datas = read_all()
+            datas[last] = datas[last][:1] * (movable[1] - at)
+            if [len(data) for data in datas] != sizes:
+                raise ValueError(f"{folder}: a piece changed its size when the places moved")
+    finally:
+        PLACES.clear()
     out = bytearray()
-    for piece in layout["pieces"]:
-        _, _, from_text = FORMATS[piece["format"]]
-        data = from_text((folder / piece["file"]).read_text(encoding="ascii"))
+    for piece, data in zip(pieces, datas):
         if len(data) != piece["size"]:
             # the code reaches every piece at a fixed address: one that grows or shrinks moves the rest
             raise ValueError(f"{piece['file']}: {len(data)} bytes, not {piece['size']}")

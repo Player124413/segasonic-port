@@ -1801,6 +1801,15 @@ void rock_wall_update(void)
 	}
 }
 
+void spawn_eggman_teleport(uint32_t free_count, uint32_t teleport, uint32_t block)
+{
+	uint32_t piece_count = 0, spawned = 0;
+
+	spawn_count = 2u;
+	spawn_object_with_pieces(0x013434u, &spawned, &piece_count, &free_count, &teleport, &block);
+	OBJECT(teleport)->handler = eggman_teleport_init_ADDRESS;
+}
+
 void eggman_teleport_init(void)
 {
 	OBJECT(current_object)->sprite_scale = 0x180u;
@@ -2137,6 +2146,23 @@ void fence_post_draw(void)
 		OBJECT(current_object)->health = 0x7F;
 		add_to_touchable_list(deleted);
 		add_to_rider_list();
+	}
+}
+
+void spawn_bubble_column(uint32_t spawned, uint32_t free_count, uint32_t column, uint32_t block)
+{
+	uint8_t sound_id = 0;
+	uint32_t r1 = 0;
+
+	spawn_count = 1u;
+	spawn_object_with_pieces(0x013AB8u, &spawned, &r1, &free_count, &column, &block);
+	if ((uint8_t)spawned != 0u)
+	{
+		OBJECT(column)->sprite_palette = 0x1060u;
+		OBJECT(column)->spawn_arg_1 = r14;
+		OBJECT(column)->handler = bubble_column_animate_ADDRESS;
+		sound_id = 0x24u;
+		play_sound(sound_id, &r1, &free_count);
 	}
 }
 
@@ -2552,7 +2578,7 @@ void eggman_scene_talk(void)
 		text_duration = eggman_scene_text_durations[direction];
 		OBJECT(current_object)->eggman_scene.step_timer = text_duration;
 		spawn_message_box(screen_x, screen_y, kind, text_duration, 0u);
-		sound_id = (uint8_t)ROM16(eggman_scene_sounds_ADDRESS + OBJECT(current_object)->direction * 2u);
+		sound_id = (uint8_t)eggman_scene_sounds[OBJECT(current_object)->direction];
 		play_sound(sound_id, &write_index, &write_index_address);
 		OBJECT(current_object)->direction++;
 	}
@@ -3399,6 +3425,44 @@ void eel_segment_move(void)
 	eel_segment_explode_delay();
 }
 
+void draw_eel_piece_parts(void)
+{
+	uint32_t bucket = 0, depth = 0, floor_depth = 0, ignored = 0;
+	uint16_t part_2_timer = 0, part_3_timer = 0;
+
+	current_object = LINKED(current_object, OBJECT(current_object)->child);
+	part_2_timer = OBJECT(current_object)->direction;
+	OBJECT(current_object)->direction = part_2_timer - 1u;
+	if (part_2_timer == 0u)
+	{
+		OBJECT(current_object)->direction = 2u;
+		OBJECT(current_object)->sprite_frame = eel_part_frames_2[eel_part_steps[AT8(OBJECT(current_object)->projected_y, 1)]];
+		AT8(OBJECT(current_object)->projected_y, 1)++;
+		AT8(OBJECT(current_object)->projected_y, 1) = AT8(OBJECT(current_object)->projected_y, 1) % 0x18u;
+	}
+	OBJECT(current_object)->screen_x = OBJECT(object_cursor)->screen_x;
+	OBJECT(current_object)->screen_y = OBJECT(object_cursor)->screen_y;
+	floor_depth = (uint16_t)(AS32(OBJECT(object_cursor)->projected_y_int) + AS32(OBJECT(object_cursor)->floor_z_int) - view_y + 1u);
+	r14 = floor_depth;
+	queue_sprite_at_depth(&ignored, &floor_depth);
+	current_object = LINKED(current_object, OBJECT(current_object)->child);
+	part_3_timer = OBJECT(current_object)->direction;
+	OBJECT(current_object)->direction = part_3_timer - 1u;
+	if (part_3_timer == 0u)
+	{
+		OBJECT(current_object)->direction = 2u;
+		OBJECT(current_object)->sprite_frame = eel_part_frames[AT8(OBJECT(current_object)->projected_y, 1)];
+		AT8(OBJECT(current_object)->projected_y, 1)++;
+		AT8(OBJECT(current_object)->projected_y, 1) = AT8(OBJECT(current_object)->projected_y, 1) % 0x1Fu;
+	}
+	copy_screen_position_from_cursor();
+	depth = (uint16_t)r14;
+	queue_sprite_at_depth(&ignored, &depth);
+	current_object = LINKED(current_object, OBJECT(current_object)->child);
+	bucket = place_sprite_at_cursor_floor();
+	queue_sprite_in_bucket(bucket);
+}
+
 void place_eel_piece(void)
 {
 	uint32_t direction = 0, speed = 0, wave_offset = 0;
@@ -3476,54 +3540,4 @@ void eel_piece_start_explosion(void)
 	sound_id = 0x24u;
 	play_sound(sound_id, &write_index, &write_index_address);
 	eel_piece_explode();
-}
-
-void eel_piece_explode(void)
-{
-	uint8_t sound_id = 0;
-	uint32_t cursor = 0, depth = 0, ignored = 0, write_index = 0, write_index_address = 0;
-	uint16_t frame_timer = 0;
-
-	frame_timer = OBJECT(current_object)->eel_piece.frame_timer;
-	OBJECT(current_object)->eel_piece.frame_timer = frame_timer - 1u;
-	if (frame_timer == 0u)
-	{
-		OBJECT(current_object)->eel_piece.frame_timer = 2u;
-		OBJECT(current_object)->sprite_frame = underwater_explosion_frames[(uint8_t)OBJECT(current_object)->eel_piece.frame_index];
-		OBJECT(current_object)->eel_piece.frame_index++;
-		if (OBJECT(current_object)->eel_piece.frame_index > 0x15)
-		{
-			current_object = LINKED(current_object, OBJECT(current_object)->parent);
-			AS8(OBJECT(current_object)->spawn_arg_2)--;
-			current_object = object_cursor;
-			OBJECT(current_object)->handler = eel_piece_gone_ADDRESS;
-			sound_id = 0x24u;
-			play_sound(sound_id, &write_index, &write_index_address);
-		}
-	}
-	unproject_object(&ignored, &ignored, &ignored, &cursor);
-	depth = (uint16_t)(OBJECT(current_object)->screen_y - 0x10u);
-	queue_sprite_at_depth(&ignored, &depth);
-	eel_piece_gone();
-}
-
-void eel_piece_gone(void)
-{
-}
-
-void breakable_panel_init(void)
-{
-	OBJECT(current_object)->sprite_frame = 0x9278u;
-	OBJECT(current_object)->sprite_palette = 0x91F0u;
-	OBJECT(current_object)->flags |= 2u;
-	OBJECT(current_object)->hitbox_size_x = 7u;
-	OBJECT(current_object)->hitbox_size_y = 0x40u;
-	OBJECT(current_object)->hitbox_offset_x = -4;
-	OBJECT(current_object)->hitbox_offset_y = -0x28;
-	OBJECT(current_object)->hitbox_height = 0x64u;
-	OBJECT(current_object)->kind = 5u;
-	OBJECT(current_object)->handler = breakable_panel_wait_ADDRESS;
-	current_object = LINKED(current_object, OBJECT(current_object)->child);
-	OBJECT(current_object)->sprite_frame = 0x9308u;
-	OBJECT(current_object)->sprite_palette = 0x9200u;
 }

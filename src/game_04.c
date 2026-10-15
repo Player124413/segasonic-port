@@ -11,6 +11,56 @@
  */
 #include "game.h"
 
+void eel_piece_explode(void)
+{
+	uint8_t sound_id = 0;
+	uint32_t cursor = 0, depth = 0, ignored = 0, write_index = 0, write_index_address = 0;
+	uint16_t frame_timer = 0;
+
+	frame_timer = OBJECT(current_object)->eel_piece.frame_timer;
+	OBJECT(current_object)->eel_piece.frame_timer = frame_timer - 1u;
+	if (frame_timer == 0u)
+	{
+		OBJECT(current_object)->eel_piece.frame_timer = 2u;
+		OBJECT(current_object)->sprite_frame = underwater_explosion_frames[(uint8_t)OBJECT(current_object)->eel_piece.frame_index];
+		OBJECT(current_object)->eel_piece.frame_index++;
+		if (OBJECT(current_object)->eel_piece.frame_index > 0x15)
+		{
+			current_object = LINKED(current_object, OBJECT(current_object)->parent);
+			AS8(OBJECT(current_object)->spawn_arg_2)--;
+			current_object = object_cursor;
+			OBJECT(current_object)->handler = eel_piece_gone_ADDRESS;
+			sound_id = 0x24u;
+			play_sound(sound_id, &write_index, &write_index_address);
+		}
+	}
+	unproject_object(&ignored, &ignored, &ignored, &cursor);
+	depth = (uint16_t)(OBJECT(current_object)->screen_y - 0x10u);
+	queue_sprite_at_depth(&ignored, &depth);
+	eel_piece_gone();
+}
+
+void eel_piece_gone(void)
+{
+}
+
+void breakable_panel_init(void)
+{
+	OBJECT(current_object)->sprite_frame = 0x9278u;
+	OBJECT(current_object)->sprite_palette = 0x91F0u;
+	OBJECT(current_object)->flags |= 2u;
+	OBJECT(current_object)->hitbox_size_x = 7u;
+	OBJECT(current_object)->hitbox_size_y = 0x40u;
+	OBJECT(current_object)->hitbox_offset_x = -4;
+	OBJECT(current_object)->hitbox_offset_y = -0x28;
+	OBJECT(current_object)->hitbox_height = 0x64u;
+	OBJECT(current_object)->kind = 5u;
+	OBJECT(current_object)->handler = breakable_panel_wait_ADDRESS;
+	current_object = LINKED(current_object, OBJECT(current_object)->child);
+	OBJECT(current_object)->sprite_frame = 0x9308u;
+	OBJECT(current_object)->sprite_palette = 0x9200u;
+}
+
 void breakable_panel_wait(void)
 {
 	uint32_t allocated = 0, random_value = 0, ring = 0;
@@ -444,6 +494,21 @@ void spike_gate_beam_update(void)
 	OBJECT(current_object)->screen_x += 0x30u;
 	OBJECT(current_object)->screen_y += 0x48u;
 	queue_sprite_in_bucket(bucket);
+}
+
+void spawn_eel_den(uint32_t spawned, uint32_t free_count, uint32_t den, uint32_t block)
+{
+	uint32_t piece_count = 0;
+
+	spawn_count = 1u;
+	spawn_object_with_pieces(0x0156FFu, &spawned, &piece_count, &free_count, &den, &block);
+	if ((uint8_t)spawned == 0u)
+	{
+		current_object = object_cursor;
+		return;
+	}
+	current_object = den;
+	eel_den_init();
 }
 
 void eel_den_init(void)
@@ -4836,163 +4901,4 @@ void set_nbg1_scroll_to_camera(void)
 	layer_scroll_y = camera_y_pixels;
 	nbg1_scroll_x_int = camera_x_pixels;
 	nbg1_scroll_y_int = layer_scroll_y;
-}
-
-uint32_t init_nbg2_layer(uint32_t dest)
-{
-	uint32_t count = 0, entries_left = 0, script = 0, table_entry = 0, tables_left = 0, wave_index = 0;
-
-	nbg2_pages = 0xD0C0B0Au;
-	script = clear_tile_page_0a_script_ADDRESS;
-	run_vram_script(&count, &script, &dest);
-	script = clear_tile_page_0b_script_ADDRESS;
-	run_vram_script(&count, &script, &dest);
-	script = clear_tile_page_0c_script_ADDRESS;
-	run_vram_script(&count, &script, &dest);
-	script = clear_tile_page_0d_script_ADDRESS;
-	run_vram_script(&count, &script, &dest);
-	switch (stage)
-	{
-	case 0:
-	case 17:
-	case 18:
-		mixer_nbg2_blend &= 0xFF7Fu;
-		return dest;
-	case 1:
-	case 2:
-		break;
-	case 3:
-	case 5:
-	case 6:
-	case 7:
-	case 8:
-	case 9:
-	case 10:
-	case 11:
-	case 12:
-	case 13:
-	case 14:
-	case 15:
-		mixer_nbg2_blend &= 0xFF7Fu;
-		return dest;
-	case 4:
-		mixer_nbg2_blend |= 0x80u;
-		mixer_blend &= 0xFFu;
-		mixer_blend |= 0xB00u;
-		return dest;
-	case 16:
-	case 19:
-		mixer_nbg2_blend &= ~0xF00u;
-		return dest;
-	default:
-		unknown_code(0x1B44Fu + stage * 3u);
-	}
-	row_scroll_wave_step = 0u;
-	entries_left = 0x100u;
-	table_entry = VIDEO_RAM + 0xA800u;
-	tables_left = 2u;
-	for (;;)
-	{
-		row_scroll_wave_step &= 0x7Fu;
-		wave_index = row_scroll_wave_step;
-		mem_write16(table_entry, (int32_t)(((uint32_t)(int16_t)ROM16(sine_table_ADDRESS + (uint16_t)(wave_index << 4)) << 3) & ~0xFFFFu) >> 16);
-		row_scroll_wave_step++;
-		table_entry += 2u;
-		entries_left--;
-		if (entries_left != 0u)
-			continue;
-		entries_left = 0x100u;
-		table_entry = VIDEO_RAM + 0xA000u;
-		tables_left--;
-		if (tables_left == 0u)
-			break;
-	}
-	mixer_nbg2_blend |= 0x80u;
-	mixer_blend &= 0xFFu;
-	mixer_blend |= 0xB00u;
-	return dest;
-}
-
-uint32_t update_nbg2_scroll(uint32_t position)
-{
-	switch (stage)
-	{
-	case 0:
-		skip_nbg2_scroll();
-		break;
-	case 1:
-		set_nbg2_scroll_to_camera_2();
-		break;
-	case 2:
-		set_nbg2_scroll_to_camera_2();
-		break;
-	case 3:
-		position = set_nbg2_scroll_stages_03_07();
-		break;
-	case 4:
-		set_nbg2_scroll_stage_04();
-		break;
-	case 5:
-		skip_nbg2_scroll();
-		break;
-	case 6:
-		skip_nbg2_scroll();
-		break;
-	case 7:
-		position = set_nbg2_scroll_stages_03_07();
-		break;
-	case 8:
-		skip_nbg2_scroll();
-		break;
-	case 9:
-		set_nbg2_scroll_to_camera();
-		break;
-	case 10:
-		set_nbg2_scroll_to_camera();
-		break;
-	case 11:
-		skip_nbg2_scroll();
-		break;
-	case 12:
-		skip_nbg2_scroll();
-		break;
-	case 13:
-		skip_nbg2_scroll();
-		break;
-	case 14:
-		skip_nbg2_scroll();
-		break;
-	case 15:
-		skip_nbg2_scroll();
-		break;
-	case 16:
-		set_nbg2_scroll_to_camera();
-		break;
-	case 17:
-		skip_nbg2_scroll();
-		break;
-	case 18:
-		skip_nbg2_scroll();
-		break;
-	case 19:
-		set_nbg2_scroll_to_camera();
-		break;
-	default:
-		unknown_code(0x1B525u + stage * 3u);
-	}
-	skip_nbg2_scroll();
-	return position;
-}
-
-void set_nbg2_scroll_to_camera(void)
-{
-	uint16_t layer_scroll_y = 0;
-
-	layer_scroll_y = camera_y_pixels;
-	nbg2_scroll_x = camera_x_pixels;
-	nbg2_scroll_y = layer_scroll_y;
-}
-
-void skip_nbg2_scroll(void)
-{
 }

@@ -306,7 +306,7 @@ D0000A  io  timer_1_reload   u16
 001615  code  game_mode_event_15        # game_mode 0x15: stage 3 at scroll A360 (0941AF)
 001622  code  game_mode_event_16        # game_mode 0x16: stage 3 at scroll 1B80 and 8610 (094128)
 000D47  code  game_mode_stage_clear     # game_mode 0x17 (check_stage_clear): 0x14A frames, two objects (001674, 001664), sounds 94 and 7B (music group), then game_mode 0x1D
-00162F  code  game_mode_event_18        # game_mode 0x18: stage 11 at scroll 0 (095177; its 095320 sets game_mode 0x20)
+00162F  code  game_mode_event_18        # game_mode 0x18: stage 11 at scroll 0 (095177)
 00163D  code  game_mode_event_19        # game_mode 0x19: stage 10 at scroll C80 (094012)
 0015C8  code  game_mode_event_1A        # game_mode 0x1A: stage 8 at scroll 3100 (094F0E)
 000FFF  code  game_mode_character_select  # game_mode 0x1B (from start_game): once (20F0BC bit 16): stage set up, load_stage_palette, cabinet_events 15; game_mode 1 when character_select_timer is 0 (after >= 3 frames); players join in state 0x34
@@ -314,7 +314,7 @@ D0000A  io  timer_1_reload   u16
 001105  code  game_mode_stage_results   # game_mode 0x1D: game_mode_timer 0x1E0, 0983FE (per player 13C against per-stage totals 09864E/09865F, percentages, result objects); game_mode 4 when stage_results_done
 001185  code  game_mode_stage_change_fade  # game_mode 0x1E (check_stage_clear on stages B-F): fade out (update_fade), start_stage, fade in, game_mode 3 (directly on stage 11)
 001657  code  game_mode_event_1F        # game_mode 0x1F: stage B at scroll F00 (0951FA)
-0012CD  code  game_mode_you_failed      # game_mode 0x20 (set at 095320): sound 94, color offsets up to 1F (white), "YOU FAILED" (queue_string_record 0025FA) at 0x78 frames, game_mode 7 when player_status is all 0
+0012CD  code  game_mode_you_failed      # game_mode 0x20 (set at 095320, in game mode 0x1F's event code): sound 94, color offsets up to 1F (white), "YOU FAILED" (queue_string_record 0025FA) at 0x78 frames, game_mode 7 when player_status is all 0
 
 # ======== frame loop helpers and small utilities ========
 098F9D  func  play_demo_buttons         # read_controls, demo only (current_screen 4/5, current_game_mode 3): puts the 3 low bits of [demo_input] into bits 25-27 of the inputs (the demo players' buttons, 00B63F), demo_input + 1
@@ -729,7 +729,7 @@ field object 9C next_handler u32         # spawn_objects stores the creator's re
 # FF - clamp(depth + 0x10, 0, 0xFE): the lower an object is on screen, the later it goes out and the
 # more it covers. Two buffers in sprite RAM (400020 and 404000); entry 1 (400010) is a jump that the
 # VBLANK hook points at the finished one (with the global offset = screen centre, 70/A0).
-099F2D  func  init_sprites             # sprite_flip from 20F618 and 500006-50000C from sprite_control_init, entries 0-1 from sprite_list_header, back buffer 400020, end marks at 400020/402010/404000/405FF0, vblank_hook, sprite_frames = 0x130000, then clear_sprite_buckets
+099F2D  func  init_sprites             # sprite_flip from 20F618 and 500006-50000C from sprite_control_init, entries 0-1 from sprite_list_header, back buffer 400020, end marks at 400020/402010/404000/405FF0, vblank_hook, sprite_frames = 0x130000, then clear_sprite_buckets (the code from 099F35 and from 099F3B is init_sprites_from_frame_wait and init_sprite_hardware: the unused init_sprites_without_swaps and init_sprites_swapping_every_frame branch there)
 099FA6  func  clear_sprite_buckets     # sprite_buckets_end = FFFF, each of the 256 buckets = its own address (empty)
 099FBC  func  queue_sprite             # depth = screen_y, then queue_sprite_at_depth (65 callers)
 099FC0  func  queue_sprite_at_depth    # R1 = depth: bucket FF - clamp(R1 + 0x10, 0, 0xFE), push R20 there through draw_next (145 callers)
@@ -742,7 +742,7 @@ field object 9C next_handler u32         # spawn_objects stores the creator's re
 09A0BE  func  queue_sprite_at_base     # depth = screen_y - sprite_offset_y (the player, 002CEC)
 09A102  func  depth_to_bucket          # R0 = FF - clamp(R1 + 0x10, 0, 0xFE), nothing queued
 09A27B  func  build_sprite_list        # walks the buckets from 20FC00 down to 20FA02 writing entries from sprite_list_start (R19), emptying each bucket; the mode comes from sprite_flags bits 15/14/12 (jump table at 9A2E0); R19 ends after the last entry
-09A1E9  func  swap_sprite_buffers      # vblank_hook: only when sprite_list_ready (then clears it): sprite_buffer_flip += 4, back buffer low word and the entry 1 jump (A002 / A400) from sprite_buffer_swaps; reads sprite_status
+09A1E9  func  swap_sprite_buffers      # vblank_hook: only when sprite_list_ready (then clears it): sprite_buffer_flip += 4, back buffer low word and the entry 1 jump (A002 / A400) from sprite_buffer_swaps; reads sprite_status (from the second += 2 on it is swap_sprite_buffers_now, which it falls into)
 08E8AE  func  queue_string             # adds a text record (x, y, palette, scale, string pointer) to string_queue; R5 = 0 takes the 4 words from [R0] and the string after them; ignored when 43 are queued
 08E8A6  func  queue_string_record      # queue_string with R5 = 0 (records like the "GAME OVER" one at 0025D0: 58, 68, 8440, 0200, text)
 08E8AB  func  queue_string_at          # queue_string with R5 = 1: R0-R3 = x, y, palette, scale, R4 = the string
@@ -1538,7 +1538,7 @@ field player 1D8 stall_frames s16           # 00E415: frames the scroll has not 
 018870  table stage_section_directions_y u16
 0197F2  table stage_scroll_modes    u16        # 19 offsets from 197F2 to (mode, duration) pairs, one per section
 01A128  table stage_fast_scroll_ranges u16     # 19 offsets from 1A128 to u16 positions, FFFF ends (update_background_scroll)
-01A667  table stage_section_unused  u32        # [stage] -> 20E488, which advance_scroll steps by 2 per section and nothing reads
+01A667  table stage_section_unused  u32        # [stage] -> 20E488, which advance_scroll steps by 2 per section and nothing reads; only entries 0-2 are pointers, the rest are the bytes that follow (nothing reads them)
 
 # ======== Tile layers (video RAM 300000-31FFFF) ========
 # The stage map is split in blocks (512 x 256 pixels of the map); stage_block_maps gives each block a tile
@@ -1700,7 +1700,7 @@ field player 1D8 stall_frames s16           # 00E415: frames the scroll has not 
 20E562  var   group_leaders         u16 object        # four object addresses (spawn_group_leader); group members keep theirs in field 26
 209F00  var   group_slots           u16        # spawn_object_groups uses 40 words (1 taken, 8000 | delay once group_slot_trigger_update fires it; a group with flag 20E5A8 takes a free one, its index in member field 8A); spawn_object_groups_2 and rope_bridge_plank_update use the area as bytes
 0903A2  table wall_spawns            u16      # 19 offsets from 0903A2 to 14-byte records: position, removal position (field 82), x, y, z, kind (offset into wall_kinds), part count, flags; FFFF ends
-090A72  data  wall_kinds                       # 20-byte records by kind: box size (fields 10/12, negative = per part), palette, part step x/y, first part sprite (negative: no parts), second part step and sprite
+090A72  data  wall_kinds                       # 20-byte records by kind: bytes 0-5 offsets and direction, then from +6 box size (fields 10/12, negative = per part), palette, part step x/y, first part sprite (negative: no parts), second part step and sprite
 093539  data  group_slot_triggers              # group_slot_trigger_update: (scroll position, slot, delay) records; slot 8000 sets goal_unlocked, FFFF ends
 09357D  data  group_leader_data                # leader field 48 = 09357D + offset from the record
 
@@ -2802,7 +2802,7 @@ field object 78 wall         u16 object              # check_walls
 08D862  table geyser_row_patterns    u16       # offsets from 08D862 by front: bytes, one per row, selecting a geyser_row_delays pattern
 08D886  data  geyser_row_delays                # 2 x 5 words: 0 14 28 3C 50 and 50 3C 28 14 0 (field 80 of the row's geysers)
 08D89A  table geyser_fronts          u16       # offsets from 08D89A: start height, top height, offset into geyser_lists, then 6-word entries (position or z limit, screen-y threshold, factor, speed, delay)
-08D902  data  geyser_lists                     # 10-byte records (position, x, y, z, start position), FFFF ends; front 0 at 08D902, front 1 at 08D936
+08D902  data  geyser_lists                     # 10-byte records (position, x, y, z, start position), a FFFF word ends; front 0 at 08D902, front 1 at 08D936
 08DB10  data  geyser_line_starts               # by front: x, y, z, offset into geyser_line_scripts
 08DB20  data  geyser_line_scripts              # 8-byte entries: position, y limit, speed, delay (negative delay ends)
 08DB50  data  geyser_burst_animation           # 7, frames 9D28-9D60 (cracks, burst, spray)
@@ -3209,7 +3209,7 @@ field object 78 wall         u16 object              # check_walls
 013413  table rock_wall_glint_frames u16       # 8AB0-8AF8
 
 # ======== Type 27 (no stage list spawns it): Eggman teleporting ========
-01343C  func  eggman_teleport_init             # zoom 180, sprite flag 100, palette 8220; part 2 = a tall beam (79A8, 128 x 224); handler eggman_teleport_animate (never spawned)
+01343C  func  eggman_teleport_init             # zoom 180, sprite flag 100, palette 8220; part 2 = a tall beam (79A8, 128 x 224); handler eggman_teleport_animate (only the unused spawn_eggman_teleport spawns it)
 013464  func  eggman_teleport_animate          # frames by eggman_teleport_steps (Eggman builds up in stripes, stands, works a remote, fades out; FF ends: delete_object_and_children); the beam drawn every other frame at its floor (+8), Eggman 3 frames out of 4
 0134E5  table eggman_teleport_steps u8         # 5B frame indexes, FF ends
 013541  table eggman_teleport_frames u16       # 32 decimal sprites 55A8-5630
@@ -3241,7 +3241,7 @@ field object 78 wall         u16 object              # check_walls
 208076  var   electric_fence_state  u8         # fence_post_init sets 1, the type 7 machine's last state (00FFA0) FF (posts removed), reset_linked_objects_flag 0 at a new game; fence_post_update switches on it
 
 # ======== Type 29 (no stage list spawns it) ========
-013ADD  func  bubble_column_init               # palette 1060, sound 24, handler bubble_column_animate (never spawned)
+013ADD  func  bubble_column_init               # palette 1060, sound 24, handler bubble_column_animate (never spawned; the unused spawn_bubble_column sets up the same)
 013AF9  func  bubble_column_animate            # every 3 frames the next of 14 (hex) frames from mine_bubble_frames + 92 * 13, looping; never removed
 013B3F  table mine_bubble_frames    u16        # 80E8-8180: white dots rising (the sinking mine's parts 3 and 5; bubble_column_animate)
 013B67  table mine_bubble_frames_2  u16        # 8188-8220 (the sinking mine's part 4)
@@ -3260,7 +3260,7 @@ field object 78 wall         u16 object              # check_walls
 013F33  func  spawn_mine_splash                # palette 1070; a 2-part object at the mine (projected_y + 1), palette 90A0, handler mine_splash_animate; part 2 sprite 8570 palette 1080|4000
 013F7D  func  mine_splash_animate              # a water column (mine_splash_frames, 1A steps of 3 frames, then removed) and a spray (mine_splash_spray_frames) 7 below it
 013EC7  table mine_sink_steps       u8         # 0 1 2 1 0 3 4 3
-013ECF  table mine_frames           u16        # 8610 8618 8620 8628
+013ECF  table mine_frames           u16        # 8610 8618 8620 8628 8630: five frames
 013ED9  table underwater_explosion_frames u16  # 84C0-8568: a white cloud breaking up (mine_explode; eel_piece_explode too)
 013F05  table underwater_explosion_durations u8 # [step]
 013F1B  table mine_flash_steps      u8         # 0-5-0 (12 decimal entries)
@@ -3290,7 +3290,7 @@ field object 78 wall         u16 object              # check_walls
 014281  table eggman_run_frames     u16        # 88E8-8920
 014291  table eggman_scene_texts    u8         # message numbers 16 17 18 (0953BF R7)
 014294  table eggman_scene_text_durations u16  # 78 each
-01429A  table eggman_scene_sounds   u8         # 3E 00 32
+01429A  table eggman_scene_sounds   u16        # by direction: sound ids 003E 0032 0030 (read as halfwords, the low byte played)
 014345  table button_box_steps      u8         # 23 frame indexes
 014368  table button_box_durations  u16        # 23 (3C on the pressed step)
 0143AE  table button_box_frames     u16        # 8928-8998 (15 decimal entries)
@@ -3338,10 +3338,10 @@ field object 78 wall         u16 object              # check_walls
 014FB8  table eel_head_frames       u16        # facing 0: AA38 AA40 AA48
 014FBE  table eel_head_retract_frames u16      # facing 1, going back in: AA08 AA10 AA18 AA00
 014FC6  table eel_head_extend_frames u16       # facing 1, going out: AA20 AA28 AA30
-014DC2  code  draw_eel_piece_parts_unused      # unreached (no reference, not in index.txt): would animate a piece's parts 2/3 with eel_part_frames / eel_part_steps -> eel_part_frames_2 (eel_init seeds part 3's 2D for it); the pieces' parts 2/3 are never drawn
-014FCC  table eel_part_frames       u16        # A8A0-A990 (31 decimal entries); read only by draw_eel_piece_parts_unused
-01500A  table eel_part_steps        u8         # 0-C-1 (24 decimal entries); read only by draw_eel_piece_parts_unused
-015022  table eel_part_frames_2     u16        # A998-A9F8 (13 decimal entries); read only by draw_eel_piece_parts_unused
+014DC2  func  draw_eel_piece_parts             # unused: nothing refers to it (it follows eel_segment_move's rsr): eel_segment_move's ending with the piece's parts 2 and 3 drawn: R20 = the piece's child (part 2): every 3 frames (frame_timer) its sprite = eel_part_frames_2[eel_part_steps[frame_step]], at the piece's (R23) screen position, queued at its floor depth (projected_y + floor_z - view_y + 1); the next child (part 3) likewise with eel_part_frames (copy_screen_position_from_cursor), at the same depth; the next one (the shadow) at the piece's floor in bucket FF. The live ending skips parts 2/3 (three child links) and queues only the shadow, so they are never drawn; eel_init seeds part 3's 2D for it
+014FCC  table eel_part_frames       u16        # A8A0-A990 (31 decimal entries); read only by draw_eel_piece_parts
+01500A  table eel_part_steps        u8         # 0-C-1 (24 decimal entries); read only by draw_eel_piece_parts
+015022  table eel_part_frames_2     u16        # A998-A9F8 (13 decimal entries); read only by draw_eel_piece_parts
 
 # ======== Type 36: breakable panel (s3 0001-0400; 92 = ring angle, 94 = rings) ========
 01503C  func  breakable_panel_init             # blue stone panel 9278 palette 91F0, box 7 x 40, height 64, kind 5; part 2 = an arch outline 9308 whose palette cycles; handler breakable_panel_wait
@@ -3375,7 +3375,7 @@ field object 78 wall         u16 object              # check_walls
 0155D8  func  spike_gate_beam_drop             # speed_z + 2000 on top of gravity; landing: kind C, bounces up 6 pixels, after the third z + 3, sound 7, spike_gate_beam_wait
 015623  func  spike_gate_beam_wait             # A frames on the ground, then spike_gate_beam_rise
 015630  func  spike_gate_beam_update           # move; breaks up like the pillars; draws its three sections at (0,0), (30,19), (60,2D) by cursor_floor_screen_y, touch list, shadow in bucket FF
-0156F4  code  spawn_eel_den_unused             # unreached (no reference, not in index.txt): spawn_object_with_pieces(1), R20 = the new object, falls into eel_den_init (whose closing R20 = R23 only matters on this path)
+0156F4  func  spawn_eel_den                    # unused: nothing refers to it (it follows an rsr): spawn_object_with_pieces(1), R20 = the new object, falls into eel_den_init (whose closing R20 = R23 only matters on this path)
 
 # ======== Type 43: eel den (s10 3500, 3580, 4600, 5A00, 5A10; 92 = its number) ========
 015706  func  eel_den_init                     # a stone arch AC70 palette 1300|4000, box 47 x 42, height 28, kind C, health (7E) 1; handler eel_den_wait
@@ -3721,7 +3721,7 @@ D00005  io  irq_control_5          u8    # init_system clears it with the other 
 
 # ---------------- ROM tables ----------------
 0005DE  table mixer_default_nbg0        u16         # mixer_defaults entry 11 (610022): update_stage_06_background raises it to | F and restores it
-0005E4  table mixer_default_nbg3        u16         # mixer_defaults entry 14 (610028), the same
+0005E4  table mixer_default_nbg3        u16         # mixer_defaults entry 14 (610028), the same; mixer_defaults ends at 00060C (attract_mode_names)
 0050AF  table floor_4_slow_run_steps    u8          # [animation_frame] FF FF 00 00 FF FF FF 00 00 FF: on floor type 4 player_animate_run_cycle needs 4 x the walk_cycle (1800 instead of 600) before leaving these steps
 00CD12  table hud_name_positions_3p     u16         # [player] text map offsets (31FC08, 31FC20, 31FC3C) where state 24 erases the character name ("MIGHTY", the longest, at 00CD2F); 3-player cabinets
 00CD18  table hud_name_positions_2p     u16         # the same for 2 players (31FC08, 31FC3C)
@@ -5968,7 +5968,7 @@ scoped object white_puff 82 frame_timer u16  # counted down (dec.h); when it was
 094009  table  wide_rope_bridge_rope_offsets s16  # rope_bridge_rope_offsets + 8, used instead for kind 30 (the wide plank): (-1C, -10), (62, 30) (rope_bridge_plank_update)
 095944  data   event_1a_scroll_script_step_1  # event_1a_scroll_script record 1 (3400, 0, 20): run_game_mode (game mode 0x1A) leaves R11 here after reading event_1a_first_scroll_mode/speed
 096D78  table  map_eggman_gesture_frames s8 # map_eggman_update step 2: pointer kept in the object, one byte each 4 frames: sprite 5760 + (n - 1) x 8, sound 21 on 7; FF ends (stays on the last): 1-7 6 3-7 6
-097F69  data   title_sky_cycle_palettes     # title_sky_wave: cycle_palette source (palette_cycle_0, delay 3): 10 frames of 16 colours, each copied to the 5 rows at 608F60
+097F69  data   title_sky_cycle_palettes     # title_sky_wave: cycle_palette source (palette_cycle_0, delay 3): 10h (16) frames of 16 colours, each copied to the 5 rows at 608F60
 09C58E  data   default_settings             # eeprom_defaults + 0E: load_settings copies 19 halfwords over setting_advertise_sound (20F60E) when the EEPROM is from another version or both copies fail
 09FEE6  table  start_prompt_texts u16       # blink_start_prompt's prompt_texts (draw_player_start_prompt, draw_attract_credits; via 0FFEE6): offsets from here to print_text_lines texts: 0 "Push start/button", 1 "Insert more/coin", 2 "Insert/coin", 3 "2 credits/start"
 09FF84  data   two_credits_one_play_text    # draw_attract_credits (common chutes, 2 credits a start, not free play; via 0FFF84): print_text record, cell F798, attribute 0, "2 credits 1 play"
@@ -8658,8 +8658,8 @@ local draw_credit_count_now entry,0FFDE2 r0 plural_cell  # print_text_here's las
 
 # ======== unused code (from build/naming/dead_1..5.txt) ========
 # Code nothing in the program reaches (no call, jump, table or stored pointer leads there): unused functions, decompiled like the rest
-08341F  data  data_08341F    # data that decodes as instructions into invalid ones: a table of 6-byte records
-09A65C  data  data_09A65C    # data that decodes as instructions into invalid ones: zeros after erase_formatted_text_skip_triple's last RSR
+08341F  data  roller_back_zone_limits      # replaces data_08341F: object_steps records 3-7 (spawn_roller_back_zone reads object_steps[roller_back_zone_index * 3], indices 3-7 from spiked_roller_kinds): limit words 10A0, F74B, 0AF0, FA63, 0650 with no handler, then a 00 byte before machine_start
+09A65C  data  pause_text                   # replaces data_09A65C: a print_text record (cell F7A4: row 15 column 18, attribute 0, "Pause", 0) and a 00 byte; no code found reads it
 09EDC1  data  data_09EDC1    # data that decodes as instructions into invalid ones: zeros and FF after three RSR
 09FEDD  data  data_09FEDD    # data that decodes as instructions into invalid ones: a table of halfwords
 
@@ -8966,7 +8966,7 @@ scoped object ram_target 86 damage_script u32 rom  # ram_target_damage_script (m
 085E9F  data  ram_target_animation              # last step 3: 6A58 6A60 6A68 6A70, played once when it appears
 085ED3  table ram_target_debris_count u16       # 4 (ram_target_burst)
 085ED5  table ram_target_debris u16             # 4 x 6 words: sprite flags 1000, dx, dy, speed x, speed y (12.4), animation offset into ram_target_debris_animations
-085F05  data  ram_target_debris_animations      # four animations (+0, +E, +1A, +22): sprites 6AA8-6B10
+085F05  data  ram_target_debris_animations      # five animations (+0, +E, +1A, +22 and one more): sprites 6AA8-6B10
 
 # ---- 08C56E-08C61E: an object drawn twice, the copy between two clip entries
 08C56E  func  clipped_copy_sprite_start         # unused: sprite 7058 palette 5050 flags 4 zoom 100 on its floor; with a free object and two pool 2 blocks: a take_free_object copy of its first 50 bytes in palette bank 8000 (| 8000, & 9FFF) kept in copy_object (80), and two 5000 clip entries (frame E0, zoom 140) chained as its child and grandchild; handler clipped_copy_sprite_update. As icicle_buried_part_draw (copy in another palette bank between two clip entries)
@@ -9225,7 +9225,7 @@ local expand_font_2bpp_transparent 09946E,099488 r6 pixel  # one 2-bit pixel (ro
 # ---- sprites ----
 09A127  func  queue_sprite_at_depth_offset           # unused: queue_sprite_at_depth's clamp of R1 + 10 (0-FE), bucket (FF - depth + R2) & FF: R2 buckets further back
 09A1B0  func  get_previous_floor_bucket              # unused: queue_sprite_at_previous_floor_2's first half: (projected_y + previous_floor_z) >> 16 - view_y + 10 clamped to 0-FE in R1, FF - it in R10; queues nothing
-09A229  func  cancel_sprite_buffer_swap              # unused: sprite_list_ready = 0, so swap_sprite_buffers skips the next swap
+09A229  func  cancel_sprite_buffer_swap              # unused: sprite_list_ready = 0, so swap_sprite_buffers skips the next swap; init_sprites_without_swaps (unused) makes it the vblank_hook
 09A230  func  load_sized_frame_address_at_row        # unused: sprite_scale (the address word of sized frames, flags 9xxx) = the frame record's word 3 + R0 x (word 0 >> 2, halved first unless sprite_flags bit 9, 8 bpp): the frame's graphics from row R0 down
 09A257  func  load_sized_frame_address               # unused: sprite_scale = the frame record's word 3 (sprite_frames | sprite_frame, + 6): the address word of a sized frame, as spawn_message_box loads it
 09A267  func  load_frame_size                        # unused: sprite_width = the frame record's word 0, sprite_height = its byte 2 (sized frames draw at this size)
@@ -9807,7 +9807,7 @@ local flood_fill 09BCE3 r15 span_right_address       # 09BD99: the bitmap addres
 local flood_fill 09BCE3 r16 span_right_x             # 09BD99: the span's right end
 
 # variables
-20B500  var   bitmap_draw_buffer  u32     # work area of the unused bitmap drawing: fill_quad's and 09B187's span list (6 bytes a row: bitmap address u32, length u16, drawn by 09B312), draw_circle_polygon's 64 (x, y) points, flood_fill's ring queue of 26-byte span records up to 20CCC4 (R23 writes, R24 reads)
+20B500  var   bitmap_draw_buffer  u32     # work area of the unused bitmap drawing: fill_quad's and 09B187's span list (6 bytes a row: bitmap address u32, length u16, drawn by 09B312), draw_circle_polygon's 64 (x, y) points, flood_fill's ring queue of 26-byte span records up to 20CCC4 (R23 writes, R24 reads), the picture unpacker's 16-slot colour cache (init_picture_colour_cache), unpack_lz_bytes' recent_literals
 
 # dead_work_5: 09BD58-09FEBA (unused code, helper 5)
 
@@ -10763,6 +10763,169 @@ param animate_palette_stage_09 R1 copy_offset   # cycle_palette's R1
 param animate_palette_stage_09 R2 copy_entry    # cycle_palette's R2 (vblank_copies entry), else the caller's
 
 param stage_05_event_show_message_11 R2 part_size  # handed to stage_05_event_show_message (play_sound's, then spawn_walls' R2)
+013429  func  spawn_eggman_teleport                        # unused: no caller, no table: spawn_count 2 (8[R25]), spawn_object_with_pieces, handler eggman_teleport_init (01343C), rsr: the only spawner of eggman_teleport_init ("never spawned")
+013AAD  func  spawn_bubble_column                          # unused: no caller, no table: spawn_count 1, spawn_object_with_pieces, palette 1060, 92 = R14, handler bubble_column_animate, play_sound 24 (what bubble_column_init does), rsr
+
+# ---- unused code the data of the code chips hid (after tables; the static analysis reached none of it) ----
+# 099AE7-099F2C (it was the piece data_099AE7 of assets/code_data/080000/): a packed-picture unpacker for the 8 bpp
+# bitmap layer, an LZ unpacker, a copy of the bitmap layer set-up, and two other ways into init_sprites. The
+# unpackers read their bit stream with EXTBFZ / SCH0BSU from the address in R12 at the bit position in R18 (the
+# register the C calls current_player); a number is a gamma code: n 1 bits, a 0, then n + 1 bits v, worth
+# v + 2^(n + 1) - 1 (1, 2, 3 ...)
+099AE7  func  draw_packed_picture              # unused: unpacks the picture at R10 into the 8 bpp bitmap layer: init_bitmap_layer(1), the four tile layers off (video_layer_disable |= F), init_picture_unpacker, init_picture_colour_cache, read_picture_size, unpack_picture_pixels, then rotate_bitmap_for_monitor_flip; no packed picture is known in the ROMs
+099B08  func  init_picture_unpacker            # unused: colour cache at 20B500 (bitmap_draw_buffer, R15), newest slot 0 (R16), bit position 0 (R18), and the done map at 400100 (R17, sprite RAM): 1C00 halfwords cleared, a bit per byte of the bitmap's 200 x E0 bytes
+099B29  func  init_picture_colour_cache        # unused: 16 slots of 3 bytes at R15 (next slot, previous slot, colour): slot n links n + 1 and n - 1, colour 0; slot F's next = 0 and slot 0's previous = F close the ring
+099B54  func  read_picture_size                # unused: two 16-bit numbers from the bit stream: the width (R13) and the height (R14) of the picture in pixels
+099B6B  func  unpack_picture_pixels            # unused: walks the bitmap from its top left (bitmap_address, rows 200 bytes apart, width x height pixels) by runs: a gamma code n, then n - 1 pixels that keep the colour already there if the done map has their bit, else get the current colour, then a pixel that takes read_picture_colour's colour (bit set in the done map); a 1 bit after it starts a chain going down from it: 2-bit steps through picture_chain_step_jumps (1 left, 2 straight, 3 right, 0 then 0 ends the chain or 10 two left, 11 two right), each painting the pixel one row down in the colour and setting its done bit; ends after the last row. The chain also keeps x and y in R1 and R2 and never reads them
+099BD9  code  unpack_picture_new_pixel         # unpack_picture_pixels: the pixel that ends a run, with read_picture_colour's colour (a run of 1 comes straight here)
+099C58  code  unpack_picture_chain_down        # unpack_picture_pixels: the chain's next pixel, one row (200 bytes) down after the step's x move: painted, done bit set, then the next 2-bit step
+099C6A  data  picture_chain_step_jumps         # unpack_picture_pixels (099C1C "mov.w 99C6A[PC](R0), R0; jmp [R0]"): 4 code addresses by the 2-bit step: 099C24 (another bit: 0 ends the chain, 1 then reads the x move of 2), 099C4E (x - 1), 099C58 (straight down), 099C54 (x + 1)
+099C7A  func  read_picture_colour              # unused: a colour for unpack_picture_pixels (R7) through the 16-slot cache at R15: bit 1 and 4 bits name a slot, whose colour it takes; the slot is unlinked and put back after the newest (R16), and becomes the newest; bit 0 and 8 bits are a new colour, stored in the slot after the newest (the least recently used one), which becomes the newest
+099CF9  func  rotate_bitmap_for_monitor_flip   # unused: when setting_monitor_flip is set, turns the 320 x 224 picture of the 8 bpp bitmap round (180 degrees): each of the top 70 rows swaps its 320 bytes with the mirrored bottom row's, in reverse order (RVBYT on each word), so the picture is the right way up on a flipped monitor
+099D5B  func  init_bitmap_layer                # unused: clear_bitmap_layer's set-up without its fill: set_bitmap_scroll_2(0, 0, R0 != 0), get_bitmap_address_2(0, 0), video_layer_disable bits 5/10/15 off, bitmap clip 0,0-13F (19F wide),DF, then set_bitmap_window_2(0, 0, 1FF, DF)
+099DAE  func  get_bitmap_address_2             # unused: a copy of get_bitmap_address (300000 + y x row + x, by bitmap_8bpp, into bitmap_address); init_bitmap_layer's
+099DD3  func  set_bitmap_scroll_2              # unused: a copy of set_bitmap_scroll (video_bitmap_scroll_x/y, bitmap_8bpp and video_control bit 11 from R2 bit 0); init_bitmap_layer's
+099DF9  func  set_bitmap_window_2              # unused: a copy of set_bitmap_window (R0-R3 sorted into bitmap_window_left/top/right/bottom); init_bitmap_layer's
+099E1E  func  set_bitmap_clip_2                # unused: a copy of set_bitmap_clip (R0-R3 sorted into video_bitmap_clip_left/top/right/bottom, video_layer_disable bit 15 on); nothing calls either
+099E49  func  unpack_lz_bytes                  # unused: unpacks the bit stream at R10 into bytes from R11: a gamma code is the byte count, then items: 0 and 8 bits a literal byte (also kept in recent_literals, 16 of them in a ring), 10 and 4 bits a byte from recent_literals, 11 and two gamma codes a copy of earlier output (distance back, length); ends when the count runs out (a copy can overshoot it)
+099F11  func  init_sprites_without_swaps       # unused: init_sprites with vblank_hook = cancel_sprite_buffer_swap in place of swap_sprite_buffers (br into init_sprites at 099F35): the VBLANK only clears sprite_list_ready, the sprite buffers never swap
+099F1B  func  init_sprites_swapping_every_frame  # unused: init_sprites with vblank_hook = swap_sprite_buffers_now (a swap at every VBLANK, ready or not) and frames_to_wait = frames_per_wait = 1 (mov.h #101), then br into init_sprites at 099F3B
+099F35  func  init_sprites_from_frame_wait     # init_sprites from its frames_to_wait = frames_per_wait = 0 (mov.h #0) on, then init_sprite_hardware; init_sprites_without_swaps' way in (br 099F35)
+099F3B  func  init_sprite_hardware             # the rest of init_sprites: sprite_flip, 500006-50000C, the sprite list header, back buffer, end marks, sprite_frames, clear_sprite_buckets; init_sprites_swapping_every_frame's way in (br 099F3B)
+09A1FB  func  swap_sprite_buffers_now          # swap_sprite_buffers past its sprite_list_ready test and first sprite_buffer_flip += 2 (it falls in here): flip += 2, back buffer low word and entry 1 jump from sprite_buffer_swaps[flip & 6], reads sprite_status; as the hook init_sprites_swapping_every_frame stores (+= 2 a VBLANK) it steps through all four records of sprite_buffer_swaps, (4000, A201) and (0020, A5FF) among them, which the game's += 4 skips
+08F998  func  reset_character_select           # unused: after ranking_stage_sprites' 10 words (08F984-08F997): characters_taken, players_in_join_chooser, free_character_count and character_select_timer (208090-208094) = 0 with two overlapping 32-bit stores and a 16-bit one (game mode 0x1B clears 208090-208093 with one 32-bit store, 00109E); start_character_chooser follows
+09754C  func  init_title_puff_sprite           # unused: after title_smoke_puff_frames' FFFF: the object at R11 gets screen_y 7A, sprite_layer 7, sprite_scale 100, sprite_flags 0, sprite_palette EB0: title_smoke_puff_animate's set-up (it uses screen_y 70) for an object title_flying_craft_move allocates (R11); title_clouds_1_drift follows
+09C5C0  func  compute_crc16_strided            # unused: after eeprom_defaults' 40 bytes: compute_crc16's loop (polynomial 1021, 8 more shifts at the end, >> 16 into R0) over R3 bytes from R4, R6 + 1 bytes apart, with the first three bytes where compute_crc16 has its seed DEBDEB: R0 = the bytes, as one number, mod 11021 (compute_crc16 gives that of DE BD EB and its bytes; checked in Python); R6 is put back; eeprom_lock follows
+08E1A8  func  copy_screen_position_from_cursor # the current object's screen_x and screen_y = object_cursor's (R23); only draw_eel_piece_parts (unused) calls it
+
+param draw_packed_picture R10 picture           # the packed picture: two 16-bit sizes, then the bit stream (R12 = it)
+local draw_packed_picture 099AE7 r12 stream     # the bit stream the unpacker reads (R18 counts the bits read)
+local draw_packed_picture 099AEA r0 is_8bpp     # 1: init_bitmap_layer's 8 bits per pixel
+param init_picture_unpacker R15 colour_cache    # 20B500 (bitmap_draw_buffer): 16 slots of 3 bytes for init_picture_colour_cache
+param init_picture_unpacker R16 newest_slot     # 0: the slot of the colour used last
+param init_picture_unpacker R17 done_bits       # 400100: a bit per byte of the bitmap, set once its pixel has its colour
+param init_picture_colour_cache R15 colour_cache  # 16 slots of 3 bytes (next, previous, colour)
+local init_picture_colour_cache 099B29,099B37,099B3A,099B3D r11 entry_cursor  # walks the slots' bytes
+local init_picture_colour_cache 099B30,099B41 r0 next_slot      # 1, 2 ... 10 (slot F's is put back to 0)
+local init_picture_colour_cache 099B33,099B43 r2 previous_slot  # FF, 0, 1 ... (slot 0's is put back to F)
+local init_picture_colour_cache 099B2C,099B45 r1 slots_left     # 10
+param read_picture_size R12 stream             # the bit stream (R18 its bit position)
+param read_picture_size R13 width              # the first 16 bits: pixels a row (R14, the height, is a shared register in C: r14)
+param unpack_picture_pixels R12 stream          # the bit stream (R18 its bit position)
+param unpack_picture_pixels R13 width           # pixels a row (read_picture_size); the height is in R14 (r14)
+param unpack_picture_pixels R15 colour_cache    # read_picture_colour's
+param unpack_picture_pixels R16 newest_slot     # read_picture_colour's
+param unpack_picture_pixels R17 done_bits       # a bit per byte of the bitmap (insbfr / extbfz at the pixel's offset)
+local unpack_picture_pixels 099B6B,099BAA,099BBB,099BD9,099BEA r5 x   # FFFF at the start, + 1 a pixel, 0 on the next row
+local unpack_picture_pixels 099B6E,099BB3,099BE2 r6 y                 # rows done: the picture ends at the height (r14)
+local unpack_picture_pixels 099B71,099BCB r7 colour                   # the current colour: read_picture_colour's, or the colour of a done pixel the run crosses
+local unpack_picture_pixels 099B79 r9 row_bytes                       # 200: the bitmap's row
+local unpack_picture_pixels 099B81 r10 row_skip                       # 200 - width: from the end of the picture's row to the start of the next
+local unpack_picture_pixels 099B84,099BAC,099BBE,099BDB,099BED r11 offset  # the pixel's offset from bitmap_address (and its bit in the done map)
+local unpack_picture_pixels 099B74 r19 bitmap                         # bitmap_address (get_bitmap_address_2's 300000)
+local unpack_picture_pixels 099B87,099B8D r1 code_bits                # the gamma code's 1 bits (sch0bsu), + 1: the bits its value has
+local unpack_picture_pixels 099B92 r0 code_value                      # the value bits of the run's gamma code
+local unpack_picture_pixels 099BA6 t1 run_length                      # code_value + 2^code_bits - 1: the run's pixels, the last of which gets a new colour
+local unpack_picture_pixels 099BA6,099BD5 r8 pixels_left              # the run's pixels before the new one
+local unpack_picture_pixels 099BFD,099C24,099C31 r0 bit               # one bit of the stream: a chain follows (099BFD), the chain goes on (099C24), the x move's side (099C31)
+local unpack_picture_pixels 099C10,099C41,099C49,099C50,099C56,099C5A r3 chain_offset  # the chain pixel's offset from bitmap_address
+local unpack_picture_pixels 099BF7 t3 done_address                    # where insbfr reads and writes the 32 bits that hold the pixel's done bit
+local unpack_picture_pixels 099C61 t3 chain_done_address              # the same for the chain's pixel
+local unpack_picture_pixels 099C1C t0 chain_step                      # the 2-bit step that indexes picture_chain_step_jumps
+param read_picture_colour R12 stream            # the bit stream (R18 its bit position)
+param read_picture_colour R15 colour_cache      # 16 slots of 3 bytes: next, previous, colour
+param read_picture_colour R16 newest_slot       # the slot of the colour used last; the slot this colour is in on the way out
+param read_picture_colour R7 colour             # out: the colour (its low byte; a new colour, 8 bits, replaces the whole register)
+local read_picture_colour 099C7A r0 is_cached   # the first bit: 1 a slot number follows, 0 a new colour
+local read_picture_colour 099C87 r0 slot        # 4 bits: the slot whose colour it takes
+local read_picture_colour 099C95 r1 slot_offset # slot x 3
+local read_picture_colour 099C99 r4 previous_slot  # the slot before it, linked to the one after it to take it out
+local read_picture_colour 099CA2 r3 next_slot   # the slot after it
+local read_picture_colour 099CB3 r2 newest_offset  # newest_slot x 3
+local read_picture_colour 099CB7 r3 oldest_slot # the slot after the newest (the least recently used): it goes after the picked slot
+local read_picture_colour 099CD1,099CEB r16 picked_slot  # the slot the colour is in: the newest from now on
+local read_picture_colour 099CD8,099CDE r7 picked_colour # the slot's colour, or the 8 bits of a new one
+local rotate_bitmap_for_monitor_flip 099CFF,099D21,099D2D,099D39,099D45,099D4C r10 top_cursor  # 300000 on: a row's bytes from the left
+local rotate_bitmap_for_monitor_flip 099D06,099D1B,099D27,099D33,099D3F,099D51 r11 bottom_cursor  # 31BF40 back: the mirrored row's bytes from the right (the end of row DF's 320)
+local rotate_bitmap_for_monitor_flip 099D0D,099D56 r3 row_pairs_left  # 70: half of the 224 rows
+local rotate_bitmap_for_monitor_flip 099D11 r2 blocks_per_row         # 14: 320 bytes in 16-byte blocks
+local rotate_bitmap_for_monitor_flip 099D15,099D48 r5 blocks_left
+local rotate_bitmap_for_monitor_flip 099D1B,099D27,099D33,099D3F r1 bottom_word  # 4 bytes of the bottom row, written byte-reversed at the top
+param init_bitmap_layer R0 is_8bpp              # not 0: set_bitmap_scroll_2's R2 = 1 (8 bits per pixel), as clear_bitmap_layer
+local init_bitmap_layer 099D60 r0 scroll_x
+local init_bitmap_layer 099D63 r1 scroll_y
+local init_bitmap_layer 099D69 r0 x
+local init_bitmap_layer 099D6C r1 y
+local init_bitmap_layer 099D72 r1 video_base    # video_control's address (31FF00): + 0x84 is video_bitmap_clip_right/bottom
+local init_bitmap_layer 099D86,099D91 r0 clip_right_bottom  # DF013F (right 19F with video_control bit 15)
+local init_bitmap_layer 099D9B r0 left
+local init_bitmap_layer 099D9E r1 window_top
+local init_bitmap_layer 099DA1 r2 right
+local init_bitmap_layer 099DA6 r3 bottom
+param get_bitmap_address_2 R0 x                 # as get_bitmap_address
+param get_bitmap_address_2 R1 y
+local get_bitmap_address_2 099DB4 r2 x_shift    # bitmap_8bpp - 1: x >> 1 at 4 bpp, x at 8 bpp; + 9 is the y shift
+param set_bitmap_scroll_2 R0 scroll_x           # as set_bitmap_scroll
+param set_bitmap_scroll_2 R1 scroll_y
+param set_bitmap_scroll_2 R2 is_8bpp
+param set_bitmap_window_2 R0 left               # as set_bitmap_window
+param set_bitmap_window_2 R1 top
+param set_bitmap_window_2 R2 right
+param set_bitmap_window_2 R3 bottom
+local set_bitmap_window_2 099DFE t1 old_left    # left kept while left and right swap
+local set_bitmap_window_2 099E06 t1 old_top     # top kept while top and bottom swap
+param set_bitmap_clip_2 R0 left                 # as set_bitmap_clip
+param set_bitmap_clip_2 R1 top
+param set_bitmap_clip_2 R2 right
+param set_bitmap_clip_2 R3 bottom
+local set_bitmap_clip_2 099E23 t1 old_left
+local set_bitmap_clip_2 099E2B t1 old_top
+param unpack_lz_bytes R10 packed                # the bit stream (R12 = it; R18 its bit position from 0)
+param unpack_lz_bytes R11 dest                  # where the bytes go, past the last one at the end
+scoped global unpack_lz_bytes 20B500 recent_literals u8  # the last 16 literal bytes, in a ring (literal_slot & F); an item 10 and 4 bits copies one of them
+local unpack_lz_bytes 099E49 r12 stream
+local unpack_lz_bytes 099E4F,099EEC,099EF5 r15 literal_slot   # where in recent_literals the next literal goes (& F)
+local unpack_lz_bytes 099E6C,099EDA,099EF7,099F0C r17 bytes_left  # the first gamma code: bytes to unpack, less each item's
+local unpack_lz_bytes 099E52,099E58,099E8B,099E91,099EB0,099EB6 r1 code_bits  # a gamma code's 1 bits (sch0bsu), + 1: the bits its value has
+local unpack_lz_bytes 099E5D,099E96,099EBB r0 code_value       # the value bits of a gamma code
+local unpack_lz_bytes 099E71,099E7E r0 bit                     # an item's first bits: 0 a literal, 10 a recent literal, 11 a copy
+local unpack_lz_bytes 099EE0 r0 literal
+local unpack_lz_bytes 099EAD,099ED2 r10 copy_source  # dest less the first gamma code: earlier output
+local unpack_lz_bytes 099ECF,099ED6 r3 copy_left
+local unpack_lz_bytes 099EDA t2 bytes_before_copy   # bytes_left before the copy's length comes off it (the loop goes on while it was more)
+param init_sprites_from_frame_wait R0 end_mark  # init_sprite_hardware's FFFF, handed back
+local init_sprites 099F2D r10 control_init     # init_sprites_from_frame_wait's R10 (past sprite_control_init), handed back
+local init_sprites_from_frame_wait 099F35 r10 control_init  # init_sprite_hardware's R10, handed back
+local init_sprites_without_swaps 099F19 r0 end_mark         # init_sprites_from_frame_wait's FFFF (nothing reads it)
+local init_sprites_swapping_every_frame 099F2B r0 end_mark  # init_sprite_hardware's FFFF (nothing reads it)
+param init_sprites_from_frame_wait R10 source   # init_sprite_hardware's sprite_control_init cursor, handed back
+param init_sprite_hardware R0 end_mark          # FFFF, the end mark written at the starts of the four sprite list buffers (low half)
+param init_sprite_hardware R10 source           # walks sprite_control_init (4 bytes to 500006-50000C): 9A6B6 at the end
+param init_title_puff_sprite R11 puff object    # the object to set up (title_flying_craft_move's allocate_object hands its puff back in R11)
+param compute_crc16_strided R0 crc              # in: only bits the first shifts push out of the register; out: the CRC in the low half
+result compute_crc16_strided R0 crc             # the 32-bit division register >> 16 (shl.w #F0)
+param compute_crc16_strided R3 count            # bytes to read, three or more (the first three seed the division register); 0 at the end
+param compute_crc16_strided R4 data             # the first byte; left at the last byte read
+param compute_crc16_strided R6 byte_gap         # bytes skipped between two read (0: every byte, 1: every other one); + 1 while it runs, put back at the end
+local compute_crc16_strided 09C5C2,09C5CB,09C5D7,09C5E7,09C5ED,09C5F2,09C600,09C605 r0 shift_register  # the first three bytes, then a byte at a time in the low byte, shifted with polynomial; >> 16 is the CRC
+local compute_crc16_strided 09C5EA,09C5F5,09C5FD,09C608 r1 bits_left  # 8 bits per byte (and 8 more at the end)
+local compute_crc16_strided 09C5DD r2 crc_polynomial  # 0x10210000
+param spawn_eggman_teleport R2 free_count       # spawn_object_with_pieces' R2
+param spawn_eggman_teleport R3 teleport         # spawn_object_with_pieces' object: handler eggman_teleport_init; it is written without a test of R0, so when nothing was spawned the caller's R3 gets the handler
+param spawn_eggman_teleport R11 block           # spawn_object_with_pieces' R11 (the last block it allocated)
+param spawn_bubble_column R0 spawned            # spawn_object_with_pieces' result: low byte 0 when nothing was spawned; in: leftover
+param spawn_bubble_column R2 free_count         # spawn_object_with_pieces' R2, then play_sound's
+param spawn_bubble_column R3 column             # spawn_object_with_pieces' object: palette 1060, 92 = R14 (bubble_column_animate's column: mine_bubble_frames + 92 x 13), handler bubble_column_animate
+param spawn_bubble_column R11 block             # spawn_object_with_pieces' R11
+# skip spawn_bubble_column r1: spawn_object_with_pieces' R1 handed on to play_sound
+local spawn_bubble_column 013ACF r0 sound_id    # 24
+param spawn_eel_den R0 spawned                  # spawn_object_with_pieces' result: low byte 0 when nothing was spawned (then R20 = R23 and nothing else)
+param spawn_eel_den R2 free_count               # spawn_object_with_pieces' R2
+param spawn_eel_den R3 den                      # spawn_object_with_pieces' object: R20 = it, then eel_den_init sets it up
+param spawn_eel_den R11 block                   # spawn_object_with_pieces' R11
+local draw_eel_piece_parts 014E04 r1 floor_depth  # projected_y + floor_z - view_y + 1 of the piece (R23): the depth both parts are queued at (kept in R14)
+local draw_eel_piece_parts 014DC6 t2 part_2_timer  # part 2's field 24 (direction in C) before dec.h: at 0 back to 2 and its next frame (every 3 frames); its byte 2D is the step
+local draw_eel_piece_parts 014E13 t2 part_3_timer  # the same for part 3
 
 # ======== the program data cut where each thing starts (data lines from build/naming/formats_*_labels.txt) ========
 # -- palettes --
@@ -11598,3 +11761,217 @@ param stage_05_event_show_message_11 R2 part_size  # handed to stage_05_event_sh
 14070C  data  stage_10_tile_sets                   # stage_tile_sets[10]
 1407EC  data  stage_08_tile_sets                   # stage_tile_sets[8]
 140910  data  tile_set_script_lists                # the lists the stage_*_tile_sets point at: u32 script pointers (+100000, get_tile_set_script_bank), FFFFFFFF ends each; up to the scripts (141A10)
+
+
+# ======== the data in the code chips cut where each thing starts (data lines from build/naming/code_data_*_labels.txt) ========
+00007E  data  boot_e00000_values                           # boot: 8 byte pairs it copies to E00000-E0000F (unmapped on this board, MAME and s32ref ignore them)
+00008E  data  boot_irq_controller_values                   # boot: the 12 bytes it copies next (same source register R10) to D00000-D0000B: vectors 00-04, D00005 0, mask 0, acknowledge 0, both timer reloads FFFF
+00060C  data  attract_mode_names                           # after mixer_defaults' 0x28 words (init_mixer stops at 00060C): four print_text_here texts, attribute 0, "Ranking Mode", " Title Mode ", " Demo 1 Mode", " Demo 2 Mode" (system modes 2-5); no code address reaches them
+000644  data  title_copyright_text                         # attract_title (000291 print_text): row 27 col 30, attribute 0, characters DA ED DF E1 DB CB D3 D3 CC (the expanded font's "@SEGA1992": probably the (c) SEGA 1992 line)
+000651  data  run_game_mode_padding                        # a 00 byte (halt) after title_copyright_text, aligning run_game_mode (000652): not code
+002439  data  unused_002439                                # after player_objects_alt's six handlers: 56 bytes that read as a 1-bit picture 32 pixels wide, 14 rows (a round hole, symmetric); no code address reaches it
+0024B8  data  stage_08_events                              # 002492 + stage_events[8]: (u16 at, u8 game_mode, u8 0) records, FFFF ends (run_stage_events)
+0024C6  data  stage_04_events                              # 002492 + stage_events[4]: (u16 at, u8 game_mode, u8 0) records, FFFF ends (run_stage_events)
+0024D0  data  stage_05_events                              # 002492 + stage_events[5]: (u16 at, u8 game_mode, u8 0) records, FFFF ends (run_stage_events)
+0024D6  data  stage_06_events                              # 002492 + stage_events[6]: (u16 at, u8 game_mode, u8 0) records, FFFF ends (run_stage_events)
+0024DC  data  stage_03_events                              # 002492 + stage_events[3]: (u16 at, u8 game_mode, u8 0) records, FFFF ends (run_stage_events)
+0024EE  data  stage_09_events                              # 002492 + stage_events[9]: (u16 at, u8 game_mode, u8 0) records, FFFF ends (run_stage_events)
+0024FC  data  stage_0a_events                              # 002492 + stage_events[A]: (u16 at, u8 game_mode, u8 0) records, FFFF ends (run_stage_events)
+002502  data  stage_0b_events                              # 002492 + stage_events[B]: (u16 at, u8 game_mode, u8 0) records, FFFF ends (run_stage_events)
+002508  data  stage_0c_events                              # 002492 + stage_events[C]: (u16 at, u8 game_mode, u8 0) records, FFFF ends (run_stage_events)
+00250E  data  stage_10_events                              # 002492 + stage_events[10]: (u16 at, u8 game_mode, u8 0) records, FFFF ends (run_stage_events)
+002518  data  stage_11_events                              # 002492 + stage_events[11]: (u16 at, u8 game_mode, u8 0) records, FFFF ends (run_stage_events)
+00251E  data  stage_shared_events                          # 002492 + stage_events[0 1 2 7 D E F 12]: (u16 at, u8 game_mode, u8 0) records, FFFF ends (run_stage_events)
+002546  data  stage_01_link_point                          # 002520 + stage_link_points[1] (the only stage with its own): from_block 2BC, to_block 28 (continue_to_next_stage_slot)
+00254A  data  unused_game_mode_text                        # print_text record: row 24 col 14, attribute 0, " Game Mode  "; no code address reaches it
+00255A  data  stage_select_mode_text                       # game_mode_stage_select: print_text_here at 31FA1C (row 20 col 14), attribute 0, "Stage Select Mode" (erase_text_here when a stage is picked)
+00256D  data  stage_number_text                            # game_mode_stage_select: print_text_here at 31FAA4 (row 21 col 18), "Stage No."; erased at 31FAA4 and 31FAB0 (over the number)
+002578  data  unused_fence_set_mode_text                   # print_text_here text, attribute 0, "Fence Set Mode"; no code address reaches it
+002588  data  unused_status_texts                          # four print_text records no code address reaches: "Stage Change" and "Stg St Wait" (row 24 col 14), "GAME OVER" and "RING BINUS" (row 14 col 14)
+0025C2  data  continue_text                                # game_mode_continue: print_text record row 14 col 14, attribute 0, "CONTINUE ?" (erase_text_here reads it from 0025C4, its attribute)
+0025D0  data  game_over_string                             # game_mode_game_over: queue_string_record (x 58, y 68, palette 8440, scale 200), "GAME OVER"
+0025E2  data  unused_to_be_continued_string                # a queue_string_record record (x 28, y 48), "TO BE CONTINUED"; no code address reaches it
+0025FA  data  you_failed_string                            # game_mode_you_failed: queue_string_record (x 50, y 68), "YOU FAILED"
+00260D  data  unused_00260D                                # 19 u16 offsets from 260D to (u16, u8, u8) lists ended by FFFF, the shape of stage_events: stage 0 -> 2633 (00C0, 10, 2B), the others -> 2637 (FFFF); no code address reaches it
+0026BA  data  stage_05_layer_blending                      # 002694 + stage_layer_blending[5]: count, then 6-byte records (apply_stage_layer_blending)
+0026C7  data  stage_09_10_layer_blending                   # 002694 + stage_layer_blending[9 10]: count, then 6-byte records (apply_stage_layer_blending)
+0026CE  data  stage_shared_layer_blending                  # 002694 + stage_layer_blending[0 1 2 3 4 6 7 8 A B C D E F 11 12]: count, then 6-byte records (apply_stage_layer_blending)
+0026F9  data  cleared_banner_animation                     # game_mode_stage_clear: the CLEARED banner's animation (it follows cleared_banner_x/y, the name banner record of the stages without one): last step 5, frames 8A80-8AA8
+002707  data  stage_08_name_banner                         # 0026CF + stage_name_banners[8]: screen x, screen y, then the banner's animation (game_mode_stage_clear)
+002723  data  stage_03_name_banner                         # 0026CF + stage_name_banners[3]: screen x, screen y, then the banner's animation (game_mode_stage_clear)
+002739  data  stage_04_name_banner                         # 0026CF + stage_name_banners[4]: screen x, screen y, then the banner's animation (game_mode_stage_clear)
+002755  data  stage_09_name_banner                         # 0026CF + stage_name_banners[9]: screen x, screen y, then the banner's animation (game_mode_stage_clear)
+002765  data  stage_0a_name_banner                         # 0026CF + stage_name_banners[A]: screen x, screen y, then the banner's animation (game_mode_stage_clear)
+00277F  data  stage_10_name_banner                         # 0026CF + stage_name_banners[10]: screen x, screen y, then the banner's animation (game_mode_stage_clear)
+00279D  data  banner_letter_animation                      # stage_clear_banner_hold: the banner's letters (banner_letter_spin): last step 0E, frames 90E0-9150
+0027BD  data  banner_sparkle_animation                     # banner_letter_spin's sparkle (banner_sparkle_animate): last step 10, frames 9158-91D8
+0027E1  data  unused_player_select_text                    # print_text_here text, attribute 0, " PLayer Select "; no code address reaches it
+009BF7  data  player_effect_animation                      # spawn_player_effect (009A4A, states 25, 30, 33): last step 5, frames 7770-7798
+009CB3  data  object_climb_animation_sonic                 # player_object_climb_begin (kind 0): last step 5, frames 82D0-82F8
+009CC1  data  object_climb_animation_ray_2                 # player_object_climb_move: Ray's other hand (climb_hand back to positive): frames 8260-8288
+009CCF  data  object_climb_animation_ray                   # player_object_climb_begin (kind 1) and player_object_climb_move (climb_hand negative): frames 8290-82B8
+009CDD  data  object_climb_animation_mighty                # player_object_climb_begin (kind 2): frames 8228-8250
+009CEB  data  player_state_held_still_padding              # a 00 byte (halt) after object_climb_animation_mighty, aligning player_state_held_still (009CEC): not code
+00CD1C  data  unused_hud_name_offsets                      # three u16 offsets from CD1C to the character names (6 SONIC, D RAY, 13 MIGHTY); no code address reaches the table
+00CD22  data  hud_sonic_name_text                          # print_text_here text, attribute 0C, "SONIC" (reached only through unused_hud_name_offsets)
+00CD29  data  hud_ray_name_text                            # attribute 0A, " RAY" (reached only through unused_hud_name_offsets)
+00CD2F  data  hud_mighty_name_text                         # attribute 00, "MIGHTY": player_state_out_of_game erases the name with it (the longest)
+00CD37  data  hud_gauge_ring_palettes                      # player_hud_update (hud_gauge_anim, animate_hud_palette): the ring flash, last 9, palettes 88E0-8950
+00CD4D  data  hud_gauge_hit_palettes                       # player_hud_init / player_hud_update (hud_gauge_anim): the hit flash, last 2: 88E0 88F0 8900
+00CD55  data  hud_gauge_low_health_palettes                # player_hud_update (hud_gauge_anim): low health, last 5
+00CD63  data  hud_portrait_hurt_palettes_sonic             # player_hud_init / player_hud_update (hud_portrait_anim), character 0: last 2, 8850 8860 8870
+00CD6B  data  hud_portrait_hurt_palettes_ray               # the same for character 1: 88B0 88C0 88D0
+00CD73  data  hud_portrait_hurt_palettes_mighty            # the same for character 2: 8880 8890 88A0
+00CD7B  data  hud_portrait_low_health_palettes_sonic       # player_hud_update (hud_portrait_anim) at low health, character 0: last 5
+00CD89  data  hud_portrait_low_health_palettes_ray         # the same for character 1
+00CD97  data  hud_portrait_low_health_palettes_mighty      # the same for character 2
+00CDA5  data  hud_no_continue_text                         # player_hud_update (joining closed): print_text_lines, attribute 0, "   No   " / "Continue"
+00E459  data  climb_zone_effect_animation                  # spawn_climb_zone_effect: last step 3, frames BF90-BFA8
+00E463  data  unused_00E463                                # an animation of frames like the one before it (last step 3, BFB0-BFC8); no code address reaches it
+00E46D  data  intro_marker_animation                       # spawn_intro_marker: last step 0B, frames A0C0-A0F0
+00E487  data  check_player_contacts_padding                # a 00 byte (halt) after intro_marker_animation, aligning check_player_contacts (00E488): not code
+00F4AA  data  unused_00F4AA                                # after spike_panel_head_sprites' six frames: six 8-byte records 0054 002D EAFF 003D (hit box sizes and offsets, probably, like the 6-byte boxes); no code address reaches them
+0138C5  data  fence_post_init_padding                      # a 00 byte (halt) after sand_arch_spray_frames, aligning fence_post_init (0138C6): not code
+014907  data  unused_014907                                # 8 sprite frames 7F30-7F68 right after turtle_init's code (probably the turtle's: its sprites run 7EA8-7F90); no code address reaches them
+017C82  data  stage_10_block_map                           # 017C5C + stage_block_maps[10]: a byte (tile set) per block, rows of stage_block_map_widths[stage]
+017D82  data  stage_0f_block_map                           # 017C5C + stage_block_maps[F]: a byte (tile set) per block, rows of stage_block_map_widths[stage]
+017DC2  data  stage_0e_block_map                           # 017C5C + stage_block_maps[E]: a byte (tile set) per block, rows of stage_block_map_widths[stage]
+017E02  data  stage_0d_block_map                           # 017C5C + stage_block_maps[D]: a byte (tile set) per block, rows of stage_block_map_widths[stage]
+017E42  data  stage_0c_block_map                           # 017C5C + stage_block_maps[C]: a byte (tile set) per block, rows of stage_block_map_widths[stage]
+017E82  data  stage_0b_block_map                           # 017C5C + stage_block_maps[B]: a byte (tile set) per block, rows of stage_block_map_widths[stage]
+017F82  data  stage_0a_block_map                           # 017C5C + stage_block_maps[A]: a byte (tile set) per block, rows of stage_block_map_widths[stage]
+018082  data  stage_09_block_map                           # 017C5C + stage_block_maps[9]: a byte (tile set) per block, rows of stage_block_map_widths[stage]
+018182  data  stage_08_block_map                           # 017C5C + stage_block_maps[8]: a byte (tile set) per block, rows of stage_block_map_widths[stage]
+018382  data  stage_03_07_block_map                        # 017C5C + stage_block_maps[3 7]: a byte (tile set) per block, rows of stage_block_map_widths[stage]
+018582  data  stage_04_block_map                           # 017C5C + stage_block_maps[4]: a byte (tile set) per block, rows of stage_block_map_widths[stage]
+018682  data  stage_00_block_map                           # 017C5C + stage_block_maps[0]: a byte (tile set) per block, rows of stage_block_map_widths[stage]
+018782  data  stage_05_06_block_map                        # 017C5C + stage_block_maps[5 6]: a byte (tile set) per block, rows of stage_block_map_widths[stage] (stage 6 reads it 6 wide)
+0187C2  data  stage_01_02_11_12_block_map                  # 017C5C + stage_block_maps[1 2 11 12]: a byte (tile set) per block, rows of stage_block_map_widths[stage]
+018896  data  stage_10_section_directions_x                # 01884A + stage_section_directions_x[10]: s16 per section: the x of the scroll direction (0x4000 = 1.0)
+0188CC  data  stage_0b_section_directions_x                # 01884A + stage_section_directions_x[B]: s16 per section: the x of the scroll direction (0x4000 = 1.0)
+018904  data  stage_0c_0e_section_directions_x             # 01884A + stage_section_directions_x[C E]: s16 per section: the x of the scroll direction (0x4000 = 1.0)
+01891E  data  stage_0d_0f_section_directions_x             # 01884A + stage_section_directions_x[D F]: s16 per section: the x of the scroll direction (0x4000 = 1.0)
+01892C  data  stage_0a_section_directions_x                # 01884A + stage_section_directions_x[A]: s16 per section: the x of the scroll direction (0x4000 = 1.0)
+018994  data  stage_09_section_directions_x                # 01884A + stage_section_directions_x[9]: s16 per section: the x of the scroll direction (0x4000 = 1.0)
+0189FE  data  stage_08_section_directions_x                # 01884A + stage_section_directions_x[8]: s16 per section: the x of the scroll direction (0x4000 = 1.0)
+018A38  data  stage_05_06_section_directions_x             # 01884A + stage_section_directions_x[5 6]: s16 per section: the x of the scroll direction (0x4000 = 1.0)
+018A3A  data  stage_03_07_section_directions_x             # 01884A + stage_section_directions_x[3 7]: s16 per section: the x of the scroll direction (0x4000 = 1.0)
+018A72  data  stage_00_section_directions_x                # 01884A + stage_section_directions_x[0]: s16 per section: the x of the scroll direction (0x4000 = 1.0)
+018A8E  data  stage_01_02_11_12_section_directions_x       # 01884A + stage_section_directions_x[1 2 11 12]: s16 per section: the x of the scroll direction (0x4000 = 1.0)
+018B1C  data  stage_04_section_directions_x                # 01884A + stage_section_directions_x[4]: s16 per section: the x of the scroll direction (0x4000 = 1.0)
+018B48  data  stage_10_section_directions_y                # 018870 + stage_section_directions_y[10]: s16 per section: the y of the scroll direction
+018B7E  data  stage_0b_section_directions_y                # 018870 + stage_section_directions_y[B]: s16 per section: the y of the scroll direction
+018BB6  data  stage_0c_0e_section_directions_y             # 018870 + stage_section_directions_y[C E]: s16 per section: the y of the scroll direction
+018BD0  data  stage_0d_0f_section_directions_y             # 018870 + stage_section_directions_y[D F]: s16 per section: the y of the scroll direction
+018BDE  data  stage_0a_section_directions_y                # 018870 + stage_section_directions_y[A]: s16 per section: the y of the scroll direction
+018C46  data  stage_09_section_directions_y                # 018870 + stage_section_directions_y[9]: s16 per section: the y of the scroll direction
+018CB0  data  stage_08_section_directions_y                # 018870 + stage_section_directions_y[8]: s16 per section: the y of the scroll direction
+018CEA  data  stage_05_06_section_directions_y             # 018870 + stage_section_directions_y[5 6]: s16 per section: the y of the scroll direction
+018CEC  data  stage_03_07_section_directions_y             # 018870 + stage_section_directions_y[3 7]: s16 per section: the y of the scroll direction
+018D24  data  stage_00_section_directions_y                # 018870 + stage_section_directions_y[0]: s16 per section: the y of the scroll direction
+018D40  data  stage_01_02_11_12_section_directions_y       # 018870 + stage_section_directions_y[1 2 11 12]: s16 per section: the y of the scroll direction
+018DCE  data  stage_04_section_directions_y                # 018870 + stage_section_directions_y[4]: s16 per section: the y of the scroll direction
+018E46  data  stage_10_section_limits_x                    # 018DFA + stage_section_limits_x[10]: u16 per section from the second word: camera x limits
+018E7E  data  stage_0b_section_limits_x                    # 018DFA + stage_section_limits_x[B]: u16 per section from the second word: camera x limits
+018EB8  data  stage_0c_0e_section_limits_x                 # 018DFA + stage_section_limits_x[C E]: u16 per section from the second word: camera x limits
+018ED6  data  stage_0d_0f_section_limits_x                 # 018DFA + stage_section_limits_x[D F]: u16 per section from the second word: camera x limits
+018EE6  data  stage_0a_section_limits_x                    # 018DFA + stage_section_limits_x[A]: u16 per section from the second word: camera x limits
+018F50  data  stage_09_section_limits_x                    # 018DFA + stage_section_limits_x[9]: u16 per section from the second word: camera x limits
+018FBC  data  stage_08_section_limits_x                    # 018DFA + stage_section_limits_x[8]: u16 per section from the second word: camera x limits
+018FF8  data  stage_05_06_section_limits_x                 # 018DFA + stage_section_limits_x[5 6]: u16 per section from the second word: camera x limits
+018FFC  data  stage_03_07_section_limits_x                 # 018DFA + stage_section_limits_x[3 7]: u16 per section from the second word: camera x limits
+019034  data  stage_00_section_limits_x                    # 018DFA + stage_section_limits_x[0]: u16 per section from the second word: camera x limits
+019052  data  stage_01_02_11_12_section_limits_x           # 018DFA + stage_section_limits_x[1 2 11 12]: u16 per section from the second word: camera x limits
+0190E6  data  stage_04_section_limits_x                    # 018DFA + stage_section_limits_x[4]: u16 per section from the second word: camera x limits
+019114  data  stage_10_section_limits_y                    # 018E20 + stage_section_limits_y[10]: u16 per section from the second word: camera y limits
+01914C  data  stage_0b_section_limits_y                    # 018E20 + stage_section_limits_y[B]: u16 per section from the second word: camera y limits
+019186  data  stage_0c_0e_section_limits_y                 # 018E20 + stage_section_limits_y[C E]: u16 per section from the second word: camera y limits
+0191A2  data  stage_0d_0f_section_limits_y                 # 018E20 + stage_section_limits_y[D F]: u16 per section from the second word: camera y limits
+0191B2  data  stage_0a_section_limits_y                    # 018E20 + stage_section_limits_y[A]: u16 per section from the second word: camera y limits
+01921C  data  stage_09_section_limits_y                    # 018E20 + stage_section_limits_y[9]: u16 per section from the second word: camera y limits
+019288  data  stage_08_section_limits_y                    # 018E20 + stage_section_limits_y[8]: u16 per section from the second word: camera y limits
+0192C4  data  stage_05_06_section_limits_y                 # 018E20 + stage_section_limits_y[5 6]: u16 per section from the second word: camera y limits
+0192C8  data  stage_03_07_section_limits_y                 # 018E20 + stage_section_limits_y[3 7]: u16 per section from the second word: camera y limits
+019300  data  stage_00_section_limits_y                    # 018E20 + stage_section_limits_y[0]: u16 per section from the second word: camera y limits
+01931E  data  stage_01_02_11_12_section_limits_y           # 018E20 + stage_section_limits_y[1 2 11 12]: u16 per section from the second word: camera y limits
+0193B2  data  stage_04_section_limits_y                    # 018E20 + stage_section_limits_y[4]: u16 per section from the second word: camera y limits
+019406  data  stage_10_section_ends                        # 0193E0 + stage_section_ends[10]: u16 scroll positions where the sections end (from the second word), FFFF ends
+019440  data  stage_0b_section_ends                        # 0193E0 + stage_section_ends[B]: u16 scroll positions where the sections end (from the second word), FFFF ends
+01947C  data  stage_0c_0e_section_ends                     # 0193E0 + stage_section_ends[C E]: u16 scroll positions where the sections end (from the second word), FFFF ends
+01949A  data  stage_0d_0f_section_ends                     # 0193E0 + stage_section_ends[D F]: u16 scroll positions where the sections end (from the second word), FFFF ends
+0194AC  data  stage_0a_section_ends                        # 0193E0 + stage_section_ends[A]: u16 scroll positions where the sections end (from the second word), FFFF ends
+019518  data  stage_09_section_ends                        # 0193E0 + stage_section_ends[9]: u16 scroll positions where the sections end (from the second word), FFFF ends
+019586  data  stage_08_section_ends                        # 0193E0 + stage_section_ends[8]: u16 scroll positions where the sections end (from the second word), FFFF ends
+0195C4  data  stage_05_06_section_ends                     # 0193E0 + stage_section_ends[5 6]: u16 scroll positions where the sections end (from the second word), FFFF ends
+0195CA  data  stage_03_07_section_ends                     # 0193E0 + stage_section_ends[3 7]: u16 scroll positions where the sections end (from the second word), FFFF ends
+019606  data  stage_00_section_ends                        # 0193E0 + stage_section_ends[0]: u16 scroll positions where the sections end (from the second word), FFFF ends
+019626  data  stage_01_11_section_ends                     # 0193E0 + stage_section_ends[1 11]: u16 scroll positions where the sections end (from the second word), FFFF ends
+019678  data  stage_02_12_section_ends                     # 0193E0 + stage_section_ends[2 12]: u16 scroll positions where the sections end (from the second word), FFFF ends
+0196BC  data  stage_04_section_ends                        # 0193E0 + stage_section_ends[4]: u16 scroll positions where the sections end (from the second word), FFFF ends
+01973A  data  stage_00_11_initial_tile_sets                # 019712 + stage_initial_tile_sets[0 11]: four u32 tile set numbers (init_stage_view)
+01974A  data  stage_shared_initial_tile_sets               # 019712 + stage_initial_tile_sets[1 2 3 4 5 6 7 8 9 A B C D E F 10 12 13]: four u32 tile set numbers (init_stage_view)
+019818  data  stage_10_scroll_modes                        # 0197F2 + stage_scroll_modes[10]: (scroll mode, duration) pairs, one per section
+019908  data  stage_0f_scroll_modes                        # 0197F2 + stage_scroll_modes[F]: (scroll mode, duration) pairs, one per section
+019944  data  stage_0e_scroll_modes                        # 0197F2 + stage_scroll_modes[E]: (scroll mode, duration) pairs, one per section
+019980  data  stage_0d_scroll_modes                        # 0197F2 + stage_scroll_modes[D]: (scroll mode, duration) pairs, one per section
+0199BC  data  stage_0c_scroll_modes                        # 0197F2 + stage_scroll_modes[C]: (scroll mode, duration) pairs, one per section
+0199F8  data  stage_0b_scroll_modes                        # 0197F2 + stage_scroll_modes[B]: (scroll mode, duration) pairs, one per section
+019A70  data  stage_0a_scroll_modes                        # 0197F2 + stage_scroll_modes[A]: (scroll mode, duration) pairs, one per section
+019BD8  data  stage_09_scroll_modes                        # 0197F2 + stage_scroll_modes[9]: (scroll mode, duration) pairs, one per section
+019CF0  data  stage_08_scroll_modes                        # 0197F2 + stage_scroll_modes[8]: (scroll mode, duration) pairs, one per section
+019E58  data  stage_05_06_scroll_modes                     # 0197F2 + stage_scroll_modes[5 6]: (scroll mode, duration) pairs, one per section
+019E80  data  stage_shared_scroll_modes                    # 0197F2 + stage_scroll_modes[0 1 2 3 7 11 12]: (scroll mode, duration) pairs, one per section
+019F20  data  stage_04_scroll_modes                        # 0197F2 + stage_scroll_modes[4]: (scroll mode, duration) pairs, one per section
+01A150  data  stage_00_01_02_03_fast_scroll_ranges         # 01A128 + stage_fast_scroll_ranges[0 1 2 3]: u16 scroll positions, FFFF ends (update_background_scroll)
+01A152  data  stage_04_fast_scroll_ranges                  # 01A128 + stage_fast_scroll_ranges[4]: u16 scroll positions, FFFF ends (update_background_scroll)
+01A15C  data  stage_05_06_07_fast_scroll_ranges            # 01A128 + stage_fast_scroll_ranges[5 6 7]: u16 scroll positions, FFFF ends (update_background_scroll)
+01A15E  data  stage_08_09_fast_scroll_ranges               # 01A128 + stage_fast_scroll_ranges[8 9]: u16 scroll positions, FFFF ends (update_background_scroll)
+01A160  data  stage_0a_to_13_fast_scroll_ranges            # 01A128 + stage_fast_scroll_ranges[A B C D E F 10 11 12 13]: u16 scroll positions, FFFF ends (update_background_scroll)
+01A188  data  stage_10_section_speeds                      # 01A162 + stage_section_speeds[10]: scroll_speed, then a byte per section
+01A200  data  stage_0f_section_speeds                      # 01A162 + stage_section_speeds[F]: scroll_speed, then a byte per section
+01A20F  data  stage_0e_section_speeds                      # 01A162 + stage_section_speeds[E]: scroll_speed, then a byte per section
+01A21E  data  stage_0d_section_speeds                      # 01A162 + stage_section_speeds[D]: scroll_speed, then a byte per section
+01A22D  data  stage_0c_section_speeds                      # 01A162 + stage_section_speeds[C]: scroll_speed, then a byte per section
+01A23C  data  stage_0b_section_speeds                      # 01A162 + stage_section_speeds[B]: scroll_speed, then a byte per section
+01A25A  data  stage_0a_section_speeds                      # 01A162 + stage_section_speeds[A]: scroll_speed, then a byte per section
+01A2FA  data  stage_09_section_speeds                      # 01A162 + stage_section_speeds[9]: scroll_speed, then a byte per section
+01A34A  data  stage_08_section_speeds                      # 01A162 + stage_section_speeds[8]: scroll_speed, then a byte per section
+01A3F4  data  stage_05_06_section_speeds                   # 01A162 + stage_section_speeds[5 6]: scroll_speed, then a byte per section
+01A407  data  stage_00_section_speeds                      # 01A162 + stage_section_speeds[0]: scroll_speed, then a byte per section
+01A440  data  stage_01_02_11_12_section_speeds             # 01A162 + stage_section_speeds[1 2 11 12]: scroll_speed, then a byte per section
+01A4C5  data  stage_03_07_section_speeds                   # 01A162 + stage_section_speeds[3 7]: scroll_speed, then a byte per section
+01A515  data  stage_04_section_speeds                      # 01A162 + stage_section_speeds[4]: scroll_speed, then a byte per section
+01A58B  data  unused_01A58B                                # after stage_section_follow_speeds' offsets: 50 bytes 03, the shape of a follow speed list; no stage points at it
+01A5BD  data  stage_08_section_follow_speeds               # 01A565 + stage_section_follow_speeds[8]: follow_base_speed, then a byte per section
+01A5DB  data  stage_shared_section_follow_speeds           # 01A565 + stage_section_follow_speeds[0 1 2 3 5 6 7 9 A B C D E F 10 11 12]: follow_base_speed, then a byte per section
+01A617  data  stage_04_section_follow_speeds               # 01A565 + stage_section_follow_speeds[4]: follow_base_speed, then a byte per section
+01A653  data  unused_01A653                                # after stage 4's follow speeds: 0002, then (0080, 3) (0180, 1) (0280, 4) (0380, 2) and 03FF; no code address reaches it
+01A673  data  stage_00_01_02_section_unused                # stage_section_unused[0-2] (the entries after them are these bytes and stage_tile_sets', nothing reads them): a word per section that advance_scroll steps 20E488 over; nothing reads the values
+01BB3D  data  stage_0a_nbg3_page_map                       # stage_nbg3_block_maps[A] (select_nbg3_pages): a byte (page) per block, rows of stage_nbg3_widths[stage] (9)
+01BBD2  data  stage_04_nbg3_page_map                       # stage_nbg3_block_maps[4] (select_nbg3_pages): a byte (page) per block, rows of stage_nbg3_widths[stage] (6)
+01BBE2  data  stage_0b_to_0f_nbg3_page_map                 # stage_nbg3_block_maps[B C D E F] (select_nbg3_pages): a byte (page) per block, rows of stage_nbg3_widths[stage] (6)
+01BC64  data  stage_shared_nbg3_page_map                   # stage_nbg3_block_maps[0 1 2 3 5 6 7 8 9] (select_nbg3_pages): a byte (page) per block, rows of stage_nbg3_widths[stage] (6 or 9)
+01BCBC  data  nbg3_quadrant_grid                           # select_nbg3_pages: 3 x 3 bytes; [row & 1][column & 1] is the top left of the 2 x 2 quadrant numbers it gathers
+01BCC5  data  build_ending_scene_padding                   # a 00 byte (halt) after nbg3_quadrant_grid, aligning build_ending_scene (01BCC6): not code
+01F22C  data  stage_shared_ring_rows                       # 01F206 + stage_template_spawns[0 C D E F 11 12]: 12-byte ring rows, FFFF ends (spawn_ring_rows)
+01F22E  data  stage_04_ring_rows                           # 01F206 + stage_template_spawns[4]: 12-byte ring rows, FFFF ends (spawn_ring_rows)
+01F2E4  data  stage_08_ring_rows                           # 01F206 + stage_template_spawns[8]: 12-byte ring rows, FFFF ends (spawn_ring_rows)
+01F32E  data  stage_03_ring_rows                           # 01F206 + stage_template_spawns[3]: 12-byte ring rows, FFFF ends (spawn_ring_rows)
+01F36C  data  stage_09_ring_rows                           # 01F206 + stage_template_spawns[9]: 12-byte ring rows, FFFF ends (spawn_ring_rows)
+01F3CE  data  stage_01_02_0a_ring_rows                     # 01F206 + stage_template_spawns[1 2 A]: 12-byte ring rows, FFFF ends (spawn_ring_rows)
+01F40C  data  stage_10_ring_rows                           # 01F206 + stage_template_spawns[10]: 12-byte ring rows, FFFF ends (spawn_ring_rows)
+01F46E  data  stage_05_06_07_ring_rows                     # 01F206 + stage_template_spawns[5 6 7]: 12-byte ring rows, FFFF ends (spawn_ring_rows)
+01F470  data  stage_0b_ring_rows                           # 01F206 + stage_template_spawns[B]: 12-byte ring rows, FFFF ends (spawn_ring_rows)
+01F5F0  data  unused_01F5F0                                # the word 00CD after ring_sparkle_animation; no code address reaches it
+01F5F2  data  low_code_chip_padding                        # FF up to the end of the chip (01FFFF)
+083329  data  blank_fireball_animation     # fireball_types' animation offsets are from here (fireball_emitter_update: + 083329); type offset 0 plays it: last step 4, five frame words 0000 (nothing drawn); offset 1A reaches boulder_animation's second animation (6EC8-6EE8)
+08514D  data  sign_palette_lists           # palette cycles for animate_sign: init_sign_from_kind and place_screen_sign add the kind's offset to 08514D (0: 0460-0490, E: 84A0-84D0, 18: 04E0-0500); object_kinds' 34 records end here
+08DABE  data  river_raft_unused_animation  # after river_raft_spawners' last list (8000 loop, FFFF): an animation (last step 2: frames 8DF0 8DF8 8E00) no code reads; river_raft_spawner_update gives every raft the fixed sprite 8DF0
+08DADA  data  river_raft_unused_animation_2  # after river_raft_foam_animation (last step 2, 8E08-8E18): another animation (last step 3: frames 8DD0-8DE8) no code reads, then a word 0004 (the last index of river_raft_fall_palettes, which the code indexes directly)
+08EFF8  data  ranking_rank_texts           # enter_ranking_initials: queue_string_at(x + 20, y - 20, palette 8AD0, scale 100, 08EFF8 + rank x A): 10-byte strings "Rank TOP!", "Rank  2nd" ... "Rank 15th" (after ranking_entry_buttons' three bytes)
+08F08E  data  countdown_second_texts       # enter_ranking_initials (time left / 3C x 3) and join_character_chooser_update (field 82 / 3C x 3): 3-byte strings " 0" ... "20" for queue_string_at; then two 00 bytes before ranking_entry_blocks
+08F858  data  ranking_row_numbers          # build_ranking_display: 08F858 + row x 2, two ranking letter codes a row (ranking_letter_sprites): "15" "14" ... "10", " 9" ... " 1" (2B is the blank), the lowest row first
+090C7A  data  wall_editor_menu             # after wall_kinds' 26 records (090A72 + 26 x 20): print_text_list records of the wall editor's menu ("Pattern Add ", "Pattern Sub ", "Number Add  ", "Number Sub  ", then the cell FC02 and attribute of the fifth item, whose text is wall_editor_far_label = 090C7A + 43)
+096C6F  data  map_marker_blink_sprites     # blink_current_map_marker: 096C6F + marker x 10 (mul 2, shl 3): layer, screen x, y, sprite, palette words copied to its object (sprites 9F98-9FC8, palette 0670); map_marker_layouts' 14 records (2 x 7, draw_map_stage_markers) end here
+096E02  data  title_sonic_loop_frames      # the title from title_sonic_step 14 on: frame byte at 096E02 + step - 14 (sprite 5300 + (n - 1) x 8), FF loops back to step 14: 15 16 17 18 19 1A 19 18 17 16 15 14 FF (stage_map_sounds_3, 19 bytes, before it)
+097538  data  title_smoke_puff_frames      # title_smoke_puff_animate: sprite_frame = 097538 + frame_index x 2 every 3 frames, FFFF removes the puff (BB68-BBA0); unreached code follows at 09754C

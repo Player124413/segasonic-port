@@ -3,7 +3,7 @@ Name:        dataflow.py
 Description: what each function reads, writes and hands back in registers and flags, across the program
 Version:     0.1.0
 Created:     11-10-2026
-Modified:    13-10-2026
+Modified:    14-10-2026
 Author:      Sebastian Toyos
 
 Variables are the parts of the V60 registers (("r", n, part): part 0 is bits 0-7, part 1 bits 8-15,
@@ -520,6 +520,10 @@ class Program:
         if name in ("move_bits_down", "move_bits_up"):
             pair = register_parts(27, FULL) | register_parts(28, FULL)
             return set(), pair, set()
+        if name == "search_bits_up":
+            # the count goes to its register; R28 only changes when the length is not 0
+            count = register_parts(statement.args[4].value, FULL)
+            return set(), count | register_parts(28, FULL), count
         if name in INTERRUPT_EFFECTS:
             # the handlers interrupt the code without taking anything from it or leaving anything in its
             # registers, which they save and put back; they share the context registers

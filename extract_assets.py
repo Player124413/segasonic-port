@@ -155,13 +155,61 @@ def extract_tile_sheet(asset, data, program, path, columns):
     return 2
 
 
+def extract_samples(asset, data, sound, path):
+    """Every sample of the PCM area as an 8-bit WAV (sample_NN.wav, NN its number in pcm_sample_headers),
+    and the runs of data no header points at (unused_OFFSET.wav), one byte of the ROM a WAV sample; and
+    samples.json: where each goes back."""
+    starts = asset_formats.pcm_sample_starts(sound, int(asset["headers"], 0), asset["count"])
+    starts = {offset - asset["offset"]: numbers for offset, numbers in starts.items()}
+    path.mkdir(parents=True, exist_ok=True)
+    index = {"notes": ["Each WAV goes back into the sound region at 'offset', one byte a WAV sample: +m is 128 + m "
+                       "and -m is 127 - m (the RF5C68's sign and magnitude), 255 is never used. A sample ends at "
+                       "the end byte (FFh) the build puts after it; it can grow up to the next piece's offset.",
+                       "'samples' are its numbers in pcm_sample_headers; an unused piece is data no header points at.",
+                       "The rate is nominal: the driver sets the pitch of every note."],
+             "pieces": []}
+    for offset, sample, numbers in asset_formats.pcm_pieces(data, starts):
+        name = f"sample_{numbers[0]:02X}.wav" if numbers else f"unused_{asset['offset'] + offset:06X}.wav"
+        asset_formats.write_wav(path / name, asset_formats.rf5c68_to_unsigned(sample), asset["rate"], bits=8)
+        index["pieces"].append({"file": name, "offset": f"{asset['offset'] + offset:06X}",
+                                "samples": [f"{number:02X}" for number in numbers]})
+    (path / "samples.json").write_text(json.dumps(index, indent=1) + "\n", encoding="ascii")
+    return len(index["pieces"]) + 1
+
+
+def build_samples(asset):
+    """The PCM area back from its WAVs: each at its offset, the end byte everywhere else."""
+    folder = ROOT / asset["path"]
+    pieces = json.loads((folder / "samples.json").read_text(encoding="ascii"))["pieces"]
+    out = bytearray([asset_formats.PCM_END]) * asset["size"]
+    for index, piece in enumerate(pieces):
+        start = int(piece["offset"], 16) - asset["offset"]
+        limit = int(pieces[index + 1]["offset"], 16) - asset["offset"] if index + 1 < len(pieces) else asset["size"]
+        samples, _ = asset_formats.read_wav_unsigned(folder / piece["file"])
+        data = asset_formats.unsigned_to_rf5c68(samples)
+        if start + len(data) > limit:
+            raise ValueError(f"{piece['file']}: {len(data)} bytes, more than the {limit - start} up to the next piece")
+        out[start:start + len(data)] = data
+    return bytes(out)
+
+
 def extract(asset, data, region_of):
     path = ROOT / asset["path"]
     kind = asset["type"]
     if kind == "sprite_frames":
         return extract_sprites(asset, data, region_of("program"), path)
     if kind == "program_data":
-        return data_formats.export(data, asset["offset"], ROOT / "symbols.txt", ROOT / asset["formats"], path)
+        start, end = asset["offset"], asset["offset"] + asset["size"]
+        places = data_formats.pieces(ROOT / "symbols.txt", start, end)
+        code = data_formats.v60_code(region_of("program"), ROOT / "symbols.txt", start, end)
+        return data_formats.export(data, start, places, ROOT / asset["formats"], path, code)
+    if kind == "sound_data":
+        symbols = ROOT / asset["symbols"]
+        movable = tuple(int(value, 0) for value in asset["movable"]) if "movable" in asset else None
+        return data_formats.export(data, asset["offset"], data_formats.sound_pieces(symbols, asset["size"]),
+                                   ROOT / asset["formats"], path, data_formats.z80_code(data, symbols), movable)
+    if kind == "pcm_samples":
+        return extract_samples(asset, data, region_of("sound"), path)
     if kind == "tiles_16x16x4":
         path.parent.mkdir(parents=True, exist_ok=True)
         columns = asset["columns"]
@@ -170,13 +218,6 @@ def extract(asset, data, region_of):
                                          asset_formats.tile_sheet_rows(data, columns))
             return 1
         return extract_tile_sheet(asset, data, region_of("program"), path, columns)
-    if kind == "pcm_rf5c68":
-        path.mkdir(parents=True, exist_ok=True)
-        samples = asset_formats.split_rf5c68(data)
-        for offset, sample in samples:
-            pcm = asset_formats.rf5c68_to_pcm16(sample)
-            asset_formats.write_wav(path / f"sample_{asset['offset'] + offset:06X}.wav", pcm, asset["rate"])
-        return len(samples)
     raise SystemExit(f"assets.json: unknown type '{kind}' for {asset['path']}")
 
 
@@ -206,17 +247,40 @@ def write_state(version, paths):
     STATE.write_text("\n".join([version] + paths) + "\n", encoding="utf-8")
 
 
+# each takes the asset and the bytes the ROM has where it goes (what the asset leaves out, the code, comes
+# from there)
 REBUILDERS = {
-    "sprite_frames": lambda asset: asset_formats.build_sprite_rom(ROOT / asset["path"], asset["size"]),
-    "program_data": lambda asset: data_formats.build(ROOT / asset["path"], asset["size"]),
-    "tiles_16x16x4": lambda asset: asset_formats.tiles_from_sheet(
+    "sprite_frames": lambda asset, original: asset_formats.build_sprite_rom(ROOT / asset["path"], asset["size"]),
+    "program_data": lambda asset, original: data_formats.build(ROOT / asset["path"], asset["size"], original),
+    "sound_data": lambda asset, original: data_formats.build(ROOT / asset["path"], asset["size"], original),
+    "pcm_samples": lambda asset, original: build_samples(asset),
+    "tiles_16x16x4": lambda asset, original: asset_formats.tiles_from_sheet(
         asset_formats.read_png_indexed(ROOT / asset["path"])[0], asset["columns"],
         asset["size"] // asset_formats.TILE_BYTES),
 }
 
 
+def assets_ready(manifest):
+    """Whether assets/ holds this manifest's extraction, every asset of it."""
+    version, _ = read_state()
+    return version == str(manifest["manifest_version"]) and all((ROOT / asset["path"]).exists()
+                                                                 for asset in manifest["assets"])
+
+
+def regions_from_assets(rom, manifest):
+    """The board's regions with every asset built from its files over the ROM's bytes (the ROM's stay
+    where no asset goes, and for what an asset leaves out): {region name: bytes}."""
+    regions = {name: bytearray(builder(rom)) for name, builder in REGION_BUILDERS.items()}
+    for asset in manifest["assets"]:
+        start, end = asset["offset"], asset["offset"] + asset["size"]
+        region = regions[asset["region"]]
+        region[start:end] = REBUILDERS[asset["type"]](asset, bytes(region[start:end]))
+    return {name: bytes(region) for name, region in regions.items()}
+
+
 def check(manifest, rom):
-    """Builds every asset that can go back into the ROM from its extracted files and compares the bytes."""
+    """Builds every asset that can go back into the ROM from its extracted files and compares the bytes;
+    then the whole set, chip by chip, as the game's build makes it from the assets."""
     regions = {}
     failed = 0
     for asset in manifest["assets"]:
@@ -226,14 +290,18 @@ def check(manifest, rom):
         if asset["region"] not in regions:
             regions[asset["region"]] = REGION_BUILDERS[asset["region"]](rom)
         original = regions[asset["region"]][asset["offset"]:asset["offset"] + asset["size"]]
-        built = rebuild(asset)
+        built = rebuild(asset, original)
         if built == original:
             print(f"  {asset['path']}: identical ({len(built)} bytes)")
             continue
         failed += 1
         first = next(index for index, (a, b) in enumerate(zip(built, original)) if a != b)
         print(f"  {asset['path']}: differs from byte {first:#x} of the region")
-    return 1 if failed else 0
+    chips = sonic_rom.chips_from_regions(regions_from_assets(rom, manifest))
+    differ = sorted(name for name in rom if chips[name] != rom[name])
+    print(f"  the ROM set from the assets: {len(rom) - len(differ)} of {len(rom)} chips identical"
+          + (f"; differ: {', '.join(differ)}" if differ else ""))
+    return 1 if failed or differ else 0
 
 
 def main():

@@ -2,15 +2,17 @@
  *    Name:        support.h
  *    Description: what the decompiled game program uses besides memory: the processor status, the frame
  *                 loop and its interrupts, calls by address, and the V60's string and bit-string moves
+ *                 and searches
  *    Version:     0.1.0
  *    Created:     11-10-2026
- *    Modified:    13-10-2026
+ *    Modified:    14-10-2026
  *    Author:      Sebastian Toyos
  *
  *    license:BSD-3-Clause
  *    Behavior follows MAME's V60 core (src/devices/cpu/v60, Farfetch'd, R. Belmont) where the program
- *    leans on the processor: its status word, interrupt entry and exit, MOVCU/MOVCFU/MOVCD and
- *    MOVBSD/MOVBSU. The condition flags are variables of the decompiled functions; 'psw' keeps the rest.
+ *    leans on the processor: its status word, interrupt entry and exit, MOVCU/MOVCFU/MOVCD,
+ *    MOVBSD/MOVBSU and SCH0BSU/SCH1BSU. The condition flags are variables of the decompiled functions;
+ *    'psw' keeps the rest.
  */
 #ifndef GAME_SUPPORT_H
 #define GAME_SUPPORT_H
@@ -213,6 +215,10 @@ void move_bits_down(uint32_t source, uint32_t source_offset, uint32_t dest, uint
                     uint32_t *dest_end, uint32_t *source_end);
 void move_bits_up(uint32_t source, uint32_t source_offset, uint32_t dest, uint32_t dest_offset, uint32_t length,
                   uint32_t *dest_end, uint32_t *source_end);
+
+/* SCH0BSU / SCH1BSU: how many of the 'length' bits up from the bit string's start come before the first
+   one equal to 'bit' ('length' when none is); 'work' (R28) is left at the byte of the last bit looked at */
+uint32_t search_bits_up(uint32_t address, uint32_t offset, uint32_t length, uint32_t bit, uint32_t *work);
 
 /* DIVX / DIVUX into a register pair: the 64-bit dividend is high:low, the quotient goes to low and the
    remainder to high */

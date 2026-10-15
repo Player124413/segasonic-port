@@ -3,7 +3,7 @@
  *    Description: the sound program's ports, variables, tables, structures and functions
  *    Version:     0.1.0
  *    Created:     13-10-2026
- *    Modified:    13-10-2026
+ *    Modified:    14-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the Z80 sound program decompiled into C by
@@ -32,10 +32,14 @@
 #define IRQ_VECTOR2_INPUT 0xD2u
 #define IRQ_MASK 0xD3u
 #define IRQ_CONTROL_D8 0xD8u
+#define MIDI_USART_DATA 0xF0u
+#define MIDI_USART_CONTROL 0xF1u
 
 /* the sound program's variables, in the RAM it shares with the V60 (E000-FFFF) */
-#define unread_e000_ADDRESS 0xE000u
-#define unread_e000 SOUND_RAM8(unread_e000_ADDRESS)
+#define midi_in_message_length_ADDRESS 0xE000u
+#define midi_in_message_length SOUND_RAM8(midi_in_message_length_ADDRESS)
+#define midi_in_bytes_left_ADDRESS 0xE001u
+#define midi_in_bytes_left SOUND_RAM8(midi_in_bytes_left_ADDRESS)
 #define midi_queue_read_ADDRESS 0xE002u
 #define midi_queue_read SOUND_RAM8(midi_queue_read_ADDRESS)
 #define midi_status_ADDRESS 0xE008u
@@ -128,6 +132,8 @@
 #define midi_queue_write SOUND_RAM8(midi_queue_write_ADDRESS)
 #define midi_queue_count_ADDRESS 0xE759u
 #define midi_queue_count SOUND_RAM8(midi_queue_count_ADDRESS)
+#define lowest_player_field_ADDRESS 0xE770u
+#define lowest_player_field SOUND_RAM16(lowest_player_field_ADDRESS)
 #define music_player_flags_ADDRESS 0xE900u
 #define music_player_flags SOUND_RAM8(music_player_flags_ADDRESS)
 #define music_fade_speed_ADDRESS 0xE918u
@@ -188,7 +194,278 @@
 #define PCM_SILENT_LOOP 0xD2BCu
 
 /* data in the program ROM sound_symbols.txt labels */
+#define unused_fm_fnum_tables_below_ADDRESS 0x1364u
+#define unused_velocity_curve_0_ADDRESS 0x1AFEu
+#define unused_velocity_curve_1_ADDRESS 0x1B7Eu
+#define unused_velocity_curve_3_ADDRESS 0x1C7Eu
+#define unused_velocity_curve_4_ADDRESS 0x1CFEu
+#define unused_velocity_curve_5_ADDRESS 0x1D7Eu
+#define unused_velocity_curve_6_ADDRESS 0x1DFEu
+#define unused_pcm_pitch_tables_below_ADDRESS 0x1E7Eu
 #define playlist_command_table_ADDRESS 0x4706u
+#define playlist_stages_b_to_f_ADDRESS 0x4D66u
+#define playlist_stage_3_ADDRESS 0x4D6Bu
+#define playlist_stages_4_8_ADDRESS 0x4D71u
+#define playlist_map_ADDRESS 0x4D77u
+#define playlist_stages_5_6_ADDRESS 0x4D7Cu
+#define playlist_escape_ADDRESS 0x4D81u
+#define playlist_stage_clear_ADDRESS 0x4D84u
+#define playlist_stage_a_ADDRESS 0x4D87u
+#define playlist_stages_9_10_ADDRESS 0x4D8Du
+#define playlist_ending_ADDRESS 0x4D93u
+#define unplayed_music_playlists_ADDRESS 0x4D96u
+#define playlist_reset_music_ADDRESS 0x4DACu
+#define unplayed_music_playlists_2_ADDRESS 0x4DB0u
+#define playlist_stop_all_ADDRESS 0x4E01u
+#define unlisted_music_playlists_ADDRESS 0x4E05u
+#define song_records_ADDRESS 0x4E54u
+#define stop_music_sequence_ADDRESS 0x4E98u
+#define stop_all_voices_sequence_ADDRESS 0x4EA9u
+#define sfx_00_ADDRESS 0x4EAFu
+#define sfx_crash_ADDRESS 0x4EB7u
+#define sfx_explosion_ADDRESS 0x4EBFu
+#define sfx_saw_ADDRESS 0x4ECBu
+#define sfx_fire_ADDRESS 0x4ED3u
+#define sfx_blast_ADDRESS 0x4EDFu
+#define sfx_rumble_ADDRESS 0x4EE7u
+#define sfx_gate_move_ADDRESS 0x4EEFu
+#define sfx_alarm_ADDRESS 0x4EF7u
+#define sfx_crumble_ADDRESS 0x4F03u
+#define sfx_0a_ADDRESS 0x4F0Bu
+#define sfx_quake_ADDRESS 0x4F13u
+#define sfx_flow_ADDRESS 0x4F1Bu
+#define sfx_0d_ADDRESS 0x4F23u
+#define sfx_0e_ADDRESS 0x4F2Bu
+#define sfx_ice_block_shake_ADDRESS 0x4F33u
+#define sfx_10_ADDRESS 0x4F3Bu
+#define sfx_fall_ADDRESS 0x4F43u
+#define sfx_12_ADDRESS 0x4F4Bu
+#define sfx_electric_shock_ADDRESS 0x4F53u
+#define sfx_14_ADDRESS 0x4F5Bu
+#define sfx_15_ADDRESS 0x4F63u
+#define sfx_16_ADDRESS 0x4F6Bu
+#define sfx_launch_ADDRESS 0x4F73u
+#define sfx_18_ADDRESS 0x4F7Bu
+#define sfx_jump_ADDRESS 0x4F83u
+#define sfx_land_ADDRESS 0x4F8Bu
+#define sfx_hit_ADDRESS 0x4F93u
+#define sfx_1c_ADDRESS 0x4F9Bu
+#define sfx_stuck_ADDRESS 0x4FA3u
+#define sfx_underwater_explosion_ADDRESS 0x4FABu
+#define sfx_bounce_ADDRESS 0x4FB3u
+#define sfx_break_free_ADDRESS 0x4FBBu
+#define sfx_skid_ADDRESS 0x4FC3u
+#define sfx_22_ADDRESS 0x4FCBu
+#define sfx_23_ADDRESS 0x4FD3u
+#define sfx_ice_block_fall_ADDRESS 0x4FDBu
+#define sfx_ring_ADDRESS 0x4FE3u
+#define sfx_26_ADDRESS 0x4FEBu
+#define sfx_coin_ADDRESS 0x4FF3u
+#define sfx_tally_tick_ADDRESS 0x4FFBu
+#define sfx_29_ADDRESS 0x5003u
+#define sfx_you_failed_ADDRESS 0x500Bu
+#define sfx_2b_ADDRESS 0x5013u
+#define sfx_2c_ADDRESS 0x501Bu
+#define sfx_tally_bonus_ADDRESS 0x5023u
+#define sfx_tally_no_bonus_ADDRESS 0x502Bu
+#define sfx_2f_ADDRESS 0x5033u
+#define unplayed_sfx_32_ADDRESS 0x503Bu
+#define unplayed_sfx_33_ADDRESS 0x5043u
+#define unplayed_sfx_34_ADDRESS 0x504Bu
+#define unplayed_sfx_35_ADDRESS 0x5053u
+#define unplayed_sfx_36_ADDRESS 0x505Bu
+#define unplayed_sfx_37_ADDRESS 0x5063u
+#define unplayed_sfx_38_ADDRESS 0x506Bu
+#define unplayed_sfx_39_ADDRESS 0x5073u
+#define unplayed_sfx_3a_ADDRESS 0x507Bu
+#define unplayed_sfx_3b_ADDRESS 0x5083u
+#define unplayed_sfx_3c_ADDRESS 0x508Bu
+#define unplayed_sfx_3d_ADDRESS 0x5093u
+#define unplayed_sfx_3e_ADDRESS 0x509Bu
+#define unplayed_sfx_3f_ADDRESS 0x50A3u
+#define unplayed_sfx_40_ADDRESS 0x50ABu
+#define unplayed_sfx_41_ADDRESS 0x50B3u
+#define unplayed_sfx_42_ADDRESS 0x50BBu
+#define unplayed_sfx_43_ADDRESS 0x50C3u
+#define unplayed_sfx_44_ADDRESS 0x50CBu
+#define unplayed_sfx_45_ADDRESS 0x50D3u
+#define unplayed_sfx_46_ADDRESS 0x50DBu
+#define unplayed_sfx_47_ADDRESS 0x50E3u
+#define unplayed_sfx_48_ADDRESS 0x50EBu
+#define unplayed_sfx_49_ADDRESS 0x50F3u
+#define unplayed_sfx_4a_ADDRESS 0x50FBu
+#define unplayed_sfx_4b_ADDRESS 0x5103u
+#define unplayed_sfx_4c_ADDRESS 0x510Bu
+#define unplayed_sfx_4d_ADDRESS 0x5113u
+#define unplayed_sfx_4e_ADDRESS 0x511Bu
+#define unplayed_sfx_4f_ADDRESS 0x5123u
+#define unplayed_sfx_50_ADDRESS 0x512Bu
+#define unplayed_sfx_51_ADDRESS 0x5133u
+#define unplayed_sfx_52_ADDRESS 0x513Bu
+#define unplayed_sfx_53_ADDRESS 0x5143u
+#define unplayed_sfx_54_ADDRESS 0x514Bu
+#define unplayed_sfx_55_ADDRESS 0x5153u
+#define unplayed_sfx_56_ADDRESS 0x515Bu
+#define unplayed_sfx_57_ADDRESS 0x5163u
+#define unplayed_sfx_58_ADDRESS 0x516Bu
+#define unplayed_sfx_59_ADDRESS 0x5173u
+#define unplayed_sfx_5a_ADDRESS 0x517Bu
+#define unplayed_sfx_5b_ADDRESS 0x5183u
+#define unplayed_sfx_5c_ADDRESS 0x518Bu
+#define unplayed_sfx_5d_ADDRESS 0x5193u
+#define unplayed_sfx_5e_ADDRESS 0x519Bu
+#define unplayed_sfx_5f_ADDRESS 0x51A3u
+#define unplayed_sfx_60_ADDRESS 0x51ABu
+#define unplayed_sfx_61_ADDRESS 0x51B3u
+#define unplayed_sfx_62_ADDRESS 0x51BBu
+#define unplayed_sfx_63_ADDRESS 0x51C3u
+#define unplayed_sfx_64_ADDRESS 0x51CBu
+#define unplayed_sfx_65_ADDRESS 0x51D3u
+#define unplayed_sfx_66_ADDRESS 0x51DBu
+#define unplayed_sfx_67_ADDRESS 0x51E3u
+#define unplayed_sfx_68_ADDRESS 0x51EBu
+#define unplayed_sfx_69_ADDRESS 0x51F3u
+#define unplayed_sfx_6a_ADDRESS 0x51FBu
+#define unplayed_sfx_6b_ADDRESS 0x5203u
+#define unplayed_sfx_6c_ADDRESS 0x520Bu
+#define unplayed_sfx_6d_ADDRESS 0x5213u
+#define unplayed_sfx_6e_ADDRESS 0x521Bu
+#define unplayed_sfx_6f_ADDRESS 0x5223u
+#define unplayed_sfx_70_ADDRESS 0x522Bu
+#define unplayed_sfx_71_ADDRESS 0x5233u
+#define unplayed_load_part_template_00_ADDRESS 0x523Bu
+#define unplayed_load_part_template_01_ADDRESS 0x5243u
+#define unplayed_load_part_template_02_ADDRESS 0x524Bu
+#define unplayed_load_part_template_03_ADDRESS 0x5253u
+#define unplayed_load_part_template_04_ADDRESS 0x525Bu
+#define unplayed_load_part_template_05_ADDRESS 0x5263u
+#define unplayed_load_part_template_06_ADDRESS 0x526Bu
+#define unplayed_load_part_template_07_ADDRESS 0x5273u
+#define unplayed_load_part_template_08_ADDRESS 0x527Bu
+#define unplayed_load_part_template_09_ADDRESS 0x5283u
+#define unplayed_load_part_template_0a_ADDRESS 0x528Bu
+#define unplayed_load_part_template_0b_ADDRESS 0x5293u
+#define unplayed_channel_10_notes_off_ADDRESS 0x529Bu
+#define unplayed_channel_10_volume_ADDRESS 0x52A3u
+#define control_stop_all_voices_ADDRESS 0x52ABu
+#define unsent_stop_all_voices_ADDRESS 0x52B3u
+#define voice_sonic_scream_ADDRESS 0x52BBu
+#define voice_eggman_01_ADDRESS 0x52C3u
+#define voice_ray_struggle_ADDRESS 0x52CFu
+#define voice_eggman_03_ADDRESS 0x52D7u
+#define voice_04_ADDRESS 0x52E3u
+#define voice_05_ADDRESS 0x52EFu
+#define voice_sonic_struggle_ADDRESS 0x52FBu
+#define voice_sonic_cry_ADDRESS 0x5303u
+#define voice_ray_scream_ADDRESS 0x530Bu
+#define voice_sonic_teeter_ADDRESS 0x5313u
+#define voice_sonic_screen_edge_ADDRESS 0x531Bu
+#define voice_sonic_tumble_ADDRESS 0x5323u
+#define voice_eggman_0c_ADDRESS 0x532Bu
+#define voice_ray_teeter_ADDRESS 0x5337u
+#define voice_mighty_struggle_ADDRESS 0x533Fu
+#define voice_eggman_0f_ADDRESS 0x5347u
+#define voice_sonic_caged_ADDRESS 0x5353u
+#define voice_mighty_caged_ADDRESS 0x535Fu
+#define voice_eggman_booth_ADDRESS 0x536Bu
+#define voice_13_ADDRESS 0x5377u
+#define voice_ray_screen_edge_ADDRESS 0x537Fu
+#define voice_mighty_teeter_ADDRESS 0x5387u
+#define voice_16_ADDRESS 0x538Fu
+#define voice_ray_cry_ADDRESS 0x5397u
+#define voice_sonic_over_edge_ADDRESS 0x539Fu
+#define voice_sonic_19_ADDRESS 0x53A7u
+#define voice_mighty_1a_ADDRESS 0x53AFu
+#define voice_ray_hurt_ADDRESS 0x53B7u
+#define voice_ray_chooser_ADDRESS 0x53BFu
+#define voice_mighty_screen_edge_ADDRESS 0x53C7u
+#define voice_1e_ADDRESS 0x53CFu
+#define voice_ray_stage_b_ADDRESS 0x53D7u
+#define voice_ray_over_edge_ADDRESS 0x53DFu
+#define voice_sonic_join_ADDRESS 0x53E7u
+#define voice_mighty_entry_ADDRESS 0x53EFu
+#define voice_mighty_restart_ADDRESS 0x53F7u
+#define voice_sonic_chooser_ADDRESS 0x53FFu
+#define voice_25_ADDRESS 0x5407u
+#define voice_sonic_hurt_ADDRESS 0x540Fu
+#define voice_mighty_cry_ADDRESS 0x5417u
+#define voice_sonic_28_ADDRESS 0x541Fu
+#define voice_sonic_stage_b_ADDRESS 0x5427u
+#define voice_2a_ADDRESS 0x542Fu
+#define voice_2b_ADDRESS 0x5437u
+#define voice_mighty_hurt_ADDRESS 0x543Fu
+#define voice_ray_caged_ADDRESS 0x5447u
+#define voice_sonic_restart_ADDRESS 0x5453u
+#define voice_2f_ADDRESS 0x545Bu
+#define voice_30_ADDRESS 0x5463u
+#define voice_mighty_stage_b_ADDRESS 0x546Bu
+#define voice_ray_tumble_ADDRESS 0x5473u
+#define voice_mighty_join_ADDRESS 0x547Bu
+#define voice_34_ADDRESS 0x5483u
+#define voice_sonic_entry_ADDRESS 0x548Bu
+#define voice_ray_36_ADDRESS 0x5493u
+#define voice_37_ADDRESS 0x549Bu
+#define voice_mighty_over_edge_ADDRESS 0x54A3u
+#define voice_ray_restart_ADDRESS 0x54ABu
+#define voice_3a_ADDRESS 0x54B3u
+#define voice_3b_ADDRESS 0x54BBu
+#define voice_ray_entry_ADDRESS 0x54C3u
+#define voice_mighty_3d_ADDRESS 0x54CBu
+#define voice_ray_3e_ADDRESS 0x54D3u
+#define voice_mighty_tumble_ADDRESS 0x54DBu
+#define voice_ray_join_ADDRESS 0x54E3u
+#define voice_eggman_41_ADDRESS 0x54EBu
+#define voice_42_ADDRESS 0x54F7u
+#define voice_eggman_43_ADDRESS 0x5503u
+#define voice_44_ADDRESS 0x550Fu
+#define voice_eggman_45_ADDRESS 0x551Bu
+#define voice_eggman_46_ADDRESS 0x5527u
+#define voice_47_ADDRESS 0x5533u
+#define voice_mighty_scream_ADDRESS 0x553Fu
+#define voice_49_ADDRESS 0x5547u
+#define voice_4a_ADDRESS 0x5553u
+#define voice_eggman_4b_ADDRESS 0x555Bu
+#define unlisted_bend_sweep_program_79_ADDRESS 0x5567u
+#define unlisted_bend_sweep_program_7a_ADDRESS 0x5689u
+#define unlisted_bend_sweep_program_7b_ADDRESS 0x57ABu
+#define unlisted_bend_sweep_program_7c_ADDRESS 0x58CDu
+#define unlisted_bend_sweep_program_7d_ADDRESS 0x59EFu
+#define unlisted_bend_sweep_program_7e_ADDRESS 0x5B11u
+#define unlisted_bend_sweep_program_7f_ADDRESS 0x5C33u
+#define sfx_30_ADDRESS 0x5D55u
+#define sfx_31_ADDRESS 0x5D74u
+#define unlisted_sound_5da5_ADDRESS 0x5DA5u
+#define unlisted_sound_5dc7_ADDRESS 0x5DC7u
+#define unlisted_sound_5de9_ADDRESS 0x5DE9u
+#define unlisted_sound_5e0b_ADDRESS 0x5E0Bu
+#define unlisted_sound_5e2d_ADDRESS 0x5E2Du
+#define unlisted_sound_5e4f_ADDRESS 0x5E4Fu
+#define unlisted_sound_5e71_ADDRESS 0x5E71u
+#define unlisted_sound_5e89_ADDRESS 0x5E89u
+#define unlisted_sound_5ea1_ADDRESS 0x5EA1u
+#define unlisted_sound_5eb9_ADDRESS 0x5EB9u
+#define unlisted_sound_5ed1_ADDRESS 0x5ED1u
+#define unlisted_sound_5ee9_ADDRESS 0x5EE9u
+#define unlisted_sound_5f01_ADDRESS 0x5F01u
+#define unlisted_sound_5f19_ADDRESS 0x5F19u
+#define unlisted_sound_5f31_ADDRESS 0x5F31u
+#define unlisted_sound_5f53_ADDRESS 0x5F53u
+#define unlisted_sound_5f75_ADDRESS 0x5F75u
+#define unlisted_sound_5f97_ADDRESS 0x5F97u
+#define unlisted_sound_5fb9_ADDRESS 0x5FB9u
+#define unlisted_sound_5fdb_ADDRESS 0x5FDBu
+#define unlisted_sound_5ffd_ADDRESS 0x5FFDu
+#define unlisted_sound_601f_ADDRESS 0x601Fu
+#define unlisted_sound_6041_ADDRESS 0x6041u
+#define unlisted_sound_606d_ADDRESS 0x606Du
+#define unlisted_sound_6099_ADDRESS 0x6099u
+#define unlisted_sound_60c5_ADDRESS 0x60C5u
+#define unlisted_sound_60f1_ADDRESS 0x60F1u
+#define unlisted_sound_611d_ADDRESS 0x611Du
+#define unlisted_sound_6149_ADDRESS 0x6149u
+#define unlisted_sound_6175_ADDRESS 0x6175u
+#define unlisted_sound_61a1_ADDRESS 0x61A1u
+#define unlisted_sound_61c3_ADDRESS 0x61C3u
 
 /* the sound program's structures in the shared RAM */
 #pragma pack(push, 1)
@@ -303,12 +580,20 @@ uint16_t read_table_word(uint16_t table, uint8_t index);
 void handle_midi_message(void);
 void skip_midi_data(uint8_t first_byte);
 void play_midi_message(uint16_t message_byte, uint16_t part);
+void scan_drum_note_voices(uint16_t note_and_velocity, uint16_t part);
+void allocate_sample_voice(uint8_t note_velocity, uint16_t part);
 uint16_t retune_voice(uint16_t loop_count, uint16_t part, uint16_t voice);
 void update_fm_modulation(uint16_t *p_loop_count, uint16_t *p_voice);
 void read_midi_byte(uint16_t *p_byte_copy, uint16_t *p_queue_slot, uint8_t *p_byte);
 void start_pcm_sample(uint16_t voice);
 void refill_pcm_voice(void);
 void stop_pcm_voice(uint16_t voice);
+void receive_midi_byte(void);
+void receive_midi_byte_spare_return_1(void);
+void receive_midi_byte_spare_return_2(void);
+void send_midi_byte(uint8_t midi_byte);
+void reset_midi_errors(void);
+void init_midi_port(void);
 uint16_t multiply_bytes(uint16_t factor, uint16_t value);
 void copy_sample_page(uint16_t *p_wave_address, uint16_t *p_sample_address);
 void fm_note_off(uint16_t *p_de, uint16_t *p_saved_channel, uint8_t *p_a);
@@ -326,11 +611,13 @@ void clear_player_end_flag(uint16_t mailbox_page);
 void poll_sound_command(void);
 void start_song(uint16_t player, uint8_t song_number);
 void start_sequence(uint16_t header, uint16_t player);
+uint16_t find_lowest_player(uint16_t player_field);
 void select_channel_player(uint16_t *p_header, uint16_t *p_player);
 uint16_t clear_player(uint16_t player);
 void fade_music_volume(uint16_t mailbox_page);
 void fade_player_volume(uint16_t queue_pointer, uint16_t player, uint16_t mailbox_page);
 uint16_t next_sequence_byte(uint16_t cursor, uint16_t player);
 void step_fm_vibrato(uint16_t voice);
+uint16_t load_fixed_fm_frequency(void);
 
 #endif
