@@ -1,0 +1,985 @@
+/**
+ *    Name:        scenes/map.c
+ *    Description: the map screen between stages (game mode 4): the wipe, the island map, the trail, the markers, Eggman
+ *    Version:     0.1.0
+ *    Created:     12-10-2026
+ *    Modified:    15-10-2026
+ *    Author:      Sebastian Toyos
+ *
+ *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
+ *    tools/decompile.py, with the names of symbols.txt.
+ */
+#include "game.h"
+
+uint32_t run_map_screen(uint32_t bottom_speed, uint32_t object)
+{
+	uint32_t r4 = 0, free_count = 0, record = 0;
+
+	switch (map_screen_step)
+	{
+	case 0:
+	case 6:
+		mixer_text_blend |= 0x4000u;
+		mixer_nbg0_blend |= 0x4000u;
+		mixer_nbg1_blend |= 0x4000u;
+		mixer_nbg2_blend |= 0x4000u;
+		mixer_nbg3_blend |= 0x4000u;
+		mixer_bitmap_blend |= 0x4000u;
+		mixer_sprite_control |= 0x8000u;
+		fade_kind = 0;
+		fade_speed = 1u;
+		window_wipe_closing = 0u;
+		record = map_wipe_in_windows_ADDRESS + stage * 6u;
+		r4 = start_window_wipe(record);
+		map_screen_step++;
+		return r4;
+	case 1:
+		update_fade(0u);
+		if (fade_kind < 0)
+			map_screen_step++;
+		return bottom_speed;
+	case 2:
+		allocate_object_outside_loop(&free_count, &object);
+		if ((uint8_t)free_count != 0u)
+		{
+			OBJECT(object)->handler = map_intro_update_ADDRESS;
+			OBJECT(object)->map_intro.timer = 0;
+			OBJECT(object)->animation_frame = 0u;
+			OBJECT(object)->map_intro.base_x = window_wipe_left;
+			OBJECT(object)->map_intro.base_y = window_wipe_top;
+			OBJECT(object)->map_intro.step_x = 0;
+			OBJECT(object)->map_intro.step_y = 0;
+			OBJECT(object)->map_intro.offset_x = 0;
+			OBJECT(object)->map_intro.offset_y = 0;
+			map_screen_step++;
+		}
+		return bottom_speed;
+	case 3:
+	case 4:
+	case 5:
+		return bottom_speed;
+	default:
+		unknown_code(0x95983u + map_screen_step * 3u);
+	}
+}
+
+void run_map_screen_wait_for_wipe(uint32_t edges_done)
+{
+	uint32_t ignored = 0;
+
+	update_screen_wipe(&ignored, &ignored, &ignored, &edges_done);
+	if ((edges_done & 0xFu) == 0xFu)
+		map_screen_step++;
+}
+
+void map_intro_update(void)
+{
+	uint16_t icon_y = 0;
+	uint32_t r1 = 0, dest = 0, free_count = 0, ignored = 0, object = 0, palette_list = 0, script = 0, stage_number = 0, step_y = 0;
+	uint8_t io_cnt_value = 0;
+
+	switch (OBJECT(current_object)->animation_frame)
+	{
+	case 0:
+	case 8:
+		OBJECT(current_object)->animation_frame++;
+		OBJECT(current_object)->animation_frame++;
+		OBJECT(current_object)->animation_frame++;
+		OBJECT(current_object)->animation_frame++;
+		OBJECT(current_object)->map_intro.timer++;
+		if (OBJECT(current_object)->map_intro.timer >= 0x1E)
+			map_screen_active = 0xFFu;
+		return;
+	case 1:
+		OBJECT(current_object)->animation_frame++;
+		return;
+	case 2:
+		step_y = (int32_t)((0x10u - (uint16_t)OBJECT(current_object)->map_intro.base_y) << 16) / 0x3C;
+		OBJECT(current_object)->map_intro.step_x = (int32_t)((0x20u - (uint16_t)OBJECT(current_object)->map_intro.base_x) << 16) / 0x3C;
+		OBJECT(current_object)->map_intro.step_y = step_y;
+		OBJECT(current_object)->map_intro.timer = 0x3C;
+		mem_write16(video_layer_disable, mem_read16(video_layer_disable) | 0x2Fu);
+		mem_write16(backdrop_color, 0u);
+		OBJECT(current_object)->animation_frame++;
+		stage_number = stage;
+		map_stage_icon = ROM16(stage_map_icons_ADDRESS + (uint16_t)(stage_number << 1));
+		return;
+	case 3:
+		move_map_stage_icon();
+		return;
+	case 4:
+		io_cnt_value = mem_read8(io_cnt);
+		mem_write8(io_cnt, io_cnt_value & ~2u);
+		display_off_frames = 2u;
+		nbg0_scroll_x_int = 0u;
+		nbg0_scroll_y_int = 0u;
+		mem_write16(video_layer_disable, mem_read16(video_layer_disable) | 0x2Fu);
+		mem_write16(backdrop_color, 0u);
+		mem_write32(video_control, mem_read32(video_control) & ~0x400u);
+		vblank_copies_pending = 0u;
+		vblank_copy_count = 0u;
+		palette_list = tile_bank_0_palette_list_ADDRESS;
+		load_palette_list(palette_list, &ignored, &dest);
+		script = map_monitor_script_ADDRESS;
+		run_vram_script(&r1, &script, &dest);
+		script = map_eggman_head_script_ADDRESS;
+		nbg2_scroll_x = 0u;
+		nbg2_scroll_y = 0u;
+		run_vram_script(&r1, &script, &dest);
+		nbg0_pages = 0x1010101u;
+		nbg2_pages = 0u;
+		fade_kind = 2;
+		fade_speed = 1u;
+		fade_step = 0u;
+		OBJECT(current_object)->animation_frame++;
+		mixer_nbg0_blend |= 0x4000u;
+		mixer_nbg3_blend |= 0x4000u;
+		update_fade(r1);
+		return;
+	case 5:
+		mem_write16(video_layer_disable, mem_read16(video_layer_disable) | 0xEu);
+		mem_write16(video_layer_disable, mem_read16(video_layer_disable) & ~5u);
+		OBJECT(current_object)->animation_frame++;
+		return;
+	case 6:
+		update_fade(0u);
+		if (color_offset_red != 0x3Fu)
+		{
+			draw_map_markers_and_trail();
+			return;
+		}
+		allocate_object_outside_loop(&free_count, &object);
+		if ((uint8_t)free_count != 0u)
+		{
+			mixer_nbg0_blend &= 0xBFFFu;
+			mixer_nbg1_blend &= 0xBFFFu;
+			OBJECT(object)->handler = map_screen_update_ADDRESS;
+			icon_y = (uint16_t)(((int32_t)OBJECT(current_object)->map_intro.offset_y >> 16) + OBJECT(current_object)->map_intro.base_y);
+			OBJECT(object)->map_screen.base_x = ((int32_t)OBJECT(current_object)->map_intro.offset_x >> 16) + OBJECT(current_object)->map_intro.base_x;
+			OBJECT(object)->map_screen.base_y = icon_y;
+			OBJECT(object)->sprite_frame = map_stage_icon;
+			OBJECT(object)->sprite_palette = 0x6B0u;
+			OBJECT(object)->sprite_scale = 0x100u;
+			OBJECT(object)->sprite_layer = 1u;
+			OBJECT(object)->screen_x = 0x20;
+			OBJECT(object)->screen_y = 0x10;
+			OBJECT(object)->sprite_flags = 0x10Au;
+			OBJECT(object)->animation_frame = 0u;
+			OBJECT(object)->map_screen.timer = 0;
+			OBJECT(current_object)->animation_frame++;
+			object = draw_map_stage_markers(object);
+			draw_map_trail_dot(object);
+		}
+		return;
+	case 7:
+		delete_current_object();
+		return;
+	default:
+		unknown_code(0x95A5Fu + OBJECT(current_object)->animation_frame * 3u);
+	}
+}
+
+void move_map_stage_icon(void)
+{
+	uint16_t icon_x = 0, icon_y = 0;
+
+	icon_y = (uint16_t)(((int32_t)OBJECT(current_object)->move_map_stage_icon.offset_y >> 16) + OBJECT(current_object)->move_map_stage_icon.base_y);
+	if ((uint16_t)(((int32_t)OBJECT(current_object)->move_map_stage_icon.offset_x >> 16) + OBJECT(current_object)->move_map_stage_icon.base_x) != 0x30u || icon_y != 0x10u)
+	{
+		OBJECT(current_object)->move_map_stage_icon.timer--;
+		if ((uint16_t)OBJECT(current_object)->move_map_stage_icon.timer == 0u)
+			OBJECT(current_object)->animation_frame++;
+		OBJECT(current_object)->move_map_stage_icon.offset_x += OBJECT(current_object)->move_map_stage_icon.step_x;
+		OBJECT(current_object)->move_map_stage_icon.offset_y += OBJECT(current_object)->move_map_stage_icon.step_y;
+	}
+	icon_x = (uint16_t)(((int32_t)OBJECT(current_object)->move_map_stage_icon.offset_x >> 16) + OBJECT(current_object)->move_map_stage_icon.base_x);
+	icon_y = (uint16_t)(((int32_t)OBJECT(current_object)->move_map_stage_icon.offset_y >> 16) + OBJECT(current_object)->move_map_stage_icon.base_y);
+	OBJECT(current_object)->sprite_frame = map_stage_icon;
+	OBJECT(current_object)->move_map_stage_icon.blink_phase++;
+	OBJECT(current_object)->move_map_stage_icon.blink_phase &= 1u;
+	if (OBJECT(current_object)->move_map_stage_icon.blink_phase == 0u)
+		OBJECT(current_object)->sprite_frame = 0x6538u;
+	OBJECT(current_object)->sprite_palette = 0x6B0u;
+	OBJECT(current_object)->sprite_scale = 0x100u;
+	OBJECT(current_object)->sprite_layer = 1u;
+	OBJECT(current_object)->screen_x = icon_x;
+	OBJECT(current_object)->screen_y = icon_y;
+	OBJECT(current_object)->sprite_flags = 0x10Au;
+	queue_sprite_in_layer();
+}
+
+void draw_map_markers_and_trail(void)
+{
+	uint32_t r11 = 0;
+
+	r11 = draw_map_stage_markers(0u);
+	start_map_trail();
+	draw_map_trail_dot(r11);
+}
+
+void map_screen_draw_flipping_icon(void)
+{
+	OBJECT(current_object)->sprite_frame = 0x65C8u;
+	OBJECT(current_object)->sprite_palette = 0x6C0u;
+	OBJECT(current_object)->screen_x = 0x20;
+	OBJECT(current_object)->screen_y = 0x10;
+	OBJECT(current_object)->sprite_scale = 0x100u;
+	OBJECT(current_object)->sprite_layer = 0u;
+	OBJECT(current_object)->sprite_flags = 0u;
+	OBJECT(current_object)->sprite_flags &= ~0xFFu;
+	OBJECT(current_object)->sprite_flags |= 0x10Au;
+	OBJECT(current_object)->map_screen.blink_phase++;
+	if (OBJECT(current_object)->map_screen.blink_phase >= 3)
+		OBJECT(current_object)->map_screen.blink_phase = 0;
+	OBJECT(current_object)->map_screen.timer--;
+	if ((OBJECT(current_object)->flags & 2u) == 0u)
+	{
+		if ((OBJECT(current_object)->map_screen.blink_phase & 2u) != 0u)
+			OBJECT(current_object)->sprite_flags |= 0x80u;
+	}
+	else
+		OBJECT(current_object)->sprite_flags |= 0x40u;
+	queue_sprite_in_layer();
+}
+
+void map_screen_update(void)
+{
+	uint16_t next_x = 0;
+	uint32_t edges_done = 0, free_count = 0, ignored = 0, marker_position = 0, next_y = 0, object = 0, record = 0, stage_number = 0;
+
+	switch (OBJECT(current_object)->animation_frame)
+	{
+	case 0:
+	case 12:
+		allocate_object_outside_loop(&free_count, &object);
+		if ((uint8_t)free_count == 0u)
+			return;
+		OBJECT(object)->handler = map_eggman_update_ADDRESS;
+		OBJECT(object)->animation_frame = 0u;
+		OBJECT(object)->map_eggman.sound_step = 0u;
+		OBJECT(current_object)->animation_frame++;
+		OBJECT(current_object)->map_screen.timer = 1;
+		return;
+	case 1:
+		OBJECT(current_object)->map_screen.timer--;
+		if (AS8(OBJECT(current_object)->map_screen.timer) == 0u)
+		{
+			OBJECT(current_object)->map_screen.timer = 0x64;
+			OBJECT(current_object)->animation_frame++;
+		}
+		OBJECT(current_object)->map_screen.blink_phase++;
+		OBJECT(current_object)->map_screen.blink_phase &= 1u;
+		object = draw_map_stage_markers(0u);
+		start_map_trail();
+		draw_map_trail_dot(object);
+		return;
+	case 2:
+		object = draw_map_stage_markers(0u);
+		start_map_trail();
+		draw_map_trail_dot(object);
+		OBJECT(object_cursor)->map_screen.timer--;
+		if (OBJECT(object_cursor)->map_screen.timer <= 0)
+		{
+			OBJECT(object_cursor)->map_screen.timer = 0x12C;
+			OBJECT(object_cursor)->map_screen.blink_frames = 0x154;
+			OBJECT(object_cursor)->animation_frame++;
+			start_map_trail();
+		}
+		return;
+	case 3:
+		object = draw_map_stage_markers(0u);
+		draw_map_trail_dot(object);
+		if ((uint16_t)OBJECT(current_object)->map_screen.blink_frames != 0u && OBJECT(current_object)->map_screen.trail_done < 0)
+		{
+			blink_current_map_marker();
+			OBJECT(current_object)->map_screen.blink_frames--;
+			if (OBJECT(current_object)->map_screen.blink_frames <= 0)
+			{
+				OBJECT(current_object)->map_screen.timer = 0x28;
+				OBJECT(current_object)->animation_frame++;
+			}
+		}
+		return;
+	case 4:
+		OBJECT(current_object)->map_screen.timer--;
+		if ((uint16_t)OBJECT(current_object)->map_screen.timer == 0u)
+		{
+			OBJECT(current_object)->map_screen.timer = 0x12C;
+			OBJECT(current_object)->map_screen.blink_frames = 0x154;
+			OBJECT(current_object)->animation_frame++;
+			start_map_trail();
+		}
+		OBJECT(current_object)->sprite_frame = 0x65C8u;
+		OBJECT(current_object)->sprite_palette = 0x6C0u;
+		OBJECT(current_object)->screen_x = 0x20;
+		OBJECT(current_object)->screen_y = 0x10;
+		OBJECT(current_object)->sprite_layer = 0u;
+		OBJECT(current_object)->sprite_flags = 0u;
+		OBJECT(current_object)->sprite_flags &= ~0xFFu;
+		OBJECT(current_object)->sprite_flags |= 0x10Au;
+		OBJECT(current_object)->map_screen.blink_phase++;
+		if (OBJECT(current_object)->map_screen.blink_phase >= 3)
+			OBJECT(current_object)->map_screen.blink_phase = 0;
+		if ((OBJECT(current_object)->flags & 2u) == 0u)
+		{
+			if ((OBJECT(current_object)->map_screen.blink_phase & 2u) != 0u)
+				OBJECT(current_object)->sprite_flags |= 0x80u;
+		}
+		else
+			OBJECT(current_object)->sprite_flags |= 0x40u;
+		queue_sprite_in_layer();
+		return;
+	case 5:
+		stage_number = stage;
+		map_stage_icon = ROM16(next_stage_map_icons_ADDRESS + (uint16_t)(stage_number << 1));
+		window_wipe_closing = 0u;
+		record = map_wipe_out_windows_ADDRESS + stage * 6u;
+		start_window_wipe(record);
+		OBJECT(current_object)->map_screen.base_x = 0x20;
+		OBJECT(current_object)->map_screen.base_y = 0x10;
+		OBJECT(current_object)->sprite_frame = map_stage_icon;
+		OBJECT(current_object)->map_screen.blink_phase++;
+		OBJECT(current_object)->map_screen.blink_phase &= 1u;
+		if ((uint8_t)OBJECT(current_object)->map_screen.blink_phase == 0u)
+			OBJECT(current_object)->sprite_frame = 0x6538u;
+		OBJECT(current_object)->sprite_palette = 0x1130u;
+		OBJECT(current_object)->sprite_scale = 0x100u;
+		OBJECT(current_object)->sprite_layer = 1u;
+		OBJECT(current_object)->screen_x = OBJECT(current_object)->map_screen.base_x;
+		OBJECT(current_object)->screen_y = OBJECT(current_object)->map_screen.base_y;
+		OBJECT(current_object)->sprite_flags = 0x10Au;
+		queue_sprite_in_layer();
+		OBJECT(current_object)->animation_frame++;
+		OBJECT(current_object)->map_screen.timer = 0x3C;
+		return;
+	case 6:
+		if ((uint16_t)OBJECT(current_object)->map_screen.timer != 0u)
+			OBJECT(current_object)->map_screen.timer--;
+		else
+		{
+			update_screen_wipe(&ignored, &ignored, &ignored, &edges_done);
+			if ((edges_done & 0xFu) == 0xFu)
+			{
+				OBJECT(current_object)->animation_frame++;
+				map_screen_step++;
+				OBJECT(current_object)->map_screen.timer--;
+				OBJECT(current_object)->sprite_frame = map_stage_icon;
+				OBJECT(current_object)->map_screen.blink_phase++;
+				OBJECT(current_object)->map_screen.blink_phase &= 1u;
+				if ((uint8_t)OBJECT(current_object)->map_screen.blink_phase == 0u)
+					OBJECT(current_object)->sprite_frame = 0x6538u;
+				OBJECT(current_object)->sprite_palette = 0x6B0u;
+				OBJECT(current_object)->sprite_scale = 0x100u;
+				OBJECT(current_object)->sprite_layer = 1u;
+				OBJECT(current_object)->screen_x = OBJECT(current_object)->map_screen.base_x;
+				OBJECT(current_object)->screen_y = OBJECT(current_object)->map_screen.base_y;
+				OBJECT(current_object)->sprite_flags = 0x10Au;
+				queue_sprite_in_layer();
+				return;
+			}
+		}
+		OBJECT(current_object)->sprite_frame = map_stage_icon;
+		OBJECT(current_object)->map_screen.blink_phase++;
+		OBJECT(current_object)->map_screen.blink_phase &= 1u;
+		if ((uint8_t)OBJECT(current_object)->map_screen.blink_phase == 0u)
+			OBJECT(current_object)->sprite_frame = 0x6538u;
+		OBJECT(current_object)->sprite_palette = 0x6B0u;
+		OBJECT(current_object)->sprite_scale = 0x100u;
+		OBJECT(current_object)->sprite_layer = 1u;
+		OBJECT(current_object)->screen_x = OBJECT(current_object)->map_screen.base_x;
+		OBJECT(current_object)->screen_y = OBJECT(current_object)->map_screen.base_y;
+		OBJECT(current_object)->sprite_flags = 0x10Au;
+		queue_sprite_in_layer();
+		return;
+	case 7:
+		mem_write16(video_layer_disable, mem_read16(video_layer_disable) | 0x2Fu);
+		OBJECT(current_object)->sprite_frame = map_stage_icon;
+		OBJECT(current_object)->map_screen.blink_phase++;
+		OBJECT(current_object)->map_screen.blink_phase &= 1u;
+		if ((uint8_t)OBJECT(current_object)->map_screen.blink_phase == 0u)
+			OBJECT(current_object)->sprite_frame = 0x6538u;
+		OBJECT(current_object)->sprite_palette = 0x6B0u;
+		OBJECT(current_object)->sprite_scale = 0x100u;
+		OBJECT(current_object)->sprite_layer = 1u;
+		OBJECT(current_object)->screen_x = OBJECT(current_object)->map_screen.base_x;
+		OBJECT(current_object)->screen_y = OBJECT(current_object)->map_screen.base_y;
+		OBJECT(current_object)->sprite_flags = 0x10Au;
+		queue_sprite_in_layer();
+		marker_position = ((uint32_t)stage_map_markers[stage] << 2) + map_stage_positions_ADDRESS;
+		next_x = ROM16(marker_position);
+		next_y = ROM16(marker_position + 2u);
+		OBJECT(current_object)->map_screen.target_x = next_x;
+		OBJECT(current_object)->map_screen.target_y = next_y;
+		next_y = (int32_t)((next_y - (uint16_t)OBJECT(current_object)->map_screen.base_y) << 16) / 0x3C;
+		OBJECT(current_object)->map_screen.step_x = (int32_t)(((uint32_t)next_x - (uint16_t)OBJECT(current_object)->map_screen.base_x) << 16) / 0x3C;
+		OBJECT(current_object)->map_screen.step_y = next_y;
+		OBJECT(current_object)->map_screen.timer = 0x3C;
+		OBJECT(current_object)->animation_frame++;
+		return;
+	case 8:
+		move_map_stage_icon();
+		return;
+	case 9:
+		window_wipe_closing = 1u;
+		record = map_wipe_next_windows_ADDRESS + stage * 6u;
+		start_window_wipe(record);
+		mem_write16(video_layer_disable, mem_read16(video_layer_disable) & ~0x21u);
+		OBJECT(current_object)->sprite_frame = map_stage_icon;
+		OBJECT(current_object)->map_screen.blink_phase++;
+		OBJECT(current_object)->map_screen.blink_phase &= 1u;
+		if (AS8(OBJECT(current_object)->map_screen.marker_blink_count) == 0u)
+			OBJECT(current_object)->sprite_frame = 0x6538u;
+		OBJECT(current_object)->sprite_palette = 0x6B0u;
+		OBJECT(current_object)->sprite_scale = 0x100u;
+		OBJECT(current_object)->sprite_layer = 1u;
+		OBJECT(current_object)->screen_x = OBJECT(current_object)->map_screen.target_x;
+		OBJECT(current_object)->screen_y = OBJECT(current_object)->map_screen.target_y;
+		OBJECT(current_object)->sprite_flags = 0x10Au;
+		queue_sprite_in_layer();
+		OBJECT(current_object)->animation_frame++;
+		map_screen_step = 5u;
+		return;
+	case 10:
+		return;
+	case 11:
+		update_screen_wipe(&ignored, &ignored, &ignored, &edges_done);
+		if ((edges_done & 0xFu) == 0xFu)
+			delete_current_object();
+		return;
+	default:
+		unknown_code(0x95DBEu + OBJECT(current_object)->animation_frame * 3u);
+	}
+}
+
+void map_eggman_update(void)
+{
+	uint8_t sound_id = 0;
+	uint16_t gesture = 0;
+	uint32_t free_count = 0, ignored = 0, object = 0;
+	uint16_t timer = 0;
+
+	switch (OBJECT(current_object)->animation_frame)
+	{
+	case 0:
+	case 4:
+		OBJECT(current_object)->sprite_frame = 0x5760u;
+		OBJECT(current_object)->sprite_palette = 0x680u;
+		OBJECT(current_object)->sprite_scale = 0x100u;
+		OBJECT(current_object)->sprite_layer = 1u;
+		OBJECT(current_object)->screen_x = 0xB7;
+		OBJECT(current_object)->screen_y = 0xDF;
+		OBJECT(current_object)->sprite_flags = 0u;
+		OBJECT(current_object)->sprite_flags &= ~0x10Fu;
+		OBJECT(current_object)->sprite_flags |= 0x107u;
+		queue_sprite_in_layer();
+		OBJECT(current_object)->map_eggman.timer = 0x3Cu;
+		OBJECT(current_object)->animation_frame++;
+		map_stage_09_sound_count = 0u;
+		sound_id = stage_map_sounds_1[stage];
+		queue_sound(sound_id, &ignored, &ignored);
+		return;
+	case 1:
+		timer = OBJECT(current_object)->map_eggman.timer;
+		OBJECT(current_object)->map_eggman.timer = timer - 1u;
+		if (timer == 1u)
+		{
+			allocate_object_outside_loop(&free_count, &object);
+			if ((uint8_t)free_count != 0u)
+			{
+				OBJECT(object)->handler = map_eggman_hands_update_ADDRESS;
+				OBJECT(object)->map_eggman_hands.timer = 0xF0u;
+				AS16(OBJECT(object)->map_eggman_hands.frame_step) = 0u;
+				OBJECT(current_object)->animation_frame++;
+				mem_write16(video_layer_disable, mem_read16(video_layer_disable) | 0xEu);
+				OBJECT(current_object)->map_eggman.timer = 0x186u;
+				OBJECT(current_object)->kind = 0u;
+				OBJECT(current_object)->map_eggman.gesture_list = map_eggman_gesture_frames_ADDRESS;
+				OBJECT(current_object)->map_eggman.unused_step = 0u;
+			}
+		}
+		OBJECT(current_object)->sprite_frame = 0x5760u;
+		OBJECT(current_object)->sprite_palette = 0x680u;
+		OBJECT(current_object)->sprite_scale = 0x100u;
+		OBJECT(current_object)->sprite_layer = 1u;
+		OBJECT(current_object)->screen_x = 0xB7;
+		OBJECT(current_object)->screen_y = 0xDF;
+		OBJECT(current_object)->sprite_flags = 0u;
+		OBJECT(current_object)->sprite_flags &= ~0x10Fu;
+		OBJECT(current_object)->sprite_flags |= 0x107u;
+		queue_sprite_in_layer();
+		return;
+	case 2:
+		OBJECT(current_object)->map_eggman.timer--;
+		if (OBJECT(current_object)->map_eggman.timer == 0u)
+		{
+			OBJECT(current_object)->animation_frame++;
+			OBJECT(current_object)->kind = 0u;
+			OBJECT(current_object)->map_eggman.timer = 3u;
+			OBJECT(current_object)->map_eggman.hold_frames = 0x50u;
+		}
+		for (;;)
+		{
+			if ((uint8_t)(int8_t)mem_read8(OBJECT(current_object)->map_eggman.gesture_list + OBJECT(current_object)->kind) == 7u)
+			{
+				sound_id = 0x21u;
+				queue_sound(sound_id, &ignored, &ignored);
+			}
+			gesture = (uint16_t)(int8_t)mem_read8(OBJECT(current_object)->map_eggman.gesture_list + OBJECT(current_object)->kind);
+			if ((int16_t)gesture >= 0)
+				break;
+			OBJECT(current_object)->kind--;
+		}
+		OBJECT(current_object)->sprite_frame = ((gesture - 1u) << 3) + 0x5760u;
+		OBJECT(current_object)->sprite_palette = 0x680u;
+		OBJECT(current_object)->sprite_scale = 0x100u;
+		OBJECT(current_object)->sprite_layer = 1u;
+		OBJECT(current_object)->screen_x = 0xB7;
+		OBJECT(current_object)->screen_y = 0xDF;
+		OBJECT(current_object)->sprite_flags = 0u;
+		OBJECT(current_object)->sprite_flags &= ~0x10Fu;
+		OBJECT(current_object)->sprite_flags |= 0x107u;
+		queue_sprite_in_layer();
+		if ((OBJECT(current_object)->map_eggman.timer & 3u) == 3u)
+		{
+			OBJECT(current_object)->kind++;
+			OBJECT(current_object)->map_eggman.unused_step++;
+			if (OBJECT(current_object)->map_eggman.unused_step == 7u)
+				OBJECT(current_object)->map_eggman.unused_step = 0u;
+		}
+		return;
+	case 3:
+		if (map_screen_step == 4u)
+		{
+			delete_current_object();
+			return;
+		}
+		OBJECT(current_object)->map_eggman.timer--;
+		OBJECT(current_object)->sprite_frame = 0x57C8u;
+		OBJECT(current_object)->sprite_frame += (uint32_t)OBJECT(current_object)->kind << 3;
+		if (OBJECT(current_object)->map_eggman.timer == 0u)
+		{
+			OBJECT(current_object)->kind++;
+			OBJECT(current_object)->map_eggman.timer = 3u;
+			if ((int8_t)OBJECT(current_object)->kind < 4)
+			{
+				draw_map_eggman();
+				return;
+			}
+		}
+		if (OBJECT(current_object)->map_eggman.hold_frames == 0u)
+		{
+			if (OBJECT(current_object)->map_eggman.sound_step == 1u)
+			{
+				OBJECT(current_object)->map_eggman.sound_step = 2u;
+				sound_id = stage_map_sounds_3[stage];
+				queue_sound(sound_id, &ignored, &ignored);
+				if (stage == 9u)
+				{
+					map_stage_09_sound_count++;
+					if ((int8_t)map_stage_09_sound_count >= 0x5A)
+					{
+						map_stage_09_sound_count = 0x5Au;
+						sound_id = 0x95u;
+						queue_sound(sound_id, &ignored, &ignored);
+					}
+				}
+			}
+			if ((int16_t)AS16(OBJECT(current_object)->kind) <= 5)
+			{
+				draw_map_eggman();
+				return;
+			}
+			OBJECT(current_object)->kind = 4u;
+			OBJECT(current_object)->map_eggman.timer = 5u;
+			draw_map_eggman();
+			return;
+		}
+		if (OBJECT(current_object)->map_eggman.sound_step == 0u)
+		{
+			OBJECT(current_object)->map_eggman.sound_step = 1u;
+			sound_id = stage_map_sounds_2[stage];
+			queue_sound(sound_id, &ignored, &ignored);
+		}
+		OBJECT(current_object)->kind = 3u;
+		OBJECT(current_object)->map_eggman.hold_frames--;
+		draw_map_eggman();
+		return;
+	default:
+		unknown_code(0x96188u + OBJECT(current_object)->animation_frame * 3u);
+	}
+}
+
+void map_eggman_hands_update(void)
+{
+	if (OBJECT(current_object)->map_eggman_hands.timer == 0u)
+		return;
+	OBJECT(current_object)->map_eggman_hands.timer--;
+	OBJECT(current_object)->sprite_frame = ((uint32_t)OBJECT(current_object)->map_eggman_hands.frame_step << 3) + 0x5798u;
+	OBJECT(current_object)->sprite_palette = 0x690u;
+	OBJECT(current_object)->sprite_scale = 0x100u;
+	OBJECT(current_object)->sprite_layer = 0u;
+	OBJECT(current_object)->screen_x = 0xB7;
+	OBJECT(current_object)->screen_y = 0x9B;
+	OBJECT(current_object)->sprite_flags = 0u;
+	OBJECT(current_object)->sprite_flags &= ~0xFu;
+	OBJECT(current_object)->sprite_flags |= 7u;
+	queue_sprite_in_layer();
+	if ((OBJECT(current_object)->map_eggman_hands.timer & 3u) != 3u)
+		return;
+	OBJECT(current_object)->kind++;
+	OBJECT(current_object)->map_eggman_hands.frame_step++;
+	if (OBJECT(current_object)->map_eggman_hands.frame_step != 6u)
+		return;
+	OBJECT(current_object)->map_eggman_hands.frame_step = 0u;
+}
+
+void map_eggman_draw_plain(void)
+{
+	OBJECT(current_object)->sprite_frame = 0x5760u;
+	draw_map_eggman();
+}
+
+void map_eggman_draw_plain_2(void)
+{
+	OBJECT(current_object)->sprite_frame = 0x5760u;
+	draw_map_eggman();
+}
+
+void draw_map_eggman(void)
+{
+	OBJECT(current_object)->sprite_palette = 0x680u;
+	OBJECT(current_object)->sprite_scale = 0x100u;
+	OBJECT(current_object)->sprite_layer = 1u;
+	OBJECT(current_object)->screen_x = 0xB7;
+	OBJECT(current_object)->screen_y = 0xDF;
+	OBJECT(current_object)->sprite_flags = 0u;
+	OBJECT(current_object)->sprite_flags &= ~0x10Fu;
+	OBJECT(current_object)->sprite_flags |= 0x107u;
+	queue_sprite_in_layer();
+}
+
+void start_map_trail(void)
+{
+	uint32_t trail = 0;
+
+	OBJECT(current_object)->start_map_trail.trail_done = 0;
+	trail = stage_map_trails[stage];
+	if ((int32_t)trail <= 0)
+		OBJECT(current_object)->start_map_trail.trail_done = -1;
+	OBJECT(current_object)->start_map_trail.segment_frames = mem_read16(trail);
+	OBJECT(current_object)->start_map_trail.segment_timer = mem_read16(trail);
+	trail += 2u;
+	next_map_trail_segment(trail);
+}
+
+void next_map_trail_segment(uint32_t trail_point)
+{
+	uint16_t end_x = 0, end_y = 0, start_x = 0, start_y = 0;
+	uint32_t segment_frames = 0, step_y = 0;
+
+	start_x = mem_read16(trail_point);
+	trail_point += 2u;
+	start_y = mem_read16(trail_point);
+	trail_point += 2u;
+	end_x = mem_read16(trail_point);
+	end_y = mem_read16(trail_point + 2u);
+	OBJECT(current_object)->next_map_trail_segment.next_trail_point = trail_point;
+	if ((int16_t)end_x >= 0)
+	{
+		OBJECT(current_object)->next_map_trail_segment.base_x = start_x;
+		OBJECT(current_object)->next_map_trail_segment.base_y = start_y;
+		OBJECT(current_object)->next_map_trail_segment.target_x = end_x;
+		OBJECT(current_object)->next_map_trail_segment.target_y = end_y;
+		segment_frames = OBJECT(current_object)->next_map_trail_segment.segment_frames;
+		step_y = divide_s32(((uint32_t)(uint16_t)OBJECT(current_object)->next_map_trail_segment.base_y - (uint16_t)OBJECT(current_object)->next_map_trail_segment.target_y) << 16, segment_frames);
+		OBJECT(current_object)->next_map_trail_segment.step_x = divide_s32(((uint32_t)(uint16_t)OBJECT(current_object)->next_map_trail_segment.base_x - (uint16_t)OBJECT(current_object)->next_map_trail_segment.target_x) << 16, segment_frames);
+		OBJECT(current_object)->next_map_trail_segment.step_y = step_y;
+		OBJECT(current_object)->next_map_trail_segment.offset_x = 0;
+		OBJECT(current_object)->z_int = 0;
+		OBJECT(current_object)->animation_speed = 0u;
+		OBJECT(current_object)->animation_timer = 0;
+	}
+	else
+		OBJECT(current_object)->next_map_trail_segment.trail_done = -1;
+}
+
+void draw_map_trail_dot(uint32_t object)
+{
+	uint16_t dot_y = 0, object_2 = 0;
+	uint32_t ignored = 0, trail_point = 0;
+
+	allocate_object_2(&ignored, &ignored, &object);
+	current_object = object;
+	AS32(screen_sprite_block) = object;
+	if ((int8_t)AT8(OBJECT(object_cursor)->animation, 2) >= 0)
+	{
+		AS32(OBJECT(object_cursor)->speed_z_int) -= AS32(OBJECT(object_cursor)->speed_x_int);
+		AS32(OBJECT(object_cursor)->z_int) -= AS32(OBJECT(object_cursor)->speed_y_int);
+	}
+	dot_y = (uint16_t)(((int32_t)AS32(OBJECT(object_cursor)->z_int) >> 16) + OBJECT(object_cursor)->speed_x_fraction);
+	OBJECT(current_object)->screen_x = ((int32_t)AS32(OBJECT(object_cursor)->speed_z_int) >> 16) + AT16(OBJECT(object_cursor)->flags, 2);
+	OBJECT(current_object)->screen_y = dot_y;
+	OBJECT(current_object)->sprite_layer = 1u;
+	OBJECT(current_object)->sprite_scale = 0x100u;
+	OBJECT(current_object)->sprite_flags = 0u;
+	OBJECT(current_object)->sprite_frame = 0x64E0u;
+	OBJECT(current_object)->sprite_palette = 0x660u;
+	queue_sprite_in_layer();
+	current_object = object_cursor;
+	object_2 = (uint16_t)AS32(screen_sprite_block);
+	free_object_2(object_2);
+	if ((int8_t)AT8(OBJECT(object_cursor)->animation, 2) >= 0)
+	{
+		AT16(OBJECT(object_cursor)->floor_z, 1)--;
+		if (AT8(OBJECT(object_cursor)->floor_z, 1) == 0u)
+		{
+			AT16(OBJECT(object_cursor)->floor_z, 1) = AT16(OBJECT(object_cursor)->animation, 3);
+			trail_point = AT32(OBJECT(object_cursor)->y, 1);
+			next_map_trail_segment(trail_point);
+		}
+	}
+}
+
+uint32_t draw_map_stage_markers(uint32_t badge_offset)
+{
+	uint8_t current_from_end = 0, current_marker = 0;
+	uint32_t groups_left = 0, layout = 0, markers_left = 0;
+
+	current_object = 0x209102u;
+	current_marker = stage_map_markers[stage];
+	if ((int8_t)current_marker < 0)
+		return badge_offset;
+	layout = map_marker_layouts_ADDRESS;
+	groups_left = 2u;
+	do
+	{
+		markers_left = 7u;
+		current_from_end = (uint8_t)(uint16_t)(7u - current_marker);
+		do
+		{
+			mem_write16(current_object + 2u, 0xAu);
+			mem_write16(current_object + 8u, 0x100u);
+			mem_write16(current_object + 0xAu, mem_read16(layout));
+			layout += 2u;
+			mem_write16(current_object + 0xEu, mem_read16(layout));
+			layout += 2u;
+			mem_write16(current_object + 0xCu, mem_read16(layout));
+			layout += 2u;
+			mem_write16(current_object + 4u, mem_read16(layout));
+			layout += 2u;
+			mem_write16(current_object + 6u, mem_read16(layout));
+			layout += 2u;
+			if ((int8_t)current_from_end < (int8_t)markers_left && ((uint8_t)(current_from_end + 1u) != (uint8_t)markers_left || (int8_t)AT8(OBJECT(object_cursor)->animation, 2) < 0))
+				mem_write16(current_object + 6u, mem_read16(layout));
+			layout = (layout & ~0xFFFFu) | (uint16_t)(layout + 2u);
+			if ((int8_t)AT8(OBJECT(object_cursor)->animation, 2) >= 0)
+			{
+			draw_map_stage_markers_show_marker:
+				queue_sprite_in_layer();
+				current_object = current_object + 0x30u;
+			}
+			else
+			{
+				badge_offset = stage_map_markers[stage];
+				if ((int8_t)badge_offset < 0)
+					goto draw_map_stage_markers_show_marker;
+				badge_offset = badge_offset * 0xCu;
+				if (mem_read16(current_object + 4u) != ROM16(map_number_badge_sprites_ADDRESS + badge_offset))
+					goto draw_map_stage_markers_show_marker;
+				AT16(OBJECT(object_cursor)->floor_z_int, 1)++;
+				if ((OBJECT(object_cursor)->floor_z_int & 0x800u) != 0u)
+					goto draw_map_stage_markers_show_marker;
+			}
+			markers_left--;
+		} while (markers_left != 0u);
+		groups_left--;
+	} while (groups_left != 0u);
+	current_object = object_cursor;
+	return badge_offset;
+}
+
+void blink_current_map_marker(void)
+{
+	uint16_t current_marker = 0;
+	uint32_t record = 0;
+
+	if (OBJECT(current_object)->blink_current_map_marker.step_timer != 0u)
+	{
+		OBJECT(current_object)->blink_current_map_marker.step_timer--;
+		if ((OBJECT(current_object)->blink_current_map_marker.step_timer & 8u) != 0u)
+		{
+			current_marker = stage_map_markers[stage];
+			if ((int8_t)current_marker >= 0)
+			{
+				record = 0x90000u | (uint16_t)(0x6C6Fu + ((uint32_t)current_marker << 3));
+				record = (record & ~0xFFFFu) | (uint16_t)(record + current_marker * 2u);
+				OBJECT(current_object)->sprite_scale = 0x100u;
+				OBJECT(current_object)->sprite_flags = 0xAu;
+				OBJECT(current_object)->sprite_layer = mem_read16(record);
+				record += 2u;
+				OBJECT(current_object)->screen_x = mem_read16(record);
+				record += 2u;
+				OBJECT(current_object)->screen_y = mem_read16(record);
+				record += 2u;
+				OBJECT(current_object)->sprite_frame = mem_read16(record);
+				OBJECT(current_object)->sprite_palette = mem_read16(record + 2u);
+				queue_sprite_in_layer();
+			}
+		}
+	}
+}
+
+uint32_t start_window_wipe(uint32_t record)
+{
+	uint16_t left = 0, right = 0, top = 0;
+	uint32_t bottom = 0, frames = 0, ignored = 0;
+
+	fill_value = (fill_value & ~0xFFFFu) | 0x1111u;
+	set_halfwords(VIDEO_RAM + 0xE000u, 0x7000u, fill_value);
+	mem_write32(video_control, mem_read32(video_control) & ~0x800u);
+	mem_write32(video_layer_disable, mem_read32(video_layer_disable) | 0x20u);
+	mem_write32(video_layer_disable, mem_read32(video_layer_disable) | 0x8000u);
+	mem_write32(video_layer_disable, mem_read32(video_layer_disable) | 0x400u);
+	mem_write16(video_bitmap_scroll_x, 0u);
+	mem_write16(video_bitmap_scroll_y, 0xE0u);
+	mem_write16(mixer_bitmap, mem_read16(mixer_bitmap) & ~0xFu);
+	mem_write16(mixer_bitmap, 0x2Fu);
+	left = mem_read16(record);
+	record += 2u;
+	top = mem_read16(record);
+	frames = mem_read16(record + 2u);
+	bottom = top + 0x80u;
+	right = (uint16_t)(left + 0x100u);
+	if ((int16_t)right >= 0x140)
+		right = 0x140u;
+	if ((int16_t)bottom >= 0xE0)
+		bottom = 0xE0u;
+	if ((int16_t)left <= 0)
+		left = window_wipe_default_left;
+	if ((int16_t)top <= 0)
+		top = window_wipe_default_top;
+	window_wipe_left = left;
+	window_wipe_top = top;
+	window_wipe_right = right;
+	window_wipe_bottom = bottom;
+	window_wipe_frames = frames;
+	bottom = divide_s32((0u - bottom + 0xE0u) << 16, frames);
+	window_wipe_left_speed = divide_s32((uint32_t)left << 16, frames);
+	window_wipe_right_speed = divide_s32((0u - right + 0x140u) << 16, frames);
+	window_wipe_top_speed = divide_s32((uint32_t)top << 16, frames);
+	window_wipe_bottom_speed = bottom;
+	window_wipe_left_edge = 0;
+	window_wipe_right_edge = 0x1400000;
+	window_wipe_top_edge = 0;
+	window_wipe_bottom_edge = 0xE00000;
+	if (window_wipe_closing != 0u)
+	{
+		AS16(window_wipe_left_edge) = window_wipe_left;
+		AS16(window_wipe_right_edge) = window_wipe_right;
+		AS16(window_wipe_top_edge) = window_wipe_top;
+		AS16(window_wipe_bottom_edge) = window_wipe_bottom;
+		window_wipe_left_edge = (uint32_t)window_wipe_left_edge << 16;
+		window_wipe_right_edge = (uint32_t)window_wipe_right_edge << 16;
+		window_wipe_top_edge = (uint32_t)window_wipe_top_edge << 16;
+		window_wipe_bottom_edge = (uint32_t)window_wipe_bottom_edge << 16;
+		window_wipe_left_speed = 0u - window_wipe_left_speed;
+		window_wipe_right_speed = 0u - window_wipe_right_speed;
+		window_wipe_top_speed = 0u - window_wipe_top_speed;
+		window_wipe_bottom_speed = 0u - window_wipe_bottom_speed;
+	}
+	update_screen_wipe(&ignored, &ignored, &ignored, &frames);
+	mem_write32(video_layer_disable, mem_read32(video_layer_disable) & ~0x20u);
+	return bottom;
+}
+
+void update_screen_wipe(uint32_t *p_clip_right, uint32_t *p_clip_top, uint32_t *p_clip_bottom, uint32_t *p_edges_done)
+{
+	uint32_t edges_done = *p_edges_done;
+	uint16_t clip_left = 0;
+	uint32_t clip_bottom = 0, clip_right = 0, clip_top = 0;
+
+	mem_write16(video_layer_disable, mem_read16(video_layer_disable) & ~0xF0u);
+	window_wipe_left_edge += window_wipe_left_speed;
+	window_wipe_right_edge -= window_wipe_right_speed;
+	window_wipe_top_edge += window_wipe_top_speed;
+	window_wipe_bottom_edge -= window_wipe_bottom_speed;
+	clip_left = (uint16_t)((int32_t)window_wipe_left_edge >> 16);
+	clip_right = (int32_t)window_wipe_right_edge >> 16;
+	clip_top = (int32_t)window_wipe_top_edge >> 16;
+	clip_bottom = (int32_t)window_wipe_bottom_edge >> 16;
+	edges_done &= ~0xFFu;
+	if ((window_wipe_closing & 1u) != 0u)
+	{
+		if ((int16_t)clip_left <= 0)
+		{
+			edges_done |= 1u;
+			clip_left = 0u;
+			window_wipe_left_edge = 0;
+		}
+		if ((int16_t)clip_right >= 0x13F)
+		{
+			edges_done |= 2u;
+			clip_right = (clip_right & ~0xFFFFu) | 0x13Fu;
+			window_wipe_right_edge = 0x13F0000;
+		}
+		if ((int16_t)clip_top <= 0)
+		{
+			edges_done |= 8u;
+			clip_top = 0u;
+			window_wipe_top_edge = 0;
+		}
+		if ((int16_t)clip_bottom >= 0xE0)
+		{
+			edges_done |= 4u;
+			clip_bottom = (clip_bottom & ~0xFFFFu) | 0xDFu;
+			window_wipe_bottom_edge = 0xDF0000;
+		}
+	}
+	else
+	{
+		if ((int16_t)window_wipe_left <= (int16_t)clip_left)
+		{
+			edges_done |= 1u;
+			window_wipe_left_edge = (uint32_t)window_wipe_left << 16;
+			clip_left = window_wipe_left;
+		}
+		if ((int16_t)clip_right <= (int16_t)window_wipe_right)
+		{
+			edges_done |= 2u;
+			clip_right = (uint32_t)window_wipe_right << 16;
+			window_wipe_right_edge = clip_right;
+			clip_right |= window_wipe_right;
+		}
+		if ((int16_t)window_wipe_top <= (int16_t)clip_top)
+		{
+			edges_done |= 4u;
+			clip_top = (uint32_t)window_wipe_top << 16;
+			window_wipe_top_edge = clip_top;
+			clip_top |= window_wipe_top;
+		}
+		if ((int16_t)clip_bottom <= (int16_t)window_wipe_bottom)
+		{
+			edges_done |= 8u;
+			clip_bottom = (uint32_t)window_wipe_bottom << 16;
+			window_wipe_bottom_edge = clip_bottom;
+			clip_bottom |= window_wipe_bottom;
+		}
+	}
+	mem_write16(video_bitmap_clip_left, clip_left);
+	mem_write16(video_bitmap_clip_top, clip_top);
+	mem_write16(video_bitmap_clip_right, clip_right);
+	mem_write16(video_bitmap_clip_bottom, clip_bottom);
+	if ((uint16_t)edges_done != 0xFFFFu)
+	{
+		*p_clip_right = clip_right;
+		*p_clip_top = clip_top;
+		*p_clip_bottom = clip_bottom;
+		*p_edges_done = edges_done;
+		return;
+	}
+	mem_write8(video_layer_disable, mem_read8(video_layer_disable) | 0x20u);
+	*p_clip_right = clip_right;
+	*p_clip_top = clip_top;
+	*p_clip_bottom = clip_bottom;
+	*p_edges_done = edges_done;
+}

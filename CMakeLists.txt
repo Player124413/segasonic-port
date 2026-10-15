@@ -2,7 +2,7 @@
 # Description: build of the SegaSonic runtime and its development tools
 # Version:     0.1.0
 # Created:     11-10-2026
-# Modified:    14-10-2026
+# Modified:    15-10-2026
 # Author:      Sebastian Toyos
 cmake_minimum_required(VERSION 3.20)
 project(segasonic C CXX)
@@ -85,7 +85,7 @@ endif()
 # The game: its runtime plus its C, src/ (tools/decompile.py writes it; SONIC_DECOMPILED_DIR picks another
 # copy, such as one written with --trace for debugging)
 set(SONIC_DECOMPILED_DIR ${CMAKE_SOURCE_DIR}/src CACHE PATH "The game's C (tools/decompile.py)")
-file(GLOB SONIC_DECOMPILED CONFIGURE_DEPENDS ${SONIC_DECOMPILED_DIR}/*.c ${SONIC_DECOMPILED_DIR}/sound/*.c)
+file(GLOB_RECURSE SONIC_DECOMPILED CONFIGURE_DEPENDS ${SONIC_DECOMPILED_DIR}/*.c)
 if(SONIC_DECOMPILED)
 	add_library(sonic_game STATIC runtime/src/game.c runtime/src/sound_cpu.c ${SONIC_DECOMPILED})
 	target_include_directories(sonic_game PUBLIC runtime/include ${SONIC_DECOMPILED_DIR} ${SONIC_DECOMPILED_DIR}/sound)

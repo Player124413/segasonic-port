@@ -4,7 +4,7 @@ Description: the game's palettes as text: palette lists, colours, cycles, sprite
              per-stage and per-player tables
 Version:     0.1.0
 Created:     14-10-2026
-Modified:    14-10-2026
+Modified:    15-10-2026
 Author:      Sebastian Toyos
 
 The colours the game keeps in the program ROM are 16-bit palette entries in the palette window's
@@ -77,6 +77,8 @@ def _load_names():
                 if not match:
                     continue
                 address = int(match.group(1), 16)
+                if match.group(2) == "file":    # a source file of src/, not a place
+                    continue
                 if match.group(2) in ("data", "table"):
                     by_address.setdefault(address, match.group(3))
                 by_name.setdefault(match.group(3), address)

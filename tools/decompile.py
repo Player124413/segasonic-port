@@ -3,7 +3,7 @@ Name:        decompile.py
 Description: decompiles the game's V60 program into readable C, one C function per original function
 Version:     0.1.0
 Created:     11-10-2026
-Modified:    14-10-2026
+Modified:    15-10-2026
 Author:      Sebastian Toyos
 
 Usage: python tools/decompile.py [rom folder or .zip] [--check] [--trace] [--out DIR] [--symbols FILE]
@@ -21,12 +21,14 @@ Usage: python tools/decompile.py [rom folder or .zip] [--check] [--trace] [--out
 
 Uses the same analysis as tools/recompile.py (symbols.txt, no traces), lifts every function to IR
 (tools/decompiler/function.py), works out what each one takes and hands back, and writes src/: game.h
-(prototypes, the addresses of code kept in memory slots), ram.h (the game's variables, tables, board
-registers and structures), game_NN.c (the functions) and table.c (the code calls through memory slots
-reach, by address). Beside the build, in build/decompile/: index.txt (where each function is, its callers
+(prototypes, file by file, and the addresses of code kept in memory slots), ram.h (the game's variables,
+tables, board registers and structures), the functions' files (symbols.txt's file lines lay them out, as
+the original's source files were: system/boot.c, player/states.c...; game_NN.c without them) and table.c
+(the code calls through memory slots reach, by address). Beside the build, in build/decompile/: index.txt (where each function is, its callers
 and callees, how much of it the scenarios ran) and unnamed_addresses.txt (ROM addresses the C uses as
 values that symbols.txt does not name yet). Everything it names comes from symbols.txt.
 """
+import bisect
 import re
 import sys
 import time
@@ -335,6 +337,87 @@ def file_header(name, description):
             " */\n")
 FUNCTIONS_PER_FILE = 120
 PART_DESCRIPTION = "the game's functions, part {number:02} (in the order of their V60 addresses)"
+FILE_LINE = re.compile(r"([0-9A-F]{4,6})\s+file\s+([A-Za-z0-9_/]+)\s*(?:#\s*(.*\S))?\s*$")
+
+
+def source_files(symbols_path, entries, address_of, part_name, part_description):
+    """[(path without .c, description, entries)]: the C files the functions go to. A file line of the
+    symbols ('ADDRESS file PATH  # what it holds') starts a file: the functions from ADDRESS up to the next
+    file line go there, in the order of their addresses, as the original's linker laid out its source
+    files. Without file lines, the functions are cut into parts of FUNCTIONS_PER_FILE (part_name and
+    part_description take the part's number)."""
+    marks = []
+    for line in Path(symbols_path).read_text(encoding="utf-8").splitlines():
+        match = FILE_LINE.match(line)
+        if match:
+            marks.append((int(match.group(1), 16), match.group(2), match.group(3) or ""))
+    ordered = sorted(entries, key=address_of)
+    if not marks:
+        return [(part_name.format(number=number), part_description.format(number=number),
+                 ordered[first:first + FUNCTIONS_PER_FILE])
+                for number, first in enumerate(range(0, len(ordered), FUNCTIONS_PER_FILE))]
+    marks.sort()
+    paths = [path for _, path, _ in marks]
+    if len(set(paths)) != len(paths):
+        raise SystemExit(f"{Path(symbols_path).name}: a file is named by two file lines")
+    starts = [address for address, _, _ in marks]
+    groups = {}
+    for entry in ordered:
+        index = bisect.bisect_right(starts, address_of(entry)) - 1
+        if index < 0:
+            raise SystemExit(f"{Path(symbols_path).name}: the function at {address_of(entry):06X} comes before "
+                             "the first file line")
+        groups.setdefault(index, []).append(entry)
+    return [(marks[index][1], marks[index][2], groups[index]) for index in sorted(groups)]
+
+
+def write_sources(out_dir, files, texts, include, header=None, keep=()):
+    """Every file of 'files' (source_files) into out_dir, its functions' C after the header ('header', the
+    program's file_header) and the include; the .c files of an earlier run go first (but in the folders of
+    'keep', another program's)."""
+    header = header or file_header
+    for stale in sorted(out_dir.rglob("*.c")):
+        if stale.relative_to(out_dir).parts[0] not in keep:
+            stale.unlink()
+    for folder in sorted((path for path in out_dir.rglob("*") if path.is_dir()), reverse=True):
+        if folder.relative_to(out_dir).parts[0] not in keep and not any(folder.iterdir()):
+            folder.rmdir()
+    for path, description, entries in files:
+        target = out_dir / f"{path}.c"
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(header(f"{path}.c", description) + f'#include "{include}"\n\n'
+                          + "\n".join(texts[entry] for entry in entries), encoding="ascii")
+
+
+def grouped_prototypes(files, prototype):
+    """The functions' prototypes file by file, each file's under a comment with its path and description."""
+    lines = []
+    for path, description, entries in files:
+        lines += [f"/* {path}.c: {description} */"] + [prototype(entry) + ";" for entry in entries] + [""]
+    return lines[:-1]
+
+
+def source_locations(files, texts):
+    """{entry: 'path.c:line'} where each function's C starts in the files write_sources writes."""
+    locations = {}
+    for path, description, entries in files:
+        # the header, then the #include and a blank line
+        line = file_header(f"{path}.c", description).count("\n") + 2
+        for entry in entries:
+            locations[entry] = f"{path}.c:{line + 1}"
+            line += texts[entry].count("\n") + 1
+    return locations
+
+
+def canonical_entry(entry):
+    """Where a function is in the program ROM's own copy (code run through a mirror is folded to it)."""
+    canonical = sonic_rom.canonical_address(entry)
+    return entry if canonical is None else canonical
+
+
+def game_files(entries):
+    """The files of src/ for the game's functions (symbols.txt's file lines)."""
+    return source_files(SYMBOLS, entries, canonical_entry, "game_{number:02}", PART_DESCRIPTION)
 RESET_ADDRESS = 0xFFFFF0
 IDENTIFIER = re.compile(r"[A-Za-z_][A-Za-z0-9_]*\Z")
 # names the runtime the decompiled code includes already uses (game/support.h, s32/bus.h, v60/arith.h)
@@ -415,13 +498,7 @@ def write_index(out_dir, program, built, flow, names, texts, entries):
     words = re.compile(r"\b(unk_2[0-9A-F]{5}|rom_[0-9A-F]{6}|[A-Z_]+_[0-9A-F]{6}|[a-z][a-z0-9_]+)\b")
     lines = ["# function  name  instructions  ran-in-a-scenario  file:line",
              "#   calls: ...   called by: ...   mentions: variables, tables, registers, fields"]
-    locations = {}
-    for number, first in enumerate(range(0, len(entries), FUNCTIONS_PER_FILE)):
-        # the header, then #include "game.h" and a blank line
-        line = file_header(f"game_{number:02}.c", PART_DESCRIPTION.format(number=number)).count("\n") + 2
-        for entry in entries[first:first + FUNCTIONS_PER_FILE]:
-            locations[entry] = f"game_{number:02}.c:{line + 1}"
-            line += texts[entry].count("\n") + 1
+    locations = source_locations(game_files(entries), texts)
     for entry in entries:
         body = program.bodies[entry]
         ran = sum(1 for address in body if address in executed)
@@ -607,8 +684,6 @@ def write_c(program, out_dir, trace=False, variables_path=None, split_webs=False
         raise SystemExit(f"{len(problems)} functions could not be written")
 
     out_dir.mkdir(parents=True, exist_ok=True)
-    for stale in out_dir.glob("*.c"):
-        stale.unlink()
     # a jump to another function needs no C of its own: its callers call that one (code reached through
     # memory slots keeps it, for table.c)
     entries = sorted(entry for entry in built
@@ -616,7 +691,8 @@ def write_c(program, out_dir, trace=False, variables_path=None, split_webs=False
     context = ", ".join(emitter.context_name(index) for index in signatures.CONTEXT)
     defined = ", ".join(emitter.context_name(index) + (f" = 0x{signatures.INITIAL[index]:X}u" if index in signatures.INITIAL else "")
                         for index in signatures.CONTEXT)
-    prototypes = [emitter.prototype(entry) + ";" for entry in entries]
+    files = game_files(entries)
+    prototypes = grouped_prototypes(files, emitter.prototype)
     addresses = [f"#define {name} 0x{address:06X}u" for address, name in sorted(emitter.code_addresses.items())]
     (out_dir / "game.h").write_text(
         file_header("game.h", "prototypes of the game's functions and the addresses of the code it keeps in "
@@ -634,11 +710,7 @@ def write_c(program, out_dir, trace=False, variables_path=None, split_webs=False
         + "\n".join(named.declarations()) + "\n\n/* data in the program ROM symbols.txt labels */\n"
         + "\n".join(labels) + "\n\n/* the game's structures in work RAM */\n"
         + "\n".join(emitter.layouts.declarations()) + "\n\n#endif\n", encoding="ascii")
-    for number, first in enumerate(range(0, len(entries), FUNCTIONS_PER_FILE)):
-        chunk = [texts[entry] for entry in entries[first:first + FUNCTIONS_PER_FILE]]
-        (out_dir / f"game_{number:02}.c").write_text(
-            file_header(f"game_{number:02}.c", PART_DESCRIPTION.format(number=number))
-            + '#include "game.h"\n\n' + "\n".join(chunk), encoding="ascii")
+    write_sources(out_dir, files, texts, "game.h", keep=("sound",))
 
     wrappers = []
     rows = []

@@ -3,7 +3,7 @@
  *    Description: prototypes of the game's functions and the addresses of the code it keeps in memory slots
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    14-10-2026
+ *    Modified:    15-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -592,6 +592,7 @@ extern uint32_t r14, current_player, current_object, free_objects, first_object,
 #define irq_timer0_ADDRESS 0x0FF584u
 #define irq_timer1_ADDRESS 0x0FF59Cu
 
+/* system/boot.c: power-on and the frame loop: boot, run_frame, the attract screens (warning, title, ranking, demos), init_system and the set-up it calls */
 void boot(void);
 void run_frame(uint32_t pressed, uint32_t released, uint32_t input_cursor, uint32_t count, uint32_t trackball_port, uint32_t trackball_cursor, uint32_t *p_scale, uint32_t *p_cursor, uint32_t *p_height);
 void attract_title(uint32_t *p_color, uint32_t *p_row_pairs_left, uint32_t *p_blocks_per_row, uint32_t *p_text);
@@ -605,6 +606,8 @@ void init_io_ports(void);
 void clear_work_ram(void);
 uint32_t init_game_settings(void);
 void delay_after_reset(void);
+
+/* stage/game_modes.c: run_game_mode (the game modes) and start_stage; the unused stage select shortcut; the CLEARED banner of the stage clear (game mode 0x17) */
 void run_game_mode(uint32_t r1, uint32_t r2, uint32_t r3, uint32_t r5, uint32_t r11, uint32_t *p_r4, uint32_t *p_r8, uint32_t *p_r9, uint32_t *p_r10);
 void start_stage(uint32_t stage_offset, uint32_t *p_r2, uint32_t *p_r3, uint32_t *p_bounds_offset, uint32_t *p_corners_left, uint32_t *p_palette_record, uint32_t *p_source, uint32_t *p_object);
 void check_stage_select_buttons(void);
@@ -614,6 +617,8 @@ void stage_clear_banner_hold(void);
 void spawn_banner_sparkle(uint16_t offset_x);
 void banner_sparkle_animate(void);
 void banner_letter_spin(void);
+
+/* stage/stage_frame.c: what the stage frames of run_game_mode call: layer blending, zones, the stage clear check, the player summary, stage slots and events, restart points, the player objects */
 void apply_stage_layer_blending(uint32_t *p_layer_bit, uint32_t *p_count);
 uint32_t check_zones(uint32_t box_edge);
 uint32_t add_to_zone_list(uint32_t old_head);
@@ -630,6 +635,8 @@ uint32_t update_restart_point(uint32_t position);
 uint32_t start_player_objects_alt(uint32_t object);
 uint32_t start_player_objects(uint32_t object);
 void reset_objects_from_list(uint32_t object, uint32_t *p_player_number, uint32_t *p_handler_cursor);
+
+/* engine/contact_lists.c: contacts between objects: the hitter, touchable, rider, platform and wall lists and the checks that pair them (check_hits, check_platforms with the bridge sag, check_walls) */
 void check_hits(uint32_t *p_box_edge, uint32_t *p_distance, uint32_t *p_r3, uint32_t *p_r4, uint32_t *p_radius, uint32_t *p_centre_offset, uint32_t *p_previous);
 void check_hit(uint32_t other, uint32_t hitter, uint32_t *p_box_edge, uint32_t *p_distance, uint32_t *p_r3, uint32_t *p_r4, uint32_t *p_radius, uint32_t *p_centre_offset, uint32_t *p_previous);
 void add_to_hitter_list(void);
@@ -640,8 +647,12 @@ void check_platforms(uint32_t *p_middle, uint32_t *p_plank, uint32_t *p_span, ui
 void compute_bridge_sag(uint32_t load_list, uint16_t plank_count, uint32_t *p_middle, uint32_t *p_plank, uint32_t *p_span, uint32_t *p_sag, uint32_t *p_sag_step, uint32_t *p_count, uint32_t *p_passes_left, uint32_t *p_load_entry, uint32_t *p_sag_curve);
 void add_to_wall_list(void);
 uint32_t check_walls(uint32_t hitbox_offset);
+
+/* scenes/game_over_banner.c: the GAME OVER banner (game mode 7) and the prompt that blinks over the attract demos */
 void draw_game_over_banner(void);
 uint32_t blink_demo_prompt(uint32_t prompt_frame, uint32_t credit_block);
+
+/* player/player.c: the player object: starting, joining, resetting and placing a player, and its handler player_update */
 void player_1_start(void);
 void player_2_start(void);
 void player_3_start(void);
@@ -655,6 +666,8 @@ void player_reset_joined(void);
 void player_reset(void);
 void player_place(void);
 void player_update(void);
+
+/* player/basic_states.c: player_move (the movement the basic states share) and player_animate: standing, walking, running, falling, jumping, and the player's drawing */
 void player_move(uint32_t depth, uint32_t cursor);
 void player_animate(uint32_t depth, uint32_t cursor);
 void player_animate_standing(void);
@@ -669,6 +682,8 @@ void player_state_inactive(void);
 void player_animate_jumping(uint32_t sign);
 void player_animate_jumping_land(void);
 void player_draw(void);
+
+/* player/ledges_and_climbing.c: states 5-0xA: teetering on a ledge, slipping off it, going over it, dropping, falling into a pit, climbing a wall */
 void player_state_teetering(uint32_t cursor);
 void player_state_falling_off_edge(void);
 void player_state_falling_off_edge_spare_return(void);
@@ -678,6 +693,8 @@ void player_state_dropping_spare_return(void);
 void player_state_falling_into_pit(void);
 void player_state_falling_into_pit_spare_return(void);
 void player_state_climbing(uint32_t depth, uint32_t cursor);
+
+/* player/hurt_states.c: states 0xB-0x17 and 0x2E: not playing, skidding, game over, a short animation, hopping, dying, launched, hurt, bouncing */
 void player_state_not_playing(void);
 void player_animate_skidding(uint32_t depth, uint32_t cursor);
 void player_animate_skidding_slow_down(uint32_t cursor);
@@ -696,6 +713,8 @@ void player_launched_land(void);
 void player_state_hurt(uint32_t depth, uint32_t cursor);
 void player_state_hurt_spare_return(void);
 void player_state_bouncing(void);
+
+/* player/scene_states.c: states of scenes and stage events: out of the game, continue, in a zone, entering and leaving a stage, tumbling, blown away, intro and opening scenes, stunned, choosing a character, YOU FAILED, held, stuck */
 void player_state_out_of_game(void);
 void player_state_continue(void);
 void player_state_in_zone(uint32_t depth, uint32_t cursor);
@@ -724,6 +743,8 @@ void player_stuck_shake(void);
 void player_stuck_jump_out(void);
 void stuck_effect_update(void);
 void player_state_stage_b_sequence(uint32_t depth, uint32_t cursor);
+
+/* player/carried_states.c: states where the stage moves the player: thrown, carried off, trapped, riding, the final stage, tripped, swept away, climbing an object, pulled, the floor 8 sequence; moving with the scroll */
 void player_state_scene_thrown(uint32_t depth, uint32_t cursor);
 void player_state_carried_off(uint32_t depth, uint32_t cursor);
 void player_state_trapped(uint32_t depth, uint32_t cursor);
@@ -751,6 +772,8 @@ uint32_t spawn_struggle_marker(uint32_t marker);
 void struggle_marker_update(void);
 void scene_object_start(void);
 void scene_object_update(void);
+
+/* player/caught_states.c: states 0x2C-0x36: held still, stuck on an object, caught, sinking, knocked off */
 void player_state_held_still(void);
 void player_state_stuck_on_object(uint32_t depth, uint32_t cursor);
 void player_stuck_on_object_begin(uint32_t sign);
@@ -761,6 +784,8 @@ void player_state_caught(uint32_t cursor);
 void player_state_sinking(uint32_t cursor);
 void sinking_effect_update(void);
 void player_state_knocked_off(uint32_t depth, uint32_t cursor);
+
+/* player/hud.c: the player's HUD (gauge, portrait, ring count, start prompt, messages); before it the unused stage slot mover and the skid dust */
 void move_object_to_next_stage_slot(void);
 void spawn_skid_dust(uint32_t dust);
 void skid_dust_update(void);
@@ -772,6 +797,8 @@ void animate_hud_palette(uint32_t *p_list_index, uint32_t *p_wrapped);
 void animate_hud_tiles(uint32_t *p_list_index, uint32_t *p_wrapped);
 uint32_t blink_player_hud_message(uint32_t text, uint32_t text_position);
 void draw_player_stage_rings(void);
+
+/* player/movement.c: the player's movement: kept on screen, the camera speeds, trackball speed and steering, turning and facing, ledges, jumps, walls, blinking */
 uint32_t keep_player_on_screen(uint32_t depth);
 uint32_t push_player_from_screen_edge(void);
 uint32_t compute_camera_ground_speed(uint32_t octant);
@@ -800,12 +827,16 @@ uint32_t set_facing(uint32_t facing);
 uint32_t face_movement_direction(uint32_t facing);
 uint32_t compute_ground_speed(void);
 void read_player_trackball(void);
+
+/* player/shadow.c: the player's shadow object (over water and quicksand too) and the attack spin effect */
 void shadow_1_start(void);
 void shadow_2_start(void);
 void shadow_3_start(void);
 void shadow_start(void);
 void shadow_update(void);
 void draw_attack_effect(uint32_t player);
+
+/* engine/projection.c: between the map and the screen (project_object, update_screen_position), speeds from directions, the floor under an object (find_floor), the player's steps against it */
 void side_of_box(uint32_t other, uint32_t *p_hitbox_offset_y, uint32_t *p_sides);
 uint32_t set_speed_from_direction(void);
 void polar_to_xy(uint32_t *p_cos_part, uint32_t *p_angle, uint32_t *p_length);
@@ -823,6 +854,8 @@ void check_player_step(uint32_t *p_height_diff, uint32_t *p_cursor);
 void bounce_off_wall_in_air(void);
 uint32_t get_floor_block_side(uint32_t floor_block, uint32_t x, uint32_t y);
 void get_floor_block_side_or_corner(uint32_t block, uint32_t x, uint32_t y, uint32_t *p_outcode, uint32_t *p_side_code);
+
+/* player/restart_point.c: the player placed at the stage's restart point and the unprojection it uses; aiming at the screen centre, the hurt flash; before them the palette steps of signs */
 void animate_sign(void);
 void cycle_part_palettes(void);
 uint32_t place_player_at_restart_point(void);
@@ -830,6 +863,8 @@ void screen_point_to_ground(uint32_t z, uint32_t *p_point_x, uint32_t *p_point_y
 void unproject_point(uint32_t *p_point_x, uint32_t *p_point_y);
 void aim_at_screen_centre(uint32_t *p_cos_part, uint32_t *p_dx, uint32_t *p_dy);
 void flash_hurt_palette(void);
+
+/* player/checks.c: the checks player_update and player_move run: floor types, zones, the goal, scene states, continuing and joining with credits, climbs, slip pieces, the autopilot path */
 void set_floor_sprite_priority(void);
 uint32_t update_quicksand_object(uint32_t sink_offset);
 uint32_t update_sinking_floor(uint32_t sink_offset);
@@ -856,6 +891,8 @@ void slip_piece_update(void);
 void spawn_slip_pieces(uint32_t piece);
 void slip_pieces_update(void);
 uint32_t follow_player_path(uint32_t target_speed);
+
+/* engine/animation.c: animation steps: frames, flips, moves and screen offsets per step, around an anchor, multi-part sprites */
 void animate_with_flags(uint32_t *p_frame, uint32_t *p_at_last_step);
 void animate_step_with_flags(uint32_t *p_frame, uint32_t *p_at_last_step);
 void animate(uint32_t *p_frame, uint32_t *p_wrapped, uint32_t *p_at_last_step);
@@ -869,6 +906,8 @@ void add_step_screen_offset(uint32_t step_offset);
 void animate_part_list(void);
 void animate_part_list_step(void);
 void animate_all_parts(uint32_t *p_at_last_step, uint32_t *p_part);
+
+/* player/scene_objects.c: around the player: the ride of game mode 0x1C, joining with a character select, the result bonus, the climb zone splash, the intro marker, the hurt lamp, the stall check */
 uint32_t spawn_player_ride(uint32_t object);
 void player_select_character(uint32_t player_number);
 void give_result_bonus(uint32_t player);
@@ -879,7 +918,11 @@ void spawn_intro_marker(uint32_t object);
 void intro_marker_update(void);
 void update_hurt_output(void);
 void check_player_stalled(void);
+
+/* player/contacts.c: check_player_contacts: what touching each kind of object does to the player */
 void check_player_contacts(uint32_t *p_health_limit, uint32_t *p_cursor);
+
+/* objects/vines.c: object types 2 and 3 (stage 4): the vines with a bar and the scroll stop that holds the players at them */
 void vine_init(void);
 void vine_swing(void);
 void vine_bar_update(void);
@@ -887,6 +930,8 @@ void vine_scroll_stop_init(void);
 void vine_scroll_stop_wait(void);
 void vine_scroll_stop_hold(void);
 void vine_scroll_stop_end(void);
+
+/* objects/spike_panels_and_poles.c: object types 5 and 6 (stage 3): the spiked panels that flip up and the electric poles */
 void spike_panel_init(void);
 void spike_panel_hold(void);
 void spike_panel_update(void);
@@ -897,12 +942,16 @@ void electric_pole_init(void);
 void electric_pole_wait(void);
 void electric_pole_rise(void);
 void electric_pole_update(void);
+
+/* objects/metal_wall.c: object type 0: the metal wall that rises and breaks (stage 7, the how to play demo) */
 void metal_wall_init(void);
 void metal_wall_wait(void);
 void metal_wall_rise(uint32_t octant);
 void metal_wall_update(uint32_t octant);
 void metal_wall_broken(void);
 void metal_wall_draw(void);
+
+/* objects/flame_machine.c: object types 7, 8 and 9: the machine at the end of stage 4 with its arms, cannons, flames and spiked discs, its scroll stop, its wreck */
 void flame_machine_init(void);
 void flame_machine_update(void);
 void flame_machine_update_spare_return(void);
@@ -925,6 +974,8 @@ void flame_machine_scroll_stop_wait(void);
 void flame_machine_scroll_stop_hold(void);
 void object_type_9_idle(void);
 void flame_machine_wreck_draw(void);
+
+/* objects/treadmill_and_flame_jets.c: object types 10 and 11 (stage 8): the treadmill that raises a gate and the flame jets */
 void treadmill_init(void);
 void treadmill_update(void);
 void treadmill_roller_update(void);
@@ -935,6 +986,8 @@ void flame_jet_nozzle_update(void);
 void flame_jet_pilot(void);
 void flame_jet_ignite(void);
 void flame_jet_burn(void);
+
+/* objects/push_crate.c: object types 12 and 13: the crate pushed to a post (stages 3 and 7), a sign from the type list */
 void push_crate_init(void);
 void push_crate_update(void);
 void push_crate_break(void);
@@ -943,6 +996,8 @@ void push_crate_stop_post_update(void);
 void push_crate_release_all_rings(uint32_t *p_allocated, uint32_t *p_random_value, uint32_t *p_ring);
 void push_crate_release_rings(uint32_t seed, uint32_t *p_allocated, uint32_t *p_random_value, uint32_t *p_ring);
 void sign_start_from_type(void);
+
+/* objects/handle_rod.c: object type 14 (stage 9): the handle rod between two posts */
 void handle_rod_init(void);
 void handle_rod_handle_init(void);
 void handle_rod_wait(void);
@@ -954,6 +1009,8 @@ void handle_rod_handle_update(void);
 void handle_rod_post_init(void);
 void handle_rod_post_update(void);
 void handle_rod_post_fall(void);
+
+/* objects/stage_09_traps.c: object types 15-18 (stage 9): the spear traps, the ice cube launcher, the padded wall */
 void spear_trap_init_100(void);
 void spear_trap_init_300(void);
 void spear_trap_init(void);
@@ -970,12 +1027,16 @@ void object_type_17_idle(void);
 void padded_wall_init(void);
 void padded_wall_update(void);
 void wall_pad_update(void);
+
+/* objects/cactus.c: object type 19 (stage A): the cactus, and the whirlwinds the tornado throws */
 void cactus_init(void);
 void cactus_update(void);
 uint32_t spawn_whirlwind(uint32_t spawned, uint32_t free_count, uint32_t whirlwind, uint32_t object);
 void whirlwind_aim(void);
 void whirlwind_move(void);
 void whirlwind_vanish(void);
+
+/* objects/centipede.c: object type 20 (stage A): the centipede, its segments and sand puffs */
 void centipede_init(void);
 void centipede_chase(void);
 void centipede_leave(void);
@@ -990,16 +1051,22 @@ void draw_centipede_piece(void);
 void spawn_centipede_sand_puff(uint32_t spawned, uint32_t free_count, uint32_t puff, uint32_t block);
 void sand_puff_start(void);
 void sand_puff_animate(void);
+
+/* objects/crawler.c: object type 21, never spawned: the crawler */
 void crawler_init(void);
 void crawler_head_update(void);
 void crawler_segment_animate(void);
 void crawler_segment_update(void);
 void crawler_step(void);
+
+/* objects/eggman_booth.c: Eggman's booth that slides in during his speeches; object type 4 (a lone rsr) */
 void spawn_eggman_booth(uint32_t spawned, uint32_t piece_count, uint32_t booth, uint32_t *p_free_count, uint32_t *p_block);
 void eggman_booth_slide_in(void);
 void eggman_booth_animate(void);
 void draw_eggman_booth(void);
 void object_type_4_idle(void);
+
+/* objects/walls_and_rocks.c: object types 22-27: wall pieces, shaking blocks, the sand rock, snow mound and rock wall that drop rings, Eggman teleporting (never spawned) */
 void wall_piece_init(void);
 void wall_piece_draw(void);
 void shaking_block_init(void);
@@ -1014,6 +1081,8 @@ void rock_wall_update(void);
 void spawn_eggman_teleport(uint32_t free_count, uint32_t teleport, uint32_t block);
 void eggman_teleport_init(void);
 void eggman_teleport_animate(void);
+
+/* objects/sand_arch.c: object type 41 (stage A): the arch of sand balls */
 void sand_arch_init(void);
 void sand_arch_update(void);
 void sand_arch_ball_init(void);
@@ -1021,10 +1090,14 @@ void sand_arch_ball_delay(void);
 void sand_arch_ball_move(void);
 void sand_arch_ball_gone(void);
 void sand_arch_ball_bob(void);
+
+/* objects/electric_fence.c: object type 1 (stage 4): the electric fence posts around the flame machine */
 void fence_post_init(void);
 void fence_post_start(void);
 void fence_post_update(void);
 void fence_post_draw(void);
+
+/* objects/mine.c: object types 29 and 30 (stage 10): the bubble column (never spawned) and the mines */
 void spawn_bubble_column(uint32_t spawned, uint32_t free_count, uint32_t column, uint32_t block);
 void bubble_column_init(void);
 void bubble_column_animate(void);
@@ -1038,6 +1111,8 @@ void draw_mine_with_bubbles(void);
 void flash_mine_palette(uint8_t sinking);
 void spawn_mine_splash(uint32_t spawned, uint32_t free_count, uint32_t splash, uint32_t block);
 void mine_splash_animate(void);
+
+/* objects/eggman_scene.c: object types 31 and 32 (stage B): Eggman's scene with the button box, the sliding door */
 void eggman_scene_init(void);
 void eggman_scene_wait(void);
 void eggman_scene_pause(void);
@@ -1054,6 +1129,8 @@ void sliding_door_init(void);
 void sliding_door_wait(void);
 void sliding_door_open(void);
 void sliding_door_draw(void);
+
+/* objects/turtle_and_eel.c: object types 33-35 (stage 10): the lid trap, the turtle, the eel */
 void lid_trap_init(void);
 void lid_trap_update(void);
 void turtle_init(void);
@@ -1074,6 +1151,8 @@ void eel_segment_explode_delay(void);
 void eel_piece_start_explosion(void);
 void eel_piece_explode(void);
 void eel_piece_gone(void);
+
+/* objects/breakable_panel_and_props.c: object types 36-40: the breakable panel (stage 3), the white puffs, the checkered pad, the static triangle, the railing */
 void breakable_panel_init(void);
 void breakable_panel_wait(void);
 void breakable_panel_break(void);
@@ -1087,6 +1166,8 @@ void static_triangle_animate(void);
 void railing_init(void);
 void railing_draw(void);
 void railing_side_update(void);
+
+/* objects/spike_gate.c: object type 42 (stages C and E): the spike gate */
 void spike_gate_init(void);
 void spike_gate_pillar_update(void);
 void spike_gate_beam_rise(void);
@@ -1094,13 +1175,19 @@ void spike_gate_beam_hold(void);
 void spike_gate_beam_drop(void);
 void spike_gate_beam_wait(void);
 void spike_gate_beam_update(void);
+
+/* objects/eel_den.c: object type 43 (stage 10): the eel den and its unused spawner */
 void spawn_eel_den(uint32_t spawned, uint32_t free_count, uint32_t den, uint32_t block);
 void eel_den_init(void);
 void eel_den_wait(void);
 void eel_den_collapse(void);
 void eel_den_draw(void);
+
+/* objects/stepped_wall.c: object type 44 (stage A): the stepped wall */
 void stepped_wall_init(void);
 void stepped_wall_draw(void);
+
+/* stage/stage_view.c: init_stage_view (display, layers, block sets, camera) and the tile sets loaded around the camera */
 void init_stage_view(uint32_t *p_direction_y, uint32_t *p_direction_x, uint32_t *p_count, uint32_t *p_stage_offset);
 void update_stage_tile_layers(uint32_t *p_shifted_tile_set, uint32_t *p_copy_entry, uint32_t *p_columns_left, uint32_t *p_palette_count, uint32_t *p_stage_number, uint32_t *p_row_skip, uint32_t *p_cycle, uint32_t *p_block_cursor, uint32_t *p_dest);
 void reload_changed_tile_set(uint32_t *p_shifted_tile_set, uint32_t *p_slots_left, uint32_t *p_r4, uint32_t *p_slot_tile_set, uint32_t *p_loaded_shift, uint32_t *p_script, uint32_t *p_dest);
@@ -1108,6 +1195,8 @@ void load_tile_set(uint32_t tile_set, uint32_t *p_count, uint32_t *p_stage_offse
 uint32_t get_tile_set_script_bank(uint32_t script);
 uint32_t get_tile_set_list_bank(uint32_t script_list);
 void get_tile_set_list(uint32_t tile_set, uint32_t *p_stage_offset, uint32_t *p_script_list);
+
+/* stage/scroll.c: update_scroll: the scroll modes, the screen edges the players push, the camera velocity, the background scroll; an unused debug sprite mover */
 void clamp_camera_pixels(void);
 void update_scroll(uint32_t *p_position, uint32_t *p_speed, uint32_t *p_speed_value, uint32_t *p_next_scroll_position, uint32_t *p_second_player_object, uint32_t *p_third_player_object, uint32_t *p_end_script, uint32_t *p_dest);
 uint32_t is_player_pushing_edge(uint32_t pushing, uint32_t object);
@@ -1131,12 +1220,16 @@ void set_camera_velocity(uint32_t *p_scroll_y, uint32_t *p_speed, uint32_t *p_sp
 void update_background_scroll(uint32_t *p_fast_scroll_start, uint32_t *p_scroll_y, uint32_t *p_speed, uint32_t *p_speed_value, uint32_t *p_next_scroll_position, uint32_t *p_range, uint32_t *p_quadrant_cursor);
 void spawn_debug_sprite_mover(uint32_t object);
 void debug_sprite_mover_update(void);
+
+/* stage/transitions.c: start_stage_view, stage 5's switch to stage 0, the fades to and from black or white (update_fade), stage 0's exit scene */
 void start_stage_view(uint32_t *p_direction_y, uint32_t *p_direction_x, uint32_t *p_count, uint32_t *p_stage_offset);
 void call_run_map_screen(uint32_t object);
 void run_stage_05_switch(uint32_t speed, uint32_t *p_scroll_y, uint32_t *p_speed_value, uint32_t *p_dest);
 uint32_t update_fade(uint32_t delta);
 void update_stage_00_exit_scene(uint32_t dest, uint32_t *p_speed_value, uint32_t *p_script);
 void clamp_colour_offsets(void);
+
+/* stage/camera.c: the camera: shake, views, the move along the section path; stage 6's background in its opening scene and stage B's escape alarm flash */
 uint32_t update_camera_with_shake(void);
 uint32_t set_nbg0_scroll_from_camera(uint32_t scroll_x);
 uint32_t update_camera_view(void);
@@ -1152,6 +1245,8 @@ void advance_scroll_position(uint16_t speed);
 void snap_camera_to_section_end(void);
 void update_stage_06_background(uint32_t random_value, uint32_t dest, uint32_t *p_rolls_left, uint32_t *p_words_left, uint32_t *p_source);
 void escape_alarm_flash(void);
+
+/* stage/scroll_skip.c: the camera put at a start section (the demos start mid-stage) and the unused "Scroll skip mode" debug panel that jumps between sections */
 void run_scroll_skip_mode(void);
 void scroll_skip_next_point(void);
 void scroll_skip_previous_point(void);
@@ -1167,6 +1262,8 @@ uint32_t scroll_skip_total_cell(void);
 void scroll_skip_draw_values(void);
 void scroll_skip_print_panel(void);
 void clear_bitmap_lower_half(void);
+
+/* stage/palettes.c: the palettes animated per stage, the palette sets and the backdrop colour */
 void animate_stage_palette(uint32_t *p_copy_offset, uint32_t *p_copy_entry, uint32_t *p_palette_count, uint32_t *p_cycle, uint32_t *p_source, uint32_t *p_dest);
 void skip_stage_palette_animation(void);
 void animate_palette_stage_10(uint32_t *p_copy_offset, uint32_t *p_copy_entry, uint32_t *p_palette_count, uint32_t *p_cycle, uint32_t *p_source, uint32_t *p_dest);
@@ -1183,6 +1280,8 @@ uint32_t cycle_palette_set(uint32_t source);
 void load_stage_palette_set(uint32_t *p_tile_bank_bits, uint32_t *p_dest);
 void load_palette_set_and_backdrop(uint32_t stage_index, uint32_t *p_tile_bank_bits, uint32_t *p_source, uint32_t *p_dest);
 void set_backdrop_color_19aa(void);
+
+/* stage/background_layers.c: the tile layers: NBG0 picture screens, the stage's layer mixing, NBG1, NBG2 and NBG3 (set-up and per-stage scroll) */
 uint32_t init_nbg0_picture_screen(void);
 void show_winners_dont_use_drugs_screen(void);
 void show_recycle_it_screen(void);
@@ -1206,6 +1305,8 @@ void set_nbg3_page_5_flags(uint32_t *p_count, uint32_t *p_dest);
 void update_nbg3_scroll(uint32_t *p_scroll_y, uint32_t *p_quadrants, uint32_t *p_speed_value, uint32_t *p_next_scroll_position, uint32_t *p_quadrant_cursor);
 void select_nbg3_pages(uint32_t *p_block_pages, uint32_t *p_quadrants, uint32_t *p_byte_mask, uint32_t *p_shift, uint32_t *p_quadrant_cursor);
 void get_nbg3_block(void);
+
+/* scenes/ending.c: stage 0x11, the ending: the scene set-up and the first scene (the runners, the tower, the explosions, the flash to white) */
 void build_ending_scene(uint32_t *p_write_index_address, uint32_t *p_tile_bank_bits, uint32_t *p_color, uint32_t *p_row_pairs_left, uint32_t *p_blocks_per_row, uint32_t *p_scene_actor);
 void init_ending_scene_object(uint32_t object);
 void ending_tower_animate(void);
@@ -1239,6 +1340,8 @@ void ending_sonic_run_forward(void);
 void ending_ray_run_forward(void);
 void ending_mighty_run_forward(void);
 void ending_road_scroll(void);
+
+/* scenes/ending_credits.c: the ending's credits (portraits, name plates, scrolling blocks) and after them: Eggman flying in, turning and away, the three running across */
 void ending_credits_fade_in(void);
 void ending_credits_spawner_run(void);
 uint32_t load_credits_palettes(void);
@@ -1273,6 +1376,8 @@ void ending_ray_run_across(void);
 void ending_mighty_run_across(void);
 void init_ending_runner_across(void);
 void animate_ending_runner_across(void);
+
+/* objects/rings.c: rings: the stage rows, spinning and carried rings, scattered rings, sparkles; the unused gauge ring and template spawner */
 void spawn_ring_rows(uint32_t *p_stage_list_offset, uint32_t *p_free_stack, uint32_t *p_slope_height, uint32_t *p_object);
 void ring_spin(void);
 void still_ring_wait(void);
@@ -1297,6 +1402,8 @@ void gauge_ring_rise(void);
 void gauge_ring_fall_into_gauge(void);
 void spawn_stage_template_0(uint16_t x, uint16_t y, uint16_t z, uint32_t object);
 void spawn_stage_template(uint16_t template_index, uint16_t x, uint16_t y, uint16_t z, uint32_t object);
+
+/* engine/object_helpers.c: next_random, child shadows, the off-screen tests, allocating and deleting objects from outside the object loop */
 void next_random(uint32_t *p_random_value, uint32_t *p_words_left, uint32_t *p_random_offset);
 void create_child_shadow_unscaled(uint32_t shadow);
 void create_child_shadow_9ffe(uint16_t scale, uint32_t shadow);
@@ -1310,7 +1417,11 @@ uint32_t check_left_screen_margin(uint16_t margin);
 uint32_t check_left_screen_margins(uint16_t margin, uint16_t unseen_margin);
 void allocate_object_outside_loop(uint32_t *p_free_count, uint32_t *p_object);
 void delete_object_outside_loop(uint32_t object, uint32_t *p_free_count, uint32_t *p_previous);
+
+/* engine/spawn_by_handler.c: spawn_objects_by_handler: starts the objects of the stage lists of handlers (stage_spawns_by_handler) */
 void spawn_objects_by_handler(uint32_t *p_list_offset, uint32_t *p_record, uint32_t *p_object);
+
+/* objects/spiked_roller.c: the spiked roller (the chaser of stages 3 and E) and the stone floor blocks that crumble at the stage 3 finale */
 void stage_03_floor_block_start(void);
 void stage_03_floor_block_update(void);
 void spiked_roller_start(void);
@@ -1336,6 +1447,8 @@ void spiked_roller_wait_to_burst_out(void);
 void spiked_roller_shift_box(void);
 void spiked_roller_spawn_fixed_zone(void);
 void roller_fixed_zone_update(void);
+
+/* objects/catapult.c: stage 4's catapults; the goal unlocker of stages B-F */
 void catapult_x_start(void);
 void catapult_y_start(void);
 void catapult_wait_for_platform(void);
@@ -1352,6 +1465,8 @@ void catapult_wait_for_scroll(void);
 void catapult_base_update(void);
 void catapult_dummy_update(void);
 void goal_unlocker_start(void);
+
+/* objects/stage_04_props.c: stage 4: arrow boards, pebbles, the propped board, boulders, the door wall at the start and the rollers behind it */
 void arrow_board_start(void);
 void arrow_board_wait_for_platform(void);
 void arrow_board_ride(void);
@@ -1373,17 +1488,23 @@ void door_roller_wait(void);
 void door_roller_drop(void);
 void door_roller_roll_out(void);
 void door_roller_ride(void);
+
+/* objects/bouncing_fireball.c: stage 4's end: the fireball emitter and the bouncing fireballs */
 void fireball_emitter_start(void);
 void fireball_emitter_update(void);
 void bouncing_fireball_update(void);
 void bouncing_fireball_update_spare_return(void);
 void bouncing_fireball_knocked_away(void);
 void knocked_object_fly(void);
+
+/* objects/back_zones.c: the zones behind the chasers: spawn_chaser_back_zone and the spiked roller's back zone */
 uint32_t spawn_chaser_back_zone(uint32_t zone_index, uint32_t zone);
 void chaser_back_zone_check_parent(void);
 void chaser_back_zone_update(void);
 void spawn_roller_back_zone(uint32_t zone_index, uint32_t zone);
 void roller_back_zone_update(void);
+
+/* objects/stage_03_machine.c: stage 3: the machine at 8300, its fire, the fireballs and the rising flames */
 void machine_start(void);
 void machine_run(void);
 void machine_fire_update(void);
@@ -1398,6 +1519,8 @@ void rising_flame_init(void);
 void rising_flame_rise(void);
 void rising_flame_spawn_next(void);
 void rising_flame_wait_offscreen(void);
+
+/* objects/intro_scenes.c: the scenes that start a game: stage 7's how to play (the hands on the button and the trackball, the panel), stage 6's opening (the rushing ground, the giant machine head) */
 void how_to_play_button_hand_start(void);
 void how_to_play_button_hand_update(void);
 void how_to_play_trackball_hand_start(void);
@@ -1416,9 +1539,13 @@ void opening_machine_engulf(void);
 void opening_machine_hold(void);
 void draw_opening_machine_shadow(void);
 void draw_opening_machine_shadow_spare_return(void);
+
+/* objects/player_pacer.c: the pacer that keeps two players together (stages 3, 4, 8) */
 void player_pacer_start(void);
 void player_pacer_update(void);
 void get_pacing_axis(uint32_t player, uint32_t *p_axis_field, uint32_t *p_decreasing);
+
+/* objects/stage_05_cage.c: stage 5: the exit door, the floor patch, the bubbles, the spiked press, the cage */
 void exit_door_start(void);
 void exit_door_wait_for_switch(void);
 void exit_door_show(void);
@@ -1433,6 +1560,8 @@ void spiked_press_update(void);
 void cage_start(void);
 void cage_bar_start(void);
 void cage_bar_update(void);
+
+/* objects/signs.c: the signs (object_kinds): placed, shown, following; the unused screen signs and floor sign */
 void sign_start(void);
 void spawn_sign(uint16_t x, uint16_t y, uint16_t kind, uint16_t z, uint32_t *p_depth, uint32_t *p_sign);
 uint32_t spawn_sign_2(uint16_t x, uint16_t y, uint16_t kind, uint16_t z, uint32_t sign);
@@ -1455,8 +1584,12 @@ void place_screen_sign(uint16_t screen_x, uint16_t screen_y, uint32_t kind, uint
 void screen_sign_show(void);
 void floor_sign_start(void);
 void floor_sign_update(void);
+
+/* objects/spreading_flame.c: stages B and C: the flames that spread ahead of the fire front */
 void spreading_flame_start(void);
 void spreading_flame_burn(void);
+
+/* objects/stage_03_end.c: stage 3's end pillar; the unused exit gate and the unused target of the spiked roller's ram */
 uint32_t spawn_stage_03_end_pillar(uint32_t pillar);
 void stage_03_end_pillar_show(void);
 void exit_gate_start(uint32_t sign);
@@ -1468,8 +1601,12 @@ void ram_target_draw(void);
 void ram_target_burst(uint32_t piece);
 void ram_target_part_start(void);
 void ram_target_part_update(void);
+
+/* objects/eggman_speech.c: Eggman's speech scripts (stages 3, 8, A) */
 void eggman_speech_start(void);
 void eggman_speech_run(void);
+
+/* objects/scenery_sprites.c: the scenery sprites of stages 3, 8 and B-10 */
 void scenery_sprite_start(void);
 void scenery_sprite_draw_until_you_failed(void);
 void scenery_sprite_draw(void);
@@ -1477,13 +1614,19 @@ void scenery_sprite_draw_until_offscreen(void);
 void scenery_sprite_draw_wide_margin(void);
 void scenery_sprite_cycle_palette_start(void);
 void scenery_sprite_cycle_palette(void);
+
+/* objects/fire_vents.c: stage 3's fire vents */
 void fire_vent_spawner_start(void);
 void fire_vent_spawner_update(void);
 void fire_vent_start(void);
 void fire_vent_update(void);
 void fire_vent_burst_animate(void);
+
+/* objects/group_leader_hold.c: the hold on a group leader (stage 4 at 8B00-9500, stage 9 at 3300) */
 void group_leader_hold_start(void);
 void group_leader_hold_wait(void);
+
+/* objects/burning_boulders.c: stage 8: the collapsing log bridge, the burning boulders, the falling embers */
 void collapsing_bridge_plank_update(void);
 void burning_boulder_start(void);
 void burning_boulder_update(void);
@@ -1492,6 +1635,8 @@ void burning_boulder_flame_flicker(void);
 void ember_emitter_start(void);
 void ember_emitter_move(void);
 void falling_ember_update(void);
+
+/* objects/metal_platform.c: stage 8: the carriers and the seesaw (game mode 0x1A), the metal platform and the fire wall, the fire trenches */
 void scene_carrier_start(void);
 void scene_carrier_move(void);
 void seesaw_start(void);
@@ -1506,6 +1651,8 @@ void fire_trench_start(void);
 void fire_trench_update(void);
 void spawn_fire_trench_flames(void);
 void fire_trench_flame_burn(void);
+
+/* objects/lava_flow.c: stage 8's end: what the players ride and the fire under the hanging bridge (game mode 0x1C), the lava flow */
 void ridden_object_start(void);
 void ridden_object_fall(void);
 void ridden_object_follow(void);
@@ -1520,6 +1667,8 @@ uint32_t spawn_lava_flame(uint32_t random_value, uint32_t flame);
 void lava_flame_burn(void);
 void spawn_lava_steam(void);
 void lava_steam_puff_update(void);
+
+/* objects/ice.c: stage 9: the ice blocks along the edge, the moving ice platform, the crumbling ice floor */
 void ice_block_row_start(void);
 void ice_block_update(void);
 void spawn_ice_platform_leader(uint32_t record, uint32_t *p_spawned, uint32_t *p_travel, uint32_t *p_leader);
@@ -1527,6 +1676,8 @@ void ice_platform_leader_move(void);
 void ice_platform_piece_update(void);
 void ice_floor_start(void);
 void ice_floor_block_update(void);
+
+/* objects/icicles.c: stage 9: the icicle droppers, the icicles, their cracks and shadows */
 void icicle_dropper_start(void);
 void icicle_dropper_move(void);
 void icicle_dropper_finish(void);
@@ -1536,6 +1687,8 @@ void icicle_buried_part_draw(void);
 void icicle_cracks_spread(void);
 void icicle_shadow_follow(void);
 void set_icicle_wall_box(void);
+
+/* objects/tornado.c: stage A: the tornado, its twisters, its hazard and rear zones, the whirlwinds it throws */
 void tornado_start(void);
 void tornado_move(void);
 void tornado_column_circle(void);
@@ -1544,6 +1697,8 @@ void tornado_hazard_update(void);
 uint32_t tornado_throw_whirlwinds(uint8_t spawned, uint32_t free_count, uint32_t whirlwind, uint32_t object);
 uint32_t spawn_tornado_rear_zone(uint32_t zone);
 void tornado_rear_zone_follow(void);
+
+/* objects/quicksand.c: stage A: quicksand, sinkholes, sand patches */
 void quicksand_start(void);
 void quicksand_swirl(void);
 void sinkhole_start(void);
@@ -1553,6 +1708,8 @@ void sand_patch_draw(void);
 void rimmed_sinkhole_start(void);
 void rimmed_sinkhole_open(void);
 void rimmed_sinkhole_edge_zone_update(void);
+
+/* objects/sand_blocks.c: stage A: the sand block leader, the collapsing sand blocks, the swirl around a sinking player */
 void spawn_sand_block_leader(uint32_t record, uint32_t *p_spawned, uint32_t *p_leader);
 void sand_block_leader_wait(void);
 void sand_block_leader_move(void);
@@ -1562,6 +1719,8 @@ void sand_streams_update(void);
 uint32_t spawn_sink_swirl(uint32_t allocated);
 void sink_swirl_start(void);
 void sink_swirl_animate(void);
+
+/* objects/biting_head.c: the chasers of stages B, C and E: the brick wall that bursts when the chaser stops, the biting head, the fire front */
 void brick_wall_init(void);
 void brick_wall_wait(void);
 void brick_dust_animate(void);
@@ -1570,6 +1729,8 @@ void biting_head_wait(void);
 void biting_head_chase(void);
 void fire_front_init(void);
 void fire_front_chase(void);
+
+/* objects/grates_and_saws.c: stages D and F: the falling grates; stages C and E: the rising saws and the grate steps they cut */
 void falling_grate_update(void);
 void rising_saw_init(void);
 void rising_saw_rise(void);
@@ -1583,12 +1744,16 @@ void spawn_grate_step_debris(void);
 void grate_step_debris_fly(void);
 void build_saw_shaft_base(void);
 void saw_shaft_base_draw(void);
+
+/* objects/river_rafts.c: stage 10: the river's rafts and their spawners; an unused object drawn twice between clip entries */
 void river_raft_spawner_init(void);
 void river_raft_spawner_update(void);
 void river_raft_update(void);
 void river_raft_foam_update(void);
 void clipped_copy_sprite_start(uint32_t copy);
 void clipped_copy_sprite_update(void);
+
+/* objects/geysers.c: stage 10: the geyser front and its geysers, the waterfall and the river water, the stone blocks, the geyser lines */
 void geyser_front_init(void);
 void geyser_front_wait(void);
 void geyser_front_rise(void);
@@ -1606,6 +1771,8 @@ void geyser_line_move(void);
 void spawn_geyser_burst(void);
 void geyser_burst_start(void);
 void geyser_burst_erupt(void);
+
+/* objects/stage_10_props.c: stage 10: the propeller machine (the chaser), the barred gate, the scene anchor, the railing */
 void propeller_machine_init(void);
 void propeller_machine_chase(void);
 void barred_gate_init(void);
@@ -1616,6 +1783,8 @@ void railing_spawner_init(void);
 void railing_spawner_update(void);
 void railing_segment_start(void);
 void railing_segment_draw(void);
+
+/* engine/spawning.c: spawn_objects_by_type (the stage lists of object types) and making objects: with pieces, init_object */
 void reset_linked_objects_flag(void);
 void start_spawns_by_type(void);
 void spawn_objects_by_type(uint32_t *p_player_object, uint32_t *p_player_index, uint32_t *p_first, uint32_t *p_projected_x, uint32_t *p_projected_y, uint32_t *p_object_type, uint32_t *p_object);
@@ -1630,6 +1799,8 @@ void init_object_2(uint32_t object);
 void init_object_fields(uint32_t object, uint8_t mode);
 void clear_object_speeds(void);
 void init_object_fields_tail(uint32_t object, uint8_t mode);
+
+/* engine/object_library.c: what the stage objects share: moving and unprojecting, deleting off screen, positions, the nearest player, falling, explosions, dropped rings, debris */
 void move_object_projected(uint32_t *p_screen_y, uint32_t *p_block_offset, uint32_t *p_slope_height, uint32_t *p_cursor);
 void unproject_object(uint32_t *p_screen_y, uint32_t *p_block_offset, uint32_t *p_slope_height, uint32_t *p_cursor);
 uint32_t update_screen_position_no_offset(void);
@@ -1662,10 +1833,14 @@ void released_ring_bounce(void);
 void released_ring_move(uint32_t cursor);
 void spawn_debris(uint32_t spawned, uint16_t count, uint32_t block);
 void debris_fly(void);
+
+/* text/sprite_strings.c: strings drawn with sprites: the string queue and draw_queued_strings */
 void queue_string_record(uint32_t record, uint16_t y, uint32_t scale, uint32_t *p_palette, uint32_t *p_text);
 void queue_string_at(uint32_t x, uint16_t y, uint32_t *p_palette, uint32_t *p_scale, uint32_t *p_text);
 void queue_string(uint32_t x, uint16_t y, uint8_t mode, uint32_t *p_palette, uint32_t *p_scale, uint32_t *p_text);
 void draw_queued_strings(uint16_t size, uint16_t width, uint32_t sprite_entry, uint32_t *p_scale, uint32_t *p_cursor, uint32_t *p_height);
+
+/* scenes/ranking.c: the ranking: entering initials at game over, loading and resetting the table, the TOP15 display */
 void start_ranking_entry(void);
 void enter_ranking_initials(uint32_t jump_offset);
 uint32_t load_ranking(void);
@@ -1683,6 +1858,8 @@ void ranking_display_hold(void);
 void drift_ranking_background(void);
 void ranking_display_end(void);
 void ranking_row_update(void);
+
+/* scenes/character_select.c: choosing a character: the PLAYER SELECT chooser at a new game, the chooser of a player joining */
 void reset_character_select(void);
 void start_character_chooser(uint32_t block);
 void character_chooser_wait(void);
@@ -1694,6 +1871,8 @@ void character_select_countdown_update(void);
 uint32_t start_join_character_chooser(void);
 void join_character_chooser_update(uint32_t text_x);
 void count_free_characters(uint32_t *p_characters_left, uint32_t *p_character, uint32_t *p_taken_bit);
+
+/* objects/walls.c: the walls of spawn_walls (players and objects bounce off them); an unused wall editor */
 void spawn_walls(uint32_t *p_spawns_offset, uint32_t *p_part_size, uint32_t *p_second_sprite, uint32_t *p_point_y, uint32_t *p_z, uint32_t *p_wall);
 void wall_update(void);
 void wall_update_spare_return(void);
@@ -1704,11 +1883,15 @@ void wall_editor_draw_arrow_at_z(uint32_t marker_x, uint32_t marker_y, uint32_t 
 void wall_editor_draw_pattern_number(void);
 void wall_editor_rebuild_parts(uint32_t part);
 void build_wall_parts(uint32_t *p_part_size, uint32_t *p_second_sprite, uint32_t *p_part);
+
+/* engine/object_groups.c: spawn_object_groups: rows of stage objects led by group leaders; the crumbling floor rows */
 void spawn_object_groups(uint32_t *p_r1, uint32_t *p_free_stack, uint32_t *p_slope_z, uint32_t *p_count, uint32_t *p_object);
 void crumbling_floor_update(void);
 void spawn_group_leader(uint32_t record, uint32_t *p_spawned, uint32_t *p_leader);
 void group_leader_wait(void);
 void group_leader_move(void);
+
+/* objects/lava_rocks.c: stage 8: the rock slabs over lava, the lava columns, the slot trigger that times them */
 void lava_rock_update(void);
 uint32_t spawn_lava_column(uint32_t block);
 void lava_column_start(void);
@@ -1720,9 +1903,13 @@ void lava_column_land_in_place(void);
 void lava_column_become_bubble(void);
 void spawn_group_slot_trigger(uint32_t record, uint32_t *p_spawned, uint32_t *p_count, uint32_t *p_trigger);
 void group_slot_trigger_update(void);
+
+/* objects/rope_bridge.c: spawn_object_groups_2 and stage 10's rope bridge */
 void spawn_object_groups_2(uint32_t *p_list_offset, uint32_t *p_count, uint32_t *p_object);
 void rope_bridge_plank_update(void);
 void draw_rope_bridge_ropes(void);
+
+/* stage/events.c: the scripted game modes run_game_mode jumps into and what they spawn: platforms, rocks, lightning, message boxes, the escape countdown */
 void event_0f_start(void);
 void event_0f_stop_scroll(void);
 void event_0f_show_messages(uint32_t screen_x, uint32_t *p_frames, uint32_t *p_box);
@@ -1757,6 +1944,8 @@ void message_box_show(void);
 void start_escape_countdown(uint32_t *p_free_stack, uint32_t *p_count, uint32_t *p_digit);
 void update_escape_countdown(void);
 void start_escape_alarm_flash(uint32_t flash);
+
+/* scenes/map.c: the map screen between stages (game mode 4): the wipe, the island map, the trail, the markers, Eggman */
 uint32_t run_map_screen(uint32_t bottom_speed, uint32_t object);
 void run_map_screen_wait_for_wipe(uint32_t edges_done);
 void map_intro_update(void);
@@ -1776,6 +1965,8 @@ uint32_t draw_map_stage_markers(uint32_t badge_offset);
 void blink_current_map_marker(void);
 uint32_t start_window_wipe(uint32_t record);
 void update_screen_wipe(uint32_t *p_clip_right, uint32_t *p_clip_top, uint32_t *p_clip_bottom, uint32_t *p_edges_done);
+
+/* scenes/title.c: the title screen: the SEGA logo, the emblem, the land, the craft, the clouds, the sky */
 void run_title_screen(uint32_t text_position, uint32_t *p_color, uint32_t *p_row_pairs_left, uint32_t *p_blocks_per_row, uint32_t *p_text);
 void title_emblem_animate(void);
 void title_emblem_animate_spare_return(void);
@@ -1794,6 +1985,8 @@ void drift_title_cloud_2(void);
 void title_sky_wave(void);
 void run_sega_logo(uint32_t logo_block, uint32_t *p_color, uint32_t *p_row_pairs_left, uint32_t *p_blocks_per_row, uint32_t *p_lower_row_cursor);
 void set_sega_logo_sprite(void);
+
+/* scenes/ring_tally.c: the ring tally after a stage (game mode 0x1D): the total and the players' panels */
 void start_ring_tally(uint32_t *p_stage_rings_3, uint32_t *p_player_3_out_flags, uint32_t *p_ring_total, uint32_t *p_p2_object, uint32_t *p_p3_object, uint32_t *p_object);
 void pick_ring_bonus_players(uint32_t *p_player_1_rings, uint32_t *p_player_2_rings, uint32_t *p_player_3_rings);
 void ring_tally_percent_update(void);
@@ -1808,17 +2001,23 @@ void build_ring_tally_panel(uint32_t character);
 void update_ring_tally_panel(void);
 void update_ring_tally_panel_tail(void);
 void cycle_ring_tally_label_palette(void);
+
+/* system/controls.c: the frame wait and the controls: read_controls, the inputs the attract demos replay */
 uint32_t wait_for_frames(void);
 void wait_for_frame(uint32_t *p_pressed, uint32_t *p_released, uint32_t *p_input_cursor, uint32_t *p_count, uint32_t *p_trackball_port, uint32_t *p_trackball_cursor);
 void read_controls(uint32_t *p_inputs, uint32_t *p_pressed, uint32_t *p_released, uint32_t *p_input_cursor, uint32_t *p_count, uint32_t *p_trackball_port, uint32_t *p_trackball_cursor);
 uint32_t play_demo_buttons(uint32_t inputs);
 void play_demo_trackballs(uint32_t *p_count, uint32_t *p_demo_cursor, uint32_t *p_trackball_cursor);
 void pause_on_start_3(void);
+
+/* engine/math.c: square_root, angle_of_vector, BCD conversions */
 void square_root(uint32_t *p_value, uint32_t *p_steps_left);
 void angle_of_vector(uint32_t dy, uint32_t *p_dx, uint32_t *p_octant);
 uint32_t convert_from_bcd(uint32_t value);
 void convert_to_bcd(uint32_t *p_value, uint32_t *p_digit);
 void convert_64_to_bcd(uint32_t *p_number_low, uint32_t *p_number_high, uint32_t *p_bcd_high);
+
+/* engine/object_list.c: the object list and its two pools: reset, allocate, link, delete, run_objects */
 void reset_objects(uint32_t *p_block, uint32_t *p_stack_slot);
 void reset_objects_alt(void);
 void run_objects(void);
@@ -1836,11 +2035,15 @@ void reset_object_pool_2(uint32_t *p_block, uint32_t *p_stack_slot);
 void reset_object_pool_2_alt(void);
 void allocate_object_2(uint32_t *p_free_count, uint32_t *p_free_stack, uint32_t *p_object);
 uint32_t free_object_2(uint16_t object);
+
+/* text/font.c: the text layer's font: load_text_font, clear_text_layer, the 1-bit (and unused 2-bit) font expansion */
 void load_text_font(uint32_t *p_pixels, uint32_t *p_color_index);
 void clear_text_layer(uint32_t *p_value, uint32_t *p_count, uint32_t *p_dest);
 void expand_font(uint8_t color, uint32_t count, uint32_t source, uint32_t dest, uint32_t *p_pixels, uint32_t *p_color_index);
 void expand_font_2bpp(uint8_t color, uint32_t count, uint32_t source, uint32_t dest);
 void expand_font_2bpp_transparent(uint8_t color, uint32_t count, uint32_t pixels, uint32_t opaque_mask, uint32_t source, uint32_t dest);
+
+/* video/registers.c: the video registers: init_video_registers, applied at VBLANK, the screen mode; block copies and fills */
 void init_video_registers(void);
 uint32_t clear_page_0_and_scroll(void);
 void init_video_registers_layers_off(void);
@@ -1850,6 +2053,8 @@ uint32_t set_screen_mode(uint16_t mode);
 void copy_blocks(uint32_t count, uint32_t *p_source, uint32_t *p_dest);
 void clear_blocks(uint32_t *p_value, uint32_t *p_count, uint32_t *p_dest);
 uint32_t fill_halfwords(uint16_t value, uint32_t count, uint32_t dest);
+
+/* text/text_layer.c: printing on the text layer: print_text, erase_text, lines, fractions; the unused formatted text */
 void draw_fraction(uint16_t attribute, uint32_t *p_numerator, uint32_t *p_denominator, uint32_t *p_text_position);
 void print_text_list(uint32_t *p_text, uint32_t *p_text_position);
 void print_text(uint32_t *p_text, uint32_t *p_text_position);
@@ -1888,6 +2093,8 @@ void erase_formatted_text_position_triple(uint32_t cell, uint32_t text, uint32_t
 void erase_formatted_text_attribute_triple(uint32_t cell, uint32_t text, uint32_t text_position);
 void erase_formatted_text_triple(uint32_t cell, uint32_t text, uint32_t text_position);
 void erase_formatted_text_skip_triple(uint32_t cell, uint32_t text, uint32_t text_position);
+
+/* video/vram_scripts.c: run_vram_script and its commands; the unused eraser */
 void run_vram_script(uint32_t *p_count, uint32_t *p_script, uint32_t *p_dest);
 void vram_script_end(void);
 void vram_script_set_address(uint32_t script_code, uint32_t *p_script, uint32_t *p_dest);
@@ -1913,6 +2120,8 @@ void erase_vram_script_fill_down(uint16_t cell, uint32_t *p_script, uint32_t *p_
 void erase_vram_script_fill_up(uint16_t cell, uint32_t *p_script, uint32_t *p_dest);
 void erase_vram_script_fill_down_wide(uint16_t cell, uint32_t *p_script, uint32_t *p_dest);
 uint32_t erase_vram_script_repeat(uint16_t cell, uint32_t script, uint32_t dest);
+
+/* text/digits.c: hexadecimal and BCD digits on the text layer */
 uint32_t draw_hex_2(uint32_t value, uint32_t attribute, uint32_t text_position);
 void draw_hex_4(uint32_t *p_value, uint32_t *p_attribute, uint32_t *p_text_position);
 void draw_hex_6(uint32_t value, uint32_t attribute, uint32_t text_position);
@@ -1923,6 +2132,8 @@ void draw_bcd_4(uint32_t value, uint32_t attribute, uint32_t text_position);
 void draw_bcd_6(uint32_t value, uint32_t attribute, uint32_t text_position);
 void draw_bcd_8(uint32_t value, uint32_t attribute, uint32_t text_position);
 void draw_bcd_digits(uint32_t value, uint32_t digit_count, uint32_t *p_attribute, uint32_t *p_text_position);
+
+/* video/packed_picture.c: unused: a packed picture unpacked into the bitmap layer, an LZ unpacker */
 void draw_packed_picture(uint32_t picture);
 void init_picture_unpacker(uint32_t *p_colour_cache, uint32_t *p_newest_slot, uint32_t *p_done_bits);
 void init_picture_colour_cache(uint32_t colour_cache);
@@ -1936,6 +2147,8 @@ void set_bitmap_scroll_2(uint16_t scroll_x, uint16_t scroll_y, uint8_t is_8bpp);
 void set_bitmap_window_2(uint16_t left, uint16_t top, uint16_t right, uint16_t bottom);
 void set_bitmap_clip_2(uint16_t left, uint16_t top, uint16_t right, uint16_t bottom);
 void unpack_lz_bytes(uint32_t packed, uint32_t dest);
+
+/* engine/sprite_list.c: the sprites: init_sprites, the depth buckets (queue_sprite...), build_sprite_list, the buffer swap at VBLANK */
 void init_sprites_without_swaps(void);
 void init_sprites_swapping_every_frame(void);
 void init_sprites(uint32_t *p_end_mark, uint32_t *p_source);
@@ -1961,12 +2174,16 @@ void load_sized_frame_address_at_row(uint16_t row);
 void load_sized_frame_address(void);
 void load_frame_size(void);
 void build_sprite_list(uint32_t *p_height, uint32_t *p_scale_x, uint32_t *p_scale_y, uint32_t *p_sprite_flags, uint32_t *p_sprite_entry);
+
+/* video/palette_ram.c: palette RAM: load_palette_list and its copies, queue_vblank_copy */
 uint32_t load_default_palettes(void);
 void load_palette_list(uint32_t palette_list, uint32_t *p_source, uint32_t *p_dest);
 void copy_palettes_with_pen_0(uint16_t pen_0_color, uint32_t size, uint32_t *p_source, uint32_t *p_dest);
 void copy_palette_block(uint32_t size, uint32_t *p_source, uint32_t *p_dest);
 void repeat_palette_block(uint32_t size, uint32_t *p_source, uint32_t *p_dest, uint32_t *p_palette_list);
 void queue_vblank_copy(uint32_t source, uint32_t dest, uint16_t halfwords, uint32_t *p_copy_offset, uint32_t *p_copy_entry);
+
+/* system/sound_queue.c: the sound queue: init_sound, play_sound, queue_sound; then load_stage_palette and split_frame_count */
 uint32_t init_sound(void);
 void set_port_d_bit_3_if_sound_allowed(void);
 void queue_coin_sound(void);
@@ -1974,6 +2191,8 @@ void play_sound(uint8_t sound_id, uint32_t *p_write_index, uint32_t *p_write_ind
 void queue_sound(uint8_t sound_id, uint32_t *p_write_index, uint32_t *p_write_index_address);
 void load_stage_palette(uint32_t *p_palette_record, uint32_t *p_source, uint32_t *p_dest);
 void split_frame_count(uint32_t frames, uint32_t frames_high, uint32_t *p_seconds, uint32_t *p_minutes, uint32_t *p_hours, uint32_t *p_days);
+
+/* video/bitmap.c: the bitmap layer: clear, address, scroll, window, pixels, lines, spans, rectangles */
 void clear_bitmap_layer(uint8_t is_8bpp, uint32_t *p_top, uint32_t *p_color, uint32_t *p_inner_count, uint32_t *p_row_pairs_left, uint32_t *p_blocks_per_row, uint32_t *p_lower_row_cursor);
 void get_bitmap_address(uint16_t x, uint16_t y);
 void set_bitmap_scroll(uint16_t scroll_x, uint16_t scroll_y, uint8_t is_8bpp);
@@ -1994,6 +2213,8 @@ uint32_t draw_rect_sides_8bpp(uint32_t pixel_address, uint32_t width, uint32_t h
 uint32_t draw_rect_top_bottom_8bpp(uint32_t pixel_address, uint32_t width, uint32_t height, uint32_t color);
 void fill_rect(uint32_t top, uint32_t right, uint32_t bottom, uint32_t *p_left, uint32_t *p_color, uint32_t *p_blocks_per_row);
 void fill_rect_unclipped(uint32_t right, uint32_t bottom, uint32_t *p_left, uint32_t *p_top, uint32_t *p_color, uint32_t *p_inner_count, uint32_t *p_row_pairs_left, uint32_t *p_blocks_per_row, uint32_t *p_lower_row_cursor);
+
+/* video/bitmap_shapes.c: the bitmap layer, mostly unused: triangles, quadrilaterals, circles, flood fill, saved rectangles; the clipping draw_line and fill_rect use */
 void fill_triangle(uint32_t top_x, uint32_t top_y, uint32_t middle_x, uint32_t middle_y, uint32_t bottom_x, uint32_t bottom_y, uint8_t color);
 void fill_triangle_sorted(uint32_t top_x, uint32_t top_y, uint32_t middle_x, uint32_t middle_y, uint32_t bottom_x, uint32_t bottom_y, uint8_t color, uint32_t span_cursor);
 void fill_flat_top_triangle(uint32_t left_x, uint32_t top_y, uint32_t right_x, uint32_t bottom_x, uint32_t height, uint8_t color, uint32_t span_cursor);
@@ -2025,9 +2246,13 @@ void clip_line_to_top_edge(uint32_t end_x, uint32_t end_y, uint32_t *p_start_x, 
 void clip_line_to_bottom_edge(uint32_t end_x, uint32_t end_y, uint32_t *p_start_x, uint32_t *p_start_y, uint32_t *p_unclipped_y);
 void clip_line_at_y(uint32_t end_x, uint32_t end_y, uint32_t dy, uint32_t *p_start_x, uint32_t *p_start_y, uint32_t *p_unclipped_y);
 void clip_rect_to_window(uint32_t *p_left, uint32_t *p_top, uint32_t *p_right, uint32_t *p_bottom, uint32_t *p_window_min, uint32_t *p_unclipped_edges);
+
+/* system/attract_modes.c: system modes 0, 1 and 7: the warning screen, the idle mode, the attract timer wait */
 void attract_warning(uint32_t *p_pixels, uint32_t *p_text);
 void system_mode_idle(void);
 void wait_attract_timer(void);
+
+/* system/eeprom.c: the 93C46 EEPROM: load_settings, saving, reading and writing words, the checksums */
 uint32_t compute_crc16_strided(uint32_t crc, uint32_t count, uint32_t data, uint32_t byte_gap);
 void eeprom_lock(void);
 void eeprom_unlock(void);
@@ -2047,6 +2272,8 @@ void compute_eeprom_checksum(uint32_t *p_crc, uint32_t *p_polynomial);
 void compute_eeprom_crc(uint32_t *p_crc, uint32_t *p_polynomial);
 uint32_t eeprom_deselect(uint32_t lines, uint32_t port_d);
 uint32_t eeprom_set_lines(uint32_t data, uint8_t lines, uint32_t port_d);
+
+/* test_mode/tests.c: the test mode: start, the menu, the memory test, the input test, the sound test */
 void start_test_mode(uint32_t *p_color, uint32_t *p_blocks_per_row);
 void run_test_mode(uint32_t pressed, uint16_t count, uint32_t *p_color, uint32_t *p_blocks_per_row);
 void test_menu(void);
@@ -2065,6 +2292,8 @@ uint32_t get_trackball_quadrant(uint8_t dx, uint8_t dy, uint32_t quadrant);
 void test_sound(void);
 void wrap_sound_test_number(void);
 void wrap_sound_test_number_down(void);
+
+/* test_mode/settings.c: the test mode: CRT test, game and coin assignments, bookkeeping, backup clear, output test, exit; the moving seat DIP */
 void test_crt(uint32_t start_y, uint32_t *p_color, uint32_t *p_blocks_per_row);
 void test_game_assignments(uint32_t *p_color, uint32_t *p_blocks_per_row);
 void draw_vitality_setting(uint32_t *p_color, uint32_t *p_blocks_per_row);
@@ -2089,13 +2318,8 @@ void draw_blinking_test_cursor(uint32_t cursor_char);
 void erase_test_cursor(uint32_t cursor_positions);
 void set_test_cursor(void);
 uint32_t check_moving_seat_dip(uint32_t words_left);
-void read_service_inputs(void);
-void erase_attract_credits(void);
-void erase_start_prompt(uint32_t text_position, uint32_t prompt_texts);
-void build_fraction_glyph(uint32_t numerator, uint32_t denominator, uint32_t *p_numerator_top_rows, uint32_t *p_numerator_bottom_rows, uint32_t *p_denominator_top_rows, uint32_t *p_denominator_bottom_rows);
-void erase_credit_count(uint32_t text_position);
-uint32_t add_to_credit_pool(uint32_t credits_to_add);
-void take_from_credit_pool(uint8_t credits_to_take);
+
+/* system/interrupts.c: the interrupt handlers: VBLANK start and end, sound, timers; the VBLANK copies, the sound mailbox, the frame and test switch counts */
 void irq_vblank_start(void);
 void irq_vblank_end(void);
 void irq_sound(void);
@@ -2105,7 +2329,10 @@ void int_default(uint32_t *p_source, uint32_t *p_dest, uint32_t *p_copies_left, 
 void int_vector_02(uint32_t *p_source, uint32_t *p_dest, uint32_t *p_copies_left, uint32_t *p_copy_entry);
 void run_vblank_copies(uint32_t *p_source, uint32_t *p_dest, uint32_t *p_copies_left, uint32_t *p_copy_entry);
 void send_sound_command(void);
+void read_service_inputs(void);
 void count_frames_and_check_test_switch(void);
+
+/* system/coins.c: coins and credits: apply_settings, update_coins, the coin counters, saving the credits */
 void apply_settings(void);
 void update_coins(void);
 void pulse_coin_counter(uint32_t counter_bit, uint32_t counter_state, uint16_t service_credits, uint16_t coin_credits);
@@ -2113,6 +2340,8 @@ uint32_t add_service_credit(uint32_t service_credits, uint32_t credit_block, uin
 uint32_t add_coin(uint32_t chute_offset, uint32_t pending_offset, uint32_t bookkeeping_chute, uint32_t coin_credits, uint32_t credit_block, uint8_t max_credits);
 void save_credits(void);
 void copy_credit_counts(uint32_t dest, uint32_t credit_block);
+
+/* system/bookkeeping.c: the bookkeeping in the backup RAM: load, reset, checksums (compute_crc16), play time, games */
 void load_bookkeeping(void);
 void reset_bookkeeping(void);
 uint32_t update_bookkeeping_checksum(void);
@@ -2121,10 +2350,20 @@ void compute_crc16(uint32_t count, uint32_t *p_crc, uint32_t *p_data, uint32_t *
 uint32_t compute_crc16_alternate_bytes(uint32_t data, uint32_t count);
 void add_play_time(void);
 void record_player_game(void);
+
+/* system/credits_display.c: the credits and start prompts drawn outside a game; an unused older credit pool */
 void draw_attract_credits(uint32_t *p_credits, uint32_t *p_blink_bit, uint32_t *p_message_text, uint32_t *p_text_position);
+void erase_attract_credits(void);
 void blink_start_prompt(uint32_t credit_block, uint32_t prompt_texts, uint32_t *p_blink_bit, uint32_t *p_text, uint32_t *p_text_position);
+void erase_start_prompt(uint32_t text_position, uint32_t prompt_texts);
 void draw_credit_count(uint32_t credit_block, uint32_t *p_credits, uint32_t *p_coins_per_credit, uint32_t *p_text, uint32_t *p_text_position);
 void draw_credit_count_now(uint32_t credit_block, uint32_t *p_credits, uint32_t *p_coins_per_credit, uint32_t *p_text, uint32_t *p_text_position);
+void build_fraction_glyph(uint32_t numerator, uint32_t denominator, uint32_t *p_numerator_top_rows, uint32_t *p_numerator_bottom_rows, uint32_t *p_denominator_top_rows, uint32_t *p_denominator_bottom_rows);
+void erase_credit_count(uint32_t text_position);
+uint32_t add_to_credit_pool(uint32_t credits_to_add);
+void take_from_credit_pool(uint8_t credits_to_take);
+
+/* system/reset_vector.c: the reset vector at the end of the chip (FFFFFFF0): jmp 0 */
 void reset(void);
 
 #endif

@@ -3,7 +3,7 @@ Name:        disassemble.py
 Description: recursive-descent disassembly of the V60 program into a listing and a coverage report
 Version:     0.1.0
 Created:     11-10-2026
-Modified:    13-10-2026
+Modified:    15-10-2026
 Author:      Sebastian Toyos
 
 Usage: python tools/disassemble.py [rom folder or .zip] [--trace executed.txt ...]   (default ROM: rom/)
@@ -95,7 +95,8 @@ def parse_layout(attributes, where):
                   pointers=int(values["pointers"]) if "pointers" in values else None)
 
 
-NAME_KINDS = ("var", "io", "table", "struct", "field", "register", "scoped", "param", "result", "local", "port")    # names for the decompiled C (load_names)
+NAME_KINDS = ("var", "io", "table", "struct", "field", "register", "scoped", "param", "result", "local", "port",
+              "file")    # names for the decompiled C (load_names; file lines: decompile.source_files)
 
 
 def load_symbols(path):

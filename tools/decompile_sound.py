@@ -3,7 +3,7 @@ Name:        decompile_sound.py
 Description: decompiles the Z80 sound program into readable C, one C function per original function
 Version:     0.1.0
 Created:     13-10-2026
-Modified:    14-10-2026
+Modified:    15-10-2026
 Author:      Sebastian Toyos
 
 Usage: python tools/decompile_sound.py [--check] [--out DIR] [--timing FILE]
@@ -20,8 +20,8 @@ The sound program (epr-15785, read from the ROM set in rom/ by tools/sonic_rom.p
 through the decompiler the V60 program goes through (tools/decompiler/), with the Z80's profile
 (decompiler/cpu.py): tools/z80/analysis.py splits it into functions with sound_symbols.txt,
 tools/z80/function.py lifts them to IR with the sound board's timing model, and the passes work out
-what each function takes and hands back. It writes src/sound/: sound.h (prototypes) and sound_NN.c (the
-functions, in the order of their Z80 addresses).
+what each function takes and hands back. It writes src/sound/: sound.h (prototypes, file by file) and the
+functions' files (sound_symbols.txt's file lines lay them out; sound_NN.c without them).
 
 Code the program never runs (routines nothing calls) is decompiled too, from its "func" lines: as on the
 V60's side (decompile.py), a function nothing calls takes every register it reads as a parameter, and
@@ -38,6 +38,9 @@ ROOT = TOOLS.parent
 sys.path.insert(0, str(TOOLS))
 import disassemble  # noqa: E402
 from decompile import call_results  # noqa: E402
+from decompile import grouped_prototypes  # noqa: E402
+from decompile import source_files  # noqa: E402
+from decompile import write_sources  # noqa: E402
 from decompile import write_variables  # noqa: E402
 import sonic_rom  # noqa: E402
 from decompiler import cleanup  # noqa: E402
@@ -64,7 +67,6 @@ SYMBOLS = ROOT / "sound_symbols.txt"
 ROM_SET = ROOT / "rom"
 REPORTS = ROOT / "build" / "sound"    # the listing and the index naming works from
 INTERRUPT_HANDLER = 0x0038
-FUNCTIONS_PER_FILE = 120
 CREATED = "13-10-2026"    # when the C was first written; the files say when it was last written too
 IDENTIFIER = re.compile(r"[A-Za-z_][A-Za-z0-9_]*\Z")
 REGISTERS = {name: index for index, name in cpu.Z80.register_names.items()}    # param and local lines
@@ -215,6 +217,12 @@ def load_arrays(path):
     return arrays
 
 
+def sound_files(entries):
+    """The files of src/sound/ for the sound program's functions (sound_symbols.txt's file lines)."""
+    return source_files(SYMBOLS, entries, lambda entry: entry, "sound_{number:02}",
+                        "the sound program's functions, part {number:02} (in the order of their Z80 addresses)")
+
+
 def write_c(program, out_dir, variables_path=None):
     built, failures = build_functions(program)
     if failures:
@@ -342,10 +350,9 @@ def write_c(program, out_dir, variables_path=None):
     write_reports(program, built, flow, names, reports)
 
     out_dir.mkdir(parents=True, exist_ok=True)
-    for stale in out_dir.glob("*.c"):
-        stale.unlink()
     entries = sorted(built)
-    prototypes = [emitter.prototype(entry) + ";" for entry in entries]
+    files = sound_files(entries)
+    prototypes = grouped_prototypes(files, emitter.prototype)
     (out_dir / "sound.h").write_text(
         file_header("sound.h", "the sound program's ports, variables, tables, structures and functions")
         + "#ifndef SONIC_SOUND_H\n#define SONIC_SOUND_H\n\n#include \"sound/support.h\"\n\n"
@@ -355,12 +362,7 @@ def write_c(program, out_dir, variables_path=None):
         + "\n\n/* the sound program's structures in the shared RAM */\n"
         + "\n".join(emitter.layouts.declarations()) + "\n\n"
         + "\n".join(prototypes) + "\n\n#endif\n", encoding="ascii")
-    for number, first in enumerate(range(0, len(entries), FUNCTIONS_PER_FILE)):
-        chunk = [texts[entry] for entry in entries[first:first + FUNCTIONS_PER_FILE]]
-        (out_dir / f"sound_{number:02}.c").write_text(
-            file_header(f"sound_{number:02}.c", f"the sound program's functions, part {number:02} (in the order "
-                        "of their Z80 addresses)")
-            + '#include "sound.h"\n\n' + "\n".join(chunk), encoding="ascii")
+    write_sources(out_dir, files, texts, "sound.h", header=file_header)
     left = sum(len(block.statements) for function in built.values() for block in function.blocks.values())
     gotos = sum(text.count("goto ") for text in texts.values())
     print(f"functions:  {len(entries)} in {out_dir}")

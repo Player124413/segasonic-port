@@ -3,7 +3,7 @@
  *    Description: the sound program's ports, variables, tables, structures and functions
  *    Version:     0.1.0
  *    Created:     13-10-2026
- *    Modified:    14-10-2026
+ *    Modified:    15-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the Z80 sound program decompiled into C by
@@ -560,10 +560,13 @@ _Static_assert(sizeof(struct sequence_player) == 0x100, "struct sequence_player 
 #define SAMPLE_VOICE_ADDRESS(n) (0xE400u + (n) * 0x12u)    /* the 8 of them, from 0 */
 #define SEQUENCE_PLAYER_ADDRESS(n) (0xE900u + (n) * 0x100u)    /* the 8 of them, from 0 */
 
+/* main.c: the reset, the timer interrupt (the players' tick), the main loop and sound_init */
 void sound_reset(void);
 void sound_irq(void);
 void sound_main_loop(void);
 void sound_init(uint8_t unused_c);
+
+/* chips.c: the two YM3438 and the RF5C68 set up and written; the tracks' and MIDI parts' start values; read_table_word */
 uint16_t init_fm_chips(void);
 uint8_t write_fm_global(uint8_t fm_register, uint8_t value);
 void write_fm_channel(uint8_t fm_register, uint8_t value);
@@ -577,6 +580,8 @@ void init_track_channels(uint32_t unused_c);
 void init_pcm_tracks(void);
 void init_midi_parts(void);
 uint16_t read_table_word(uint16_t table, uint8_t index);
+
+/* midi_messages.c: the MIDI messages of the queue for each part on their channel: note on and off, pitch bend, control and program changes; picking a sample voice, retuning, FM modulation */
 void handle_midi_message(void);
 void skip_midi_data(uint8_t first_byte);
 void play_midi_message(uint16_t message_byte, uint16_t part);
@@ -585,29 +590,41 @@ void allocate_sample_voice(uint8_t note_velocity, uint16_t part);
 uint16_t retune_voice(uint16_t loop_count, uint16_t part, uint16_t voice);
 void update_fm_modulation(uint16_t *p_loop_count, uint16_t *p_voice);
 void read_midi_byte(uint16_t *p_byte_copy, uint16_t *p_queue_slot, uint8_t *p_byte);
+
+/* sample_voices.c: the RF5C68's sample voices: starting a sample, refilling its pages as it plays, stopping it */
 void start_pcm_sample(uint16_t voice);
 void refill_pcm_voice(void);
 void stop_pcm_voice(uint16_t voice);
+
+/* midi_port.c: unused: a MIDI port on an 8251 USART (ports F0 and F1) */
 void receive_midi_byte(void);
 void receive_midi_byte_spare_return_1(void);
 void receive_midi_byte_spare_return_2(void);
 void send_midi_byte(uint8_t midi_byte);
 void reset_midi_errors(void);
 void init_midi_port(void);
+
+/* utilities.c: multiply_bytes (the volume scaling) and copy_sample_page (256 LDIs from the sample window to the wave memory) */
 uint16_t multiply_bytes(uint16_t factor, uint16_t value);
 void copy_sample_page(uint16_t *p_wave_address, uint16_t *p_sample_address);
+
+/* fm_voices.c: the YM3438 voices: note off, stop, release with the sustain pedal, the music and channel volumes, the patches */
 void fm_note_off(uint16_t *p_de, uint16_t *p_saved_channel, uint8_t *p_a);
 uint8_t stop_fm_voice(uint16_t voice);
 void release_held_fm_voice(uint16_t voice);
 void apply_fm_music_volume(uint8_t chip_channel, uint16_t level, uint16_t part);
 void apply_fm_channel_volume(uint8_t chip_channel, uint16_t level, uint16_t part);
 void load_fm_patch(uint16_t *p_channel_in_part, uint16_t *p_register_list, uint16_t *p_patch_data);
+
+/* sequence_players.c: the sequence players stepped at every tick: their events into the MIDI queue, the playlist commands */
 void sequence_tick(void);
 void playlist_command(uint16_t queue_pointer, uint16_t player, uint16_t mailbox_page, uint16_t *p_playlist, uint8_t *p_playlist_byte);
 void step_player_if_playing(uint16_t player_address, uint16_t mailbox_page);
 void step_player(uint16_t player_address, uint16_t mailbox_page);
 uint8_t chain_next_event(uint16_t player, uint8_t data_byte);
 void clear_player_end_flag(uint16_t mailbox_page);
+
+/* sound_commands.c: the V60's sound commands (poll_sound_command): songs and sequences started on players; the volume fades and next_sequence_byte */
 void poll_sound_command(void);
 void start_song(uint16_t player, uint8_t song_number);
 void start_sequence(uint16_t header, uint16_t player);
@@ -617,6 +634,8 @@ uint16_t clear_player(uint16_t player);
 void fade_music_volume(uint16_t mailbox_page);
 void fade_player_volume(uint16_t queue_pointer, uint16_t player, uint16_t mailbox_page);
 uint16_t next_sequence_byte(uint16_t cursor, uint16_t player);
+
+/* fm_vibrato.c: the FM vibrato the main loop steps; an unused fixed FM frequency */
 void step_fm_vibrato(uint16_t voice);
 uint16_t load_fixed_fm_frequency(void);
 

@@ -245,7 +245,9 @@ sprite_palettes.json    where in the program ROM each sprite frame's palette is 
 tile_palettes.json      the same for each tile
 data_formats.json       the format of each piece of the program's data (tools/formats/), by its name
 sound_formats.json      the same for the sound program's data
-src/                    the game's C, decompiled from the program (tools/decompile.py writes it)
+src/                    the game's C, decompiled from the program (tools/decompile.py writes it), in
+                        files by subject: system/, stage/, engine/, player/, objects/, scenes/, text/,
+                        video/, test_mode/
 src/sound/              the sound driver's C, decompiled from the sound program
                         (tools/decompile_sound.py writes it)
 symbols.txt             names of functions, data, variables, board registers, structures and fields,
@@ -290,9 +292,18 @@ assets/, build/         generated on your machine (ignored by git)
 
 ## Reading the C
 
-The game's C lives in `src/`: `game.h` (prototypes), `ram.h` (the game's variables, tables, board
-registers and structures), `game_NN.c` (the functions, in the order of their V60 addresses) and `table.c`
-(the code the program reaches through memory slots, by address). What it uses besides memory is in
+The game's C lives in `src/`: `game.h` (prototypes, file by file), `ram.h` (the game's variables, tables,
+board registers and structures), `table.c` (the code the program reaches through memory slots, by
+address) and the functions in files by subject, as the original's source files were laid out one after
+another in the ROM: the cuts follow the alignment padding and the blocks of tables each module of the
+original ends with, and `symbols.txt`'s `file` lines say where each file starts and what it holds.
+`system/` (boot, the frame loop, interrupts, EEPROM, coins, bookkeeping), `stage/` (game modes, scrolling
+and the camera, palettes, background layers, scripted events), `engine/` (the object list, spawning,
+contacts, projection, animation, the sprite list), `player/` (the player's update, states, movement,
+HUD), `objects/` (the stage objects, one file a type or a family), `scenes/` (title, map, ranking,
+character select, the ring tally, the ending and its credits), `text/`, `video/` (the board's registers,
+VRAM scripts, the bitmap layer) and `test_mode/`. The sound driver's are in `src/sound/` the same way
+(`sound_symbols.txt`'s `file` lines). What the C uses besides memory is in
 `runtime/include/game/support.h`.
 
 - **Memory.** The game's variables are lvalues over the work RAM (`stage`, `scroll_position`), its tables
