@@ -3,7 +3,7 @@
  *    Description: text: the text layer's font, printing and erasing text, lines, fractions and digits, and the strings drawn with sprites
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    15-10-2026
+ *    Modified:    16-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -49,24 +49,24 @@ void queue_string(uint32_t x, uint16_t y, uint8_t mode, uint32_t *p_palette, uin
 	if ((uint8_t)mode == 0u)
 	{
 		text = x;
-		x = mem_read16(text);
+		x = STRING_RECORD(text)->x;
 		text += 2u;
-		y = mem_read16(text);
+		y = STRING_RECORD(text - 0x2u)->y;
 		text += 2u;
-		palette = mem_read16(text);
+		palette = STRING_RECORD(text - 0x4u)->palette;
 		text += 2u;
-		scale = mem_read16(text);
+		scale = STRING_RECORD(text - 0x6u)->scale;
 		text += 2u;
 	}
 	entry = (uint16_t)string_count * 0xCu + string_queue_ADDRESS;
-	mem_write16(entry, x);
+	QUEUED_STRING(entry)->x = x;
 	entry += 2u;
-	mem_write16(entry, y);
+	QUEUED_STRING(entry - 0x2u)->y = y;
 	entry += 2u;
-	mem_write16(entry, palette);
+	QUEUED_STRING(entry - 0x4u)->palette = palette;
 	entry += 2u;
-	mem_write16(entry, scale);
-	mem_write32(entry + 2u, text);
+	QUEUED_STRING(entry - 0x6u)->scale = scale;
+	QUEUED_STRING(entry - 0x6u)->text = text;
 	string_count++;
 	*p_palette = (*p_palette & 0xFFFF0000u) | palette;
 	*p_scale = (*p_scale & 0xFFFF0000u) | scale;
@@ -93,15 +93,15 @@ void draw_queued_strings(uint16_t size, uint16_t width, uint32_t sprite_entry, u
 		shift = 0xF8u;
 		frame_record = sprite_frames;
 		cursor = cursor * 0xCu + string_queue_ADDRESS;
-		char_x = (uint16_t)(int16_t)mem_read16(cursor);
+		char_x = (uint16_t)QUEUED_STRING(cursor)->x;
 		cursor += 2u;
-		string_y = (uint16_t)(int16_t)mem_read16(cursor);
+		string_y = (uint16_t)QUEUED_STRING(cursor - 0x2u)->y;
 		cursor += 2u;
-		palette = mem_read16(cursor);
+		palette = QUEUED_STRING(cursor - 0x4u)->palette;
 		cursor += 2u;
-		scale = mem_read16(cursor);
-		text = mem_read32(cursor + 2u);
-		char_code = mem_read8(text);
+		scale = QUEUED_STRING(cursor - 0x6u)->scale;
+		text = QUEUED_STRING(cursor - 0x6u)->text;
+		char_code = ROM8(text);
 		r14 = 0u;
 		text++;
 		do
@@ -112,16 +112,16 @@ void draw_queued_strings(uint16_t size, uint16_t width, uint32_t sprite_entry, u
 				if (r14 == 0u)
 				{
 					r14 = 1u;
-					size = mem_read16(frame_record);
+					size = SPRITE_FRAME_RECORD(frame_record)->width;
 					frame_record += 2u;
-					height = mem_read16(frame_record);
+					height = SPRITE_FRAME_RECORD(frame_record - 0x2u)->height;
 					width = (uint16_t)shift_by(size * scale + rounding, shift, 32);
 					advance = (uint16_t)shift_by((uint8_t)height * scale + rounding, shift, 32);
 					size = (uint16_t)(((uint16_t)((uint32_t)size << 6) & ~0xFFu) | (uint8_t)height);
 					height = (uint16_t)((height & ~0xFFu) | advance);
 					size = rotate_by(size, shift, 16);
 					frame_record += 2u;
-					width |= mem_read16(frame_record);
+					width |= SPRITE_FRAME_RECORD(frame_record - 0x4u)->bank_bits;
 					frame_record += 2u;
 					if (leading_blanks != 0u)
 						char_x += leading_blanks * advance;
@@ -141,7 +141,7 @@ void draw_queued_strings(uint16_t size, uint16_t width, uint32_t sprite_entry, u
 				sprite_entry += 2u;
 				mem_write16(sprite_entry, char_x);
 				sprite_entry += 2u;
-				mem_write16(sprite_entry, mem_read16(frame_record));
+				mem_write16(sprite_entry, SPRITE_FRAME_RECORD(frame_record - 0x6u)->address);
 				sprite_entry += 2u;
 				mem_write16(sprite_entry, palette);
 				sprite_entry += 2u;
@@ -149,7 +149,7 @@ void draw_queued_strings(uint16_t size, uint16_t width, uint32_t sprite_entry, u
 			else
 				leading_blanks++;
 			char_x += advance;
-			char_code = mem_read8(text);
+			char_code = ROM8(text);
 			text++;
 		} while (char_code != 0u);
 	}
@@ -164,7 +164,7 @@ void load_text_font(uint32_t *p_pixels, uint32_t *p_color_index)
 {
 	uint8_t color = 0;
 	uint16_t count = 0;
-	uint32_t r4 = 0, r5 = 0, dest = 0, dest_end = 0, ignored = 0, source = 0, source_end = 0;
+	uint32_t color_index = 0, dest = 0, dest_end = 0, ignored = 0, pixels = 0, source = 0, source_end = 0;
 
 	mem_write16(video_text_control, 0x1F7u);
 	move_string(text_font_ADDRESS, 0x9A0u, VIDEO_RAM + 0x1C000u, 0x9A0u, 2u, 0u, 0u, fill_value, &dest_end, &source_end);
@@ -172,20 +172,20 @@ void load_text_font(uint32_t *p_pixels, uint32_t *p_color_index)
 	dest = dest_end;
 	count = 0x5Bu;
 	color = 1u;
-	expand_font(color, count, source, dest, &r4, &r5);
+	expand_font(color, count, source, dest, &pixels, &color_index);
 	clear_text_layer(&ignored, &ignored, &ignored);
-	*p_pixels = r4;
-	*p_color_index = r5;
+	*p_pixels = pixels;
+	*p_color_index = color_index;
 }
 
 void clear_text_layer(uint32_t *p_value, uint32_t *p_count, uint32_t *p_dest)
 {
-	uint32_t r0 = 0, count = 0, dest = 0;
+	uint32_t count = 0, dest = 0, value = 0;
 
 	dest = TEXT_CELL(0, 0);
 	count = 0xE0u;
-	clear_blocks(&r0, &count, &dest);
-	*p_value = r0;
+	clear_blocks(&value, &count, &dest);
+	*p_value = value;
 	*p_count = count;
 	*p_dest = dest;
 }
@@ -204,7 +204,7 @@ void expand_font(uint8_t color, uint32_t count, uint32_t source, uint32_t dest, 
 		shadow_pixels = 0u;
 		do
 		{
-			font_row = mem_read8(source);
+			font_row = ROM8(source);
 			pairs_left = 4u;
 			pixels = 0u;
 			source++;
@@ -243,7 +243,7 @@ void expand_font_2bpp(uint8_t color, uint32_t count, uint32_t source, uint32_t d
 	count = (uint32_t)(uint16_t)count << 3;
 	do
 	{
-		font_row = mem_read16(source);
+		font_row = ROM16(source);
 		pairs_left = 4u;
 		pixels = 0u;
 		source += 2u;
@@ -279,7 +279,7 @@ void expand_font_2bpp_transparent(uint8_t color, uint32_t count, uint32_t pixels
 	count = (uint32_t)(uint16_t)count << 3;
 	do
 	{
-		font_row = mem_read16(source);
+		font_row = ROM16(source);
 		pairs_left = 4u;
 		source += 2u;
 		do
@@ -330,7 +330,7 @@ void print_text_list(uint32_t *p_text, uint32_t *p_text_position)
 	uint32_t text = *p_text;
 	uint32_t text_position = *p_text_position;
 
-	while (mem_read16(text) != 0u)
+	while (ROM16(text) != 0u)
 	{
 		print_text(&text, &text_position);
 	}
@@ -341,11 +341,11 @@ void print_text_list(uint32_t *p_text, uint32_t *p_text_position)
 void print_text(uint32_t *p_text, uint32_t *p_text_position)
 {
 	uint32_t text = *p_text;
-	uint32_t r0 = 0, text_position = 0;
+	uint32_t ignored = 0, text_position = 0;
 
-	text_position = 0x310000u | mem_read16(text);
+	text_position = 0x310000u | ROM16(text);
 	text += 2u;
-	print_text_here(&r0, &text, &text_position);
+	print_text_here(&ignored, &text, &text_position);
 	*p_text = text;
 	*p_text_position = text_position;
 }
@@ -357,9 +357,9 @@ void print_text_here(uint32_t *p_cell, uint32_t *p_text, uint32_t *p_text_positi
 	uint16_t cell = 0;
 	uint8_t next_char = 0;
 
-	cell = (uint16_t)((uint32_t)mem_read8(text) << 8);
+	cell = (uint16_t)((uint32_t)ROM8(text) << 8);
 	text++;
-	cell |= mem_read8(text);
+	cell |= ROM8(text);
 	text++;
 	if ((uint8_t)cell == 0u)
 	{
@@ -370,7 +370,7 @@ void print_text_here(uint32_t *p_cell, uint32_t *p_text, uint32_t *p_text_positi
 	do
 	{
 		mem_write16(text_position, cell);
-		next_char = mem_read8(text);
+		next_char = ROM8(text);
 		text++;
 		cell = (uint16_t)((cell & ~0xFFu) | next_char);
 		text_position += 2u;
@@ -382,7 +382,7 @@ void print_text_here(uint32_t *p_cell, uint32_t *p_text, uint32_t *p_text_positi
 
 void erase_text_list(uint32_t text)
 {
-	while (mem_read16(text) != 0u)
+	while (ROM16(text) != 0u)
 	{
 		text = erase_text(text);
 	}
@@ -394,7 +394,7 @@ uint32_t erase_text(uint32_t text)
 	uint32_t text_position = 0;
 
 	cell = 0u;
-	text_position = 0x310000u | mem_read16(text);
+	text_position = 0x310000u | ROM16(text);
 	text += 2u;
 	erase_text_here(cell, &text, &text_position);
 	return text;
@@ -407,7 +407,7 @@ void erase_text_here(uint16_t cell, uint32_t *p_text, uint32_t *p_text_position)
 	uint8_t first_char = 0, next_char = 0;
 
 	text++;
-	first_char = mem_read8(text);
+	first_char = ROM8(text);
 	text++;
 	if (first_char == 0u)
 	{
@@ -417,7 +417,7 @@ void erase_text_here(uint16_t cell, uint32_t *p_text, uint32_t *p_text_position)
 	do
 	{
 		mem_write16(text_position, cell);
-		next_char = mem_read8(text);
+		next_char = ROM8(text);
 		text++;
 		text_position += 2u;
 	} while (next_char != 0u);
@@ -433,11 +433,11 @@ void print_text_lines(uint32_t *p_text, uint32_t *p_text_position)
 	uint32_t line_start = 0;
 
 	line_start = text_position;
-	text_cell = (uint16_t)((uint32_t)mem_read8(text) << 8);
+	text_cell = (uint16_t)((uint32_t)ROM8(text) << 8);
 	text++;
 	for (;;)
 	{
-		text_cell = (uint16_t)((text_cell & ~0xFFu) | mem_read8(text));
+		text_cell = (uint16_t)((text_cell & ~0xFFu) | ROM8(text));
 		text++;
 		if ((uint8_t)text_cell == 0u)
 			break;
@@ -468,7 +468,7 @@ void erase_text_lines(uint32_t *p_text, uint32_t *p_text_position)
 	text++;
 	for (;;)
 	{
-		text_char = mem_read8(text);
+		text_char = ROM8(text);
 		negative = text_char >> 7;
 		text++;
 		if (text_char == 0u)
@@ -496,7 +496,7 @@ void print_formatted_text(uint32_t text)
 
 void formatted_text_position_single(uint32_t text, uint32_t text_position)
 {
-	text_position = (text_position & ~0xFFFFu) | mem_read16(text);
+	text_position = (text_position & ~0xFFFFu) | ROM16(text);
 	text += 2u;
 	formatted_text_attribute_single(text, text_position);
 }
@@ -505,7 +505,7 @@ void formatted_text_attribute_single(uint32_t text, uint32_t text_position)
 {
 	uint16_t cell = 0;
 
-	cell = (uint16_t)((uint32_t)mem_read8(text) << 8);
+	cell = (uint16_t)((uint32_t)ROM8(text) << 8);
 	text++;
 	formatted_text_single(cell, text, text_position);
 }
@@ -518,7 +518,7 @@ void formatted_text_single(uint16_t cell, uint32_t text, uint32_t text_position)
 
 	for (;;)
 	{
-		cell = (uint16_t)((cell & ~0xFFu) | mem_read8(text));
+		cell = (uint16_t)((cell & ~0xFFu) | ROM8(text));
 		zero = (uint8_t)cell == 0u;
 		text++;
 		if ((uint8_t)cell != 0u)
@@ -526,14 +526,14 @@ void formatted_text_single(uint16_t cell, uint32_t text, uint32_t text_position)
 			do
 			{
 				mem_write16(text_position, cell);
-				next_char = mem_read8(text);
+				next_char = ROM8(text);
 				text++;
 				cell = (uint16_t)((cell & ~0xFFu) | next_char);
 				zero = (uint8_t)cell == 0u;
 				text_position += 2u;
 			} while ((uint8_t)cell != 0u);
 		}
-		code = mem_read8(text);
+		code = ROM8(text);
 		text++;
 		switch (code)
 		{
@@ -575,7 +575,7 @@ void formatted_text_single(uint16_t cell, uint32_t text, uint32_t text_position)
 			formatted_text_skip_long_single(cell, text, text_position);
 			return;
 		default:
-			unknown_code(0x996A7u + code);
+			invalid_jump(0x996A7u + code);
 		}
 		if (zero)
 			return;
@@ -584,21 +584,21 @@ void formatted_text_single(uint16_t cell, uint32_t text, uint32_t text_position)
 
 void formatted_text_skip_single(uint16_t cell, uint32_t text, uint32_t text_position)
 {
-	text_position += (int8_t)mem_read8(text) * 2u;
+	text_position += (int8_t)ROM8(text) * 2u;
 	text++;
 	formatted_text_single(cell, text, text_position);
 }
 
 void formatted_text_skip_long_single(uint16_t cell, uint32_t text, uint32_t text_position)
 {
-	text_position += (int16_t)mem_read16(text) * 2u;
+	text_position += (int16_t)ROM16(text) * 2u;
 	text += 2u;
 	formatted_text_single(cell, text, text_position);
 }
 
 void formatted_text_position_double(uint32_t text, uint32_t text_position)
 {
-	text_position = (text_position & ~0xFFFFu) | mem_read16(text);
+	text_position = (text_position & ~0xFFFFu) | ROM16(text);
 	text += 2u;
 	formatted_text_attribute_double(text, text_position);
 }
@@ -607,7 +607,7 @@ void formatted_text_attribute_double(uint32_t text, uint32_t text_position)
 {
 	uint16_t cell = 0;
 
-	cell = (uint16_t)((uint32_t)mem_read8(text) << 8);
+	cell = (uint16_t)((uint32_t)ROM8(text) << 8);
 	text++;
 	formatted_text_double(cell, text, text_position);
 }
@@ -620,7 +620,7 @@ void formatted_text_double(uint16_t cell, uint32_t text, uint32_t text_position)
 
 	for (;;)
 	{
-		cell = (uint16_t)((cell & ~0xFFu) | mem_read8(text));
+		cell = (uint16_t)((cell & ~0xFFu) | ROM8(text));
 		zero = (uint8_t)cell == 0u;
 		text++;
 		if ((uint8_t)cell != 0u)
@@ -631,14 +631,14 @@ void formatted_text_double(uint16_t cell, uint32_t text, uint32_t text_position)
 				cell++;
 				text_position += 2u;
 				mem_write16(text_position, cell);
-				next_char = mem_read8(text);
+				next_char = ROM8(text);
 				text++;
 				cell = (uint16_t)((cell & ~0xFFu) | next_char);
 				zero = (uint8_t)cell == 0u;
 				text_position += 2u;
 			} while ((uint8_t)cell != 0u);
 		}
-		code = mem_read8(text);
+		code = ROM8(text);
 		text++;
 		switch (code)
 		{
@@ -683,28 +683,28 @@ void formatted_text_double(uint16_t cell, uint32_t text, uint32_t text_position)
 			formatted_text_skip_long_double(cell, text, text_position);
 			return;
 		default:
-			unknown_code(0x99703u + code);
+			invalid_jump(0x99703u + code);
 		}
 	}
 }
 
 void formatted_text_skip_double(uint16_t cell, uint32_t text, uint32_t text_position)
 {
-	text_position += (int8_t)mem_read8(text) * 2u;
+	text_position += (int8_t)ROM8(text) * 2u;
 	text++;
 	formatted_text_double(cell, text, text_position);
 }
 
 void formatted_text_skip_long_double(uint16_t cell, uint32_t text, uint32_t text_position)
 {
-	text_position += (int16_t)mem_read16(text) * 2u;
+	text_position += (int16_t)ROM16(text) * 2u;
 	text += 2u;
 	formatted_text_double(cell, text, text_position);
 }
 
 void formatted_text_position_triple(uint32_t text, uint32_t text_position)
 {
-	text_position = (text_position & ~0xFFFFu) | mem_read16(text);
+	text_position = (text_position & ~0xFFFFu) | ROM16(text);
 	text += 2u;
 	formatted_text_attribute_triple(text, text_position);
 }
@@ -713,7 +713,7 @@ void formatted_text_attribute_triple(uint32_t text, uint32_t text_position)
 {
 	uint16_t cell = 0;
 
-	cell = (uint16_t)((uint32_t)mem_read8(text) << 8);
+	cell = (uint16_t)((uint32_t)ROM8(text) << 8);
 	text++;
 	formatted_text_triple(cell, text, text_position);
 }
@@ -726,7 +726,7 @@ void formatted_text_triple(uint16_t cell, uint32_t text, uint32_t text_position)
 
 	for (;;)
 	{
-		cell = (uint16_t)((cell & ~0xFFu) | mem_read8(text));
+		cell = (uint16_t)((cell & ~0xFFu) | ROM8(text));
 		zero = (uint8_t)cell == 0u;
 		text++;
 		if ((uint8_t)cell != 0u)
@@ -740,14 +740,14 @@ void formatted_text_triple(uint16_t cell, uint32_t text, uint32_t text_position)
 				cell++;
 				text_position += 2u;
 				mem_write16(text_position, cell);
-				next_char = mem_read8(text);
+				next_char = ROM8(text);
 				text++;
 				cell = (uint16_t)((cell & ~0xFFu) | next_char);
 				zero = (uint8_t)cell == 0u;
 				text_position += 2u;
 			} while ((uint8_t)cell != 0u);
 		}
-		code = mem_read8(text);
+		code = ROM8(text);
 		text++;
 		switch (code)
 		{
@@ -792,21 +792,21 @@ void formatted_text_triple(uint16_t cell, uint32_t text, uint32_t text_position)
 			formatted_text_skip_long_triple(cell, text, text_position);
 			return;
 		default:
-			unknown_code(0x99764u + code);
+			invalid_jump(0x99764u + code);
 		}
 	}
 }
 
 void formatted_text_skip_triple(uint16_t cell, uint32_t text, uint32_t text_position)
 {
-	text_position += (int8_t)mem_read8(text) * 2u;
+	text_position += (int8_t)ROM8(text) * 2u;
 	text++;
 	formatted_text_triple(cell, text, text_position);
 }
 
 void formatted_text_skip_long_triple(uint16_t cell, uint32_t text, uint32_t text_position)
 {
-	text_position += (int16_t)mem_read16(text) * 2u;
+	text_position += (int16_t)ROM16(text) * 2u;
 	text += 2u;
 	formatted_text_triple(cell, text, text_position);
 }
@@ -822,7 +822,7 @@ void erase_formatted_text(uint32_t cell, uint32_t text)
 
 void erase_formatted_text_position_single(uint32_t cell, uint32_t text, uint32_t text_position)
 {
-	text_position = (text_position & ~0xFFFFu) | mem_read16(text);
+	text_position = (text_position & ~0xFFFFu) | ROM16(text);
 	text += 2u;
 	erase_formatted_text_attribute_single(cell, text, text_position);
 }
@@ -841,7 +841,7 @@ void erase_formatted_text_single(uint32_t cell, uint32_t text, uint32_t text_pos
 
 	for (;;)
 	{
-		first_char = mem_read8(text);
+		first_char = ROM8(text);
 		zero = first_char == 0u;
 		text++;
 		if (first_char != 0u)
@@ -849,13 +849,13 @@ void erase_formatted_text_single(uint32_t cell, uint32_t text, uint32_t text_pos
 			do
 			{
 				mem_write16(text_position, cell);
-				next_char = mem_read8(text);
+				next_char = ROM8(text);
 				text++;
 				zero = next_char == 0u;
 				text_position += 2u;
 			} while (next_char != 0u);
 		}
-		code = mem_read8(text);
+		code = ROM8(text);
 		text++;
 		switch (code)
 		{
@@ -894,7 +894,7 @@ void erase_formatted_text_single(uint32_t cell, uint32_t text, uint32_t text_pos
 			erase_formatted_text_skip_single(cell, text, text_position);
 			return;
 		default:
-			unknown_code(0x997BCu + code);
+			invalid_jump(0x997BCu + code);
 		}
 		if (zero)
 			return;
@@ -903,14 +903,14 @@ void erase_formatted_text_single(uint32_t cell, uint32_t text, uint32_t text_pos
 
 void erase_formatted_text_skip_single(uint32_t cell, uint32_t text, uint32_t text_position)
 {
-	text_position += (int8_t)mem_read8(text) * 2u;
+	text_position += (int8_t)ROM8(text) * 2u;
 	text++;
 	erase_formatted_text_single(cell, text, text_position);
 }
 
 void erase_formatted_text_position_double(uint32_t cell, uint32_t text, uint32_t text_position)
 {
-	text_position = (text_position & ~0xFFFFu) | mem_read16(text);
+	text_position = (text_position & ~0xFFFFu) | ROM16(text);
 	text += 2u;
 	erase_formatted_text_attribute_double(cell, text, text_position);
 }
@@ -929,7 +929,7 @@ void erase_formatted_text_double(uint32_t cell, uint32_t text, uint32_t text_pos
 
 	for (;;)
 	{
-		first_char = mem_read8(text);
+		first_char = ROM8(text);
 		zero = first_char == 0u;
 		text++;
 		if (first_char != 0u)
@@ -937,13 +937,13 @@ void erase_formatted_text_double(uint32_t cell, uint32_t text, uint32_t text_pos
 			do
 			{
 				mem_write32(text_position, cell);
-				next_char = mem_read8(text);
+				next_char = ROM8(text);
 				text++;
 				zero = next_char == 0u;
 				text_position += 4u;
 			} while (next_char != 0u);
 		}
-		code = mem_read8(text);
+		code = ROM8(text);
 		text++;
 		switch (code)
 		{
@@ -985,21 +985,21 @@ void erase_formatted_text_double(uint32_t cell, uint32_t text, uint32_t text_pos
 			erase_formatted_text_skip_double(cell, text, text_position);
 			return;
 		default:
-			unknown_code(0x997FDu + code);
+			invalid_jump(0x997FDu + code);
 		}
 	}
 }
 
 void erase_formatted_text_skip_double(uint32_t cell, uint32_t text, uint32_t text_position)
 {
-	text_position += (int8_t)mem_read8(text) * 2u;
+	text_position += (int8_t)ROM8(text) * 2u;
 	text++;
 	erase_formatted_text_double(cell, text, text_position);
 }
 
 void erase_formatted_text_position_triple(uint32_t cell, uint32_t text, uint32_t text_position)
 {
-	text_position = (text_position & ~0xFFFFu) | mem_read16(text);
+	text_position = (text_position & ~0xFFFFu) | ROM16(text);
 	text += 2u;
 	erase_formatted_text_attribute_triple(cell, text, text_position);
 }
@@ -1018,7 +1018,7 @@ void erase_formatted_text_triple(uint32_t cell, uint32_t text, uint32_t text_pos
 
 	for (;;)
 	{
-		first_char = mem_read8(text);
+		first_char = ROM8(text);
 		zero = first_char == 0u;
 		text++;
 		if (first_char != 0u)
@@ -1028,13 +1028,13 @@ void erase_formatted_text_triple(uint32_t cell, uint32_t text, uint32_t text_pos
 				mem_write32(text_position, cell);
 				text_position += 4u;
 				mem_write16(text_position, cell);
-				next_char = mem_read8(text);
+				next_char = ROM8(text);
 				text++;
 				zero = next_char == 0u;
 				text_position += 2u;
 			} while (next_char != 0u);
 		}
-		code = mem_read8(text);
+		code = ROM8(text);
 		text++;
 		switch (code)
 		{
@@ -1076,14 +1076,14 @@ void erase_formatted_text_triple(uint32_t cell, uint32_t text, uint32_t text_pos
 			erase_formatted_text_skip_triple(cell, text, text_position);
 			return;
 		default:
-			unknown_code(0x99841u + code);
+			invalid_jump(0x99841u + code);
 		}
 	}
 }
 
 void erase_formatted_text_skip_triple(uint32_t cell, uint32_t text, uint32_t text_position)
 {
-	text_position += (int8_t)mem_read8(text) * 2u;
+	text_position += (int8_t)ROM8(text) * 2u;
 	text++;
 	erase_formatted_text_triple(cell, text, text_position);
 }

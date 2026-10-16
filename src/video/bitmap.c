@@ -3,7 +3,7 @@
  *    Description: the bitmap layer: clearing it, its address, scroll and window, pixels, lines, spans and rectangles; an unused packed picture decoder and LZ unpacker
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    15-10-2026
+ *    Modified:    16-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -53,18 +53,18 @@ void init_picture_colour_cache(uint32_t colour_cache)
 	previous_slot = 0xFFu;
 	do
 	{
-		mem_write8(entry_cursor, next_slot);
+		PICTURE_COLOUR_SLOT(entry_cursor)->next = next_slot;
 		entry_cursor++;
-		mem_write8(entry_cursor, previous_slot);
+		PICTURE_COLOUR_SLOT(entry_cursor - 0x1u)->previous = previous_slot;
 		entry_cursor++;
-		mem_write8(entry_cursor, 0u);
+		PICTURE_COLOUR_SLOT(entry_cursor - 0x2u)->colour = 0u;
 		next_slot++;
 		previous_slot++;
 		slots_left--;
 		entry_cursor++;
 	} while (slots_left != 0u);
 	mem_write8(colour_cache + 0x2Du, 0u);
-	mem_write8(colour_cache + 1u, 0xFu);
+	PICTURE_COLOUR_SLOT(colour_cache)->previous = 0xFu;
 }
 
 uint32_t read_picture_size(uint32_t stream)
@@ -143,7 +143,7 @@ void unpack_picture_pixels(uint32_t stream, uint32_t width, uint32_t colour_cach
 					chain_offset++;
 					goto unpack_picture_chain_down;
 				default:
-					unknown_code(picture_chain_step_jumps[chain_step]);
+					invalid_jump(picture_chain_step_jumps[chain_step]);
 				}
 				bit = shr32(mem_read32(stream + (current_player >> 3)), (int)(current_player & 7u)) & 1u;
 				current_player = current_player + 1u;
@@ -576,15 +576,15 @@ void draw_pixel(uint32_t x, uint32_t y, uint8_t color)
 uint32_t read_pixel(uint32_t x, uint32_t y)
 {
 	uint8_t saved_x = 0;
-	uint32_t r0 = 0, outcode = 0, pixel = 0;
+	uint32_t outcode = 0, pixel = 0;
 
 	if (bitmap_8bpp != 0u)
 	{
 		get_point_outcode(&x, &y, &outcode);
 		if ((uint8_t)outcode != 0u)
 		{
-			r0 = 0xFFFFFFFFu;
-			return r0;
+			pixel = 0xFFFFFFFFu;
+			return pixel;
 		}
 		pixel = mem_read8((y << 9) + x + bitmap_address);
 		return pixel;
@@ -592,8 +592,8 @@ uint32_t read_pixel(uint32_t x, uint32_t y)
 	get_point_outcode(&x, &y, &outcode);
 	if ((uint8_t)outcode != 0u)
 	{
-		r0 = 0xFFFFFFFFu;
-		return r0;
+		pixel = 0xFFFFFFFFu;
+		return pixel;
 	}
 	saved_x = (uint8_t)x;
 	pixel = mem_read8((y << 8) + ((int32_t)x >> 1) + bitmap_address);
@@ -612,7 +612,7 @@ void draw_line(uint32_t end_x, uint32_t end_y, uint32_t *p_start_x, uint32_t *p_
 	uint32_t zero = 0, negative = 0, overflow = 0, carry = 0;
 	uint8_t high_nibble_mask = 0, low_nibble_color = 0;
 	uint16_t fraction_4bpp = 0, fraction_8bpp = 0;
-	uint32_t direction_index = 0, end_outcode = 0, end_x_copy = 0, end_y_copy = 0, end_y_copy_8bpp = 0, ignored = 0, major_step = 0, minor_step = 0, outcode = 0, row_step_4bpp = 0, slope = 0, span_end_copy = 0, span_length = 0, steep_slope = 0, step_record = 0, steps_left = 0, top_row = 0;
+	uint32_t direction_index = 0, end_outcode = 0, end_x_copy = 0, end_y_copy = 0, end_y_copy_8bpp = 0, ignored = 0, major_step = 0, minor_step = 0, outcode = 0, pixel = 0, row_step_4bpp = 0, slope = 0, span_end_copy = 0, span_length = 0, steep_slope = 0, step_record = 0, steps_left = 0, top_row = 0;
 	uint16_t end_y_4bpp = 0, dy_4bpp = 0, end_x_4bpp = 0, dx_4bpp = 0, end_y_8bpp = 0, dy_8bpp = 0, span_end_x = 0, end_x_8bpp = 0, dx_8bpp = 0;
 	uint32_t pixels_left = 0, saved_step = 0, saved_dy = 0;
 
@@ -623,8 +623,8 @@ void draw_line(uint32_t end_x, uint32_t end_y, uint32_t *p_start_x, uint32_t *p_
 		get_window_outcode(&start_x, &start_y, &end_x, &end_y, &outcode);
 		if ((uint16_t)(outcode & end_outcode) != 0u)
 		{
-			start_x = 0xFFFFFFFFu;
-			*p_start_x = start_x;
+			pixel = 0xFFFFFFFFu;
+			*p_start_x = pixel;
 			*p_start_y = start_y;
 			*p_unclipped_y = unclipped_y;
 			return;
@@ -1281,7 +1281,7 @@ void draw_dotted_line_8bpp(uint32_t start_x, uint32_t start_y, uint32_t end_x, u
 {
 	uint32_t zero = 0, negative = 0, overflow = 0, carry = 0;
 	uint16_t fraction = 0;
-	uint32_t direction_index = 0, dot_count = 0, dots_left = 0, dy = 0, end_outcode = 0, end_x_copy = 0, end_y_copy = 0, major_step = 0, minor_step = 0, outcode = 0, row_step = 0, span_end_copy = 0, span_length = 0, step_record = 0, steps_left = 0, unclipped_y = 0;
+	uint32_t direction_index = 0, dot_count = 0, dots_left = 0, dy = 0, end_outcode = 0, end_x_copy = 0, end_y_copy = 0, ignored = 0, major_step = 0, minor_step = 0, outcode = 0, row_step = 0, span_end_copy = 0, span_length = 0, step_record = 0, steps_left = 0;
 	uint16_t end_y_16 = 0, dy_16 = 0, span_end_16 = 0, span_dots = 0, end_x_16 = 0, dx_16 = 0, column_dots = 0, diagonal_dots = 0;
 	uint32_t saved_step = 0, saved_dy = 0;
 
@@ -1291,7 +1291,7 @@ void draw_dotted_line_8bpp(uint32_t start_x, uint32_t start_y, uint32_t end_x, u
 	if ((uint16_t)(outcode & end_outcode) != 0u)
 		return;
 	if ((uint16_t)(outcode | end_outcode) != 0u)
-		clip_line_to_window(outcode, end_outcode, &start_x, &start_y, &end_x, &end_y, &unclipped_y);
+		clip_line_to_window(outcode, end_outcode, &start_x, &start_y, &end_x, &end_y, &ignored);
 	direction_index = 0u;
 	end_y_copy = end_y;
 	end_y_16 = end_y_copy;
@@ -1426,7 +1426,7 @@ void draw_dotted_line_8bpp(uint32_t start_x, uint32_t start_y, uint32_t end_x, u
 
 void draw_rect_outline(uint32_t left, uint32_t top, uint32_t width, uint32_t height, uint32_t color)
 {
-	uint32_t column_address = 0, column_length = 0, left_byte_offset = 0, length = 0, pixel_address = 0, right_side_length = 0, row_step = 0, saved_top_left = 0, top_left_address = 0, unclipped_edges = 0;
+	uint32_t column_address = 0, column_length = 0, ignored = 0, left_byte_offset = 0, length = 0, pixel_address = 0, right_side_length = 0, row_step = 0, saved_top_left = 0, top_left_address = 0, unclipped_edges = 0;
 
 	clip_rect_to_window(&left, &top, &width, &height, &left_byte_offset, &unclipped_edges);
 	if (unclipped_edges == 0u)
@@ -1466,7 +1466,7 @@ void draw_rect_outline(uint32_t left, uint32_t top, uint32_t width, uint32_t hei
 			top = (top & ~0xFFFFu) | (uint16_t)(top + ((left >> 1) - left_byte_offset));
 			break;
 		default:
-			unknown_code(0x9ADA3u + unclipped_edges);
+			invalid_jump(0x9ADA3u + unclipped_edges);
 		}
 		column_length = (uint16_t)height;
 		draw_vertical_span_4bpp_here((uint8_t)left, unclipped_edges, &top, &color, &column_length);
@@ -1512,20 +1512,20 @@ void draw_rect_outline(uint32_t left, uint32_t top, uint32_t width, uint32_t hei
 		return;
 	case 0xCu:
 		length = width;
-		fill_span_8bpp(length, &left, &top, &color);
+		fill_span_8bpp(length, &ignored, &top, &color);
 		return;
 	case 0xFu:
 		saved_top_left = top;
 		column_length = height;
 		length = width;
-		fill_span_8bpp(length, &left, &top, &color);
+		fill_span_8bpp(length, &ignored, &top, &color);
 		column_address = saved_top_left;
 		column_address = draw_vertical_line_8bpp(column_address, (uint8_t)color, column_length);
 		return;
 	case 0x12u:
 		column_length = height;
 		length = width;
-		fill_span_8bpp(length, &left, &top, &color);
+		fill_span_8bpp(length, &ignored, &top, &color);
 		top = draw_vertical_line_8bpp(top, (uint8_t)color, column_length);
 		return;
 	case 0x15u:
@@ -1535,32 +1535,32 @@ void draw_rect_outline(uint32_t left, uint32_t top, uint32_t width, uint32_t hei
 			draw_rect_sides_8bpp(top, width, height, (uint8_t)color);
 			pixel_address = top_left_address;
 			length = width;
-			fill_span_8bpp(length, &top_left_address, &pixel_address, &color);
+			fill_span_8bpp(length, &ignored, &pixel_address, &color);
 			return;
 		}
 		saved_top_left = top;
 		column_length = height;
 		length = width;
-		fill_span_8bpp(length, &left, &top, &color);
+		fill_span_8bpp(length, &ignored, &top, &color);
 		column_address = saved_top_left;
 		column_address = draw_vertical_line_8bpp(column_address, (uint8_t)color, column_length);
 		return;
 	case 0x18u:
 		top += height << 9;
 		length = width;
-		fill_span_8bpp(length, &left, &top, &color);
+		fill_span_8bpp(length, &ignored, &top, &color);
 		return;
 	case 0x1Bu:
 		column_length = height;
 		length = width;
 		top = draw_vertical_line_8bpp(top, (uint8_t)color, column_length);
-		fill_span_8bpp(length, &left, &top, &color);
+		fill_span_8bpp(length, &ignored, &top, &color);
 		return;
 	case 0x1Eu:
 		right_side_length = height;
 		top += height << 9;
 		length = width;
-		fill_span_8bpp(length, &left, &top, &color);
+		fill_span_8bpp(length, &ignored, &top, &color);
 		row_step = (int16_t)0xFE00u;
 		draw_vertical_span_8bpp(row_step, (uint8_t)color, &top, &right_side_length);
 		return;
@@ -1570,12 +1570,12 @@ void draw_rect_outline(uint32_t left, uint32_t top, uint32_t width, uint32_t hei
 			column_length = height;
 			length = width;
 			top = draw_vertical_line_8bpp(top, (uint8_t)color, column_length);
-			fill_span_8bpp(length, &left, &top, &color);
+			fill_span_8bpp(length, &ignored, &top, &color);
 			return;
 		}
 		top = draw_rect_sides_8bpp(top, width, height, (uint8_t)color);
 		length = width;
-		fill_span_8bpp(length, &left, &top, &color);
+		fill_span_8bpp(length, &ignored, &top, &color);
 		return;
 	case 0x24u:
 		top = draw_rect_top_bottom_8bpp(top, width, height, color);
@@ -1593,7 +1593,7 @@ void draw_rect_outline(uint32_t left, uint32_t top, uint32_t width, uint32_t hei
 		saved_top_left = top;
 		column_length = height;
 		length = width;
-		fill_span_8bpp(length, &left, &top, &color);
+		fill_span_8bpp(length, &ignored, &top, &color);
 		column_address = saved_top_left;
 		column_address = draw_vertical_line_8bpp(column_address, (uint8_t)color, column_length);
 		return;
@@ -1602,7 +1602,7 @@ void draw_rect_outline(uint32_t left, uint32_t top, uint32_t width, uint32_t hei
 		{
 			column_length = height;
 			length = width;
-			fill_span_8bpp(length, &left, &top, &color);
+			fill_span_8bpp(length, &ignored, &top, &color);
 			top = draw_vertical_line_8bpp(top, (uint8_t)color, column_length);
 			return;
 		}
@@ -1619,13 +1619,13 @@ void draw_rect_outline(uint32_t left, uint32_t top, uint32_t width, uint32_t hei
 				draw_rect_sides_8bpp(top, width, height, (uint8_t)color);
 				pixel_address = top_left_address;
 				length = width;
-				fill_span_8bpp(length, &top_left_address, &pixel_address, &color);
+				fill_span_8bpp(length, &ignored, &pixel_address, &color);
 				return;
 			}
 			saved_top_left = top;
 			column_length = height;
 			length = width;
-			fill_span_8bpp(length, &left, &top, &color);
+			fill_span_8bpp(length, &ignored, &top, &color);
 			column_address = saved_top_left;
 			column_address = draw_vertical_line_8bpp(column_address, (uint8_t)color, column_length);
 			return;
@@ -1653,7 +1653,7 @@ void draw_rect_outline(uint32_t left, uint32_t top, uint32_t width, uint32_t hei
 		draw_vertical_span_4bpp_here((uint8_t)left, unclipped_edges, &top, &color, &column_length);
 		return;
 	default:
-		unknown_code(0x9AD73u + unclipped_edges);
+		invalid_jump(0x9AD73u + unclipped_edges);
 	}
 }
 
@@ -1758,16 +1758,16 @@ void fill_rect(uint32_t top, uint32_t right, uint32_t bottom, uint32_t *p_left, 
 	uint32_t left = *p_left;
 	uint32_t color = *p_color;
 	uint32_t blocks_per_row = *p_blocks_per_row;
-	uint32_t r5 = 0, row_pairs_left = 0, unclipped_edges = 0;
+	uint32_t ignored = 0, pixel = 0, unclipped_edges = 0;
 
-	clip_rect_to_window(&left, &top, &right, &bottom, &r5, &unclipped_edges);
+	clip_rect_to_window(&left, &top, &right, &bottom, &ignored, &unclipped_edges);
 	if (unclipped_edges == 0u)
 	{
-		left = 0xFFFFFFFFu;
-		*p_left = left;
+		pixel = 0xFFFFFFFFu;
+		*p_left = pixel;
 		return;
 	}
-	fill_rect_unclipped(right, bottom, &left, &top, &color, &r5, &row_pairs_left, &blocks_per_row, &unclipped_edges);
+	fill_rect_unclipped(right, bottom, &left, &top, &color, &ignored, &ignored, &blocks_per_row, &ignored);
 	*p_left = left;
 	*p_color = color;
 	*p_blocks_per_row = blocks_per_row;
@@ -1785,7 +1785,7 @@ void fill_rect_unclipped(uint32_t right, uint32_t bottom, uint32_t *p_left, uint
 	uint32_t carry = 0;
 	uint8_t byte_color = 0, color_low = 0, high_nibble_color = 0, tail_width = 0;
 	uint16_t straddle_keep_mask = 0, tail_keep_mask = 0;
-	uint32_t r5 = 0, block_cursor = 0, bottom_copy = 0, column_cursor = 0, first_row = 0, last_column = 0, length = 0, lower_cursor = 0, pair_skip = 0, pixel_columns = 0, right_copy = 0, row_bytes = 0, row_offset_halfwords = 0, row_offset_longs = 0, row_pitch_4bpp = 0, row_pitch_8bpp = 0, row_step = 0, row_step_2 = 0, rows_left = 0, rows_to_fill = 0, upper_cursor = 0;
+	uint32_t block_cursor = 0, bottom_copy = 0, column_cursor = 0, first_row = 0, last_column = 0, length = 0, lower_cursor = 0, pair_skip = 0, pixel_columns = 0, right_copy = 0, row_bytes = 0, row_offset_halfwords = 0, row_offset_longs = 0, row_pitch_4bpp = 0, row_pitch_8bpp = 0, row_step = 0, row_step_2 = 0, rows_left = 0, rows_to_fill = 0, span_length = 0, upper_cursor = 0;
 	uint16_t block_count = 0, bottom_row = 0, right_column = 0, rect_dx = 0;
 	uint32_t columns_left = 0, tail_columns = 0, tail_pixels = 0;
 
@@ -1983,11 +1983,11 @@ void fill_rect_unclipped(uint32_t right, uint32_t bottom, uint32_t *p_left, uint
 	rows_left = (uint16_t)(bottom_row - top);
 	if (bottom_row == top)
 	{
-		fill_span_4bpp((uint16_t)right, &left, &top, &color, &r5);
+		fill_span_4bpp((uint16_t)right, &left, &top, &color, &span_length);
 		*p_left = left;
 		*p_top = top;
 		*p_color = color;
-		*p_inner_count = r5;
+		*p_inner_count = span_length;
 		*p_row_pairs_left = row_pairs_left;
 		*p_blocks_per_row = blocks_per_row;
 		*p_lower_row_cursor = lower_row_cursor;

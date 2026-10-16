@@ -3,7 +3,7 @@
  *    Description: the title screen: the SEGA logo, the emblem, the land, the craft, Sonic's loop, the clouds and the sky
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    15-10-2026
+ *    Modified:    16-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -17,7 +17,7 @@ void run_title_screen(uint32_t text_position, uint32_t *p_color, uint32_t *p_row
 	uint32_t row_pairs_left = *p_row_pairs_left;
 	uint32_t blocks_per_row = *p_blocks_per_row;
 	uint32_t text = *p_text;
-	uint32_t background_script = 0, count = 0, ignored = 0, object = 0, palette_list = 0, script = 0;
+	uint32_t background_script = 0, ignored = 0, object = 0, palette_list = 0, script = 0;
 	uint8_t cnt_bits = 0;
 
 	run_sega_logo(text_position, &color, &row_pairs_left, &blocks_per_row, &text);
@@ -62,9 +62,9 @@ void run_title_screen(uint32_t text_position, uint32_t *p_color, uint32_t *p_row
 	palette_list = tile_bank_1_palette_list_ADDRESS;
 	load_palette_list(palette_list, &ignored, &object);
 	script = title_sky_script_ADDRESS;
-	run_vram_script(&count, &script, &object);
+	run_vram_script(&ignored, &script, &object);
 	background_script = title_waving_background_script_ADDRESS;
-	run_vram_script(&count, &background_script, &object);
+	run_vram_script(&ignored, &background_script, &object);
 	nbg2_scroll_x = 0u;
 	nbg2_scroll_y = 0xFFE8u;
 	nbg3_scroll_x = 0u;
@@ -76,16 +76,16 @@ void run_title_screen(uint32_t text_position, uint32_t *p_color, uint32_t *p_row
 	last_object = last_object_address;
 	object = allocate_object_or_start_list(object);
 	OBJECT(object)->handler = title_land_slide_ADDRESS;
-	AS8(OBJECT(object)->flags) = 0u;
+	OBJECT(object)->title.started = 0u;
 	allocate_object(&ignored, &object);
 	OBJECT(object)->handler = title_emblem_animate_ADDRESS;
-	AS8(OBJECT(object)->flags) = 0u;
+	OBJECT(object)->title.started = 0u;
 	allocate_object(&ignored, &object);
 	OBJECT(object)->handler = timed_spawner_run_ADDRESS;
-	AS8(OBJECT(object)->flags) = 0u;
+	OBJECT(object)->timed_spawner.started = 0u;
 	allocate_object(&ignored, &object);
 	OBJECT(object)->handler = title_sky_wave_ADDRESS;
-	AS8(OBJECT(object)->flags) = 0u;
+	OBJECT(object)->title.started = 0u;
 	title_scene_built = 1u;
 	mem_write16(video_backdrop_control, 0u);
 	mem_write16(video_layer_disable, mem_read16(video_layer_disable) & 0xD0u);
@@ -282,7 +282,8 @@ void title_land_slide(void)
 		OBJECT(current_object)->screen_y = 0x7A;
 		OBJECT(current_object)->screen_x = 0xA0;
 		OBJECT(current_object)->speed_y = 0x1900000;
-		AS16(OBJECT(current_object)->title.started) = 1u;
+		OBJECT(current_object)->title.started = 1u;
+		OBJECT(current_object)->step = 0u;
 	}
 	if (title_done == 0u)
 	{
@@ -303,7 +304,7 @@ void timed_spawner_run(void)
 	{
 		OBJECT(current_object)->timed_spawner.started = 1u;
 		OBJECT(current_object)->timed_spawner.list_index = 0u;
-		OBJECT(current_object)->timed_spawner.timer = 0;
+		OBJECT(current_object)->timer = 0;
 	}
 	for (;;)
 	{
@@ -315,15 +316,15 @@ void timed_spawner_run(void)
 		}
 		spawn_frame = ROM16(spawn_record);
 		spawn_record += 2u;
-		if (OBJECT(current_object)->timed_spawner.timer <= (int16_t)spawn_frame)
+		if (OBJECT(current_object)->timer <= (int16_t)spawn_frame)
 			break;
 		OBJECT(current_object)->timed_spawner.list_index++;
 		spawned_handler = ROM16(spawn_record) + 0x973B4u;
 		allocate_object(&ignored, &object);
 		OBJECT(object)->handler = spawned_handler;
-		AS8(OBJECT(object)->flags) = 0u;
+		OBJECT(object)->flags_low_byte = 0u;
 	}
-	OBJECT(current_object)->timed_spawner.timer++;
+	OBJECT(current_object)->timer++;
 }
 
 void title_flying_craft_move(void)
@@ -340,7 +341,7 @@ void title_flying_craft_move(void)
 		OBJECT(current_object)->sprite_scale = 0x100u;
 		OBJECT(current_object)->sprite_flags = 0u;
 		OBJECT(current_object)->sprite_palette = 0xEB0u;
-		OBJECT(current_object)->title.timer = 0;
+		OBJECT(current_object)->timer = 0;
 	}
 	if (title_done != 0u)
 	{
@@ -349,10 +350,10 @@ void title_flying_craft_move(void)
 	}
 	OBJECT(current_object)->screen_x--;
 	queue_sprite_in_layer();
-	OBJECT(current_object)->title.timer++;
-	if (OBJECT(current_object)->title.timer > 0xA)
+	OBJECT(current_object)->timer++;
+	if (OBJECT(current_object)->timer > 0xA)
 	{
-		OBJECT(current_object)->title.timer = 0;
+		OBJECT(current_object)->timer = 0;
 		allocate_object(&ignored, &object);
 		OBJECT(object)->handler = title_smoke_puff_animate_ADDRESS;
 		OBJECT(object)->screen_x = OBJECT(current_object)->screen_x;
@@ -374,7 +375,7 @@ void title_smoke_puff_animate(void)
 		OBJECT(current_object)->sprite_scale = 0x100u;
 		OBJECT(current_object)->sprite_flags = 0u;
 		OBJECT(current_object)->sprite_palette = 0xEB0u;
-		OBJECT(current_object)->title.timer = 0;
+		OBJECT(current_object)->timer = 0;
 		OBJECT(current_object)->title.frame_index = 0u;
 	}
 	if (title_done != 0u)
@@ -382,13 +383,13 @@ void title_smoke_puff_animate(void)
 		delete_current_object();
 		return;
 	}
-	AS8(OBJECT(current_object)->title.timer)++;
-	if (OBJECT(current_object)->title.timer < 3)
+	OBJECT(current_object)->title.timer_low++;
+	if (OBJECT(current_object)->timer < 3)
 	{
 		queue_sprite_in_layer();
 		return;
 	}
-	OBJECT(current_object)->title.timer = 0;
+	OBJECT(current_object)->timer = 0;
 	puff_frame = OBJECT(current_object)->title.frame_index;
 	OBJECT(current_object)->title.frame_index++;
 	puff_frame = title_smoke_puff_frames_ADDRESS + puff_frame * 2u;
@@ -524,14 +525,14 @@ void title_clouds_1_drift(void)
 		OBJECT(object)->sprite_flags = 0u;
 		OBJECT(object)->sprite_layer = 8u;
 		OBJECT(object)->sprite_palette = 0xD80u;
-		OBJECT(current_object)->title_clouds.timer = 0;
+		OBJECT(current_object)->timer = 0;
 	}
 	if (title_done == 0u)
 	{
-		OBJECT(object_cursor)->title_clouds.timer++;
-		if (OBJECT(object_cursor)->title_clouds.timer > 3)
+		OBJECT(object_cursor)->timer++;
+		if (OBJECT(object_cursor)->timer > 3)
 		{
-			OBJECT(object_cursor)->title_clouds.timer = 0;
+			OBJECT(object_cursor)->timer = 0;
 			current_object = object_cursor;
 			drift_title_cloud();
 			current_object = OBJECT(object_cursor)->speed_y;
@@ -677,14 +678,14 @@ void title_clouds_2_drift(void)
 		OBJECT(object)->sprite_flags = 0u;
 		OBJECT(object)->sprite_layer = 8u;
 		OBJECT(object)->sprite_palette = 0xD80u;
-		OBJECT(current_object)->title_clouds.timer = 0;
+		OBJECT(current_object)->timer = 0;
 	}
 	if (title_done == 0u)
 	{
-		OBJECT(object_cursor)->title_clouds.timer++;
-		if (OBJECT(object_cursor)->title_clouds.timer > 3)
+		OBJECT(object_cursor)->timer++;
+		if (OBJECT(object_cursor)->timer > 3)
 		{
-			OBJECT(object_cursor)->title_clouds.timer = 0;
+			OBJECT(object_cursor)->timer = 0;
 			current_object = object_cursor;
 			drift_title_cloud_2();
 			current_object = OBJECT(object_cursor)->speed_z;
@@ -800,14 +801,14 @@ void title_clouds_3_drift(void)
 		OBJECT(object)->sprite_flags = 0u;
 		OBJECT(object)->sprite_layer = 8u;
 		OBJECT(object)->sprite_palette = 0xD80u;
-		OBJECT(current_object)->title_clouds.timer = 0;
+		OBJECT(current_object)->timer = 0;
 	}
 	if (title_done == 0u)
 	{
-		OBJECT(object_cursor)->title_clouds.timer++;
-		if (OBJECT(object_cursor)->title_clouds.timer > 3)
+		OBJECT(object_cursor)->timer++;
+		if (OBJECT(object_cursor)->timer > 3)
 		{
-			OBJECT(object_cursor)->title_clouds.timer = 0;
+			OBJECT(object_cursor)->timer = 0;
 			current_object = object_cursor;
 			drift_title_cloud();
 			current_object = OBJECT(object_cursor)->speed_z;
@@ -856,10 +857,10 @@ void title_clouds_3_drift(void)
 
 void init_title_cloud_block(uint32_t cloud)
 {
-	mem_write16(cloud + 8u, 0x80u);
-	mem_write16(cloud + 0xAu, 8u);
-	mem_write16(cloud + 2u, 0u);
-	mem_write16(cloud + 6u, 0xD80u);
+	OBJECT(cloud)->sprite_scale = 0x80u;
+	OBJECT(cloud)->sprite_layer = 8u;
+	OBJECT(cloud)->sprite_flags = 0u;
+	OBJECT(cloud)->sprite_palette = 0xD80u;
 }
 
 void drift_title_cloud(void)
@@ -883,7 +884,7 @@ void drift_title_cloud_2(void)
 void title_sky_wave(void)
 {
 	uint16_t halfwords = 0;
-	uint32_t copy_entry = 0, cycle = 0, dest = 0, ignored = 0, palette_count = 0, row_offset = 0, row_scroll = 0, sine_cursor = 0, source = 0, wave_rows_left = 0;
+	uint32_t cycle = 0, dest = 0, ignored = 0, palette_count = 0, row_offset = 0, row_scroll = 0, sine_cursor = 0, source = 0, wave_rows_left = 0;
 
 	if (OBJECT(current_object)->title.started == 0u)
 	{
@@ -905,7 +906,7 @@ void title_sky_wave(void)
 	wave_rows_left = 0x80u;
 	do
 	{
-		mem_write32(row_offset, mem_read32(row_offset) + ((uint32_t)mem_read16(sine_cursor) << 3));
+		mem_write32(row_offset, mem_read32(row_offset) + ((uint32_t)ROM16(sine_cursor) << 3));
 		mem_write32(row_offset, mem_read32(row_offset) & 0x1FFFFFFu);
 		mem_write16(row_scroll, mem_read32(row_offset) >> 16);
 		row_scroll += 2u;
@@ -923,7 +924,7 @@ void title_sky_wave(void)
 	cycle = palette_cycle_0_ADDRESS;
 	palette_cycle_0 = 3u;
 	palette_cycle_0_frames = 0x10u;
-	cycle_palette(cycle, halfwords, &ignored, &copy_entry, &palette_count, &source, &dest);
+	cycle_palette(cycle, halfwords, &ignored, &ignored, &palette_count, &source, &dest);
 }
 
 void run_sega_logo(uint32_t logo_block, uint32_t *p_color, uint32_t *p_row_pairs_left, uint32_t *p_blocks_per_row, uint32_t *p_lower_row_cursor)
@@ -934,7 +935,7 @@ void run_sega_logo(uint32_t logo_block, uint32_t *p_color, uint32_t *p_row_pairs
 	uint32_t lower_row_cursor = *p_lower_row_cursor;
 	uint8_t is_8bpp = 0;
 	uint16_t object = 0, scroll_x = 0, scroll_y = 0;
-	uint32_t r0 = 0, ignored = 0, inner_count = 0;
+	uint32_t r0 = 0, ignored = 0;
 	uint8_t cnt_bits = 0;
 
 	if (sega_logo_step == 7u)
@@ -946,7 +947,7 @@ void run_sega_logo(uint32_t logo_block, uint32_t *p_color, uint32_t *p_row_pairs
 		display_off_frames = 5u;
 		init_sprites(&r0, &lower_row_cursor);
 		logo_block = clear_sprite_buckets();
-		clear_bitmap_layer((uint8_t)r0, &ignored, &color, &inner_count, &row_pairs_left, &blocks_per_row, &lower_row_cursor);
+		clear_bitmap_layer((uint8_t)r0, &ignored, &color, &ignored, &row_pairs_left, &blocks_per_row, &lower_row_cursor);
 		title_scene_built = 1u;
 		title_done = 0u;
 		scroll_x = 0u;
@@ -1015,7 +1016,7 @@ void run_sega_logo(uint32_t logo_block, uint32_t *p_color, uint32_t *p_row_pairs
 			*p_lower_row_cursor = lower_row_cursor;
 			return;
 		}
-		AS16(sega_logo_timer) = 0u;
+		sega_logo_timer_word = 0u;
 		color_offset_red++;
 		color_offset_blue++;
 		color_offset_green++;
@@ -1194,7 +1195,7 @@ void run_sega_logo(uint32_t logo_block, uint32_t *p_color, uint32_t *p_row_pairs
 		*p_lower_row_cursor = lower_row_cursor;
 		return;
 	default:
-		unknown_code(0x9824Eu + sega_logo_step * 3u);
+		invalid_jump(0x9824Eu + sega_logo_step * 3u);
 	}
 }
 

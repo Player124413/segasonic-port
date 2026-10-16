@@ -3,7 +3,7 @@
  *    Description: animation and the sprite list: animation steps (frames, flips, moves, offsets, multi-part sprites), part palette cycles, the depth buckets, build_sprite_list and the buffer swap at VBLANK
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    15-10-2026
+ *    Modified:    16-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -24,20 +24,20 @@ void cycle_part_palettes(void)
 		return;
 	OBJECT(current_object)->cycle_part_palettes.palette_timer = OBJECT(current_object)->cycle_part_palettes.palette_delay;
 	palettes = OBJECT(current_object)->cycle_part_palettes.palette_list;
-	last_index = (uint8_t)mem_read16(palettes);
+	last_index = (uint8_t)ROM16(palettes);
 	next_index = OBJECT(current_object)->cycle_part_palettes.palette_index;
 	next_index = (uint8_t)(next_index + 1u);
 	palettes += 2u;
 	if ((int8_t)last_index <= (int8_t)next_index && (int8_t)last_index < (int8_t)next_index)
 		next_index = 0u;
 	OBJECT(current_object)->cycle_part_palettes.palette_index = next_index;
-	palette = mem_read16(palettes + next_index * 2u);
+	palette = ROM16(palettes + next_index * 2u);
 	part = OBJECT(current_object)->part_list;
-	parts_left = mem_read16(part);
+	parts_left = SPRITE_PART_LIST(part)->count;
 	part += 2u;
 	do
 	{
-		mem_write16(part + 6u, palette);
+		SPRITE_PART(part)->palette = palette;
 		part += 8u;
 		parts_left--;
 	} while (parts_left != 0u);
@@ -70,7 +70,7 @@ void animate_step_with_flags(uint32_t *p_frame, uint32_t *p_at_last_step)
 	uint32_t frame = 0, step_record = 0;
 
 	step_record = OBJECT(current_object)->animation;
-	last_frame = (uint8_t)mem_read16(step_record);
+	last_frame = (uint8_t)ROM16(step_record);
 	frame = OBJECT(current_object)->animation_frame;
 	frame = (uint8_t)(frame + 1u);
 	step_record += 2u;
@@ -84,8 +84,8 @@ void animate_step_with_flags(uint32_t *p_frame, uint32_t *p_at_last_step)
 	OBJECT(current_object)->animation_frame = frame;
 	frame = frame * 2u;
 	step_record += frame * 2u;
-	OBJECT(current_object)->sprite_flags = (OBJECT(current_object)->sprite_flags & ~0xC0u) | mem_read16(step_record);
-	OBJECT(current_object)->sprite_frame = mem_read16(step_record + 2u);
+	OBJECT(current_object)->sprite_flags = (OBJECT(current_object)->sprite_flags & ~0xC0u) | FLAGGED_STEP(step_record)->flags;
+	OBJECT(current_object)->sprite_frame = FLAGGED_STEP(step_record)->frame;
 	*p_frame = frame;
 	*p_at_last_step = (*p_at_last_step & 0xFFFFFF00u) | at_last_step;
 }
@@ -121,7 +121,7 @@ void animate_step(uint32_t *p_frame, uint32_t *p_wrapped, uint32_t *p_at_last_st
 	uint32_t frame = 0, frame_list = 0;
 
 	frame_list = OBJECT(current_object)->animation;
-	last_frame = (uint8_t)mem_read16(frame_list);
+	last_frame = (uint8_t)ROM16(frame_list);
 	frame = OBJECT(current_object)->animation_frame;
 	frame_list += 2u;
 	if ((OBJECT(current_object)->flags & 0x80u) == 0u)
@@ -130,7 +130,7 @@ void animate_step(uint32_t *p_frame, uint32_t *p_wrapped, uint32_t *p_at_last_st
 		if ((int8_t)frame < (int8_t)last_frame)
 		{
 			OBJECT(current_object)->animation_frame = frame;
-			OBJECT(current_object)->sprite_frame = mem_read16(frame_list + frame * 2u);
+			OBJECT(current_object)->sprite_frame = ROM16(frame_list + frame * 2u);
 			*p_frame = frame;
 			return;
 		}
@@ -139,14 +139,14 @@ void animate_step(uint32_t *p_frame, uint32_t *p_wrapped, uint32_t *p_at_last_st
 			frame = 0u;
 			wrapped = 0xFFu;
 			OBJECT(current_object)->animation_frame = frame;
-			OBJECT(current_object)->sprite_frame = mem_read16(frame_list + frame * 2u);
+			OBJECT(current_object)->sprite_frame = ROM16(frame_list + frame * 2u);
 			*p_frame = frame;
 			*p_wrapped = (*p_wrapped & 0xFFFFFF00u) | wrapped;
 			return;
 		}
 		at_last_step = 0xFFu;
 		OBJECT(current_object)->animation_frame = frame;
-		OBJECT(current_object)->sprite_frame = mem_read16(frame_list + frame * 2u);
+		OBJECT(current_object)->sprite_frame = ROM16(frame_list + frame * 2u);
 		*p_frame = frame;
 		*p_at_last_step = (*p_at_last_step & 0xFFFFFF00u) | at_last_step;
 		return;
@@ -155,7 +155,7 @@ void animate_step(uint32_t *p_frame, uint32_t *p_wrapped, uint32_t *p_at_last_st
 	if ((int8_t)frame > 0)
 	{
 		OBJECT(current_object)->animation_frame = frame;
-		OBJECT(current_object)->sprite_frame = mem_read16(frame_list + frame * 2u);
+		OBJECT(current_object)->sprite_frame = ROM16(frame_list + frame * 2u);
 		*p_frame = frame;
 		return;
 	}
@@ -164,14 +164,14 @@ void animate_step(uint32_t *p_frame, uint32_t *p_wrapped, uint32_t *p_at_last_st
 		frame = (uint8_t)last_frame;
 		wrapped = 0xFFu;
 		OBJECT(current_object)->animation_frame = frame;
-		OBJECT(current_object)->sprite_frame = mem_read16(frame_list + frame * 2u);
+		OBJECT(current_object)->sprite_frame = ROM16(frame_list + frame * 2u);
 		*p_frame = frame;
 		*p_wrapped = (*p_wrapped & 0xFFFFFF00u) | wrapped;
 		return;
 	}
 	at_last_step = 0xFFu;
 	OBJECT(current_object)->animation_frame = frame;
-	OBJECT(current_object)->sprite_frame = mem_read16(frame_list + frame * 2u);
+	OBJECT(current_object)->sprite_frame = ROM16(frame_list + frame * 2u);
 	*p_frame = frame;
 	*p_at_last_step = (*p_at_last_step & 0xFFFFFF00u) | at_last_step;
 }
@@ -190,7 +190,7 @@ uint32_t animate_and_move(uint32_t at_last_step)
 		return at_last_step;
 	OBJECT(current_object)->animation_timer = OBJECT(current_object)->animation_speed;
 	step_record = OBJECT(current_object)->animation;
-	last_frame = (uint8_t)mem_read16(step_record);
+	last_frame = (uint8_t)ROM16(step_record);
 	frame = OBJECT(current_object)->animation_frame;
 	step_record += 2u;
 	if ((OBJECT(current_object)->flags & 0x80u) == 0u)
@@ -217,14 +217,14 @@ uint32_t animate_and_move(uint32_t at_last_step)
 	}
 	OBJECT(current_object)->animation_frame = frame;
 	step_record += frame * 4u;
-	OBJECT(current_object)->sprite_frame = mem_read16(step_record);
+	OBJECT(current_object)->sprite_frame = ANIMATION_STEP(step_record)->frame;
 	step_record += 2u;
-	delta = (uint16_t)(int8_t)mem_read8(step_record);
+	delta = (uint16_t)ANIMATION_STEP(step_record - 0x2u)->dx;
 	step_record++;
 	if ((OBJECT(current_object)->sprite_flags & 0x40u) != 0u)
 		delta = (uint16_t)(0u - delta);
 	OBJECT(current_object)->projected_x += delta;
-	delta = (uint16_t)(int8_t)mem_read8(step_record);
+	delta = (uint16_t)ANIMATION_STEP(step_record - 0x3u)->dy;
 	if ((OBJECT(current_object)->sprite_flags & 0x80u) != 0u)
 		delta = (uint16_t)(0u - delta);
 	OBJECT(current_object)->projected_y_int += delta;
@@ -244,7 +244,7 @@ uint32_t animate_around_anchor(void)
 		return at_last_step;
 	OBJECT(current_object)->animation_timer = OBJECT(current_object)->animation_speed;
 	steps = OBJECT(current_object)->animation;
-	last_frame = (uint8_t)mem_read16(steps);
+	last_frame = (uint8_t)ROM16(steps);
 	frame = OBJECT(current_object)->animation_frame;
 	steps += 2u;
 	if ((OBJECT(current_object)->flags & 0x80u) == 0u)
@@ -285,14 +285,14 @@ void set_step_around_anchor(uint32_t frame, uint32_t steps)
 	uint16_t delta = 0;
 
 	steps += frame * 4u;
-	OBJECT(current_object)->sprite_frame = mem_read16(steps);
+	OBJECT(current_object)->sprite_frame = ANIMATION_STEP(steps)->frame;
 	steps += 2u;
-	delta = (uint16_t)(int8_t)mem_read8(steps);
+	delta = (uint16_t)ANIMATION_STEP(steps - 0x2u)->dx;
 	steps++;
 	if ((OBJECT(current_object)->sprite_flags & 0x40u) != 0u)
 		delta = (uint16_t)(0u - delta);
 	OBJECT(current_object)->projected_x = delta + OBJECT(current_object)->anchor_x;
-	delta = (uint16_t)(int8_t)mem_read8(steps);
+	delta = (uint16_t)ANIMATION_STEP(steps - 0x3u)->dy;
 	if ((OBJECT(current_object)->sprite_flags & 0x80u) != 0u)
 		delta = (uint16_t)(0u - delta);
 	OBJECT(current_object)->projected_y_int = delta + OBJECT(current_object)->anchor_y;
@@ -314,7 +314,7 @@ uint32_t animate_with_screen_offset(uint32_t at_last_step)
 	}
 	OBJECT(current_object)->animation_timer = OBJECT(current_object)->animation_speed;
 	step_record = OBJECT(current_object)->animation;
-	last_frame = (uint8_t)mem_read16(step_record);
+	last_frame = (uint8_t)ROM16(step_record);
 	frame = OBJECT(current_object)->animation_frame;
 	step_record += 2u;
 	if ((OBJECT(current_object)->flags & 0x80u) == 0u)
@@ -324,7 +324,7 @@ uint32_t animate_with_screen_offset(uint32_t at_last_step)
 		{
 			OBJECT(current_object)->animation_frame = frame;
 			step_record += frame * 4u;
-			OBJECT(current_object)->sprite_frame = mem_read16(step_record);
+			OBJECT(current_object)->sprite_frame = ANIMATION_STEP(step_record)->frame;
 			step_record += 2u;
 			add_step_screen_offset(step_record);
 			return at_last_step;
@@ -341,7 +341,7 @@ uint32_t animate_with_screen_offset(uint32_t at_last_step)
 		{
 			OBJECT(current_object)->animation_frame = frame;
 			step_record += frame * 4u;
-			OBJECT(current_object)->sprite_frame = mem_read16(step_record);
+			OBJECT(current_object)->sprite_frame = ANIMATION_STEP(step_record)->frame;
 			step_record += 2u;
 			add_step_screen_offset(step_record);
 			return at_last_step;
@@ -353,7 +353,7 @@ uint32_t animate_with_screen_offset(uint32_t at_last_step)
 	}
 	OBJECT(current_object)->animation_frame = frame;
 	step_record += frame * 4u;
-	OBJECT(current_object)->sprite_frame = mem_read16(step_record);
+	OBJECT(current_object)->sprite_frame = ANIMATION_STEP(step_record)->frame;
 	step_record += 2u;
 	add_step_screen_offset(step_record);
 	return at_last_step;
@@ -371,12 +371,12 @@ void add_step_screen_offset(uint32_t step_offset)
 {
 	uint16_t delta = 0;
 
-	delta = (uint16_t)(int8_t)mem_read8(step_offset);
+	delta = (uint16_t)ANIMATION_STEP(step_offset - 0x2u)->dx;
 	step_offset++;
 	if ((OBJECT(current_object)->sprite_flags & 0x40u) != 0u)
 		delta = (uint16_t)(0u - delta);
 	OBJECT(current_object)->screen_x += delta;
-	delta = (uint16_t)(int8_t)mem_read8(step_offset);
+	delta = (uint16_t)ANIMATION_STEP(step_offset - 0x3u)->dy;
 	if ((OBJECT(current_object)->sprite_flags & 0x80u) != 0u)
 		delta = (uint16_t)(0u - delta);
 	OBJECT(current_object)->screen_y += delta;
@@ -400,7 +400,7 @@ void animate_part_list_step(void)
 	uint32_t frame_offsets = 0, next_frame = 0;
 
 	frame_offsets = OBJECT(current_object)->animation;
-	max_frame = (uint8_t)mem_read16(frame_offsets);
+	max_frame = (uint8_t)ROM16(frame_offsets);
 	next_frame = OBJECT(current_object)->animation_frame;
 	frame_offsets += 2u;
 	if ((OBJECT(current_object)->flags & 0x80u) == 0u)
@@ -416,7 +416,7 @@ void animate_part_list_step(void)
 			next_frame = (uint8_t)max_frame;
 	}
 	OBJECT(current_object)->animation_frame = next_frame;
-	OBJECT(current_object)->part_list = mem_read16(frame_offsets + next_frame * 2u) + frame_offsets - 2u;
+	OBJECT(current_object)->part_list = ROM16(frame_offsets + next_frame * 2u) + frame_offsets - 2u;
 }
 
 void animate_all_parts(uint32_t *p_at_last_step, uint32_t *p_part)
@@ -437,7 +437,7 @@ void animate_all_parts(uint32_t *p_at_last_step, uint32_t *p_part)
 	}
 	OBJECT(current_object)->animation_timer = OBJECT(current_object)->animation_speed;
 	frame_sprites = OBJECT(current_object)->animation;
-	max_frame = (uint8_t)mem_read16(frame_sprites);
+	max_frame = (uint8_t)ROM16(frame_sprites);
 	next_frame = OBJECT(current_object)->animation_frame;
 	frame_sprites += 2u;
 	if ((OBJECT(current_object)->flags & 0x80u) == 0u)
@@ -463,13 +463,13 @@ void animate_all_parts(uint32_t *p_at_last_step, uint32_t *p_part)
 		}
 	}
 	OBJECT(current_object)->animation_frame = next_frame;
-	frame_sprite = mem_read16(frame_sprites + next_frame * 2u);
+	frame_sprite = ROM16(frame_sprites + next_frame * 2u);
 	part = OBJECT(current_object)->part_list;
-	parts_left = mem_read16(part);
+	parts_left = SPRITE_PART_LIST(part)->count;
 	part += 2u;
 	do
 	{
-		mem_write16(part, frame_sprite);
+		SPRITE_PART(part)->frame = frame_sprite;
 		part += 8u;
 		parts_left--;
 	} while (parts_left != 0u);
@@ -497,22 +497,22 @@ void init_sprites_swapping_every_frame(void)
 
 void init_sprites(uint32_t *p_end_mark, uint32_t *p_source)
 {
-	uint32_t control_init = 0, end_mark = 0;
+	uint32_t r0 = 0, control_init = 0;
 
 	vblank_hook = swap_sprite_buffers_ADDRESS;
-	init_sprites_from_frame_wait(&end_mark, &control_init);
-	*p_end_mark = (*p_end_mark & 0xFFFF0000u) | (end_mark & 0xFFFFu);
+	init_sprites_from_frame_wait(&r0, &control_init);
+	*p_end_mark = (*p_end_mark & 0xFFFF0000u) | (r0 & 0xFFFFu);
 	*p_source = control_init;
 }
 
 void init_sprites_from_frame_wait(uint32_t *p_end_mark, uint32_t *p_source)
 {
-	uint32_t control_init = 0, end_mark = 0;
+	uint32_t r0 = 0, control_init = 0;
 
 	frames_to_wait = 0;
 	frames_per_wait = 0u;
-	init_sprite_hardware(&end_mark, &control_init);
-	*p_end_mark = (*p_end_mark & 0xFFFF0000u) | (end_mark & 0xFFFFu);
+	init_sprite_hardware(&r0, &control_init);
+	*p_end_mark = (*p_end_mark & 0xFFFF0000u) | (r0 & 0xFFFFu);
 	*p_source = control_init;
 }
 
@@ -559,7 +559,7 @@ uint32_t clear_sprite_buckets(void)
 	bucket = sprite_buckets_ADDRESS;
 	do
 	{
-		mem_write16(bucket, bucket);
+		OBJECT(bucket)->draw_next = bucket;
 		bucket += 2u;
 		buckets_left--;
 	} while (buckets_left != 0u);
@@ -586,24 +586,24 @@ void queue_sprite_at_depth(uint32_t *p_bucket_head, uint32_t *p_depth)
 		if ((int16_t)depth >= 0)
 		{
 			bucket_head = sprite_buckets_ADDRESS + ((uint16_t)(0xFFu - depth) & 0xFFu) * 2u;
-			OBJECT(current_object)->draw_next = mem_read16(bucket_head);
-			mem_write16(bucket_head, current_object);
+			OBJECT(current_object)->draw_next = OBJECT(bucket_head)->draw_next;
+			OBJECT(bucket_head)->draw_next = current_object;
 			*p_bucket_head = bucket_head;
 			*p_depth = depth;
 			return;
 		}
 		depth = 0u;
 		bucket_head = sprite_buckets_ADDRESS + ((uint16_t)(0xFFu - depth) & 0xFFu) * 2u;
-		OBJECT(current_object)->draw_next = mem_read16(bucket_head);
-		mem_write16(bucket_head, current_object);
+		OBJECT(current_object)->draw_next = OBJECT(bucket_head)->draw_next;
+		OBJECT(bucket_head)->draw_next = current_object;
 		*p_bucket_head = bucket_head;
 		*p_depth = depth;
 		return;
 	}
 	depth = 0xFEu;
 	bucket_head = sprite_buckets_ADDRESS + ((uint16_t)(0xFFu - depth) & 0xFFu) * 2u;
-	OBJECT(current_object)->draw_next = mem_read16(bucket_head);
-	mem_write16(bucket_head, current_object);
+	OBJECT(current_object)->draw_next = OBJECT(bucket_head)->draw_next;
+	OBJECT(bucket_head)->draw_next = current_object;
 	*p_bucket_head = bucket_head;
 	*p_depth = depth;
 }
@@ -613,8 +613,8 @@ void queue_sprite_in_layer(void)
 	uint32_t bucket_head = 0;
 
 	bucket_head = sprite_buckets_ADDRESS + (OBJECT(current_object)->sprite_layer & 0xFFu) * 2u;
-	OBJECT(current_object)->draw_next = mem_read16(bucket_head);
-	mem_write16(bucket_head, current_object);
+	OBJECT(current_object)->draw_next = OBJECT(bucket_head)->draw_next;
+	OBJECT(bucket_head)->draw_next = current_object;
 }
 
 void queue_sprite_on_top(void)
@@ -628,8 +628,8 @@ void queue_sprite_on_top(void)
 void queue_sprite_in_bucket(uint32_t bucket)
 {
 	bucket = sprite_buckets_ADDRESS + (bucket & 0xFFu) * 2u;
-	OBJECT(current_object)->draw_next = mem_read16(bucket);
-	mem_write16(bucket, current_object);
+	OBJECT(current_object)->draw_next = OBJECT(bucket)->draw_next;
+	OBJECT(bucket)->draw_next = current_object;
 }
 
 uint32_t queue_sprite_at_floor(void)
@@ -647,8 +647,8 @@ uint32_t queue_sprite_at_floor(void)
 	else
 		floor_y = 0xFEu;
 	bucket_head = sprite_buckets_ADDRESS + ((uint16_t)(0xFFu - floor_y) & 0xFFu) * 2u;
-	OBJECT(current_object)->draw_next = mem_read16(bucket_head);
-	mem_write16(bucket_head, current_object);
+	OBJECT(current_object)->draw_next = OBJECT(bucket_head)->draw_next;
+	OBJECT(bucket_head)->draw_next = current_object;
 	return floor_y;
 }
 
@@ -667,8 +667,8 @@ uint32_t queue_sprite_at_previous_floor(void)
 	else
 		floor_y = 0xFEu;
 	bucket_head = sprite_buckets_ADDRESS + ((uint16_t)(0xFFu - floor_y) & 0xFFu) * 2u;
-	OBJECT(current_object)->draw_next = mem_read16(bucket_head);
-	mem_write16(bucket_head, current_object);
+	OBJECT(current_object)->draw_next = OBJECT(bucket_head)->draw_next;
+	OBJECT(bucket_head)->draw_next = current_object;
 	return floor_y;
 }
 
@@ -687,8 +687,8 @@ uint32_t queue_sprite_at_base(uint32_t depth)
 	else
 		depth = 0xFEu;
 	bucket_head = sprite_buckets_ADDRESS + ((uint16_t)(0xFFu - depth) & 0xFFu) * 2u;
-	OBJECT(current_object)->draw_next = mem_read16(bucket_head);
-	mem_write16(bucket_head, current_object);
+	OBJECT(current_object)->draw_next = OBJECT(bucket_head)->draw_next;
+	OBJECT(bucket_head)->draw_next = current_object;
 	return depth;
 }
 
@@ -720,8 +720,8 @@ void queue_sprite_at_depth_offset(uint16_t depth, uint8_t bucket_offset)
 	else
 		depth = 0xFEu;
 	bucket_head = sprite_buckets_ADDRESS + ((uint16_t)(0xFFu - depth + bucket_offset) & 0xFFu) * 2u;
-	OBJECT(current_object)->draw_next = mem_read16(bucket_head);
-	mem_write16(bucket_head, current_object);
+	OBJECT(current_object)->draw_next = OBJECT(bucket_head)->draw_next;
+	OBJECT(bucket_head)->draw_next = current_object;
 }
 
 void queue_sprite_at_previous_floor_2(void)
@@ -738,8 +738,8 @@ void queue_sprite_at_previous_floor_2(void)
 	else
 		floor_depth = 0xFEu;
 	bucket_head = sprite_buckets_ADDRESS + ((uint16_t)(0xFFu - floor_depth) & 0xFFu) * 2u;
-	OBJECT(current_object)->draw_next = mem_read16(bucket_head);
-	mem_write16(bucket_head, current_object);
+	OBJECT(current_object)->draw_next = OBJECT(bucket_head)->draw_next;
+	OBJECT(bucket_head)->draw_next = current_object;
 }
 
 void get_previous_floor_bucket(uint32_t top_bucket, uint32_t *p_floor_depth, uint32_t *p_bucket)
@@ -789,7 +789,7 @@ void swap_sprite_buffers_now(void)
 
 	sprite_buffer_flip += 2u;
 	swap_entry = sprite_buffer_swaps_ADDRESS + (6u & sprite_buffer_flip) * 2u;
-	AS16(sprite_back_buffer) = ROM16(swap_entry);
+	sprite_back_buffer_offset = ROM16(swap_entry);
 	mem_write16(sprite_list_jump, ROM16(swap_entry + 2u));
 	status = mem_read8(sprite_status);
 }
@@ -805,11 +805,11 @@ void load_sized_frame_address_at_row(uint16_t row)
 	uint32_t frame_record = 0;
 
 	frame_record = (sprite_frames & ~0xFFFFu) | OBJECT(current_object)->sprite_frame;
-	row_bytes = mem_read16(frame_record);
+	row_bytes = SPRITE_FRAME_RECORD(frame_record)->width;
 	frame_record += 2u;
 	if ((OBJECT(current_object)->sprite_flags & 0x200u) == 0u)
 		row_bytes = row_bytes >> 1;
-	OBJECT(current_object)->sprite_scale = (uint32_t)(row_bytes >> 2) * row + mem_read16(frame_record + 4u);
+	OBJECT(current_object)->sprite_scale = (uint32_t)(row_bytes >> 2) * row + SPRITE_FRAME_RECORD(frame_record - 0x2u)->address;
 }
 
 void load_sized_frame_address(void)
@@ -822,8 +822,8 @@ void load_frame_size(void)
 	uint32_t frame_record = 0;
 
 	frame_record = (sprite_frames & ~0xFFFFu) | OBJECT(current_object)->sprite_frame;
-	OBJECT(current_object)->sprite_width = mem_read16(frame_record);
-	OBJECT(current_object)->sprite_height = mem_read8(frame_record + 2u);
+	OBJECT(current_object)->sprite_width = SPRITE_FRAME_RECORD(frame_record)->width;
+	OBJECT(current_object)->sprite_height = (uint8_t)SPRITE_FRAME_RECORD(frame_record)->height;
 }
 
 void build_sprite_list(uint32_t *p_height, uint32_t *p_scale_x, uint32_t *p_scale_y, uint32_t *p_sprite_flags, uint32_t *p_sprite_entry)
@@ -833,8 +833,8 @@ void build_sprite_list(uint32_t *p_height, uint32_t *p_scale_x, uint32_t *p_scal
 	uint32_t scale_y = *p_scale_y;
 	uint16_t sprite_flags = (uint16_t)*p_sprite_flags;
 	uint8_t scale_shift = 0;
-	uint16_t dest_height = 0, dest_width = 0, part_dest_width = 0, screen_x = 0, screen_y = 0, sized_width = 0, source_width_2 = 0;
-	uint32_t r4 = 0, flags_word = 0, frame_data = 0, ignored = 0, object = 0, part_scale = 0, parts_left = 0, rounding = 0, source_width = 0, sprite_entry = 0, sprite_scale = 0;
+	uint16_t dest_height = 0, dest_width = 0, part_dest_width = 0, screen_x = 0, screen_y = 0, sized_width = 0, source_width = 0;
+	uint32_t r2 = 0, copy_entry = 0, flags_word = 0, frame_data = 0, ignored = 0, object = 0, part_scale = 0, parts_left = 0, rounding = 0, sprite_entry = 0, sprite_scale = 0;
 	uint16_t part_width = 0, part_height = 0, width_bits = 0;
 
 	sprite_entry = sprite_list_start;
@@ -868,17 +868,17 @@ void build_sprite_list(uint32_t *p_height, uint32_t *p_scale_x, uint32_t *p_scal
 			case 0x37u:
 				frame_data = (frame_data & ~0xFFFFu) | OBJECT(current_object)->sprite_frame;
 				sprite_scale = OBJECT(current_object)->sprite_scale;
-				source_width = mem_read16(frame_data);
+				source_width = SPRITE_FRAME_RECORD(frame_data)->width;
 				frame_data += 2u;
-				height = (height & ~0xFFFFu) | mem_read16(frame_data);
+				height = (height & ~0xFFFFu) | SPRITE_FRAME_RECORD(frame_data - 0x2u)->height;
 				dest_width = (uint16_t)shift_by(source_width * sprite_scale + rounding, scale_shift, 32);
 				dest_height = (uint16_t)shift_by((uint8_t)height * sprite_scale + rounding, scale_shift, 32);
-				source_width = ((uint16_t)(source_width << 6) & ~0xFFu) | (uint8_t)height;
+				source_width = (uint16_t)(((uint16_t)((uint32_t)source_width << 6) & ~0xFFu) | (uint8_t)height);
 				height &= ~0xFFu;
 				height = (height & ~0xFFFFu) | (uint16_t)(height | dest_height);
 				frame_data += 2u;
 			build_sprite_list_write_entry:
-				dest_width |= mem_read16(frame_data);
+				dest_width |= SPRITE_FRAME_RECORD(frame_data - 0x4u)->bank_bits;
 				mem_write16(sprite_entry, sprite_flags);
 				sprite_entry += 2u;
 				mem_write16(sprite_entry, rotate_by(source_width, scale_shift, 16));
@@ -890,7 +890,7 @@ void build_sprite_list(uint32_t *p_height, uint32_t *p_scale_x, uint32_t *p_scal
 				mem_write32(sprite_entry, AS32(OBJECT(current_object)->screen_y));
 				sprite_entry += 4u;
 				frame_data += 2u;
-				mem_write16(sprite_entry, mem_read16(frame_data));
+				mem_write16(sprite_entry, SPRITE_FRAME_RECORD(frame_data - 0x6u)->address);
 				sprite_entry += 2u;
 				mem_write16(sprite_entry, OBJECT(current_object)->sprite_palette);
 				sprite_entry += 2u;
@@ -898,11 +898,11 @@ void build_sprite_list(uint32_t *p_height, uint32_t *p_scale_x, uint32_t *p_scal
 			case 0x3u:
 			case 0x4u:
 				frame_data = (frame_data & ~0xFFFFu) | OBJECT(current_object)->sprite_frame;
-				source_width = mem_read16(frame_data);
+				source_width = SPRITE_FRAME_RECORD(frame_data)->width;
 				dest_width = (uint16_t)source_width;
 				frame_data += 2u;
-				height = (height & ~0xFFFFu) | mem_read16(frame_data);
-				source_width = ((uint16_t)(source_width << 6) & ~0xFFu) | (uint8_t)height;
+				height = (height & ~0xFFFFu) | SPRITE_FRAME_RECORD(frame_data - 0x2u)->height;
+				source_width = (uint16_t)(((uint16_t)((uint32_t)source_width << 6) & ~0xFFu) | (uint8_t)height);
 				sprite_flags &= 0x2FFFu;
 				frame_data += 2u;
 				goto build_sprite_list_write_entry;
@@ -949,14 +949,14 @@ void build_sprite_list(uint32_t *p_height, uint32_t *p_scale_x, uint32_t *p_scal
 			case 0x24u:
 				sprite_flags &= 0x2FFFu;
 				frame_data = (frame_data & ~0xFFFFu) | OBJECT(current_object)->sprite_frame;
-				source_width = mem_read16(frame_data);
+				source_width = SPRITE_FRAME_RECORD(frame_data)->width;
 				frame_data += 2u;
-				height = (height & ~0xFFFFu) | mem_read16(frame_data);
-				source_width = rotate_by(((uint16_t)(source_width << 6) & ~0xFFu) | (uint8_t)height, scale_shift, 16);
+				height = (height & ~0xFFFFu) | SPRITE_FRAME_RECORD(frame_data - 0x2u)->height;
+				source_width = rotate_by(((uint16_t)((uint32_t)source_width << 6) & ~0xFFu) | (uint8_t)height, scale_shift, 16);
 				height &= ~0xFFu;
 				height = (height & ~0xFFFFu) | (uint16_t)(height | OBJECT(current_object)->sprite_height);
 				frame_data += 2u;
-				sized_width = (uint16_t)(OBJECT(current_object)->sprite_width | mem_read16(frame_data));
+				sized_width = (uint16_t)(OBJECT(current_object)->sprite_width | SPRITE_FRAME_RECORD(frame_data - 0x4u)->bank_bits);
 				mem_write16(sprite_entry, sprite_flags);
 				sprite_entry += 2u;
 				mem_write16(sprite_entry, source_width);
@@ -1004,18 +1004,18 @@ void build_sprite_list(uint32_t *p_height, uint32_t *p_scale_x, uint32_t *p_scal
 					scale_y = 0u - part_scale;
 					break;
 				default:
-					unknown_code(0x9A3C4u + ((sprite_flags >> 5) & 6u));
+					invalid_jump(0x9A3C4u + ((sprite_flags >> 5) & 6u));
 				}
 				sprite_flags &= 0xF0u;
 				screen_x = (uint16_t)OBJECT(current_object)->screen_x;
 				screen_y = (uint16_t)OBJECT(current_object)->screen_y;
 				r14 = OBJECT(current_object)->part_list;
-				parts_left = mem_read16(r14);
+				parts_left = SPRITE_PART_LIST(r14)->count;
 				r14 = r14 + 2u;
 				if (parts_left >= 0x11u)
 				{
-					int_default(&flags_word, &source_width, &ignored, &r4);
-					*p_height = r4;
+					int_default(&ignored, &ignored, &ignored, &copy_entry);
+					*p_height = copy_entry;
 					*p_scale_x = scale_x;
 					*p_scale_y = scale_y;
 					*p_sprite_flags = (*p_sprite_flags & 0xFFFF0000u) | sprite_flags;
@@ -1024,40 +1024,40 @@ void build_sprite_list(uint32_t *p_height, uint32_t *p_scale_x, uint32_t *p_scal
 				}
 				do
 				{
-					frame_data = (frame_data & ~0xFFFFu) | mem_read16(r14);
-					part_width = mem_read16(frame_data);
+					frame_data = (frame_data & ~0xFFFFu) | SPRITE_PART(r14)->frame;
+					part_width = SPRITE_FRAME_RECORD(frame_data)->width;
 					frame_data += 2u;
-					source_width_2 = part_width;
-					part_height = mem_read16(frame_data);
+					source_width = part_width;
+					part_height = SPRITE_FRAME_RECORD(frame_data - 0x2u)->height;
 					frame_data += 2u;
 					height = (height & ~0xFFFFu) | part_height;
-					part_dest_width = (uint16_t)shift_by(source_width_2 * part_scale + rounding, scale_shift, 32);
+					part_dest_width = (uint16_t)shift_by(source_width * part_scale + rounding, scale_shift, 32);
 					dest_height = (uint16_t)shift_by((uint8_t)height * part_scale + rounding, scale_shift, 32);
-					source_width_2 = (uint16_t)(((uint16_t)((uint32_t)source_width_2 << 6) & ~0xFFu) | (uint8_t)height);
+					source_width = (uint16_t)(((uint16_t)((uint32_t)source_width << 6) & ~0xFFu) | (uint8_t)height);
 					height &= ~0xFFu;
 					height = (height & ~0xFFFFu) | (uint16_t)(height | dest_height);
-					width_bits = mem_read16(frame_data);
+					width_bits = SPRITE_FRAME_RECORD(frame_data - 0x4u)->bank_bits;
 					frame_data += 2u;
 					r14 = r14 + 2u;
-					mem_write16(sprite_entry, mem_read16(r14) ^ sprite_flags);
+					mem_write16(sprite_entry, SPRITE_PART(r14 - 0x2u)->flags ^ sprite_flags);
 					sprite_entry += 2u;
-					mem_write16(sprite_entry, rotate_by(source_width_2, scale_shift, 16));
+					mem_write16(sprite_entry, rotate_by(source_width, scale_shift, 16));
 					sprite_entry += 2u;
 					mem_write16(sprite_entry, height);
 					sprite_entry += 2u;
 					mem_write16(sprite_entry, part_dest_width | width_bits);
 					sprite_entry += 2u;
 					r14 = r14 + 2u;
-					source_width = (int8_t)mem_read8(r14) * scale_x;
+					r2 = SPRITE_PART(r14 - 0x4u)->dx * scale_x;
 					r14 = r14 + 1u;
-					mem_write16(sprite_entry, shift_signed_by((int8_t)mem_read8(r14) * scale_y, scale_shift, 32) + screen_y);
+					mem_write16(sprite_entry, shift_signed_by(SPRITE_PART(r14 - 0x5u)->dy * scale_y, scale_shift, 32) + screen_y);
 					sprite_entry += 2u;
-					mem_write16(sprite_entry, shift_signed_by(source_width, scale_shift, 32) + screen_x);
+					mem_write16(sprite_entry, shift_signed_by(r2, scale_shift, 32) + screen_x);
 					sprite_entry += 2u;
-					mem_write16(sprite_entry, mem_read16(frame_data));
+					mem_write16(sprite_entry, SPRITE_FRAME_RECORD(frame_data - 0x6u)->address);
 					sprite_entry += 2u;
 					r14 = r14 + 1u;
-					mem_write16(sprite_entry, mem_read16(r14));
+					mem_write16(sprite_entry, SPRITE_PART(r14 - 0x6u)->palette);
 					sprite_entry += 2u;
 					parts_left--;
 					r14 = r14 + 2u;
@@ -1068,7 +1068,7 @@ void build_sprite_list(uint32_t *p_height, uint32_t *p_scale_x, uint32_t *p_scal
 				part_scale = 0x100u;
 				goto build_sprite_list_write_parts;
 			default:
-				unknown_code(0x9A2E0u + (flags_word & 0x34u));
+				invalid_jump(0x9A2E0u + (flags_word & 0x34u));
 			}
 			current_object = LINKED(current_object, OBJECT(current_object)->draw_next);
 		} while ((uint16_t)current_object != (uint16_t)last_object);

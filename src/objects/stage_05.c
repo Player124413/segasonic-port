@@ -3,7 +3,7 @@
  *    Description: stage 5's objects: the exit door, the floor patch, the bubbles, the spiked press, the cage
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    15-10-2026
+ *    Modified:    16-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -45,12 +45,12 @@ void exit_door_wait_for_switch(void)
 
 void exit_door_show(void)
 {
-	uint32_t r1 = 0, ignored = 0;
+	uint32_t depth = 0, ignored = 0;
 
-	update_screen_position(&ignored, &r1);
+	update_screen_position(&ignored, &depth);
 	if (OBJECT(current_object)->screen_y < 0x130)
 	{
-		r1 = queue_sprite(r1);
+		depth = queue_sprite(depth);
 		return;
 	}
 	delete_current_object();
@@ -73,12 +73,12 @@ void stage_05_floor_patch_start(void)
 
 void stage_05_floor_patch_show(void)
 {
-	uint32_t r1 = 0, ignored = 0;
+	uint32_t depth = 0, ignored = 0;
 
-	update_screen_position(&ignored, &r1);
+	update_screen_position(&ignored, &depth);
 	if (stage == 5u)
 	{
-		r1 = queue_sprite(r1);
+		depth = queue_sprite(depth);
 		return;
 	}
 	delete_current_object();
@@ -135,7 +135,7 @@ void bubble_near_parent_update(void)
 void bubble_pop(void)
 {
 	uint16_t jitter_y = 0;
-	uint32_t r1 = 0, depth = 0, ignored = 0, jitter = 0, off_screen = 0, wrapped = 0;
+	uint32_t depth = 0, ignored = 0, jitter = 0, off_screen = 0, wrapped = 0;
 
 	if (map_screen_active != 0u)
 	{
@@ -148,8 +148,8 @@ void bubble_pop(void)
 		delete_current_object();
 		return;
 	}
-	update_screen_position(&ignored, &r1);
-	animate(&r1, &wrapped, &off_screen);
+	update_screen_position(&ignored, &ignored);
+	animate(&ignored, &wrapped, &ignored);
 	if ((uint8_t)wrapped == 0u)
 	{
 		depth = OBJECT(current_object)->bubble_pop.draw_depth;
@@ -175,7 +175,7 @@ void bubble_pop(void)
 
 void spiked_press_start(void)
 {
-	uint32_t r0 = 0, r1 = 0, r2 = 0, r3 = 0, r11 = 0;
+	uint32_t r0 = 0, r2 = 0, r3 = 0, r11 = 0, ignored = 0;
 
 	OBJECT(current_object)->sprite_flags = 0x1104u;
 	OBJECT(current_object)->sprite_frame = 0x7070u;
@@ -197,19 +197,19 @@ void spiked_press_start(void)
 	OBJECT(current_object)->speed_x = 0;
 	OBJECT(current_object)->speed_y = 0x2000;
 	OBJECT(current_object)->direction = 0x200u;
-	find_floor(&r0, &r1, &r2, &r3, &r11);
+	find_floor(&r0, &ignored, &r2, &r3, &r11);
 	OBJECT(current_object)->z = OBJECT(current_object)->floor_z;
 	spiked_press_object = current_object;
 	scroll_mode = 1u;
 	players_frozen = 0xFFu;
-	spawn_eggman_booth(r0, r1, r3, &r2, &r11);
+	spawn_eggman_booth(r0, ignored, r3, &r2, &r11);
 }
 
 void spiked_press_update(void)
 {
 	uint8_t sound = 0;
 	uint16_t frames = 0, kind = 0, screen_x = 0, screen_y = 0, x = 0, y = 0, z = 0;
-	uint32_t r11 = 0, depth = 0, ignored = 0, player = 0, player_index = 0, players_left = 0, status_cursor = 0, write_index = 0, write_index_address = 0;
+	uint32_t depth = 0, ignored = 0, player = 0, player_index = 0, players_left = 0, sign = 0, status_cursor = 0;
 	uint8_t hold_timer = 0, status = 0;
 	uint16_t sound_timer = 0;
 
@@ -240,12 +240,12 @@ void spiked_press_update(void)
 		y = 0x3E0u;
 		kind = 1u;
 		z = 0xFFB0u;
-		r11 = spawn_sign_2(x, y, kind, z, 0u);
+		sign = spawn_sign_2(x, y, kind, z, 0u);
 		x = 0xFE0Du;
 		y = 0x3E0u;
 		kind = 2u;
 		z = 0xFFC2u;
-		r11 = spawn_sign_2(x, y, kind, z, r11);
+		sign = spawn_sign_2(x, y, kind, z, sign);
 		players_frozen = 0u;
 	}
 	if ((uint16_t)OBJECT(current_object)->spiked_press.frame_count == 0x168u)
@@ -254,7 +254,7 @@ void spiked_press_update(void)
 		y = 0x480u;
 		kind = 3u;
 		z = 0xFFB0u;
-		r11 = spawn_sign_2(x, y, kind, z, r11);
+		sign = spawn_sign_2(x, y, kind, z, sign);
 	}
 	if ((uint16_t)OBJECT(current_object)->spiked_press.frame_count == 0x14u)
 	{
@@ -282,12 +282,12 @@ void spiked_press_update(void)
 		frames = 0x78u;
 		screen_x = 0xA0u;
 		screen_y = 0x40u;
-		spawn_message_box(screen_x, screen_y, kind, frames, r11);
+		spawn_message_box(screen_x, screen_y, kind, frames, sign);
 	}
 	if ((uint16_t)OBJECT(current_object)->spiked_press.frame_count == 0x14u)
 	{
 		sound = 0x34u;
-		play_sound(sound, &write_index, &write_index_address);
+		play_sound(sound, &ignored, &ignored);
 	}
 	if ((uint16_t)OBJECT(current_object)->spiked_press.frame_count == 0x50u)
 	{
@@ -298,7 +298,7 @@ void spiked_press_update(void)
 			if (caged_character != 1u)
 				sound = 0x40u;
 		}
-		play_sound(sound, &write_index, &write_index_address);
+		play_sound(sound, &ignored, &ignored);
 	}
 	if (OBJECT(current_object)->y_int >= 0x3D0)
 	{
@@ -320,7 +320,7 @@ void spiked_press_update(void)
 		{
 			OBJECT(current_object)->spiked_press.sound_timer = 0x3C;
 			sound = 0xDu;
-			play_sound(sound, &write_index, &write_index_address);
+			play_sound(sound, &ignored, &ignored);
 		}
 	}
 	OBJECT(current_object)->health = 0x7F;
@@ -385,21 +385,21 @@ void cage_bar_start(void)
 void cage_bar_update(void)
 {
 	uint8_t sound_id = 0;
-	uint32_t r1 = 0, animation_frame = 0, depth = 0, ignored = 0, off_screen = 0, step_list = 0, write_index_address = 0;
+	uint32_t animation_frame = 0, depth = 0, ignored = 0, off_screen = 0, step_list = 0;
 	uint8_t animation_timer = 0;
 	uint16_t last_step = 0;
 
 	OBJECT(current_object)->health = 5;
-	if ((int16_t)OBJECT((current_object & ~0xFFFFu) | spiked_press_object)->var_82 >= 0xC8 && (int8_t)OBJECT(current_object)->animation_frame >= 0 && (OBJECT(current_object)->flags & 4u) != 0u && (OBJECT(current_object)->flags & 0x40u) != 0u)
+	if (OBJECT(LINKED(current_object, spiked_press_object))->spiked_press.frame_count >= 0xC8 && (int8_t)OBJECT(current_object)->animation_frame >= 0 && (OBJECT(current_object)->flags & 4u) != 0u && (OBJECT(current_object)->flags & 0x40u) != 0u)
 	{
 		OBJECT(current_object)->animation_frame++;
 		animation_frame = OBJECT(current_object)->animation_frame;
 		step_list = OBJECT(current_object)->animation;
-		last_step = mem_read16(step_list);
+		last_step = ROM16(step_list);
 		step_list += 2u;
 		if ((int16_t)animation_frame < (int16_t)last_step)
 		{
-			OBJECT(current_object)->sprite_frame = mem_read16(step_list + animation_frame * 2u);
+			OBJECT(current_object)->sprite_frame = ROM16(step_list + animation_frame * 2u);
 			OBJECT(current_object)->health = 1;
 			cage_bar_hit = 0xFFu;
 		}
@@ -409,7 +409,7 @@ void cage_bar_update(void)
 			OBJECT(current_object)->animation_frame = 0xFFu;
 		}
 		sound_id = 0x21u;
-		play_sound(sound_id, &r1, &write_index_address);
+		play_sound(sound_id, &ignored, &ignored);
 	}
 	if ((int8_t)OBJECT(current_object)->animation_frame < 0 && OBJECT(current_object)->animation_timer >= 0)
 	{
@@ -417,11 +417,11 @@ void cage_bar_update(void)
 		OBJECT(current_object)->animation_timer = animation_timer - 1u;
 		if ((int8_t)animation_timer < 1)
 		{
-			OBJECT(current_object)->sprite_frame = mem_read16(OBJECT(current_object)->animation + 6u);
+			OBJECT(current_object)->sprite_frame = ROM16(OBJECT(current_object)->animation + 6u);
 			OBJECT(current_object)->projected_x++;
 		}
 	}
-	update_screen_position(&ignored, &r1);
+	update_screen_position(&ignored, &ignored);
 	if (stage != 5u)
 	{
 		delete_current_object();

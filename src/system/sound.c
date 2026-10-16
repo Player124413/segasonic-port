@@ -3,7 +3,7 @@
  *    Description: the sound the game asks the Z80 for: init_sound, play_sound and the sound queue
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    15-10-2026
+ *    Modified:    16-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -56,13 +56,13 @@ void play_sound(uint8_t sound_id, uint32_t *p_write_index, uint32_t *p_write_ind
 {
 	uint32_t write_index = *p_write_index;
 	uint32_t write_index_address = *p_write_index_address;
-	uint32_t r1 = 0, r2 = 0, mask_bit = 0, mask_index = 0;
+	uint32_t mask_bit = 0, mask_index = 0;
 
 	if (game_in_progress != 0u)
 	{
-		queue_sound(sound_id, &r1, &r2);
-		*p_write_index = r1;
-		*p_write_index_address = r2;
+		queue_sound(sound_id, &write_index, &write_index_address);
+		*p_write_index = write_index;
+		*p_write_index_address = write_index_address;
 		return;
 	}
 	if (setting_advertise_sound == 0u)
@@ -76,9 +76,9 @@ void play_sound(uint8_t sound_id, uint32_t *p_write_index, uint32_t *p_write_ind
 		*p_write_index_address = mask_index;
 		return;
 	}
-	queue_sound(sound_id, &r1, &r2);
-	*p_write_index = r1;
-	*p_write_index_address = r2;
+	queue_sound(sound_id, &write_index, &write_index_address);
+	*p_write_index = write_index;
+	*p_write_index_address = write_index_address;
 }
 
 void queue_sound(uint8_t sound_id, uint32_t *p_write_index, uint32_t *p_write_index_address)

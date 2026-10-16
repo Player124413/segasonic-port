@@ -5,7 +5,7 @@ Description: the game's variables, tables and hardware registers by name: work R
              named addresses
 Version:     0.1.0
 Created:     12-10-2026
-Modified:    14-10-2026
+Modified:    15-10-2026
 Author:      Sebastian Toyos
 
 Work RAM (0x200000-0x20FFFF) stays the board's byte array, so the state compares byte for byte with the
@@ -34,6 +34,8 @@ from collections import Counter
 
 import sonic_rom
 from v60 import ir
+
+from . import cprint
 
 WORK_RAM = (0x200000, 0x210000)
 ROM_AREAS = ((0x000000, 0x200000), (0xF00000, 0x1000000))    # the program ROM, the first area holding it whole
@@ -186,12 +188,19 @@ class Memory:
         self.variables = {}
         self.tables = {}
         self.hardware = {}
+        # where a list walk starts: a structure there would have the list's head as one of its fields
+        self.anchors = dict(getattr(names, "anchors", {}))
         self.overlays = {}    # (address, bits) -> Item: a narrower name for a variable's first bytes
         self.scoped = {}      # family -> {address: Item}: work RAM a family of functions uses its own way
+        self.scoped_overlays = {}    # family -> {(address, bits): Item}: a narrower name for its first bytes
         for (struct, family), found in names.scoped.items():
             if struct == "global":
                 self.scoped[family] = {address: Item(address, name, *SIGNED[kind])
                                        for address, (name, kind) in found.items()}
+        for (struct, family), found in getattr(names, "scoped_overlays", {}).items():
+            if struct == "global":
+                self.scoped_overlays[family] = {(address, bits): Item(address, name, *SIGNED[kind])
+                                                for (address, bits), (name, kind) in found.items()}
         for (struct, address, bits), (name, kind) in names.overlays.items():
             if struct == "global":
                 self.overlays[(address, bits)] = Item(address, name, *SIGNED[kind])
@@ -269,10 +278,10 @@ class Memory:
             overlay = self.overlays.get((address, bits)) if items is self.variables else None
             if item.bits != bits and overlay is not None:
                 return overlay.name
-            return name if item.bits == bits else f"AS{bits}({name})"
+            return name if item.bits == bits else cprint.part(bits, name, 0, item.bits)
         outer = self.inside(items, address)
         if outer is not None:
-            return f"AT{bits}({outer.name}, {address - outer.address})"
+            return cprint.part(bits, outer.name, address - outer.address, outer.bits)
         return None
 
     def access(self, address, bits, index_text):
@@ -346,6 +355,9 @@ class Memory:
             for family, items in sorted(self.scoped.items()):
                 for address, item in sorted(items.items()):
                     lines += self.declare(item, RAM_MACRO, RAM_FUNCTION)
+                    for (start, _), overlay in sorted(self.scoped_overlays.get(family, {}).items()):
+                        if start == address:
+                            lines += self.declare(overlay, RAM_MACRO, RAM_FUNCTION)
         lines += [""] + NOTES["tables"]
         for address, item in sorted(self.tables.items()):
             lines += self.declare(item, ROM_MACRO, ROM_FUNCTION)

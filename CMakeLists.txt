@@ -34,6 +34,7 @@ add_library(s32runtime STATIC
 	runtime/src/rf5c68.c
 	runtime/src/ym3438.c
 	runtime/src/video.c
+	runtime/src/memory_census.c
 )
 target_include_directories(s32runtime PUBLIC runtime/include)
 
@@ -95,6 +96,13 @@ if(SONIC_DECOMPILED)
 	else()
 		# variables are typed lvalues over the work RAM bytes (game/support.h)
 		target_compile_options(sonic_game PRIVATE -fno-strict-aliasing)
+	endif()
+
+	# a development aid: every mem_read and mem_write of the game's C counted by its line
+	# (sonic_game_headless --memory-census FILE; runtime/src/memory_census.c)
+	option(SONIC_MEMORY_CENSUS "Count the game's memory accesses by line of C" OFF)
+	if(SONIC_MEMORY_CENSUS)
+		target_compile_definitions(sonic_game PUBLIC S32_MEMORY_CENSUS)
 	endif()
 
 	add_executable(sonic_game_headless ports/headless/main.c)

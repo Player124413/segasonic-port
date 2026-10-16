@@ -3,7 +3,7 @@
  *    Description: around the players: the skid dust, the HUD (gauge, portrait, ring count, start prompt, messages), the ride of game mode 0x1C, joining with a character select, the result bonus, the climb zone splash, the intro marker
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    15-10-2026
+ *    Modified:    16-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -25,7 +25,7 @@ void spawn_skid_dust(uint32_t dust)
 		OBJECT(dust)->animation_speed = 3u;
 		OBJECT(dust)->animation_timer = 3;
 		OBJECT(dust)->animation = skid_dust_animation_ADDRESS;
-		OBJECT(dust)->sprite_frame = mem_read16(OBJECT(dust)->animation + 2u);
+		OBJECT(dust)->sprite_frame = ROM16(OBJECT(dust)->animation + 2u);
 		OBJECT(dust)->projected_x = OBJECT(current_object)->projected_x;
 		OBJECT(dust)->projected_y = OBJECT(current_object)->projected_y;
 		OBJECT(dust)->z = OBJECT(current_object)->z;
@@ -40,13 +40,13 @@ void spawn_skid_dust(uint32_t dust)
 
 void skid_dust_update(void)
 {
-	uint32_t r1 = 0, r8 = 0, ignored = 0, wrapped = 0;
+	uint32_t ignored = 0, wrapped = 0;
 
-	animate(&r1, &wrapped, &r8);
+	animate(&ignored, &wrapped, &ignored);
 	if ((uint8_t)wrapped == 0u)
 	{
-		update_screen_position(&ignored, &r1);
-		r1 = queue_sprite(r1);
+		update_screen_position(&ignored, &ignored);
+		ignored = queue_sprite(ignored);
 		return;
 	}
 	delete_current_object();
@@ -62,7 +62,7 @@ void player_hud_init(void)
 	player = current_player + 0x142u;
 	PLAYER(player - 0x142u)->hud_gauge_flags = 0x900Au;
 	PLAYER(player - 0x142u)->hud_gauge_tile = 0x89E0u;
-	PLAYER(player - 0x142u)->hud_gauge_address = mem_read16(((sprite_frames & ~0xFFFFu) | PLAYER(player - 0x142u)->hud_gauge_tile) + 6u);
+	PLAYER(player - 0x142u)->hud_gauge_address = SPRITE_FRAME_RECORD(LINKED(sprite_frames, PLAYER(player - 0x142u)->hud_gauge_tile))->address;
 	PLAYER(player - 0x142u)->hud_gauge_health = OBJECT(current_object)->health;
 	PLAYER(player - 0x142u)->hud_gauge_frame = OBJECT(current_object)->player_view.health_pad;
 	player_2 = OBJECT(current_object)->player;
@@ -121,7 +121,7 @@ void player_hud_init(void)
 
 void player_hud_start(void)
 {
-	uint32_t r1 = 0, init_bit = 0, object = 0, player = 0, sprite_record = 0, text = 0;
+	uint32_t ignored = 0, init_bit = 0, object = 0, player = 0, sprite_record = 0, text = 0;
 
 	sprite_record = hud_portrait_sprites_ADDRESS + OBJECT(current_object)->kind * 4u;
 	object = LINKED(current_object, PLAYER(current_player)->hud_portrait);
@@ -130,7 +130,7 @@ void player_hud_start(void)
 	player = OBJECT(current_object)->player;
 	if ((int8_t)player_status[player] >= 0 || player_status[player] == 0x82u)
 	{
-		player_hud_update(&r1, &object);
+		player_hud_update(&ignored, &object);
 		return;
 	}
 	text = hud_message_blank_text_ADDRESS;
@@ -141,7 +141,7 @@ void player_hud_start(void)
 	erase_text_lines(&text, &object);
 	if (game_in_progress != 0u)
 	{
-		player_hud_update(&r1, &object);
+		player_hud_update(&ignored, &object);
 		return;
 	}
 	init_bit = 0xFu;
@@ -152,14 +152,14 @@ void player_hud_start(void)
 			init_bit = 0x13u;
 	}
 	stage_init_flags &= ~shl32(1u, (int)(init_bit));
-	player_hud_update(&r1, &object);
+	player_hud_update(&ignored, &object);
 }
 
 void player_hud_update(uint32_t *p_digit_attribute, uint32_t *p_text_position)
 {
 	uint32_t digit_attribute = *p_digit_attribute;
 	uint32_t text_position = *p_text_position;
-	uint32_t r11 = 0, digit = 0, message_position = 0, object = 0, player = 0, player_2 = 0, portrait_anim = 0, text = 0, value = 0, wrapped = 0;
+	uint32_t digit = 0, message_position = 0, object = 0, player = 0, player_2 = 0, portrait_anim = 0, prompt_position = 0, text = 0, value = 0, wrapped = 0;
 	uint32_t flags = 0;
 
 	player = OBJECT(current_object)->player;
@@ -167,20 +167,20 @@ void player_hud_update(uint32_t *p_digit_attribute, uint32_t *p_text_position)
 	{
 		text = hud_wait_text_ADDRESS;
 		text_position = blink_player_hud_message(text, text_position);
-		AT8(OBJECT(LINKED(current_object, PLAYER(current_player)->hud_gauge))->projected_y, 1) = 0xFFu;
+		OBJECT(LINKED(current_object, PLAYER(current_player)->hud_gauge))->piece_frame = -1;
 		*p_text_position = text_position;
 		return;
 	}
 	if (PLAYER(current_player)->state == 0x23u || PLAYER(current_player)->state == 0x2Eu || PLAYER(current_player)->state == 0x34u || PLAYER(current_player)->state == 0x24u || PLAYER(current_player)->state == 0x37u)
 	{
-		AT8(OBJECT(LINKED(current_object, PLAYER(current_player)->hud_gauge))->projected_y, 1) = 0xFFu;
+		OBJECT(LINKED(current_object, PLAYER(current_player)->hud_gauge))->piece_frame = -1;
 		return;
 	}
 	if (PLAYER(current_player)->state == 0x2Bu)
 	{
 		if (PLAYER(current_player)->hud_message_shown == 0u)
 		{
-			AT8(OBJECT(LINKED(current_object, PLAYER(current_player)->hud_gauge))->projected_y, 1) = 0xFFu;
+			OBJECT(LINKED(current_object, PLAYER(current_player)->hud_gauge))->piece_frame = -1;
 			return;
 		}
 		PLAYER(current_player)->hud_message_shown = 0u;
@@ -190,26 +190,26 @@ void player_hud_update(uint32_t *p_digit_attribute, uint32_t *p_text_position)
 		if ((cabinet_config & 1u) == 0u)
 			text_position = (text_position & ~0xFFFFu) | hud_text_positions_2p[player];
 		erase_text_lines(&text, &text_position);
-		AT8(OBJECT(LINKED(current_object, PLAYER(current_player)->hud_gauge))->projected_y, 1) = 0xFFu;
+		OBJECT(LINKED(current_object, PLAYER(current_player)->hud_gauge))->piece_frame = -1;
 		*p_text_position = text_position;
 		return;
 	}
 	if (PLAYER(current_player)->state == 0x39u && game_mode_timer >= 0x3C)
 	{
-		AT8(OBJECT(LINKED(current_object, PLAYER(current_player)->hud_gauge))->projected_y, 1) = 0xFFu;
+		OBJECT(LINKED(current_object, PLAYER(current_player)->hud_gauge))->piece_frame = -1;
 		return;
 	}
 	if ((int8_t)player_status[player] < 0 || player_status[player] == 1u)
 	{
 		object = LINKED(current_object, PLAYER(current_player)->hud_gauge);
 		current_object = LINKED(current_object, PLAYER(current_player)->hud_portrait);
-		if (AT8(OBJECT(object)->projected_y, 1) != 0u)
+		if ((uint8_t)OBJECT(object)->piece_frame != 0u)
 		{
-			AT8(OBJECT(object)->projected_y, 1) = 0u;
-			AS8(OBJECT(object)->direction) = OBJECT(object_cursor)->health;
-			AS8(OBJECT(object)->projected_y) = 0u;
-			AS8(OBJECT(current_object)->projected_y) = 0u;
-			OBJECT(object)->sprite_palette = mem_read16(AS32(OBJECT(object)->child) + 2u);
+			OBJECT(object)->piece_frame = 0;
+			OBJECT(object)->direction_low = OBJECT(object_cursor)->health;
+			OBJECT(object)->hud_anim_repeats = 0;
+			OBJECT(current_object)->hud_anim_repeats = 0;
+			OBJECT(object)->sprite_palette = ROM16(OBJECT(object)->animate_hud.anim + 2u);
 			portrait_anim = hud_portrait_hurt_palettes_sonic_ADDRESS;
 			if (OBJECT(object_cursor)->kind != 0u)
 			{
@@ -217,20 +217,19 @@ void player_hud_update(uint32_t *p_digit_attribute, uint32_t *p_text_position)
 				if (OBJECT(object_cursor)->kind != 1u)
 					portrait_anim = hud_portrait_hurt_palettes_mighty_ADDRESS;
 			}
-			AS32(OBJECT(current_object)->child) = portrait_anim;
-			OBJECT(current_object)->sprite_palette = mem_read16(AS32(OBJECT(current_object)->child) + 2u);
+			OBJECT(current_object)->animate_hud.anim = portrait_anim;
+			OBJECT(current_object)->sprite_palette = ROM16(OBJECT(current_object)->animate_hud.anim + 2u);
 		}
 		flags = PLAYER(current_player)->flags;
 		PLAYER(current_player)->flags = flags & ~0x40u;
 		if ((flags & 0x40u) == 0u)
 		{
-			if (OBJECT(object_cursor)->health < (int8_t)AS8(OBJECT(object)->direction))
+			if (OBJECT(object_cursor)->health < (int8_t)OBJECT(object)->direction_low)
 			{
-				OBJECT(object)->child = 0xCD4Du;
-				OBJECT(object)->projected_x = 0;
-				AT8(OBJECT(object)->direction, 1) = 0u;
-				AT8(OBJECT(object)->parent, 1) = 0u;
-				AS8(OBJECT(object)->projected_y) = 3u;
+				OBJECT(object)->animate_hud.anim = hud_gauge_hit_palettes_ADDRESS;
+				OBJECT(object)->animate_hud.frame = 0u;
+				OBJECT(object)->animate_hud.anim_timer = 0;
+				OBJECT(object)->hud_anim_repeats = 3;
 				portrait_anim = hud_portrait_hurt_palettes_sonic_ADDRESS;
 				if (OBJECT(object_cursor)->kind != 0u)
 				{
@@ -238,29 +237,27 @@ void player_hud_update(uint32_t *p_digit_attribute, uint32_t *p_text_position)
 					if (OBJECT(object_cursor)->kind != 1u)
 						portrait_anim = hud_portrait_hurt_palettes_mighty_ADDRESS;
 				}
-				AS32(OBJECT(current_object)->child) = portrait_anim;
-				AT8(OBJECT(current_object)->direction, 1) = 0u;
-				AT8(OBJECT(current_object)->parent, 1) = 0u;
-				AS8(OBJECT(current_object)->projected_y) = 3u;
+				OBJECT(current_object)->animate_hud.anim = portrait_anim;
+				OBJECT(current_object)->animate_hud.frame = 0u;
+				OBJECT(current_object)->animate_hud.anim_timer = 0;
+				OBJECT(current_object)->hud_anim_repeats = 3;
 			}
 		}
 		else
 		{
-			OBJECT(object)->child = 0xCD37u;
-			OBJECT(object)->projected_x = 0;
-			AT8(OBJECT(object)->direction, 1) = 0u;
-			AT8(OBJECT(object)->parent, 1) = 0u;
-			AS8(OBJECT(object)->projected_y) = 1u;
-			AT8(OBJECT((current_object & ~0xFFFFu) | PLAYER(current_player)->hud_ring_effect)->direction, 1) = 0u;
+			OBJECT(object)->animate_hud.anim = hud_gauge_ring_palettes_ADDRESS;
+			OBJECT(object)->animate_hud.frame = 0u;
+			OBJECT(object)->animate_hud.anim_timer = 0;
+			OBJECT(object)->hud_anim_repeats = 1;
+			OBJECT((current_object & ~0xFFFFu) | PLAYER(current_player)->hud_ring_effect)->direction_high = 0u;
 		}
-		AS8(OBJECT(object)->direction) = OBJECT(object_cursor)->health;
-		if (OBJECT(object_cursor)->health <= 8 && (int8_t)AS8(OBJECT(object)->projected_y) <= 0)
+		OBJECT(object)->direction_low = OBJECT(object_cursor)->health;
+		if (OBJECT(object_cursor)->health <= 8 && OBJECT(object)->hud_anim_repeats <= 0)
 		{
-			OBJECT(object)->child = 0xCD55u;
-			OBJECT(object)->projected_x = 0;
-			AT8(OBJECT(object)->direction, 1) = 0u;
-			AT8(OBJECT(object)->parent, 1) = 0u;
-			AS8(OBJECT(object)->projected_y) = 3u;
+			OBJECT(object)->animate_hud.anim = hud_gauge_low_health_palettes_ADDRESS;
+			OBJECT(object)->animate_hud.frame = 0u;
+			OBJECT(object)->animate_hud.anim_timer = 0;
+			OBJECT(object)->hud_anim_repeats = 3;
 			portrait_anim = hud_portrait_low_health_palettes_sonic_ADDRESS;
 			if (OBJECT(object_cursor)->kind != 0u)
 			{
@@ -268,10 +265,10 @@ void player_hud_update(uint32_t *p_digit_attribute, uint32_t *p_text_position)
 				if (OBJECT(object_cursor)->kind != 1u)
 					portrait_anim = hud_portrait_low_health_palettes_mighty_ADDRESS;
 			}
-			AS32(OBJECT(current_object)->child) = portrait_anim;
-			AT8(OBJECT(current_object)->direction, 1) = 0u;
-			AT8(OBJECT(current_object)->parent, 1) = 0u;
-			AS8(OBJECT(current_object)->projected_y) = 3u;
+			OBJECT(current_object)->animate_hud.anim = portrait_anim;
+			OBJECT(current_object)->animate_hud.frame = 0u;
+			OBJECT(current_object)->animate_hud.anim_timer = 0;
+			OBJECT(current_object)->hud_anim_repeats = 3;
 		}
 		if (game_in_progress != 0u)
 		{
@@ -291,27 +288,27 @@ void player_hud_update(uint32_t *p_digit_attribute, uint32_t *p_text_position)
 			draw_hex_4(&value, &digit_attribute, &text_position);
 		}
 		current_object = (current_object & ~0xFFFFu) | PLAYER(current_player)->hud_ring_effect;
-		if ((int8_t)AT8(OBJECT(current_object)->direction, 1) >= 0)
+		if ((int8_t)OBJECT(current_object)->direction_high >= 0)
 		{
 			animate_hud_tiles(&digit_attribute, &wrapped);
 			if ((int8_t)wrapped < 0)
-				AT8(OBJECT(current_object)->direction, 1) = 0xFFu;
+				OBJECT(current_object)->direction_high = 0xFFu;
 			queue_sprite_on_top();
 		}
 		current_object = LINKED(current_object, PLAYER(current_player)->hud_portrait);
-		if ((int8_t)AS8(OBJECT(current_object)->projected_y) > 0)
+		if (OBJECT(current_object)->hud_anim_repeats > 0)
 		{
 			animate_hud_palette(&digit_attribute, &wrapped);
 			if (wrapped != 0u)
-				AS8(OBJECT(current_object)->projected_y)--;
+				OBJECT(current_object)->hud_anim_repeats--;
 		}
 		queue_sprite_on_top();
 		current_object = LINKED(current_object, PLAYER(current_player)->hud_gauge);
-		if ((int8_t)AS8(OBJECT(current_object)->projected_y) > 0)
+		if (OBJECT(current_object)->hud_anim_repeats > 0)
 		{
 			animate_hud_palette(&digit_attribute, &wrapped);
 			if (wrapped != 0u)
-				AS8(OBJECT(current_object)->projected_y)--;
+				OBJECT(current_object)->hud_anim_repeats--;
 		}
 		OBJECT(current_object)->sprite_width = (uint8_t)OBJECT(object_cursor)->health * 2u;
 		if (OBJECT(current_object)->sprite_width <= 0)
@@ -328,12 +325,12 @@ void player_hud_update(uint32_t *p_digit_attribute, uint32_t *p_text_position)
 		*p_text_position = text_position;
 		return;
 	}
-	AT8(OBJECT(LINKED(current_object, PLAYER(current_player)->hud_gauge))->projected_y, 1) = 0xFFu;
+	OBJECT(LINKED(current_object, PLAYER(current_player)->hud_gauge))->piece_frame = -1;
 	if (current_game_mode == 0x18u)
 	{
 		if (PLAYER(current_player)->hud_message_shown == 0u)
 		{
-			AT8(OBJECT(LINKED(current_object, PLAYER(current_player)->hud_gauge))->projected_y, 1) = 0xFFu;
+			OBJECT(LINKED(current_object, PLAYER(current_player)->hud_gauge))->piece_frame = -1;
 			return;
 		}
 		PLAYER(current_player)->hud_message_shown = 0u;
@@ -343,15 +340,15 @@ void player_hud_update(uint32_t *p_digit_attribute, uint32_t *p_text_position)
 		if ((cabinet_config & 1u) == 0u)
 			text_position = (text_position & ~0xFFFFu) | hud_text_positions_2p[player];
 		erase_text_lines(&text, &text_position);
-		AT8(OBJECT(LINKED(current_object, PLAYER(current_player)->hud_gauge))->projected_y, 1) = 0xFFu;
+		OBJECT(LINKED(current_object, PLAYER(current_player)->hud_gauge))->piece_frame = -1;
 		*p_text_position = text_position;
 		return;
 	}
 	if (joining_closed == 0u)
 	{
-		r11 = draw_player_start_prompt();
+		prompt_position = draw_player_start_prompt();
 		*p_digit_attribute = digit_attribute;
-		*p_text_position = r11;
+		*p_text_position = prompt_position;
 		return;
 	}
 	if (PLAYER(current_player)->hud_message_shown != 0u)
@@ -374,7 +371,7 @@ void player_hud_update(uint32_t *p_digit_attribute, uint32_t *p_text_position)
 
 uint32_t draw_player_start_prompt(void)
 {
-	uint32_t blink_bit = 0, credit_block = 0, player = 0, prompt_position = 0, prompt_texts = 0, text = 0;
+	uint32_t credit_block = 0, ignored = 0, player = 0, prompt_position = 0, prompt_texts = 0;
 
 	switch (cabinet_config)
 	{
@@ -387,7 +384,7 @@ uint32_t draw_player_start_prompt(void)
 		if ((cabinet_config & 1u) == 0u)
 			prompt_position = (prompt_position & ~0xFFFFu) | start_prompt_positions_2p[player];
 		prompt_texts = start_prompt_texts_ADDRESS;
-		blink_start_prompt(credit_block, prompt_texts, &blink_bit, &text, &prompt_position);
+		blink_start_prompt(credit_block, prompt_texts, &ignored, &ignored, &prompt_position);
 		return prompt_position;
 	case 2:
 	case 3:
@@ -397,10 +394,10 @@ uint32_t draw_player_start_prompt(void)
 		if ((cabinet_config & 1u) == 0u)
 			prompt_position = (prompt_position & ~0xFFFFu) | start_prompt_positions_2p[player];
 		prompt_texts = start_prompt_texts_ADDRESS;
-		blink_start_prompt(credit_block, prompt_texts, &blink_bit, &text, &prompt_position);
+		blink_start_prompt(credit_block, prompt_texts, &ignored, &ignored, &prompt_position);
 		return prompt_position;
 	default:
-		unknown_code(0xA9E6u + cabinet_config * 2u);
+		invalid_jump(0xA9E6u + cabinet_config * 2u);
 	}
 }
 
@@ -421,7 +418,7 @@ void animate_hud_palette(uint32_t *p_list_index, uint32_t *p_wrapped)
 	}
 	OBJECT(current_object)->animate_hud.anim_timer = OBJECT(current_object)->animate_hud.anim_delay;
 	palettes = OBJECT(current_object)->animate_hud.anim;
-	last_frame = (uint8_t)mem_read16(palettes);
+	last_frame = (uint8_t)ROM16(palettes);
 	list_index = OBJECT(current_object)->animate_hud.frame;
 	list_index = (uint8_t)(list_index + 1u);
 	palettes += 2u;
@@ -431,7 +428,7 @@ void animate_hud_palette(uint32_t *p_list_index, uint32_t *p_wrapped)
 		list_index = 0u;
 	}
 	OBJECT(current_object)->animate_hud.frame = list_index;
-	OBJECT(current_object)->sprite_palette = mem_read16(palettes + list_index * 2u);
+	OBJECT(current_object)->sprite_palette = ROM16(palettes + list_index * 2u);
 	*p_list_index = list_index;
 	*p_wrapped = wrapped;
 }
@@ -453,12 +450,12 @@ void animate_hud_tiles(uint32_t *p_list_index, uint32_t *p_wrapped)
 	}
 	OBJECT(current_object)->animate_hud.anim_timer = OBJECT(current_object)->animate_hud.anim_delay;
 	frame_list = OBJECT(current_object)->animate_hud.anim;
-	last_frame = (uint8_t)mem_read16(frame_list);
+	last_frame = (uint8_t)ROM16(frame_list);
 	list_index = OBJECT(current_object)->animate_hud.frame;
 	list_index = (uint8_t)(list_index + 1u);
 	frame_list += 2u;
 	if ((int8_t)list_index <= (int8_t)last_frame)
-		OBJECT(current_object)->sprite_frame = mem_read16(frame_list + list_index * 2u);
+		OBJECT(current_object)->sprite_frame = ROM16(frame_list + list_index * 2u);
 	else
 	{
 		wrapped = 0xFFFFFFFFu;
@@ -579,14 +576,14 @@ void give_result_bonus(uint32_t player)
 	uint8_t max_health = 0;
 	uint32_t joined_setting = 0, player_object = 0;
 
-	player_object = (player & ~0xFFFFu) | mem_read16(player + 0x14u);
-	mem_write8(player_object + 0x7Eu, mem_read8(player_object + 0x7Eu) + 8u);
-	joined_setting = mem_read8(player + 0x75u);
+	player_object = LINKED(player, PLAYER(player)->object);
+	OBJECT(player_object)->health += 8u;
+	joined_setting = PLAYER(player)->joined_health_setting;
 	max_health = (uint8_t)max_health_by_setting[(uint16_t)(joined_setting * 2u)];
-	if ((int8_t)max_health < (int8_t)mem_read8(player_object + 0x7Eu))
-		mem_write8(player_object + 0x7Eu, max_health);
-	mem_write32(player + 0x114u, mem_read32(player + 0x114u) | 0x40u);
-	mem_write16(player + 0x13Au, mem_read16(player + 0x13Au) + ring_tally_percent * 2u);
+	if ((int8_t)max_health < OBJECT(player_object)->health)
+		OBJECT(player_object)->health = max_health;
+	PLAYER(player)->flags |= 0x40u;
+	PLAYER(player)->rings += ring_tally_percent * 2u;
 }
 
 void spawn_climb_zone_effect(uint32_t object)
@@ -624,16 +621,16 @@ void climb_zone_effect_start(void)
 
 void climb_zone_effect_update(void)
 {
-	uint32_t r7 = 0, r8 = 0, depth = 0, frame = 0, ignored = 0, object = 0;
+	uint32_t climbing_player = 0, depth = 0, ignored = 0;
 
-	object = LINKED(current_object, OBJECT(current_object)->parent);
-	if (AS8(OBJECT(object)->draw_next) != 0xAu || mem_read8(object + 0x13Eu) == 0u)
+	climbing_player = LINKED(current_object, OBJECT(current_object)->parent);
+	if (PLAYER(climbing_player)->state != 0xAu || PLAYER(climbing_player)->splash_zone == 0u)
 	{
 		delete_current_object();
 		return;
 	}
-	OBJECT(current_object)->y = OBJECT((current_object & ~0xFFFFu) | (uint16_t)OBJECT(object)->anchor_x)->y;
-	animate(&frame, &r7, &r8);
+	OBJECT(current_object)->y = OBJECT(LINKED(current_object, PLAYER(climbing_player)->object))->y;
+	animate(&ignored, &ignored, &ignored);
 	project_object(&ignored, &ignored);
 	depth = (uint16_t)(OBJECT(current_object)->screen_y + 0x28u);
 	queue_sprite_at_depth(&ignored, &depth);
@@ -664,7 +661,7 @@ void spawn_intro_marker(uint32_t object)
 
 void intro_marker_update(void)
 {
-	uint32_t r7 = 0, r8 = 0, object = 0, scale = 0;
+	uint32_t ignored = 0, object = 0, scale = 0;
 
 	if ((int8_t)scene_step >= 2)
 	{
@@ -678,7 +675,7 @@ void intro_marker_update(void)
 	scale = OBJECT(current_object)->sprite_scale;
 	OBJECT(current_object)->screen_y += (OBJECT(current_object)->sprite_offset_y * scale) >> 8;
 	OBJECT(current_object)->screen_x += OBJECT(current_object)->sprite_offset_x;
-	animate(&scale, &r7, &r8);
+	animate(&scale, &ignored, &ignored);
 	scale = queue_sprite(scale);
 }
 

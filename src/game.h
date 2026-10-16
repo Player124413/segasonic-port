@@ -3,7 +3,7 @@
  *    Description: prototypes of the game's functions and the addresses of the code it keeps in memory slots
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    15-10-2026
+ *    Modified:    16-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -595,7 +595,7 @@ extern uint32_t r14, current_player, current_object, free_objects, first_object,
 /* engine/contacts.c: contacts between objects and players: the zones, the hitter, touchable, rider, platform and wall lists, and the checks that pair them */
 uint32_t check_zones(uint32_t box_edge);
 uint32_t add_to_zone_list(uint32_t old_head);
-void check_hits(uint32_t *p_box_edge, uint32_t *p_distance, uint32_t *p_r3, uint32_t *p_r4, uint32_t *p_radius, uint32_t *p_centre_offset, uint32_t *p_previous);
+void check_hits(uint32_t *p_box_edge, uint32_t *p_distance, uint32_t *p_dy, uint32_t *p_edge_or_centre_y, uint32_t *p_radius, uint32_t *p_centre_offset, uint32_t *p_previous);
 void check_hit(uint32_t other, uint32_t hitter, uint32_t *p_box_edge, uint32_t *p_distance, uint32_t *p_r3, uint32_t *p_r4, uint32_t *p_radius, uint32_t *p_centre_offset, uint32_t *p_previous);
 void add_to_hitter_list(void);
 uint32_t add_to_touchable_list(uint32_t old_head);
@@ -1704,7 +1704,7 @@ void ring_tally_player_3_update_spare_return(void);
 void build_ring_tally_panel(uint32_t character);
 void update_ring_tally_panel(void);
 void update_ring_tally_panel_tail(void);
-void cycle_ring_tally_label_palette(void);
+void cycle_ring_tally_backdrop_palette(void);
 
 /* scenes/title.c: the title screen: the SEGA logo, the emblem, the land, the craft, Sonic's loop, the clouds and the sky */
 void run_title_screen(uint32_t text_position, uint32_t *p_color, uint32_t *p_row_pairs_left, uint32_t *p_blocks_per_row, uint32_t *p_text);

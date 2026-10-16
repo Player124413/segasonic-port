@@ -3,7 +3,7 @@ Name:        decompile.py
 Description: decompiles the game's V60 program into readable C, one C function per original function
 Version:     0.1.0
 Created:     11-10-2026
-Modified:    15-10-2026
+Modified:    16-10-2026
 Author:      Sebastian Toyos
 
 Usage: python tools/decompile.py [rom folder or .zip] [--check] [--trace] [--out DIR] [--symbols FILE]
@@ -426,7 +426,7 @@ RESET_ADDRESS = 0xFFFFF0
 IDENTIFIER = re.compile(r"[A-Za-z_][A-Za-z0-9_]*\Z")
 # names the runtime the decompiled code includes already uses (game/support.h, s32/bus.h, v60/arith.h)
 TAKEN = {"psw", "psw_read", "psw_write", "psw_update", "load_privileged", "frame_wait", "take_interrupts",
-         "frame_end", "halt", "call_code", "unknown_code", "move_string", "move_bits_down", "move_bits_up",
+         "frame_end", "halt", "call_code", "unknown_code", "invalid_jump", "move_string", "move_bits_down", "move_bits_up",
          "search_bits_up", "divx_pair", "divux_pair", "game_code", "game_code_count", "game_entry", "main"}
 
 
@@ -596,6 +596,7 @@ def write_c(program, out_dir, trace=False, variables_path=None, split_webs=False
     known = disassemble.load_names(SYMBOLS)
     # the structures: the object and the player, and any other symbols.txt declares (flood_fill_record)
     pointers.STRUCTS.update(known.structs)
+    pointers.ROM_STRUCTS = set(known.rom_structs)
     # records of their own (not the object's or the player's blocks) come one after another: the flood
     # fill's queue is walked a record at a time
     pointers.RUNS = set(known.structs) - {"object", "player"}
@@ -604,18 +605,32 @@ def write_c(program, out_dir, trace=False, variables_path=None, split_webs=False
     hints = {}
     for (function, register), struct in known.param_structs.items():
         if function in entries_by_name:
-            hints.setdefault(entries_by_name[function], {})[register] = (struct, 0)
+            hints.setdefault(entries_by_name[function], {})[register] = pointers.link_kind(struct)
     site_hints = {}
     for (function, spot, value), struct in known.local_structs.items():
         if not value.startswith("r"):
             continue    # (a temporary or a stack slot: the structure is for registers only)
         if spot == "entry" and function in entries_by_name:
-            hints.setdefault(entries_by_name[function], {})[int(value[1:])] = (struct, 0)
+            hints.setdefault(entries_by_name[function], {})[int(value[1:])] = pointers.link_kind(struct)
         elif spot != "entry":
-            site_hints[(spot, int(value[1:]))] = (struct, 0)
+            site_hints[(spot, int(value[1:]))] = pointers.link_kind(struct)
+    # the object a function of a family runs on is that family's: the longest family (scoped object lines)
+    # whose name starts the function's (fire_front_chase is fire_front's), as emit.py reads its fields
+    object_families = sorted({family for (struct, family) in known.scoped if struct == "object"}, key=len, reverse=True)
+    global_names = sorted({family for (struct, family) in known.scoped if struct == "global"}, key=len, reverse=True)
+    families, global_families = {}, {}
+    for entry in built:
+        name = program.names[entry]
+        family = next((family for family in object_families if name == family or name.startswith(family + "_")), None)
+        if family is not None:
+            families[entry] = family
+        family = next((family for family in global_names if name == family or name.startswith(family + "_")), None)
+        if family is not None:
+            global_families[entry] = family    # as emit.global_family_of
     typing = pointers.Program(built, flow, found,
                               {entry: call_results(function, found, flow) for entry, function in built.items()},
-                              signatures.CONTEXT, known.targets, hints, site_hints)
+                              signatures.CONTEXT, known.targets, hints, site_hints, known.scoped_targets, families,
+                              global_families)
     fields, accesses = typing.run()
     through = [(hit[1], hit[2]) for found_fields in fields.values() for hit in found_fields.values()
                if hit[0] == "global"]

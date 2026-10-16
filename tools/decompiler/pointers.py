@@ -4,7 +4,7 @@ Description: works out which registers point at which of the game's structures, 
              through them reads as a field: OBJECT(r20)->unk_30 instead of mem_read32(r20 + 0x30u)
 Version:     0.1.0
 Created:     12-10-2026
-Modified:    13-10-2026
+Modified:    16-10-2026
 Author:      Sebastian Toyos
 
 The structures (STRUCTS) are the game objects (0xA0 bytes in work RAM, run by the object loop with R20
@@ -17,6 +17,13 @@ Fields and variables symbols.txt says point at a structure (a struct name after 
 their kind to what is read from them: a u32 holds the address, a u16 the low half of it, which the code
 puts in the work RAM page ("(r & 0xFFFF0000) | halfword"). An access through any expression of a known
 kind reads as a field, not only through a register.
+
+A kind may also say which family's structure it points into ((struct, offset, family): object.eggman_scene
+in symbols.txt), so that what is read through it reads as that family's code reads its own object (its
+scoped fields, emit.py). The family comes from what symbols.txt says a field, variable, parameter or local
+points at, and from the function's own name: the object a function of a family runs on (R20 and R23 when
+it starts) is that family's. Two paths, callers or returns that say two families of one structure say
+the structure alone.
 
 Pointers into the program ROM (REGIONS: "rom") have a kind of their own, without a structure: an address
 from 0x1000 on in the ROM, plus any offset, or a word read from a field or variable symbols.txt says points
@@ -49,8 +56,13 @@ VARIABLES = 0x208000          # where R25 points: the game's variables
 PLAYERS = (0x208400, 0x200, 3)    # first, size, count
 # (struct, offset) or ("global", address) -> (struct, bits): what a field or variable points at (Program)
 TARGETS = {}
+# (struct, family, offset) -> (what it points at, bits): a field one family of functions uses as a pointer;
+# ("global", family, address) the same for a variable of the work RAM the family uses its own way
+SCOPED_TARGETS = {}
+GLOBAL_FAMILY = None          # the family whose own names of the work RAM the function being analysed uses
 CONTEXT_KINDS = {20: ("object", 0), 22: ("object", 0), 23: ("object", 0), 24: ("object", 0), 18: ("player", 0)}
 OBJECT_REGISTERS = (20, 22, 23, 24)    # what the game keeps here it reads as objects, wherever it put them
+OWN_REGISTERS = (20, 23)      # what points at the object a function runs on when it starts (the object loop's)
 REGIONS = {"rom"}             # kinds that are a memory, not a structure
 OFFSET = ("offset", 0)        # not a pointer: a value below 0x10000 (a halfword read, a mask...), an offset
 CONFLICT = ("conflict", 0)    # callers that know different things: nothing is known
@@ -64,11 +76,24 @@ ROM_DATA = (0x1000, 0x200000)  # where the program ROM's data can be (the vector
 ARRAYS = {}                    # struct -> (first, count): structures one after another, so that a pointer
                                # moved by the size of one points at the next (PLAYERS has its own rules)
 STRUCT_FUNCTION = "ram"        # what gives a pointer to a structure from its address (game/support.h)
+ROM_STRUCTS = set()            # structures that are records of the program ROM: read through ROM_FUNCTION
+ROM_FUNCTION = "rom"           # ... and what gives a pointer to one of those (const)
 CONSTANTS = False              # registers keep the constants they are set to, so that a pointer moved by one
                                # (the Z80's "ld de,12h ... add iy,de") keeps its kind
 PAGED = False                  # structures a page long, one per page: (p & FF00) | n is field n of p's (page_parts)
 RUNS = set()                   # structures laid one after another wherever a pointer starts (no fixed base,
                                # unlike ARRAYS): a pointer moved past one points into the next
+
+
+def link_kind(link, offset=0):
+    """The kind of a pointer to what 'link' names (symbols.txt): STRUCT, STRUCT.FAMILY or a region."""
+    struct, _, family = link.partition(".")
+    return (struct, offset, family) if family else (struct, offset)
+
+
+def family_of(kind):
+    """The family of the structure a kind points into, or None."""
+    return kind[2] if kind is not None and len(kind) > 2 else None
 
 
 def paged(kind):
@@ -156,6 +181,8 @@ def merge(a, b):
         other = b.get(index)
         if other == kind:
             found[index] = kind
+        elif other is not None and kind[:2] == other[:2] and kind[0] in STRUCTS:
+            found[index] = kind[:2]    # one structure, of two families (or of one and of none): of none
         elif other is not None and {kind[0], other[0]} & {"global"}:
             pointer, structure = (kind, other) if kind[0] == "global" else (other, kind)
             if structure[0] in STRUCTS and structure[1] == 0 and in_work_ram(pointer[1]):
@@ -179,6 +206,8 @@ def gather(a, b):
         if UNKNOWN in (old, kind):
             other = kind if old == UNKNOWN else old
             found[index] = CONFLICT if other[0] == "global" else other
+        elif old[:2] == kind[:2] and old[0] in STRUCTS:
+            found[index] = old[:2]    # one structure, of two families: of none
         else:
             found[index] = CONFLICT
     return found
@@ -248,7 +277,7 @@ def kind_of(node, state, zeros):
     if isinstance(node, ir.Load):
         if node.bits == POINTER_BITS:
             target = target_of(node.address, state, POINTER_BITS)
-            return (target, 0) if target is not None else None
+            return link_kind(target) if target is not None else None
         return None
     if not isinstance(node, ir.Op):
         return None
@@ -267,25 +296,26 @@ def kind_of(node, state, zeros):
         if kinds.count(("rom", 0)) == 1 and all(kind in (("rom", 0), OFFSET) or (kind is None and offset_sized(arg, state))
                                                  for kind, arg in zip(kinds, args)):
             return "rom", 0
-    if name == "add" and isinstance(args[1], ir.Const):
+    if name in ("add", "sub") and isinstance(args[1], ir.Const):
+        delta = args[1].value if name == "add" else -args[1].value
         inner = kind_of(args[0], state, zeros)
         if inner is not None and inner[0] == "global":
-            value = (inner[1] + args[1].value) & ADDRESS_MASK
+            value = (inner[1] + delta) & ADDRESS_MASK
             return ("global", value) if in_work_ram(value) else None
         if inner is not None and inner[0] in STRUCTS:
-            offset = signed(inner[1] + args[1].value)
+            offset = signed(inner[1] + delta)
             if 0 <= offset < STRUCTS[inner[0]]:
-                return inner[0], offset
-            if (inner[0] in ARRAYS or inner[0] in RUNS) and offset >= 0:
-                return inner[0], offset % STRUCTS[inner[0]]    # into the next one of the array
+                return (inner[0], offset) + tuple(inner[2:])
+            if inner[0] in RUNS or (inner[0] in ARRAYS and offset >= 0):
+                return inner[0], offset % STRUCTS[inner[0]]    # into the next (or the one before) of the array
             return None
     if name == "add" and isinstance(args[0], ir.Const) and args[0].value & ADDRESS_MASK == VARIABLES \
             and isinstance(args[1], ir.Load) and args[1].bits == 32:
         # the variables' base (R25) plus an offset read from a table symbols.txt says leads to a structure
         # (player_block_offsets: 0x400, 0x600, 0x800)
         target = target_of(args[1].address, state, 32)
-        if target in STRUCTS:
-            return target, 0
+        if target is not None and link_kind(target)[0] in STRUCTS:
+            return link_kind(target)
     if name == "add" and isinstance(args[0], ir.Const):
         # a player's block, or a place in it: the first one's plus a multiple of the block size
         found = player_constant(args[0].value & ADDRESS_MASK)
@@ -307,11 +337,13 @@ def kind_of(node, state, zeros):
             if isinstance(link, ir.Load) and link.bits == 16:
                 target = target_of(link.address, state, 16)
                 if target is not None:
-                    return target, 0
+                    return link_kind(target)
         if masked and isinstance(kept.args[0], ir.Reg):
             inner = state.get(kept.args[0].index)
             if inner is not None and inner[0] in STRUCTS:
                 return inner[0], 0
+            if inner == ("rom", 0):
+                return inner    # a pointer into the ROM moved within its page
     return None
 
 
@@ -320,7 +352,7 @@ def offset_sized(node, state=None):
     cut), one masked to 16 bits, a register that holds one (OFFSET), or such a value times a small
     constant."""
     if isinstance(node, ir.Const):
-        return node.value < 0x10000
+        return node.value < 0x10000 or node.value >= 0xFFFF0000    # a small displacement either way
     if isinstance(node, ir.Reg):
         kind = state.get(node.index) if state is not None else None
         return kind == OFFSET or (kind is not None and kind[0] == "const")
@@ -337,6 +369,10 @@ def offset_sized(node, state=None):
         return offset_sized(args[0], state)
     if name == "or":
         return all(offset_sized(arg, state) for arg in args)
+    if name in ("shr", "sar") and isinstance(args[1], ir.Const):
+        return args[1].value >= 16 or offset_sized(args[0], state)
+    if name in ("add", "sub"):
+        return all(offset_sized(arg, state) for arg in args)    # an offset into a record or a table, either way
     return node.bits <= 16
 
 
@@ -357,23 +393,30 @@ def constant_base(address):
 
 
 def target_of(address, state, bits):
-    """The structure a value of 'bits' read at 'address' points at (TARGETS), or None."""
+    """What a value of 'bits' read at 'address' points at (TARGETS, SCOPED_TARGETS: STRUCT, STRUCT.FAMILY
+    or a region), or None."""
     hit = access(address, state)
     if hit is not None and hit[0] in REGIONS:
         hit = None    # a table in the ROM: what symbols.txt says its elements lead to, by its address
     if hit is not None and hit[0] != "global":
         key = (hit[0], hit[1])
+        scoped = SCOPED_TARGETS.get((hit[0], hit[4], hit[1])) if hit[4] is not None else None
+        if scoped is not None:
+            return scoped[0] if scoped[1] == bits else None    # the family's own use of the field
     else:
         base = constant_base(hit[1] if hit is not None else address)
         key = ("global", base) if base is not None else None
+        scoped = SCOPED_TARGETS.get(("global", GLOBAL_FAMILY, base)) if GLOBAL_FAMILY is not None else None
+        if scoped is not None:
+            return scoped[0] if scoped[1] == bits else None    # the family's own use of the variable
     found = TARGETS.get(key) if key is not None else None
     return found[0] if found is not None and found[1] == bits else None
 
 
 def access(address, state):
-    """(struct, offset of the field, base register, how far into the struct the base points) for a memory
-    access at 'address', or None. Through a pointer to a variable: ("global", the address with the
-    variable's address in place of the register)."""
+    """(struct, offset of the field, base register, how far into the struct the base points, the family of
+    the structure or None) for a memory access at 'address', or None. Through a pointer to a variable:
+    ("global", the address with the variable's address in place of the register)."""
     globals_ = {index: kind[1] for index, kind in state.items() if kind[0] == "global"}
     if globals_:
         def change(node):
@@ -386,28 +429,32 @@ def access(address, state):
             return ("global", folded)
     whole = kind_of(address, state, {})
     if whole is not None and whole[0] in REGIONS:
-        return whole[0], 0, address, 0
+        return whole[0], 0, address, 0, None
     if PAGED:
         found = page_parts(address, state, {})
         if found is not None:
-            return found[0], found[1], found[2], 0
+            return found[0], found[1], found[2], 0, None
     if isinstance(address, ir.Reg):
         kind = state.get(address.index)
-        return (kind[0], kind[1], address, kind[1]) if kind is not None and kind[0] in STRUCTS else None
+        return (kind[0], kind[1], address, kind[1], family_of(kind)) if kind is not None and kind[0] in STRUCTS \
+            else None
     base, displacement = address, 0
-    if isinstance(address, ir.Op) and address.name == "add" and isinstance(address.args[1], ir.Const):
-        base, displacement = address.args[0], address.args[1].value
+    if isinstance(address, ir.Op) and address.name in ("add", "sub") and isinstance(address.args[1], ir.Const):
+        base = address.args[0]
+        displacement = address.args[1].value if address.name == "add" else -address.args[1].value
     if isinstance(base, ir.Reg):
         kind = state.get(base.index)
     elif isinstance(base, ir.Op) and (base.name == "or" or base.name == "add" and isinstance(base.args[0], ir.Const)):
         kind = kind_of(base, state, {})
+    elif isinstance(base, ir.Load):
+        kind = kind_of(base, state, {})    # a pointer read where it is used (22[4[R20]])
     else:
         kind = None
     if kind is None or kind[0] in ("global", "const") or kind[0] in REGIONS or kind == OFFSET:
         return None
     offset = signed(kind[1] + displacement)
     if 0 <= offset < STRUCTS[kind[0]]:
-        return kind[0], offset, base, kind[1]
+        return kind[0], offset, base, kind[1], family_of(kind)
     return None
 
 
@@ -426,9 +473,14 @@ def fold(node):
 class Program:
     """The kinds of every function's registers, across calls."""
 
-    def __init__(self, functions, flow, signatures, call_results, context, targets=None, hints=None, site_hints=None):
+    def __init__(self, functions, flow, signatures, call_results, context, targets=None, hints=None, site_hints=None,
+                 scoped_targets=None, families=None, global_families=None):
         TARGETS.clear()
         TARGETS.update(targets or {})
+        SCOPED_TARGETS.clear()
+        SCOPED_TARGETS.update(scoped_targets or {})
+        self.families = families or {}       # entry -> the family of the object the function runs on (by its name)
+        self.global_families = global_families or {}    # entry -> the family of its own names of the work RAM
         self.hints = hints or {}             # entry -> {register: kind}: what symbols.txt says a parameter is
         self.site_hints = site_hints or {}   # (instruction address, register) -> kind: what symbols.txt says a
                                              # local variable written there is
@@ -492,6 +544,29 @@ class Program:
 
     # ---- one function ----
 
+    def told(self, target, state):
+        """What a caller tells a callee about its registers: the parameters and the context registers, as it
+        knows them. A parameter the callee only hands back as it found it (its data flow summary's base, and
+        what it works out its other results from, do not read it) tells only of the structures the program
+        keeps everywhere (CONTEXT_KINDS: objects, players): a record one caller leaves in R11 is not what
+        allocate_object finds there when no object is free, called from anywhere else."""
+        summary = self.flow.summaries.get(target)
+        common = {kind[0] for kind in CONTEXT_KINDS.values()}
+        found = {index: state.get(index, UNKNOWN) for index in self.context}
+        for value in self.signatures[target].params:
+            if value[0] != "r":
+                continue
+            kind = state.get(value[1], UNKNOWN)
+            if summary is not None and kind[0] in STRUCTS and kind[0] not in common:
+                reads = set(summary.base)
+                for key, passed in summary.passes.items():
+                    if key != value:
+                        reads |= passed
+                if not any(variable[0] == "r" and variable[1] == value[1] for variable in reads):
+                    kind = UNKNOWN
+            found[value[1]] = kind
+        return found
+
     def handed_back(self, entry):
         """Registers a function changes for its caller: its results, and the context registers it writes."""
         results = {value[1] for value in self.signatures[entry].results if value[0] == "r"}
@@ -554,12 +629,19 @@ class Program:
             targets = self.flow.call_targets(statement)
             if record is None:
                 for target in targets:
-                    params = {value[1] for value in self.signatures[target].params if value[0] == "r"}
-                    if statement.slot is not None:
-                        params = set()    # a call through a slot passes nothing but the context registers
-                    self.tell_callee(target, {index: state.get(index, UNKNOWN)
-                                              for index in params | self.context})
+                    # a call through a slot passes nothing but the context registers
+                    told = {index: state.get(index, UNKNOWN) for index in self.context} if statement.slot is not None \
+                        else self.told(target, state)
+                    self.tell_callee(target, told)
             self.after_call(targets, state, context_only=statement.slot is not None)
+            # what symbols.txt says a call hands back points at ("local" lines name it by the call)
+            origin = getattr(statement, "origin", None)
+            if origin is not None and statement.slot is None:
+                for target in targets:
+                    for index in self.handed_back(target):
+                        hinted = self.site_hints.get((origin, index))
+                        if hinted is not None:
+                            state[index] = hinted
             for index in list(zeros):
                 if index not in state:
                     zeros.pop(index, None)
@@ -596,6 +678,8 @@ class Program:
                         found[id(node)] = hit
 
     def analyse(self, entry, record):
+        global GLOBAL_FAMILY
+        GLOBAL_FAMILY = self.global_families.get(entry)
         function = self.functions[entry]
         blocks = function.blocks
         told = self.entry_kinds.get(entry, {})
@@ -604,6 +688,13 @@ class Program:
                  if told.get(index) != CONFLICT or index in OBJECT_REGISTERS}
         state.update(known(told))
         state.update(self.hints.get(entry, {}))
+        own = self.families.get(entry)
+        if own is not None:
+            # the object the function runs on is its family's, whatever its callers say
+            for index in OWN_REGISTERS:
+                kind = state.get(index)
+                if kind is not None and kind[:2] == ("object", 0):
+                    state[index] = ("object", 0, own)
         start = {entry: state}
         pending = [entry]
         while pending:
@@ -635,9 +726,7 @@ class Program:
                 self.note(end, state, record)
             if isinstance(end, ir.TailCall):
                 if record is None:
-                    params = {value[1] for value in self.signatures[end.target].params if value[0] == "r"}
-                    self.tell_callee(end.target, {index: state.get(index, UNKNOWN)
-                                                  for index in params | self.context})
+                    self.tell_callee(end.target, self.told(end.target, state))
                 self.after_call([end.target], state)
             if isinstance(end, (ir.Return, ir.TailCall, ir.InterruptReturn)):
                 kinds = {index: state.get(index, UNKNOWN) for index in self.handed_back(entry)}
@@ -671,10 +760,14 @@ class Layouts:
         self.scoped = {}    # struct -> family -> {offset: (name, bits, signed)}
         self.views = {}     # struct -> family -> the member that holds the family's view
         self.overlays = {}  # struct -> {(offset, bits): (name, signed)}: a narrower name for a field's first bytes
+        self.scoped_overlays = {}    # struct -> family -> {(offset, bits): (name, signed)}: the same in a family's view
         if names is not None:
             for (struct, offset, bits), (name, kind) in names.overlays.items():
                 if struct != "global":
                     self.overlays.setdefault(struct, {})[(offset, bits)] = (name, self.TYPES[kind][1])
+            for (struct, family), found in names.scoped_overlays.items():
+                self.scoped_overlays.setdefault(struct, {})[family] = {
+                    key: (name, self.TYPES[kind][1]) for key, (name, kind) in found.items()}
         if names is not None:
             for (struct, family), found in names.scoped.items():
                 self.scoped.setdefault(struct, {})[family] = {offset: (name, *self.TYPES[kind])
@@ -726,6 +819,10 @@ class Layouts:
         """(name, signed) of the overlay of 'bits' at 'offset', or None."""
         return self.overlays.get(struct, {}).get((offset, bits))
 
+    def scoped_overlay(self, struct, family, offset, bits):
+        """(name, signed) of the family's overlay of 'bits' at 'offset', or None."""
+        return self.scoped_overlays.get(struct, {}).get(family, {}).get((offset, bits))
+
     def families(self, struct):
         return sorted(self.scoped.get(struct, {}))
 
@@ -752,55 +849,65 @@ class Layouts:
 
     def members(self, struct, fields=None):
         """The fields ({offset: bits}, the structure's by default) as C members: (offset, bits, [parts]) for
-        each outermost field, the parts being the fields inside it (offset, bits)."""
+        each outermost field, the parts being the fields inside it, as members of their own (a part may
+        have parts). A field that starts inside another and runs past its end has no place in C."""
         fields = self.fields.get(struct, {}) if fields is None else fields
         outer = []
+        holding = []    # the fields the next one may lie inside, the outermost first
         for offset in sorted(fields, key=lambda start: (start, -fields[start])):
             bits = fields[offset]
-            if outer and offset < outer[-1][0] + outer[-1][1] // 8:
-                outer[-1][2].append((offset, bits))
+            member = (offset, bits, [])
+            while holding and offset >= holding[-1][0] + holding[-1][1] // 8:
+                holding.pop()
+            if holding:
+                if offset + bits // 8 > holding[-1][0] + holding[-1][1] // 8:
+                    raise ValueError(f"{struct}: the field at {offset:X} runs past the end of the one at "
+                                     f"{holding[-1][0]:X}")
+                holding[-1][2].append(member)
             else:
-                outer.append((offset, bits, []))
+                outer.append(member)
+            holding.append(member)
         return outer
 
-    def member_lines(self, struct, members, start, end, pad, names=None, signed=None):
-        """C members for the fields 'members' (see members()), from offset 'start' to 'end'; 'names' and
-        'signed' ({offset: ...}) are the structure's by default."""
+    def member_lines(self, struct, members, start, end, pad, names=None, signed=None, overlays=None):
+        """C members for the fields 'members' (see members()), from offset 'start' to 'end'; 'names',
+        'signed' ({offset: ...}) and 'overlays' ({(offset, bits): (name, signed)}) are the structure's by
+        default."""
+        generic = names is None
         names = self.names[struct] if names is None else names
         signed = self.signed[struct] if signed is None else signed
+        if overlays is None:
+            overlays = self.overlays.get(struct, {}) if generic else {}
 
         def kind(offset, bits):
             return f"int{bits}_t" if signed[offset] else f"uint{bits}_t"
-        lines = []
-        position = start
-        for offset, bits, parts in members:
-            if offset > position:
-                lines.append(f"{pad}uint8_t pad_{position:02X}[0x{offset - position:X}];")
-            overlays = [(found_bits, found) for (found_offset, found_bits), found
-                        in sorted(self.overlays.get(struct, {}).items())
-                        if found_offset == offset and found_bits < bits] if names is self.names.get(struct) else []
-            if not parts and not overlays:
-                lines.append(f"{pad}{kind(offset, bits)} {names[offset]};")
-            else:
-                # a field with parts or overlays of its own: views of the same bytes
-                lines += [f"{pad}union", f"{pad}{{", f"{pad}\t{kind(offset, bits)} {names[offset]};"]
-                for overlay_bits, (overlay_name, overlay_signed) in overlays:
-                    overlay_kind = f"int{overlay_bits}_t" if overlay_signed else f"uint{overlay_bits}_t"
-                    lines.append(f"{pad}\t{overlay_kind} {overlay_name};")
-                if parts:
-                    lines += [f"{pad}\tstruct", f"{pad}\t{{"]
-                    inner = offset
-                    for part_offset, part_bits in parts:
-                        if part_offset > inner:
-                            lines.append(f"{pad}\t\tuint8_t pad_{inner:02X}[0x{part_offset - inner:X}];")
-                        lines.append(f"{pad}\t\t{kind(part_offset, part_bits)} {names[part_offset]};")
-                        inner = part_offset + part_bits // 8
-                    lines.append(f"{pad}\t}};")
-                lines.append(f"{pad}}};")
-            position = offset + bits // 8
-        if position < end:
-            lines.append(f"{pad}uint8_t pad_{position:02X}[0x{end - position:X}];")
-        return lines
+
+        def lay(members, start, end, pad):
+            lines = []
+            position = start
+            for offset, bits, parts in members:
+                if offset > position:
+                    lines.append(f"{pad}uint8_t pad_{position:02X}[0x{offset - position:X}];")
+                own = [(found_bits, found) for (found_offset, found_bits), found in sorted(overlays.items())
+                       if found_offset == offset and found_bits < bits]
+                if not parts and not own:
+                    lines.append(f"{pad}{kind(offset, bits)} {names[offset]};")
+                else:
+                    # a field with parts or overlays of its own: views of the same bytes
+                    lines += [f"{pad}union", f"{pad}{{", f"{pad}\t{kind(offset, bits)} {names[offset]};"]
+                    for overlay_bits, (overlay_name, overlay_signed) in own:
+                        overlay_kind = f"int{overlay_bits}_t" if overlay_signed else f"uint{overlay_bits}_t"
+                        lines.append(f"{pad}\t{overlay_kind} {overlay_name};")
+                    if parts:
+                        lines += [f"{pad}\tstruct", f"{pad}\t{{"]
+                        lines += lay(parts, offset, offset, pad + "\t\t")
+                        lines.append(f"{pad}\t}};")
+                    lines.append(f"{pad}}};")
+                position = offset + bits // 8
+            if position < end:
+                lines.append(f"{pad}uint8_t pad_{position:02X}[0x{end - position:X}];")
+            return lines
+        return lay(members, start, end, pad)
 
     def member_type(self, struct, offset, bits):
         return f"int{bits}_t" if self.signed[struct][offset] else f"uint{bits}_t"
@@ -829,13 +936,13 @@ class Layouts:
                     fields = self.scoped[struct][family]
                     widths = {offset: bits for offset, (_, bits, _) in fields.items()}
                     view = self.members(struct, widths)
-                    if any(part[0] + part[1] // 8 > offset + bits // 8 for offset, bits, parts in view
-                           for part in parts) or max(o + b // 8 for o, b in widths.items()) > size:
-                        raise ValueError(f"{struct} {family}: fields overlap or run past the end")
+                    if max(o + b // 8 for o, b in widths.items()) > size:
+                        raise ValueError(f"{struct} {family}: fields run past the end")
                     lines += ["\t\tstruct", "\t\t{"]
                     lines += self.member_lines(struct, view, region, region, "\t\t\t",
                                                {offset: found[0] for offset, found in fields.items()},
-                                               {offset: found[2] for offset, found in fields.items()})
+                                               {offset: found[2] for offset, found in fields.items()},
+                                               self.scoped_overlays.get(struct, {}).get(family, {}))
                     lines.append(f"\t\t}} {self.views[struct][family]};")
                 lines.append("\t};")
             lines.append("};")
@@ -843,11 +950,15 @@ class Layouts:
         lines.append("#pragma pack(pop)")
         lines.append("")
         for struct, size in STRUCTS.items():
+            what = "the program ROM's records" if struct in ROM_STRUCTS else "the game's blocks"
             lines.append(f"_Static_assert(sizeof(struct {struct}) == 0x{size:X}, "
-                         f"\"struct {struct} has the size of the game's blocks\");")
+                         f"\"struct {struct} has the size of {what}\");")
         lines.append("")
         for struct in STRUCTS:
-            lines.append(f"#define {struct.upper()}(address) ((struct {struct} *){STRUCT_FUNCTION}(address))")
+            if struct in ROM_STRUCTS:
+                lines.append(f"#define {struct.upper()}(address) ((const struct {struct} *){ROM_FUNCTION}(address))")
+            else:
+                lines.append(f"#define {struct.upper()}(address) ((struct {struct} *){STRUCT_FUNCTION}(address))")
         for struct, (first, count) in ARRAYS.items():
             lines.append(f"#define {struct.upper()}_ADDRESS(n) (0x{first:X}u + (n) * 0x{STRUCTS[struct]:X}u)    "
                          f"/* the {count} of them, from 0 */")

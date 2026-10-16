@@ -3,7 +3,7 @@ Name:        cpu.py
 Description: what the decompiler's passes need to know about the processor whose code they work on
 Version:     0.1.0
 Created:     13-10-2026
-Modified:    13-10-2026
+Modified:    16-10-2026
 Author:      Sebastian Toyos
 
 The passes were written for the V60 and work on any code lifted to the same IR: a processor is its
@@ -29,7 +29,7 @@ class Profile:
     register_names: dict        # the C name of a register, where it is not rN
     flag_names: dict            # the C name of each flag
     variable_names: dict        # the base name of a register's variables, where it is not rN
-    unknown_code: str           # what a jump through a table calls for an entry the table does not have
+    invalid_jump: str           # what a jump through a table calls for an entry the table does not have
 
 
 V60 = Profile(
@@ -45,7 +45,7 @@ V60 = Profile(
     register_names={29: "ap", 30: "fp"},
     flag_names={"z": "zero", "s": "negative", "ov": "overflow", "cy": "carry"},
     variable_names={},
-    unknown_code="unknown_code",
+    invalid_jump="invalid_jump",
 )
 
 # tools/z80/lift.py: BC DE HL IX IY are 0-4, SP 5, A 6, and the other bank's BC DE HL A 7-10; B C D E H L
@@ -68,7 +68,7 @@ Z80 = Profile(
                 "z_alt": "zero_alt", "s_alt": "negative_alt", "ov_alt": "overflow_alt", "cy_alt": "carry_alt"},
     variable_names={0: "bc", 1: "de", 2: "hl", 3: "ix", 4: "iy", 6: "a", 7: "bc_alt", 8: "de_alt", 9: "hl_alt",
                     10: "a_alt", 11: "b", 12: "c", 13: "d", 14: "e", 15: "h", 16: "l"},
-    unknown_code="sound_unknown_code",
+    invalid_jump="sound_invalid_jump",
 )
 
 current = V60

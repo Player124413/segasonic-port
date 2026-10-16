@@ -3,7 +3,7 @@
  *    Description: the sound program's ports, variables, tables, structures and functions
  *    Version:     0.1.0
  *    Created:     13-10-2026
- *    Modified:    15-10-2026
+ *    Modified:    16-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the Z80 sound program decompiled into C by
@@ -60,6 +60,8 @@
 #define fm_pan_modulation SOUND_RAM8(fm_pan_modulation_ADDRESS)
 #define music_volume_ADDRESS 0xE01Cu
 #define music_volume SOUND_RAM8(music_volume_ADDRESS)
+#define kit_pitch_ADDRESS 0xE01Du
+#define kit_pitch SOUND_RAM16(kit_pitch_ADDRESS)
 #define kit_pitch_low_ADDRESS 0xE01Du
 #define kit_pitch_low SOUND_RAM8(kit_pitch_low_ADDRESS)
 #define kit_pitch_high_ADDRESS 0xE01Eu
@@ -486,7 +488,16 @@ struct fm_voice
 	uint8_t vibrato_fall;
 	uint8_t vibrato_phase;
 	uint8_t vibrato_rate;
-	uint16_t vibrato_offset;
+	union
+	{
+		uint16_t vibrato_offset;
+		uint8_t vibrato_offset_low;
+		struct
+		{
+			uint8_t pad_0F[0x1];
+			uint8_t vibrato_offset_high;
+		};
+	};
 	uint8_t vibrato_block;
 };
 
@@ -519,16 +530,43 @@ struct sample_voice
 	uint8_t header_address_low;
 	uint8_t header_address_high;
 	uint16_t pitch_step;
-	uint16_t stream_position;
+	union
+	{
+		uint16_t stream_position;
+		uint8_t stream_position_low;
+		struct
+		{
+			uint8_t pad_10[0x1];
+			uint8_t stream_position_high;
+		};
+	};
 };
 
 struct sequence_player
 {
 	uint8_t flags;
 	uint8_t pad_01[0x1];
-	uint16_t position;
+	union
+	{
+		uint16_t position;
+		uint8_t position_low;
+		struct
+		{
+			uint8_t pad_02[0x1];
+			uint8_t position_high;
+		};
+	};
 	uint8_t pad_04[0x2];
-	uint16_t delta_time;
+	union
+	{
+		uint16_t delta_time;
+		uint8_t delta_time_low;
+		struct
+		{
+			uint8_t pad_06[0x1];
+			uint8_t delta_time_high;
+		};
+	};
 	uint8_t pad_08[0x2];
 	uint8_t meta_51_value;
 	uint8_t pad_0B[0x9];
@@ -540,8 +578,90 @@ struct sequence_player
 	uint8_t fade_channel_volume;
 	uint8_t bank;
 	uint8_t pad_1C[0x4];
-	uint16_t playlist;
+	union
+	{
+		uint16_t playlist;
+		uint8_t playlist_low;
+		struct
+		{
+			uint8_t pad_20[0x1];
+			uint8_t playlist_high;
+		};
+	};
 	uint8_t pad_22[0xDE];
+};
+
+struct instrument
+{
+	uint8_t flags;
+	uint8_t sample_or_fm_patch;
+	uint8_t pad_02[0x1];
+	uint8_t pan;
+	int8_t detune;
+};
+
+struct drum_note
+{
+	union
+	{
+		uint16_t pitch;
+		uint8_t pitch_low;
+		struct
+		{
+			uint8_t pad_00[0x1];
+			uint8_t pitch_high;
+		};
+	};
+	uint8_t pan;
+	uint8_t sample;
+};
+
+struct vibrato_preset
+{
+	uint8_t delay;
+	uint8_t wait;
+	uint8_t range;
+	uint8_t depth;
+	uint8_t rise;
+	uint8_t fall;
+	uint8_t phase;
+};
+
+struct pcm_sample_header
+{
+	uint8_t bank_high;
+	uint8_t bank_low;
+	uint8_t start_page;
+	uint8_t bank_step;
+	uint8_t address_low;
+	uint8_t address_high;
+};
+
+struct sound_list
+{
+	uint8_t last_number;
+};
+
+struct sound_header
+{
+	uint8_t flags;
+	uint8_t first_song;
+};
+
+struct song_record
+{
+	uint8_t flags;
+	uint8_t bank;
+	union
+	{
+		uint16_t sequence;
+		uint8_t sequence_low;
+		struct
+		{
+			uint8_t pad_02[0x1];
+			uint8_t sequence_high;
+		};
+	};
 };
 
 #pragma pack(pop)
@@ -550,11 +670,25 @@ _Static_assert(sizeof(struct fm_voice) == 0x12, "struct fm_voice has the size of
 _Static_assert(sizeof(struct midi_part) == 0x9, "struct midi_part has the size of the game's blocks");
 _Static_assert(sizeof(struct sample_voice) == 0x12, "struct sample_voice has the size of the game's blocks");
 _Static_assert(sizeof(struct sequence_player) == 0x100, "struct sequence_player has the size of the game's blocks");
+_Static_assert(sizeof(struct instrument) == 0x5, "struct instrument has the size of the program ROM's records");
+_Static_assert(sizeof(struct drum_note) == 0x4, "struct drum_note has the size of the program ROM's records");
+_Static_assert(sizeof(struct vibrato_preset) == 0x7, "struct vibrato_preset has the size of the program ROM's records");
+_Static_assert(sizeof(struct pcm_sample_header) == 0x6, "struct pcm_sample_header has the size of the program ROM's records");
+_Static_assert(sizeof(struct sound_list) == 0x1, "struct sound_list has the size of the program ROM's records");
+_Static_assert(sizeof(struct sound_header) == 0x2, "struct sound_header has the size of the program ROM's records");
+_Static_assert(sizeof(struct song_record) == 0x4, "struct song_record has the size of the program ROM's records");
 
 #define FM_VOICE(address) ((struct fm_voice *)sound_ram_at(address))
 #define MIDI_PART(address) ((struct midi_part *)sound_ram_at(address))
 #define SAMPLE_VOICE(address) ((struct sample_voice *)sound_ram_at(address))
 #define SEQUENCE_PLAYER(address) ((struct sequence_player *)sound_ram_at(address))
+#define INSTRUMENT(address) ((const struct instrument *)sound_rom_at(address))
+#define DRUM_NOTE(address) ((const struct drum_note *)sound_rom_at(address))
+#define VIBRATO_PRESET(address) ((const struct vibrato_preset *)sound_rom_at(address))
+#define PCM_SAMPLE_HEADER(address) ((const struct pcm_sample_header *)sound_rom_at(address))
+#define SOUND_LIST(address) ((const struct sound_list *)sound_rom_at(address))
+#define SOUND_HEADER(address) ((const struct sound_header *)sound_rom_at(address))
+#define SONG_RECORD(address) ((const struct song_record *)sound_rom_at(address))
 #define FM_VOICE_ADDRESS(n) (0xE490u + (n) * 0x12u)    /* the 12 of them, from 0 */
 #define MIDI_PART_ADDRESS(n) (0xE300u + (n) * 0x9u)    /* the 13 of them, from 0 */
 #define SAMPLE_VOICE_ADDRESS(n) (0xE400u + (n) * 0x12u)    /* the 8 of them, from 0 */
@@ -584,7 +718,7 @@ void copy_sample_page(uint16_t *p_wave_address, uint16_t *p_sample_address);
 /* midi.c: the MIDI messages of the queue for each part on their channel: note on and off, pitch bend, control and program changes, picking a sample voice, retuning, FM modulation; the unused MIDI port on an 8251 USART (ports F0 and F1) */
 void handle_midi_message(void);
 void skip_midi_data(uint8_t first_byte);
-void play_midi_message(uint16_t message_byte, uint16_t part);
+void play_midi_message(uint8_t message_byte, uint16_t part);
 void scan_drum_note_voices(uint16_t note_and_velocity, uint16_t part);
 void allocate_sample_voice(uint8_t note_velocity, uint16_t part);
 uint16_t retune_voice(uint16_t loop_count, uint16_t part, uint16_t voice);

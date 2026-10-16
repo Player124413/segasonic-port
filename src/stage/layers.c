@@ -3,7 +3,7 @@
  *    Description: the stage's background: the palettes animated per stage, the palette sets and the backdrop, and the tilemap layers NBG0-NBG3 (pictures, mixing, per-stage scroll)
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    15-10-2026
+ *    Modified:    16-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -18,7 +18,7 @@ void update_stage_06_background(uint32_t random_value, uint32_t dest, uint32_t *
 	uint32_t source = *p_source;
 	uint8_t sound_id = 0;
 	uint16_t shake_y = 0;
-	uint32_t r1 = 0, cycle_set = 0, ignored = 0, palette_stage = 0, script = 0, write_index_address = 0;
+	uint32_t cycle_set = 0, ignored = 0, palette_stage = 0, script = 0;
 	uint8_t flipped_sign = 0;
 	uint16_t previous_shake = 0;
 
@@ -59,9 +59,9 @@ void update_stage_06_background(uint32_t random_value, uint32_t dest, uint32_t *
 		nbg0_scroll_y = 0xFFA00000u;
 		mem_write8(video_layer_disable, mem_read8(video_layer_disable) | 0x3Fu);
 		script = cloudy_horizon_script_ADDRESS;
-		run_vram_script(&palette_stage, &script, &dest);
+		run_vram_script(&ignored, &script, &dest);
 		script = stage_06_forest_script_ADDRESS;
-		run_vram_script(&palette_stage, &script, &dest);
+		run_vram_script(&ignored, &script, &dest);
 		nbg3_pages = 0u;
 		nbg0_pages = 0x5050505u;
 		mem_write8(video_layer_disable, mem_read8(video_layer_disable) & 0x26u);
@@ -71,19 +71,19 @@ void update_stage_06_background(uint32_t random_value, uint32_t dest, uint32_t *
 	case 2:
 		nbg0_scroll_x -= 0x2000u;
 		nbg1_scroll_x -= 0x1000u;
-		AS32(nbg3_scroll_x) = (int32_t)nbg1_scroll_x >> 16;
+		nbg3_scroll_x_long = (int32_t)nbg1_scroll_x >> 16;
 		return;
 	case 3:
 		mem_write8(video_layer_disable, mem_read8(video_layer_disable) | 0x3Fu);
 		mixer_blend &= 0x1F00u;
 		script = clear_tile_page_00_script_ADDRESS;
-		run_vram_script(&r1, &script, &dest);
+		run_vram_script(&ignored, &script, &dest);
 		script = stage_06_upper_jaw_script_ADDRESS;
-		run_vram_script(&r1, &script, &dest);
+		run_vram_script(&ignored, &script, &dest);
 		script = clear_tile_page_0a_script_ADDRESS;
-		run_vram_script(&r1, &script, &dest);
+		run_vram_script(&ignored, &script, &dest);
 		script = stage_06_lower_jaw_script_ADDRESS;
-		run_vram_script(&r1, &script, &dest);
+		run_vram_script(&ignored, &script, &dest);
 		nbg0_pages = 1u;
 		nbg3_pages = 6u;
 		mem_write8(video_layer_disable, mem_read8(video_layer_disable) & 0x26u);
@@ -109,30 +109,30 @@ void update_stage_06_background(uint32_t random_value, uint32_t dest, uint32_t *
 		stage_06_shake = 0x800u;
 		stage_06_shake_sign = 0;
 		sound_id = 0x1Eu;
-		play_sound(sound_id, &r1, &write_index_address);
+		play_sound(sound_id, &ignored, &ignored);
 		return;
 	case 5:
 		mixer_blend &= 0x1F00u;
 		mixer_blend |= 0xA4u;
 		palette_cycle_set = 0x209090u;
 		cycle_set = palette_cycle_set;
-		mem_write32(cycle_set + 4u, PALETTE_RAM + 0x83A0u);
-		mem_write32(cycle_set, stage_06_cycle_palettes_0_ADDRESS);
-		mem_write8(cycle_set + 8u, 2u);
-		mem_write8(cycle_set + 0xAu, 2u);
-		mem_write8(cycle_set + 9u, 3u);
-		mem_write8(cycle_set + 0xBu, 3u);
-		mem_write8(cycle_set + 0xCu, 0u);
-		mem_write8(cycle_set + 0xDu, 6u);
+		PALETTE_SET_CYCLE(cycle_set)->dest = PALETTE_RAM + 0x83A0u;
+		PALETTE_SET_CYCLE(cycle_set)->frames = stage_06_cycle_palettes_0_ADDRESS;
+		PALETTE_SET_CYCLE(cycle_set)->timer = 2u;
+		PALETTE_SET_CYCLE(cycle_set)->delay = 2u;
+		PALETTE_SET_CYCLE(cycle_set)->rows_left = 3u;
+		PALETTE_SET_CYCLE(cycle_set)->rows = 3u;
+		PALETTE_SET_CYCLE(cycle_set)->frame = 0;
+		PALETTE_SET_CYCLE(cycle_set)->frame_count = 6;
 		cycle_set += 0x10u;
-		mem_write32(cycle_set + 4u, PALETTE_RAM + 0x8400u);
-		mem_write32(cycle_set, stage_06_cycle_palettes_1_ADDRESS);
-		mem_write8(cycle_set + 8u, 7u);
-		mem_write8(cycle_set + 0xAu, 7u);
-		mem_write8(cycle_set + 9u, 2u);
-		mem_write8(cycle_set + 0xBu, 2u);
-		mem_write8(cycle_set + 0xCu, 0u);
-		mem_write8(cycle_set + 0xDu, 6u);
+		PALETTE_SET_CYCLE(cycle_set)->dest = PALETTE_RAM + 0x8400u;
+		PALETTE_SET_CYCLE(cycle_set)->frames = stage_06_cycle_palettes_1_ADDRESS;
+		PALETTE_SET_CYCLE(cycle_set)->timer = 7u;
+		PALETTE_SET_CYCLE(cycle_set)->delay = 7u;
+		PALETTE_SET_CYCLE(cycle_set)->rows_left = 2u;
+		PALETTE_SET_CYCLE(cycle_set)->rows = 2u;
+		PALETTE_SET_CYCLE(cycle_set)->frame = 0;
+		PALETTE_SET_CYCLE(cycle_set)->frame_count = 6;
 		camera_x = 0;
 		camera_y = 0;
 		update_camera_view();
@@ -142,9 +142,9 @@ void update_stage_06_background(uint32_t random_value, uint32_t dest, uint32_t *
 		nbg0_scroll_y_int = 0u;
 		mem_write8(video_layer_disable, mem_read8(video_layer_disable) | 0x3Fu);
 		script = cloudy_horizon_script_ADDRESS;
-		run_vram_script(&r1, &script, &dest);
+		run_vram_script(&ignored, &script, &dest);
 		script = stage_06_island_tower_script_ADDRESS;
-		run_vram_script(&r1, &script, &dest);
+		run_vram_script(&ignored, &script, &dest);
 		nbg3_pages = 0x3020100u;
 		nbg0_pages = 0x8070605u;
 		mem_write8(video_layer_disable, mem_read8(video_layer_disable) & 0x26u);
@@ -193,7 +193,7 @@ void update_stage_06_background(uint32_t random_value, uint32_t dest, uint32_t *
 		stage_06_shake = previous_shake - 0x80u;
 		if ((int16_t)previous_shake < 0x80)
 			stage_06_shake = 0u;
-		shake_y = AT8(stage_06_shake, 1);
+		shake_y = stage_06_shake_pixels;
 		flipped_sign = ~stage_06_shake_sign;
 		stage_06_shake_sign = flipped_sign;
 		if (flipped_sign != 0u)
@@ -202,7 +202,7 @@ void update_stage_06_background(uint32_t random_value, uint32_t dest, uint32_t *
 		nbg3_scroll_y = shake_y;
 		return;
 	default:
-		unknown_code(0x178B8u + stage_06_background_step * 3u);
+		invalid_jump(0x178B8u + stage_06_background_step * 3u);
 	}
 }
 
@@ -278,7 +278,7 @@ void animate_stage_palette(uint32_t *p_copy_offset, uint32_t *p_copy_entry, uint
 		skip_stage_palette_animation();
 		break;
 	default:
-		unknown_code(0x1AD41u + stage * 3u);
+		invalid_jump(0x1AD41u + stage * 3u);
 	}
 	*p_copy_offset = copy_offset;
 	*p_copy_entry = copy_entry;
@@ -478,26 +478,26 @@ void cycle_palette(uint32_t cycle, uint16_t halfwords, uint32_t *p_copy_offset, 
 	uint32_t dest = *p_dest;
 	uint32_t copy_offset = 0, frame_offset = 0;
 
-	frame_offset = (uint32_t)mem_read8(cycle + 3u) << 5;
+	frame_offset = (uint32_t)(uint8_t)PALETTE_CYCLE(cycle)->frame << 5;
 	source += frame_offset;
-	if ((int8_t)mem_read8(cycle + 4u) > 0)
+	if (PALETTE_CYCLE(cycle)->timer > 0)
 	{
-		mem_write8(cycle + 4u, mem_read8(cycle + 4u) - 1u);
+		PALETTE_CYCLE(cycle)->timer--;
 		*p_copy_offset = frame_offset;
 		*p_source = source;
 		return;
 	}
 	do
 	{
-		mem_write8(cycle + 4u, mem_read8(cycle));
+		PALETTE_CYCLE(cycle)->timer = PALETTE_CYCLE(cycle)->delay;
 		queue_vblank_copy(source, dest, halfwords, &copy_offset, &copy_entry);
 		dest += 0x20u;
 		palette_count--;
 	} while (palette_count != 0u);
-	mem_write8(cycle + 3u, mem_read8(cycle + 3u) + 1u);
-	if ((int8_t)mem_read8(cycle + 3u) < (int8_t)mem_read8(cycle + 1u))
+	PALETTE_CYCLE(cycle)->frame++;
+	if (PALETTE_CYCLE(cycle)->frame < PALETTE_CYCLE(cycle)->frame_count)
 	{
-		mem_write8(cycle + 4u, mem_read8(cycle + 4u) - 1u);
+		PALETTE_CYCLE(cycle)->timer--;
 		*p_copy_offset = copy_offset;
 		*p_copy_entry = copy_entry;
 		*p_palette_count = palette_count;
@@ -505,8 +505,8 @@ void cycle_palette(uint32_t cycle, uint16_t halfwords, uint32_t *p_copy_offset, 
 		*p_dest = dest;
 		return;
 	}
-	mem_write8(cycle + 3u, 0u);
-	mem_write8(cycle + 4u, mem_read8(cycle + 4u) - 1u);
+	PALETTE_CYCLE(cycle)->frame = 0;
+	PALETTE_CYCLE(cycle)->timer--;
 	*p_copy_offset = copy_offset;
 	*p_copy_entry = copy_entry;
 	*p_palette_count = palette_count;
@@ -534,25 +534,25 @@ uint32_t cycle_palette_set(uint32_t source)
 	uint32_t cycle_set = 0, dest = 0, ignored = 0;
 
 	cycle_set = palette_cycle_set;
-	if (mem_read8(cycle_set + 8u) == 0u)
+	if (PALETTE_SET_CYCLE(cycle_set)->timer == 0u)
 	{
-		mem_write8(cycle_set + 8u, mem_read8(cycle_set + 0xAu));
-		mem_write8(cycle_set + 9u, mem_read8(cycle_set + 0xBu));
+		PALETTE_SET_CYCLE(cycle_set)->timer = PALETTE_SET_CYCLE(cycle_set)->delay;
+		PALETTE_SET_CYCLE(cycle_set)->rows_left = PALETTE_SET_CYCLE(cycle_set)->rows;
 		do
 		{
 			halfwords = 0x10u;
-			dest = mem_read32(cycle_set + 4u) + ((uint32_t)(uint8_t)(mem_read8(cycle_set + 0xBu) - mem_read8(cycle_set + 9u)) << 5);
-			source = mem_read32(cycle_set) + ((uint32_t)mem_read8(cycle_set + 0xCu) << 5);
+			dest = PALETTE_SET_CYCLE(cycle_set)->dest + ((uint32_t)(uint8_t)(PALETTE_SET_CYCLE(cycle_set)->rows - PALETTE_SET_CYCLE(cycle_set)->rows_left) << 5);
+			source = PALETTE_SET_CYCLE(cycle_set)->frames + ((uint32_t)(uint8_t)PALETTE_SET_CYCLE(cycle_set)->frame << 5);
 			queue_vblank_copy(source, dest, halfwords, &ignored, &ignored);
-			if (mem_read8(cycle_set + 9u) == 0u)
+			if (PALETTE_SET_CYCLE(cycle_set)->rows_left == 0u)
 				break;
-			mem_write8(cycle_set + 9u, mem_read8(cycle_set + 9u) - 1u);
-		} while (mem_read8(cycle_set + 9u) != 0u);
-		mem_write8(cycle_set + 0xCu, mem_read8(cycle_set + 0xCu) + 1u);
+			PALETTE_SET_CYCLE(cycle_set)->rows_left--;
+		} while (PALETTE_SET_CYCLE(cycle_set)->rows_left != 0u);
+		PALETTE_SET_CYCLE(cycle_set)->frame++;
 	}
-	mem_write8(cycle_set + 8u, mem_read8(cycle_set + 8u) - 1u);
-	if ((int8_t)mem_read8(cycle_set + 0xDu) <= (int8_t)mem_read8(cycle_set + 0xCu))
-		mem_write8(cycle_set + 0xCu, 0u);
+	PALETTE_SET_CYCLE(cycle_set)->timer--;
+	if (PALETTE_SET_CYCLE(cycle_set)->frame_count <= PALETTE_SET_CYCLE(cycle_set)->frame)
+		PALETTE_SET_CYCLE(cycle_set)->frame = 0;
 	return source;
 }
 
@@ -572,7 +572,7 @@ void load_palette_set_and_backdrop(uint32_t stage_index, uint32_t *p_tile_bank_b
 
 	mem_write32(video_control, mem_read32(video_control) & ~0x400u);
 	tile_bank_entry = stage_tile_bank_bits_ADDRESS + stage_index;
-	tile_bank_bits = (tile_bank_entry & ~0xFFFFu) | mem_read8(tile_bank_entry);
+	tile_bank_bits = (tile_bank_entry & ~0xFFFFu) | ROM8(tile_bank_entry);
 	tile_bank_bits = (tile_bank_bits & ~0xFFFFu) | (uint16_t)(tile_bank_bits << 10);
 	mem_write16(video_control, mem_read16(video_control) | tile_bank_bits);
 	palette_set = stage_palette_sets[stage_index];
@@ -619,7 +619,7 @@ void load_palette_set_and_backdrop(uint32_t stage_index, uint32_t *p_tile_bank_b
 		*p_dest = dest;
 		return;
 	default:
-		unknown_code(0x1B033u + stage * 3u);
+		invalid_jump(0x1B033u + stage * 3u);
 	}
 }
 
@@ -651,31 +651,31 @@ uint32_t init_nbg0_picture_screen(void)
 
 void show_winners_dont_use_drugs_screen(void)
 {
-	uint32_t count = 0, dest = 0, script = 0;
+	uint32_t dest = 0, ignored = 0, script = 0;
 
 	dest = init_nbg0_picture_screen();
 	script = winners_dont_use_drugs_script_ADDRESS;
-	run_vram_script(&count, &script, &dest);
+	run_vram_script(&ignored, &script, &dest);
 }
 
 void show_recycle_it_screen(void)
 {
-	uint32_t count = 0, dest = 0, script = 0;
+	uint32_t dest = 0, ignored = 0, script = 0;
 
 	dest = init_nbg0_picture_screen();
 	script = recycle_it_script_ADDRESS;
-	run_vram_script(&count, &script, &dest);
+	run_vram_script(&ignored, &script, &dest);
 }
 
 void show_nbg0_picture(uint32_t *p_copy_entry, uint32_t *p_rows, uint32_t *p_source, uint32_t *p_dest)
 {
 	uint16_t halfwords = 0;
-	uint32_t copy_entry = 0, count = 0, dest = 0, ignored = 0, rows = 0, script = 0, source = 0;
+	uint32_t copy_entry = 0, dest = 0, ignored = 0, rows = 0, script = 0, source = 0;
 
 	dest = init_nbg0_picture_screen();
 	nbg0_pages = 0x1010101u;
 	script = sonic_head_pattern_script_ADDRESS;
-	run_vram_script(&count, &script, &dest);
+	run_vram_script(&ignored, &script, &dest);
 	dest = PALETTE_RAM + 0x8BE0u;
 	rows = 1u;
 	source = nbg0_picture_palette_ADDRESS;
@@ -715,17 +715,17 @@ uint32_t set_stage_layer_mixing(void)
 
 uint32_t init_nbg1_layer(uint32_t dest)
 {
-	uint32_t count = 0, script = 0;
+	uint32_t ignored = 0, script = 0;
 
 	nbg1_pages = 0x1211100Fu;
 	script = clear_tile_page_0f_script_ADDRESS;
-	run_vram_script(&count, &script, &dest);
+	run_vram_script(&ignored, &script, &dest);
 	script = clear_tile_page_10_script_ADDRESS;
-	run_vram_script(&count, &script, &dest);
+	run_vram_script(&ignored, &script, &dest);
 	script = clear_tile_page_11_script_ADDRESS;
-	run_vram_script(&count, &script, &dest);
+	run_vram_script(&ignored, &script, &dest);
 	script = clear_tile_page_12_script_ADDRESS;
-	run_vram_script(&count, &script, &dest);
+	run_vram_script(&ignored, &script, &dest);
 	switch (stage)
 	{
 	case 0:
@@ -762,7 +762,7 @@ uint32_t init_nbg1_layer(uint32_t dest)
 		mixer_nbg1_blend &= 0xFF7Fu;
 		return dest;
 	default:
-		unknown_code(0x1B30Bu + stage * 3u);
+		invalid_jump(0x1B30Bu + stage * 3u);
 	}
 }
 
@@ -831,7 +831,7 @@ void update_nbg1_scroll(void)
 		skip_nbg1_scroll();
 		break;
 	default:
-		unknown_code(0x1B398u + stage * 3u);
+		invalid_jump(0x1B398u + stage * 3u);
 	}
 	skip_nbg1_scroll();
 }
@@ -851,17 +851,17 @@ void set_nbg1_scroll_to_camera(void)
 
 uint32_t init_nbg2_layer(uint32_t dest)
 {
-	uint32_t count = 0, entries_left = 0, script = 0, table_entry = 0, tables_left = 0, wave_index = 0;
+	uint32_t entries_left = 0, ignored = 0, script = 0, table_entry = 0, tables_left = 0, wave_index = 0;
 
 	nbg2_pages = 0xD0C0B0Au;
 	script = clear_tile_page_0a_script_ADDRESS;
-	run_vram_script(&count, &script, &dest);
+	run_vram_script(&ignored, &script, &dest);
 	script = clear_tile_page_0b_script_ADDRESS;
-	run_vram_script(&count, &script, &dest);
+	run_vram_script(&ignored, &script, &dest);
 	script = clear_tile_page_0c_script_ADDRESS;
-	run_vram_script(&count, &script, &dest);
+	run_vram_script(&ignored, &script, &dest);
 	script = clear_tile_page_0d_script_ADDRESS;
-	run_vram_script(&count, &script, &dest);
+	run_vram_script(&ignored, &script, &dest);
 	switch (stage)
 	{
 	case 0:
@@ -896,7 +896,7 @@ uint32_t init_nbg2_layer(uint32_t dest)
 		mixer_nbg2_blend &= ~0xF00u;
 		return dest;
 	default:
-		unknown_code(0x1B44Fu + stage * 3u);
+		invalid_jump(0x1B44Fu + stage * 3u);
 	}
 	row_scroll_wave_step = 0u;
 	entries_left = 0x100u;
@@ -989,7 +989,7 @@ uint32_t update_nbg2_scroll(uint32_t position)
 		set_nbg2_scroll_to_camera();
 		break;
 	default:
-		unknown_code(0x1B525u + stage * 3u);
+		invalid_jump(0x1B525u + stage * 3u);
 	}
 	skip_nbg2_scroll();
 	return position;
@@ -1066,7 +1066,7 @@ void init_nbg3_layer(uint32_t dest)
 	case 17:
 	case 18:
 		script = default_nbg3_script_ADDRESS;
-		run_vram_script(&stage_index, &script, &dest);
+		run_vram_script(&ignored, &script, &dest);
 		nbg3_pages = 0x6060505u;
 		nbg3_scroll_x = 0u;
 		nbg3_scroll_y = 0u;
@@ -1074,9 +1074,9 @@ void init_nbg3_layer(uint32_t dest)
 		return;
 	case 4:
 		script = stage_04_nbg3_script_ADDRESS;
-		run_vram_script(&stage_index, &script, &dest);
+		run_vram_script(&ignored, &script, &dest);
 		script = stage_04_nbg3_fill_script_ADDRESS;
-		run_vram_script(&stage_index, &script, &dest);
+		run_vram_script(&ignored, &script, &dest);
 		nbg3_pages = 0x6060505u;
 		nbg3_scroll_x = 0u;
 		nbg3_scroll_y = 0u;
@@ -1084,7 +1084,7 @@ void init_nbg3_layer(uint32_t dest)
 	case 8:
 	case 19:
 		script = stage_08_nbg3_script_ADDRESS;
-		run_vram_script(&stage_index, &script, &dest);
+		run_vram_script(&ignored, &script, &dest);
 		nbg3_pages = 0x5050505u;
 		nbg3_scroll_x = 0u;
 		nbg3_scroll_y = 0u;
@@ -1092,75 +1092,75 @@ void init_nbg3_layer(uint32_t dest)
 	case 9:
 	case 11:
 		script = clear_tile_page_05_script_ADDRESS;
-		run_vram_script(&stage_index, &script, &dest);
+		run_vram_script(&ignored, &script, &dest);
 		script = clear_tile_page_06_script_ADDRESS;
-		run_vram_script(&stage_index, &script, &dest);
+		run_vram_script(&ignored, &script, &dest);
 		script = clear_tile_page_07_script_ADDRESS;
-		run_vram_script(&stage_index, &script, &dest);
+		run_vram_script(&ignored, &script, &dest);
 		script = clear_tile_page_08_script_ADDRESS;
-		run_vram_script(&stage_index, &script, &dest);
+		run_vram_script(&ignored, &script, &dest);
 		nbg3_pages = 0x8070605u;
 		video_layer_opaque_shadow = 0u;
 		return;
 	case 10:
 		script = stage_0a_nbg3_script_ADDRESS;
-		run_vram_script(&stage_index, &script, &dest);
+		run_vram_script(&ignored, &script, &dest);
 		nbg3_pages = 0x7070707u;
 		nbg3_scroll_x = 0u;
 		nbg3_scroll_y = 0u;
 		return;
 	case 12:
 		script = stage_0c_nbg3_script_ADDRESS;
-		run_vram_script(&stage_index, &script, &dest);
+		run_vram_script(&ignored, &script, &dest);
 		nbg3_pages = 0x5050505u;
 		nbg3_scroll_x = 0u;
 		nbg3_scroll_y = 0u;
 		return;
 	case 13:
 		script = stage_0d_nbg3_script_ADDRESS;
-		run_vram_script(&stage_index, &script, &dest);
+		run_vram_script(&ignored, &script, &dest);
 		nbg3_pages = 0x5050505u;
 		nbg3_scroll_x = 0u;
 		nbg3_scroll_y = 0u;
 		return;
 	case 14:
 		script = stage_0e_nbg3_script_ADDRESS;
-		run_vram_script(&stage_index, &script, &dest);
+		run_vram_script(&ignored, &script, &dest);
 		nbg3_pages = 0x5050505u;
 		nbg3_scroll_x = 0u;
 		nbg3_scroll_y = 0u;
 		return;
 	case 15:
 		script = stage_0f_nbg3_script_ADDRESS;
-		run_vram_script(&stage_index, &script, &dest);
+		run_vram_script(&ignored, &script, &dest);
 		nbg3_pages = 0x5050505u;
 		nbg3_scroll_x = 0u;
 		nbg3_scroll_y = 0u;
 		return;
 	case 16:
 		script = stage_10_nbg3_script_ADDRESS;
-		run_vram_script(&stage_index, &script, &dest);
+		run_vram_script(&ignored, &script, &dest);
 		nbg3_pages = 0x5050505u;
 		nbg3_scroll_x = 0u;
 		nbg3_scroll_y = 0u;
 		return;
 	default:
-		unknown_code(0x1B63Fu + stage_index * 3u);
+		invalid_jump(0x1B63Fu + stage_index * 3u);
 	}
 }
 
 void init_nbg3_layer_cleared_pages(uint32_t dest)
 {
-	uint32_t count = 0, ignored = 0, script = 0;
+	uint32_t ignored = 0, script = 0;
 
 	script = clear_tile_page_0a_script_ADDRESS;
-	run_vram_script(&count, &script, &dest);
+	run_vram_script(&ignored, &script, &dest);
 	script = clear_tile_page_0b_script_ADDRESS;
-	run_vram_script(&count, &script, &dest);
+	run_vram_script(&ignored, &script, &dest);
 	script = clear_tile_page_0c_script_ADDRESS;
-	run_vram_script(&count, &script, &dest);
+	run_vram_script(&ignored, &script, &dest);
 	script = clear_tile_page_0d_script_ADDRESS;
-	run_vram_script(&count, &script, &dest);
+	run_vram_script(&ignored, &script, &dest);
 	nbg3_pages = 0xA0B0C0Du;
 	nbg3_scroll_x = 0u;
 	nbg3_scroll_y = 0u;
@@ -1200,7 +1200,7 @@ void update_nbg3_scroll(uint32_t *p_scroll_y, uint32_t *p_quadrants, uint32_t *p
 	uint32_t next_scroll_position = *p_next_scroll_position;
 	uint32_t quadrant_cursor = *p_quadrant_cursor;
 	uint16_t half_view_y = 0, layer_scroll_y = 0;
-	uint32_t r4 = 0, r5 = 0, block_pages = 0;
+	uint32_t block_pages = 0, byte_mask = 0, shift = 0;
 
 	switch (stage)
 	{
@@ -1211,11 +1211,11 @@ void update_nbg3_scroll(uint32_t *p_scroll_y, uint32_t *p_quadrants, uint32_t *p
 			nbg3_scroll_x = (int16_t)view_x >> 1;
 			nbg3_scroll_y = half_view_y;
 			nbg3_scroll_y += 0x80u;
-			select_nbg3_pages(&block_pages, &quadrants, &r4, &r5, &quadrant_cursor);
+			select_nbg3_pages(&block_pages, &quadrants, &byte_mask, &shift, &quadrant_cursor);
 			*p_scroll_y = block_pages;
 			*p_quadrants = quadrants;
-			*p_speed_value = r4;
-			*p_next_scroll_position = r5;
+			*p_speed_value = byte_mask;
+			*p_next_scroll_position = shift;
 			*p_quadrant_cursor = quadrant_cursor;
 			return;
 		}
@@ -1246,11 +1246,11 @@ void update_nbg3_scroll(uint32_t *p_scroll_y, uint32_t *p_quadrants, uint32_t *p
 		nbg3_scroll_x = (int16_t)view_x >> 1;
 		nbg3_scroll_y = half_view_y;
 		nbg3_scroll_y += 0x80u;
-		select_nbg3_pages(&block_pages, &quadrants, &r4, &r5, &quadrant_cursor);
+		select_nbg3_pages(&block_pages, &quadrants, &byte_mask, &shift, &quadrant_cursor);
 		*p_scroll_y = block_pages;
 		*p_quadrants = quadrants;
-		*p_speed_value = r4;
-		*p_next_scroll_position = r5;
+		*p_speed_value = byte_mask;
+		*p_next_scroll_position = shift;
 		*p_quadrant_cursor = quadrant_cursor;
 		return;
 	case 9:
@@ -1275,7 +1275,7 @@ void update_nbg3_scroll(uint32_t *p_scroll_y, uint32_t *p_quadrants, uint32_t *p
 		*p_scroll_y = scroll_y;
 		return;
 	default:
-		unknown_code(0x1B89Eu + stage * 3u);
+		invalid_jump(0x1B89Eu + stage * 3u);
 	}
 }
 
@@ -1303,7 +1303,7 @@ void select_nbg3_pages(uint32_t *p_block_pages, uint32_t *p_quadrants, uint32_t 
 	gathered_pages = 0u;
 	do
 	{
-		gathered_pages |= rotate_by(mem_read8(map_cursor), (uint8_t)byte_shift, 32);
+		gathered_pages |= rotate_by(ROM8(map_cursor), (uint8_t)byte_shift, 32);
 		map_cursor++;
 		byte_shift += 8u;
 		if (bytes_left == 3u)
@@ -1316,7 +1316,7 @@ void select_nbg3_pages(uint32_t *p_block_pages, uint32_t *p_quadrants, uint32_t 
 	gathered_quadrants = 0u;
 	do
 	{
-		gathered_quadrants |= rotate_by(mem_read8(quadrant_cursor), (uint8_t)byte_shift, 32);
+		gathered_quadrants |= rotate_by(ROM8(quadrant_cursor), (uint8_t)byte_shift, 32);
 		quadrant_cursor++;
 		byte_shift += 8u;
 		if (bytes_left == 3u)

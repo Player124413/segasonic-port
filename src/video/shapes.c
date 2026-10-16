@@ -3,7 +3,7 @@
  *    Description: shapes on the bitmap layer, mostly unused: triangles, quadrilaterals, circles, flood fill, saved rectangles, and the clipping the lines and rectangles use
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    15-10-2026
+ *    Modified:    16-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -57,7 +57,7 @@ void fill_triangle(uint32_t top_x, uint32_t top_y, uint32_t middle_x, uint32_t m
 void fill_triangle_sorted(uint32_t top_x, uint32_t top_y, uint32_t middle_x, uint32_t middle_y, uint32_t bottom_x, uint32_t bottom_y, uint8_t color, uint32_t span_cursor)
 {
 	uint8_t integer_shift = 0;
-	uint32_t bottom_x_fixed = 0, height = 0, left_x = 0, length = 0, middle_on_right = 0, previous_left_x = 0, right_edge_x = 0, right_x = 0, row_left_x = 0, rows_left = 0, span_address = 0, span_color = 0, span_count = 0;
+	uint32_t bottom_x_fixed = 0, height = 0, ignored = 0, left_x = 0, length = 0, middle_on_right = 0, previous_left_x = 0, right_edge_x = 0, right_x = 0, row_left_x = 0, rows_left = 0, span_address = 0, span_color = 0, span_count = 0;
 	uint32_t saved_middle_y = 0, saved_bottom_y = 0, swap_x_12 = 0, swap_x_13 = 0, swap_top_x = 0, swap_slope = 0;
 
 	saved_middle_y = middle_y;
@@ -85,7 +85,7 @@ void fill_triangle_sorted(uint32_t top_x, uint32_t top_y, uint32_t middle_x, uin
 			top_y = (top_y << 9) + top_x + current_player;
 			length = bottom_x - top_x;
 			span_color = (uint8_t)color;
-			fill_span_8bpp(length, &top_x, &top_y, &span_color);
+			fill_span_8bpp(length, &ignored, &top_y, &span_color);
 			return;
 		}
 		if ((int32_t)top_x <= (int32_t)middle_x)
@@ -127,9 +127,9 @@ void fill_triangle_sorted(uint32_t top_x, uint32_t top_y, uint32_t middle_x, uin
 		right_edge_x += bottom_x;
 		row_left_x = shift_signed_by(top_x, integer_shift, 32);
 		span_address -= previous_left_x - row_left_x;
-		mem_write32(span_cursor, span_address);
+		POLYGON_SPAN(span_cursor)->address = span_address;
 		span_cursor += 4u;
-		mem_write16(span_cursor, shift_signed_by(right_edge_x, integer_shift, 32) - row_left_x);
+		POLYGON_SPAN(span_cursor - 0x4u)->length = shift_signed_by(right_edge_x, integer_shift, 32) - row_left_x;
 		previous_left_x = row_left_x;
 		span_address += r14;
 		span_cursor += 2u;
@@ -171,9 +171,9 @@ void fill_flat_top_triangle(uint32_t left_x, uint32_t top_y, uint32_t right_x, u
 	do
 	{
 		row_left_x = shift_signed_by(left_x, integer_shift, 32);
-		mem_write32(span_cursor, span_address);
+		POLYGON_SPAN(span_cursor)->address = span_address;
 		span_cursor += 4u;
-		mem_write16(span_cursor, shift_signed_by(right_x, integer_shift, 32) - row_left_x);
+		POLYGON_SPAN(span_cursor - 0x4u)->length = shift_signed_by(right_x, integer_shift, 32) - row_left_x;
 		span_address = span_address - (previous_left_x - row_left_x) + r14;
 		left_x += left_slope;
 		right_x += bottom_x;
@@ -204,9 +204,9 @@ void fill_span_list(uint32_t span_count, uint32_t color)
 	color = (uint8_t)color * 0x1010101u;
 	do
 	{
-		pixel_address = mem_read32(span_record);
+		pixel_address = POLYGON_SPAN(span_record)->address;
 		span_record += 4u;
-		length = mem_read16(span_record);
+		length = (uint16_t)POLYGON_SPAN(span_record - 0x4u)->length;
 		span_record += 2u;
 		if ((int16_t)length >= 0)
 		{
@@ -283,7 +283,7 @@ void fill_quad(uint32_t left_x, uint32_t top_y, uint32_t second_x, uint32_t seco
 {
 	uint8_t bottom_index = 0, pixel_shift = 0, second_index = 0, third_index = 0, top_index = 0, triangle_color = 0;
 	uint16_t right_column = 0;
-	uint32_t apex_x = 0, bend_on_right = 0, bottom_right_x = 0, bottom_vertex = 0, color = 0, edge_parts_left = 0, left_column = 0, left_end = 0, left_pixel = 0, left_slope = 0, length = 0, next_part_rows = 0, previous_left = 0, prior_left = 0, right_side_slope = 0, right_slope = 0, right_x = 0, row_count = 0, rows_after_second = 0, segments_left = 0, single_edge_slope = 0, span_address = 0, span_cursor = 0, triangle_height = 0, triangle_left_x = 0, triangle_right_x = 0, triangle_top_y = 0, vertex_index = 0;
+	uint32_t apex_x = 0, bend_on_right = 0, bottom_right_x = 0, bottom_vertex = 0, color = 0, edge_parts_left = 0, ignored = 0, left_column = 0, left_end = 0, left_pixel = 0, left_slope = 0, length = 0, next_part_rows = 0, previous_left = 0, prior_left = 0, right_side_slope = 0, right_slope = 0, right_x = 0, row_count = 0, rows_after_second = 0, segments_left = 0, single_edge_slope = 0, span_address = 0, span_cursor = 0, triangle_height = 0, triangle_left_x = 0, triangle_right_x = 0, triangle_top_y = 0, vertex_index = 0;
 	uint16_t swap_bottom_x = 0;
 	uint32_t swap_x_01 = 0, swap_key_01 = 0, swap_x_02 = 0, swap_key_02 = 0, swap_x_03 = 0, swap_key_03 = 0, swap_x_12 = 0, swap_key_12 = 0, swap_x_13 = 0, swap_key_13 = 0, swap_x_23 = 0, swap_key_23 = 0, swap_edge_slope = 0, third_rows = 0, rows_after_left_bend = 0, swap_slope = 0, rows_after_right_bend = 0, swap_top_x = 0, swap_upper_x = 0, swap_lower_x = 0, swap_triangle_x = 0;
 
@@ -431,9 +431,9 @@ void fill_quad(uint32_t left_x, uint32_t top_y, uint32_t second_x, uint32_t seco
 						right_x += bottom_x;
 						left_end = shift_by(left_x, pixel_shift, 32);
 						span_address -= prior_left - left_end;
-						mem_write32(span_cursor, span_address);
+						POLYGON_SPAN(span_cursor)->address = span_address;
 						span_cursor += 4u;
-						mem_write16(span_cursor, shift_by(right_x, pixel_shift, 32) - left_end);
+						POLYGON_SPAN(span_cursor - 0x4u)->length = shift_by(right_x, pixel_shift, 32) - left_end;
 						prior_left = left_end;
 						span_address += r14;
 						span_cursor += 2u;
@@ -460,9 +460,9 @@ void fill_quad(uint32_t left_x, uint32_t top_y, uint32_t second_x, uint32_t seco
 					right_x += second_x;
 					left_end = shift_by(left_x, pixel_shift, 32);
 					span_address -= prior_left - left_end;
-					mem_write32(span_cursor, span_address);
+					POLYGON_SPAN(span_cursor)->address = span_address;
 					span_cursor += 4u;
-					mem_write16(span_cursor, shift_by(right_x, pixel_shift, 32) - left_end);
+					POLYGON_SPAN(span_cursor - 0x4u)->length = shift_by(right_x, pixel_shift, 32) - left_end;
 					prior_left = left_end;
 					span_address += r14;
 					span_cursor += 2u;
@@ -518,9 +518,9 @@ void fill_quad(uint32_t left_x, uint32_t top_y, uint32_t second_x, uint32_t seco
 				current_player = left_x;
 				current_player = shift_by(current_player, pixel_shift, 32);
 				span_address -= prior_left - current_player;
-				mem_write32(span_cursor, span_address);
+				POLYGON_SPAN(span_cursor)->address = span_address;
 				span_cursor += 4u;
-				mem_write16(span_cursor, shift_by(right_x, pixel_shift, 32) - current_player);
+				POLYGON_SPAN(span_cursor - 0x4u)->length = shift_by(right_x, pixel_shift, 32) - current_player;
 				prior_left = current_player;
 				span_address += r14;
 				span_cursor += 2u;
@@ -578,9 +578,9 @@ void fill_quad(uint32_t left_x, uint32_t top_y, uint32_t second_x, uint32_t seco
 				right_x += third_x;
 				left_pixel = shift_by(left_x, pixel_shift, 32);
 				span_address -= prior_left - left_pixel;
-				mem_write32(span_cursor, span_address);
+				POLYGON_SPAN(span_cursor)->address = span_address;
 				span_cursor += 4u;
-				mem_write16(span_cursor, shift_by(right_x, pixel_shift, 32) - left_pixel);
+				POLYGON_SPAN(span_cursor - 0x4u)->length = shift_by(right_x, pixel_shift, 32) - left_pixel;
 				prior_left = left_pixel;
 				span_address += r14;
 				span_cursor += 2u;
@@ -609,9 +609,9 @@ void fill_quad(uint32_t left_x, uint32_t top_y, uint32_t second_x, uint32_t seco
 				right_x += right_slope;
 				left_pixel = shift_by(left_x, pixel_shift, 32);
 				span_address -= prior_left - left_pixel;
-				mem_write32(span_cursor, span_address);
+				POLYGON_SPAN(span_cursor)->address = span_address;
 				span_cursor += 4u;
-				mem_write16(span_cursor, shift_by(right_x, pixel_shift, 32) - left_pixel);
+				POLYGON_SPAN(span_cursor - 0x4u)->length = shift_by(right_x, pixel_shift, 32) - left_pixel;
 				prior_left = left_pixel;
 				span_address += r14;
 				span_cursor += 2u;
@@ -635,9 +635,9 @@ void fill_quad(uint32_t left_x, uint32_t top_y, uint32_t second_x, uint32_t seco
 			right_x += right_slope;
 			left_pixel = shift_by(left_x, pixel_shift, 32);
 			span_address -= prior_left - left_pixel;
-			mem_write32(span_cursor, span_address);
+			POLYGON_SPAN(span_cursor)->address = span_address;
 			span_cursor += 4u;
-			mem_write16(span_cursor, shift_by(right_x, pixel_shift, 32) - left_pixel);
+			POLYGON_SPAN(span_cursor - 0x4u)->length = shift_by(right_x, pixel_shift, 32) - left_pixel;
 			prior_left = left_pixel;
 			span_address += r14;
 			span_cursor += 2u;
@@ -677,9 +677,9 @@ void fill_quad(uint32_t left_x, uint32_t top_y, uint32_t second_x, uint32_t seco
 				bottom_y -= third_y;
 				for (;;)
 				{
-					mem_write32(span_cursor, span_address);
+					POLYGON_SPAN(span_cursor)->address = span_address;
 					span_cursor += 4u;
-					mem_write16(span_cursor, right_column - previous_left);
+					POLYGON_SPAN(span_cursor - 0x4u)->length = right_column - previous_left;
 					left_x += single_edge_slope;
 					second_x += third_x;
 					left_column = shift_by(left_x, pixel_shift, 32);
@@ -710,9 +710,9 @@ void fill_quad(uint32_t left_x, uint32_t top_y, uint32_t second_x, uint32_t seco
 			bottom_y -= third_y;
 			for (;;)
 			{
-				mem_write32(span_cursor, span_address);
+				POLYGON_SPAN(span_cursor)->address = span_address;
 				span_cursor += 4u;
-				mem_write16(span_cursor, right_column - previous_left);
+				POLYGON_SPAN(span_cursor - 0x4u)->length = right_column - previous_left;
 				left_x += third_x;
 				second_x += single_edge_slope;
 				left_column = shift_by(left_x, pixel_shift, 32);
@@ -759,9 +759,9 @@ void fill_quad(uint32_t left_x, uint32_t top_y, uint32_t second_x, uint32_t seco
 		stack_pointer = stack_pointer + 0x10u;
 		do
 		{
-			mem_write32(span_cursor, span_address);
+			POLYGON_SPAN(span_cursor)->address = span_address;
 			span_cursor += 4u;
-			mem_write16(span_cursor, right_column - previous_left);
+			POLYGON_SPAN(span_cursor - 0x4u)->length = right_column - previous_left;
 			left_x += third_x;
 			second_x += bottom_x;
 			left_column = shift_by(left_x, pixel_shift, 32);
@@ -778,15 +778,15 @@ void fill_quad(uint32_t left_x, uint32_t top_y, uint32_t second_x, uint32_t seco
 	{
 		vertex_index = bottom_index & 3u;
 		bottom_vertex = stack_pointer + vertex_index * 4u;
-		apex_x = (int16_t)mem_read16(bottom_vertex);
-		triangle_height = (int16_t)mem_read16(bottom_vertex + 2u);
+		apex_x = QUAD_VERTEX(bottom_vertex)->x;
+		triangle_height = QUAD_VERTEX(bottom_vertex)->y;
 		vertex_index = (uint8_t)(vertex_index + 1u);
 		vertex_index = vertex_index & 3u;
 		triangle_right_x = (int16_t)mem_read16(stack_pointer + vertex_index * 4u);
 		vertex_index = (uint8_t)(vertex_index + 2u);
 		vertex_index = stack_pointer + (vertex_index & 3u) * 4u;
-		triangle_left_x = (int16_t)mem_read16(vertex_index);
-		triangle_top_y = (int16_t)mem_read16(vertex_index + 2u);
+		triangle_left_x = QUAD_VERTEX(vertex_index)->x;
+		triangle_top_y = QUAD_VERTEX(vertex_index)->y;
 		triangle_height -= triangle_top_y;
 		triangle_color = (uint8_t)fill_color;
 		stack_pointer = stack_pointer + 0x10u;
@@ -816,14 +816,14 @@ void fill_quad(uint32_t left_x, uint32_t top_y, uint32_t second_x, uint32_t seco
 	length = bottom_x - left_x;
 	color = (uint8_t)fill_color;
 	stack_pointer = stack_pointer + 0x10u;
-	fill_span_8bpp(length, &left_x, &top_y, &color);
+	fill_span_8bpp(length, &ignored, &top_y, &color);
 }
 
 void draw_circle_polygon(uint32_t center_x, uint32_t center_y, uint32_t radius, uint8_t circle_color, uint32_t color)
 {
 	uint8_t sine_shift = 0;
 	uint16_t coordinate = 0, cos_offset = 0, end_x = 0, end_y = 0, sin_offset = 0;
-	uint32_t angle = 0, angle_step = 0, lines_left = 0, mirror_cursor = 0, point_cursor = 0, points = 0, sine_entry = 0, sines = 0, start_x = 0, start_y = 0, steps_left = 0, x_cursor = 0, y_cursor = 0;
+	uint32_t angle = 0, angle_step = 0, ignored = 0, lines_left = 0, mirror_cursor = 0, point_cursor = 0, points = 0, sine_entry = 0, sines = 0, start_x = 0, start_y = 0, steps_left = 0, x_cursor = 0, y_cursor = 0;
 
 	if ((int16_t)radius < 0)
 		radius = (uint16_t)(0u - radius);
@@ -888,14 +888,14 @@ void draw_circle_polygon(uint32_t center_x, uint32_t center_y, uint32_t radius, 
 		end_x = mem_read16(x_cursor);
 		y_cursor += 2u;
 		end_y = mem_read16(y_cursor);
-		draw_line(end_x, end_y, &center_x, &center_y, &color, &angle);
+		draw_line(end_x, end_y, &center_x, &center_y, &color, &ignored);
 		lines_left--;
 	} while (lines_left != 0u);
-	start_x = (center_x & ~0xFFFFu) | AS16(bitmap_draw_buffer);
-	start_y = (center_y & ~0xFFFFu) | AT16(bitmap_draw_buffer, 2);
+	start_x = (center_x & ~0xFFFFu) | (uint16_t)bitmap_draw_buffer;
+	start_y = (center_y & ~0xFFFFu) | (uint16_t)(bitmap_draw_buffer >> 16u);
 	end_x = mem_read16(x_cursor);
 	end_y = mem_read16(y_cursor);
-	draw_line(end_x, end_y, &start_x, &start_y, &color, &angle);
+	draw_line(end_x, end_y, &start_x, &start_y, &color, &ignored);
 }
 
 void draw_circle(uint16_t x, uint16_t y, uint16_t radius, uint8_t color)
@@ -1117,7 +1117,7 @@ void flood_fill(uint16_t seed_x, uint16_t seed_y, uint8_t fill_color, uint8_t bo
 	span_left_x = flood_fill_scan_seed_rows(border_color, window_left, window_top, window_right, window_bottom, span_left_x, span_y, fill_pattern);
 	while (last_object != object_cursor)
 	{
-		AS16(flood_fill_direction) = FLOOD_FILL_RECORD(last_object)->direction_and_y;
+		flood_fill_direction_and_y = FLOOD_FILL_RECORD(last_object)->direction_and_y;
 		last_object = last_object + 2u;
 		flood_fill_right_x = FLOOD_FILL_RECORD(last_object - 0x2u)->right_x;
 		last_object = last_object + 2u;
@@ -1837,8 +1837,8 @@ void save_bitmap_rect(uint16_t left, uint16_t top, uint32_t right, uint32_t bott
 		right = (right & ~0xFFu) | (uint8_t)(right * 2u);
 		right = (right & ~0xFFu) | (uint8_t)(right * 2u);
 	}
-	mem_write32(buffer, right);
-	mem_write32(buffer + 4u, bottom);
+	SAVED_BITMAP_RECT(buffer)->row_bits = right;
+	SAVED_BITMAP_RECT(buffer)->rows = bottom;
 	do
 	{
 		invalid_operand(0x09C312u);
@@ -1850,7 +1850,7 @@ void draw_saved_bitmap_rect(uint32_t buffer)
 {
 	uint32_t rows_left = 0;
 
-	rows_left = mem_read32(buffer + 4u);
+	rows_left = SAVED_BITMAP_RECT(buffer)->rows;
 	do
 	{
 		invalid_operand(0x09C372u);
@@ -1864,7 +1864,7 @@ void get_window_outcode(uint32_t *p_start_x, uint32_t *p_start_y, uint32_t *p_en
 	uint32_t start_y = *p_start_y;
 	uint16_t end_x = (uint16_t)*p_end_x;
 	uint16_t end_y = (uint16_t)*p_end_y;
-	uint32_t r10 = 0, old_start_x = 0, old_start_y = 0, point_x = 0, point_y = 0;
+	uint32_t old_start_x = 0, old_start_y = 0, outcode = 0, point_x = 0, point_y = 0;
 	uint32_t old_end_x = 0, old_end_y = 0;
 
 	old_end_x = end_x;
@@ -1873,12 +1873,12 @@ void get_window_outcode(uint32_t *p_start_x, uint32_t *p_start_y, uint32_t *p_en
 	old_end_y = end_y;
 	old_start_y = start_y;
 	point_y = old_end_y;
-	get_point_outcode(&point_x, &point_y, &r10);
+	get_point_outcode(&point_x, &point_y, &outcode);
 	*p_start_x = point_x;
 	*p_start_y = point_y;
 	*p_end_x = old_start_x;
 	*p_end_y = old_start_y;
-	*p_outcode = r10;
+	*p_outcode = outcode;
 }
 
 void get_point_outcode(uint32_t *p_point_x, uint32_t *p_point_y, uint32_t *p_outcode)
@@ -1918,7 +1918,7 @@ void clip_line_to_window(uint32_t outcode, uint32_t end_outcode, uint32_t *p_sta
 	uint32_t end_x = *p_end_x;
 	uint32_t end_y = *p_end_y;
 	uint32_t unclipped_y = *p_unclipped_y;
-	uint32_t r8 = 0, swapped_end_x = 0, swapped_end_y = 0, swapped_start_x = 0, swapped_start_y = 0;
+	uint32_t swapped_end_x = 0, swapped_end_y = 0, swapped_start_x = 0, swapped_start_y = 0;
 	uint32_t old_start_x = 0, old_start_y = 0;
 
 	switch (outcode)
@@ -1960,7 +1960,7 @@ void clip_line_to_window(uint32_t outcode, uint32_t end_outcode, uint32_t *p_sta
 		clip_line_end_inside();
 		break;
 	default:
-		unknown_code(0x9C3D2u + outcode * 3u);
+		invalid_jump(0x9C3D2u + outcode * 3u);
 	}
 	old_start_x = start_x;
 	swapped_start_x = end_x;
@@ -1979,20 +1979,20 @@ void clip_line_to_window(uint32_t outcode, uint32_t end_outcode, uint32_t *p_sta
 		*p_unclipped_y = unclipped_y;
 		return;
 	case 1:
-		clip_line_to_left_edge(swapped_end_x, swapped_end_y, &swapped_start_x, &swapped_start_y, &r8);
+		clip_line_to_left_edge(swapped_end_x, swapped_end_y, &swapped_start_x, &swapped_start_y, &unclipped_y);
 		*p_start_x = swapped_start_x;
 		*p_start_y = swapped_start_y;
 		*p_end_x = swapped_end_x;
 		*p_end_y = swapped_end_y;
-		*p_unclipped_y = r8;
+		*p_unclipped_y = unclipped_y;
 		return;
 	case 2:
-		clip_line_to_right_edge(swapped_end_x, swapped_end_y, &swapped_start_x, &swapped_start_y, &r8);
+		clip_line_to_right_edge(swapped_end_x, swapped_end_y, &swapped_start_x, &swapped_start_y, &unclipped_y);
 		*p_start_x = swapped_start_x;
 		*p_start_y = swapped_start_y;
 		*p_end_x = swapped_end_x;
 		*p_end_y = swapped_end_y;
-		*p_unclipped_y = r8;
+		*p_unclipped_y = unclipped_y;
 		return;
 	case 3:
 		clip_line_end_inside();
@@ -2003,28 +2003,28 @@ void clip_line_to_window(uint32_t outcode, uint32_t end_outcode, uint32_t *p_sta
 		*p_unclipped_y = unclipped_y;
 		return;
 	case 4:
-		clip_line_to_top_edge(swapped_end_x, swapped_end_y, &swapped_start_x, &swapped_start_y, &r8);
+		clip_line_to_top_edge(swapped_end_x, swapped_end_y, &swapped_start_x, &swapped_start_y, &unclipped_y);
 		*p_start_x = swapped_start_x;
 		*p_start_y = swapped_start_y;
 		*p_end_x = swapped_end_x;
 		*p_end_y = swapped_end_y;
-		*p_unclipped_y = r8;
+		*p_unclipped_y = unclipped_y;
 		return;
 	case 5:
-		clip_line_to_top_edge(swapped_end_x, swapped_end_y, &swapped_start_x, &swapped_start_y, &r8);
+		clip_line_to_top_edge(swapped_end_x, swapped_end_y, &swapped_start_x, &swapped_start_y, &unclipped_y);
 		*p_start_x = swapped_start_x;
 		*p_start_y = swapped_start_y;
 		*p_end_x = swapped_end_x;
 		*p_end_y = swapped_end_y;
-		*p_unclipped_y = r8;
+		*p_unclipped_y = unclipped_y;
 		return;
 	case 6:
-		clip_line_to_top_edge(swapped_end_x, swapped_end_y, &swapped_start_x, &swapped_start_y, &r8);
+		clip_line_to_top_edge(swapped_end_x, swapped_end_y, &swapped_start_x, &swapped_start_y, &unclipped_y);
 		*p_start_x = swapped_start_x;
 		*p_start_y = swapped_start_y;
 		*p_end_x = swapped_end_x;
 		*p_end_y = swapped_end_y;
-		*p_unclipped_y = r8;
+		*p_unclipped_y = unclipped_y;
 		return;
 	case 7:
 		clip_line_end_inside();
@@ -2035,28 +2035,28 @@ void clip_line_to_window(uint32_t outcode, uint32_t end_outcode, uint32_t *p_sta
 		*p_unclipped_y = unclipped_y;
 		return;
 	case 8:
-		clip_line_to_bottom_edge(swapped_end_x, swapped_end_y, &swapped_start_x, &swapped_start_y, &r8);
+		clip_line_to_bottom_edge(swapped_end_x, swapped_end_y, &swapped_start_x, &swapped_start_y, &unclipped_y);
 		*p_start_x = swapped_start_x;
 		*p_start_y = swapped_start_y;
 		*p_end_x = swapped_end_x;
 		*p_end_y = swapped_end_y;
-		*p_unclipped_y = r8;
+		*p_unclipped_y = unclipped_y;
 		return;
 	case 9:
-		clip_line_to_bottom_edge(swapped_end_x, swapped_end_y, &swapped_start_x, &swapped_start_y, &r8);
+		clip_line_to_bottom_edge(swapped_end_x, swapped_end_y, &swapped_start_x, &swapped_start_y, &unclipped_y);
 		*p_start_x = swapped_start_x;
 		*p_start_y = swapped_start_y;
 		*p_end_x = swapped_end_x;
 		*p_end_y = swapped_end_y;
-		*p_unclipped_y = r8;
+		*p_unclipped_y = unclipped_y;
 		return;
 	case 10:
-		clip_line_to_bottom_edge(swapped_end_x, swapped_end_y, &swapped_start_x, &swapped_start_y, &r8);
+		clip_line_to_bottom_edge(swapped_end_x, swapped_end_y, &swapped_start_x, &swapped_start_y, &unclipped_y);
 		*p_start_x = swapped_start_x;
 		*p_start_y = swapped_start_y;
 		*p_end_x = swapped_end_x;
 		*p_end_y = swapped_end_y;
-		*p_unclipped_y = r8;
+		*p_unclipped_y = unclipped_y;
 		return;
 	case 11:
 		clip_line_end_inside();
@@ -2067,7 +2067,7 @@ void clip_line_to_window(uint32_t outcode, uint32_t end_outcode, uint32_t *p_sta
 		*p_unclipped_y = unclipped_y;
 		return;
 	default:
-		unknown_code(0x9C3D2u + end_outcode * 3u);
+		invalid_jump(0x9C3D2u + end_outcode * 3u);
 	}
 }
 
@@ -2079,26 +2079,26 @@ void clip_line_to_left_edge(uint32_t end_x, uint32_t end_y, uint32_t *p_start_x,
 {
 	uint32_t start_x = *p_start_x;
 	uint32_t start_y = *p_start_y;
-	uint32_t r8 = 0, dx = 0;
+	uint32_t dx = 0, unclipped_y = 0;
 
 	dx = bitmap_window_left - start_x;
-	clip_line_at_x(end_x, end_y, dx, &start_x, &start_y, &r8);
+	clip_line_at_x(end_x, end_y, dx, &start_x, &start_y, &unclipped_y);
 	*p_start_x = start_x;
 	*p_start_y = start_y;
-	*p_unclipped_y = r8;
+	*p_unclipped_y = unclipped_y;
 }
 
 void clip_line_to_right_edge(uint32_t end_x, uint32_t end_y, uint32_t *p_start_x, uint32_t *p_start_y, uint32_t *p_unclipped_y)
 {
 	uint32_t start_x = *p_start_x;
 	uint32_t start_y = *p_start_y;
-	uint32_t r8 = 0, dx = 0;
+	uint32_t dx = 0, unclipped_y = 0;
 
 	dx = bitmap_window_right - start_x;
-	clip_line_at_x(end_x, end_y, dx, &start_x, &start_y, &r8);
+	clip_line_at_x(end_x, end_y, dx, &start_x, &start_y, &unclipped_y);
 	*p_start_x = start_x;
 	*p_start_y = start_y;
-	*p_unclipped_y = r8;
+	*p_unclipped_y = unclipped_y;
 }
 
 void clip_line_at_x(uint32_t end_x, uint32_t end_y, uint32_t dx, uint32_t *p_start_x, uint32_t *p_start_y, uint32_t *p_unclipped_y)
@@ -2127,26 +2127,26 @@ void clip_line_to_top_edge(uint32_t end_x, uint32_t end_y, uint32_t *p_start_x, 
 {
 	uint32_t start_x = *p_start_x;
 	uint32_t start_y = *p_start_y;
-	uint32_t r8 = 0, dy = 0;
+	uint32_t dy = 0, unclipped_y = 0;
 
 	dy = bitmap_window_top - start_y;
-	clip_line_at_y(end_x, end_y, dy, &start_x, &start_y, &r8);
+	clip_line_at_y(end_x, end_y, dy, &start_x, &start_y, &unclipped_y);
 	*p_start_x = start_x;
 	*p_start_y = start_y;
-	*p_unclipped_y = r8;
+	*p_unclipped_y = unclipped_y;
 }
 
 void clip_line_to_bottom_edge(uint32_t end_x, uint32_t end_y, uint32_t *p_start_x, uint32_t *p_start_y, uint32_t *p_unclipped_y)
 {
 	uint32_t start_x = *p_start_x;
 	uint32_t start_y = *p_start_y;
-	uint32_t r8 = 0, dy = 0;
+	uint32_t dy = 0, unclipped_y = 0;
 
 	dy = bitmap_window_bottom - start_y;
-	clip_line_at_y(end_x, end_y, dy, &start_x, &start_y, &r8);
+	clip_line_at_y(end_x, end_y, dy, &start_x, &start_y, &unclipped_y);
 	*p_start_x = start_x;
 	*p_start_y = start_y;
-	*p_unclipped_y = r8;
+	*p_unclipped_y = unclipped_y;
 }
 
 void clip_line_at_y(uint32_t end_x, uint32_t end_y, uint32_t dy, uint32_t *p_start_x, uint32_t *p_start_y, uint32_t *p_unclipped_y)

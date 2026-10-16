@@ -3,7 +3,7 @@
  *    Description: the sound program's frame: the reset, the timer interrupt (the players' tick), the main loop and sound_init; the two YM3438 and the RF5C68 set up and written; the tracks' and MIDI parts' start values; read_table_word, multiply_bytes, copy_sample_page
  *    Version:     0.1.0
  *    Created:     13-10-2026
- *    Modified:    15-10-2026
+ *    Modified:    16-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the Z80 sound program decompiled into C by
@@ -386,9 +386,9 @@ void init_pcm_tracks(void)
 		z80_block(98);
 		SAMPLE_VOICE(sample_voice - 0x9u)->wave_page = 0xD0u;
 		sample_voice += 7u;
-		AS8(SAMPLE_VOICE(sample_voice - 0x10u)->stream_position) = 0xFFu;
+		SAMPLE_VOICE(sample_voice - 0x10u)->stream_position_low = 0xFFu;
 		sample_voice++;
-		AT8(SAMPLE_VOICE(sample_voice - 0x11u)->stream_position, 1) = 7u;
+		SAMPLE_VOICE(sample_voice - 0x11u)->stream_position_high = 7u;
 		sample_voice += 0xAu;
 		voices_left--;
 		if (voices_left == 0u)
@@ -458,7 +458,7 @@ uint16_t read_table_word(uint16_t table, uint8_t index)
 	z80_block(88);
 	offset = index;
 	table = table + offset + offset;
-	word = z80_read16(table);
+	word = SOUND_ROM16(table);
 	return word;
 }
 

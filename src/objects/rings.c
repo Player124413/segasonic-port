@@ -3,7 +3,7 @@
  *    Description: rings: the stage rows, spinning, carried and scattered rings, sparkles; the unused gauge ring and template spawner
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    15-10-2026
+ *    Modified:    16-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -18,7 +18,7 @@ void spawn_ring_rows(uint32_t *p_stage_list_offset, uint32_t *p_free_stack, uint
 	uint32_t slope_height = *p_slope_height;
 	uint32_t object = *p_object;
 	uint16_t scroll_past_row = 0;
-	uint32_t r0 = 0, ignored = 0, row_cursor = 0, template_cursor = 0;
+	uint32_t ignored = 0, row_cursor = 0, template_cursor = 0;
 	uint16_t rings_left = 0;
 	uint32_t old_init_flags = 0;
 
@@ -57,35 +57,35 @@ void spawn_ring_rows(uint32_t *p_stage_list_offset, uint32_t *p_free_stack, uint
 		ring_row_next_80 = 0u;
 		do
 		{
-			allocate_object_outside_loop(&r0, &object);
+			allocate_object_outside_loop(&ignored, &object);
 			template_cursor = stage_object_templates_ADDRESS + ring_row_template;
-			OBJECT(object)->sprite_flags = ROM16(template_cursor);
+			OBJECT(object)->sprite_flags = STAGE_OBJECT_TEMPLATE(template_cursor)->sprite_flags;
 			template_cursor += 2u;
-			OBJECT(object)->sprite_frame = ROM16(template_cursor);
+			OBJECT(object)->sprite_frame = STAGE_OBJECT_TEMPLATE(template_cursor - 0x2u)->sprite_frame;
 			template_cursor += 2u;
-			OBJECT(object)->sprite_palette = ROM16(template_cursor);
+			OBJECT(object)->sprite_palette = STAGE_OBJECT_TEMPLATE(template_cursor - 0x4u)->sprite_palette;
 			template_cursor += 2u;
-			OBJECT(object)->hitbox_size_x = ROM16(template_cursor);
+			OBJECT(object)->hitbox_size_x = STAGE_OBJECT_TEMPLATE(template_cursor - 0x6u)->hitbox_size_x;
 			OBJECT(object)->hitbox_size_y = 0u;
 			template_cursor += 2u;
-			OBJECT(object)->var_82 = ROM16(template_cursor);
+			OBJECT(object)->var_82 = STAGE_OBJECT_TEMPLATE(template_cursor - 0x8u)->hover_height;
 			template_cursor += 2u;
-			OBJECT(object)->animation_speed = ROM8(template_cursor);
+			OBJECT(object)->animation_speed = STAGE_OBJECT_TEMPLATE(template_cursor - 0xAu)->animation_speed;
 			template_cursor++;
-			OBJECT(object)->animation_timer = ROM8(template_cursor);
+			OBJECT(object)->animation_timer = STAGE_OBJECT_TEMPLATE(template_cursor - 0xBu)->animation_timer;
 			template_cursor++;
-			OBJECT(object)->animation_frame = ROM8(template_cursor);
+			OBJECT(object)->animation_frame = STAGE_OBJECT_TEMPLATE(template_cursor - 0xCu)->animation_frame;
 			template_cursor++;
-			OBJECT(object)->kind = ROM8(template_cursor);
+			OBJECT(object)->kind = STAGE_OBJECT_TEMPLATE(template_cursor - 0xDu)->kind;
 			template_cursor++;
-			OBJECT(object)->animation = ROM32(template_cursor);
+			OBJECT(object)->animation = STAGE_OBJECT_TEMPLATE(template_cursor - 0xEu)->animation;
 			template_cursor += 4u;
-			OBJECT(object)->handler = ROM32(template_cursor);
+			OBJECT(object)->handler = STAGE_OBJECT_TEMPLATE(template_cursor - 0x12u)->handler;
 			template_cursor += 4u;
-			OBJECT(object)->sprite_offset_x = ROM8(template_cursor);
+			OBJECT(object)->sprite_offset_x = STAGE_OBJECT_TEMPLATE(template_cursor - 0x16u)->sprite_offset_x;
 			template_cursor++;
-			OBJECT(object)->sprite_offset_y = ROM8(template_cursor);
-			OBJECT(object)->hitbox_height = ROM16(template_cursor + 1u);
+			OBJECT(object)->sprite_offset_y = STAGE_OBJECT_TEMPLATE(template_cursor - 0x17u)->sprite_offset_y;
+			OBJECT(object)->hitbox_height = STAGE_OBJECT_TEMPLATE(template_cursor - 0x17u)->hitbox_height;
 			AS16(OBJECT(object)->health) = scroll_position;
 			AS16(OBJECT(object)->var_80) = ring_row_next_80;
 			ring_row_next_80 += 0x20u;
@@ -97,7 +97,7 @@ void spawn_ring_rows(uint32_t *p_stage_list_offset, uint32_t *p_free_stack, uint
 			ring_row_x += ring_row_dx;
 			ring_row_y += ring_row_dy;
 			current_object = object;
-			find_floor(&r0, &stage_list_offset, &free_stack, &slope_height, &object);
+			find_floor(&ignored, &ignored, &ignored, &slope_height, &object);
 			OBJECT(current_object)->z = OBJECT(current_object)->floor_z;
 			OBJECT(current_object)->z_int -= OBJECT(current_object)->var_82;
 			project_object(&ignored, &stage_list_offset);
@@ -106,7 +106,7 @@ void spawn_ring_rows(uint32_t *p_stage_list_offset, uint32_t *p_free_stack, uint
 			OBJECT(object)->sprite_flags = 0x1000u;
 			OBJECT(object)->sprite_palette = 0x9FFEu;
 			OBJECT(object)->sprite_frame = 0x5D90u;
-			AS8(OBJECT(object)->hitbox_size_x) = 0u;
+			OBJECT(object)->shadow_blink = 0u;
 			OBJECT(object_cursor)->child = object;
 			OBJECT(object)->parent = current_object;
 			rings_left = ring_row_rings_left;
@@ -124,7 +124,7 @@ void ring_spin(void)
 {
 	uint8_t sound_id = 0;
 	uint16_t child = 0;
-	uint32_t r1 = 0, r7 = 0, r8 = 0, depth = 0, ignored = 0, object = 0, off_screen = 0, player = 0, write_index_address = 0;
+	uint32_t depth = 0, ignored = 0, object = 0, off_screen = 0, player = 0;
 
 	if (map_screen_active != 0u || current_game_mode == 0x20u)
 	{
@@ -136,13 +136,13 @@ void ring_spin(void)
 	if ((OBJECT(current_object)->flags & 4u) == 0u)
 	{
 	ring_spin_keep_spinning:
-		animate(&r1, &r7, &r8);
+		animate(&ignored, &ignored, &ignored);
 		if (OBJECT(current_object)->animation_speed == (uint8_t)OBJECT(current_object)->animation_timer && OBJECT(current_object)->animation_frame == 0x15u)
 		{
 			OBJECT(current_object)->ring_spin.unused_glint_timer = 0x78u;
 			spawn_ring_glint(player);
 		}
-		update_screen_position(&ignored, &r1);
+		update_screen_position(&ignored, &ignored);
 		off_screen = check_left_screen();
 		if (off_screen != 0u)
 		{
@@ -177,7 +177,7 @@ void ring_spin(void)
 	if ((int8_t)OBJECT(object)->kind > 2)
 	{
 		sound_id = 0x13u;
-		play_sound(sound_id, &r1, &write_index_address);
+		play_sound(sound_id, &ignored, &ignored);
 		spawn_ring_sparkle(player);
 		child = OBJECT(current_object)->child;
 		free_object_2(child);
@@ -188,7 +188,7 @@ void ring_spin(void)
 	if ((PLAYER(player)->state == 0xDu || PLAYER(player)->state == 0x20u) && (uint8_t)PLAYER(player)->hurt_contact_delay != 0u)
 		goto ring_spin_keep_spinning;
 	sound_id = 0x13u;
-	play_sound(sound_id, &r1, &write_index_address);
+	play_sound(sound_id, &ignored, &ignored);
 	spawn_ring_sparkle(player);
 	child = OBJECT(current_object)->child;
 	free_object_2(child);
@@ -199,18 +199,18 @@ void still_ring_wait(void)
 {
 	uint8_t sound_id = 0;
 	uint16_t child = 0;
-	uint32_t r1 = 0, ignored = 0, off_screen = 0, write_index_address = 0;
+	uint32_t ignored = 0, off_screen = 0;
 
 	if ((OBJECT(current_object)->flags & 4u) != 0u)
 	{
 		sound_id = 0x13u;
-		play_sound(sound_id, &r1, &write_index_address);
+		play_sound(sound_id, &ignored, &ignored);
 		child = OBJECT(current_object)->child;
 		free_object_2(child);
 		delete_current_object();
 		return;
 	}
-	update_screen_position(&ignored, &r1);
+	update_screen_position(&ignored, &ignored);
 	off_screen = is_off_screen();
 	if (off_screen == 0u)
 	{
@@ -236,7 +236,7 @@ void carried_ring_spin(void)
 {
 	uint8_t sound_id = 0;
 	uint16_t child = 0;
-	uint32_t r1 = 0, r7 = 0, r8 = 0, ignored = 0, object = 0, off_screen = 0, platform_z = 0, player = 0, write_index_address = 0;
+	uint32_t ignored = 0, object = 0, off_screen = 0, platform_z = 0, player = 0;
 
 	if (map_screen_active != 0u)
 	{
@@ -257,14 +257,14 @@ void carried_ring_spin(void)
 		OBJECT(current_object)->z = platform_z;
 		OBJECT(current_object)->z_int -= OBJECT(current_object)->carried_ring.hover_height;
 		OBJECT(current_object)->floor_block = OBJECT(object)->floor_block;
-		animate(&r1, &r7, &r8);
+		animate(&ignored, &ignored, &ignored);
 		if (OBJECT(current_object)->animation_speed == (uint8_t)OBJECT(current_object)->animation_timer && OBJECT(current_object)->animation_frame == 0x15u)
 		{
 			OBJECT(current_object)->carried_ring.glint_timer = 0x78u;
 			OBJECT(current_object)->carried_ring.glint_timer_high = 0u;
 			spawn_ring_glint(player);
 		}
-		update_screen_position(&ignored, &r1);
+		update_screen_position(&ignored, &ignored);
 		off_screen = check_left_screen();
 		if (off_screen == 0u)
 		{
@@ -282,7 +282,7 @@ void carried_ring_spin(void)
 	if ((int8_t)OBJECT(object)->kind > 2)
 	{
 		sound_id = 0x13u;
-		play_sound(sound_id, &r1, &write_index_address);
+		play_sound(sound_id, &ignored, &ignored);
 		spawn_ring_sparkle(player);
 		child = OBJECT(current_object)->child;
 		free_object_2(child);
@@ -293,7 +293,7 @@ void carried_ring_spin(void)
 	if ((PLAYER(player)->state == 0xDu || PLAYER(player)->state == 0x20u) && (uint8_t)PLAYER(player)->hurt_contact_delay != 0u)
 		goto carried_ring_keep_spinning;
 	sound_id = 0x13u;
-	play_sound(sound_id, &r1, &write_index_address);
+	play_sound(sound_id, &ignored, &ignored);
 	spawn_ring_sparkle(player);
 	child = OBJECT(current_object)->child;
 	free_object_2(child);
@@ -308,10 +308,10 @@ void scatter_rings_fixed(uint32_t count, uint32_t *p_random_value, uint32_t *p_a
 {
 	uint32_t random_value = *p_random_value;
 	uint32_t allocated = *p_allocated;
-	uint32_t ring = 0;
+	uint32_t ignored = 0;
 
 	scatter_fixed = 0xFFFFu;
-	scatter_rings(count, &random_value, &allocated, &ring);
+	scatter_rings(count, &random_value, &allocated, &ignored);
 	*p_random_value = random_value;
 	*p_allocated = allocated;
 }
@@ -383,7 +383,7 @@ void scatter_rings(uint32_t count, uint32_t *p_random_value, uint32_t *p_allocat
 			OBJECT(allocated)->speed_z = 0u - random_value;
 		}
 		OBJECT(allocated)->speed = 0;
-		if (AS8(scatter_fixed) == 0u)
+		if ((uint8_t)scatter_fixed == 0u)
 		{
 			next_random(&random_value, &ignored, &ignored);
 			random_value = (random_value & 0x7FFFFFu) + 0x800000u;
@@ -441,7 +441,7 @@ void scattered_ring_live(void)
 {
 	uint8_t sound_id = 0;
 	uint16_t child = 0;
-	uint32_t object = 0, player = 0, write_index = 0, write_index_address = 0;
+	uint32_t ignored = 0, object = 0, player = 0;
 	uint16_t lifetime = 0;
 
 	lifetime = OBJECT(current_object)->scattered_ring.lifetime;
@@ -473,7 +473,7 @@ void scattered_ring_live(void)
 		}
 	}
 	sound_id = 0x13u;
-	play_sound(sound_id, &write_index, &write_index_address);
+	play_sound(sound_id, &ignored, &ignored);
 	spawn_ring_sparkle(player);
 	child = OBJECT(current_object)->child;
 	free_object_2(child);
@@ -483,11 +483,11 @@ void scattered_ring_live(void)
 void move_scattered_ring(uint32_t cursor)
 {
 	uint16_t margin_x = 0, margin_y = 0;
-	uint32_t r1 = 0, r7 = 0, r8 = 0, block_offset = 0, ignored = 0, object = 0, off_screen = 0, rebound_speed = 0, y = 0;
+	uint32_t ignored = 0, object = 0, off_screen = 0, rebound_speed = 0;
 
 	OBJECT(current_object)->x += OBJECT(current_object)->speed_x;
 	OBJECT(current_object)->y += OBJECT(current_object)->speed_y;
-	find_floor(&rebound_speed, &y, &block_offset, &ignored, &cursor);
+	find_floor(&ignored, &ignored, &ignored, &ignored, &cursor);
 	if ((int16_t)(OBJECT(current_object)->z_int - OBJECT(current_object)->floor_z_int) > 8)
 	{
 		OBJECT(current_object)->x -= OBJECT(current_object)->speed_x;
@@ -505,8 +505,8 @@ void move_scattered_ring(uint32_t cursor)
 		rebound_speed = 0u - OBJECT(current_object)->speed_z;
 		OBJECT(current_object)->speed_z = rebound_speed - ((int32_t)rebound_speed >> 2);
 	}
-	project_object(&ignored, &r1);
-	animate(&r1, &r7, &r8);
+	project_object(&ignored, &ignored);
+	animate(&ignored, &ignored, &ignored);
 	if (OBJECT(current_object)->animation_speed == (uint8_t)OBJECT(current_object)->animation_timer && OBJECT(current_object)->animation_frame == 0x15u)
 		spawn_ring_glint(cursor);
 	margin_x = 0x20u;
@@ -608,12 +608,12 @@ void sparkle_start(void)
 
 void sparkle_animate(void)
 {
-	uint32_t r1 = 0, r7 = 0, at_last_step = 0, depth = 0, ignored = 0;
+	uint32_t at_last_step = 0, depth = 0, ignored = 0;
 
-	animate(&r1, &r7, &at_last_step);
+	animate(&ignored, &ignored, &at_last_step);
 	if ((int8_t)at_last_step >= 0)
 	{
-		update_screen_position(&ignored, &r1);
+		update_screen_position(&ignored, &ignored);
 		depth = (uint16_t)(((int32_t)((uint32_t)OBJECT(current_object)->projected_y + OBJECT(current_object)->floor_z) >> 16) - view_y + 0x10u);
 		queue_sprite_at_depth(&ignored, &depth);
 		return;
@@ -624,7 +624,7 @@ void sparkle_animate(void)
 void spawn_gauge_ring(uint32_t ring)
 {
 	uint8_t sound_id = 0;
-	uint32_t free_count = 0, write_index = 0, write_index_address = 0;
+	uint32_t free_count = 0, ignored = 0;
 
 	allocate_object(&free_count, &ring);
 	if (free_count != 0u)
@@ -656,13 +656,13 @@ void spawn_gauge_ring(uint32_t ring)
 		OBJECT(ring)->gauge_ring.turn_speed = 0x88u;
 		OBJECT(ring)->gauge_ring.hop_timer = 0x1E;
 		sound_id = 0x7Fu;
-		play_sound(sound_id, &write_index, &write_index_address);
+		play_sound(sound_id, &ignored, &ignored);
 	}
 }
 
 void gauge_ring_update(void)
 {
-	uint32_t r1 = 0, r7 = 0, r8 = 0;
+	uint32_t ignored = 0;
 
 	switch (OBJECT(current_object)->gauge_ring.step)
 	{
@@ -676,10 +676,10 @@ void gauge_ring_update(void)
 		gauge_ring_rise();
 		break;
 	default:
-		unknown_code(0x1EC2Du + OBJECT(current_object)->gauge_ring.step * 3u);
+		invalid_jump(0x1EC2Du + OBJECT(current_object)->gauge_ring.step * 3u);
 	}
-	animate(&r1, &r7, &r8);
-	r1 = queue_sprite(r1);
+	animate(&ignored, &ignored, &ignored);
+	ignored = queue_sprite(ignored);
 }
 
 void gauge_ring_rise(void)
@@ -729,7 +729,7 @@ void gauge_ring_fall_into_gauge(void)
 
 void spawn_stage_template_0(uint16_t x, uint16_t y, uint16_t z, uint32_t object)
 {
-	uint32_t r0 = 0, r1 = 0, block_offset = 0, free_count = 0, ignored = 0;
+	uint32_t free_count = 0, ignored = 0;
 	uint32_t saved_current_object = 0;
 
 	saved_current_object = current_object;
@@ -764,8 +764,8 @@ void spawn_stage_template_0(uint16_t x, uint16_t y, uint16_t z, uint32_t object)
 			OBJECT(object)->z_int = template_spawn_z;
 			OBJECT(object)->z_fraction = 0u;
 			current_object = object;
-			project_object(&r0, &r1);
-			find_floor(&r0, &r1, &block_offset, &ignored, &object);
+			project_object(&ignored, &ignored);
+			find_floor(&ignored, &ignored, &ignored, &ignored, &object);
 			current_player = current_object;
 			allocate_object_2(&ignored, &ignored, &object);
 			OBJECT(object)->sprite_flags = 0x1000u;
@@ -780,7 +780,7 @@ void spawn_stage_template_0(uint16_t x, uint16_t y, uint16_t z, uint32_t object)
 
 void spawn_stage_template(uint16_t template_index, uint16_t x, uint16_t y, uint16_t z, uint32_t object)
 {
-	uint32_t r0 = 0, r1 = 0, block_offset = 0, free_count = 0, ignored = 0, template_cursor = 0;
+	uint32_t free_count = 0, ignored = 0, template_cursor = 0;
 	uint32_t saved_current_object = 0;
 
 	saved_current_object = current_object;
@@ -794,31 +794,31 @@ void spawn_stage_template(uint16_t template_index, uint16_t x, uint16_t y, uint1
 		if (free_count != 0u)
 		{
 			template_cursor = stage_object_templates_ADDRESS + template_spawn_index * 0x1Au;
-			OBJECT(object)->sprite_flags = mem_read16(template_cursor);
+			OBJECT(object)->sprite_flags = STAGE_OBJECT_TEMPLATE(template_cursor)->sprite_flags;
 			template_cursor += 2u;
-			OBJECT(object)->sprite_frame = mem_read16(template_cursor);
+			OBJECT(object)->sprite_frame = STAGE_OBJECT_TEMPLATE(template_cursor - 0x2u)->sprite_frame;
 			template_cursor += 2u;
-			OBJECT(object)->sprite_palette = mem_read16(template_cursor);
+			OBJECT(object)->sprite_palette = STAGE_OBJECT_TEMPLATE(template_cursor - 0x4u)->sprite_palette;
 			template_cursor += 2u;
-			OBJECT(object)->hitbox_size_x = mem_read16(template_cursor);
+			OBJECT(object)->hitbox_size_x = STAGE_OBJECT_TEMPLATE(template_cursor - 0x6u)->hitbox_size_x;
 			OBJECT(object)->hitbox_size_y = 0u;
 			template_cursor += 4u;
-			OBJECT(object)->animation_speed = mem_read8(template_cursor);
+			OBJECT(object)->animation_speed = STAGE_OBJECT_TEMPLATE(template_cursor - 0xAu)->animation_speed;
 			template_cursor++;
-			OBJECT(object)->animation_timer = mem_read8(template_cursor);
+			OBJECT(object)->animation_timer = STAGE_OBJECT_TEMPLATE(template_cursor - 0xBu)->animation_timer;
 			template_cursor++;
-			OBJECT(object)->animation_frame = mem_read8(template_cursor);
+			OBJECT(object)->animation_frame = STAGE_OBJECT_TEMPLATE(template_cursor - 0xCu)->animation_frame;
 			template_cursor++;
-			OBJECT(object)->kind = mem_read8(template_cursor);
+			OBJECT(object)->kind = STAGE_OBJECT_TEMPLATE(template_cursor - 0xDu)->kind;
 			template_cursor++;
-			OBJECT(object)->animation = mem_read32(template_cursor);
+			OBJECT(object)->animation = STAGE_OBJECT_TEMPLATE(template_cursor - 0xEu)->animation;
 			template_cursor += 4u;
-			OBJECT(object)->handler = mem_read32(template_cursor);
+			OBJECT(object)->handler = STAGE_OBJECT_TEMPLATE(template_cursor - 0x12u)->handler;
 			template_cursor += 4u;
-			OBJECT(object)->sprite_offset_x = mem_read8(template_cursor);
+			OBJECT(object)->sprite_offset_x = STAGE_OBJECT_TEMPLATE(template_cursor - 0x16u)->sprite_offset_x;
 			template_cursor++;
-			OBJECT(object)->sprite_offset_y = mem_read8(template_cursor);
-			OBJECT(object)->hitbox_height = mem_read16(template_cursor + 1u);
+			OBJECT(object)->sprite_offset_y = STAGE_OBJECT_TEMPLATE(template_cursor - 0x17u)->sprite_offset_y;
+			OBJECT(object)->hitbox_height = STAGE_OBJECT_TEMPLATE(template_cursor - 0x17u)->hitbox_height;
 			AS16(OBJECT(object)->health) = scroll_position;
 			OBJECT(object)->flags = 0u;
 			OBJECT(object)->x_int = template_spawn_x;
@@ -828,8 +828,8 @@ void spawn_stage_template(uint16_t template_index, uint16_t x, uint16_t y, uint1
 			OBJECT(object)->z_int = template_spawn_z;
 			OBJECT(object)->z_fraction = 0u;
 			current_object = object;
-			project_object(&r0, &r1);
-			find_floor(&r0, &r1, &block_offset, &ignored, &object);
+			project_object(&ignored, &ignored);
+			find_floor(&ignored, &ignored, &ignored, &ignored, &object);
 			current_player = current_object;
 			allocate_object_2(&ignored, &ignored, &object);
 			OBJECT(object)->sprite_flags = 0x1000u;

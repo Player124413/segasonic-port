@@ -3,7 +3,7 @@ Name:        disassemble.py
 Description: recursive-descent disassembly of the V60 program into a listing and a coverage report
 Version:     0.1.0
 Created:     11-10-2026
-Modified:    15-10-2026
+Modified:    16-10-2026
 Author:      Sebastian Toyos
 
 Usage: python tools/disassemble.py [rom folder or .zip] [--trace executed.txt ...]   (default ROM: rom/)
@@ -50,7 +50,8 @@ class Layout:
                                 # else a 16-bit offset from base
     count: int | None = None    # records per array ...
     prefixed: bool = False      # ... or: a 16-bit record count comes before the records ...
-    end: int | None = None      # ... or: the array ends with this 16-bit word where the next record would start
+    end: int | None = None      # ... or: the array ends with this word where the next record would start
+    end_bytes: int = 2          # how long that end mark is: 2 (end=FFFF) or 4 (end=FFFFFFFF, a whole end record)
     lists: int | None = None    # the table is this many 16-bit offsets, from its own address, to such arrays
     pointers: int | None = None  # the table is this many 32-bit addresses of such arrays
 
@@ -74,7 +75,8 @@ def parse_code_fields(text, where):
 
 
 def parse_layout(attributes, where):
-    """Layout from 'key=value' attributes: sizes, offsets and counts in decimal, the end word and bases in hexadecimal"""
+    """Layout from 'key=value' attributes: sizes, offsets and counts in decimal, the end mark and bases in
+    hexadecimal (an end mark of more than four digits is 32 bits long)"""
     values = {}
     for attribute in attributes:
         name, _, value = attribute.partition("=")
@@ -91,12 +93,13 @@ def parse_layout(attributes, where):
                   count=int(values["count"]) if "count" in values and not prefixed else None,
                   prefixed=prefixed,
                   end=int(values["end"], 16) if "end" in values else None,
+                  end_bytes=4 if len(values.get("end", "")) > 4 else 2,
                   lists=int(values["lists"]) if "lists" in values else None,
                   pointers=int(values["pointers"]) if "pointers" in values else None)
 
 
 NAME_KINDS = ("var", "io", "table", "struct", "field", "register", "scoped", "param", "result", "local", "port",
-              "file")    # names for the decompiled C (load_names; file lines: decompile.source_files)
+              "file", "anchor")    # names for the decompiled C (load_names; file lines: decompile.source_files)
 
 
 def load_symbols(path):
@@ -147,6 +150,14 @@ class Names(NamedTuple):
     param_structs: dict  # (function name, register number) -> the structure the parameter points at
     results: dict       # (function name, register number) -> name of what a function nothing calls hands back
     local_structs: dict  # (function name, WHERE, "rN") -> the structure the local variable points at
+    rom_structs: set     # the structures that are records of the program ROM ('struct NAME SIZE rom'): read
+                         # through rom(), never written
+    scoped_targets: dict  # (struct, family, offset) -> (what it points at, bits): a scoped field that holds a
+                          # pointer, as that family's code reads it
+    scoped_overlays: dict  # (struct, family) -> {(offset, bits): (name, type)}: a narrower name a family gives
+                           # the first bytes of one of its fields
+    anchors: dict       # work RAM address -> (variable, offset): where a structure would be whose field at
+                        # 'offset' is the variable (a list's head), as the code that walks the list starts there
 
 
 def load_names(path, registers=None):
@@ -160,13 +171,15 @@ def load_names(path, registers=None):
     (x_fraction, the low half of the 16.16 x).
     A struct name after the type says the value points at one: a u32 its address, a u16 the low half of
     it (the game links its structures in the work RAM page by 16-bit addresses); "rom" after a u32 says it
-    points into the program ROM.
+    points into the program ROM. STRUCT.FAMILY (object.eggman_scene) says which family's structure it is:
+    what is read through it reads as that family's code reads its own (its scoped fields).
         register RN     NAME             a register the whole program shares (a global variable in C)
-        scoped   STRUCT FAMILY OFFSET NAME TYPE  a field as the functions whose names start with FAMILY use
-                                         it, in the structure their code runs on; with "global" for
-                                         STRUCT and an address for OFFSET, work RAM as they use it
+        scoped   STRUCT FAMILY OFFSET NAME TYPE [STRUCT]  a field as the functions whose names start with
+                                         FAMILY use it, in the structure their code runs on (a structure or
+                                         "rom": what it holds points at one); with "global" for STRUCT and
+                                         an address for OFFSET, work RAM as they use it
         param    FUNCTION RN NAME [STRUCT]  what a function takes or hands back in register RN (a structure:
-                                         what it takes there points at one)
+                                         what it takes there points at one; "rom": into the program ROM)
         result   FUNCTION RN NAME [STRUCT]  what a function nothing calls hands back in register RN (no
                                          caller says it: the ones that do call get it from what they read)
         local    FUNCTION WHERE RN NAME [STRUCT]  the local variable of FUNCTION that holds what the
@@ -179,9 +192,12 @@ def load_names(path, registers=None):
         local    FUNCTION WHERE SN NAME  the stack slot N bytes (hexadecimal) below where SP stood when the
                                          function started, by the instructions at WHERE that store to it
         ADDRESS  port   NAME             an I/O port
+        ADDRESS  anchor VARIABLE OFFSET  the address a list walk starts from: a structure there would have
+                                         VARIABLE (the list's head) as its field at OFFSET (the link the walk
+                                         follows), so the C writes it as VARIABLE's address less OFFSET
     'registers' ({name: number}) lets param and local lines name a register by its name (hl, iy) on a
     processor whose registers have names; RN works on any."""
-    names = Names({}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {})
+    names = Names({}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, set(), {}, {}, {})
     registers = registers or {}
 
     def register_number(text):
@@ -209,14 +225,31 @@ def load_names(path, registers=None):
             continue
         where = f"{path.name}:{number}"
         if parts[0] == "struct":
-            if len(parts) != 3:
-                raise SystemExit(f"{where}: expected 'struct NAME SIZE'")
+            if len(parts) not in (3, 4) or (len(parts) == 4 and parts[3] != "rom"):
+                raise SystemExit(f"{where}: expected 'struct NAME SIZE [rom]'")
             names.structs[parts[1]] = int(parts[2], 16)
+            if len(parts) == 4:
+                names.rom_structs.add(parts[1])
             continue
         if parts[0] == "scoped":
             if len(parts) not in (6, 7) or parts[5] not in VALUE_TYPES:
-                raise SystemExit(f"{where}: expected 'scoped STRUCT FAMILY OFFSET NAME TYPE' with TYPE in {VALUE_TYPES}")
-            names.scoped.setdefault((parts[1], parts[2]), {})[int(parts[3], 16)] = (parts[4], parts[5])
+                raise SystemExit(f"{where}: expected 'scoped STRUCT FAMILY OFFSET NAME TYPE [STRUCT]' with TYPE in "
+                                 f"{VALUE_TYPES}")
+            family = names.scoped.setdefault((parts[1], parts[2]), {})
+            offset = int(parts[3], 16)
+            if offset in family:
+                # a second name for the same place: the wider is the field, the narrower its first bytes
+                old = family[offset]
+                if int(old[1][1:]) == int(parts[5][1:]):
+                    raise SystemExit(f"{where}: '{parts[4]}' has the place and width of '{old[0]}'")
+                wider, narrower = (old, (parts[4], parts[5])) if int(old[1][1:]) > int(parts[5][1:]) \
+                    else ((parts[4], parts[5]), old)
+                family[offset] = wider
+                names.scoped_overlays.setdefault((parts[1], parts[2]), {})[(offset, int(narrower[1][1:]))] = narrower
+            else:
+                family[offset] = (parts[4], parts[5])
+            if len(parts) == 7:
+                names.scoped_targets[(parts[1], parts[2], int(parts[3], 16))] = (parts[6], int(parts[5][1:]))
             continue
         if parts[0] in ("param", "result"):
             if len(parts) not in (4, 5) or register_number(parts[2]) is None or not parts[3].isidentifier():
@@ -256,6 +289,11 @@ def load_names(path, registers=None):
             if len(parts) == 6:
                 names.targets[(parts[1], int(parts[2], 16))] = (parts[5], int(parts[4][1:]))
             continue
+        if len(parts) >= 2 and parts[1] == "anchor":
+            if len(parts) != 4 or not parts[2].isidentifier() or not re.fullmatch(r"[0-9A-Fa-f]+", parts[3]):
+                raise SystemExit(f"{where}: expected 'ADDRESS anchor VARIABLE OFFSET'")
+            names.anchors[int(parts[0], 16)] = (parts[2], int(parts[3], 16))
+            continue
         if len(parts) >= 2 and parts[1] == "port":
             if len(parts) != 3 or not parts[2].isidentifier():
                 raise SystemExit(f"{where}: expected 'ADDRESS port NAME'")
@@ -273,15 +311,21 @@ def load_names(path, registers=None):
             target[address] = (parts[2], parts[3])
         if len(parts) == 5:
             names.targets[("global", address)] = (parts[4], int(parts[3][1:]))
-    for (struct, _), (pointed, _) in names.targets.items():
-        if pointed not in names.structs and pointed != "rom":
+    def structure(pointed):
+        """True for STRUCT or STRUCT.FAMILY."""
+        struct, dot, family = pointed.partition(".")
+        return struct in names.structs and (not dot or family.isidentifier())
+    for (pointed, _) in list(names.targets.values()) + list(names.scoped_targets.values()):
+        if not structure(pointed) and pointed != "rom":
             raise SystemExit(f"{path.name}: points at '{pointed}', which is no struct (nor 'rom')")
     for (function, _), pointed in names.param_structs.items():
-        if pointed not in names.structs:
-            raise SystemExit(f"{path.name}: a parameter of {function} points at '{pointed}', which is no struct")
+        if not structure(pointed) and pointed != "rom":
+            raise SystemExit(f"{path.name}: a parameter of {function} points at '{pointed}', which is no struct "
+                             "(nor 'rom')")
     for (function, _, _), pointed in names.local_structs.items():
-        if pointed not in names.structs:
-            raise SystemExit(f"{path.name}: a local of {function} points at '{pointed}', which is no struct")
+        if not structure(pointed) and pointed != "rom":
+            raise SystemExit(f"{path.name}: a local of {function} points at '{pointed}', which is no struct "
+                             "(nor 'rom')")
     return names
 
 
@@ -425,8 +469,8 @@ class Analysis:
             for number in range(MAX_RECORDS):
                 if count is not None and number == count:
                     break
-                if layout.end is not None and self.mem.r16(record) == layout.end:
-                    record += 2
+                if layout.end is not None                         and (self.mem.r32(record) if layout.end_bytes == 4 else self.mem.r16(record)) == layout.end:
+                    record += layout.end_bytes
                     break
                 for offset, base in layout.code:
                     value = self.mem.r32(record + offset) if base is None else base + self.mem.r16(record + offset)

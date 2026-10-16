@@ -4,7 +4,7 @@
  *                 and the sound board's timing model
  *    Version:     0.1.0
  *    Created:     13-10-2026
- *    Modified:    13-10-2026
+ *    Modified:    15-10-2026
  *    Author:      Sebastian Toyos
  *
  *    license:BSD-3-Clause
@@ -58,7 +58,7 @@ void port_out(uint8_t port, uint8_t value);
 void move_block(uint16_t source, uint16_t destination, uint16_t count, bool upward);
 
 /* A jump through a table to an entry the table does not have: the original would run whatever is there */
-void sound_unknown_code(uint32_t address);
+void sound_invalid_jump(uint32_t address);    /* the default of a switch on a jump table's index */
 
 void z80_block(int cycles);
 void z80_cycles(int cycles);

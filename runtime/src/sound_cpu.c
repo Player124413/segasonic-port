@@ -3,7 +3,7 @@
  *    Description: runs the decompiled sound program on the board's time: the Z80's timing model
  *    Version:     0.1.0
  *    Created:     13-10-2026
- *    Modified:    13-10-2026
+ *    Modified:    15-10-2026
  *    Author:      Sebastian Toyos
  *
  *    license:BSD-3-Clause
@@ -126,12 +126,12 @@ void move_block(uint16_t source, uint16_t destination, uint16_t count, bool upwa
 	z80.clock += 2 * 21 * (uint64_t)(rounds - 1);
 }
 
-void sound_unknown_code(uint32_t address)
+void sound_invalid_jump(uint32_t address)
 {
 	if (s32_board.log)
 	{
 		char message[64];
-		snprintf(message, sizeof(message), "sound program: no code for a jump to %04X", (unsigned)address);
+		snprintf(message, sizeof(message), "sound program: a jump to %04X, past its table", (unsigned)address);
 		s32_board.log(message);
 	}
 }

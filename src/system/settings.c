@@ -3,7 +3,7 @@
  *    Description: what the board keeps when it is off: the settings in the 93C46 EEPROM and the bookkeeping in the backup RAM, with their checksums
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    15-10-2026
+ *    Modified:    16-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -300,21 +300,21 @@ uint32_t eeprom_write_word(uint32_t data, uint32_t lines, uint8_t command, uint3
 uint32_t eeprom_send_command(uint32_t lines, uint8_t command, uint32_t port_d)
 {
 	uint8_t command_bits = 0;
-	uint32_t bits_left = 0, data = 0, data_bit = 0;
+	uint32_t bits_left = 0, data_bit = 0, ignored = 0;
 
 	command_bits = (uint8_t)command;
 	lines = (lines & ~0xFFu) | (lines & 0x1Fu);
-	data = eeprom_set_lines(0u, (uint8_t)lines, port_d);
+	ignored = eeprom_set_lines(0u, (uint8_t)lines, port_d);
 	lines = (lines & ~0xFFu) | (uint8_t)(lines ^ 0x40u);
-	data = eeprom_set_lines(data, (uint8_t)lines, port_d);
+	ignored = eeprom_set_lines(ignored, (uint8_t)lines, port_d);
 	lines = (lines & ~0xFFu) | (uint8_t)(lines ^ 0x60u);
-	data = eeprom_set_lines(data, (uint8_t)lines, port_d);
+	ignored = eeprom_set_lines(ignored, (uint8_t)lines, port_d);
 	lines = (lines & ~0xFFu) | (uint8_t)(lines ^ 0x40u);
-	data = eeprom_set_lines(data, (uint8_t)lines, port_d);
+	ignored = eeprom_set_lines(ignored, (uint8_t)lines, port_d);
 	lines = (lines & ~0xFFu) | (uint8_t)(lines ^ 0xC0u);
-	data = eeprom_set_lines(data, (uint8_t)lines, port_d);
+	ignored = eeprom_set_lines(ignored, (uint8_t)lines, port_d);
 	lines = (lines & ~0xFFu) | (uint8_t)(lines ^ 0x40u);
-	eeprom_set_lines(data, (uint8_t)lines, port_d);
+	eeprom_set_lines(ignored, (uint8_t)lines, port_d);
 	bits_left = 8u;
 	do
 	{
@@ -356,12 +356,12 @@ uint32_t compute_eeprom_backup_checksum(void)
 
 void compute_eeprom_checksum(uint32_t *p_crc, uint32_t *p_polynomial)
 {
-	uint32_t r4 = 0, crc = 0;
+	uint32_t crc = 0, polynomial = 0;
 
 	current_object = eeprom_write_count_ADDRESS;
-	compute_eeprom_crc(&crc, &r4);
+	compute_eeprom_crc(&crc, &polynomial);
 	*p_crc = crc;
-	*p_polynomial = r4;
+	*p_polynomial = polynomial;
 }
 
 void compute_eeprom_crc(uint32_t *p_crc, uint32_t *p_polynomial)
@@ -403,10 +403,10 @@ void compute_eeprom_crc(uint32_t *p_crc, uint32_t *p_polynomial)
 
 uint32_t eeprom_deselect(uint32_t lines, uint32_t port_d)
 {
-	uint32_t data = 0;
+	uint32_t ignored = 0;
 
 	lines = (lines & ~0xFFu) | (lines & 0x1Fu);
-	data = eeprom_set_lines(0u, (uint8_t)lines, port_d);
+	ignored = eeprom_set_lines(0u, (uint8_t)lines, port_d);
 	return lines;
 }
 
@@ -430,8 +430,8 @@ void load_bookkeeping(void)
 			copy_source -= 0x40u;
 			move_halfwords(copy_dest, copy_source, 0x20u);
 			update_bookkeeping_checksum();
-			AS32(power_on_frames) = mem_read32(bookkeeping_power_on_time);
-			AT16(power_on_frames_high, 2) = mem_read16(bookkeeping_power_on_time_high);
+			power_on_time = mem_read32(bookkeeping_power_on_time);
+			power_on_frames_top = mem_read16(bookkeeping_power_on_time_high);
 			return;
 		}
 		data = bookkeeping_backup;
@@ -448,8 +448,8 @@ void load_bookkeeping(void)
 	}
 	else
 		reset_bookkeeping();
-	AS32(power_on_frames) = mem_read32(bookkeeping_power_on_time);
-	AT16(power_on_frames_high, 2) = mem_read16(bookkeeping_power_on_time_high);
+	power_on_time = mem_read32(bookkeeping_power_on_time);
+	power_on_frames_top = mem_read16(bookkeeping_power_on_time_high);
 }
 
 void reset_bookkeeping(void)
@@ -467,12 +467,12 @@ void reset_bookkeeping(void)
 
 uint32_t update_bookkeeping_checksum(void)
 {
-	uint32_t r0 = 0, data = 0;
+	uint32_t crc = 0, data = 0;
 
 	data = bookkeeping_coin_credits;
-	compute_bookkeeping_crc(&r0, &data);
-	mem_write16(bookkeeping_checksum, r0);
-	return r0;
+	compute_bookkeeping_crc(&crc, &data);
+	mem_write16(bookkeeping_checksum, crc);
+	return crc;
 }
 
 void compute_bookkeeping_crc(uint32_t *p_crc, uint32_t *p_data)
@@ -533,7 +533,7 @@ uint32_t compute_crc16_alternate_bytes(uint32_t data, uint32_t count)
 	shift_register = 0xDEBDEB00u;
 	do
 	{
-		shift_register = (shift_register & ~0xFFu) | mem_read8(data);
+		shift_register = (shift_register & ~0xFFu) | ROM8(data);
 		data = ((data + 1u) & ~0xFFu) | (uint8_t)(data + 1u + 1u);
 		bits_left = 8u;
 		do

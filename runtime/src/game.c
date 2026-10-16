@@ -4,7 +4,7 @@
  *                 interrupts, calls by address, and the V60's string and bit-string moves and searches
  *    Version:     0.1.0
  *    Created:     11-10-2026
- *    Modified:    14-10-2026
+ *    Modified:    15-10-2026
  *    Author:      Sebastian Toyos
  *
  *    license:BSD-3-Clause
@@ -146,6 +146,13 @@ GAME_NORETURN void rom_outside(uint32_t address)
 GAME_NORETURN void unknown_code(uint32_t address)
 {
 	fprintf(stderr, "No code at %06X (frame %llu)\n", address & 0xffffff, (unsigned long long)frames);
+	print_recent_calls();
+	exit(3);
+}
+
+GAME_NORETURN void invalid_jump(uint32_t address)
+{
+	fprintf(stderr, "Jump to %06X, past its table (frame %llu)\n", address & 0xffffff, (unsigned long long)frames);
 	print_recent_calls();
 	exit(3);
 }

@@ -4,7 +4,7 @@ Description: splits each register of a function into the variables it really hol
              definitions and uses), each with the width its uses need
 Version:     0.1.0
 Created:     12-10-2026
-Modified:    14-10-2026
+Modified:    15-10-2026
 Author:      Sebastian Toyos
 
 Hand-written assembly reuses a register for one thing after another. A definition (an assignment, a call
@@ -13,9 +13,11 @@ common use are one variable, and so are the values an assignment works out from 
 (r19 += 2 as it walks a list, the low byte counted up), as long as it does not only look something up
 with it (r0 = table[r0] is a new value) or keep the rest of it (mov.b #9, R0 puts a new value, a sound
 number, in the low byte of whatever R0 held). A call that hands a register back through a pointer takes the caller's
-variable in and out, so what reaches the call and what it hands back are one web, unless the callee
-always writes the whole register and never reads what it held (queue_sprite_at_depth's bucket head):
-then what it hands back starts a web of its own. The web that holds the function's parameter or result has the name
+variable in and out, so what reaches the call and what it hands back are one web, unless what the
+register held does not matter to the call: the callee always writes the whole register and never reads
+what it held (queue_sprite_at_depth's bucket head), or it writes every part of it the caller reads
+afterwards and only hands the rest back as it was (animate's flag in the low byte of R7, when the caller
+looks at nothing else of R7). Then what it hands back starts a web of its own. The web that holds the function's parameter or result has the name
 symbols.txt gives it, or the register's (r0); the others are r0_2, r0_3...
 
 A variable is as wide as the bits anyone reads from it: when only the low byte of a web is ever live
@@ -78,7 +80,8 @@ class Variables:
     hands back); 'end_reads(end)' the registers a block end reads (results, a tail call's arguments)."""
 
     def __init__(self, function, context, call_info, end_reads, entry_registers, after, live_in, hint=None,
-                 entry_names=None, chosen=None, really_reads=None, fresh=None, split=False, passes_only=None):
+                 entry_names=None, chosen=None, really_reads=None, fresh=None, split=False, passes_only=None,
+                 reads_input=None):
         self.function = function
         self.context = set(context)
         self.call_info = call_info
@@ -102,6 +105,9 @@ class Variables:
         self.split = split    # every web the function reads is a variable of its own (for naming them)
         # (call, register) -> True if the callee reads what the register held only to hand it back unchanged
         self.passes_only = passes_only or (lambda statement, register: False)
+        # (call, register it hands back) -> True if what the caller's register held matters to the call: the
+        # callee reads it for itself, or may hand back as it was some part the caller reads afterwards
+        self.reads_input = reads_input or (lambda statement, register: True)
         self.run()
 
     # ---- definitions and uses of one statement ----
@@ -130,8 +136,8 @@ class Variables:
         if isinstance(statement, ir.Call):
             arguments, handed_back = self.call_info(statement)
             # a result is copied in by the callee: the caller's value is read too, unless the callee always
-            # writes all of it first
-            return [index for index in set(arguments) | (set(handed_back) - self.fresh(statement))
+            # writes all of it first, or what it may leave as it was is nothing the caller reads afterwards
+            return [index for index in set(arguments) | (set(handed_back) - self.new_values(statement))
                     if self.scratch(index)]
         if isinstance(statement, ir.Effect) and statement.name in ("divx", "divux") \
                 and isinstance(statement.args[1], ir.Const):
@@ -140,9 +146,16 @@ class Variables:
         if isinstance(statement, (ir.Return, ir.TailCall, ir.InterruptReturn)):
             reads = set(self.end_reads(statement))
             if isinstance(statement, ir.TailCall):
-                reads -= self.fresh(statement)    # the function it goes on in writes them, whatever they held
+                reads -= self.new_values(statement)    # the function it goes on in writes them, whatever they held
             return [index for index in reads if self.scratch(index)]
         return []
+
+    def new_values(self, statement):
+        """The registers a call hands back as values of their own: what they held before does not matter to
+        it (see the module's notes)."""
+        arguments, handed_back = self.call_info(statement)
+        return self.fresh(statement) | {index for index in handed_back
+                                        if index not in arguments and not self.reads_input(statement, index)}
 
     def step(self, statement, state, record):
         if record:
@@ -315,13 +328,15 @@ class Variables:
         if any(item in self.read for item in items):
             return False
         for item in items:
+            if item[0] == "entry" and item[1] not in self.entry_registers:
+                continue    # what the register held when the function started, which no caller hands it
             if item[0] != "def":
                 return False
             statement = self.statement_of(item[1])
             if isinstance(statement, ir.TailCall) and item[2] in set(self.end_reads(ir.Return())):
                 return False    # what the function it goes on in hands back is this one's result
             if isinstance(statement, (ir.Call, ir.TailCall)):
-                if item[2] not in self.fresh(statement) and not self.passes_only(statement, item[2]):
+                if item[2] not in self.new_values(statement) and not self.passes_only(statement, item[2]):
                     return False
             elif not (isinstance(statement, ir.Effect) and statement.name in ("move_string", "move_bits_down",
                                                                                  "move_bits_up", "search_bits_up")):

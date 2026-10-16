@@ -3,7 +3,7 @@
  *    Description: the scenes that start a game: stage 6's opening (the rushing ground, the giant machine head) and stage 7's how to play (the panel, the hands on the button and the trackball, the metal wall that rises and breaks)
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    15-10-2026
+ *    Modified:    16-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -103,7 +103,8 @@ void metal_wall_rise(uint32_t octant)
 
 void metal_wall_update(uint32_t octant)
 {
-	uint32_t r1 = 0, r2 = 0, r11 = 0, block_offset = 0, deleted = 0, health = 0, ignored = 0, ring = 0, ring_count = 0, spawn_arg_1 = 0;
+	uint8_t last_health_or_debris = 0;
+	uint32_t r11 = 0, deleted = 0, health = 0, ignored = 0, last_health_or_debris_2 = 0, ring_count = 0, spawn_arg_1 = 0;
 
 	if (OBJECT(current_object)->health <= 0)
 	{
@@ -112,28 +113,28 @@ void metal_wall_update(uint32_t octant)
 		if (OBJECT(current_object)->metal_wall.ring_count != 0u)
 		{
 			ring_count = OBJECT(current_object)->metal_wall.ring_count;
-			scatter_rings_random(octant, ring_count, &r11, &ring);
+			scatter_rings_random(octant, ring_count, &r11, &ignored);
 		}
 	}
 	health = (uint8_t)OBJECT(current_object)->health;
-	r1 = OBJECT(current_object)->metal_wall.last_health;
-	if (health != r1)
+	last_health_or_debris = OBJECT(current_object)->metal_wall.last_health;
+	if (health != last_health_or_debris)
 	{
 		OBJECT(current_object)->metal_wall.last_health = OBJECT(current_object)->health;
 		OBJECT(current_object)->metal_wall.frame_index = metal_wall_damage_frames[health];
-		if ((int8_t)(r1 - health) > 1)
+		if ((int8_t)(last_health_or_debris - health) > 1)
 			OBJECT(current_object)->z -= 0x16000u;
 		OBJECT(current_object)->screen_x += 2u;
 		spawn_arg_1 = OBJECT(current_object)->spawn_arg_1;
-		r1 = (4u - spawn_arg_1) * 2u;
-		if ((int32_t)r1 > 0)
-			spawn_debris(spawn_arg_1, (uint16_t)r1, r11);
+		last_health_or_debris_2 = (4u - spawn_arg_1) * 2u;
+		if ((int32_t)last_health_or_debris_2 > 0)
+			spawn_debris(spawn_arg_1, (uint16_t)last_health_or_debris_2, r11);
 	}
-	delete_if_off_screen(&deleted, &block_offset, &octant);
+	delete_if_off_screen(&deleted, &ignored, &ignored);
 	if ((uint8_t)deleted == 1u)
 		return;
-	move_object_projected(&ignored, &r2, &ignored, &r11);
-	fall_to_floor(&ignored, &r1, &r2);
+	move_object_projected(&ignored, &ignored, &ignored, &ignored);
+	fall_to_floor(&ignored, &ignored, &ignored);
 	if ((uint8_t)OBJECT(current_object)->health == 0u)
 	{
 		metal_wall_draw();
@@ -145,9 +146,9 @@ void metal_wall_update(uint32_t octant)
 
 void metal_wall_broken(void)
 {
-	uint32_t block_offset = 0, deleted = 0, slope_height = 0;
+	uint32_t deleted = 0, ignored = 0;
 
-	delete_if_off_screen(&deleted, &block_offset, &slope_height);
+	delete_if_off_screen(&deleted, &ignored, &ignored);
 	if ((uint8_t)deleted == 1u)
 		return;
 	update_screen_position_no_offset();
@@ -179,13 +180,13 @@ void metal_wall_draw(void)
 		part_index = (parts_left & ~0xFFu) | (uint8_t)(parts_left - 1u);
 		frame_index = (uint8_t)OBJECT(object_cursor)->metal_wall.frame_index;
 		offset_pair = metal_wall_part_tables[(part_index & ~0xFFu) | (uint8_t)(part_index + 3u)] + (uint8_t)(frame_index * 2u) + flip_offset;
-		screen_offset = (uint16_t)(int8_t)mem_read8(offset_pair);
-		part_dy = (uint16_t)(int8_t)mem_read8(offset_pair + 1u);
+		screen_offset = (uint16_t)(int8_t)ROM8(offset_pair);
+		part_dy = (uint16_t)(int8_t)ROM8(offset_pair + 1u);
 		OBJECT(current_object)->screen_x = OBJECT(object_cursor)->screen_x;
 		OBJECT(current_object)->screen_x += screen_offset;
 		OBJECT(current_object)->screen_y = OBJECT(object_cursor)->screen_y;
 		OBJECT(current_object)->screen_y += part_dy;
-		OBJECT(current_object)->sprite_frame = mem_read16(metal_wall_part_tables[part_index] + (uint8_t)OBJECT(object_cursor)->metal_wall.frame_index * 2u);
+		OBJECT(current_object)->sprite_frame = ROM16(metal_wall_part_tables[part_index] + (uint8_t)OBJECT(object_cursor)->metal_wall.frame_index * 2u);
 		health = (uint8_t)OBJECT(object_cursor)->health;
 		if ((uint8_t)part_index != 2u)
 		{
@@ -284,9 +285,9 @@ void how_to_play_button_hand_update(void)
 		frames = 0x12Cu;
 		spawn_message_box(screen_x, screen_y, kind, frames, 0u);
 	}
-	if ((uint16_t)game_mode_timer == mem_read16(OBJECT(current_object)->how_to_play_button_hand.next_press))
+	if ((uint16_t)game_mode_timer == ROM16(OBJECT(current_object)->how_to_play_button_hand.next_press))
 	{
-		OBJECT(current_object)->animation_frame = (uint8_t)mem_read16(OBJECT(current_object)->how_to_play_button_hand.next_press + 2u);
+		OBJECT(current_object)->animation_frame = (uint8_t)ROM16(OBJECT(current_object)->how_to_play_button_hand.next_press + 2u);
 		OBJECT(current_object)->how_to_play_button_hand.next_press += 4u;
 		animate_part_list_step();
 	}
@@ -365,7 +366,7 @@ void how_to_play_trackball_hand_update(void)
 					OBJECT(current_object)->how_to_play_trackball_hand.step = 0u;
 				break;
 			default:
-				unknown_code(0x83E6Du + OBJECT(current_object)->how_to_play_trackball_hand.step * 2u);
+				invalid_jump(0x83E6Du + OBJECT(current_object)->how_to_play_trackball_hand.step * 2u);
 			}
 		}
 		if ((uint16_t)game_mode_timer == 0xAu)
@@ -388,7 +389,7 @@ void how_to_play_trackball_hand_update(void)
 		if (game_mode_timer >= 0x20)
 		{
 			scroll_mode = 0u;
-			AS8(scroll_speed) = 0x10u;
+			scroll_speed_low = 0x10;
 		}
 		depth = 0xEEu;
 		queue_sprite_at_depth(&ignored, &depth);
@@ -403,14 +404,14 @@ void how_to_play_trackball_hand_update(void)
 			{
 				OBJECT(object_cursor)->animation_timer = OBJECT(object_cursor)->animation_speed;
 				step_list = OBJECT(object_cursor)->animation;
-				last_step = (uint8_t)mem_read16(step_list);
+				last_step = (uint8_t)ROM16(step_list);
 				next_step = OBJECT(object_cursor)->animation_frame;
 				next_step = (uint8_t)(next_step + 1u);
 				step_list += 2u;
 				if ((int8_t)last_step < (int8_t)next_step)
 					next_step = 0u;
 				OBJECT(object_cursor)->animation_frame = next_step;
-				OBJECT(current_object)->sprite_frame = mem_read16(step_list + next_step * 2u);
+				OBJECT(current_object)->sprite_frame = ROM16(step_list + next_step * 2u);
 			}
 		}
 		child_palette = 0x8750u;
@@ -471,7 +472,7 @@ void opening_ground_start(void)
 void opening_ground_run(void)
 {
 	uint16_t shake_dy = 0;
-	uint32_t r7 = 0, r8 = 0, depth = 0, frame = 0, ignored = 0;
+	uint32_t depth = 0, ignored = 0;
 
 	if ((int8_t)scene_step >= 2)
 	{
@@ -481,11 +482,11 @@ void opening_ground_run(void)
 	OBJECT(current_object)->y += OBJECT(current_object)->speed_y;
 	OBJECT(current_object)->screen_x = OBJECT(current_object)->x_int;
 	OBJECT(current_object)->screen_y = OBJECT(current_object)->y_int;
-	shake_dy = AT8(stage_06_shake, 1);
+	shake_dy = stage_06_shake_pixels;
 	if (stage_06_shake_sign < 0)
 		shake_dy = (uint16_t)(0u - shake_dy);
 	OBJECT(current_object)->screen_y += shake_dy;
-	animate(&frame, &r7, &r8);
+	animate(&ignored, &ignored, &ignored);
 	depth = 0x20u;
 	queue_sprite_at_depth(&ignored, &depth);
 }
@@ -550,11 +551,11 @@ void opening_machine_update(void)
 			opening_machine_leap_in();
 			break;
 		default:
-			unknown_code(0x84157u + (uint8_t)OBJECT(current_object)->opening_machine.phase * 3u);
+			invalid_jump(0x84157u + (uint8_t)OBJECT(current_object)->opening_machine.phase * 3u);
 		}
 		OBJECT(current_object)->screen_x = OBJECT(current_object)->x_int;
 		OBJECT(current_object)->screen_y = OBJECT(current_object)->y_int;
-		shake_dy = AT8(stage_06_shake, 1);
+		shake_dy = stage_06_shake_pixels;
 		if (stage_06_shake_sign < 0)
 			shake_dy = (uint16_t)(0u - shake_dy);
 		OBJECT(current_object)->screen_y += shake_dy;
@@ -601,14 +602,14 @@ void opening_machine_update(void)
 		draw_opening_machine_shadow();
 		return;
 	default:
-		unknown_code(0x84089u + scene_step * 3u);
+		invalid_jump(0x84089u + scene_step * 3u);
 	}
 }
 
 void opening_machine_leap_in(void)
 {
 	uint8_t sound_id = 0;
-	uint32_t write_index = 0, write_index_address = 0;
+	uint32_t ignored = 0;
 
 	if (OBJECT(current_object)->speed_y_int < 0)
 		OBJECT(current_object)->opening_machine.draw_depth = 0x10u;
@@ -626,7 +627,7 @@ void opening_machine_leap_in(void)
 			OBJECT(current_object)->animation_timer = 0;
 			OBJECT(current_object)->animation_speed = 2u;
 			sound_id = 0xAu;
-			play_sound(sound_id, &write_index, &write_index_address);
+			play_sound(sound_id, &ignored, &ignored);
 			OBJECT(current_object)->opening_machine.phase++;
 		}
 	}

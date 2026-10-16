@@ -540,9 +540,12 @@ def text_font_from_text(text):
 
 def fraction_font_to_text(data):
     lines = ["# fraction_digit_font (build_fraction_glyph): 1-bit rows (X set, . clear; the digits in the low",
-             "# four pixels); the digits 0-9 of 8 rows, 4 rows no one reads, then the slash ORed over the denominator"]
-    blocks = [(index * 8, f"digit {index}") for index in range(10)] + [(80, "gap"), (84, "slash")]
-    if len(data) != 92:
+             "# four pixels); the digits 0-9 of 8 rows, then 4 rows no one reads (the slash ORed over the",
+             "# denominator follows: fraction_slash_top_rows and fraction_slash_bottom_rows)"]
+    blocks = [(index * 8, f"digit {index}") for index in range(10)] + [(80, "gap")]
+    if len(data) == 92:
+        blocks.append((84, "slash"))    # the slash with it, when nothing cuts it apart
+    elif len(data) != 84:
         blocks = [(at, f"glyph {at // 8}") for at in range(0, len(data), 8)]
     for index, (at, title) in enumerate(blocks):
         end = blocks[index + 1][0] if index + 1 < len(blocks) else len(data)
@@ -552,6 +555,15 @@ def fraction_font_to_text(data):
 
 
 def fraction_font_from_text(text):
+    return _rows_from_text(text)
+
+
+def bit_rows_to_text(data):
+    """1-bit rows of a glyph, a byte each (X set, . clear, the high bit leftmost)."""
+    return _finish(["rows"] + [_bit_row(byte) for byte in data])
+
+
+def bit_rows_from_text(text):
     return _rows_from_text(text)
 
 
@@ -868,6 +880,7 @@ FORMATS = {
     "text_pointers": (".txt", text_pointers_to_text, text_pointers_from_text),
     "text_font": (".txt", text_font_to_text, text_font_from_text),
     "fraction_font": (".txt", fraction_font_to_text, fraction_font_from_text),
+    "bit_rows": (".txt", bit_rows_to_text, bit_rows_from_text),
     "object_types": (".txt", object_types_to_text, object_types_from_text),
     "slope_pairs": (".txt", slope_pairs_to_text, slope_pairs_from_text),
     "bounce_records": (".txt", bounce_records_to_text, bounce_records_from_text),

@@ -5,7 +5,7 @@
  *                 format tools/reference/s32ref uses
  *    Version:     0.1.0
  *    Created:     11-10-2026
- *    Modified:    14-10-2026
+ *    Modified:    15-10-2026
  *    Author:      Sebastian Toyos
  *
  *    license:BSD-3-Clause
@@ -25,6 +25,7 @@
 #include "s32/video.h"
 #include "sound/chips.h"
 #include "game/data.h"
+#include "s32/bus.h"
 
 #include <inttypes.h>
 #include <setjmp.h>
@@ -34,7 +35,7 @@
 
 #define USAGE "Usage: sonic_headless [--frames N] [--hashes FILE] [--script FILE]" \
 	" [--dump-frame N --dump-dir DIR] [--video-hashes FILE] [--video-dump N ... --video-dir DIR]" \
-	" [--sound-hashes FILE] [--sprite-census FILE] [--tile-census FILE]\n"
+	" [--sound-hashes FILE] [--sprite-census FILE] [--tile-census FILE] [--memory-census FILE]\n"
 #define MAX_VIDEO_DUMPS 64
 #define CENSUS_SLOTS (1u << 20)
 
@@ -233,6 +234,7 @@ int main(int argc, char **argv)
 	const char *sound_hashes_path = NULL;
 	const char *sprite_census_path = NULL;
 	const char *tile_census_path = NULL;
+	const char *memory_census_path = NULL;
 	bool frames_given = false;
 
 	for (int index = 1; index < argc; index++)
@@ -262,6 +264,8 @@ int main(int argc, char **argv)
 			sprite_census_path = argv[++index];
 		else if (strcmp(argv[index], "--tile-census") == 0 && index + 1 < argc)
 			tile_census_path = argv[++index];
+		else if (strcmp(argv[index], "--memory-census") == 0 && index + 1 < argc)
+			memory_census_path = argv[++index];
 		else
 		{
 			fprintf(stderr, USAGE);
@@ -342,6 +346,21 @@ int main(int argc, char **argv)
 	if (tile_census)
 		fclose(tile_census);
 	free(tile_census_seen);
+	if (memory_census_path)
+	{
+#ifdef S32_MEMORY_CENSUS
+		FILE *census = fopen(memory_census_path, "w");
+		if (census)
+		{
+			s32_memory_census_write(census);
+			fclose(census);
+		}
+		else
+			fprintf(stderr, "%s: cannot be written\n", memory_census_path);
+#else
+		fprintf(stderr, "--memory-census: this build does not count memory accesses\n");
+#endif
+	}
 	s32_script_free(script);
 	printf("frames:            %" PRIu64 "\n", program_frames());
 	printf("interrupts taken:  %u\n", program_interrupts());

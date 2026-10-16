@@ -5,7 +5,7 @@
  *                 and searches
  *    Version:     0.1.0
  *    Created:     11-10-2026
- *    Modified:    14-10-2026
+ *    Modified:    15-10-2026
  *    Author:      Sebastian Toyos
  *
  *    license:BSD-3-Clause
@@ -188,6 +188,9 @@ void game_entry(void);                          /* the code at the reset vector 
 
 void call_code(uint32_t address);
 GAME_NORETURN void unknown_code(uint32_t address);    /* a jump or call to an address no code was found at */
+/* the default of a switch on a jump table's index: the original checks nothing, and an index past the table
+   would jump to 'address', which no case handles */
+GAME_NORETURN void invalid_jump(uint32_t address);
 GAME_NORETURN void invalid_operand(uint32_t address); /* an instruction the V60 cannot run (code the game never calls) */
 
 /* With tools/decompile.py --trace, every function calls game_trace when it starts (the calls go to stderr)

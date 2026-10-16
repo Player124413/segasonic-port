@@ -3,7 +3,7 @@
  *    Description: the voices: the RF5C68's sample voices (starting a sample, refilling its pages, stopping it) and the YM3438's FM voices (note off, release with the sustain pedal, volumes, patches, the vibrato)
  *    Version:     0.1.0
  *    Created:     13-10-2026
- *    Modified:    15-10-2026
+ *    Modified:    16-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the Z80 sound program decompiled into C by
@@ -26,25 +26,25 @@ void start_pcm_sample(uint16_t voice)
 	header = pcm_sample_headers_ADDRESS;
 	header = read_table_word(header, sample);
 	z80_block(293);
-	bank_high = z80_read8(header);
+	bank_high = PCM_SAMPLE_HEADER(header)->bank_high;
 	SAMPLE_VOICE(voice)->sample_bank_high = bank_high;
 	bank_high &= 7u;
 	rom_bank_high = bank_high;
 	port_out(ROM_BANK_HIGH, bank_high);
 	header++;
-	bank_low = z80_read8(header);
+	bank_low = PCM_SAMPLE_HEADER(header - 0x1u)->bank_low;
 	SAMPLE_VOICE(voice)->sample_bank_low = bank_low;
 	rom_bank_low = bank_low;
 	port_out(ROM_BANK_LOW, bank_low);
 	wave_page = SAMPLE_VOICE(voice)->wave_page;
 	header++;
-	saved_start_page = z80_read8(header);
+	saved_start_page = PCM_SAMPLE_HEADER(header - 0x2u)->start_page;
 	saved_start_offset = 0u;
 	header++;
-	SAMPLE_VOICE(voice)->header_bank_step = z80_read8(header);
+	SAMPLE_VOICE(voice)->header_bank_step = PCM_SAMPLE_HEADER(header - 0x3u)->bank_step;
 	header++;
-	SAMPLE_VOICE(voice)->header_address_low = z80_read8(header);
-	SAMPLE_VOICE(voice)->header_address_high = z80_read8((uint16_t)(header + 1u));
+	SAMPLE_VOICE(voice)->header_address_low = PCM_SAMPLE_HEADER(header - 0x4u)->address_low;
+	SAMPLE_VOICE(voice)->header_address_high = PCM_SAMPLE_HEADER(header - 0x4u)->address_high;
 	sample_address = ((uint32_t)saved_start_page << 8) | saved_start_offset;
 	wave_address = (uint32_t)wave_page << 8;
 	copy_sample_page(&wave_address, &sample_address);
@@ -296,8 +296,8 @@ void stop_pcm_voice(uint16_t voice)
 	pcm_channels_on ^= pcm_channel_bits[SAMPLE_VOICE(voice)->chip_channel];
 	SAMPLE_VOICE(voice)->midi_channel = 0u;
 	SAMPLE_VOICE(voice)->wave_page = 0xD0u;
-	AS8(SAMPLE_VOICE(voice)->stream_position) = 0xFFu;
-	AT8(SAMPLE_VOICE(voice)->stream_position, 1) = 7u;
+	SAMPLE_VOICE(voice)->stream_position_low = 0xFFu;
+	SAMPLE_VOICE(voice)->stream_position_high = 7u;
 	pcm_voices_used--;
 	if (SAMPLE_VOICE(voice)->allocation_order >= 0x10u)
 	{
@@ -411,8 +411,8 @@ uint8_t stop_fm_voice(uint16_t voice)
 	FM_VOICE(voice)->midi_channel = 0u;
 	FM_VOICE(voice)->vibrato_range = 0u;
 	FM_VOICE(voice)->vibrato_depth = 0u;
-	AS8(FM_VOICE(voice)->vibrato_offset) = 0u;
-	AT8(FM_VOICE(voice)->vibrato_offset, 1) = 0u;
+	FM_VOICE(voice)->vibrato_offset_low = 0u;
+	FM_VOICE(voice)->vibrato_offset_high = 0u;
 	FM_VOICE(voice)->vibrato_block = 0u;
 	FM_VOICE(voice)->vibrato_phase = 0u;
 	register_value = FM_VOICE(voice)->chip_channel;
@@ -456,7 +456,7 @@ void apply_fm_music_volume(uint8_t chip_channel, uint16_t level, uint16_t part)
 	channel_code = (uint8_t)chip_channel;
 	fm_channel = channel_code;
 	part_channel = channel_code & 3u;
-	level = ((level + 4u) & 0xFFu) | ((uint32_t)z80_read8((uint16_t)(level + 4u)) << 8);
+	level = ((level + 4u) & 0xFFu) | ((uint32_t)SAMPLE_VOICE(level - 0x1u)->level << 8);
 	effective_volume = MIDI_PART(part)->effective_volume;
 	volume_curve = effective_volume;
 	if (effective_volume != 0u)
@@ -472,7 +472,7 @@ void apply_fm_music_volume(uint8_t chip_channel, uint16_t level, uint16_t part)
 	instrument = instruments_ADDRESS;
 	instrument = read_table_word(instrument, program);
 	z80_block(40);
-	patch = z80_read8((uint16_t)(instrument + 1u));
+	patch = INSTRUMENT(instrument)->sample_or_fm_patch;
 	patch_levels = fm_patches_ADDRESS;
 	patch_levels = read_table_word(patch_levels, patch);
 	z80_block(38);
@@ -487,7 +487,7 @@ void apply_fm_music_volume(uint8_t chip_channel, uint16_t level, uint16_t part)
 		register_number = SOUND_ROM8(register_list) + part_channel;
 		register_list++;
 		level_register = register_number;
-		operator_level = z80_read8(patch_levels);
+		operator_level = SOUND_ROM8(patch_levels);
 		patch_levels++;
 		if (operator_level >> 7 != 0u)
 		{
@@ -523,7 +523,7 @@ void apply_fm_channel_volume(uint8_t chip_channel, uint16_t level, uint16_t part
 	channel_code = (uint8_t)chip_channel;
 	fm_channel = channel_code;
 	part_channel = channel_code & 3u;
-	level = ((level + 4u) & 0xFFu) | ((uint32_t)z80_read8((uint16_t)(level + 4u)) << 8);
+	level = ((level + 4u) & 0xFFu) | ((uint32_t)SAMPLE_VOICE(level - 0x1u)->level << 8);
 	effective_volume = MIDI_PART(part)->effective_volume;
 	volume_curve = effective_volume;
 	if (effective_volume != 0u)
@@ -539,7 +539,7 @@ void apply_fm_channel_volume(uint8_t chip_channel, uint16_t level, uint16_t part
 	instrument = instruments_ADDRESS;
 	instrument = read_table_word(instrument, program);
 	z80_block(40);
-	patch = z80_read8((uint16_t)(instrument + 1u));
+	patch = INSTRUMENT(instrument)->sample_or_fm_patch;
 	patch_levels = fm_patches_ADDRESS;
 	patch_levels = read_table_word(patch_levels, patch);
 	z80_block(38);
@@ -554,7 +554,7 @@ void apply_fm_channel_volume(uint8_t chip_channel, uint16_t level, uint16_t part
 		register_number = SOUND_ROM8(register_list) + part_channel;
 		register_list++;
 		level_register = register_number;
-		operator_level = z80_read8(patch_levels);
+		operator_level = SOUND_ROM8(patch_levels);
 		patch_levels++;
 		if (operator_level >> 7 != 0u)
 		{
@@ -602,7 +602,7 @@ void load_fm_patch(uint16_t *p_channel_in_part, uint16_t *p_register_list, uint1
 		register_number = SOUND_ROM8(register_list) + part_channel;
 		register_list++;
 		patch_register = register_number;
-		patch_byte = z80_read8(patch_data);
+		patch_byte = SOUND_ROM8(patch_data);
 		patch_data++;
 		fm_register = patch_register;
 		write_fm_channel(fm_register, patch_byte);
@@ -650,7 +650,7 @@ void step_fm_vibrato(uint16_t voice)
 	fnumber = fm_fnum_tables_ADDRESS + (uint8_t)((value & 0xFu) * 2u);
 	frequency = pitch_bend;
 	fnumber = SOUND_ROM16(fnumber) + frequency + frequency;
-	fnumber = z80_read16(fnumber);
+	fnumber = SOUND_ROM16(fnumber);
 	vibrato_center = fnumber;
 	fnumber = (fnumber & 0xFFu) | ((uint32_t)(uint8_t)(((value & 0x70u) >> 1) + (fnumber >> 8)) << 8);
 	if ((FM_VOICE(voice)->vibrato_phase & 1u) != 0u)

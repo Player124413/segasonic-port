@@ -3,7 +3,7 @@
  *    Description: contacts between objects and players: the zones, the hitter, touchable, rider, platform and wall lists, and the checks that pair them
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    15-10-2026
+ *    Modified:    16-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -16,8 +16,8 @@ uint32_t check_zones(uint32_t box_edge)
 	uint16_t box_start = 0;
 	uint32_t hitter = 0, object = 0;
 
-	hitter = unk_20F016_ADDRESS;
-	object = unk_20F016_ADDRESS;
+	hitter = hitter_list_ADDRESS - 0x68u;
+	object = hitter_list_ADDRESS - 0x68u;
 	if ((int16_t)zone_list < 0)
 	{
 		zone_list = 0xFFFFu;
@@ -85,12 +85,12 @@ uint32_t add_to_zone_list(uint32_t old_head)
 	return old_head;
 }
 
-void check_hits(uint32_t *p_box_edge, uint32_t *p_distance, uint32_t *p_r3, uint32_t *p_r4, uint32_t *p_radius, uint32_t *p_centre_offset, uint32_t *p_previous)
+void check_hits(uint32_t *p_box_edge, uint32_t *p_distance, uint32_t *p_dy, uint32_t *p_edge_or_centre_y, uint32_t *p_radius, uint32_t *p_centre_offset, uint32_t *p_previous)
 {
 	uint32_t box_edge = *p_box_edge;
 	uint32_t distance = *p_distance;
-	uint32_t r3 = *p_r3;
-	uint32_t r4 = *p_r4;
+	uint32_t dy = *p_dy;
+	uint32_t edge_or_centre_y = *p_edge_or_centre_y;
 	uint32_t radius = *p_radius;
 	uint32_t centre_offset = *p_centre_offset;
 	uint32_t previous = *p_previous;
@@ -113,15 +113,15 @@ void check_hits(uint32_t *p_box_edge, uint32_t *p_distance, uint32_t *p_r3, uint
 			other = LINKED(other, touchable_list);
 			if ((int16_t)other >= 0)
 			{
-				previous = input_ports_ADDRESS;
-				check_hit(other, object, &box_edge, &distance, &r3, &r4, &radius, &centre_offset, &previous);
+				previous = touchable_list_ADDRESS - 0x68u;
+				check_hit(other, object, &box_edge, &distance, &dy, &edge_or_centre_y, &radius, &centre_offset, &previous);
 			}
 		}
 		else
 		{
 			other = LINKED(other, OBJECT(object)->hit_list_next);
 			previous = (previous & ~0xFFFFu) | (uint16_t)object;
-			check_hit(other, object, &box_edge, &distance, &r3, &r4, &radius, &centre_offset, &previous);
+			check_hit(other, object, &box_edge, &distance, &dy, &edge_or_centre_y, &radius, &centre_offset, &previous);
 			if ((OBJECT(object)->flags & 4u) == 0u)
 				goto check_hits_against_touchables;
 		}
@@ -131,8 +131,8 @@ void check_hits(uint32_t *p_box_edge, uint32_t *p_distance, uint32_t *p_r3, uint
 	touchable_list = 0xFFFFu;
 	*p_box_edge = box_edge;
 	*p_distance = (*p_distance & 0xFFFF0000u) | (distance & 0xFFFFu);
-	*p_r3 = (*p_r3 & 0xFFFF0000u) | (r3 & 0xFFFFu);
-	*p_r4 = (*p_r4 & 0xFFFF0000u) | (r4 & 0xFFFFu);
+	*p_dy = (*p_dy & 0xFFFF0000u) | (dy & 0xFFFFu);
+	*p_edge_or_centre_y = (*p_edge_or_centre_y & 0xFFFF0000u) | (edge_or_centre_y & 0xFFFFu);
 	*p_radius = (*p_radius & 0xFFFF0000u) | (radius & 0xFFFFu);
 	*p_centre_offset = (*p_centre_offset & 0xFFFF0000u) | (centre_offset & 0xFFFFu);
 	*p_previous = previous;
@@ -176,14 +176,14 @@ void check_hit(uint32_t other, uint32_t hitter, uint32_t *p_box_edge, uint32_t *
 			{
 				radius = (uint16_t)(OBJECT(hitter)->hitbox_size_x + OBJECT(other)->hitbox_size_x);
 				diameter = (uint16_t)(radius * 2u + 1u);
-				centre_offset = (uint16_t)(int8_t)AS8(OBJECT(hitter)->hitbox_size_y);
+				centre_offset = (uint16_t)OBJECT(hitter)->hitbox_centre_x;
 				r3 = (uint16_t)(OBJECT(hitter)->x_int + centre_offset);
-				distance = (uint16_t)(OBJECT(other)->x_int + (int8_t)AS8(OBJECT(other)->hitbox_size_y) - r3);
+				distance = (uint16_t)(OBJECT(other)->x_int + OBJECT(other)->hitbox_centre_x - r3);
 				if (diameter <= (uint16_t)(distance + radius))
 					goto check_hit_next_pair;
-				centre_offset = (uint16_t)(int8_t)AT8(OBJECT(hitter)->hitbox_size_y, 1);
+				centre_offset = (uint16_t)OBJECT(hitter)->hitbox_centre_y;
 				r4 = (uint16_t)(OBJECT(hitter)->y_int + centre_offset);
-				r3 = (uint16_t)(OBJECT(other)->y_int + (int8_t)AT8(OBJECT(other)->hitbox_size_y, 1) - r4);
+				r3 = (uint16_t)(OBJECT(other)->y_int + OBJECT(other)->hitbox_centre_y - r4);
 				if (diameter <= (uint16_t)(r3 + radius))
 					goto check_hit_next_pair;
 				if (OBJECT(hitter)->floor_slope != 0u)
@@ -204,7 +204,7 @@ void check_hit(uint32_t other, uint32_t hitter, uint32_t *p_box_edge, uint32_t *
 						box_edge = (int16_t)distance;
 						break;
 					default:
-						unknown_code(0x1FDEu + slope_kind);
+						invalid_jump(0x1FDEu + slope_kind);
 					}
 					if ((int16_t)box_edge < 0)
 						box_edge = 0u - box_edge;
@@ -238,7 +238,7 @@ void check_hit(uint32_t other, uint32_t hitter, uint32_t *p_box_edge, uint32_t *
 							goto check_hit_add_slope_to_dx;
 						goto check_hit_sub_slope_from_dx;
 					default:
-						unknown_code(0x202Eu + quadrant * 2u);
+						invalid_jump(0x202Eu + quadrant * 2u);
 					}
 				}
 				r3 = (uint16_t)((uint32_t)r3 * r3);
@@ -395,15 +395,15 @@ void check_platforms(uint32_t *p_middle, uint32_t *p_plank, uint32_t *p_span, ui
 	uint32_t passes_left = *p_passes_left;
 	uint32_t load_list = *p_load_list;
 	uint16_t plank_count = 0, x_int = 0, y_int = 0;
-	uint32_t r8 = 0, r11 = 0, load_list_2 = 0, object = 0, rider = 0;
+	uint32_t load_list_2 = 0, object = 0, rider = 0;
 	uint32_t flags = 0;
 
 	bridge_0_load = 2u;
 	bridge_0_load_first = 0u;
-	bridge_0_load_last = AS8(bridge_0_plank_count);
+	bridge_0_load_last = (uint8_t)bridge_0_plank_count;
 	bridge_1_load = 2u;
 	bridge_1_load_first = 0u;
-	bridge_1_load_last = AS8(bridge_1_plank_count);
+	bridge_1_load_last = (uint8_t)bridge_1_plank_count;
 	rider = 0x20F01Eu;
 	object = 0x20F01Eu;
 	if ((int16_t)platform_list < 0)
@@ -466,7 +466,7 @@ void check_platforms(uint32_t *p_middle, uint32_t *p_plank, uint32_t *p_span, ui
 	load_list_2 = bridge_1_load_ADDRESS;
 	current_player = bridge_1_sag_ADDRESS;
 	plank_count = bridge_1_plank_count;
-	compute_bridge_sag(load_list_2, plank_count, &middle, &plank, &span, &sag, &sag_step, &r8, &passes_left, &object, &r11);
+	compute_bridge_sag(load_list_2, plank_count, &middle, &plank, &span, &sag, &sag_step, &load_count, &passes_left, &object, &load_list);
 	rider_list = 0xFFFFu;
 	platform_list = 0xFFFFu;
 	*p_middle = (*p_middle & 0xFFFF0000u) | (middle & 0xFFFFu);
@@ -474,10 +474,10 @@ void check_platforms(uint32_t *p_middle, uint32_t *p_plank, uint32_t *p_span, ui
 	*p_span = span;
 	*p_sag = (*p_sag & 0xFFFF0000u) | (sag & 0xFFFFu);
 	*p_sag_step = (*p_sag_step & 0xFFFF0000u) | (sag_step & 0xFFFFu);
-	*p_load_count = r8;
+	*p_load_count = load_count;
 	*p_passes_left = passes_left;
 	*p_platform = object;
-	*p_load_list = r11;
+	*p_load_list = load_list;
 	return;
 check_platforms_link_rider:
 	OBJECT(rider)->flags |= 8u;
@@ -490,11 +490,11 @@ check_platforms_link_rider:
 	if ((flags & 8u) != 0u)
 		goto check_platforms_next_rider;
 	load_list = bridge_0_load_ADDRESS;
-	if (AT8(OBJECT(object)->spawn_arg_2, 1) != 0u)
+	if (OBJECT(object)->spawn_arg_2_high != 0u)
 		load_list = bridge_1_load_ADDRESS;
-	mem_write8(load_list, mem_read8(load_list) + 1u);
-	load_count = mem_read8(load_list);
-	mem_write8(load_list + load_count, AT8(OBJECT(object)->speed, 1));
+	BRIDGE_LOAD(load_list)->count++;
+	load_count = BRIDGE_LOAD(load_list)->count;
+	mem_write8(load_list + load_count, OBJECT(object)->member_number);
 	goto check_platforms_next_rider;
 }
 
@@ -511,7 +511,7 @@ void compute_bridge_sag(uint32_t load_list, uint16_t plank_count, uint32_t *p_mi
 	uint16_t plank_total = 0;
 	uint32_t clear_dest = 0, compares_left = 0, count = 0, curve_index = 0, fill_word = 0, next_curve_index = 0, sag_cursor = 0, sag_curve = 0, scan = 0, slot = 0;
 
-	if (mem_read8(load_list) == 2u)
+	if (BRIDGE_LOAD(load_list)->count == 2u)
 	{
 		count = ((uint16_t)plank_count >> 1) + 1u;
 		clear_dest = current_player;
@@ -527,7 +527,7 @@ void compute_bridge_sag(uint32_t load_list, uint16_t plank_count, uint32_t *p_mi
 		return;
 	}
 	slot = load_list;
-	passes_left = mem_read8(slot);
+	passes_left = BRIDGE_LOAD(slot)->count;
 	passes_left = (uint8_t)(passes_left - 1u);
 	slot++;
 	do
@@ -552,7 +552,7 @@ void compute_bridge_sag(uint32_t load_list, uint16_t plank_count, uint32_t *p_mi
 	} while (passes_left != 0u);
 	sag_cursor = current_player;
 	load_entry = load_list;
-	count = mem_read8(load_entry);
+	count = BRIDGE_LOAD(load_entry)->count;
 	count = (uint8_t)(count - 1u);
 	sag_curve = bridge_sag_curve_ADDRESS;
 	load_entry++;

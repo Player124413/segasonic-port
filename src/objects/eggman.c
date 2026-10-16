@@ -3,7 +3,7 @@
  *    Description: Eggman: his booth that slides in during his speeches, the speech scripts (stages 3, 8, A), his scene with the button box in stage B and the sliding door, his teleport (never spawned)
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    15-10-2026
+ *    Modified:    16-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -15,10 +15,10 @@ void spawn_eggman_booth(uint32_t spawned, uint32_t piece_count, uint32_t booth, 
 {
 	uint32_t free_count = *p_free_count;
 	uint32_t block = *p_block;
-	uint32_t object = 0;
+	uint32_t ignored = 0, object = 0;
 
 	spawn_count = 2u;
-	spawn_object_with_pieces(0x012B2Fu, &spawned, &piece_count, &free_count, &booth, &block);
+	spawn_object_with_pieces(0x012B2Fu, &spawned, &ignored, &free_count, &booth, &block);
 	if ((uint8_t)spawned == 0u)
 	{
 		*p_free_count = free_count;
@@ -55,7 +55,7 @@ void eggman_booth_slide_in(void)
 
 void eggman_booth_animate(void)
 {
-	uint32_t block_offset = 0, ignored = 0, slope_height = 0;
+	uint32_t ignored = 0;
 	uint16_t slide_y = 0;
 
 	if (OBJECT(current_object)->eggman_booth.step != 0x1Du)
@@ -78,13 +78,13 @@ void eggman_booth_animate(void)
 		draw_eggman_booth();
 		return;
 	}
-	delete_object_and_children(&ignored, &block_offset, &slope_height);
+	delete_object_and_children(&ignored, &ignored, &ignored);
 }
 
 void draw_eggman_booth(void)
 {
 	uint8_t bucket = 0, sound_id = 0;
-	uint32_t booth_frame = 0, write_index_address = 0;
+	uint32_t booth_frame = 0, ignored = 0;
 
 	OBJECT(current_object)->screen_y = OBJECT(object_cursor)->draw_eggman_booth.slide_y;
 	booth_frame = eggman_booth_steps[OBJECT(current_object)->draw_eggman_booth.step];
@@ -92,7 +92,7 @@ void draw_eggman_booth(void)
 	if (stage != 0u && stage != 5u && booth_frame == 0xBu)
 	{
 		sound_id = 0x41u;
-		play_sound(sound_id, &booth_frame, &write_index_address);
+		play_sound(sound_id, &ignored, &ignored);
 	}
 	bucket = 0u;
 	queue_sprite_in_bucket(bucket);
@@ -104,10 +104,10 @@ void draw_eggman_booth(void)
 
 void spawn_eggman_teleport(uint32_t free_count, uint32_t teleport, uint32_t block)
 {
-	uint32_t piece_count = 0, spawned = 0;
+	uint32_t ignored = 0;
 
 	spawn_count = 2u;
-	spawn_object_with_pieces(0x013434u, &spawned, &piece_count, &free_count, &teleport, &block);
+	spawn_object_with_pieces(0x013434u, &ignored, &ignored, &free_count, &teleport, &block);
 	OBJECT(teleport)->handler = eggman_teleport_init_ADDRESS;
 }
 
@@ -123,10 +123,10 @@ void eggman_teleport_init(void)
 
 void eggman_teleport_animate(void)
 {
-	uint32_t block_offset = 0, cursor = 0, depth = 0, frame_index = 0, ignored = 0, slope_height = 0;
+	uint32_t depth = 0, frame_index = 0, ignored = 0;
 	uint16_t step_timer = 0, odd_frame = 0, flicker_step = 0;
 
-	unproject_object(&ignored, &block_offset, &slope_height, &cursor);
+	unproject_object(&ignored, &ignored, &ignored, &ignored);
 	step_timer = OBJECT(current_object)->eggman_teleport.step_timer;
 	OBJECT(current_object)->eggman_teleport.step_timer = step_timer - 1u;
 	if (step_timer == 0u)
@@ -135,7 +135,7 @@ void eggman_teleport_animate(void)
 		OBJECT(current_object)->eggman_teleport.frame_index = frame_index;
 		if (frame_index == 0xFFu)
 		{
-			delete_object_and_children(&ignored, &block_offset, &slope_height);
+			delete_object_and_children(&ignored, &ignored, &ignored);
 			return;
 		}
 		OBJECT(current_object)->sprite_frame = eggman_teleport_frames[frame_index];
@@ -164,7 +164,7 @@ void eggman_teleport_animate(void)
 
 void eggman_scene_init(void)
 {
-	uint32_t block = 0, free_count = 0, object = 0, piece_count = 0, spawned = 0;
+	uint32_t block = 0, free_count = 0, ignored = 0, object = 0;
 
 	OBJECT(current_object)->sprite_frame = 0x88A8u;
 	OBJECT(current_object)->sprite_palette = 0x81F0u;
@@ -176,7 +176,7 @@ void eggman_scene_init(void)
 	OBJECT(current_object)->sprite_palette = 0x250u;
 	OBJECT(current_object)->sprite_palette = 0x9FFEu;
 	spawn_count = 1u;
-	spawn_object_with_pieces(0x01409Cu, &spawned, &piece_count, &free_count, &object, &block);
+	spawn_object_with_pieces(0x01409Cu, &ignored, &ignored, &free_count, &object, &block);
 	copy_position_to(object);
 	OBJECT(object)->projected_x -= 0x1Eu;
 	OBJECT(object)->projected_y_int += 0x12u;
@@ -217,7 +217,7 @@ void eggman_scene_talk(void)
 {
 	uint8_t sound_id = 0;
 	uint16_t kind = 0, screen_x = 0, screen_y = 0, text_duration = 0;
-	uint32_t direction = 0, write_index = 0, write_index_address = 0;
+	uint32_t direction = 0, ignored = 0;
 	uint16_t step_timer = 0, talk_timer = 0;
 
 	step_timer = OBJECT(current_object)->eggman_scene.step_timer;
@@ -240,7 +240,7 @@ void eggman_scene_talk(void)
 		OBJECT(current_object)->eggman_scene.step_timer = text_duration;
 		spawn_message_box(screen_x, screen_y, kind, text_duration, 0u);
 		sound_id = (uint8_t)eggman_scene_sounds[OBJECT(current_object)->direction];
-		play_sound(sound_id, &write_index, &write_index_address);
+		play_sound(sound_id, &ignored, &ignored);
 		OBJECT(current_object)->direction++;
 	}
 	talk_timer = OBJECT(current_object)->eggman_scene.talk_timer;
@@ -316,14 +316,14 @@ void eggman_scene_run_off(void)
 void eggman_scene_move(void)
 {
 	uint8_t bucket = 0;
-	uint32_t r1 = 0, r2 = 0, bucket_2 = 0, cursor = 0, deleted = 0, ignored = 0, slope_height = 0;
+	uint32_t bucket_2 = 0, deleted = 0, ignored = 0;
 	uint16_t direction = 0;
 
-	move_object_projected(&ignored, &r2, &slope_height, &cursor);
-	fall_to_floor(&ignored, &r1, &r2);
+	move_object_projected(&ignored, &ignored, &ignored, &ignored);
+	fall_to_floor(&ignored, &ignored, &ignored);
 	bucket = 0u;
 	queue_sprite_in_bucket(bucket);
-	delete_if_off_screen(&deleted, &r2, &slope_height);
+	delete_if_off_screen(&deleted, &ignored, &ignored);
 	if ((uint8_t)deleted != 0u)
 	{
 		scroll_mode = 7u;
@@ -352,7 +352,7 @@ void button_box_init(void)
 
 void button_box_wait(void)
 {
-	if (OBJECT(LINKED(current_object, OBJECT(current_object)->parent))->var_80 != 1u)
+	if ((uint8_t)OBJECT(LINKED(current_object, OBJECT(current_object)->parent))->eggman_scene.step != 1u)
 	{
 		draw_button_box();
 		return;
@@ -383,7 +383,7 @@ void button_box_rise(void)
 		draw_button_box();
 		return;
 	}
-	if (OBJECT(LINKED(current_object, OBJECT(current_object)->parent))->var_81 != 2u)
+	if (OBJECT(LINKED(current_object, OBJECT(current_object)->parent))->eggman_scene.phase != 2u)
 	{
 		draw_button_box();
 		return;
@@ -421,10 +421,10 @@ void button_box_press(void)
 void draw_button_box(void)
 {
 	uint8_t bucket = 0;
-	uint32_t block_offset = 0, cursor = 0, ignored = 0, slope_height = 0;
+	uint32_t ignored = 0;
 
-	unproject_object(&ignored, &block_offset, &slope_height, &cursor);
-	delete_if_off_screen(&ignored, &block_offset, &slope_height);
+	unproject_object(&ignored, &ignored, &ignored, &ignored);
+	delete_if_off_screen(&ignored, &ignored, &ignored);
 	bucket = 0xFFu;
 	queue_sprite_in_bucket(bucket);
 }
@@ -475,7 +475,7 @@ void sliding_door_wait(void)
 		sliding_door_wait_count_ready:
 			ready_players++;
 		}
-		else if (mem_read8(player_base + 0x140u) != 0u)
+		else if (PLAYER(player_base)->stage_b_path_done != 0u)
 		{
 			done_players++;
 			goto sliding_door_wait_count_ready;
@@ -523,10 +523,10 @@ void sliding_door_open(void)
 void sliding_door_draw(void)
 {
 	uint16_t offset_x = 0, offset_y = 0;
-	uint32_t block_offset = 0, cursor = 0, deleted = 0, depth = 0, ignored = 0, slope_height = 0;
+	uint32_t deleted = 0, depth = 0, ignored = 0;
 
-	move_object_projected(&ignored, &block_offset, &slope_height, &cursor);
-	delete_if_off_screen(&deleted, &block_offset, &slope_height);
+	move_object_projected(&ignored, &ignored, &ignored, &ignored);
+	delete_if_off_screen(&deleted, &ignored, &ignored);
 	if ((uint8_t)deleted != 0u)
 		return;
 	depth = (uint16_t)(OBJECT(current_object)->screen_y - 0x50u);
@@ -557,18 +557,18 @@ void eggman_speech_run(void)
 {
 	uint8_t sound_id = 0;
 	uint16_t frames = 0, kind = 0, screen_x = 0, screen_y = 0;
-	uint32_t r1 = 0, r2 = 0, r11 = 0, command = 0, script_cursor = 0;
+	uint32_t r11 = 0, command = 0, free_count = 0, ignored = 0, script_cursor = 0;
 	uint16_t delay = 0;
 
 	if (current_game_mode == 0x11u)
 		return;
 	OBJECT(current_object)->eggman_speech.frame_count++;
 	script_cursor = OBJECT(current_object)->eggman_speech.script;
-	delay = mem_read16(script_cursor);
+	delay = ROM16(script_cursor);
 	script_cursor += 2u;
 	if (OBJECT(current_object)->eggman_speech.frame_count < (int16_t)delay)
 		return;
-	command = mem_read16(script_cursor) * 2u;
+	command = ROM16(script_cursor) * 2u;
 	script_cursor += 2u;
 	switch (command)
 	{
@@ -579,28 +579,28 @@ void eggman_speech_run(void)
 	case 0x2u:
 		OBJECT(current_object)->eggman_speech.script = script_cursor;
 		OBJECT(current_object)->eggman_speech.frame_count = 0;
-		spawn_eggman_booth(command, 0u, 0u, &r2, &r11);
+		spawn_eggman_booth(command, 0u, 0u, &free_count, &r11);
 		return;
 	case 0x4u:
 		break;
 	case 0x6u:
-		sound_id = (uint8_t)mem_read16(script_cursor);
+		sound_id = (uint8_t)ROM16(script_cursor);
 		OBJECT(current_object)->eggman_speech.script = script_cursor + 2u;
 		OBJECT(current_object)->eggman_speech.frame_count = 0;
-		play_sound(sound_id, &r1, &r2);
+		play_sound(sound_id, &ignored, &ignored);
 		return;
 	case 0xEu:
 		return;
 	default:
-		unknown_code(0x85794u + command);
+		invalid_jump(0x85794u + command);
 	}
-	screen_x = mem_read16(script_cursor);
+	screen_x = ROM16(script_cursor);
 	script_cursor += 2u;
-	screen_y = mem_read16(script_cursor);
+	screen_y = ROM16(script_cursor);
 	script_cursor += 2u;
-	kind = mem_read16(script_cursor);
+	kind = ROM16(script_cursor);
 	script_cursor += 2u;
-	frames = mem_read16(script_cursor);
+	frames = ROM16(script_cursor);
 	OBJECT(current_object)->eggman_speech.script = script_cursor + 2u;
 	OBJECT(current_object)->eggman_speech.frame_count = 0;
 	r11 = spawn_message_box(screen_x, screen_y, kind, frames, 0u);

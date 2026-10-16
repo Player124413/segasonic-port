@@ -3,7 +3,7 @@
  *    Description: the machine's main program: power-on and boot, the frame loop, the attract mode and the system modes, the frame wait and the controls, the interrupt handlers, the reset vector
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    15-10-2026
+ *    Modified:    16-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -23,10 +23,10 @@ void boot(void)
 	pairs_left = 8u;
 	do
 	{
-		mem_write8(dest, mem_read8(source));
+		mem_write8(dest, ROM8(source));
 		dest++;
 		source++;
-		mem_write8(dest, mem_read8(source));
+		mem_write8(dest, ROM8(source));
 		dest++;
 		pairs_left--;
 		source++;
@@ -35,7 +35,7 @@ void boot(void)
 	bytes_left = 0xCu;
 	do
 	{
-		mem_write8(dest, mem_read8(source));
+		mem_write8(dest, ROM8(source));
 		dest++;
 		bytes_left--;
 		source++;
@@ -76,7 +76,7 @@ void run_frame(uint32_t pressed, uint32_t released, uint32_t input_cursor, uint3
 	uint32_t scale = *p_scale;
 	uint16_t cursor = (uint16_t)*p_cursor;
 	uint32_t height = *p_height;
-	uint32_t r5 = 0, r10 = 0, r11 = 0, credits_needed = 0, sprite_entry = 0, start_bit = 0;
+	uint32_t r5 = 0, r5_2 = 0, r5_3 = 0, r5_4 = 0, r5_5 = 0, r5_6 = 0, r5_7 = 0, r10 = 0, r11 = 0, credits_needed = 0, sprite_entry = 0, start_bit = 0;
 
 	frame_counter++;
 	if (system_mode == 0u || system_mode == 6u)
@@ -108,7 +108,7 @@ void run_frame(uint32_t pressed, uint32_t released, uint32_t input_cursor, uint3
 			wait_attract_timer();
 			break;
 		default:
-			unknown_code(system_mode_handlers[system_mode]);
+			invalid_jump(system_mode_handlers[system_mode]);
 		}
 		run_objects();
 		build_sprite_list(&scale, &count, &height, &trackball_port, &sprite_entry);
@@ -156,13 +156,13 @@ void run_frame(uint32_t pressed, uint32_t released, uint32_t input_cursor, uint3
 				wait_attract_timer();
 				break;
 			default:
-				unknown_code(system_mode_handlers[system_mode]);
+				invalid_jump(system_mode_handlers[system_mode]);
 			}
 			run_objects();
 			build_sprite_list(&scale, &count, &height, &r10, &sprite_entry);
-			draw_queued_strings((uint16_t)count, (uint16_t)r10, sprite_entry, &scale, &r5, &height);
+			draw_queued_strings((uint16_t)count, (uint16_t)r10, sprite_entry, &scale, &r5_5, &height);
 			*p_scale = scale;
-			*p_cursor = r5;
+			*p_cursor = r5_5;
 			*p_height = height;
 			return;
 		}
@@ -200,13 +200,13 @@ void run_frame(uint32_t pressed, uint32_t released, uint32_t input_cursor, uint3
 						wait_attract_timer();
 						break;
 					default:
-						unknown_code(system_mode_handlers[system_mode]);
+						invalid_jump(system_mode_handlers[system_mode]);
 					}
 					run_objects();
 					build_sprite_list(&scale, &count, &height, &r10, &sprite_entry);
-					draw_queued_strings((uint16_t)count, (uint16_t)r10, sprite_entry, &scale, &r5, &height);
+					draw_queued_strings((uint16_t)count, (uint16_t)r10, sprite_entry, &scale, &r5_6, &height);
 					*p_scale = scale;
-					*p_cursor = r5;
+					*p_cursor = r5_6;
 					*p_height = height;
 					return;
 				}
@@ -242,13 +242,13 @@ void run_frame(uint32_t pressed, uint32_t released, uint32_t input_cursor, uint3
 						wait_attract_timer();
 						break;
 					default:
-						unknown_code(system_mode_handlers[system_mode]);
+						invalid_jump(system_mode_handlers[system_mode]);
 					}
 					run_objects();
 					build_sprite_list(&scale, &count, &height, &r10, &sprite_entry);
-					draw_queued_strings((uint16_t)count, (uint16_t)r10, sprite_entry, &scale, &r5, &height);
+					draw_queued_strings((uint16_t)count, (uint16_t)r10, sprite_entry, &scale, &r5_7, &height);
 					*p_scale = scale;
-					*p_cursor = r5;
+					*p_cursor = r5_7;
 					*p_height = height;
 					return;
 				}
@@ -291,13 +291,13 @@ void run_frame(uint32_t pressed, uint32_t released, uint32_t input_cursor, uint3
 					wait_attract_timer();
 					break;
 				default:
-					unknown_code(system_mode_handlers[system_mode]);
+					invalid_jump(system_mode_handlers[system_mode]);
 				}
 				run_objects();
 				build_sprite_list(&scale, &count, &height, &r10, &sprite_entry);
-				draw_queued_strings((uint16_t)count, (uint16_t)r10, sprite_entry, &scale, &r5, &height);
+				draw_queued_strings((uint16_t)count, (uint16_t)r10, sprite_entry, &scale, &r5_2, &height);
 				*p_scale = scale;
-				*p_cursor = r5;
+				*p_cursor = r5_2;
 				*p_height = height;
 				return;
 			}
@@ -333,13 +333,13 @@ void run_frame(uint32_t pressed, uint32_t released, uint32_t input_cursor, uint3
 					wait_attract_timer();
 					break;
 				default:
-					unknown_code(system_mode_handlers[system_mode]);
+					invalid_jump(system_mode_handlers[system_mode]);
 				}
 				run_objects();
 				build_sprite_list(&scale, &count, &height, &r10, &sprite_entry);
-				draw_queued_strings((uint16_t)count, (uint16_t)r10, sprite_entry, &scale, &r5, &height);
+				draw_queued_strings((uint16_t)count, (uint16_t)r10, sprite_entry, &scale, &r5_3, &height);
 				*p_scale = scale;
-				*p_cursor = r5;
+				*p_cursor = r5_3;
 				*p_height = height;
 				return;
 			}
@@ -363,7 +363,7 @@ void run_frame(uint32_t pressed, uint32_t released, uint32_t input_cursor, uint3
 			goto run_frame_check_p2_start;
 		break;
 	default:
-		unknown_code(0x115u + cabinet_config * 3u);
+		invalid_jump(0x115u + cabinet_config * 3u);
 	}
 	system_mode = 6u;
 	game_mode = 0u;
@@ -396,13 +396,13 @@ void run_frame(uint32_t pressed, uint32_t released, uint32_t input_cursor, uint3
 		wait_attract_timer();
 		break;
 	default:
-		unknown_code(system_mode_handlers[system_mode]);
+		invalid_jump(system_mode_handlers[system_mode]);
 	}
 	run_objects();
 	build_sprite_list(&scale, &count, &height, &r10, &sprite_entry);
-	draw_queued_strings((uint16_t)count, (uint16_t)r10, sprite_entry, &scale, &r5, &height);
+	draw_queued_strings((uint16_t)count, (uint16_t)r10, sprite_entry, &scale, &r5_4, &height);
 	*p_scale = scale;
-	*p_cursor = r5;
+	*p_cursor = r5_4;
 	*p_height = height;
 }
 
@@ -441,7 +441,7 @@ void attract_title(uint32_t *p_color, uint32_t *p_row_pairs_left, uint32_t *p_bl
 	case 1:
 		break;
 	default:
-		unknown_code(0x221u + system_mode_step * 2u);
+		invalid_jump(0x221u + system_mode_step * 2u);
 	}
 	text = 0x644u;
 	print_text(&text, &text_position);
@@ -488,7 +488,7 @@ void attract_ranking(uint32_t *p_rows, uint32_t *p_source)
 	case 1:
 		break;
 	default:
-		unknown_code(0x2B9u + system_mode_step * 3u);
+		invalid_jump(0x2B9u + system_mode_step * 3u);
 	}
 	if (ranking_done != 0u)
 	{
@@ -524,7 +524,7 @@ void attract_demo_1(uint32_t pressed, uint32_t released, uint32_t input_cursor, 
 	case 1:
 		break;
 	default:
-		unknown_code(0x31Eu + system_mode_step * 3u);
+		invalid_jump(0x31Eu + system_mode_step * 3u);
 	}
 	if ((uint16_t)attract_timer == 0u)
 	{
@@ -565,7 +565,7 @@ void attract_demo_2(uint32_t pressed, uint32_t released, uint32_t input_cursor, 
 	case 1:
 		break;
 	default:
-		unknown_code(0x36Fu + system_mode_step * 2u);
+		invalid_jump(0x36Fu + system_mode_step * 2u);
 	}
 	if ((uint16_t)attract_timer == 0u)
 	{
@@ -595,15 +595,21 @@ void advance_attract_screen(void)
 
 void init_system(uint32_t *p_polynomial, uint32_t *p_words_left)
 {
-	uint32_t r0 = 0, r4 = 0, r5 = 0, ignored = 0;
+	uint32_t r0 = 0, ignored = 0, polynomial = 0, words_left = 0;
 
 	interrupts_off();
 	clear_work_ram();
 	init_io_ports();
-	AS32(frames_to_wait) = 0u;
+	frames_to_wait = 0;
+	frames_per_wait = 0u;
+	debug_pause = 0u;
+	unused_frame_byte = 0u;
 	test_mode = 0u;
 	vblank_copies_pending = 0u;
-	AS32(sprite_list_ready) = 0u;
+	sprite_list_ready = 0u;
+	screen_mode = 0u;
+	game_in_progress = 0u;
+	unused_system_byte = 0u;
 	vblank_copy_count = 0u;
 	attract_step = 0u;
 	stage_init_flags = 0u;
@@ -614,8 +620,8 @@ void init_system(uint32_t *p_polynomial, uint32_t *p_words_left)
 	apply_settings();
 	init_mixer();
 	load_default_palettes();
-	init_sprites(&r0, &ignored);
-	load_text_font(&ignored, &r5);
+	init_sprites(&ignored, &ignored);
+	load_text_font(&ignored, &words_left);
 	init_video_registers();
 	reset_objects(&r0, &ignored);
 	read_controls(&r0, &ignored, &ignored, &ignored, &ignored, &ignored, &ignored);
@@ -623,11 +629,11 @@ void init_system(uint32_t *p_polynomial, uint32_t *p_words_left)
 	read_controls(&r0, &ignored, &ignored, &ignored, &ignored, &ignored, &ignored);
 	mem_write8(irq_acknowledge, 0u);
 	mem_write8(irq_control_5, 0u);
-	r5 = check_moving_seat_dip(r5);
-	r4 = init_game_settings();
+	words_left = check_moving_seat_dip(words_left);
+	polynomial = init_game_settings();
 	interrupts_on();
-	*p_polynomial = r4;
-	*p_words_left = r5;
+	*p_polynomial = polynomial;
+	*p_words_left = words_left;
 }
 
 void init_mixer(void)
@@ -731,15 +737,15 @@ void clear_work_ram(void)
 
 uint32_t init_game_settings(void)
 {
-	uint32_t r4 = 0;
+	uint32_t polynomial = 0;
 
 	cabinet_config = setting_cabinet_config;
 	game_in_progress = 0u;
 	demo_prompt_shown = 0u;
 	joining_closed = 0u;
-	r4 = load_ranking();
+	polynomial = load_ranking();
 	move_halfwords_backward(stage_order_copy_ADDRESS, stage_order_ADDRESS, 0x11u);
-	return r4;
+	return polynomial;
 }
 
 void delay_after_reset(void)
@@ -755,16 +761,16 @@ void delay_after_reset(void)
 
 uint32_t wait_for_frames(void)
 {
-	uint32_t r8 = 0, ignored = 0;
+	uint32_t count = 0, ignored = 0;
 
 	frames_to_wait = frames_per_wait;
-	wait_for_frame(&ignored, &ignored, &ignored, &r8, &ignored, &ignored);
-	return r8;
+	wait_for_frame(&ignored, &ignored, &ignored, &count, &ignored, &ignored);
+	return count;
 }
 
 void wait_for_frame(uint32_t *p_pressed, uint32_t *p_released, uint32_t *p_input_cursor, uint32_t *p_count, uint32_t *p_trackball_port, uint32_t *p_trackball_cursor)
 {
-	uint32_t r1 = 0, r2 = 0, r3 = 0, r8 = 0, r10 = 0, r11 = 0, inputs = 0, poll_count = 0;
+	uint32_t count = 0, input_cursor = 0, inputs = 0, poll_count = 0, pressed = 0, released = 0, trackball_cursor = 0, trackball_port = 0;
 	uint8_t frames_left = 0;
 
 	poll_count = 0u;
@@ -780,15 +786,15 @@ void wait_for_frame(uint32_t *p_pressed, uint32_t *p_released, uint32_t *p_input
 	inputs = 0u - poll_count;
 	frames_to_wait = frames_per_wait;
 	sprite_buffer_flip &= 0xFF04u;
-	AS16(sprite_list_start) = AS16(sprite_back_buffer);
+	sprite_list_start_offset = sprite_back_buffer_offset;
 	attract_timer++;
-	read_controls(&inputs, &r1, &r2, &r3, &r8, &r10, &r11);
-	*p_pressed = r1;
-	*p_released = r2;
-	*p_input_cursor = r3;
-	*p_count = r8;
-	*p_trackball_port = r10;
-	*p_trackball_cursor = r11;
+	read_controls(&inputs, &pressed, &released, &input_cursor, &count, &trackball_port, &trackball_cursor);
+	*p_pressed = pressed;
+	*p_released = released;
+	*p_input_cursor = input_cursor;
+	*p_count = count;
+	*p_trackball_port = trackball_port;
+	*p_trackball_cursor = trackball_cursor;
 }
 
 void read_controls(uint32_t *p_inputs, uint32_t *p_pressed, uint32_t *p_released, uint32_t *p_input_cursor, uint32_t *p_count, uint32_t *p_trackball_port, uint32_t *p_trackball_cursor)
@@ -876,7 +882,7 @@ void play_demo_trackballs(uint32_t *p_count, uint32_t *p_demo_cursor, uint32_t *
 	count = 6u;
 	do
 	{
-		mem_write16(trackball_cursor, (int8_t)mem_read8(demo_cursor));
+		mem_write16(trackball_cursor, (int8_t)ROM8(demo_cursor));
 		trackball_cursor += 2u;
 		count--;
 		demo_cursor++;
@@ -931,7 +937,7 @@ void attract_warning(uint32_t *p_pixels, uint32_t *p_text)
 	uint32_t pixels = *p_pixels;
 	uint32_t text = *p_text;
 	uint8_t new_mode = 0;
-	uint32_t r0 = 0, r11 = 0, ignored = 0;
+	uint32_t ignored = 0;
 	uint8_t cnt_bits = 0;
 
 	switch (system_mode_step)
@@ -950,7 +956,7 @@ void attract_warning(uint32_t *p_pixels, uint32_t *p_text)
 		*p_text = text;
 		return;
 	default:
-		unknown_code(0x9C4EFu + system_mode_step * 3u);
+		invalid_jump(0x9C4EFu + system_mode_step * 3u);
 	}
 	attract_timer = -0x258;
 	system_mode_step++;
@@ -959,12 +965,12 @@ void attract_warning(uint32_t *p_pixels, uint32_t *p_text)
 	mem_write8(io_cnt, cnt_bits & ~2u);
 	load_text_font(&pixels, &ignored);
 	init_video_registers();
-	init_sprites(&r0, &ignored);
+	init_sprites(&ignored, &ignored);
 	new_mode = 1u;
 	set_screen_mode(new_mode);
 	init_sound();
 	text = warning_screen_text_ADDRESS;
-	print_text_list(&text, &r11);
+	print_text_list(&text, &ignored);
 	unused_coin_byte = 0u;
 	current_screen = 0u;
 	*p_pixels = pixels;
@@ -988,14 +994,14 @@ void wait_attract_timer(void)
 void irq_vblank_start(void)
 {
 	uint32_t zero = 0;
-	uint32_t dest = 0, ignored = 0, source = 0;
+	uint32_t ignored = 0;
 	uint32_t saved_r14 = 0;
 	uint8_t frames_left = 0, cnt_bits = 0;
 
 	saved_r14 = r14;
 	move_halfwords(MIXER_REGISTERS + 0x30u, mixer_text_blend_ADDRESS, 0x10u);
 	if (vblank_copies_pending != 0u)
-		run_vblank_copies(&source, &dest, &ignored, &ignored);
+		run_vblank_copies(&ignored, &ignored, &ignored, &ignored);
 	call_code(vblank_start_hook);
 	send_sound_command();
 	if (test_mode == 0u)
@@ -1056,34 +1062,34 @@ void int_default(uint32_t *p_source, uint32_t *p_dest, uint32_t *p_copies_left, 
 {
 	uint32_t source = *p_source;
 	uint32_t dest = *p_dest;
-	uint32_t r3 = 0, r4 = 0;
+	uint32_t copies_left = 0, copy_entry = 0;
 
 	halt();
 	halt();
 	halt();
 	halt();
-	int_vector_02(&source, &dest, &r3, &r4);
+	int_vector_02(&source, &dest, &copies_left, &copy_entry);
 	*p_source = source;
 	*p_dest = dest;
-	*p_copies_left = r3;
-	*p_copy_entry = r4;
+	*p_copies_left = copies_left;
+	*p_copy_entry = copy_entry;
 }
 
 void int_vector_02(uint32_t *p_source, uint32_t *p_dest, uint32_t *p_copies_left, uint32_t *p_copy_entry)
 {
 	uint32_t source = *p_source;
 	uint32_t dest = *p_dest;
-	uint32_t r3 = 0, r4 = 0;
+	uint32_t copies_left = 0, copy_entry = 0;
 
 	halt();
 	halt();
 	halt();
 	halt();
-	run_vblank_copies(&source, &dest, &r3, &r4);
+	run_vblank_copies(&source, &dest, &copies_left, &copy_entry);
 	*p_source = source;
 	*p_dest = dest;
-	*p_copies_left = r3;
-	*p_copy_entry = r4;
+	*p_copies_left = copies_left;
+	*p_copy_entry = copy_entry;
 }
 
 void run_vblank_copies(uint32_t *p_source, uint32_t *p_dest, uint32_t *p_copies_left, uint32_t *p_copy_entry)
@@ -1106,11 +1112,11 @@ void run_vblank_copies(uint32_t *p_source, uint32_t *p_dest, uint32_t *p_copies_
 	}
 	do
 	{
-		source = mem_read32(copy_entry);
+		source = VBLANK_COPY(copy_entry)->source;
 		copy_entry += 4u;
-		dest = mem_read32(copy_entry);
+		dest = VBLANK_COPY(copy_entry - 0x4u)->dest;
 		copy_entry += 4u;
-		copy_halfwords = mem_read16(copy_entry);
+		copy_halfwords = VBLANK_COPY(copy_entry - 0x8u)->halfwords;
 		repeats_left = (uint8_t)((dest << 8) | (dest >> 24));
 		copy_entry += 2u;
 		for (;;)
@@ -1157,7 +1163,7 @@ void read_service_inputs(void)
 	service_inputs = inputs;
 	service_inputs_previous = previous;
 	service_inputs_pressed = previous & ~inputs;
-	unk_20F016 = ~previous & inputs;
+	service_inputs_released = ~previous & inputs;
 }
 
 void count_frames_and_check_test_switch(void)
@@ -1175,11 +1181,11 @@ void count_frames_and_check_test_switch(void)
 	power_time_save_divider = old_divider - 4u;
 	if (old_divider < 4u)
 	{
-		mem_write32(bookkeeping_power_on_time, AS32(power_on_frames));
-		mem_write16(bookkeeping_power_on_time_high, AT16(power_on_frames_high, 2));
+		mem_write32(bookkeeping_power_on_time, power_on_time);
+		mem_write16(bookkeeping_power_on_time_high, power_on_frames_top);
 		update_bookkeeping_checksum();
-		mem_write32(bookkeeping_backup_power_on_time, AS32(power_on_frames));
-		mem_write16(bookkeeping_backup_power_on_time_high, AT16(power_on_frames_high, 2));
+		mem_write32(bookkeeping_backup_power_on_time, power_on_time);
+		mem_write16(bookkeeping_backup_power_on_time_high, power_on_frames_top);
 	}
 	game_frames++;
 	if ((inputs_pressed & 0x2002u) != 0u && (inputs_pressed & 1u) == 0u)

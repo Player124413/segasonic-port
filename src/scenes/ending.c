@@ -3,7 +3,7 @@
  *    Description: stage 0x11, the ending: the runners, the tower and the explosions, the flash to white, the credits (portraits, name plates, scrolling blocks), Eggman flying away and the three running across
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    15-10-2026
+ *    Modified:    16-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -20,7 +20,7 @@ void build_ending_scene(uint32_t *p_write_index_address, uint32_t *p_tile_bank_b
 	uint32_t blocks_per_row = *p_blocks_per_row;
 	uint32_t scene_actor = *p_scene_actor;
 	uint8_t is_8bpp = 0, sound_id = 0;
-	uint32_t r1 = 0, r4 = 0, r11 = 0, ignored = 0, inner_count = 0, lower_row_cursor = 0, script = 0;
+	uint32_t dest = 0, ignored = 0, script = 0;
 	uint8_t io_cnt_bits = 0;
 
 	is_8bpp = (uint8_t)(ending_scene_step * 3u);
@@ -30,13 +30,13 @@ void build_ending_scene(uint32_t *p_write_index_address, uint32_t *p_tile_bank_b
 		io_cnt_bits = mem_read8(io_cnt);
 		mem_write8(io_cnt, io_cnt_bits & ~2u);
 		display_off_frames = 0x10u;
-		r4 = set_stage_layer_mixing();
+		color = set_stage_layer_mixing();
 		clear_sprite_buckets();
-		clear_bitmap_layer(is_8bpp, &ignored, &r4, &inner_count, &row_pairs_left, &blocks_per_row, &lower_row_cursor);
+		clear_bitmap_layer(is_8bpp, &ignored, &color, &ignored, &row_pairs_left, &blocks_per_row, &ignored);
 		init_video_registers();
-		load_stage_palette_set(&tile_bank_bits, &r11);
+		load_stage_palette_set(&tile_bank_bits, &dest);
 		sound_id = 0x94u;
-		queue_sound(sound_id, &r1, &write_index_address);
+		queue_sound(sound_id, &ignored, &write_index_address);
 		color_offset_red = 0x20u;
 		color_offset_blue = 0x20u;
 		color_offset_green = 0x20u;
@@ -78,26 +78,26 @@ void build_ending_scene(uint32_t *p_write_index_address, uint32_t *p_tile_bank_b
 		mem_write16(video_clip_1_top, 0u);
 		mem_write16(video_clip_1_bottom, 0u);
 		script = blue_sky_script_ADDRESS;
-		run_vram_script(&r1, &script, &r11);
+		run_vram_script(&ignored, &script, &dest);
 		script = aerial_city_script_ADDRESS;
-		run_vram_script(&r1, &script, &r11);
+		run_vram_script(&ignored, &script, &dest);
 		script = sonic_head_pattern_script_ADDRESS;
-		run_vram_script(&r1, &script, &r11);
+		run_vram_script(&ignored, &script, &dest);
 		script = ending_eggman_machine_script_ADDRESS;
-		run_vram_script(&r1, &script, &r11);
+		run_vram_script(&ignored, &script, &dest);
 		script = ending_logo_script_ADDRESS;
-		run_vram_script(&r1, &script, &r11);
+		run_vram_script(&ignored, &script, &dest);
 		script = ending_bars_script_ADDRESS;
-		run_vram_script(&r1, &script, &r11);
+		run_vram_script(&ignored, &script, &dest);
 		nbg0_pages = 0x8080707u;
 		nbg1_pages = 0x1010101u;
 		nbg2_pages = 0x5050505u;
 		*p_write_index_address = write_index_address;
 		*p_tile_bank_bits = tile_bank_bits;
-		*p_color = r4;
+		*p_color = color;
 		*p_row_pairs_left = row_pairs_left;
 		*p_blocks_per_row = blocks_per_row;
-		*p_scene_actor = r11;
+		*p_scene_actor = dest;
 		return;
 	case 1:
 		allocate_object_outside_loop(&ignored, &scene_actor);
@@ -124,30 +124,30 @@ void build_ending_scene(uint32_t *p_write_index_address, uint32_t *p_tile_bank_b
 	case 3:
 		return;
 	default:
-		unknown_code(0x1BCD3u + ending_scene_step * 3u);
+		invalid_jump(0x1BCD3u + ending_scene_step * 3u);
 	}
 }
 
 void init_ending_scene_object(uint32_t object)
 {
-	AS8(OBJECT(object)->flags) = 0u;
-	AT8(OBJECT(object)->flags, 1) = 0u;
-	AT16(OBJECT(object)->flags, 2) = 0u;
+	OBJECT(object)->flags_low_byte = 0u;
+	OBJECT(object)->step = 0u;
+	OBJECT(object)->timer = 0;
 	ending_scene_step = 2u;
 }
 
 void ending_tower_animate(void)
 {
-	uint32_t r11 = 0, count = 0, frame_record = 0, script = 0;
+	uint32_t r11 = 0, frame_record = 0, ignored = 0, script = 0;
 
 	if (OBJECT(current_object)->ending.started == 0u)
 	{
 		script = cloudy_horizon_script_ADDRESS;
-		run_vram_script(&count, &script, &r11);
+		run_vram_script(&ignored, &script, &r11);
 		mem_write16(video_layer_disable, mem_read16(video_layer_disable) & ~8u);
 		nbg3_pages = 0u;
 		OBJECT(current_object)->ending.list_index = 0u;
-		OBJECT(current_object)->ending.timer = 0;
+		OBJECT(current_object)->timer = 0;
 		OBJECT(current_object)->ending.started++;
 	}
 	OBJECT(current_object)->sprite_layer = 7u;
@@ -162,14 +162,14 @@ void ending_tower_animate(void)
 		{
 			if (ROM16(frame_record + 4u) != 0xFFFFu)
 			{
-				OBJECT(current_object)->ending.timer++;
+				OBJECT(current_object)->timer++;
 				run_timed_spawns_2(r11);
 				return;
 			}
 			delete_current_object();
 			return;
 		}
-		if (OBJECT(current_object)->ending.timer < (int16_t)ROM16(frame_record))
+		if (OBJECT(current_object)->timer < (int16_t)ROM16(frame_record))
 			break;
 		frame_record += 6u;
 	}
@@ -178,7 +178,7 @@ void ending_tower_animate(void)
 	queue_sprite_in_layer();
 	if (ROM16(frame_record + 4u) != 0xFFFFu)
 	{
-		OBJECT(current_object)->ending.timer++;
+		OBJECT(current_object)->timer++;
 		run_timed_spawns_2(r11);
 		return;
 	}
@@ -195,7 +195,7 @@ void ending_debris_1_fly(void)
 		sound_id = 0xBu;
 		queue_sound(sound_id, &ignored, &ignored);
 		OBJECT(current_object)->ending.started++;
-		OBJECT(current_object)->ending.timer = 0;
+		OBJECT(current_object)->timer = 0;
 	}
 	path = ending_debris_1_path_ADDRESS;
 	OBJECT(current_object)->sprite_flags = 0u;
@@ -213,7 +213,7 @@ void ending_debris_2_fly(void)
 		sound_id = 0xBu;
 		queue_sound(sound_id, &ignored, &ignored);
 		OBJECT(current_object)->ending.started++;
-		OBJECT(current_object)->ending.timer = 0;
+		OBJECT(current_object)->timer = 0;
 	}
 	path = ending_debris_2_path_ADDRESS;
 	OBJECT(current_object)->sprite_flags = 0u;
@@ -231,7 +231,7 @@ void ending_debris_3_fly(void)
 		sound_id = 0xBu;
 		queue_sound(sound_id, &ignored, &ignored);
 		OBJECT(current_object)->ending.started++;
-		OBJECT(current_object)->ending.timer = 0;
+		OBJECT(current_object)->timer = 0;
 	}
 	path = ending_debris_3_path_ADDRESS;
 	OBJECT(current_object)->sprite_flags = 0u;
@@ -439,7 +439,7 @@ void start_ending_blast(void)
 {
 	OBJECT(current_object)->start_ending_blast.started = 1u;
 	OBJECT(current_object)->start_ending_blast.frame_index = 0u;
-	OBJECT(current_object)->start_ending_blast.timer = 0;
+	OBJECT(current_object)->timer = 0;
 }
 
 void ending_big_explosion(void)
@@ -451,9 +451,9 @@ void ending_big_explosion(void)
 	if (OBJECT(current_object)->ending.started == 0u)
 	{
 		OBJECT(current_object)->ending.frame_index = 0u;
-		OBJECT(current_object)->ending.timer = 0;
+		OBJECT(current_object)->timer = 0;
 		OBJECT(current_object)->ending.started = 1u;
-		OBJECT(current_object)->ending.step = 0u;
+		OBJECT(current_object)->step = 0u;
 		OBJECT(current_object)->screen_x = 0xA1;
 		OBJECT(current_object)->screen_y = 0x62;
 		OBJECT(current_object)->sprite_layer = 9u;
@@ -491,10 +491,10 @@ void ending_big_explosion(void)
 		queue_sprite_in_layer();
 		current_object = object_cursor;
 	}
-	OBJECT(current_object)->ending.timer++;
-	if (OBJECT(current_object)->ending.timer >= 6)
+	OBJECT(current_object)->timer++;
+	if (OBJECT(current_object)->timer >= 6)
 	{
-		OBJECT(current_object)->ending.timer = 0;
+		OBJECT(current_object)->timer = 0;
 		OBJECT(current_object)->ending.frame_index++;
 	}
 }
@@ -510,15 +510,15 @@ void ending_flash_to_white(void)
 		color_offset_2_red = 0u;
 		color_offset_2_blue = 0u;
 		color_offset_2_green = 0u;
-		OBJECT(current_object)->ending.timer = 0;
+		OBJECT(current_object)->timer = 0;
 	}
-	OBJECT(current_object)->ending.timer++;
-	if (OBJECT(current_object)->ending.timer >= 3)
+	OBJECT(current_object)->timer++;
+	if (OBJECT(current_object)->timer >= 3)
 	{
 		color_offset_2_red++;
 		color_offset_2_blue++;
 		color_offset_2_green++;
-		OBJECT(current_object)->ending.timer = 0;
+		OBJECT(current_object)->timer = 0;
 	}
 	if (color_offset_2_red != 0x1Fu)
 		return;
@@ -544,17 +544,17 @@ void animate_horizon_blast(void)
 
 void draw_ending_blast_frame_copy(uint32_t frame_entry)
 {
-	OBJECT(current_object)->sprite_frame = mem_read16(frame_entry);
+	OBJECT(current_object)->sprite_frame = ROM16(frame_entry);
 	OBJECT(current_object)->sprite_layer = 6u;
 	OBJECT(current_object)->sprite_flags = 0u;
 	OBJECT(current_object)->sprite_scale = 0x100u;
 	OBJECT(current_object)->sprite_palette = 0x10B0u;
 	queue_sprite_in_layer();
-	OBJECT(current_object)->draw_ending_blast_frame.timer++;
-	if (OBJECT(current_object)->draw_ending_blast_frame.timer >= 6)
+	OBJECT(current_object)->timer++;
+	if (OBJECT(current_object)->timer >= 6)
 	{
 		OBJECT(current_object)->draw_ending_blast_frame.frame_index++;
-		OBJECT(current_object)->draw_ending_blast_frame.timer = 0;
+		OBJECT(current_object)->timer = 0;
 	}
 }
 
@@ -573,39 +573,39 @@ void animate_tower_blast(void)
 
 void draw_ending_blast_frame(uint32_t frame_entry)
 {
-	OBJECT(current_object)->sprite_frame = mem_read16(frame_entry);
+	OBJECT(current_object)->sprite_frame = ROM16(frame_entry);
 	OBJECT(current_object)->sprite_layer = 6u;
 	OBJECT(current_object)->sprite_flags = 0u;
 	OBJECT(current_object)->sprite_scale = 0x100u;
 	OBJECT(current_object)->sprite_palette = 0x10B0u;
 	queue_sprite_in_layer();
-	OBJECT(current_object)->draw_ending_blast_frame.timer++;
-	if (OBJECT(current_object)->draw_ending_blast_frame.timer >= 6)
+	OBJECT(current_object)->timer++;
+	if (OBJECT(current_object)->timer >= 6)
 	{
 		OBJECT(current_object)->draw_ending_blast_frame.frame_index++;
-		OBJECT(current_object)->draw_ending_blast_frame.timer = 0;
+		OBJECT(current_object)->timer = 0;
 	}
 }
 
 void animate_ending_debris(uint32_t path)
 {
-	AS8(OBJECT(current_object)->animate_ending.timer)++;
+	OBJECT(current_object)->animate_ending_debris.timer_low++;
 	for (;;)
 	{
-		if (mem_read16(path) == 0xFFFFu)
+		if ((uint16_t)DEBRIS_PATH_STEP(path)->end_time == 0xFFFFu)
 		{
 			delete_current_object();
 			return;
 		}
-		if (OBJECT(current_object)->animate_ending.timer < (int16_t)mem_read16(path))
+		if (OBJECT(current_object)->timer < DEBRIS_PATH_STEP(path)->end_time)
 			break;
 		path += 8u;
 	}
 	OBJECT(current_object)->sprite_palette = 0x10C0u;
 	OBJECT(current_object)->sprite_layer = 6u;
-	OBJECT(current_object)->screen_x = mem_read16(path + 2u);
-	OBJECT(current_object)->screen_y = mem_read16(path + 4u);
-	OBJECT(current_object)->sprite_frame = mem_read16(path + 6u);
+	OBJECT(current_object)->screen_x = DEBRIS_PATH_STEP(path)->screen_x;
+	OBJECT(current_object)->screen_y = DEBRIS_PATH_STEP(path)->screen_y;
+	OBJECT(current_object)->sprite_frame = DEBRIS_PATH_STEP(path)->sprite_frame;
 	OBJECT(current_object)->sprite_scale = 0x100u;
 	queue_sprite_in_layer();
 }
@@ -616,12 +616,12 @@ void run_timed_spawns_2(uint32_t object)
 
 	spawn_record = timed_spawns_2_ADDRESS + OBJECT(current_object)->run_timed_spawns.list_index * 4u;
 	OBJECT(current_object)->z = ROM16(spawn_record + 2u);
-	if (OBJECT(current_object)->z_fraction != 0xFFFFu && (int16_t)ROM16(spawn_record) <= OBJECT(current_object)->run_timed_spawns.timer)
+	if (OBJECT(current_object)->z_fraction != 0xFFFFu && (int16_t)ROM16(spawn_record) <= OBJECT(current_object)->timer)
 	{
 		allocate_object_outside_loop(&ignored, &object);
 		OBJECT(current_object)->z += 0x1BFC4u;
 		OBJECT(object)->handler = OBJECT(current_object)->z;
-		AS8(OBJECT(object)->flags) = 0u;
+		OBJECT(object)->flags_low_byte = 0u;
 		OBJECT(current_object)->run_timed_spawns.list_index++;
 	}
 }
@@ -633,7 +633,7 @@ void ending_horizon_show(void)
 	if (OBJECT(current_object)->ending.started == 0u)
 	{
 		OBJECT(current_object)->ending.started++;
-		OBJECT(current_object)->ending.timer = 0;
+		OBJECT(current_object)->timer = 0;
 	}
 	if (ending_first_scene_done == 1u)
 	{
@@ -648,8 +648,8 @@ void ending_horizon_show(void)
 	OBJECT(current_object)->sprite_flags = 0u;
 	OBJECT(current_object)->sprite_palette = 0x10F0u;
 	queue_sprite_in_layer();
-	OBJECT(current_object)->ending.timer++;
-	if ((int16_t)AS16(OBJECT(current_object)->ending.started) <= 1 && OBJECT(current_object)->ending.timer >= 0x258)
+	OBJECT(current_object)->timer++;
+	if ((int16_t)OBJECT(current_object)->flags_low <= 1 && OBJECT(current_object)->timer >= 0x258)
 	{
 		allocate_object_outside_loop(&ignored, &object);
 		OBJECT(object)->handler = ending_dust_cloud_rise_ADDRESS;
@@ -666,27 +666,27 @@ void ending_dust_cloud_rise(void)
 	{
 		OBJECT(current_object)->z = 0x1C636;
 		OBJECT(current_object)->ending.started = 1u;
-		OBJECT(current_object)->ending.timer = 0;
+		OBJECT(current_object)->timer = 0;
 	}
 	if (ending_first_scene_done == 1u)
 	{
 		delete_current_object();
 		return;
 	}
-	OBJECT(current_object)->ending.timer++;
+	OBJECT(current_object)->timer++;
 	OBJECT(current_object)->sprite_layer = 6u;
 	OBJECT(current_object)->screen_x = 0x9E;
 	OBJECT(current_object)->sprite_scale = 0x100u;
 	OBJECT(current_object)->sprite_flags = 0u;
 	OBJECT(current_object)->sprite_palette = 0x10D0u;
 	frame_pointer = OBJECT(current_object)->z;
-	if (mem_read16(frame_pointer) != 0xFFFFu && OBJECT(current_object)->ending.timer >= 7)
+	if ((uint16_t)DUST_CLOUD_FRAME(frame_pointer)->screen_y != 0xFFFFu && OBJECT(current_object)->timer >= 7)
 	{
-		OBJECT(current_object)->screen_y = mem_read16(frame_pointer);
+		OBJECT(current_object)->screen_y = DUST_CLOUD_FRAME(frame_pointer)->screen_y;
 		frame_pointer += 2u;
-		OBJECT(current_object)->sprite_frame = mem_read16(frame_pointer);
+		OBJECT(current_object)->sprite_frame = DUST_CLOUD_FRAME(frame_pointer - 0x2u)->sprite_frame;
 		OBJECT(current_object)->z = frame_pointer + 2u;
-		OBJECT(current_object)->ending.timer = 0;
+		OBJECT(current_object)->timer = 0;
 	}
 	queue_sprite_in_layer();
 }
@@ -701,7 +701,7 @@ void ending_sonic_run_forward(void)
 		OBJECT(current_object)->ending.frame_index = 0u;
 		OBJECT(current_object)->sprite_scale = 0x40u;
 		OBJECT(current_object)->screen_y = 0xC0;
-		OBJECT(current_object)->ending.timer = 0;
+		OBJECT(current_object)->timer = 0;
 		OBJECT(current_object)->ending.cycle_count = 0;
 	}
 	frame_entry = ending_sonic_run_frames_ADDRESS + OBJECT(current_object)->ending.frame_index * 2u;
@@ -728,7 +728,7 @@ void ending_ray_run_forward(void)
 		OBJECT(current_object)->sprite_scale = 0x40u;
 		OBJECT(current_object)->screen_y = 0xC0;
 		OBJECT(current_object)->screen_x = 0x90;
-		OBJECT(current_object)->ending.timer = 0;
+		OBJECT(current_object)->timer = 0;
 		OBJECT(current_object)->ending.cycle_count = 0;
 	}
 	frame_entry = ending_ray_run_frames_ADDRESS + OBJECT(current_object)->ending.frame_index * 2u;
@@ -756,7 +756,7 @@ void ending_mighty_run_forward(void)
 		OBJECT(current_object)->sprite_scale = 0x40u;
 		OBJECT(current_object)->screen_y = 0xC0;
 		OBJECT(current_object)->screen_x = 0xB0;
-		OBJECT(current_object)->ending.timer = 0;
+		OBJECT(current_object)->timer = 0;
 		OBJECT(current_object)->ending.cycle_count = 0;
 	}
 	frame_entry = ending_mighty_run_frames_ADDRESS + OBJECT(current_object)->ending.frame_index * 2u;
@@ -785,7 +785,7 @@ void ending_road_scroll(void)
 		OBJECT(current_object)->sprite_layer = 2u;
 		OBJECT(current_object)->sprite_flags = 0u;
 		OBJECT(current_object)->sprite_palette = 0x12B0u;
-		OBJECT(current_object)->ending.timer = 0;
+		OBJECT(current_object)->timer = 0;
 		OBJECT(current_object)->ending.cycle_count = 0;
 	}
 	OBJECT(current_object)->ending.cycle_count++;
@@ -823,20 +823,20 @@ void ending_credits_fade_in(void)
 		nbg1_scroll_y_int = 0u;
 		mixer_blend &= 0x1F00u;
 		OBJECT(current_object)->ending.cycle_count = 0;
-		OBJECT(current_object)->ending.timer = 0;
+		OBJECT(current_object)->timer = 0;
 		OBJECT(current_object)->ending.started = 1u;
-		OBJECT(current_object)->ending.step = 0u;
+		OBJECT(current_object)->step = 0u;
 	}
-	OBJECT(current_object)->ending.timer++;
-	if (OBJECT(current_object)->ending.timer < 0x78)
+	OBJECT(current_object)->timer++;
+	if (OBJECT(current_object)->timer < 0x78)
 		return;
-	OBJECT(current_object)->ending.timer = 0x79;
-	if (OBJECT(current_object)->ending.step == 0u)
+	OBJECT(current_object)->timer = 0x79;
+	if (OBJECT(current_object)->step == 0u)
 	{
 		allocate_object_outside_loop(&ignored, &object);
 		OBJECT(object)->handler = ending_music_play_ADDRESS;
 		OBJECT(object)->ending.started = 0u;
-		OBJECT(current_object)->ending.step = 1u;
+		OBJECT(current_object)->step = 1u;
 	}
 	if (color_offset_2_red == 0u)
 	{
@@ -858,10 +858,10 @@ void ending_credits_spawner_run(void)
 	if (OBJECT(current_object)->ending.started == 0u)
 	{
 		OBJECT(current_object)->ending.started = 1u;
-		OBJECT(current_object)->ending.timer = 0;
+		OBJECT(current_object)->timer = 0;
 		OBJECT(current_object)->ending.list_index = 0u;
 	}
-	OBJECT(current_object)->ending.timer++;
+	OBJECT(current_object)->timer++;
 	run_timed_spawns_3();
 }
 
@@ -886,7 +886,7 @@ void ending_music_play(void)
 	if (OBJECT(current_object)->ending.started == 0u)
 	{
 		OBJECT(current_object)->ending.started = 1u;
-		OBJECT(current_object)->ending.timer = 0;
+		OBJECT(current_object)->timer = 0;
 		sound_id = 0x94u;
 		queue_sound(sound_id, &ignored, &ignored);
 		sound_id = 0x82u;
@@ -901,13 +901,13 @@ void ending_music_play(void)
 		delete_current_object();
 		return;
 	}
-	if ((int16_t)ROM16(cue_record) <= OBJECT(current_object)->ending.timer)
+	if ((int16_t)ROM16(cue_record) <= OBJECT(current_object)->timer)
 	{
 		sound_id = (uint8_t)ROM16(cue_record + 2u);
 		queue_sound(sound_id, &ignored, &ignored);
 		OBJECT(current_object)->ending.list_index++;
 	}
-	OBJECT(current_object)->ending.timer++;
+	OBJECT(current_object)->timer++;
 }
 
 void ending_portrait_show(void)
@@ -918,14 +918,14 @@ void ending_portrait_show(void)
 	if (OBJECT(current_object)->ending.started == 0u)
 	{
 		OBJECT(current_object)->ending.started = 1u;
-		OBJECT(current_object)->ending.timer = 0;
+		OBJECT(current_object)->timer = 0;
 		allocate_object_2(&ignored, &ignored, &backdrop_object);
 		OBJECT(current_object)->speed_y = backdrop_object;
 	}
-	OBJECT(current_object)->ending.timer++;
+	OBJECT(current_object)->timer++;
 	timed_record = ending_portrait_frames_ADDRESS;
 	palette_record = ending_portrait_palettes_ADDRESS;
-	while ((int16_t)ROM16(timed_record) < OBJECT(current_object)->ending.timer)
+	while ((int16_t)ROM16(timed_record) < OBJECT(current_object)->timer)
 	{
 		timed_record += 4u;
 		palette_record += 4u;
@@ -946,7 +946,7 @@ void ending_portrait_show(void)
 	OBJECT(current_object)->sprite_flags = 0u;
 	queue_sprite_in_layer();
 	timed_record = ending_portrait_backdrop_palettes_ADDRESS;
-	while ((int16_t)ROM16(timed_record) < OBJECT(current_object)->ending.timer)
+	while ((int16_t)ROM16(timed_record) < OBJECT(current_object)->timer)
 	{
 		timed_record += 4u;
 		if (ROM16(timed_record) == 0xFFFFu)
@@ -970,7 +970,7 @@ void ending_name_plate_show(void)
 	if (OBJECT(current_object)->ending.started == 0u)
 	{
 		OBJECT(current_object)->ending.started = 1u;
-		OBJECT(current_object)->ending.timer = 0;
+		OBJECT(current_object)->timer = 0;
 		mem_write16(video_clip_1_left, 0xB1u);
 		mem_write16(video_clip_1_right, 0x120u);
 		mem_write16(video_clip_1_top, 0x21u);
@@ -978,9 +978,9 @@ void ending_name_plate_show(void)
 		allocate_object_2(&ignored, &ignored, &object);
 		OBJECT(current_object)->z = object;
 	}
-	OBJECT(current_object)->ending.timer++;
+	OBJECT(current_object)->timer++;
 	frame_record = ending_name_plate_frames_ADDRESS;
-	while ((int16_t)ROM16(frame_record) < OBJECT(current_object)->ending.timer)
+	while ((int16_t)ROM16(frame_record) < OBJECT(current_object)->timer)
 	{
 		frame_record += 4u;
 		if (ROM16(frame_record) == 0xFFFFu)
@@ -1020,8 +1020,8 @@ void ending_credits_team_logo_scroll(void)
 	if (OBJECT(current_object)->ending.started == 0u)
 	{
 		OBJECT(current_object)->ending.started = 1u;
-		OBJECT(current_object)->ending.timer = 0;
-		OBJECT(current_object)->ending.step = 0u;
+		OBJECT(current_object)->timer = 0;
+		OBJECT(current_object)->step = 0u;
 		OBJECT(current_object)->screen_y = 0xF4;
 		OBJECT(current_object)->sprite_frame = 0x9850u;
 		OBJECT(current_object)->sprite_palette = 0x1010u;
@@ -1030,30 +1030,30 @@ void ending_credits_team_logo_scroll(void)
 		for (;;)
 		{
 			field_cursor = OBJECT(object_cursor)->speed_x;
-			if (mem_read16(field_cursor) == 0xFFFFu)
+			if (CREDIT_PART(field_cursor)->sprite_frame == 0xFFFFu)
 				break;
 			allocate_object_2(&ignored, &ignored, &object);
-			OBJECT(object)->sprite_frame = mem_read16(field_cursor);
+			OBJECT(object)->sprite_frame = CREDIT_PART(field_cursor)->sprite_frame;
 			field_cursor += 2u;
-			OBJECT(object)->screen_y = mem_read16(field_cursor);
+			OBJECT(object)->screen_y = CREDIT_PART(field_cursor - 0x2u)->screen_y;
 			field_cursor += 2u;
-			OBJECT(object)->sprite_palette = mem_read16(field_cursor);
+			OBJECT(object)->sprite_palette = CREDIT_PART(field_cursor - 0x4u)->sprite_palette;
 			field_cursor += 2u;
-			current_object = (current_object & ~0xFFFFu) | (uint16_t)(current_object + mem_read16(field_cursor));
+			current_object = (current_object & ~0xFFFFu) | (uint16_t)(current_object + CREDIT_PART(field_cursor - 0x6u)->slot);
 			OBJECT(object_cursor)->speed_x = field_cursor + 2u;
-			AS32(OBJECT(current_object)->draw_next) = object;
+			OBJECT(current_object)->credit_part_slot = object;
 			current_object = object;
 			init_credits_sprite();
 		}
 	}
-	if (OBJECT(current_object)->ending.step != 0u)
+	if (OBJECT(current_object)->step != 0u)
 	{
 		speed_y = (uint16_t)OBJECT(object_cursor)->speed_y;
 		free_object_2(speed_y);
 		delete_current_object();
 		return;
 	}
-	OBJECT(object_cursor)->ending.timer++;
+	OBJECT(object_cursor)->timer++;
 	scroll_credits_sprite();
 	current_object = OBJECT(current_object)->speed_y;
 	scroll_credits_sprite();
@@ -1061,7 +1061,7 @@ void ending_credits_team_logo_scroll(void)
 	current_object = OBJECT(current_object)->speed_y;
 	if (OBJECT(current_object)->screen_y <= -0x14)
 	{
-		OBJECT(object_cursor)->ending.step = 1u;
+		OBJECT(object_cursor)->step = 1u;
 		return;
 	}
 }
@@ -1076,8 +1076,8 @@ void ending_credits_director_scroll(void)
 		return;
 	}
 	OBJECT(current_object)->ending.started = 1u;
-	OBJECT(current_object)->ending.timer = 0;
-	OBJECT(current_object)->ending.step = 0u;
+	OBJECT(current_object)->timer = 0;
+	OBJECT(current_object)->step = 0u;
 	OBJECT(current_object)->screen_y = 0xF4;
 	OBJECT(current_object)->sprite_frame = 0x97C8u;
 	OBJECT(current_object)->sprite_palette = 0x1010u;
@@ -1086,18 +1086,18 @@ void ending_credits_director_scroll(void)
 	for (;;)
 	{
 		field_cursor = OBJECT(object_cursor)->speed_x;
-		if (mem_read16(field_cursor) == 0xFFFFu)
+		if (CREDIT_PART(field_cursor)->sprite_frame == 0xFFFFu)
 			break;
 		allocate_object_2(&ignored, &ignored, &object);
-		OBJECT(object)->sprite_frame = mem_read16(field_cursor);
+		OBJECT(object)->sprite_frame = CREDIT_PART(field_cursor)->sprite_frame;
 		field_cursor += 2u;
-		OBJECT(object)->screen_y = mem_read16(field_cursor);
+		OBJECT(object)->screen_y = CREDIT_PART(field_cursor - 0x2u)->screen_y;
 		field_cursor += 2u;
-		OBJECT(object)->sprite_palette = mem_read16(field_cursor);
+		OBJECT(object)->sprite_palette = CREDIT_PART(field_cursor - 0x4u)->sprite_palette;
 		field_cursor += 2u;
-		current_object = (current_object & ~0xFFFFu) | (uint16_t)(current_object + mem_read16(field_cursor));
+		current_object = (current_object & ~0xFFFFu) | (uint16_t)(current_object + CREDIT_PART(field_cursor - 0x6u)->slot);
 		OBJECT(object_cursor)->speed_x = field_cursor + 2u;
-		AS32(OBJECT(current_object)->draw_next) = object;
+		OBJECT(current_object)->credit_part_slot = object;
 		current_object = object;
 		init_credits_sprite();
 	}
@@ -1117,7 +1117,7 @@ void scroll_credits_block(void)
 		delete_current_object();
 		return;
 	}
-	OBJECT(object_cursor)->scroll_credits.timer++;
+	OBJECT(object_cursor)->timer++;
 	scroll_credits_sprite();
 	current_object = OBJECT(current_object)->speed_y;
 	scroll_credits_sprite();
@@ -1139,9 +1139,9 @@ void ending_credits_program_scroll(void)
 
 	if (OBJECT(current_object)->ending.started != 0u)
 	{
-		if (OBJECT(current_object)->ending.step == 0u)
+		if (OBJECT(current_object)->step == 0u)
 		{
-			OBJECT(object_cursor)->ending.timer++;
+			OBJECT(object_cursor)->timer++;
 			scroll_credits_sprite();
 			current_object = OBJECT(current_object)->speed_y;
 			scroll_credits_sprite();
@@ -1155,7 +1155,7 @@ void ending_credits_program_scroll(void)
 			current_object = OBJECT(current_object)->animation;
 			if (OBJECT(current_object)->screen_y <= -0x14)
 			{
-				OBJECT(object_cursor)->ending.step = 1u;
+				OBJECT(object_cursor)->step = 1u;
 				return;
 			}
 			return;
@@ -1172,8 +1172,8 @@ void ending_credits_program_scroll(void)
 		return;
 	}
 	OBJECT(current_object)->ending.started = 1u;
-	OBJECT(current_object)->ending.step = 0u;
-	OBJECT(current_object)->ending.timer = 0;
+	OBJECT(current_object)->step = 0u;
+	OBJECT(current_object)->timer = 0;
 	OBJECT(current_object)->screen_y = 0xF4;
 	OBJECT(current_object)->sprite_frame = 0x97C0u;
 	OBJECT(current_object)->sprite_palette = 0x1010u;
@@ -1182,18 +1182,18 @@ void ending_credits_program_scroll(void)
 	for (;;)
 	{
 		field_cursor = OBJECT(object_cursor)->speed_x;
-		if (mem_read16(field_cursor) == 0xFFFFu)
+		if (CREDIT_PART(field_cursor)->sprite_frame == 0xFFFFu)
 			break;
 		allocate_object_2(&ignored, &ignored, &object);
-		OBJECT(object)->sprite_frame = mem_read16(field_cursor);
+		OBJECT(object)->sprite_frame = CREDIT_PART(field_cursor)->sprite_frame;
 		field_cursor += 2u;
-		OBJECT(object)->screen_y = mem_read16(field_cursor);
+		OBJECT(object)->screen_y = CREDIT_PART(field_cursor - 0x2u)->screen_y;
 		field_cursor += 2u;
-		OBJECT(object)->sprite_palette = mem_read16(field_cursor);
+		OBJECT(object)->sprite_palette = CREDIT_PART(field_cursor - 0x4u)->sprite_palette;
 		field_cursor += 2u;
-		current_object = (current_object & ~0xFFFFu) | (uint16_t)(current_object + mem_read16(field_cursor));
+		current_object = (current_object & ~0xFFFFu) | (uint16_t)(current_object + CREDIT_PART(field_cursor - 0x6u)->slot);
 		OBJECT(object_cursor)->speed_x = field_cursor + 2u;
-		AS32(OBJECT(current_object)->draw_next) = object;
+		OBJECT(current_object)->credit_part_slot = object;
 		current_object = object;
 		init_credits_sprite();
 	}
@@ -1207,9 +1207,9 @@ void ending_credits_design_scroll(void)
 
 	if (OBJECT(current_object)->ending.started != 0u)
 	{
-		if (OBJECT(current_object)->ending.step == 0u)
+		if (OBJECT(current_object)->step == 0u)
 		{
-			OBJECT(object_cursor)->ending.timer++;
+			OBJECT(object_cursor)->timer++;
 			scroll_credits_sprite();
 			current_object = OBJECT(current_object)->speed_y;
 			scroll_credits_sprite();
@@ -1225,7 +1225,7 @@ void ending_credits_design_scroll(void)
 			current_object = OBJECT(current_object)->x;
 			if (OBJECT(current_object)->screen_y <= -0x14)
 			{
-				OBJECT(object_cursor)->ending.step = 1u;
+				OBJECT(object_cursor)->step = 1u;
 				return;
 			}
 			return;
@@ -1244,8 +1244,8 @@ void ending_credits_design_scroll(void)
 		return;
 	}
 	OBJECT(current_object)->ending.started = 1u;
-	OBJECT(current_object)->ending.step = 0u;
-	OBJECT(current_object)->ending.timer = 0;
+	OBJECT(current_object)->step = 0u;
+	OBJECT(current_object)->timer = 0;
 	OBJECT(current_object)->screen_y = 0xF4;
 	OBJECT(current_object)->sprite_frame = 0x97E8u;
 	OBJECT(current_object)->sprite_palette = 0x1010u;
@@ -1254,18 +1254,18 @@ void ending_credits_design_scroll(void)
 	for (;;)
 	{
 		field_cursor = OBJECT(object_cursor)->speed_x;
-		if (mem_read16(field_cursor) == 0xFFFFu)
+		if (CREDIT_PART(field_cursor)->sprite_frame == 0xFFFFu)
 			break;
 		allocate_object_2(&ignored, &ignored, &object);
-		OBJECT(object)->sprite_frame = mem_read16(field_cursor);
+		OBJECT(object)->sprite_frame = CREDIT_PART(field_cursor)->sprite_frame;
 		field_cursor += 2u;
-		OBJECT(object)->screen_y = mem_read16(field_cursor);
+		OBJECT(object)->screen_y = CREDIT_PART(field_cursor - 0x2u)->screen_y;
 		field_cursor += 2u;
-		OBJECT(object)->sprite_palette = mem_read16(field_cursor);
+		OBJECT(object)->sprite_palette = CREDIT_PART(field_cursor - 0x4u)->sprite_palette;
 		field_cursor += 2u;
-		current_object = (current_object & ~0xFFFFu) | (uint16_t)(current_object + mem_read16(field_cursor));
+		current_object = (current_object & ~0xFFFFu) | (uint16_t)(current_object + CREDIT_PART(field_cursor - 0x6u)->slot);
 		OBJECT(object_cursor)->speed_x = field_cursor + 2u;
-		AS32(OBJECT(current_object)->draw_next) = object;
+		OBJECT(current_object)->credit_part_slot = object;
 		current_object = object;
 		init_credits_sprite();
 	}
@@ -1279,9 +1279,9 @@ void ending_credits_sound_scroll(void)
 
 	if (OBJECT(current_object)->ending.started != 0u)
 	{
-		if (OBJECT(current_object)->ending.step == 0u)
+		if (OBJECT(current_object)->step == 0u)
 		{
-			OBJECT(object_cursor)->ending.timer++;
+			OBJECT(object_cursor)->timer++;
 			scroll_credits_sprite();
 			current_object = OBJECT(current_object)->speed_y;
 			scroll_credits_sprite();
@@ -1295,7 +1295,7 @@ void ending_credits_sound_scroll(void)
 			current_object = OBJECT(current_object)->animation;
 			if (OBJECT(current_object)->screen_y <= -0x14)
 			{
-				OBJECT(object_cursor)->ending.step = 1u;
+				OBJECT(object_cursor)->step = 1u;
 				return;
 			}
 			return;
@@ -1312,8 +1312,8 @@ void ending_credits_sound_scroll(void)
 		return;
 	}
 	OBJECT(current_object)->ending.started = 1u;
-	OBJECT(current_object)->ending.step = 0u;
-	OBJECT(current_object)->ending.timer = 0;
+	OBJECT(current_object)->step = 0u;
+	OBJECT(current_object)->timer = 0;
 	OBJECT(current_object)->screen_y = 0xF4;
 	OBJECT(current_object)->sprite_frame = 0x97E0u;
 	OBJECT(current_object)->sprite_palette = 0x1010u;
@@ -1322,18 +1322,18 @@ void ending_credits_sound_scroll(void)
 	for (;;)
 	{
 		field_cursor = OBJECT(object_cursor)->speed_x;
-		if (mem_read16(field_cursor) == 0xFFFFu)
+		if (CREDIT_PART(field_cursor)->sprite_frame == 0xFFFFu)
 			break;
 		allocate_object_2(&ignored, &ignored, &object);
-		OBJECT(object)->sprite_frame = mem_read16(field_cursor);
+		OBJECT(object)->sprite_frame = CREDIT_PART(field_cursor)->sprite_frame;
 		field_cursor += 2u;
-		OBJECT(object)->screen_y = mem_read16(field_cursor);
+		OBJECT(object)->screen_y = CREDIT_PART(field_cursor - 0x2u)->screen_y;
 		field_cursor += 2u;
-		OBJECT(object)->sprite_palette = mem_read16(field_cursor);
+		OBJECT(object)->sprite_palette = CREDIT_PART(field_cursor - 0x4u)->sprite_palette;
 		field_cursor += 2u;
-		current_object = (current_object & ~0xFFFFu) | (uint16_t)(current_object + mem_read16(field_cursor));
+		current_object = (current_object & ~0xFFFFu) | (uint16_t)(current_object + CREDIT_PART(field_cursor - 0x6u)->slot);
 		OBJECT(object_cursor)->speed_x = field_cursor + 2u;
-		AS32(OBJECT(current_object)->draw_next) = object;
+		OBJECT(current_object)->credit_part_slot = object;
 		current_object = object;
 		init_credits_sprite();
 	}
@@ -1347,9 +1347,9 @@ void ending_credits_voice_actor_scroll(void)
 
 	if (OBJECT(current_object)->ending.started != 0u)
 	{
-		if (OBJECT(current_object)->ending.step == 0u)
+		if (OBJECT(current_object)->step == 0u)
 		{
-			OBJECT(object_cursor)->ending.timer++;
+			OBJECT(object_cursor)->timer++;
 			scroll_credits_sprite();
 			current_object = OBJECT(current_object)->speed_y;
 			scroll_credits_sprite();
@@ -1365,7 +1365,7 @@ void ending_credits_voice_actor_scroll(void)
 			current_object = OBJECT(current_object)->x;
 			if (OBJECT(current_object)->screen_y <= -0x14)
 			{
-				OBJECT(object_cursor)->ending.step = 1u;
+				OBJECT(object_cursor)->step = 1u;
 				return;
 			}
 			return;
@@ -1384,8 +1384,8 @@ void ending_credits_voice_actor_scroll(void)
 		return;
 	}
 	OBJECT(current_object)->ending.started = 1u;
-	OBJECT(current_object)->ending.step = 0u;
-	OBJECT(current_object)->ending.timer = 0;
+	OBJECT(current_object)->step = 0u;
+	OBJECT(current_object)->timer = 0;
 	OBJECT(current_object)->screen_y = 0xF4;
 	OBJECT(current_object)->sprite_frame = 0x97F0u;
 	OBJECT(current_object)->sprite_palette = 0x1010u;
@@ -1394,18 +1394,18 @@ void ending_credits_voice_actor_scroll(void)
 	for (;;)
 	{
 		field_cursor = OBJECT(object_cursor)->speed_x;
-		if (mem_read16(field_cursor) == 0xFFFFu)
+		if (CREDIT_PART(field_cursor)->sprite_frame == 0xFFFFu)
 			break;
 		allocate_object_2(&ignored, &ignored, &object);
-		OBJECT(object)->sprite_frame = mem_read16(field_cursor);
+		OBJECT(object)->sprite_frame = CREDIT_PART(field_cursor)->sprite_frame;
 		field_cursor += 2u;
-		OBJECT(object)->screen_y = mem_read16(field_cursor);
+		OBJECT(object)->screen_y = CREDIT_PART(field_cursor - 0x2u)->screen_y;
 		field_cursor += 2u;
-		OBJECT(object)->sprite_palette = mem_read16(field_cursor);
+		OBJECT(object)->sprite_palette = CREDIT_PART(field_cursor - 0x4u)->sprite_palette;
 		field_cursor += 2u;
-		current_object = (current_object & ~0xFFFFu) | (uint16_t)(current_object + mem_read16(field_cursor));
+		current_object = (current_object & ~0xFFFFu) | (uint16_t)(current_object + CREDIT_PART(field_cursor - 0x6u)->slot);
 		OBJECT(object_cursor)->speed_x = field_cursor + 2u;
-		AS32(OBJECT(current_object)->draw_next) = object;
+		OBJECT(current_object)->credit_part_slot = object;
 		current_object = object;
 		init_credits_sprite();
 	}
@@ -1419,9 +1419,9 @@ void ending_credits_special_thanks_scroll(void)
 
 	if (OBJECT(current_object)->ending.started != 0u)
 	{
-		if (OBJECT(current_object)->ending.step == 0u)
+		if (OBJECT(current_object)->step == 0u)
 		{
-			OBJECT(object_cursor)->ending.timer++;
+			OBJECT(object_cursor)->timer++;
 			scroll_credits_sprite();
 			current_object = OBJECT(current_object)->speed_y;
 			scroll_credits_sprite();
@@ -1443,7 +1443,7 @@ void ending_credits_special_thanks_scroll(void)
 			current_object = OBJECT(current_object)->previous_floor_z;
 			if (OBJECT(current_object)->screen_y <= -0x14)
 			{
-				OBJECT(object_cursor)->ending.step = 1u;
+				OBJECT(object_cursor)->step = 1u;
 				return;
 			}
 			return;
@@ -1468,8 +1468,8 @@ void ending_credits_special_thanks_scroll(void)
 		return;
 	}
 	OBJECT(current_object)->ending.started = 1u;
-	OBJECT(current_object)->ending.step = 0u;
-	OBJECT(current_object)->ending.timer = 0;
+	OBJECT(current_object)->step = 0u;
+	OBJECT(current_object)->timer = 0;
 	OBJECT(current_object)->screen_y = 0xF4;
 	OBJECT(current_object)->sprite_frame = 0x97D0u;
 	OBJECT(current_object)->sprite_palette = 0x1010u;
@@ -1478,18 +1478,18 @@ void ending_credits_special_thanks_scroll(void)
 	for (;;)
 	{
 		field_cursor = OBJECT(object_cursor)->speed_x;
-		if (mem_read16(field_cursor) == 0xFFFFu)
+		if (CREDIT_PART(field_cursor)->sprite_frame == 0xFFFFu)
 			break;
 		allocate_object_2(&ignored, &ignored, &object);
-		OBJECT(object)->sprite_frame = mem_read16(field_cursor);
+		OBJECT(object)->sprite_frame = CREDIT_PART(field_cursor)->sprite_frame;
 		field_cursor += 2u;
-		OBJECT(object)->screen_y = mem_read16(field_cursor);
+		OBJECT(object)->screen_y = CREDIT_PART(field_cursor - 0x2u)->screen_y;
 		field_cursor += 2u;
-		OBJECT(object)->sprite_palette = mem_read16(field_cursor);
+		OBJECT(object)->sprite_palette = CREDIT_PART(field_cursor - 0x4u)->sprite_palette;
 		field_cursor += 2u;
-		current_object = (current_object & ~0xFFFFu) | (uint16_t)(current_object + mem_read16(field_cursor));
+		current_object = (current_object & ~0xFFFFu) | (uint16_t)(current_object + CREDIT_PART(field_cursor - 0x6u)->slot);
 		OBJECT(object_cursor)->speed_x = field_cursor + 2u;
-		AS32(OBJECT(current_object)->draw_next) = object;
+		OBJECT(current_object)->credit_part_slot = object;
 		current_object = object;
 		init_credits_sprite();
 	}
@@ -1498,7 +1498,7 @@ void ending_credits_special_thanks_scroll(void)
 
 void scroll_credits_sprite(void)
 {
-	if (OBJECT(object_cursor)->scroll_credits.timer >= 2)
+	if (OBJECT(object_cursor)->timer >= 2)
 		OBJECT(current_object)->screen_y--;
 	queue_sprite_in_layer();
 	current_object = object_cursor;
@@ -1506,8 +1506,8 @@ void scroll_credits_sprite(void)
 
 void wrap_credits_scroll_timer(void)
 {
-	if ((int16_t)AT16(OBJECT(object_cursor)->flags, 2) >= 2)
-		AT16(OBJECT(object_cursor)->flags, 2) = 0u;
+	if (OBJECT(object_cursor)->timer >= 2)
+		OBJECT(object_cursor)->timer = 0;
 }
 
 void init_credits_sprite(void)
@@ -1530,12 +1530,12 @@ void run_timed_spawns_3(void)
 		delete_current_object();
 		return;
 	}
-	if ((int16_t)ROM16(spawn_record) <= OBJECT(current_object)->run_timed_spawns.timer)
+	if ((int16_t)ROM16(spawn_record) <= OBJECT(current_object)->timer)
 	{
 		allocate_object_outside_loop(&ignored, &object);
 		OBJECT(current_object)->z += 0x1C82Fu;
 		OBJECT(object)->handler = OBJECT(current_object)->z;
-		AS8(OBJECT(object)->flags) = 0u;
+		OBJECT(object)->flags_low_byte = 0u;
 		OBJECT(current_object)->run_timed_spawns.list_index++;
 	}
 }
@@ -1547,13 +1547,13 @@ void animate_ending_runner(uint32_t frame_entry)
 		delete_current_object();
 		return;
 	}
-	OBJECT(current_object)->sprite_frame = mem_read16(frame_entry);
+	OBJECT(current_object)->sprite_frame = ROM16(frame_entry);
 	OBJECT(current_object)->sprite_flags = 0x100u;
 	queue_sprite_in_layer();
-	OBJECT(current_object)->animate_ending.timer++;
-	if ((OBJECT(current_object)->animate_ending.timer & 3u) == 2u)
+	OBJECT(current_object)->timer++;
+	if ((OBJECT(current_object)->timer & 3u) == 2u)
 		OBJECT(current_object)->sprite_scale++;
-	if ((OBJECT(current_object)->animate_ending.timer & 1u) != 0u)
+	if ((OBJECT(current_object)->timer & 1u) != 0u)
 	{
 		OBJECT(current_object)->animate_ending.frame_index++;
 		if (OBJECT(current_object)->animate_ending.frame_index > 0xB)
@@ -1568,7 +1568,7 @@ void ending_window_open(void)
 	if (OBJECT(current_object)->ending.started == 0u)
 	{
 		OBJECT(current_object)->ending.started = 1u;
-		OBJECT(current_object)->ending.step = 0u;
+		OBJECT(current_object)->step = 0u;
 	}
 	nbg0_scroll_x_int++;
 	mem_write16(video_clip_1_left, mem_read16(video_clip_1_left) - 1u);
@@ -1578,24 +1578,24 @@ void ending_window_open(void)
 	if ((int16_t)mem_read16(video_clip_1_left) <= 0)
 	{
 		mem_write16(video_clip_1_left, 0u);
-		OBJECT(current_object)->ending.step |= 1u;
+		OBJECT(current_object)->step |= 1u;
 	}
 	if ((int16_t)mem_read16(video_clip_1_top) <= 0)
 	{
 		mem_write16(video_clip_1_top, 0u);
-		OBJECT(current_object)->ending.step |= 2u;
+		OBJECT(current_object)->step |= 2u;
 	}
 	if ((int16_t)mem_read16(video_clip_1_right) >= 0x140)
 	{
 		mem_write16(video_clip_1_right, 0x140u);
-		OBJECT(current_object)->ending.step |= 4u;
+		OBJECT(current_object)->step |= 4u;
 	}
 	if ((int16_t)mem_read16(video_clip_1_bottom) >= 0xE0)
 	{
 		mem_write16(video_clip_1_bottom, 0xE0u);
-		OBJECT(current_object)->ending.step |= 8u;
+		OBJECT(current_object)->step |= 8u;
 	}
-	if (OBJECT(current_object)->ending.step != 0xFu)
+	if (OBJECT(current_object)->step != 0xFu)
 		return;
 	allocate_object_outside_loop(&ignored, &object);
 	OBJECT(object)->ending.started = 0u;
@@ -1627,7 +1627,7 @@ void ending_credits_fade_out(void)
 
 void ending_eggman_scene_fade_in(void)
 {
-	uint32_t r1 = 0, ignored = 0, object = 0, script = 0;
+	uint32_t ignored = 0, object = 0, script = 0;
 
 	if (OBJECT(current_object)->ending.started != 0u)
 	{
@@ -1638,14 +1638,14 @@ void ending_eggman_scene_fade_in(void)
 		if (fade_kind >= 0)
 			return;
 		allocate_object_outside_loop(&ignored, &object);
-		OBJECT(object)->ending.started = 0u;
+		OBJECT(object)->ending_eggman_fly_in.started = 0u;
 		OBJECT(object)->handler = ending_eggman_fly_in_ADDRESS;
 		delete_current_object();
 		return;
 	}
 	mem_write16(video_layer_disable, mem_read16(video_layer_disable) | 0xBu);
 	script = ending_stripes_script_ADDRESS;
-	run_vram_script(&r1, &script, &object);
+	run_vram_script(&ignored, &script, &object);
 	nbg0_pages = 0x3030303u;
 	nbg1_pages = 0x2020202u;
 	nbg2_pages = 0x8080707u;
@@ -1660,72 +1660,72 @@ void ending_eggman_scene_fade_in(void)
 void ending_eggman_fly_in(void)
 {
 	uint8_t sound_id = 0;
-	uint16_t animation = 0, floor_block = 0, floor_z = 0, part_3 = 0, previous_floor_z = 0, speed_x = 0, speed_y = 0, x = 0, y = 0, z = 0;
-	uint32_t animation_2 = 0, animation_3 = 0, floor_block_2 = 0, floor_z_2 = 0, floor_z_3 = 0, ignored = 0, object = 0, part_3_2 = 0, part_3_3 = 0, previous_floor_z_2 = 0, previous_floor_z_3 = 0, x_2 = 0, x_3 = 0, y_2 = 0, y_3 = 0, y_entry = 0, z_2 = 0, z_3 = 0;
+	uint16_t exhaust_flame = 0, path = 0, puff_1 = 0, puff_2 = 0, puff_3 = 0, puff_4 = 0, puff_5 = 0, puff_6 = 0, puff_7 = 0, puff_8 = 0;
+	uint32_t ignored = 0, object = 0, object_2 = 0, y_entry = 0;
 
-	if (OBJECT(current_object)->ending.started == 0u)
+	if (OBJECT(current_object)->ending_eggman_fly_in.started == 0u)
 	{
-		OBJECT(current_object)->ending.started = 1u;
-		OBJECT(current_object)->ending.step = 0u;
+		OBJECT(current_object)->ending_eggman_fly_in.started = 1u;
+		OBJECT(current_object)->step = 0u;
 		OBJECT(current_object)->screen_y = 0x70;
 		OBJECT(current_object)->screen_x = -0x20;
-		OBJECT(current_object)->speed_y = 0x103B76;
-		OBJECT(current_object)->ending.timer = 0x1E0;
+		OBJECT(current_object)->ending_eggman_fly_in.path = ending_eggman_flight_path_ADDRESS;
+		OBJECT(current_object)->timer = 0x1E0;
 		allocate_object_2(&ignored, &ignored, &object);
-		OBJECT(current_object)->speed_x = object;
+		OBJECT(current_object)->ending_eggman_fly_in.exhaust_flame = object;
 		allocate_object_2(&ignored, &ignored, &object);
-		OBJECT(current_object)->z = object;
+		OBJECT(current_object)->ending_eggman_fly_in.puff_1 = object;
 		init_eggman_smoke_puff(object);
 		allocate_object_2(&ignored, &ignored, &object);
-		OBJECT(current_object)->ending.part_3 = object;
+		OBJECT(current_object)->ending_eggman_fly_in.puff_2 = object;
 		init_eggman_smoke_puff(object);
 		allocate_object_2(&ignored, &ignored, &object);
-		OBJECT(current_object)->animation = object;
+		OBJECT(current_object)->ending_eggman_fly_in.puff_3 = object;
 		init_eggman_smoke_puff(object);
 		allocate_object_2(&ignored, &ignored, &object);
-		OBJECT(current_object)->x = object;
+		OBJECT(current_object)->ending_eggman_fly_in.puff_4 = object;
 		init_eggman_smoke_puff(object);
 		allocate_object_2(&ignored, &ignored, &object);
-		OBJECT(current_object)->y = object;
+		OBJECT(current_object)->ending_eggman_fly_in.puff_5 = object;
 		init_eggman_smoke_puff(object);
 		OBJECT(object)->sprite_frame = 0x9B80u;
 		allocate_object_2(&ignored, &ignored, &object);
-		OBJECT(current_object)->floor_z = object;
+		OBJECT(current_object)->ending_eggman_fly_in.puff_6 = object;
 		init_eggman_smoke_puff(object);
 		OBJECT(object)->sprite_frame = 0x9B78u;
 		allocate_object_2(&ignored, &ignored, &object);
-		OBJECT(current_object)->previous_floor_z = object;
+		OBJECT(current_object)->ending_eggman_fly_in.puff_7 = object;
 		init_eggman_smoke_puff(object);
 		OBJECT(object)->sprite_frame = 0x9B70u;
 		allocate_object_2(&ignored, &ignored, &object);
-		OBJECT(current_object)->floor_block = object;
+		OBJECT(current_object)->ending_eggman_fly_in.puff_8 = object;
 		init_eggman_smoke_puff(object);
 		OBJECT(object)->sprite_frame = 0x9B68u;
 	}
-	OBJECT(current_object)->ending.timer--;
-	if ((uint16_t)OBJECT(current_object)->ending.timer == 0x104u)
+	OBJECT(current_object)->timer--;
+	if ((uint16_t)OBJECT(current_object)->timer == 0x104u)
 	{
 		sound_id = 0x75u;
 		queue_sound(sound_id, &ignored, &ignored);
 	}
-	if ((uint16_t)OBJECT(current_object)->ending.timer != 0u)
+	if ((uint16_t)OBJECT(current_object)->timer != 0u)
 	{
-		y_entry = OBJECT(current_object)->speed_y;
-		OBJECT(current_object)->screen_x = mem_read16(y_entry);
+		y_entry = OBJECT(current_object)->ending_eggman_fly_in.path;
+		OBJECT(current_object)->screen_x = SCREEN_POINT(y_entry)->x;
 		y_entry += 2u;
-		OBJECT(current_object)->screen_y = mem_read16(y_entry);
+		OBJECT(current_object)->screen_y = SCREEN_POINT(y_entry - 0x2u)->y;
 		OBJECT(current_object)->sprite_layer = 0u;
 		OBJECT(current_object)->sprite_frame = 0x9AE0u;
 		OBJECT(current_object)->sprite_palette = 0x1250u;
 		OBJECT(current_object)->sprite_scale = 0x100u;
 		OBJECT(current_object)->sprite_flags = 0u;
-		OBJECT(current_object)->speed_y = y_entry + 2u;
+		OBJECT(current_object)->ending_eggman_fly_in.path = y_entry + 2u;
 		queue_sprite_in_layer();
 		if ((uint16_t)OBJECT(current_object)->screen_x != 0xA6u)
 		{
-			current_object = OBJECT(current_object)->speed_x;
+			current_object = OBJECT(current_object)->ending_eggman_fly_in.exhaust_flame;
 			OBJECT(current_object)->sprite_frame = 0x9AB0u;
-			if ((OBJECT(object_cursor)->ending.timer & 2u) != 0u)
+			if ((OBJECT(object_cursor)->timer & 2u) != 0u)
 				OBJECT(current_object)->sprite_frame = 0x9AB8u;
 			OBJECT(current_object)->screen_x = OBJECT(object_cursor)->screen_x;
 			OBJECT(current_object)->screen_y = OBJECT(object_cursor)->screen_y;
@@ -1737,60 +1737,60 @@ void ending_eggman_fly_in(void)
 			queue_sprite_in_layer();
 		}
 		else
-			OBJECT(current_object)->speed_y += 4u;
+			OBJECT(current_object)->ending_eggman_fly_in.path += 4u;
 		current_object = object_cursor;
-		if ((uint16_t)((int16_t)OBJECT(current_object)->ending.timer % 0xA) == 0u)
+		if ((uint16_t)((int16_t)OBJECT(current_object)->timer % 0xA) == 0u)
 		{
-			previous_floor_z_3 = OBJECT(object_cursor)->previous_floor_z;
-			floor_block_2 = OBJECT(object_cursor)->floor_block;
-			mem_write16(floor_block_2 + 0xEu, mem_read16(previous_floor_z_3 + 0xEu));
-			mem_write16(floor_block_2 + 0xCu, mem_read16(previous_floor_z_3 + 0xCu));
-			floor_z_3 = OBJECT(object_cursor)->floor_z;
-			previous_floor_z_2 = OBJECT(object_cursor)->previous_floor_z;
-			mem_write16(previous_floor_z_2 + 0xEu, mem_read16(floor_z_3 + 0xEu));
-			mem_write16(previous_floor_z_2 + 0xCu, mem_read16(floor_z_3 + 0xCu));
-			y_3 = OBJECT(object_cursor)->y;
-			floor_z_2 = OBJECT(object_cursor)->floor_z;
-			mem_write16(floor_z_2 + 0xEu, mem_read16(y_3 + 0xEu));
-			mem_write16(floor_z_2 + 0xCu, mem_read16(y_3 + 0xCu));
-			x_3 = OBJECT(object_cursor)->x;
-			y_2 = OBJECT(object_cursor)->y;
-			mem_write16(y_2 + 0xEu, mem_read16(x_3 + 0xEu));
-			mem_write16(y_2 + 0xCu, mem_read16(x_3 + 0xCu));
-			animation_3 = OBJECT(object_cursor)->animation;
-			x_2 = OBJECT(object_cursor)->x;
-			mem_write16(x_2 + 0xEu, mem_read16(animation_3 + 0xEu));
-			mem_write16(x_2 + 0xCu, mem_read16(animation_3 + 0xCu));
-			part_3_3 = OBJECT(object_cursor)->ending.part_3;
-			animation_2 = OBJECT(object_cursor)->animation;
-			mem_write16(animation_2 + 0xEu, mem_read16(part_3_3 + 0xEu));
-			mem_write16(animation_2 + 0xCu, mem_read16(part_3_3 + 0xCu));
-			z_3 = OBJECT(object_cursor)->z;
-			part_3_2 = OBJECT(object_cursor)->ending.part_3;
-			mem_write16(part_3_2 + 0xEu, mem_read16(z_3 + 0xEu));
-			mem_write16(part_3_2 + 0xCu, mem_read16(z_3 + 0xCu));
-			z_2 = OBJECT(object_cursor)->z;
-			mem_write16(z_2 + 0xEu, OBJECT(object_cursor)->screen_x);
-			mem_write16(z_2 + 0xCu, OBJECT(object_cursor)->screen_y);
-			mem_write16(z_2 + 0xEu, mem_read16(z_2 + 0xEu) - 0x34u);
+			object_2 = OBJECT(object_cursor)->ending_eggman_fly_in.puff_7;
+			object = OBJECT(object_cursor)->ending_eggman_fly_in.puff_8;
+			OBJECT(object)->screen_x = OBJECT(object_2)->screen_x;
+			OBJECT(object)->screen_y = OBJECT(object_2)->screen_y;
+			object_2 = OBJECT(object_cursor)->ending_eggman_fly_in.puff_6;
+			object = OBJECT(object_cursor)->ending_eggman_fly_in.puff_7;
+			OBJECT(object)->screen_x = OBJECT(object_2)->screen_x;
+			OBJECT(object)->screen_y = OBJECT(object_2)->screen_y;
+			object_2 = OBJECT(object_cursor)->ending_eggman_fly_in.puff_5;
+			object = OBJECT(object_cursor)->ending_eggman_fly_in.puff_6;
+			OBJECT(object)->screen_x = OBJECT(object_2)->screen_x;
+			OBJECT(object)->screen_y = OBJECT(object_2)->screen_y;
+			object_2 = OBJECT(object_cursor)->ending_eggman_fly_in.puff_4;
+			object = OBJECT(object_cursor)->ending_eggman_fly_in.puff_5;
+			OBJECT(object)->screen_x = OBJECT(object_2)->screen_x;
+			OBJECT(object)->screen_y = OBJECT(object_2)->screen_y;
+			object_2 = OBJECT(object_cursor)->ending_eggman_fly_in.puff_3;
+			object = OBJECT(object_cursor)->ending_eggman_fly_in.puff_4;
+			OBJECT(object)->screen_x = OBJECT(object_2)->screen_x;
+			OBJECT(object)->screen_y = OBJECT(object_2)->screen_y;
+			object_2 = OBJECT(object_cursor)->ending_eggman_fly_in.puff_2;
+			object = OBJECT(object_cursor)->ending_eggman_fly_in.puff_3;
+			OBJECT(object)->screen_x = OBJECT(object_2)->screen_x;
+			OBJECT(object)->screen_y = OBJECT(object_2)->screen_y;
+			object_2 = OBJECT(object_cursor)->ending_eggman_fly_in.puff_1;
+			object = OBJECT(object_cursor)->ending_eggman_fly_in.puff_2;
+			OBJECT(object)->screen_x = OBJECT(object_2)->screen_x;
+			OBJECT(object)->screen_y = OBJECT(object_2)->screen_y;
+			object = OBJECT(object_cursor)->ending_eggman_fly_in.puff_1;
+			OBJECT(object)->screen_x = OBJECT(object_cursor)->screen_x;
+			OBJECT(object)->screen_y = OBJECT(object_cursor)->screen_y;
+			OBJECT(object)->screen_x -= 0x34u;
 		}
-		if (OBJECT(object_cursor)->ending.timer > 0x32)
+		if (OBJECT(object_cursor)->timer > 0x32)
 		{
-			current_object = OBJECT(object_cursor)->z;
+			current_object = OBJECT(object_cursor)->ending_eggman_fly_in.puff_1;
 			queue_sprite_in_layer();
-			current_object = OBJECT(object_cursor)->ending.part_3;
+			current_object = OBJECT(object_cursor)->ending_eggman_fly_in.puff_2;
 			queue_sprite_in_layer();
-			current_object = OBJECT(object_cursor)->animation;
+			current_object = OBJECT(object_cursor)->ending_eggman_fly_in.puff_3;
 			queue_sprite_in_layer();
-			current_object = OBJECT(object_cursor)->x;
+			current_object = OBJECT(object_cursor)->ending_eggman_fly_in.puff_4;
 			queue_sprite_in_layer();
-			current_object = OBJECT(object_cursor)->y;
+			current_object = OBJECT(object_cursor)->ending_eggman_fly_in.puff_5;
 			queue_sprite_in_layer();
-			current_object = OBJECT(object_cursor)->floor_z;
+			current_object = OBJECT(object_cursor)->ending_eggman_fly_in.puff_6;
 			queue_sprite_in_layer();
-			current_object = OBJECT(object_cursor)->previous_floor_z;
+			current_object = OBJECT(object_cursor)->ending_eggman_fly_in.puff_7;
 			queue_sprite_in_layer();
-			current_object = OBJECT(object_cursor)->floor_block;
+			current_object = OBJECT(object_cursor)->ending_eggman_fly_in.puff_8;
 			queue_sprite_in_layer();
 		}
 		return;
@@ -1805,26 +1805,26 @@ void ending_eggman_fly_in(void)
 	OBJECT(object)->sprite_flags = OBJECT(current_object)->sprite_flags;
 	OBJECT(object)->sprite_palette = OBJECT(current_object)->sprite_palette;
 	OBJECT(object)->sprite_scale = OBJECT(current_object)->sprite_scale;
-	speed_x = (uint16_t)OBJECT(current_object)->speed_x;
-	free_object_2(speed_x);
-	speed_y = (uint16_t)OBJECT(current_object)->speed_y;
-	free_object_2(speed_y);
-	z = (uint16_t)OBJECT(current_object)->z;
-	free_object_2(z);
-	part_3 = (uint16_t)OBJECT(current_object)->ending.part_3;
-	free_object_2(part_3);
-	animation = (uint16_t)OBJECT(current_object)->animation;
-	free_object_2(animation);
-	x = (uint16_t)OBJECT(current_object)->x;
-	free_object_2(x);
-	y = (uint16_t)OBJECT(current_object)->y;
-	free_object_2(y);
-	floor_z = (uint16_t)OBJECT(current_object)->floor_z;
-	free_object_2(floor_z);
-	previous_floor_z = (uint16_t)OBJECT(current_object)->previous_floor_z;
-	free_object_2(previous_floor_z);
-	floor_block = (uint16_t)OBJECT(current_object)->floor_block;
-	free_object_2(floor_block);
+	exhaust_flame = (uint16_t)OBJECT(current_object)->ending_eggman_fly_in.exhaust_flame;
+	free_object_2(exhaust_flame);
+	path = (uint16_t)OBJECT(current_object)->ending_eggman_fly_in.path;
+	free_object_2(path);
+	puff_1 = (uint16_t)OBJECT(current_object)->ending_eggman_fly_in.puff_1;
+	free_object_2(puff_1);
+	puff_2 = (uint16_t)OBJECT(current_object)->ending_eggman_fly_in.puff_2;
+	free_object_2(puff_2);
+	puff_3 = (uint16_t)OBJECT(current_object)->ending_eggman_fly_in.puff_3;
+	free_object_2(puff_3);
+	puff_4 = (uint16_t)OBJECT(current_object)->ending_eggman_fly_in.puff_4;
+	free_object_2(puff_4);
+	puff_5 = (uint16_t)OBJECT(current_object)->ending_eggman_fly_in.puff_5;
+	free_object_2(puff_5);
+	puff_6 = (uint16_t)OBJECT(current_object)->ending_eggman_fly_in.puff_6;
+	free_object_2(puff_6);
+	puff_7 = (uint16_t)OBJECT(current_object)->ending_eggman_fly_in.puff_7;
+	free_object_2(puff_7);
+	puff_8 = (uint16_t)OBJECT(current_object)->ending_eggman_fly_in.puff_8;
+	free_object_2(puff_8);
 	delete_current_object();
 }
 
@@ -1846,11 +1846,11 @@ void ending_eggman_turn(void)
 	if (OBJECT(current_object)->ending.started == 0u)
 	{
 		OBJECT(current_object)->ending.started = 1u;
-		OBJECT(current_object)->ending.timer = 0;
-		OBJECT(current_object)->ending.step = 0u;
+		OBJECT(current_object)->timer = 0;
+		OBJECT(current_object)->step = 0u;
 	}
-	OBJECT(current_object)->ending.timer++;
-	frame_record = ending_eggman_turn_frames_ADDRESS + OBJECT(current_object)->ending.step * 4u;
+	OBJECT(current_object)->timer++;
+	frame_record = ending_eggman_turn_frames_ADDRESS + OBJECT(current_object)->step * 4u;
 	if (ROM16(frame_record) == 0xFFFFu)
 	{
 		allocate_object_outside_loop(&ignored, &object);
@@ -1859,8 +1859,8 @@ void ending_eggman_turn(void)
 		delete_current_object();
 		return;
 	}
-	if ((int16_t)ROM16(frame_record) < OBJECT(current_object)->ending.timer)
-		OBJECT(current_object)->ending.step++;
+	if ((int16_t)ROM16(frame_record) < OBJECT(current_object)->timer)
+		OBJECT(current_object)->step++;
 	OBJECT(current_object)->sprite_frame = ROM16(frame_record + 2u);
 	queue_sprite_in_layer();
 }
@@ -1911,12 +1911,12 @@ void ending_eggman_fly_away(void)
 {
 	uint8_t sound_id = 0;
 	uint16_t halfwords = 0, line_dy = 0, scale_step = 0, speed_y = 0, z = 0;
-	uint32_t r2 = 0, cycle = 0, half_width_squared = 0, ignored = 0, left_entry = 0, lines_left = 0, object = 0, palette_count = 0, right_entry = 0, source = 0;
+	uint32_t cycle = 0, half_width_squared = 0, ignored = 0, left_entry = 0, lines_left = 0, object = 0, palette_count = 0, right_entry = 0, source = 0;
 
 	if (OBJECT(current_object)->ending.started == 0u)
 	{
 		OBJECT(current_object)->ending.started = 1u;
-		OBJECT(current_object)->ending.step = 0u;
+		OBJECT(current_object)->step = 0u;
 		mem_write16(video_layer_disable, 0x20u);
 		mem_write16(video_layer_disable, mem_read16(video_layer_disable) | 4u);
 		mixer_nbg1_blend = 0x580u;
@@ -1948,7 +1948,7 @@ void ending_eggman_fly_away(void)
 		OBJECT(object)->sprite_frame = 0x9B50u;
 		OBJECT(object)->sprite_palette = 0x1270u;
 		sound_id = 0x72u;
-		queue_sound(sound_id, &ignored, &r2);
+		queue_sound(sound_id, &ignored, &ignored);
 	}
 	object = PALETTE_RAM + 0x8BC0u;
 	palette_count = 1u;
@@ -1957,7 +1957,7 @@ void ending_eggman_fly_away(void)
 	cycle = palette_cycle_0_ADDRESS;
 	palette_cycle_0 = 6u;
 	palette_cycle_0_frames = 9u;
-	cycle_palette(cycle, halfwords, &ignored, &r2, &palette_count, &source, &object);
+	cycle_palette(cycle, halfwords, &ignored, &ignored, &palette_count, &source, &object);
 	if ((int16_t)OBJECT(current_object)->sprite_scale >= 0x20)
 	{
 		current_object = object_cursor;
@@ -1972,20 +1972,20 @@ void ending_eggman_fly_away(void)
 		return;
 	}
 	current_object = OBJECT(current_object)->z;
-	switch (OBJECT(object_cursor)->ending.step)
+	switch (OBJECT(object_cursor)->step)
 	{
 	case 0:
 	case 7:
 		sound_id = 9u;
 		queue_sound(sound_id, &ignored, &ignored);
 		nbg2_pages = 0x2020202u;
-		OBJECT(object_cursor)->ending.step = 1u;
+		OBJECT(object_cursor)->step = 1u;
 		return;
 	case 1:
 		OBJECT(current_object)->sprite_scale += 5u;
 		queue_sprite_in_layer();
 		if ((int16_t)OBJECT(current_object)->sprite_scale >= 0x110)
-			OBJECT(object_cursor)->ending.step = 2u;
+			OBJECT(object_cursor)->step = 2u;
 		return;
 	case 2:
 		OBJECT(current_object)->sprite_scale -= 5u;
@@ -1994,14 +1994,14 @@ void ending_eggman_fly_away(void)
 			queue_sprite_in_layer();
 			return;
 		}
-		OBJECT(object_cursor)->ending.step = 3u;
+		OBJECT(object_cursor)->step = 3u;
 		return;
 	case 3:
 		speed_y = (uint16_t)OBJECT(object_cursor)->speed_y;
 		free_object_2(speed_y);
 		z = (uint16_t)OBJECT(object_cursor)->z;
 		free_object_2(z);
-		OBJECT(object_cursor)->ending.step = 4u;
+		OBJECT(object_cursor)->step = 4u;
 		return;
 	case 4:
 		mem_write16(video_rowscroll_control, 0x5015u);
@@ -2012,17 +2012,17 @@ void ending_eggman_fly_away(void)
 		mem_write16(video_layer_disable, 0x2122u);
 		nbg2_scroll_x_fraction = 0u;
 		nbg2_scroll_y_fraction = 0u;
-		OBJECT(object_cursor)->ending.step = 5u;
-		AS8(circle_wipe_radius) = 0u;
-		AT16(OBJECT(current_object)->previous_floor_block, 2) = 0u;
+		OBJECT(object_cursor)->step = 5u;
+		circle_wipe_radius_low = 0u;
+		OBJECT(current_object)->cycle_count = 0u;
 		fill_value = (fill_value & ~0xFFFFu) | 1u;
 		set_halfwords(VIDEO_RAM + 0xA000u, 0x200u, fill_value);
 		fill_value = fill_value & ~0xFFFFu;
 		set_halfwords(VIDEO_RAM + 0xA400u, 0x200u, fill_value);
 		return;
 	case 5:
-		AT16(OBJECT(current_object)->previous_floor_block, 2)++;
-		if ((OBJECT(current_object)->previous_floor_block & 0x10000u) != 0u)
+		OBJECT(current_object)->cycle_count++;
+		if ((OBJECT(current_object)->cycle_count & 1u) != 0u)
 		{
 			left_entry = VIDEO_RAM + 0xA0E0u;
 			right_entry = VIDEO_RAM + 0xA4E0u;
@@ -2051,7 +2051,7 @@ void ending_eggman_fly_away(void)
 			}
 			else
 			{
-				if ((OBJECT(current_object)->previous_floor_block & 0x10000u) == 0u)
+				if ((OBJECT(current_object)->cycle_count & 1u) == 0u)
 				{
 					if ((int16_t)(0x70u - circle_wipe_radius) <= (int16_t)((int32_t)(left_entry - (VIDEO_RAM + 0xA000u)) >> 1))
 						goto ending_eggman_fly_away_whole_line;
@@ -2082,7 +2082,7 @@ void ending_eggman_fly_away(void)
 			right_entry += 2u;
 		} while (lines_left != 0u);
 		if (circle_wipe_radius > 0xE0)
-			OBJECT(object_cursor)->ending.step = 6u;
+			OBJECT(object_cursor)->step = 6u;
 		return;
 	case 6:
 		allocate_object_outside_loop(&ignored, &object);
@@ -2097,7 +2097,7 @@ void ending_eggman_fly_away(void)
 		delete_current_object();
 		return;
 	default:
-		unknown_code(0x1DB45u + OBJECT(object_cursor)->ending.step * 3u);
+		invalid_jump(0x1DB45u + OBJECT(object_cursor)->step * 3u);
 	}
 }
 
@@ -2201,9 +2201,9 @@ void ending_mighty_run_across(void)
 
 void init_ending_runner_across(void)
 {
-	AS8(OBJECT(object_cursor)->flags) = 1u;
-	AT16(OBJECT(object_cursor)->flags, 2) = 0u;
-	AT16(OBJECT(object_cursor)->previous_floor_block, 2) = 0u;
+	OBJECT(object_cursor)->ending.started = 1u;
+	OBJECT(object_cursor)->timer = 0;
+	OBJECT(object_cursor)->ending.cycle_count = 0;
 	OBJECT(current_object)->screen_y = 0x68;
 	OBJECT(current_object)->screen_x = 0;
 	OBJECT(current_object)->sprite_palette |= 0x2000u;
@@ -2215,15 +2215,15 @@ void animate_ending_runner_across(void)
 {
 	uint32_t second_frame_record = 0;
 
-	OBJECT(object_cursor)->animate_ending.timer++;
-	OBJECT(object_cursor)->animate_ending.cycle_count++;
-	OBJECT(object_cursor)->animate_ending.timer &= 7u;
-	OBJECT(object_cursor)->animate_ending.cycle_count &= 3u;
-	second_frame_record = OBJECT(object_cursor)->y + OBJECT(object_cursor)->animate_ending.cycle_count * 2u;
-	OBJECT(current_object)->sprite_frame = mem_read16(OBJECT(object_cursor)->x + ((uint16_t)OBJECT(object_cursor)->animate_ending.timer >> 2) * 2u);
+	OBJECT(object_cursor)->timer++;
+	OBJECT(object_cursor)->cycle_count++;
+	OBJECT(object_cursor)->timer &= 7u;
+	OBJECT(object_cursor)->cycle_count &= 3u;
+	second_frame_record = OBJECT(object_cursor)->animate_ending.leg_frames + OBJECT(object_cursor)->cycle_count * 2u;
+	OBJECT(current_object)->sprite_frame = ROM16(OBJECT(object_cursor)->animate_ending.body_frames + ((uint16_t)OBJECT(object_cursor)->timer >> 2) * 2u);
 	queue_sprite_in_layer();
-	current_object = OBJECT(object_cursor)->speed_y;
-	OBJECT(current_object)->sprite_frame = mem_read16(second_frame_record);
+	current_object = OBJECT(object_cursor)->animate_ending.legs;
+	OBJECT(current_object)->sprite_frame = ROM16(second_frame_record);
 	queue_sprite_in_layer();
 	if (OBJECT(object_cursor)->screen_x >= 0x300)
 	{

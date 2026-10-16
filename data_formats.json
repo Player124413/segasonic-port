@@ -7,6 +7,8 @@
    "description": "the data of the main program: the attract mode, the controls, the interrupts, the coins and credits, the EEPROM settings and the bookkeeping, the sound requests",
    "pieces": {
     "fraction_digit_font": "fraction_font",
+    "fraction_slash_top_rows": "bit_rows",
+    "fraction_slash_bottom_rows": "bit_rows",
     "warning_screen_text": "text_list",
     "sound_commands": "sound_commands",
     "bookkeeping_defaults": "u16x8",
@@ -204,7 +206,7 @@
     "lava_rock_glow_palettes": "sprite_palette_cycles",
     "rope_plank_palette": "stage_object_records_2_from_palette",
     "ring_tally_blink_palettes": "palette_table",
-    "ring_tally_label_palettes": "palette_table"
+    "ring_tally_backdrop_palettes": "palette_table"
    }
   },
   "video/sprite_frames": {

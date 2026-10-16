@@ -3,7 +3,7 @@ Name:        cprint.py
 Description: prints IR expressions as plain C, with casts and parentheses only where the value needs them
 Version:     0.1.0
 Created:     11-10-2026
-Modified:    12-10-2026
+Modified:    15-10-2026
 Author:      Sebastian Toyos
 
 An IR value has a width; C has its integer types and promotions. Every printed value says whether it
@@ -13,6 +13,8 @@ the low bits (addition, logic, a left shift: "modular"), so a value is truncated
 a right shift, a division or a function needs it exact. Assignments do the rest: every variable has the
 type of its width. Arithmetic that could overflow an int is done in uint32_t.
 """
+import re
+
 from v60 import ir
 
 from . import cpu
@@ -25,6 +27,37 @@ PORT_NAMES = {}    # I/O port -> its name, for a processor with ports (tools/dec
 PRIMARY, UNARY, MULTIPLY, ADD, SHIFT, RELATION, EQUALITY = 16, 15, 13, 12, 11, 10, 9
 BIT_AND, BIT_XOR, BIT_OR, LOGICAL_AND, LOGICAL_OR, CONDITIONAL = 8, 7, 6, 5, 4, 3
 BITWISE = {BIT_AND, BIT_XOR, BIT_OR}
+
+
+PART = re.compile(r"A([ST])(8|16|32)\((.*?)(?:, (\d+))?\)$")
+INSIDE = set()    # the AS/AT accesses (their C) that lie inside the field or variable they are written over
+
+
+def part(bits, name, offset, whole):
+    """C of an access of 'bits' at byte 'offset' of 'name', a field or variable of 'whole' bits that has no
+    name for that part of it: AS8(x) for the first byte, AT8(x, 1) for the second. An access that reaches
+    past the end of it (the 32 bits from a halfword on, two fields copied at once) is written the same way,
+    but only the ones inside it read as a part of its value (part_read)."""
+    text = f"AS{bits}({name})" if offset == 0 else f"AT{bits}({name}, {offset})"
+    if offset * 8 + bits <= whole and bits < whole:
+        INSIDE.add(text)
+    return text
+
+
+def part_read(text):
+    """A read of a part of a wider field or variable that has no name of its own (AS8(x): its first byte,
+    AT8(x, 1): its second) as C: (uint8_t)x, (uint8_t)(x >> 8u); None for any other text, and for an access
+    that reaches past the end of the field or variable (it reads more than its value)."""
+    match = PART.match(text)
+    if match is None or text.count("(") != text.count(")") or text not in INSIDE:
+        return None
+    kind, bits, inner, offset = match.groups()
+    # the macro's argument is everything up to its last ', N)' (or ')'): it may hold calls and commas
+    inner = text[4 if bits == "8" else 5:-1]
+    if kind == "T":
+        inner, offset = inner.rsplit(", ", 1)
+        return f"(uint{bits}_t)({inner} >> {int(offset) * 8}u)"
+    return f"(uint{bits}_t){inner}"
 
 
 class Value:
@@ -159,6 +192,9 @@ class Printer:
             named = self.names.memory(node)
             if named is not None:
                 text, signed = named
+                part = part_read(text)
+                if part is not None:
+                    return Value(part, UNARY, True, ctype)
                 if signed:
                     return Value(text, PRIMARY, False, "int", node.bits)
                 return Value(text, PRIMARY, True, ctype)

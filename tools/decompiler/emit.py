@@ -4,7 +4,7 @@ Description: writes the decompiled functions as C: one C function per V60 functi
              variables, results through pointers
 Version:     0.1.0
 Created:     11-10-2026
-Modified:    14-10-2026
+Modified:    16-10-2026
 Author:      Sebastian Toyos
 
 Every function becomes "void name(parameters)", or returns the one value it hands back. Its parameters
@@ -63,7 +63,7 @@ LINKED OBJECT PLAYER RAM8 RAM16 RAM32 ROM8 ROM16 ROM32 AS8 AS16 AS32 AT8 AT16 AT
 interrupts_on interrupts_off divide_s8 divide_s16 divide_s32 divide_u8 divide_u16 divide_u32 remainder_s8
 remainder_s16 remainder_s32 remainder_u8 remainder_u16 remainder_u32 shift_by shift_signed_by rotate_by
 rotate_with_carry_by byte_swap32 mem_read8 mem_read16 mem_read32 mem_write8 mem_write16 mem_write32
-call_code unknown_code invalid_operand frame_wait take_interrupts frame_end halt move_string game_trace game_trace_block
+call_code unknown_code invalid_jump invalid_operand frame_wait take_interrupts frame_end halt move_string game_trace game_trace_block
 GAME_VARIABLES PLAYER_BLOCK WORK_RAM VIDEO_RAM SPRITE_RAM SPRITE_CONTROL PALETTE_RAM MIXER_REGISTERS SOUND_RAM IO_PORTS
 INTERRUPT_CONTROL RANDOM_GENERATOR TEXT_LAYER TEXT_CELL RAM8S RAM16S RAM32S ROM8S ROM16S ROM32S move_bytes move_halfwords move_bytes_backward
 move_halfwords_backward set_bytes set_halfwords move_bits_down move_bits_up search_bits_up divx_pair divux_pair""".split())
@@ -208,7 +208,10 @@ class Names:
         """True if 'load' reads a field or variable that holds the low half of an object's address."""
         field = self.writer.fields.get(id(load))
         if field is not None and field[0] in pointers.STRUCTS:
-            found = pointers.TARGETS.get((field[0], field[1]))
+            family = self.writer.field_family(field)
+            found = pointers.SCOPED_TARGETS.get((field[0], family, field[1])) if family is not None else None
+            if found is None:
+                found = pointers.TARGETS.get((field[0], field[1]))
         elif isinstance(load.address, ir.Const):
             found = pointers.TARGETS.get(("global", load.address.value & 0xFFFFFF))
         else:
@@ -326,7 +329,7 @@ class FunctionWriter:
                                          if name != register_name(register)},
                                         {key: name for key, name in self.chosen.items() if key[1][0] == "r"},
                                         self.really_reads, self.fresh_outputs, emitter.split_webs,
-                                        self.passes_only)
+                                        self.passes_only, self.reads_input)
         self.widths = self.vars.declarations()
         self.handled = self.handler_families()
         emitter.param_widths[function.entry] = {
@@ -346,8 +349,13 @@ class FunctionWriter:
         return self._readers.get(id(node), id(self.current))
 
     def handler_families(self):
-        """{web of a register: family} for the objects this function gives a handler of some family (a
-        spawner setting up the object it made): their fields are that family's."""
+        """{definition: family} for the objects this function gives a handler of some family (a spawner
+        setting up the object it made): their fields are that family's. An object is what one assignment
+        puts in a register (variables.py's definitions, and context_reaching's for the registers the whole
+        program shares: the new object a spawner makes current_object), so that one variable may hold a saw
+        blade and then the sparks it throws. A handler of no family says nothing (group_leader_wait after
+        group_leader_move); handlers of two families, no family."""
+        conflict = object()
         found = {}
         for block in self.function.blocks.values():
             for statement in block.statements:
@@ -357,14 +365,71 @@ class FunctionWriter:
                     continue
                 target = self.emitter.names.get(statement.value.value & 0xFFFFFF)
                 family = self.emitter.family_of(statement.value.value & 0xFFFFFF, "object") if target else None
-                definitions = self.vars.uses.get(id(hit[2]))
-                if not definitions:
+                if family is None:
                     continue
-                root = self.vars.webs.find(next(iter(definitions)))
-                if found.get(root, family) != family:
-                    family = None    # handlers of two families: no family
-                found[root] = family
-        return {root: family for root, family in found.items() if family is not None}
+                for definition in self.reaching(hit[2]):
+                    found[definition] = family if found.get(definition, family) == family else conflict
+        return {definition: family for definition, family in found.items() if family is not conflict}
+
+    def reaching(self, node):
+        """The definitions that reach register node 'node': variables.py's, or context_reaching's for a
+        register the whole program shares."""
+        if node.index in self.emitter.context:
+            return self.context_reaching().get(id(node), frozenset())
+        return self.vars.uses.get(id(node), frozenset()) if hasattr(self, "vars") else frozenset()
+
+    def context_reaching(self):
+        """{id(register node): the definitions that reach it} for the registers the whole program shares
+        (global variables in C, which variables.py leaves alone): assignments, calls that may change the
+        register, ("entry", n)."""
+        if hasattr(self, "_context_reaching"):
+            return self._context_reaching
+        context = set(self.emitter.context)
+        uses = {}
+
+        def step(statement, state, record):
+            if record:
+                for expression in ir.statement_expressions(statement):
+                    for node in ir.walk(expression):
+                        if isinstance(node, ir.Reg) and node.index in context:
+                            uses[id(node)] = state.get(node.index, frozenset())
+            if isinstance(statement, ir.SetReg) and statement.index in context:
+                state[statement.index] = frozenset([("def", id(statement))])
+            elif isinstance(statement, (ir.Call, ir.Effect)):
+                for variable in self.emitter.flow.statement_writes(statement):
+                    if variable[0] == "r" and variable[1] in context:
+                        state[variable[1]] = frozenset([("def", id(statement))])
+
+        blocks = self.function.blocks
+        start = {self.function.entry: {index: frozenset([("entry", index)]) for index in context}}
+        pending = [self.function.entry]
+        while pending:
+            label = pending.pop()
+            state = dict(start[label])
+            for statement in blocks[label].statements:
+                step(statement, state, False)
+            for successor in blocks[label].successors():
+                old = start.get(successor)
+                merged = dict(state) if old is None else \
+                    {index: old.get(index, frozenset()) | state.get(index, frozenset()) for index in context}
+                if merged != old:
+                    start[successor] = merged
+                    pending.append(successor)
+        for label, state in start.items():
+            state = dict(state)
+            for statement in blocks[label].statements + [blocks[label].end]:
+                step(statement, state, True)
+        self._context_reaching = uses
+        return uses
+
+    def field_family(self, field, statement=None):
+        """The family whose scoped fields an access through a pointer reads ('field': pointers.py's note of
+        the access): the function's own for its object or the family of the handler it gives the object
+        (family_through), else the family symbols.txt says the pointer leads to (object.eggman_scene); None
+        if none."""
+        struct, _, base, base_offset, family = field
+        found = self.family_through(base, statement) if not base_offset and struct == "object" else None
+        return found if found is not None else family
 
     def family_through(self, base, statement=None):
         """The family whose fields an access through register node 'base' (in 'statement', the one being
@@ -376,10 +441,11 @@ class FunctionWriter:
         where = id(statement) if statement is not None else self.statement_reading(base)
         if self.family is not None and base.index in self.own.get(where, frozenset()):
             return self.family
-        definitions = self.vars.uses.get(id(base)) if hasattr(self, "vars") else None
-        if not definitions or not getattr(self, "handled", None):
+        if not getattr(self, "handled", None):
             return None
-        return self.handled.get(self.vars.webs.find(next(iter(definitions))))
+        # the family of the handler given to the object every definition that reaches here puts there
+        families = {self.handled.get(definition) for definition in self.reaching(base)}
+        return families.pop() if len(families) == 1 else None
 
     # ---- registers: the variables of variables.py ----
 
@@ -434,9 +500,23 @@ class FunctionWriter:
             found = fresh if found is None else found & fresh
         return found or set()
 
+    def reads_itself(self, target, register):
+        """True if a function reads the register for what it does: for what it writes to memory or calls
+        (its data flow summary's base, what it reads with nothing live where it ends) or for the other
+        values it hands back (their passes), not only for what it hands back in the register itself
+        (allocate_object leaves R11 as it found it when no object is free)."""
+        summary = self.emitter.flow.summaries.get(self.emitter.resolve(target)[0])
+        if summary is None:
+            return True
+        reads = set(summary.base)
+        for key, found in summary.passes.items():
+            if key != ("r", register):
+                reads |= found
+        return any(variable[0] == "r" and variable[1] == register for variable in reads)
+
     def passes_only(self, statement, register):
         """True if a call hands the register back and every function it may call reads what it held only
-        to hand it back as it was: not a parameter, not an input the C starts at 0."""
+        to hand it back as it was: not for what it does (reads_itself), not an input the C starts at 0."""
         if isinstance(statement, ir.TailCall):
             targets = [statement.target]
         elif statement.slot is not None:
@@ -446,15 +526,40 @@ class FunctionWriter:
         for target in targets:
             target = self.emitter.resolve(target)[0]
             signature = self.emitter.signatures.get(target)
-            if signature is None or ("r", register) in signature.params \
+            if signature is None or (("r", register) in signature.params and self.reads_itself(target, register)) \
                     or ("r", register) in self.emitter.flow.zeroed.get(target, set()):
                 return False
         return bool(targets)
 
+    def reads_input(self, statement, register):
+        """True if what the caller's register held matters to a call that hands the register back: the
+        callee reads it for itself, or some part of it this function reads afterwards may come back as it
+        was (a callee that leaves it so on some way back, or one of the functions a computed call may go to
+        that does not touch it): the register is live before the call, by the data flow's own rules."""
+        flow = self.emitter.flow
+        if isinstance(statement, ir.TailCall):
+            # what is live after a tail call is what is live where the function ends
+            if not hasattr(self, "_ending"):
+                self._ending = {id(block.end): block for block in self.function.blocks.values()}
+            block = self._ending.get(id(statement))
+            live = self.after.get(("end", id(block))) if block is not None else None
+            if live is None:
+                return True
+            _, _, always = flow.combine([statement.target])
+            before = (set(live) - always) | flow.target_reads([statement.target], live)
+        else:
+            live = self.after.get(id(statement))
+            if live is None:
+                return True
+            _, _, always = flow.call_effect(statement)
+            before = (set(live) - always) | flow.call_reads(statement, live)
+        return any(variable[0] == "r" and variable[1] == register for variable in before)
+
     def really_reads(self, statement, register):
         """True if 'statement' reads the register for what it does: a call or tail call that takes it as a
-        parameter, the function's end (or a tail call) handing it back as the function's result, an
-        effect. A call that only hands the register back, where it may leave it as it was, does not."""
+        parameter it reads for what it does (reads_itself), the function's end (or a tail call) handing it
+        back as the function's result, an effect. A call that only hands the register back, where it may
+        leave it as it was, does not."""
         if isinstance(statement, (ir.Return, ir.InterruptReturn)) or not isinstance(statement, (ir.Call, ir.TailCall)):
             return True
         if isinstance(statement, ir.TailCall) and register in self.end_registers(ir.Return()):
@@ -469,7 +574,7 @@ class FunctionWriter:
             targets = list(statement.choices)
         for target in targets:
             signature = self.emitter.signatures.get(self.emitter.resolve(target)[0])
-            if signature is not None and ("r", register) in signature.params:
+            if signature is not None and ("r", register) in signature.params and self.reads_itself(target, register):
                 return True
         return False
 
@@ -579,13 +684,17 @@ class FunctionWriter:
         layouts = self.emitter.layouts
         found = layouts.lookup(hit[0], hit[1])
         exact = found == (hit[1], load.bits)
-        family = self.family_through(hit[2], statement) if not hit[3] and hit[0] == "object" else None
+        family = self.field_family(hit, statement)
         if family is not None:
             scoped = layouts.scoped_field(hit[0], family, hit[1])
-            if scoped is not None and scoped[2] == hit[1] and scoped[3] == load.bits:
-                return scoped[1]
-            if scoped is not None and not exact:
-                return None
+            if scoped is not None:
+                if scoped[2] == hit[1] and scoped[3] == load.bits:
+                    return scoped[1]
+                overlay = layouts.scoped_overlay(hit[0], family, hit[1], load.bits) if scoped[2] == hit[1] else None
+                if overlay is not None:
+                    return overlay[0]
+                if not exact or (hit[1] - scoped[2]) * 8 + load.bits <= scoped[3]:
+                    return None    # a part of the family's field (field_access)
         overlay = layouts.overlay(hit[0], hit[1], load.bits)
         if overlay is not None and not exact:
             return overlay[0]
@@ -717,13 +826,25 @@ class FunctionWriter:
         item = items.get(address)
         if item is not None and item.bits == bits:
             return (f"{item.name}[0]" if item.indexed else item.name), item.signed, True
+        overlay = self.emitter.memory.scoped_overlays.get(self.global_family, {}).get((address, bits))
+        if overlay is not None:
+            return overlay.name, overlay.signed, True
         for start, item in items.items():
             if start <= address and address + bits // 8 <= start + item.bits // 8 and bits < item.bits:
                 name = f"{item.name}[0]" if item.indexed else item.name
-                if address == start:
-                    return f"AS{bits}({name})", False, True
-                return f"AT{bits}({name}, {address - start})", False, True
+                return cprint.part(bits, name, address - start, item.bits), False, True
         return None
+
+    def family_splits(self, statement):
+        """True for a store through an object of a family whose own field at that place is narrower than
+        the store: the family's fields say more than a name the structure has for all those bytes (the
+        timer objects' started and step, not the flags' low half)."""
+        field = self.fields.get(id(statement))
+        if field is None or field[0] not in pointers.STRUCTS:
+            return False
+        family = self.field_family(field)
+        scoped = self.emitter.layouts.scoped_field(field[0], family, field[1]) if family is not None else None
+        return scoped is not None and scoped[2] == field[1] and scoped[3] < statement.bits
 
     def split_store(self, statement):
         """A store over several named fields or variables at once, as one assignment each, when it writes
@@ -755,9 +876,9 @@ class FunctionWriter:
         pieces = []
         field = self.fields.get(key)
         if field is not None and field[0] in pointers.STRUCTS:
-            struct, offset, base, base_offset = field
+            struct, offset, base, base_offset, kind_family = field
             layouts = self.emitter.layouts
-            family = self.family_through(base) if not base_offset and struct == "object" else None
+            family = self.field_family(field)
             position = offset
             while position < offset + size:
                 scoped = layouts.scoped_field(struct, family, position) if family else None
@@ -769,7 +890,7 @@ class FunctionWriter:
                     piece = layouts.fields.get(struct, {}).get(position)
                 if piece is None or position + piece // 8 > offset + size:
                     return None
-                text, signed = self.field_access((struct, position, base, base_offset), piece)
+                text, signed = self.field_access((struct, position, base, base_offset, kind_family), piece)
                 self.signed_pieces[text] = signed
                 pieces.append((position - offset, piece, text))
                 position += piece // 8
@@ -885,18 +1006,23 @@ class FunctionWriter:
             if read_here and not isinstance(statement, ir.Return):
                 continue
             found |= self.names_at(statement, index)
+        left = set()    # what calls that do not read the register leave in it, beside the function's own values
         for item in items:
             if item[0] != "def":
                 continue
             statement = self._statement_ids.get(item[1])
             if own_values and isinstance(statement, (ir.Call, ir.TailCall)) \
                     and not self.really_reads(statement, register):
-                # the function's own value, and what a call leaves in the same register (boulder_roll's sound
-                # number, then whatever find_floor leaves in R0): no one name for both
-                return None
+                left |= self.names_at(statement, register)
+                continue
             if item in variables.read and not own_values:
                 # what a call hands back, when the function reads it
                 found |= self.names_at(statement, register)
+        # the function's own value, and what a call leaves in the same register (boulder_roll's sound number,
+        # then whatever find_floor leaves in R0): no one name for both, unless the call calls it what the rest
+        # does (check_hit hands back the previous object of the list check_hits walks, as check_hits does)
+        if left and left != found:
+            return None
         # a call that takes it without a name for it (a value only passed on, a leftover) says nothing
         # either: the name of one call must not spread through chains of leftovers
         if None in found or len(found) != 1:
@@ -963,7 +1089,8 @@ class FunctionWriter:
     def field_access(self, field, bits):
         """(C, signed) for an access of 'bits' to a field: by the name of the family's own field when the
         function's object is accessed, or the structure's; a name that holds exactly those bytes first."""
-        struct, offset, base, base_offset = field
+        struct, offset, base, base_offset, _ = field
+        family = self.field_family(field)
         layouts = self.emitter.layouts
         if base_offset and isinstance(base, ir.Op) and base.name == "add" and isinstance(base.args[0], ir.Const):
             # a constant place in the structure plus the rest: the structure's own address plus the rest
@@ -982,23 +1109,26 @@ class FunctionWriter:
             generic = name, layouts.signed[struct][offset], True
         elif overlay is not None and field_bits != bits:
             generic = f"{pointer}->{overlay[0]}", overlay[1], True
-        elif field_offset == offset:
-            generic = f"AS{bits}({name})", False, False
         else:
-            generic = f"AT{bits}({name}, {offset - field_offset})", False, False
-        family = self.family_through(base) if not base_offset and struct == "object" else None
+            generic = cprint.part(bits, name, offset - field_offset, field_bits), False, False
         if family is not None:
             scoped = layouts.scoped_field(struct, family, offset)
             if scoped is not None:
                 view, scoped_name, scoped_offset, scoped_bits, scoped_signed = scoped
                 text = f"{pointer}->{view}.{scoped_name}"
                 if scoped_offset == offset and scoped_bits == bits:
+                    if field_offset == offset and field_bits == bits and layouts.names[struct][offset] == scoped_name \
+                            and layouts.signed[struct][offset] == scoped_signed:
+                        return generic[:2]    # the structure's own field, which the family only says more about
                     return text, scoped_signed
-                if generic[2]:
-                    return generic[:2]    # the family names other bytes of it: the structure's name fits
-                if scoped_offset == offset:
-                    return f"AS{bits}({text})", False
-                return f"AT{bits}({text}, {offset - scoped_offset})", False
+                overlay = layouts.scoped_overlay(struct, family, offset, bits) if scoped_offset == offset else None
+                if overlay is not None:
+                    return f"{pointer}->{view}.{overlay[0]}", overlay[1]
+                # bytes of the family's field: a part of it, whatever the structure calls them; an access
+                # that reaches past it is the structure's if the structure has a name for all of it
+                if generic[2] and (offset - scoped_offset) * 8 + bits > scoped_bits:
+                    return generic[:2]
+                return cprint.part(bits, text, offset - scoped_offset, scoped_bits), False
         self.note_missing(struct, offset, bits, base, base_offset, generic)
         return generic[:2]
 
@@ -1078,7 +1208,7 @@ class FunctionWriter:
             target = self.memory(statement.address, statement.bits, id(statement))
             address = memory.constant_address(statement.address)
             if target is not None and target[2] and (address is None or not memory.bus_only(address, statement.bits)):
-                if target[0].startswith("AS"):
+                if target[0].startswith("AS") or self.family_splits(statement):
                     split = self.split_store(statement)
                     if split is not None:
                         return split
@@ -1216,8 +1346,9 @@ class FunctionWriter:
         or None."""
         field = self.fields.get(key)
         if field is not None and field[0] in pointers.STRUCTS:
-            struct, offset, base, base_offset = field
+            struct, offset, base, base_offset, kind_family = field
             layouts = self.emitter.layouts
+            family = self.field_family(field)
             candidates = set()
             for start in range(offset + low, offset + low - 4, -1):
                 width = layouts.fields.get(struct, {}).get(start)
@@ -1226,14 +1357,16 @@ class FunctionWriter:
                 for (overlay_start, overlay_bits) in layouts.overlays.get(struct, {}):
                     if overlay_start == start:
                         candidates.add((start, overlay_bits))
-                family = self.family_through(base) if not base_offset and struct == "object" else None
                 if family is not None:
                     scoped = layouts.scoped_field(struct, family, start)
                     if scoped is not None:
                         candidates.add((scoped[2], scoped[3]))
+                    for (overlay_start, overlay_bits) in layouts.scoped_overlays.get(struct, {}).get(family, {}):
+                        if overlay_start == start:
+                            candidates.add((start, overlay_bits))
             for start, width in sorted(candidates, key=lambda candidate: candidate[1]):
                 if start <= offset + low and offset + high <= start + width // 8:
-                    text = self.field_lvalue((struct, start, base, base_offset), width)
+                    text = self.field_lvalue((struct, start, base, base_offset, kind_family), width)
                     if not text.startswith(("AS", "AT")):
                         return text, offset - start, width
             return None
@@ -1491,7 +1624,7 @@ class FunctionWriter:
             for choice in sorted(statement.choices, key=lambda choice: min(numbers[choice])):
                 lines += [f"case {number}:" for number in sorted(numbers[choice])]
                 lines += ["\t" + self.call_text(choice, statement.return_address), "\tbreak;"]
-            lines += ["default:", f"\t{cpu.current.unknown_code}({self.expr(statement.address)});", "}"]
+            lines += ["default:", f"\t{cpu.current.invalid_jump}({self.expr(statement.address)});", "}"]
             return lines
         offsets = offset_switch(statement.address, statement.choices)
         if offsets is not None:
@@ -1501,13 +1634,13 @@ class FunctionWriter:
             for choice in sorted(statement.choices, key=lambda choice: positions[choice]):
                 lines += [f"case 0x{positions[choice]:X}u:", "\t" + self.call_text(choice, statement.return_address),
                           "\tbreak;"]
-            lines += ["default:", f"\t{cpu.current.unknown_code}({self.expr(statement.address)});", "}"]
+            lines += ["default:", f"\t{cpu.current.invalid_jump}({self.expr(statement.address)});", "}"]
             return lines
         target = self.fresh("target")
         lines = [f"{target} = {self.expr(statement.address)};", f"switch ({target})", "{"]
         for choice in statement.choices:
             lines += [f"case 0x{choice:06X}u:", "\t" + self.call_text(choice, statement.return_address), "\tbreak;"]
-        lines += ["default:", f"\t{cpu.current.unknown_code}({target});", "}"]
+        lines += ["default:", f"\t{cpu.current.invalid_jump}({target});", "}"]
         return lines
 
     def ending(self, end):
@@ -1612,7 +1745,7 @@ class FunctionWriter:
                     for number in sorted(n for value in values for n in numbers[value]):
                         lines.append(pad + f"case {number}:")
                     lines += self.nodes(body, depth + 1)
-                lines += [pad + "default:", pad + f"\t{cpu.current.unknown_code}({self.expr(node.value)});", pad + "}"]
+                lines += [pad + "default:", pad + f"\t{cpu.current.invalid_jump}({self.expr(node.value)});", pad + "}"]
                 return lines
             offsets = offset_switch(node.value, [value for values, _ in node.cases for value in values])
             if offsets is not None:
@@ -1621,14 +1754,14 @@ class FunctionWriter:
                 for values, body in node.cases:
                     lines += [pad + f"case 0x{positions[value]:X}u:" for value in values]
                     lines += self.nodes(body, depth + 1)
-                lines += [pad + "default:", pad + f"\t{cpu.current.unknown_code}({self.expr(node.value)});", pad + "}"]
+                lines += [pad + "default:", pad + f"\t{cpu.current.invalid_jump}({self.expr(node.value)});", pad + "}"]
                 return lines
             target = self.fresh("target")
             lines = [pad + f"{target} = {self.expr(node.value)};", pad + f"switch ({target})", pad + "{"]
             for values, body in node.cases:
                 lines += [pad + f"case 0x{value:06X}u:" for value in values]
                 lines += self.nodes(body, depth + 1)
-            lines += [pad + "default:", pad + f"\t{cpu.current.unknown_code}({target});", pad + "}"]
+            lines += [pad + "default:", pad + f"\t{cpu.current.invalid_jump}({target});", pad + "}"]
             return lines
         raise EmitError(f"{self.function.name}: tree node {node!r}")
 
@@ -1883,6 +2016,10 @@ class Emitter:
                 size = pointers.STRUCTS[struct]
                 if start <= address < start + size * number and not (address - start) % size:
                     return f"{struct.upper()}_ADDRESS({(address - start) // size})", cprint.PRIMARY
+            anchor = self.memory.anchors.get(address)
+            if anchor is not None:
+                # the list's head, less the offset of the link it is reached through
+                return f"{anchor[0]}_ADDRESS - 0x{anchor[1]:X}u", cprint.ADD
             item = self.memory.variables.get(address)
             return (f"{item.name}_ADDRESS", cprint.PRIMARY) if item is not None else None
         if memory.program_rom(address):
@@ -1950,7 +2087,7 @@ class Emitter:
             for items in (self.memory.variables, self.memory.tables, self.memory.hardware, self.memory.overlays):
                 for item in items.values():
                     found |= {item.name, item.name + "_ADDRESS"}
-            for items in self.memory.scoped.values():
+            for items in list(self.memory.scoped.values()) + list(self.memory.scoped_overlays.values()):
                 for item in items.values():
                     found |= {item.name, item.name + "_ADDRESS"}
             self._globals = found

@@ -3,7 +3,7 @@
  *    Description: between the map and the screen: projecting objects, the floor under a point, unprojecting a screen point; square roots, angles and BCD
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    15-10-2026
+ *    Modified:    16-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -77,7 +77,7 @@ uint32_t set_speed_from_player_speed(void)
 	uint32_t cos_speed = 0, direction = 0, ground_speed_int = 0;
 
 	direction = (int16_t)OBJECT(current_object)->direction;
-	ground_speed_int = AT16(PLAYER(current_player)->ground_speed, 2);
+	ground_speed_int = PLAYER(current_player)->ground_speed_int;
 	OBJECT(current_object)->speed_x = (int32_t)(sine_table[direction] * ground_speed_int) >> 6;
 	cos_speed = (int32_t)(cosine_table[direction] * ground_speed_int) >> 6;
 	OBJECT(current_object)->speed_y = 0u - cos_speed;
@@ -117,16 +117,16 @@ void project_point(uint32_t z, uint32_t *p_projected_y, uint32_t *p_point_x, uin
 {
 	uint32_t point_x = *p_point_x;
 	uint32_t point_y = *p_point_y;
-	uint32_t projected_x_fixed = 0, world_y = 0;
+	uint32_t r7 = 0, r8 = 0, projected_x_fixed = 0, world_y = 0;
 
 	world_y = point_y;
 	projected_x_fixed = ((int32_t)(point_x + world_y) >> 8) * 0xB5u;
 	world_y = ((int32_t)(world_y - point_x) >> 9) * 0xB5u;
 	projected_x_fixed = (int32_t)projected_x_fixed >> 16;
-	point_to_screen((uint16_t)projected_x_fixed, z, &world_y, &point_x, &point_y);
+	point_to_screen((uint16_t)projected_x_fixed, z, &world_y, &r7, &r8);
 	*p_projected_y = world_y;
-	*p_point_x = (*p_point_x & 0xFFFF0000u) | (point_x & 0xFFFFu);
-	*p_point_y = (*p_point_y & 0xFFFF0000u) | (point_y & 0xFFFFu);
+	*p_point_x = (*p_point_x & 0xFFFF0000u) | (r7 & 0xFFFFu);
+	*p_point_y = (*p_point_y & 0xFFFF0000u) | (r8 & 0xFFFFu);
 }
 
 void point_to_screen(uint16_t projected_x, uint32_t z, uint32_t *p_projected_y, uint32_t *p_screen_x, uint32_t *p_screen_y)
@@ -287,7 +287,7 @@ void find_floor(uint32_t *p_x, uint32_t *p_y, uint32_t *p_block_offset, uint32_t
 			{
 				block_offset = mem_read16(cursor);
 				record = block + block_offset;
-				x_min = ROM32(record);
+				x_min = FLOOR_BLOCK(record)->x_min;
 				cursor += 2u;
 				record += 4u;
 				if ((int32_t)x < (int32_t)x_min)
@@ -298,13 +298,13 @@ void find_floor(uint32_t *p_x, uint32_t *p_y, uint32_t *p_block_offset, uint32_t
 						continue;
 					goto find_floor_no_block;
 				}
-				x_max = ROM32(record);
+				x_max = FLOOR_BLOCK(record - 0x4u)->x_max;
 				record += 4u;
 				if ((int32_t)x_max < (int32_t)x)
 					goto find_floor_next_block;
-				y_min = ROM32(record);
+				y_min = FLOOR_BLOCK(record - 0x8u)->y_min;
 				record += 4u;
-				if ((int32_t)y < (int32_t)y_min || (int32_t)ROM32(record) < (int32_t)y)
+				if ((int32_t)y < (int32_t)y_min || FLOOR_BLOCK(record - 0xCu)->y_max < (int32_t)y)
 					goto find_floor_next_block;
 				break;
 			}
@@ -315,16 +315,16 @@ void find_floor(uint32_t *p_x, uint32_t *p_y, uint32_t *p_block_offset, uint32_t
 			}
 			OBJECT(current_object)->floor_block = block_offset;
 			block += block_offset;
-			x = ROM8(block + 0x12u);
+			x = FLOOR_BLOCK(block)->type_index;
 			record = floor_types_ADDRESS + x * 4u;
 			OBJECT(current_object)->floor_type = ROM8(record);
 			OBJECT(current_object)->floor_attribute = ROM16(record + 2u);
 		}
-		OBJECT(current_object)->floor_z_int = ROM16(block + 0x10u);
+		OBJECT(current_object)->floor_z_int = FLOOR_BLOCK(block)->height;
 		OBJECT(current_object)->floor_z_fraction = 0u;
-		OBJECT(current_object)->floor_slope = ROM8(block + 0x13u);
+		OBJECT(current_object)->floor_slope = FLOOR_BLOCK(block)->slope;
 		slope_height = 0u;
-		if (ROM8(block + 0x13u) == 0u)
+		if (FLOOR_BLOCK(block)->slope == 0u)
 		{
 			*p_x = x;
 			*p_y = y;
@@ -333,12 +333,12 @@ void find_floor(uint32_t *p_x, uint32_t *p_y, uint32_t *p_block_offset, uint32_t
 			*p_cursor = cursor;
 			return;
 		}
-		slope_index = ROM8(block + 0x13u);
+		slope_index = FLOOR_BLOCK(block)->slope;
 		cursor = floor_slopes_ADDRESS + (uint16_t)(slope_index * 2u) * 4u;
 		if ((ROM32(cursor) & 2u) == 0u)
-			slope_height = OBJECT(current_object)->y - ROM32(block + 8u);
+			slope_height = (uint32_t)OBJECT(current_object)->y - FLOOR_BLOCK(block)->y_min;
 		else
-			slope_height = OBJECT(current_object)->x - ROM32(block);
+			slope_height = (uint32_t)OBJECT(current_object)->x - FLOOR_BLOCK(block)->x_min;
 		cursor += 2u;
 		slope_factor = ROM32(cursor);
 		carry = (slope_height >> 11) & 1u;
@@ -364,26 +364,26 @@ void find_floor(uint32_t *p_x, uint32_t *p_y, uint32_t *p_block_offset, uint32_t
 	OBJECT(current_object)->floor_block = OBJECT(object)->floor_block;
 	OBJECT(current_object)->floor_z = OBJECT(object)->z;
 	block = floor_blocks + 2u + OBJECT(current_object)->floor_block;
-	floor_type_index = mem_read8(block + 0x12u);
+	floor_type_index = FLOOR_BLOCK(block)->type_index;
 	record = floor_types_ADDRESS + floor_type_index * 4u;
 	OBJECT(current_object)->floor_type = ROM8(record);
 	OBJECT(current_object)->floor_attribute = ROM16(record + 2u);
-	OBJECT(current_object)->floor_slope = mem_read8(block + 0x13u);
+	OBJECT(current_object)->floor_slope = FLOOR_BLOCK(block)->slope;
 	slope_height = 0u;
-	if (mem_read8(block + 0x13u) == 0u)
+	if (FLOOR_BLOCK(block)->slope == 0u)
 	{
 		*p_x = floor_type_index;
 		*p_slope_height = slope_height;
 		return;
 	}
-	slope_index = mem_read8(block + 0x13u);
+	slope_index = FLOOR_BLOCK(block)->slope;
 	cursor = floor_slopes_ADDRESS + (uint16_t)(slope_index * 2u) * 4u;
 	if ((ROM32(cursor) & 2u) == 0u)
-		slope_height = OBJECT(current_object)->y - mem_read32(block + 8u);
+		slope_height = (uint32_t)OBJECT(current_object)->y - FLOOR_BLOCK(block)->y_min;
 	else
-		slope_height = OBJECT(current_object)->x - mem_read32(block);
+		slope_height = (uint32_t)OBJECT(current_object)->x - FLOOR_BLOCK(block)->x_min;
 	cursor += 2u;
-	base_z = (uint32_t)mem_read16(block + 0x10u) << 16;
+	base_z = (uint32_t)(uint16_t)FLOOR_BLOCK(block)->height << 16;
 	slope_height = ((int32_t)slope_height >> 16) * ROM32(cursor) + base_z;
 	OBJECT(current_object)->floor_z = slope_height;
 	cursor += 4u;
@@ -412,7 +412,7 @@ void get_floor_z_at_point(uint32_t x, uint32_t y, uint32_t *p_floor_z, uint32_t 
 	{
 		block_offset = mem_read16(cursor);
 		bounds = block + block_offset;
-		x_min = ROM32(bounds);
+		x_min = FLOOR_BLOCK(bounds)->x_min;
 		cursor += 2u;
 		bounds += 4u;
 		if ((int32_t)test_x < (int32_t)x_min)
@@ -422,48 +422,48 @@ void get_floor_z_at_point(uint32_t x, uint32_t y, uint32_t *p_floor_z, uint32_t 
 			if (blocks_left != 0u)
 				continue;
 			block = no_floor_block_ADDRESS;
-			floor_z = (uint32_t)ROM16(block + 0x10u) << 16;
-			if (ROM8(block + 0x13u) == 0u)
+			floor_z = (uint32_t)(uint16_t)FLOOR_BLOCK(block)->height << 16;
+			if (FLOOR_BLOCK(block)->slope == 0u)
 			{
 				*p_floor_z = floor_z;
 				*p_block = block;
 				return;
 			}
-			slope = ROM8(block + 0x13u);
+			slope = FLOOR_BLOCK(block)->slope;
 			slope_record = floor_slopes_ADDRESS + (uint16_t)(slope * 2u) * 4u;
 			if ((ROM32(slope_record) & 2u) == 0u)
-				slope_distance = y - ROM32(block + 8u);
+				slope_distance = y - FLOOR_BLOCK(block)->y_min;
 			else
-				slope_distance = x - ROM32(block);
+				slope_distance = x - FLOOR_BLOCK(block)->x_min;
 			floor_z += (slope_distance >> 16) * ROM32(slope_record + 2u);
 			*p_floor_z = floor_z;
 			*p_block = block;
 			return;
 		}
-		x_max = ROM32(bounds);
+		x_max = FLOOR_BLOCK(bounds - 0x4u)->x_max;
 		bounds += 4u;
 		if ((int32_t)x_max < (int32_t)test_x)
 			goto get_floor_z_at_point_next_block;
-		y_min = ROM32(bounds);
+		y_min = FLOOR_BLOCK(bounds - 0x8u)->y_min;
 		bounds += 4u;
-		if ((int32_t)test_y < (int32_t)y_min || (int32_t)ROM32(bounds) < (int32_t)test_y)
+		if ((int32_t)test_y < (int32_t)y_min || FLOOR_BLOCK(bounds - 0xCu)->y_max < (int32_t)test_y)
 			goto get_floor_z_at_point_next_block;
 		break;
 	}
 	block += block_offset;
-	floor_z = (uint32_t)ROM16(block + 0x10u) << 16;
-	if (ROM8(block + 0x13u) == 0u)
+	floor_z = (uint32_t)(uint16_t)FLOOR_BLOCK(block)->height << 16;
+	if (FLOOR_BLOCK(block)->slope == 0u)
 	{
 		*p_floor_z = floor_z;
 		*p_block = block;
 		return;
 	}
-	slope = ROM8(block + 0x13u);
+	slope = FLOOR_BLOCK(block)->slope;
 	slope_record = floor_slopes_ADDRESS + (uint16_t)(slope * 2u) * 4u;
 	if ((ROM32(slope_record) & 2u) == 0u)
-		slope_distance = y - ROM32(block + 8u);
+		slope_distance = y - FLOOR_BLOCK(block)->y_min;
 	else
-		slope_distance = x - ROM32(block);
+		slope_distance = x - FLOOR_BLOCK(block)->x_min;
 	floor_z += (slope_distance >> 16) * ROM32(slope_record + 2u);
 	*p_floor_z = floor_z;
 	*p_block = block;
@@ -485,18 +485,18 @@ uint32_t find_floor_block_at_point(uint32_t x, uint32_t y)
 	{
 		block_offset = mem_read16(cursor);
 		bounds = block + block_offset;
-		x_min = ROM32(bounds);
+		x_min = FLOOR_BLOCK(bounds)->x_min;
 		cursor += 2u;
 		bounds += 4u;
 		if ((int32_t)x_min <= (int32_t)test_x)
 		{
-			x_max = ROM32(bounds);
+			x_max = FLOOR_BLOCK(bounds - 0x4u)->x_max;
 			bounds += 4u;
 			if ((int32_t)test_x <= (int32_t)x_max)
 			{
-				y_min = ROM32(bounds);
+				y_min = FLOOR_BLOCK(bounds - 0x8u)->y_min;
 				bounds += 4u;
-				if ((int32_t)y_min <= (int32_t)test_y && (int32_t)test_y <= (int32_t)ROM32(bounds))
+				if ((int32_t)y_min <= (int32_t)test_y && (int32_t)test_y <= FLOOR_BLOCK(bounds - 0xCu)->y_max)
 				{
 					block += block_offset;
 					return block;

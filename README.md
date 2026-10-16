@@ -63,10 +63,14 @@ decompiled game plays the scenarios of <code>tests/controls/</code>.</sub></p>
 - [x] Names: every function, variable, table, structure field and board register has one in
       `symbols.txt`, with the evidence for it, and so do the parameters and results of the functions,
       the labels the remaining `goto`s jump to, and what each object type keeps in the object structure
-      (`OBJECT(current_object)->fire_front.path`, per family of functions); local variables have the
-      names `symbols.txt` gives them by the instructions that write them, or take the name of what they
-      hold, the field they were read from or the parameter they are passed as. The original's quirks
-      found along the way are noted next to the code they are in
+      (`OBJECT(current_object)->fire_front.path`, per family of functions, wherever the code shows which
+      type an object is: its own, one it gives a handler, one a typed link leads to); local variables have
+      the names `symbols.txt` gives them by the instructions that write them, or take the name of what they
+      hold, the field they were read from or the parameter they are passed as. Every byte of the program
+      ROM is code or named data. The records the code walks are structures: 46 in the game (floor blocks,
+      object templates, animation steps, text records in the ROM; ranking records, palette cycles, sprite
+      part lists in the work RAM) and 7 in the sound program (instruments, drum notes, songs...). The
+      original's quirks found along the way are noted next to the code they are in
 - [x] The game's source: the decompiled C is in `src/`, and the game builds from it
 - [x] Code coverage: the static analysis follows the game's object tables described in `symbols.txt`,
       so the C comes from the ROM alone, and it finds all the code the reference runs. The 98 scenarios
@@ -222,6 +226,10 @@ Other tools:
   instruction) into `build/generated/`; CMake builds it with `-DSEGASONIC_SCAFFOLD=ON`, and
   `check_scenarios.py --translated` checks it.
 - `tools/coverage.py` classifies every byte of the program ROM and lists what is still unexplained.
+- `tools/memory_census.py` runs every scenario on a build of the game made with
+  `-DSONIC_MEMORY_CENSUS=ON` and says, for each line of `src/` that reads or writes memory through an
+  address the code computes, which of the board's memories it reached (the ROM, the work RAM, video RAM,
+  the sound board's RAM...): what typing the remaining pointers starts from.
 - `tools/make_walks.py` writes the per-stage scripts.
 - `tools/reference/compare_with_mame.py` checks our disassembler against MAME's.
 - `s32ref --watch ADDRESS` prints a byte whenever it changes.
@@ -365,27 +373,42 @@ memory is in `runtime/include/game/support.h`.
   `struct object` and `struct player`, are reached with `OBJECT(address)` and `PLAYER(address)`: the game
   keeps 24-bit addresses in its variables, as the original does. Each object type's own variables are a
   view of the object (`OBJECT(current_object)->tornado.path`) where the code shows which type the object
-  is (its own object, or one it gives a handler); elsewhere (a child, the object a touch reports) those
-  bytes keep their generic names (`var_80`). What the code reads through a pointer it
-  computes goes through the board's bus: `mem_read16(p)`, `mem_write8(io_cnt, x)` (the board registers
-  are addresses), `ROM16(p)` for the program ROM. `AS8(x)` and `AT8(x, 1)` are the low byte and the second
-  byte of `x`, where the code reads a part of a variable or field.
+  is: its own object, one it gives a handler (`OBJECT(object)->saw_blade.state` after
+  `OBJECT(object)->handler = saw_blade_update_ADDRESS`), or one a link leads to that `symbols.txt` types
+  with the family (a button box's `parent` is Eggman's scene object:
+  `OBJECT(LINKED(current_object, OBJECT(current_object)->parent))->eggman_scene.phase`); elsewhere those
+  bytes keep their generic names (`var_80`). The records the code walks through pointers are structures
+  too: in the program ROM, read only, the stage's floor blocks (`FLOOR_BLOCK(block)->slope`), the object
+  templates, the animation steps, the text records; in the work RAM, the ranking records, the palette
+  cycles, the sprite part lists. A pointer into the program ROM that walks no fixed record (a script, a
+  text) reads it as `ROM16(p)`. What the code reads or writes through any other address it computes goes
+  through the board's bus: `mem_read16(p)`, `mem_write8(io_cnt, x)` (the board registers are addresses):
+  the routines that fill, copy or draw into the board's memories wherever they are told, the memory tests.
+  A part of a variable or field with no name of its own
+  reads as a cast (`(uint8_t)(OBJECT(o)->flags >> 8u)`), and `AS16(x)` and `AT8(x, 1)` (the first
+  halfword and the second byte of `x`) remain where the code writes such a part, or reads past the end of
+  `x`: two fields copied as one long, as the original does. Where the code starts walking a list from an
+  address that is no structure, the C says what that address is: `hitter_list_ADDRESS - 0x68u`, where a
+  structure would have the list's head as its link field (`hit_list_next`, at 0x68).
 - **Links.** The game links its objects by the low half of their addresses: `LINKED(current_object,
   OBJECT(current_object)->child)` is the object `child` names, in the work RAM page.
 - **Registers.** `current_object`, `object_cursor`, `current_player`... are the registers the whole program
   keeps (R20, R23, R18): global variables. Everything else a function keeps in registers is a local
-  variable or a parameter. A parameter or local still named after its register (`r1`, `p_r4`, `r0_2`)
-  holds what that register held in the original where the meaning changes with the caller: a value one
-  routine leaves in a register and another one, several calls further on, reads (`run_sega_logo` relies on
-  `init_sprites` leaving 0xFFFF in R0). The C passes those values along explicitly so that it does what the
-  original does; a register the original reads before anything sets it starts at 0.
+  variable or a parameter. What a call hands back and nothing reads goes to one variable of the function,
+  `ignored`, whatever the register: the call needs somewhere to write it (`animate(&ignored, &ignored,
+  &at_last_step)` when only the animation's last step matters). A parameter or local still named after its
+  register (`r1`, `p_r4`, `r0_2`) holds what that register held in the original where the meaning changes
+  with the caller: a value one routine leaves in a register and another one, several calls further on,
+  reads (`run_sega_logo` relies on `init_sprites` leaving 0xFFFF in R0). The C passes those values along
+  explicitly so that it does what the original does; a register the original reads before anything sets
+  it starts at 0.
 - **Results.** A function hands back one value as its return value, and more through pointers
   (`uint32_t *p_depth`); a caller's variable goes in and comes out.
 - **Control flow.** Loops, `if`, `switch` (a jump through a table of code is a `switch` on the index) and
   `return` come from the original's branches. A `goto` remains where the original jumps into code already
   written elsewhere (a state that goes on in another state's code); its label is named in `symbols.txt`.
-  `default: unknown_code(address)` is where a jump table's index would leave the table: the original
-  checks nothing and would jump into whatever follows it.
+  `default: invalid_jump(address)` is where a jump table's index would leave the table: the original
+  checks nothing and would jump into whatever follows it; the C stops there.
 - **Interrupts and the frame.** `frame_wait()` is where the game waits for the next frame and the board
   runs its events, and `take_interrupts()` where the interrupts that raised are handled; the interrupt
   handlers are ordinary functions. `halt()` (only in `int_default` and `int_vector_02`) does nothing, as in
@@ -401,8 +424,10 @@ memory is in `runtime/include/game/support.h`.
 - **The sound driver.** `src/sound/` is the Z80 program the same way. The sound chips are read and
   written through `port_in`/`port_out` by the ports' names; its variables are names over the sound RAM
   (`sound.h`), its structures are reached with `FM_VOICE(voice)->`, `SAMPLE_VOICE(voice)->`,
-  `MIDI_PART(part)->`, and what it reads through an address it computes goes through the board's bus
-  (`z80_read8`, `z80_write8`); `z80_block(cycles)` opens each
+  `MIDI_PART(part)->`, the records of its ROM with `INSTRUMENT(instrument)->`, `SONG_RECORD(song)->` and
+  the like (and `SOUND_ROM8(p)` for the rest of its data), and what it reads through any other address it
+  computes goes through the board's bus (`z80_read8`, `z80_write8`: the bank window, whose contents
+  depend on the bank register, and the RF5C68); `z80_block(cycles)` opens each
   stretch of code with the time it takes, so the chips' timers, the interrupt and the samples happen when
   they did on the board. Its unused routines are in the C too, as the game's are (the last section of
   `sound_symbols.txt`): among them a driver for a MIDI port, an 8251 USART at ports F0 and F1 that the

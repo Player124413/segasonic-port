@@ -3,7 +3,7 @@
  *    Description: the sequence players stepped at every tick (their events into the MIDI queue, the playlist commands) and the V60's sound commands (songs and sequences started on players, volume fades)
  *    Version:     0.1.0
  *    Created:     13-10-2026
- *    Modified:    15-10-2026
+ *    Modified:    16-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the Z80 sound program decompiled into C by
@@ -107,7 +107,7 @@ void playlist_command(uint16_t queue_pointer, uint16_t player, uint16_t mailbox_
 	case 0x0046B4u:
 		z80_block(57);
 		playlist = z80_read16(saved_playlist);
-		next_song = z80_read8(playlist);
+		next_song = SOUND_ROM8(playlist);
 		playlist++;
 		*p_playlist = playlist;
 		*p_playlist_byte = next_song;
@@ -131,7 +131,7 @@ void playlist_command(uint16_t queue_pointer, uint16_t player, uint16_t mailbox_
 		saved_player = player;
 		cleared_player = saved_player;
 		next_song = 0u;
-		z80_write8(cleared_player, 0u);
+		SEQUENCE_PLAYER(cleared_player)->flags = 0u;
 		move_block(cleared_player, (uint16_t)(cleared_player + 1u), 0x30u, 1u);
 		playlist = saved_playlist;
 		*p_playlist = playlist;
@@ -159,7 +159,7 @@ void playlist_command(uint16_t queue_pointer, uint16_t player, uint16_t mailbox_
 		*p_playlist_byte = next_song;
 		return;
 	default:
-		sound_unknown_code(target1);
+		sound_invalid_jump(target1);
 	}
 }
 
@@ -186,15 +186,15 @@ void step_player(uint16_t player_address, uint16_t mailbox_page)
 
 	z80_block(64);
 	cursor = (player_address & ~0xFFu) | 6u;
-	delta_time_low = AS8(SEQUENCE_PLAYER(cursor - 0x6u)->delta_time);
+	delta_time_low = SEQUENCE_PLAYER(cursor - 0x6u)->delta_time_low;
 	cursor = (cursor & ~0xFFu) | (uint8_t)(cursor + 1u);
-	delta_time_high = AT8(SEQUENCE_PLAYER(cursor - 0x7u)->delta_time, 1);
+	delta_time_high = SEQUENCE_PLAYER(cursor - 0x7u)->delta_time_high;
 	t1 = (((uint32_t)delta_time_high << 8) | delta_time_low) - 1u;
 	delta_time_high = (uint8_t)((uint16_t)((((uint32_t)delta_time_high << 8) | delta_time_low) - 1u) >> 8);
 	delta_time_low = (uint8_t)t1;
-	AT8(SEQUENCE_PLAYER(cursor - 0x7u)->delta_time, 1) = delta_time_high;
+	SEQUENCE_PLAYER(cursor - 0x7u)->delta_time_high = delta_time_high;
 	cursor--;
-	z80_write8(cursor, delta_time_low);
+	SEQUENCE_PLAYER(cursor - 0x6u)->delta_time_low = delta_time_low;
 	if ((delta_time_high | delta_time_low) != 0u)
 	{
 		z80_cycles(6);
@@ -454,7 +454,7 @@ void step_player(uint16_t player_address, uint16_t mailbox_page)
 		}
 		z80_block(62);
 		cursor = SEQUENCE_PLAYER(player)->playlist;
-		event_byte = z80_read8(cursor);
+		event_byte = SOUND_ROM8(cursor);
 		cursor = next_sequence_byte(cursor, player);
 		z80_block(17);
 		if (event_byte >= 0xF0u)
@@ -507,10 +507,10 @@ set_delta_time:
 		z80_block(17);
 		cursor = next_sequence_byte(cursor, player);
 		z80_block(19);
-		AT8(SEQUENCE_PLAYER(player)->delta_time, 1) = new_delta_high;
+		SEQUENCE_PLAYER(player)->delta_time_high = new_delta_high;
 	}
 	z80_block(134);
-	AS8(SEQUENCE_PLAYER(player)->delta_time) = event_byte;
+	SEQUENCE_PLAYER(player)->delta_time_low = event_byte;
 	SEQUENCE_PLAYER(player)->position = cursor;
 	midi_queue_write = write_index;
 	port_out(ROM_BANK_HIGH, rom_bank_high);
@@ -552,7 +552,7 @@ void poll_sound_command(void)
 	address = sound_groups_ADDRESS;
 	address = read_table_word(address, byte);
 	z80_block(16);
-	if (z80_read8(address) < command_number)
+	if (SOUND_LIST(address)->last_number < command_number)
 	{
 		z80_cycles(6);
 		return;
@@ -566,7 +566,7 @@ void poll_sound_command(void)
 	exchanged_player = header;
 	header = address;
 	address = exchanged_player;
-	byte = z80_read8(header);
+	byte = SOUND_HEADER(header)->flags;
 	if (byte >> 7 != 0u)
 	{
 		z80_block(18);
@@ -578,8 +578,8 @@ void poll_sound_command(void)
 			address = (uint32_t)(uint8_t)((address >> 8) + 1u) << 8;
 			select_channel_player(&header, &address);
 			z80_block(46);
-			byte = z80_read8(header) & 0xFu;
-			if (byte < (z80_read8(address) & 0xFu))
+			byte = SOUND_HEADER(header)->flags & 0xFu;
+			if (byte < (SEQUENCE_PLAYER(address)->flags & 0xFu))
 			{
 				z80_block(10);
 				return;
@@ -590,11 +590,11 @@ void poll_sound_command(void)
 			header++;
 			SEQUENCE_PLAYER(address)->flags = byte;
 			address = (address & ~0xFFu) | 2u;
-			AS8(SEQUENCE_PLAYER(address - 0x2u)->position) = (uint8_t)header;
+			SEQUENCE_PLAYER(address - 0x2u)->position_low = (uint8_t)header;
 			address = (address & ~0xFFu) | (uint8_t)(address + 1u);
-			AT8(SEQUENCE_PLAYER(address - 0x3u)->position, 1) = header >> 8;
+			SEQUENCE_PLAYER(address - 0x3u)->position_high = header >> 8;
 			address = (address & ~0xFFu) | 6u;
-			AS8(SEQUENCE_PLAYER(address - 0x6u)->delta_time) = 1u;
+			SEQUENCE_PLAYER(address - 0x6u)->delta_time_low = 1u;
 			address &= ~0xFFu;
 			SEQUENCE_PLAYER(address)->flags |= 0x80u;
 			return;
@@ -603,7 +603,7 @@ void poll_sound_command(void)
 		z80_block(54);
 		address = (uint32_t)(uint8_t)((address >> 8) + 1u) << 8;
 		address = (uint32_t)(uint8_t)((address >> 8) + 1u) << 8;
-		byte = z80_read8(header) & 0xFu;
+		byte = SOUND_HEADER(header)->flags & 0xFu;
 		if (byte < (SEQUENCE_PLAYER(address)->flags & 0xFu))
 		{
 			z80_block(10);
@@ -616,11 +616,11 @@ void poll_sound_command(void)
 		z80_block(80);
 		header++;
 		address = (address & ~0xFFu) | 2u;
-		AS8(SEQUENCE_PLAYER(address - 0x2u)->position) = (uint8_t)header;
+		SEQUENCE_PLAYER(address - 0x2u)->position_low = (uint8_t)header;
 		address = (address & ~0xFFu) | (uint8_t)(address + 1u);
-		AT8(SEQUENCE_PLAYER(address - 0x3u)->position, 1) = header >> 8;
+		SEQUENCE_PLAYER(address - 0x3u)->position_high = header >> 8;
 		address = (address & ~0xFFu) | 6u;
-		AS8(SEQUENCE_PLAYER(address - 0x6u)->delta_time) = 1u;
+		SEQUENCE_PLAYER(address - 0x6u)->delta_time_low = 1u;
 		address &= ~0xFFu;
 		SEQUENCE_PLAYER(address)->flags |= 0x80u;
 		return;
@@ -631,11 +631,11 @@ void poll_sound_command(void)
 		z80_block(80);
 		header++;
 		address = (address & ~0xFFu) | 2u;
-		AS8(SEQUENCE_PLAYER(address - 0x2u)->position) = (uint8_t)header;
+		SEQUENCE_PLAYER(address - 0x2u)->position_low = (uint8_t)header;
 		address = (address & ~0xFFu) | (uint8_t)(address + 1u);
-		AT8(SEQUENCE_PLAYER(address - 0x3u)->position, 1) = header >> 8;
+		SEQUENCE_PLAYER(address - 0x3u)->position_high = header >> 8;
 		address = (address & ~0xFFu) | 6u;
-		AS8(SEQUENCE_PLAYER(address - 0x6u)->delta_time) = 1u;
+		SEQUENCE_PLAYER(address - 0x6u)->delta_time_low = 1u;
 		address &= ~0xFFu;
 		SEQUENCE_PLAYER(address)->flags |= 0x80u;
 		return;
@@ -651,13 +651,13 @@ void poll_sound_command(void)
 	address = clear_player(address);
 	z80_block(82);
 	header++;
-	byte = z80_read8(header);
+	byte = SOUND_HEADER(header - 0x1u)->first_song;
 	SEQUENCE_PLAYER(address)->flags |= 0x20u;
 	header++;
 	address = (address & ~0xFFu) | 0x20u;
-	AS8(SEQUENCE_PLAYER(address - 0x20u)->playlist) = (uint8_t)header;
+	SEQUENCE_PLAYER(address - 0x20u)->playlist_low = (uint8_t)header;
 	address++;
-	AT8(SEQUENCE_PLAYER(address - 0x21u)->playlist, 1) = header >> 8;
+	SEQUENCE_PLAYER(address - 0x21u)->playlist_high = header >> 8;
 	header = address & ~0xFFu;
 	start_song(header, byte);
 }
@@ -685,15 +685,15 @@ void start_sequence(uint16_t header, uint16_t player)
 	z80_block(127);
 	header++;
 	player_field = (player & ~0xFFu) | 0x1Bu;
-	bank = z80_read8(header);
+	bank = SONG_RECORD(header - 0x1u)->bank;
 	header++;
 	SEQUENCE_PLAYER(player_field - 0x1Bu)->bank = bank;
 	player_field = (player_field & ~0xFFu) | 2u;
-	AS8(SEQUENCE_PLAYER(player_field - 0x2u)->position) = z80_read8(header);
+	SEQUENCE_PLAYER(player_field - 0x2u)->position_low = SONG_RECORD(header - 0x2u)->sequence_low;
 	player_field = (player_field & ~0xFFu) | (uint8_t)(player_field + 1u);
-	AT8(SEQUENCE_PLAYER(player_field - 0x3u)->position, 1) = z80_read8((uint16_t)(header + 1u));
+	SEQUENCE_PLAYER(player_field - 0x3u)->position_high = SONG_RECORD(header - 0x2u)->sequence_high;
 	player_field = (player_field & ~0xFFu) | 6u;
-	AS8(SEQUENCE_PLAYER(player_field - 0x6u)->delta_time) = 1u;
+	SEQUENCE_PLAYER(player_field - 0x6u)->delta_time_low = 1u;
 	player_field &= ~0xFFu;
 	SEQUENCE_PLAYER(player_field)->flags |= 0x80u;
 }
@@ -742,7 +742,7 @@ void select_channel_player(uint16_t *p_header, uint16_t *p_player)
 
 	z80_block(55);
 	header++;
-	player_page = (z80_read8(header) & 0xFu) - 0xAu + (player >> 8);
+	player_page = (SOUND_ROM8(header) & 0xFu) - 0xAu + (player >> 8);
 	header--;
 	player = (uint32_t)player_page << 8;
 	*p_header = header;

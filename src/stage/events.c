@@ -3,7 +3,7 @@
  *    Description: the scripted game modes run_game_mode jumps into and what they spawn: platforms, rocks, lightning, message boxes, the escape alarm and countdown
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    15-10-2026
+ *    Modified:    16-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -14,7 +14,7 @@
 void escape_alarm_flash(void)
 {
 	uint8_t sound_id = 0;
-	uint32_t write_index = 0, write_index_address = 0;
+	uint32_t ignored = 0;
 
 	if (escape_seconds == 0u)
 	{
@@ -48,7 +48,7 @@ void escape_alarm_flash(void)
 		{
 			OBJECT(current_object)->escape_alarm_flash.counting_up = 0u;
 			sound_id = 0x19u;
-			play_sound(sound_id, &write_index, &write_index_address);
+			play_sound(sound_id, &ignored, &ignored);
 		}
 	}
 	else
@@ -59,7 +59,7 @@ void escape_alarm_flash(void)
 		{
 			OBJECT(current_object)->escape_alarm_flash.counting_up = 1u;
 			sound_id = 0x19u;
-			play_sound(sound_id, &write_index, &write_index_address);
+			play_sound(sound_id, &ignored, &ignored);
 		}
 	}
 }
@@ -68,7 +68,7 @@ void event_0f_start(void)
 {
 	scene_timer = 0;
 	scroll_mode = 0u;
-	AS8(scroll_speed) = 3u;
+	scroll_speed_low = 3;
 	scene_step++;
 }
 
@@ -116,7 +116,7 @@ void event_0f_show_messages(uint32_t screen_x, uint32_t *p_frames, uint32_t *p_b
 		return;
 	}
 	scroll_mode = 0u;
-	AS8(scroll_speed) = 5u;
+	scroll_speed_low = 5;
 	game_mode = 3u;
 	*p_frames = (*p_frames & 0xFFFF0000u) | frames;
 	*p_box = box;
@@ -164,7 +164,7 @@ void spawn_falling_rocks(uint32_t object)
 
 void falling_rock_bounce(void)
 {
-	uint32_t r1 = 0, r7 = 0, r8 = 0, block_offset = 0, bounce_speed = 0, cursor = 0, depth = 0, ignored = 0, off_screen = 0, x = 0;
+	uint32_t bounce_speed = 0, ignored = 0, off_screen = 0;
 
 	if ((OBJECT(current_object)->flags & 0x400u) == 0u)
 	{
@@ -172,7 +172,7 @@ void falling_rock_bounce(void)
 		OBJECT(current_object)->y += OBJECT(current_object)->speed_y;
 		OBJECT(current_object)->speed_z += 0x6000u;
 		OBJECT(current_object)->z += OBJECT(current_object)->speed_z;
-		find_floor(&x, &r1, &block_offset, &ignored, &cursor);
+		find_floor(&ignored, &ignored, &ignored, &ignored, &ignored);
 		if (OBJECT(current_object)->floor_z_int <= OBJECT(current_object)->z_int)
 		{
 			OBJECT(current_object)->z = OBJECT(current_object)->floor_z;
@@ -182,13 +182,13 @@ void falling_rock_bounce(void)
 			else
 				OBJECT(current_object)->flags |= 0x400u;
 		}
-		animate(&r1, &r7, &r8);
+		animate(&ignored, &ignored, &ignored);
 	}
-	project_object(&ignored, &depth);
+	project_object(&ignored, &ignored);
 	off_screen = check_left_screen();
 	if (off_screen == 0u)
 	{
-		depth = queue_sprite(depth);
+		ignored = queue_sprite(ignored);
 		return;
 	}
 	delete_current_object();
@@ -213,7 +213,7 @@ void event_0c_start(uint32_t *p_block_offset, uint32_t *p_slope_height, uint32_t
 uint32_t event_0c_first_quake(uint32_t write_index_address)
 {
 	uint8_t sound_id = 0;
-	uint32_t write_index = 0;
+	uint32_t ignored = 0;
 	uint16_t time_left = 0;
 
 	if (scene_timer <= 0x1E)
@@ -222,7 +222,7 @@ uint32_t event_0c_first_quake(uint32_t write_index_address)
 	{
 		camera_shake_active = 1u;
 		sound_id = 0xFu;
-		play_sound(sound_id, &write_index, &write_index_address);
+		play_sound(sound_id, &ignored, &write_index_address);
 	}
 	time_left = scene_timer;
 	scene_timer = time_left - 1u;
@@ -241,16 +241,16 @@ void event_0c_second_quake(uint32_t second_sprite, uint32_t *p_part_size, uint32
 	uint32_t z = *p_z;
 	uint32_t wall = *p_wall;
 	uint8_t sound_id = 0;
-	uint32_t r1 = 0;
+	uint32_t ignored = 0;
 	uint16_t time_left = 0;
 
 	if ((uint16_t)scene_timer == 0x3Cu)
 	{
 		camera_shake_active = 1u;
 		sound_id = 0xFu;
-		play_sound(sound_id, &r1, &part_size);
+		play_sound(sound_id, &ignored, &part_size);
 	}
-	spawn_walls(&r1, &part_size, &second_sprite, &point_y, &z, &wall);
+	spawn_walls(&ignored, &part_size, &ignored, &point_y, &z, &wall);
 	time_left = scene_timer;
 	scene_timer = time_left - 1u;
 	if ((int16_t)time_left > 1)
@@ -264,7 +264,7 @@ void event_0c_second_quake(uint32_t second_sprite, uint32_t *p_part_size, uint32
 	scene_step++;
 	scene_timer = 0xA;
 	sound_id = 0xAu;
-	play_sound(sound_id, &r1, &part_size);
+	play_sound(sound_id, &ignored, &part_size);
 	*p_part_size = part_size;
 	*p_point_y = point_y;
 	*p_z = z;
@@ -292,7 +292,7 @@ void update_stage_05_event(uint32_t r2, uint32_t r3, uint32_t r11, uint32_t *p_r
 	uint32_t r10 = *p_r10;
 	uint8_t sound_id = 0, spawned = 0;
 	uint16_t kind = 0, screen_x = 0, screen_y = 0;
-	uint32_t r1 = 0, r2_2 = 0, r5 = 0, r10_2 = 0, frames = 0, free_count = 0, object = 0, piece_record = 0, rocks_left = 0;
+	uint32_t r2_2 = 0, r10_2 = 0, frames = 0, free_count = 0, ignored = 0, object = 0, piece_record = 0, rocks_left = 0;
 
 	spawned = (uint8_t)(scene_step * 3u);
 	switch (scene_step)
@@ -302,14 +302,14 @@ void update_stage_05_event(uint32_t r2, uint32_t r3, uint32_t r11, uint32_t *p_r
 		scene_timer = 0;
 		unused_stage_05_event_long = 0u;
 		scene_step++;
-		update_player_summary(&r3, &count, &r10, &r11);
-		update_scroll(&r2, &r3, &r4, &r5, &count, &r9, &r10, &r11);
-		update_stage_tile_layers(&r1, &r2, &r3, &r4, &r5, &count, &r9, &r10, &r11);
-		check_hits(&r1, &r2, &r3, &r4, &r5, &count, &r11);
-		check_walls(r1);
-		check_platforms(&r1, &r2, &r3, &r4, &r5, &count, &r9, &r10_2, &r11);
+		update_player_summary(&r3, &count, &ignored, &r11);
+		update_scroll(&r2, &r3, &r4, &ignored, &count, &r9, &ignored, &r11);
+		update_stage_tile_layers(&ignored, &r2, &ignored, &r4, &ignored, &count, &r9, &ignored, &r11);
+		check_hits(&ignored, &r2, &ignored, &r4, &ignored, &count, &ignored);
+		check_walls(ignored);
+		check_platforms(&ignored, &ignored, &ignored, &r4, &ignored, &count, &r9, &r10_2, &ignored);
 		goal_unlocked = 0xFFu;
-		check_stage_clear(&count, &r10_2, &r11);
+		check_stage_clear(&count, &r10_2, &ignored);
 		if (game_mode != 0x17u)
 		{
 			*p_r4 = r4;
@@ -328,14 +328,14 @@ void update_stage_05_event(uint32_t r2, uint32_t r3, uint32_t r11, uint32_t *p_r
 		*p_r10 = r10_2;
 		return;
 	case 1:
-		update_player_summary(&r3, &count, &r10, &r11);
-		update_scroll(&r2, &r3, &r4, &r5, &count, &r9, &r10, &r11);
-		update_stage_tile_layers(&r1, &r2, &r3, &r4, &r5, &count, &r9, &r10, &r11);
-		check_hits(&r1, &r2, &r3, &r4, &r5, &count, &r11);
-		check_walls(r1);
-		check_platforms(&r1, &r2, &r3, &r4, &r5, &count, &r9, &r10_2, &r11);
+		update_player_summary(&r3, &count, &ignored, &r11);
+		update_scroll(&r2, &r3, &r4, &ignored, &count, &r9, &ignored, &r11);
+		update_stage_tile_layers(&ignored, &r2, &ignored, &r4, &ignored, &count, &r9, &ignored, &r11);
+		check_hits(&ignored, &r2, &ignored, &r4, &ignored, &count, &ignored);
+		check_walls(ignored);
+		check_platforms(&ignored, &ignored, &ignored, &r4, &ignored, &count, &r9, &r10_2, &ignored);
 		goal_unlocked = 0xFFu;
-		check_stage_clear(&count, &r10_2, &r11);
+		check_stage_clear(&count, &r10_2, &ignored);
 		if (game_mode != 0x17u)
 		{
 			*p_r4 = r4;
@@ -364,12 +364,12 @@ void update_stage_05_event(uint32_t r2, uint32_t r3, uint32_t r11, uint32_t *p_r
 					OBJECT(r11)->handler = stage_00_platform_start_ADDRESS;
 			}
 			if (stage_05_switch_step < 0)
-				load_stage_map_pointers(&r1, &r10);
+				load_stage_map_pointers(&ignored, &ignored);
 		}
-		find_nearby_floor_blocks(&r1, &r3, &r4, &r5, &count, &r10, &r11);
-		check_hits(&r1, &r2, &r3, &r4, &r5, &count, &r11);
-		check_walls(r1);
-		check_platforms(&r1, &r2, &r3, &r4, &r5, &count, &r9, &r10_2, &r11);
+		find_nearby_floor_blocks(&ignored, &ignored, &r4, &ignored, &count, &ignored, &ignored);
+		check_hits(&ignored, &r2, &ignored, &r4, &ignored, &count, &ignored);
+		check_walls(ignored);
+		check_platforms(&ignored, &ignored, &ignored, &r4, &ignored, &count, &r9, &r10_2, &ignored);
 		scene_timer++;
 		if (scene_timer < 0xB4)
 		{
@@ -413,15 +413,15 @@ void update_stage_05_event(uint32_t r2, uint32_t r3, uint32_t r11, uint32_t *p_r
 		camera_shake_length = 0x200u;
 		camera_shake_wave = 0x200u;
 		r2_2 = update_camera_with_shake();
-		update_scroll(&r2_2, &r3, &r4, &r5, &count, &r9, &r10, &r11);
-		update_stage_tile_layers(&r1, &r2_2, &r3, &r4, &r5, &count, &r9, &r10, &r11);
-		check_hits(&r1, &r2_2, &r3, &r4, &r5, &count, &r11);
-		check_walls(r1);
-		check_platforms(&r1, &r2_2, &r3, &r4, &r5, &count, &r9, &r10_2, &r11);
+		update_scroll(&r2_2, &r3, &r4, &ignored, &count, &r9, &ignored, &r11);
+		update_stage_tile_layers(&ignored, &r2_2, &ignored, &r4, &ignored, &count, &r9, &ignored, &r11);
+		check_hits(&ignored, &r2_2, &ignored, &r4, &ignored, &count, &ignored);
+		check_walls(ignored);
+		check_platforms(&ignored, &ignored, &ignored, &r4, &ignored, &count, &r9, &r10_2, &ignored);
 		if ((uint16_t)scene_timer == 1u || (uint16_t)scene_timer == 0x3Bu)
 		{
 			sound_id = 0xFu;
-			play_sound(sound_id, &r1, &r2_2);
+			play_sound(sound_id, &ignored, &ignored);
 		}
 		scene_timer++;
 		if (scene_timer < 0x3C)
@@ -458,7 +458,7 @@ void update_stage_05_event(uint32_t r2, uint32_t r3, uint32_t r11, uint32_t *p_r
 			{
 				scene_timer = 0;
 				sound_id = 6u;
-				play_sound(sound_id, &r1, &r2);
+				play_sound(sound_id, &ignored, &ignored);
 				scene_step++;
 				*p_count = rocks_left;
 				*p_r10 = object;
@@ -491,7 +491,7 @@ void update_stage_05_event(uint32_t r2, uint32_t r3, uint32_t r11, uint32_t *p_r
 		} while (rocks_left != 0u);
 		scene_timer = 0;
 		sound_id = 6u;
-		play_sound(sound_id, &r1, &r2);
+		play_sound(sound_id, &ignored, &ignored);
 		scene_step++;
 		*p_count = rocks_left;
 		*p_r10 = object;
@@ -503,12 +503,12 @@ void update_stage_05_event(uint32_t r2, uint32_t r3, uint32_t r11, uint32_t *p_r
 		if ((uint16_t)scene_timer == 5u)
 		{
 			sound_id = 6u;
-			play_sound(sound_id, &r1, &r2);
+			play_sound(sound_id, &ignored, &ignored);
 		}
 		else if ((uint16_t)scene_timer == 0x30u)
 		{
 			sound_id = 6u;
-			play_sound(sound_id, &r1, &r2);
+			play_sound(sound_id, &ignored, &ignored);
 			if (scene_timer < 0x186)
 			{
 				*p_r4 = r4;
@@ -546,30 +546,30 @@ void update_stage_05_event(uint32_t r2, uint32_t r3, uint32_t r11, uint32_t *p_r
 		*p_r10 = r10;
 		return;
 	default:
-		unknown_code(0x9493Cu + scene_step * 3u);
+		invalid_jump(0x9493Cu + scene_step * 3u);
 	}
 }
 
 void stage_05_event_show_message_11(uint32_t part_size, uint32_t box)
 {
 	uint16_t kind = 0, screen_y = 0;
-	uint32_t frames = 0, ignored = 0, sag = 0, z = 0;
+	uint32_t frames = 0, ignored = 0;
 
 	kind = 0x11u;
 	frames = 0x78u;
 	screen_y = 0x40u;
-	stage_05_event_show_message(part_size, screen_y, kind, box, &sag, &frames, &z, &ignored);
+	stage_05_event_show_message(part_size, screen_y, kind, box, &ignored, &frames, &ignored, &ignored);
 }
 
 void stage_05_event_show_message_12(uint32_t part_size, uint32_t box)
 {
 	uint16_t kind = 0, screen_y = 0;
-	uint32_t frames = 0, ignored = 0, sag = 0, z = 0;
+	uint32_t frames = 0, ignored = 0;
 
 	kind = 0x12u;
 	frames = 0x1Eu;
 	screen_y = 0x40u;
-	stage_05_event_show_message(part_size, screen_y, kind, box, &sag, &frames, &z, &ignored);
+	stage_05_event_show_message(part_size, screen_y, kind, box, &ignored, &frames, &ignored, &ignored);
 }
 
 void stage_05_event_show_message(uint32_t part_size, uint16_t screen_y, uint16_t kind, uint32_t box, uint32_t *p_sag, uint32_t *p_frames, uint32_t *p_z, uint32_t *p_platform)
@@ -579,12 +579,12 @@ void stage_05_event_show_message(uint32_t part_size, uint16_t screen_y, uint16_t
 	uint32_t z = *p_z;
 	uint8_t sound_id = 0;
 	uint16_t screen_x = 0;
-	uint32_t platform = 0, write_index = 0;
+	uint32_t ignored = 0, platform = 0;
 
 	screen_x = 0xA0u;
 	box = spawn_message_box(screen_x, screen_y, kind, (uint16_t)frames, box);
 	sound_id = 0x70u;
-	play_sound(sound_id, &write_index, &part_size);
+	play_sound(sound_id, &ignored, &part_size);
 	stage_05_event_step_3_frame(part_size, box, &sag, &frames, &z, &platform);
 	*p_sag = (*p_sag & 0xFFFF0000u) | (sag & 0xFFFFu);
 	*p_frames = frames;
@@ -597,12 +597,12 @@ void stage_05_event_step_3_frame(uint32_t part_size, uint32_t wall, uint32_t *p_
 	uint32_t sag = *p_sag;
 	uint32_t point_y = *p_point_y;
 	uint32_t z = *p_z;
-	uint32_t r1 = 0, r3 = 0, r5 = 0, platform = 0;
+	uint32_t ignored = 0, platform = 0;
 
-	spawn_walls(&r1, &part_size, &r5, &point_y, &z, &wall);
-	check_hits(&r1, &part_size, &r3, &sag, &r5, &point_y, &wall);
-	check_walls(r1);
-	check_platforms(&r1, &part_size, &r3, &sag, &r5, &point_y, &z, &platform, &wall);
+	spawn_walls(&ignored, &part_size, &ignored, &point_y, &z, &wall);
+	check_hits(&ignored, &part_size, &ignored, &sag, &ignored, &point_y, &ignored);
+	check_walls(ignored);
+	check_platforms(&ignored, &ignored, &ignored, &sag, &ignored, &point_y, &z, &platform, &ignored);
 	scene_timer++;
 	if (scene_timer < 0xA0)
 	{
@@ -645,11 +645,11 @@ void stage_00_platform_start(void)
 void stage_00_platform_stand(void)
 {
 	uint16_t screen_y = 0;
-	uint32_t r1 = 0, bucket = 0;
+	uint32_t bucket = 0, ignored = 0;
 
 	if ((int8_t)(game_mode - 0xAu) < 0 || (int8_t)scene_step < 5)
 	{
-		update_screen_position(&bucket, &r1);
+		update_screen_position(&bucket, &ignored);
 		screen_y = (uint16_t)OBJECT(current_object)->screen_y;
 		bucket = depth_to_bucket(bucket, screen_y);
 		bucket = (uint16_t)(bucket + 0x3Cu);
@@ -677,10 +677,10 @@ void stage_00_platform_stand(void)
 void stage_00_platform_break(void)
 {
 	uint16_t screen_y = 0;
-	uint32_t r1 = 0, r7 = 0, r8 = 0, bucket = 0;
+	uint32_t bucket = 0, ignored = 0;
 
-	animate(&r1, &r7, &r8);
-	update_screen_position(&bucket, &r1);
+	animate(&ignored, &ignored, &ignored);
+	update_screen_position(&bucket, &ignored);
 	if (OBJECT(current_object)->screen_y < 0x130)
 	{
 		screen_y = (uint16_t)OBJECT(current_object)->screen_y;
@@ -694,7 +694,7 @@ void stage_00_platform_break(void)
 
 void stage_00_geyser_rise(void)
 {
-	uint32_t r1 = 0, r7 = 0, r8 = 0, cursor = 0, free_count = 0, ignored = 0, object = 0, object_2 = 0;
+	uint32_t cursor = 0, free_count = 0, ignored = 0, object = 0, object_2 = 0;
 	uint16_t speed_y_fraction = 0, speed_z_int = 0, speed_x_int = 0;
 	uint32_t flags = 0;
 
@@ -727,9 +727,9 @@ void stage_00_geyser_rise(void)
 	if ((int16_t)speed_y_fraction <= 1)
 	{
 		cursor = OBJECT(current_object)->floor_z;
-		OBJECT(current_object)->speed_y_fraction = mem_read16(cursor);
+		OBJECT(current_object)->speed_y_fraction = GEYSER_RISE_STEP(cursor)->frames;
 		cursor += 2u;
-		OBJECT(current_object)->speed_z = (uint32_t)mem_read16(cursor) << 12;
+		OBJECT(current_object)->speed_z = (uint32_t)GEYSER_RISE_STEP(cursor - 0x2u)->rise_speed << 12;
 		OBJECT(current_object)->floor_z = cursor + 2u;
 	}
 	OBJECT(current_object)->z -= OBJECT(current_object)->speed_z;
@@ -750,11 +750,11 @@ void stage_00_geyser_rise(void)
 			}
 		}
 	}
-	update_screen_position(&ignored, &r1);
+	update_screen_position(&ignored, &ignored);
 	if (OBJECT(current_object)->screen_y < 0x130)
 	{
-		animate(&r1, &r7, &r8);
-		r1 = queue_sprite(r1);
+		animate(&ignored, &ignored, &ignored);
+		ignored = queue_sprite(ignored);
 		return;
 	}
 	delete_current_object();
@@ -779,15 +779,15 @@ void stage_00_geyser_column_start(void)
 
 void stage_00_geyser_column_rise(void)
 {
-	uint32_t r1 = 0, ignored = 0, object = 0;
+	uint32_t ignored = 0, object = 0;
 
 	object = LINKED(current_object, OBJECT(current_object)->parent);
 	OBJECT(current_object)->z -= OBJECT(object)->speed_z;
 	OBJECT(current_object)->sprite_frame = stage_00_geyser_column_sprites[OBJECT(object)->animation_frame];
-	update_screen_position(&ignored, &r1);
+	update_screen_position(&ignored, &ignored);
 	if (OBJECT(current_object)->screen_y < 0x130)
 	{
-		r1 = queue_sprite(r1);
+		ignored = queue_sprite(ignored);
 		return;
 	}
 	delete_current_object();
@@ -796,7 +796,7 @@ void stage_00_geyser_column_rise(void)
 void rock_debris_fly(void)
 {
 	uint8_t bucket = 0;
-	uint32_t r7 = 0, r8 = 0, frame = 0;
+	uint32_t ignored = 0;
 
 	OBJECT(current_object)->projected_x += OBJECT(current_object)->speed_x_fraction;
 	OBJECT(current_object)->screen_x = (int16_t)OBJECT(current_object)->projected_x >> 4;
@@ -809,7 +809,7 @@ void rock_debris_fly(void)
 	}
 	if ((OBJECT(current_object)->sprite_flags & ~0xFFFu) != 0u)
 	{
-		animate(&frame, &r7, &r8);
+		animate(&ignored, &ignored, &ignored);
 		bucket = 1u;
 		queue_sprite_in_bucket(bucket);
 		return;
@@ -817,7 +817,7 @@ void rock_debris_fly(void)
 	OBJECT(current_object)->sprite_scale += 0x30u;
 	if ((int16_t)OBJECT(current_object)->sprite_scale < 0x600)
 	{
-		animate(&frame, &r7, &r8);
+		animate(&ignored, &ignored, &ignored);
 		bucket = 1u;
 		queue_sprite_in_bucket(bucket);
 		return;
@@ -828,9 +828,9 @@ void rock_debris_fly(void)
 void event_1c_follow(void)
 {
 	follow_base_speed = 5u;
-	AS8(scroll_mode) = 7u;
+	scroll_mode_low = 7u;
 	if (no_player_in_play != 0u)
-		AS8(scroll_mode) = 1u;
+		scroll_mode_low = 1u;
 	if (scroll_position >= 0x7E9Fu)
 	{
 		scene_step++;
@@ -844,7 +844,7 @@ void event_1c_stop(void)
 	uint16_t time_left = 0;
 
 	follow_base_speed = 0u;
-	AS8(scroll_mode) = 1u;
+	scroll_mode_low = 1u;
 	time_left = scene_timer;
 	scene_timer = time_left - 1u;
 	if ((int16_t)time_left <= 1)
@@ -856,8 +856,8 @@ void event_1c_stop(void)
 
 void event_1c_scroll(void)
 {
-	AS8(scroll_mode) = 0u;
-	AS8(scroll_speed) = 0xFu;
+	scroll_mode_low = 0u;
+	scroll_speed_low = 0xF;
 }
 
 void update_ending(uint32_t r2, uint32_t r3, uint32_t object, uint32_t *p_r4, uint32_t *p_r8, uint32_t *p_r9, uint32_t *p_platform)
@@ -865,25 +865,25 @@ void update_ending(uint32_t r2, uint32_t r3, uint32_t object, uint32_t *p_r4, ui
 	uint32_t r4 = *p_r4;
 	uint32_t r8 = *p_r8;
 	uint32_t r9 = *p_r9;
-	uint32_t r1 = 0, r5 = 0, ignored = 0, platform = 0;
+	uint32_t ignored = 0, platform = 0;
 
 	if (scene_step == 0u)
 		scene_step = 0xFFu;
 	next_stage_slot_request = 0u;
 	joining_closed = 0xFFu;
 	build_ending_scene(&r2, &r3, &r4, &r8, &r9, &object);
-	find_nearby_floor_blocks(&r1, &r3, &r4, &r5, &r8, &platform, &object);
+	find_nearby_floor_blocks(&ignored, &r3, &r4, &ignored, &r8, &ignored, &object);
 	r4 = update_restart_point(r4);
-	spawn_objects_by_type(&r1, &r2, &r3, &r4, &r5, &r8, &object);
-	spawn_ring_rows(&r1, &r2, &r3, &object);
-	spawn_walls(&r1, &r2, &r5, &r8, &r9, &object);
-	spawn_object_groups_2(&r1, &r8, &object);
-	spawn_object_groups(&r1, &r2, &r3, &r8, &object);
-	spawn_objects_by_handler(&r1, &ignored, &object);
-	r1 = check_zones(r1);
-	check_hits(&r1, &r2, &r3, &r4, &r5, &r8, &object);
-	check_walls(r1);
-	check_platforms(&r1, &r2, &r3, &r4, &r5, &r8, &r9, &platform, &object);
+	spawn_objects_by_type(&ignored, &r2, &r3, &r4, &ignored, &r8, &object);
+	spawn_ring_rows(&ignored, &r2, &ignored, &object);
+	spawn_walls(&ignored, &r2, &ignored, &r8, &r9, &object);
+	spawn_object_groups_2(&ignored, &r8, &object);
+	spawn_object_groups(&ignored, &r2, &ignored, &r8, &object);
+	spawn_objects_by_handler(&ignored, &ignored, &object);
+	ignored = check_zones(ignored);
+	check_hits(&ignored, &r2, &ignored, &r4, &ignored, &r8, &ignored);
+	check_walls(ignored);
+	check_platforms(&ignored, &ignored, &ignored, &r4, &ignored, &r8, &r9, &platform, &ignored);
 	if ((player_status[0] | player_2_status | player_3_status | player_status_spare) != 0u)
 	{
 		*p_r4 = r4;
@@ -905,7 +905,7 @@ void spawn_stage_06_lightning(uint32_t *p_record, uint32_t *p_bolt)
 {
 	uint32_t bolt = *p_bolt;
 	uint8_t sound_id = 0;
-	uint32_t free_count = 0, record = 0, write_index = 0, write_index_address = 0;
+	uint32_t free_count = 0, ignored = 0, record = 0;
 	uint16_t strike_time = 0;
 	uint32_t init_flags = 0;
 
@@ -943,24 +943,24 @@ void spawn_stage_06_lightning(uint32_t *p_record, uint32_t *p_bolt)
 	record += 4u;
 	stage_06_lightning_cursor = record;
 	sound_id = 0xBu;
-	play_sound(sound_id, &write_index, &write_index_address);
+	play_sound(sound_id, &ignored, &ignored);
 	*p_record = record;
 	*p_bolt = bolt;
 }
 
 void stage_06_lightning_animate(void)
 {
-	uint32_t r1 = 0, r7 = 0, at_last_step = 0;
+	uint32_t at_last_step = 0, ignored = 0;
 
 	if (current_game_mode != 0x10u)
 	{
 		delete_current_object();
 		return;
 	}
-	animate(&r1, &r7, &at_last_step);
+	animate(&ignored, &ignored, &at_last_step);
 	if ((uint8_t)at_last_step == 0u)
 	{
-		r1 = queue_sprite(r1);
+		ignored = queue_sprite(ignored);
 		return;
 	}
 	delete_current_object();

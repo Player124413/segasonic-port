@@ -7,7 +7,7 @@ Description: the level data as text: floor blocks and their screen bounds, floor
              chase scripts and paths, walls, pieces that fly off, the readers' own tables)
 Version:     0.1.0
 Created:     14-10-2026
-Modified:    14-10-2026
+Modified:    16-10-2026
 Author:      Sebastian Toyos
 
 Every format here writes one record a line: a keyword, sometimes a label (the record's index or position,
@@ -427,15 +427,16 @@ def type_spawns_from_text(text):
 _FLOOR_BLOCK = _Layout(22, ("x_min", 0, "i", "fixed"), ("x_max", 4, "i", "fixed"), ("y_min", 8, "i", "fixed"),
                        ("y_max", 12, "i", "fixed"), ("height", 16, "H"), ("type", 18, "B", "hex"),
                        ("slope", 19, "B", "hex"), ("fall_priorities", 20, "B", "hex"),
-                       ("ledge_side", 21, "B", "hex"))
+                       ("travel_direction", 21, "B", "hex"))
 
 _FLOOR_BLOCK_FIELDS = [
     "A block is a box of the map in ground coordinates: x_min..x_max, y_min..y_max (16.16, inclusive), its",
     "floor at 'height' (z: larger is lower; 2048 = no floor, and find_floor does not keep 2047 or more as",
     "the previous floor), 'type' an index into floor_types (the floor's behaviour and attribute), 'slope'",
     "an index into floor_slopes (00 = flat), fall_priorities an index into fall_sprite_priorities (the",
-    "sprite priority by side while a player falls off it) and ledge_side a side (0-3) the teetering and",
-    "falling code takes when the player is past none of the block's sides.",
+    "sprite priority by side while a player falls off it) and travel_direction the way the course runs over",
+    "the block (0/4 -y, 1 +x, 2 +y, 3 -x): embers and pacers move along it, the scroll drifts by it, and the",
+    "teetering and falling code takes its opposite as the side when the player is past none of the block's sides.",
 ]
 
 
