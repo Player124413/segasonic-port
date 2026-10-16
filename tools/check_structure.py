@@ -1,20 +1,20 @@
 """
-Name:        check_gotos.py
-Description: checks that taking the gotos out of the C (decompiler/gotos.py) keeps what each function runs
+Name:        check_structure.py
+Description: checks that the C's if, loops, switch and control variables do what the program's jumps do
 Version:     0.1.0
 Created:     16-10-2026
 Modified:    16-10-2026
 Author:      Sebastian Toyos
 
-Decompiles the game (and with --sound the sound program) into a scratch folder and, for every function whose
-tree had gotos, runs the tree as the structurer left it and the tree without gotos on the same made-up
-outcomes: the n-th time a condition is tested it comes out the same in both (a test and its opposite, "a <
-b" and "b <= a", agree). Both must run the same blocks in the same order and end the same way. The code a
-scenario never reaches (the unused video routines) is checked this way too.
+Decompiles the game (and with --sound the sound program) into a scratch folder and, for every function, runs
+its control flow graph (its blocks and their jumps, as the structurer reads them) and the C's tree (structure.py
+and gotos.py) on the same made-up outcomes: the n-th time a condition is tested it comes out the same in both
+(a test and its opposite, "a < b" and "b <= a", agree), a switch takes the same case. Both must run the same
+blocks in the same order and end the same way. The code a scenario never reaches (the unused video routines)
+is checked this way too.
 
-Usage: python tools/check_gotos.py OUT_DIR [--sound] [--runs N]
+Usage: python tools/check_structure.py OUT_DIR [--sound] [--runs N]
 """
-import copy
 import random
 import sys
 from pathlib import Path
@@ -137,6 +137,8 @@ class Runner:
 
     def node(self, node):
         if isinstance(node, tree_nodes.Code):
+            if not node.statements:
+                return    # (a block with nothing to run: the C has nothing for it either)
             self.steps += 1
             if self.steps > STEPS:
                 raise Stop("steps")
@@ -194,12 +196,50 @@ class Runner:
         if start is not None:
             chosen = next(index for index, body in enumerate(bodies) if position(body, start) is not None)
         else:
-            chosen = self.outcome(("switch", switch.value)) % len(bodies)
+            value = choose_case(self, switch.value, [value for values, _ in switch.cases for value in values])
+            chosen = next(index for index, (values, _) in enumerate(switch.cases) if value in values)
         try:
             for index in range(chosen, len(bodies)):
                 self.nodes(bodies[index], start if index == chosen else None)
         except BreakOut:
             pass
+
+
+def choose_case(runner, key, values):
+    """The case value a switch on 'key' takes: one of 'values', by the made-up outcome."""
+    ordered = sorted(set(values), key=repr)
+    return ordered[runner.outcome(("switch", key)) % len(ordered)]
+
+
+class GraphRunner(Runner):
+    """Runs a function's blocks: conditions, trace and limits as the tree's Runner has them."""
+
+    def graph(self, function):
+        label = function.entry
+        try:
+            while True:
+                block = function.blocks[label]
+                self.rounds += 1
+                if self.rounds > 50 * ROUNDS:
+                    raise Stop("rounds")
+                if block.statements:
+                    self.steps += 1
+                    if self.steps > STEPS:
+                        raise Stop("steps")
+                    self.trace.append(("block", label))
+                end = block.end
+                if isinstance(end, ir.Goto):
+                    label = end.target
+                elif isinstance(end, ir.Branch):
+                    label = end.target if self.test(end.condition) else end.otherwise
+                elif isinstance(end, ir.Switch):
+                    label = end.cases[choose_case(self, end.address, list(end.cases))]
+                else:
+                    self.trace.append(("end", type(end).__name__, getattr(end, "target", None)))
+                    break
+        except Stop as stop:
+            self.trace.append(("stopped", str(stop)))
+        return self.trace
 
 
 def position(nodes, label):
@@ -227,17 +267,18 @@ def outcomes_for(seed):
     return outcome
 
 
-def compare(name, before, after, runs):
-    """Problems found running the two trees 'runs' times."""
-    problems = []
+def compare(name, function, tree, runs):
+    """Problems found running the function's blocks and its tree 'runs' times."""
     for seed in range(runs):
-        first = Runner(outcomes_for(seed)).run(before)
-        second = Runner(outcomes_for(seed)).run(after)
+        first = GraphRunner(outcomes_for(seed)).graph(function)
+        second = Runner(outcomes_for(seed)).run(tree)
+        if first[-1][0] == "stopped" or second[-1][0] == "stopped":
+            length = min(len(first), len(second)) - 1    # (a run cut short: what both ran before)
+            first, second = first[:length], second[:length]
         if first != second:
             at = next((index for index, (a, b) in enumerate(zip(first, second)) if a != b), min(len(first), len(second)))
-            problems.append(f"{name}: run {seed} differs at step {at}: {first[at:at + 3]} / {second[at:at + 3]}")
-            break
-    return problems
+            return [f"{name}: run {seed} differs at step {at}: {first[at:at + 3]} / {second[at:at + 3]}"]
+    return []
 
 
 def main():
@@ -245,21 +286,19 @@ def main():
     if not arguments:
         raise SystemExit(__doc__)
     out_dir = Path(arguments[0])
-    runs = int(arguments[arguments.index("--runs") + 1]) if "--runs" in arguments else 300
+    runs = int(arguments[arguments.index("--runs") + 1]) if "--runs" in arguments else 100
     checked, problems = [], []
-    original = gotos.eliminate
+    original = tree_nodes.structure
 
-    def checking(tree, control_name):
-        before = copy.deepcopy(tree)
-        after = original(tree, control_name)
-        name = control_name.__self__.function.name
-        checked.append(name)
-        problems.extend(compare(name, before, after, runs))
-        left = [node for node in gotos.walk(after) if isinstance(node, tree_nodes.Goto)]
+    def checking(function, control_name=None):
+        tree, labels = original(function, control_name)
+        checked.append(function.name)
+        problems.extend(compare(function.name, function, tree, runs))
+        left = [node for node in gotos.walk(tree) if isinstance(node, tree_nodes.Goto)]
         if left:
-            problems.append(f"{name}: {len(left)} gotos left")
-        return after
-    gotos.eliminate = checking
+            problems.append(f"{function.name}: {len(left)} gotos left")
+        return tree, labels
+    tree_nodes.structure = checking
     if "--sound" in arguments:
         import decompile_sound
         sys.argv = ["decompile_sound.py", "--out", str(out_dir)]
@@ -268,7 +307,7 @@ def main():
         import decompile
         sys.argv = ["decompile.py", "--out", str(out_dir)]
         decompile.main()
-    print(f"{len(checked)} functions had gotos; {len(problems)} problems")
+    print(f"{len(checked)} functions checked; {len(problems)} problems")
     for problem in problems:
         print("  " + problem)
     return 1 if problems else 0

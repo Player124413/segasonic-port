@@ -11,6 +11,9 @@
  */
 #include "game.h"
 
+/* State 0x19 (game mode 0x0D), by scene_step: at each new step 0, 1 or 3 the player is lifted 0xA0 +
+   0x20 * kind and falls hurt (state 0xD, substate 2); at step 2 it is thrown (speed_z -0xE0000, speed_y
+   0x80000) with a cry. Between steps it stands on its floor, or stays hurt. */
 void player_state_scene_thrown(uint32_t depth, uint32_t cursor)
 {
 	uint8_t sound_id = 0;
@@ -108,6 +111,10 @@ void player_state_scene_thrown(uint32_t depth, uint32_t cursor)
 	}
 }
 
+/* State 0x31 (stage 8): runs as previous_state while it has a floor; off the edge it falls, pulled
+   toward scene_object, to z 0x9D0 and lands hurt. Step 4 sets burning_boulder_released and stands until
+   seesaw_launched throws it up off the screen; it flies to its player_carriers object and at z 0x530 is
+   trapped (state 0x32). */
 void player_state_carried_off(uint32_t depth, uint32_t cursor)
 {
 	uint8_t sound_id = 0, sound_number = 0;
@@ -302,6 +309,10 @@ void player_state_carried_off(uint32_t depth, uint32_t cursor)
 	}
 }
 
+/* State 0x32: two trap objects (trap_flash_start, trap_start) and sound 0x21, the trapped animation,
+   then a sign (kind 0x14) and the struggle: trackball speed above 0x100 fills escape_progress (else it
+   drains), struggle frames by it; at 4 the player jumps out, bounces once and stands (state 0). Tumbling
+   (state 0x20) leaves at once. */
 void player_state_trapped(uint32_t depth, uint32_t cursor)
 {
 	uint8_t sound_id = 0;
@@ -478,6 +489,7 @@ void player_state_trapped(uint32_t depth, uint32_t cursor)
 	}
 }
 
+/* Projects the trap's flash, then trap_flash_update. */
 void trap_flash_start(void)
 {
 	uint32_t ignored = 0;
@@ -486,6 +498,8 @@ void trap_flash_start(void)
 	OBJECT(current_object)->handler = trap_flash_update_ADDRESS;
 }
 
+/* The trap's flash: counts animation_speed down from 8 as a timer, drawn two frames out of four, then
+   removed. */
 void trap_flash_update(void)
 {
 	uint32_t ignored = 0;
@@ -504,6 +518,7 @@ void trap_flash_update(void)
 	ignored = queue_sprite(ignored);
 }
 
+/* Projects the trap, then trap_update. */
 void trap_start(void)
 {
 	uint32_t ignored = 0;
@@ -512,6 +527,7 @@ void trap_start(void)
 	OBJECT(current_object)->handler = trap_update_ADDRESS;
 }
 
+/* The trap: sprite 0xB500 once its player's substate is 3 or more (broken free); removed off screen. */
 void trap_update(void)
 {
 	uint32_t ignored = 0, off_screen = 0;
@@ -528,6 +544,9 @@ void trap_update(void)
 	ignored = queue_sprite(ignored);
 }
 
+/* State 0x35 (game mode 0x1C): the player hangs from its ride object (ridden_object; its platform plank
+   instead when it started at x 0xA60-0xAE0), 0x20 lower and 0x10 along x, in the character's hanging
+   frame; once that plank's flags bit 0 is set (the bridge has stopped) it starts climbing (start_climb). */
 void player_state_riding(void)
 {
 	uint16_t character_frame = 0;
@@ -597,6 +616,8 @@ void player_state_riding(void)
 	ignored = queue_sprite(ignored);
 }
 
+/* State 0x2B: once ending_finished is set the player gets 0xC8 rings and one more stages_reached, leaves
+   the game (in_game 0) and goes to the continue countdown (state 0x23, 9 seconds). */
 void player_state_final_stage(void)
 {
 	if (ending_finished != 0u)
@@ -611,6 +632,8 @@ void player_state_final_stage(void)
 	}
 }
 
+/* State 0x29: tripped, the player hops (speed_z -0x80000) flailing with a cry, still touching zones and
+   players; when the hop starts falling it goes hurt (state 0xD, substate 2) with the hurt animation. */
 void player_state_tripped(uint32_t cursor)
 {
 	uint8_t sound_id = 0;
@@ -694,6 +717,9 @@ void player_state_tripped(uint32_t cursor)
 	ignored = queue_sprite_at_floor();
 }
 
+/* State 0x28: caught in a swirl, the player circles chaser_object (turning toward it by swirl_turn_rate)
+   while rising ever faster (speed up to 0xA00, speed_z + 0x280 a frame), flailing, with a cry; above the
+   screen (-0x40) it loses 8 health: player_respawn, or dying (state 0x16). */
 void player_state_swept_away(void)
 {
 	uint8_t sound_id = 0;
@@ -771,6 +797,10 @@ void player_state_swept_away(void)
 	ignored = queue_sprite(ignored);
 }
 
+/* State 0x27: climbs hand over hand along the touched object (begin, push, move by substate) until x_int
+   reaches climb_remaining, then stands. With handle_rod_drop_players set and x_int 0x450 or less it lets
+   go and falls (state 6; a cry at 8 health or less). Sorted by the object's parent's spawn_arg_1_low and
+   object_climb_steps. */
 void player_state_climbing_object(uint32_t cursor)
 {
 	uint8_t sound_id = 0;
@@ -896,6 +926,9 @@ void player_state_climbing_object(uint32_t cursor)
 	queue_sprite_at_depth(&ignored, &depth);
 }
 
+/* Starts a climb along the touched object: at its x and y, z 0x78, no speed, object_climb_steps 1,
+   screen_x its projected x, and the character's climb animation (Ray: object_climb_animation_ray with
+   climb_hand -1, the others climb_hand 0). */
 void player_object_climb_begin(void)
 {
 	uint32_t animation = 0, object = 0;
@@ -933,6 +966,9 @@ void player_object_climb_begin(void)
 	OBJECT(current_object)->sprite_frame = ROM16(OBJECT(current_object)->animation + 2u);
 }
 
+/* Climbing: the trackball's speed (set_climb_speed_from_trackball) aimed between 0x380 and 0x17F adds to
+   step_accumulator; at 0x400 a step (substate 2, object_climb_steps + 1, spawn_climb_hand, sound 0x64,
+   0x6B or 0x51 by character) if the next hold is on screen, else the push is lost. */
 void player_object_climb_push(uint32_t cursor)
 {
 	uint8_t sound_id = 0;
@@ -966,6 +1002,9 @@ void player_object_climb_push(uint32_t cursor)
 	}
 }
 
+/* When a climb step's animation ends: back to substate 1, climb_hand flips (Ray alternates
+   object_climb_animation_ray and object_climb_animation_ray_2) and the player moves one hold on:
+   screen_x + 0x12, projected_y - 9, x and y from unproject_point. */
 void player_object_climb_move(void)
 {
 	uint32_t negative = 0;
@@ -1019,6 +1058,9 @@ void player_object_climb_move(void)
 	OBJECT(current_object)->y = world_y;
 }
 
+/* Leaves a hand on the climbed object at the player's projected position and z (sprite 0x8300 for Sonic
+   or 0x8258 with climb_hand 0, 0x82C8 below 0, 0x82C0 above), in the player's palette and offsets;
+   handler climb_hand_update. hand is only scratch. */
 void spawn_climb_hand(uint32_t hand)
 {
 	uint16_t sprite_frame = 0;
@@ -1063,6 +1105,8 @@ void spawn_climb_hand(uint32_t hand)
 	OBJECT(hand)->handler = climb_hand_update_ADDRESS;
 }
 
+/* A hand left on the climbed object: drawn just over its player (the player's draw_depth + 5) until the
+   player leaves state 0x27 or its step animation starts step 4; then removed. */
 void climb_hand_update(void)
 {
 	uint32_t depth = 0, ignored = 0, object = 0;
@@ -1081,6 +1125,10 @@ void climb_hand_update(void)
 	delete_current_object();
 }
 
+/* State 0x26: pulled after scene_object (an eighth of the way a frame in x and z) until scene_object's
+   direction is 0x1D0 or less, thrown along +x (speed_x 0xA0000) to the floor, carried with the scroll
+   (player_move_with_scroll, flailing) past x 0xCD0 and back to x 0x630, then it skids (state 0xC) with a
+   cry. */
 void player_state_pulled(uint32_t cursor)
 {
 	uint8_t sound_id = 0;
@@ -1247,6 +1295,10 @@ void player_state_pulled(uint32_t cursor)
 	}
 }
 
+/* State 0x25, by sequence_step: from scene_step 2 the player drops hurt from above with a cry, hops,
+   rides the scroll to y 0x4F2, sinks 0x20 into the floor and drifts on to y 0x9B0, floats to y 0xA1C and
+   is caught: shaking free (step 12) within state_timer (0x258) jumps it out to land walking, else it
+   falls (step 14). */
 void player_state_floor_8_sequence(uint32_t cursor)
 {
 	uint8_t drift_byte = 0, sound_id = 0;
@@ -1657,6 +1709,10 @@ void player_state_floor_8_sequence(uint32_t cursor)
 	}
 }
 
+/* State 0x25 step 12, caught: the trackball's speed >> 4 adds to escape_progress_low, which drops to 0
+   when the ball stops or rolls between 0x280 and 0x380; escape frames by it (idle animation at 0). At
+   0x400 the player jumps out (step 13, speed_z -0x80000, speed_y 0x20000); when state_timer runs out,
+   step 14. */
 void player_floor_8_sequence_struggle(void)
 {
 	uint16_t input_dy = 0;
@@ -1741,9 +1797,12 @@ void player_floor_8_sequence_struggle(void)
 	ignored = queue_sprite_at_floor();
 }
 
+/* States 0x25 and 0x26: the player steers as usual (player_steer) on its floor and is carried by the
+   scroll (compute_scroll_drift of its floor block; in 0x26 towards 0x300 once drift_turned_back, nudged
+   0xA along x when the drift stops); drawn with the drift animations (drift_anim_step: turning to +x or
+   -x and back). */
 void player_move_with_scroll(uint32_t *p_depth, uint32_t *p_cursor)
 {
-	uint32_t cursor = *p_cursor;
 	uint8_t drift_byte = 0;
 	uint16_t heading_16 = 0, nudge_x = 0;
 	uint32_t r0 = 0, r1 = 0, animation = 0, at_last_step = 0, block = 0, depth = 0, drift_angle = 0, drift_dx = 0, drift_speed = 0, ignored = 0;
@@ -1752,10 +1811,10 @@ void player_move_with_scroll(uint32_t *p_depth, uint32_t *p_cursor)
 		PLAYER(current_player)->hit_stop--;
 	if (PLAYER(current_player)->control_lock != 0u)
 		PLAYER(current_player)->control_lock--;
-	push_player_out_of_wall(&ignored, &ignored, &cursor);
+	push_player_out_of_wall(&ignored, &ignored, p_cursor);
 	PLAYER(current_player)->state = PLAYER(current_player)->previous_state;
 	PLAYER(current_player)->push_xy = 0u;
-	find_floor(&ignored, &ignored, &ignored, &ignored, &cursor);
+	find_floor(&ignored, &ignored, &ignored, &ignored, p_cursor);
 	OBJECT(current_object)->z = OBJECT(current_object)->floor_z;
 	if (PLAYER(current_player)->state == 0x25u && PLAYER(current_player)->sequence_step == 0xAu)
 		OBJECT(current_object)->z_int += 0x20u;
@@ -1802,7 +1861,6 @@ void player_move_with_scroll(uint32_t *p_depth, uint32_t *p_cursor)
 	if (PLAYER(current_player)->state == 0x16u || OBJECT(current_object)->handler == player_respawn_ADDRESS)
 	{
 		*p_depth = r1;
-		*p_cursor = cursor;
 		return;
 	}
 	add_player_to_lists();
@@ -1812,14 +1870,12 @@ void player_move_with_scroll(uint32_t *p_depth, uint32_t *p_cursor)
 		{
 			r1 = queue_sprite(r1);
 			*p_depth = r1;
-			*p_cursor = cursor;
 			return;
 		}
 		depth = (r1 & ~0xFFFFu) | (uint16_t)OBJECT(current_object)->screen_y;
 		depth = (depth & ~0xFFFFu) | (uint16_t)(depth - 0x20u);
 		queue_sprite_at_depth(&ignored, &depth);
 		*p_depth = depth;
-		*p_cursor = cursor;
 		return;
 	}
 	switch (PLAYER(current_player)->drift_anim_step)
@@ -1843,14 +1899,12 @@ void player_move_with_scroll(uint32_t *p_depth, uint32_t *p_cursor)
 			{
 				r1 = queue_sprite(r1);
 				*p_depth = r1;
-				*p_cursor = cursor;
 				return;
 			}
 			depth = (r1 & ~0xFFFFu) | (uint16_t)OBJECT(current_object)->screen_y;
 			depth = (depth & ~0xFFFFu) | (uint16_t)(depth - 0x20u);
 			queue_sprite_at_depth(&ignored, &depth);
 			*p_depth = depth;
-			*p_cursor = cursor;
 			return;
 		}
 		heading_16 = (uint16_t)((uint32_t)OBJECT(current_object)->direction << 6);
@@ -1869,14 +1923,12 @@ void player_move_with_scroll(uint32_t *p_depth, uint32_t *p_cursor)
 				{
 					r1 = queue_sprite(r1);
 					*p_depth = r1;
-					*p_cursor = cursor;
 					return;
 				}
 				depth = (r1 & ~0xFFFFu) | (uint16_t)OBJECT(current_object)->screen_y;
 				depth = (depth & ~0xFFFFu) | (uint16_t)(depth - 0x20u);
 				queue_sprite_at_depth(&ignored, &depth);
 				*p_depth = depth;
-				*p_cursor = cursor;
 				return;
 			}
 			PLAYER(current_player)->drift_anim_step++;
@@ -1884,14 +1936,12 @@ void player_move_with_scroll(uint32_t *p_depth, uint32_t *p_cursor)
 			{
 				r1 = queue_sprite(r1);
 				*p_depth = r1;
-				*p_cursor = cursor;
 				return;
 			}
 			depth = (r1 & ~0xFFFFu) | (uint16_t)OBJECT(current_object)->screen_y;
 			depth = (depth & ~0xFFFFu) | (uint16_t)(depth - 0x20u);
 			queue_sprite_at_depth(&ignored, &depth);
 			*p_depth = depth;
-			*p_cursor = cursor;
 			return;
 		}
 		r1 = (r1 & ~0xFFFFu) | (uint16_t)(r1 - 0x1000u);
@@ -1911,14 +1961,12 @@ void player_move_with_scroll(uint32_t *p_depth, uint32_t *p_cursor)
 			{
 				r1 = queue_sprite(r1);
 				*p_depth = r1;
-				*p_cursor = cursor;
 				return;
 			}
 			depth = (r1 & ~0xFFFFu) | (uint16_t)OBJECT(current_object)->screen_y;
 			depth = (depth & ~0xFFFFu) | (uint16_t)(depth - 0x20u);
 			queue_sprite_at_depth(&ignored, &depth);
 			*p_depth = depth;
-			*p_cursor = cursor;
 			return;
 		}
 		PLAYER(current_player)->drift_anim_step = 2u;
@@ -1933,14 +1981,12 @@ void player_move_with_scroll(uint32_t *p_depth, uint32_t *p_cursor)
 		{
 			r1 = queue_sprite(r1);
 			*p_depth = r1;
-			*p_cursor = cursor;
 			return;
 		}
 		depth = (r1 & ~0xFFFFu) | (uint16_t)OBJECT(current_object)->screen_y;
 		depth = (depth & ~0xFFFFu) | (uint16_t)(depth - 0x20u);
 		queue_sprite_at_depth(&ignored, &depth);
 		*p_depth = depth;
-		*p_cursor = cursor;
 		return;
 	case 2:
 	case 4:
@@ -1951,14 +1997,12 @@ void player_move_with_scroll(uint32_t *p_depth, uint32_t *p_cursor)
 		{
 			r1 = queue_sprite(r1);
 			*p_depth = r1;
-			*p_cursor = cursor;
 			return;
 		}
 		depth = (r1 & ~0xFFFFu) | (uint16_t)OBJECT(current_object)->screen_y;
 		depth = (depth & ~0xFFFFu) | (uint16_t)(depth - 0x20u);
 		queue_sprite_at_depth(&ignored, &depth);
 		*p_depth = depth;
-		*p_cursor = cursor;
 		return;
 	case 3:
 		if (OBJECT(current_object)->speed_int > 0x80 && (uint16_t)(((uint32_t)OBJECT(current_object)->direction << 6) - 0x1000u) < 0x6040u)
@@ -1970,14 +2014,12 @@ void player_move_with_scroll(uint32_t *p_depth, uint32_t *p_cursor)
 			{
 				r1 = queue_sprite(r1);
 				*p_depth = r1;
-				*p_cursor = cursor;
 				return;
 			}
 			depth = (r1 & ~0xFFFFu) | (uint16_t)OBJECT(current_object)->screen_y;
 			depth = (depth & ~0xFFFFu) | (uint16_t)(depth - 0x20u);
 			queue_sprite_at_depth(&ignored, &depth);
 			*p_depth = depth;
-			*p_cursor = cursor;
 			return;
 		}
 		PLAYER(current_player)->drift_anim_step = 6u;
@@ -1992,14 +2034,12 @@ void player_move_with_scroll(uint32_t *p_depth, uint32_t *p_cursor)
 			{
 				r1 = queue_sprite(r1);
 				*p_depth = r1;
-				*p_cursor = cursor;
 				return;
 			}
 			depth = (r1 & ~0xFFFFu) | (uint16_t)OBJECT(current_object)->screen_y;
 			depth = (depth & ~0xFFFFu) | (uint16_t)(depth - 0x20u);
 			queue_sprite_at_depth(&ignored, &depth);
 			*p_depth = depth;
-			*p_cursor = cursor;
 			return;
 		}
 		OBJECT(current_object)->animation_timer = 0;
@@ -2008,14 +2048,12 @@ void player_move_with_scroll(uint32_t *p_depth, uint32_t *p_cursor)
 		{
 			r1 = queue_sprite(r1);
 			*p_depth = r1;
-			*p_cursor = cursor;
 			return;
 		}
 		depth = (r1 & ~0xFFFFu) | (uint16_t)OBJECT(current_object)->screen_y;
 		depth = (depth & ~0xFFFFu) | (uint16_t)(depth - 0x20u);
 		queue_sprite_at_depth(&ignored, &depth);
 		*p_depth = depth;
-		*p_cursor = cursor;
 		return;
 	case 5:
 		if (OBJECT(current_object)->speed_int > 0x80 && (uint16_t)(((uint32_t)OBJECT(current_object)->direction << 6) + 0x7000u) < 0x6040u)
@@ -2027,14 +2065,12 @@ void player_move_with_scroll(uint32_t *p_depth, uint32_t *p_cursor)
 			{
 				r1 = queue_sprite(r1);
 				*p_depth = r1;
-				*p_cursor = cursor;
 				return;
 			}
 			depth = (r1 & ~0xFFFFu) | (uint16_t)OBJECT(current_object)->screen_y;
 			depth = (depth & ~0xFFFFu) | (uint16_t)(depth - 0x20u);
 			queue_sprite_at_depth(&ignored, &depth);
 			*p_depth = depth;
-			*p_cursor = cursor;
 			return;
 		}
 		PLAYER(current_player)->drift_anim_step = 6u;
@@ -2052,14 +2088,12 @@ void player_move_with_scroll(uint32_t *p_depth, uint32_t *p_cursor)
 		{
 			r1 = queue_sprite(r1);
 			*p_depth = r1;
-			*p_cursor = cursor;
 			return;
 		}
 		depth = (r1 & ~0xFFFFu) | (uint16_t)OBJECT(current_object)->screen_y;
 		depth = (depth & ~0xFFFFu) | (uint16_t)(depth - 0x20u);
 		queue_sprite_at_depth(&ignored, &depth);
 		*p_depth = depth;
-		*p_cursor = cursor;
 		return;
 	case 6:
 		animate(&r1, &ignored, &at_last_step);
@@ -2072,20 +2106,20 @@ void player_move_with_scroll(uint32_t *p_depth, uint32_t *p_cursor)
 		{
 			r1 = queue_sprite(r1);
 			*p_depth = r1;
-			*p_cursor = cursor;
 			return;
 		}
 		depth = (r1 & ~0xFFFFu) | (uint16_t)OBJECT(current_object)->screen_y;
 		depth = (depth & ~0xFFFFu) | (uint16_t)(depth - 0x20u);
 		queue_sprite_at_depth(&ignored, &depth);
 		*p_depth = depth;
-		*p_cursor = cursor;
 		return;
 	default:
 		invalid_jump(0x984Du + PLAYER(current_player)->drift_anim_step * 3u);
 	}
 }
 
+/* Spawns an effect object 0x20 along x, 0x10 back along y and 0x10 lower than the player (palette
+   0xD190, player_effect_animation, depth_offset 0x28, player_effect_start) and hands it back in effect. */
 uint32_t spawn_player_effect(uint32_t effect)
 {
 	uint32_t free_count = 0;
@@ -2114,6 +2148,7 @@ uint32_t spawn_player_effect(uint32_t effect)
 	return effect;
 }
 
+/* Projects the effect object, then player_effect_update. */
 void player_effect_start(void)
 {
 	uint32_t ignored = 0;
@@ -2123,6 +2158,7 @@ void player_effect_start(void)
 	player_effect_update();
 }
 
+/* Plays the effect's animation once, sorted at screen_y + depth_offset, then removes it. */
 void player_effect_update(void)
 {
 	uint32_t at_last_step = 0, depth = 0, ignored = 0;
@@ -2138,6 +2174,8 @@ void player_effect_update(void)
 	delete_current_object();
 }
 
+/* Spawns the marker that follows a caught player (sprite 0x77A0 in the player's palette with priority
+   bits 0x8000, offsets 2,-0xF, struggle_marker_update) and hands it back in marker. */
 uint32_t spawn_struggle_marker(uint32_t marker)
 {
 	uint32_t free_count = 0;
@@ -2159,6 +2197,8 @@ uint32_t spawn_struggle_marker(uint32_t marker)
 	return marker;
 }
 
+/* Follows its player (its parent) while that player is in state 0x25 step 12, sorted just above the
+   player's floor; otherwise removed. */
 void struggle_marker_update(void)
 {
 	uint32_t depth = 0, ignored = 0, object = 0, player = 0;
@@ -2185,6 +2225,8 @@ void struggle_marker_update(void)
 	queue_sprite_at_depth(&ignored, &depth);
 }
 
+/* Sets up scene_object at (0x4D7, 0x145B), z 0x78, end_position 0x5C00, direction 0x300; then
+   scene_object_update. */
 void scene_object_start(void)
 {
 	OBJECT(current_object)->x = 0x4D70000;
@@ -2197,6 +2239,8 @@ void scene_object_start(void)
 	scene_object = current_object;
 }
 
+/* Between scroll 0x4FF0 and end_position the object circles in x and z around (0x5D0, z 0x78): direction
+   - 0xF a frame, radius scene_object_view.angle >> 2, which grows by 1 a frame. Removed at end_position. */
 void scene_object_update(void)
 {
 	uint32_t direction = 0, radius = 0;
@@ -2218,10 +2262,13 @@ void scene_object_update(void)
 	OBJECT(current_object)->z = 0u - cosine_table[direction] * radius + 0x780000u;
 }
 
+/* State 0x2D: does nothing. */
 void player_state_held_still(void)
 {
 }
 
+/* State 0x2C, stuck on an object, by substate: begin, wait, shake, jump out. Touched in a zone (flags
+   0x8000000) it goes back through check_player_contacts and player_dispatch_state. */
 void player_state_stuck_on_object(uint32_t depth, uint32_t cursor)
 {
 	uint32_t ignored = 0;
@@ -2260,6 +2307,9 @@ void player_state_stuck_on_object(uint32_t depth, uint32_t cursor)
 	depth = queue_sprite(depth);
 }
 
+/* Puts the player on the touched object, 0x20 back along y, in its stuck frame (0x1A40, 0x5180 or 0x35C8
+   by character), escape_progress 0, state_timer 0x1E, a sign (kind 0xD) above it and sound 0x23. sign is
+   only scratch. */
 void player_stuck_on_object_begin(uint32_t sign)
 {
 	uint8_t sound_id = 0;
@@ -2300,6 +2350,8 @@ void player_stuck_on_object_begin(uint32_t sign)
 	project_object(&ignored, &ignored);
 }
 
+/* Waits state_timer frames, then substate 2 with the animation restarted at speed 4 and the character's
+   voice (0x35, 0x31 or 0x3D). */
 void player_stuck_on_object_wait(void)
 {
 	uint8_t sound_id = 0;
@@ -2324,6 +2376,9 @@ void player_stuck_on_object_wait(void)
 	play_sound(sound_id, &ignored, &ignored);
 }
 
+/* Shaking free: the trackball's speed, aimed between 0x180 and 0x380, adds to escape_progress (a speed
+   below 0x100 clears it); struggle frames by escape_progress / 0x4000, the stuck animation at 0. At
+   0xC000 the escape animation and sound 0x2B (substate 3). */
 void player_stuck_on_object_shake(void)
 {
 	uint8_t sound_id = 0;
@@ -2391,6 +2446,8 @@ void player_stuck_on_object_shake(void)
 	play_sound(sound_id, &ignored, &ignored);
 }
 
+/* When the escape animation ends the player bounces off (state 0xE, substate 1) by its character's
+   bounce record 1 (direction, flip, animation): speed 0x2000000, speed_z -0x1A000. */
 void player_stuck_on_object_jump_out(void)
 {
 	uint32_t at_last_step = 0, bounce_record = 0, bounce_records = 0, ignored = 0;
@@ -2429,6 +2486,9 @@ void player_stuck_on_object_jump_out(void)
 	PLAYER(current_player)->substate = 1u;
 }
 
+/* State 0x30: the caught player plays the near-edge fall animation, then cries, pulled toward
+   scene_object in game mode 0x19 (else sinking 0x84000 a frame); at z 0x4C8 it leaves a player effect
+   (its var_96, the depth offset, 0x70) and goes hurt (state 0xD, substate 2) with sound 0x87. */
 void player_state_caught(uint32_t cursor)
 {
 	uint8_t sound_number = 0;
@@ -2531,6 +2591,10 @@ void player_state_caught(uint32_t cursor)
 	}
 }
 
+/* State 0x33: sinks into the floor (floor_z and z 0x1D8 on block type 0x22, else 0x20; first moved 0xC
+   toward its edge unless previous_state is 9) with its animation, an effect and sound 0x87; y + 1.5 a
+   frame and after 0x1E frames z + 0xA000, cut at ground_clip_bottom. 0x20 under its floor: -8 health,
+   respawn or dying. */
 void player_state_sinking(uint32_t cursor)
 {
 	uint8_t sound_id = 0;
@@ -2662,6 +2726,8 @@ void player_state_sinking(uint32_t cursor)
 	queue_sprite_at_depth(&ignored, &depth);
 }
 
+/* The effect of a sinking player: moves 1.5 along y a frame with the player, plays its animation once
+   (sorted at screen_y + depth_offset), then is removed. */
 void sinking_effect_update(void)
 {
 	uint32_t at_last_step = 0, depth = 0, ignored = 0;
@@ -2678,6 +2744,8 @@ void sinking_effect_update(void)
 	delete_current_object();
 }
 
+/* State 0x36: with health left, player_knocked_off_start and then player_knocked_off_fly; with none,
+   dying (state 0x16). */
 void player_state_knocked_off(uint32_t depth, uint32_t cursor)
 {
 	switch (PLAYER(current_player)->substate)
@@ -2702,6 +2770,9 @@ void player_state_knocked_off(uint32_t depth, uint32_t cursor)
 	}
 }
 
+/* Knocked off (state 0x36): 0x258 frames invulnerable, mishap_flag, hurt_contact_delay 0xA, a hop
+   (speed_z -0x80000) and a push of 4 a frame along the toucher's direction (both halved on floor type
+   4), sound 0x1D and the character's cry, the hurt animation and flash; then player_knocked_off_fly. */
 void player_knocked_off_start(void)
 {
 	uint8_t sound_id = 0;
@@ -2777,6 +2848,8 @@ void player_knocked_off_start(void)
 	player_knocked_off_fly();
 }
 
+/* The knocked-off player flies (gravity 0x6000, a quarter on floor type 4), the second hurt frame once
+   falling; below screen y 0x120 it loses 8 health: player_respawn, or at 8 or less dying (state 0x16). */
 void player_knocked_off_fly(void)
 {
 	uint32_t gravity = 0, ignored = 0, step_record = 0;

@@ -11,6 +11,8 @@
  */
 #include "game.h"
 
+/* Spawns a skid dust cloud (skid_dust_animation, skid_dust_update) at the player's projected position
+   and z, with the player's sprite priority bits. */
 void spawn_skid_dust(uint32_t dust)
 {
 	uint16_t priority_bits = 0;
@@ -38,6 +40,7 @@ void spawn_skid_dust(uint32_t dust)
 	}
 }
 
+/* Plays the skid dust's animation once, drawn meanwhile, then deletes it. */
 void skid_dust_update(void)
 {
 	uint32_t ignored = 0, wrapped = 0;
@@ -52,6 +55,9 @@ void skid_dust_update(void)
 	delete_current_object();
 }
 
+/* Fills the player's three HUD sprite records in its block (hud_gauge at +0x142, hud_portrait at +0x172,
+   hud_ring_effect at +0x1A2): the health gauge and the character's portrait, placed for 2 or 3 players
+   by cabinet_config, and the ring sparkle beside the gauge; resets the HUD blink and stage_rings_shown. */
 void player_hud_init(void)
 {
 	uint32_t gauge_position = 0, object = 0, player = 0, player_2 = 0, portrait_anim = 0, portrait_position = 0, portrait_sprite = 0;
@@ -119,6 +125,9 @@ void player_hud_init(void)
 	PLAYER(current_player)->unused_hud_word = 0xFFFFu;
 }
 
+/* Sets the portrait's frame and palette for the player's character (kind), then player_hud_update. A
+   player in play (player_status with bit 7, not 0x82) first gets its HUD message lines erased and, with
+   no game in progress, its bit of stage_init_flags (15, 18 or 19) cleared. */
 void player_hud_start(void)
 {
 	uint32_t ignored = 0, init_bit = 0, object = 0, player = 0, sprite_record = 0, text = 0;
@@ -155,6 +164,10 @@ void player_hud_start(void)
 	player_hud_update(&ignored, &object);
 }
 
+/* Draws the player's HUD. In play: the gauge (2 x health wide), the portrait and the ring sparkle,
+   flashing their palettes when health drops, rings come (block flags bit 6) or health is 8 or less, and
+   the ring count; waiting (player_status 0x82) the wait message blinks; out of play the start prompt or
+   the no-continue text. */
 void player_hud_update(uint32_t *p_digit_attribute, uint32_t *p_text_position)
 {
 	uint32_t digit_attribute = *p_digit_attribute;
@@ -369,6 +382,9 @@ void player_hud_update(uint32_t *p_digit_attribute, uint32_t *p_text_position)
 	*p_text_position = text_position;
 }
 
+/* Blinks the start prompt (blink_start_prompt, start_prompt_texts) at the player's
+   start_prompt_positions entry, with the credits of p1_coins, or of the player's own credit block when
+   cabinet_config is 2 or 3; hands back the text position. */
 uint32_t draw_player_start_prompt(void)
 {
 	uint32_t credit_block = 0, ignored = 0, player = 0, prompt_position = 0, prompt_texts = 0;
@@ -401,19 +417,21 @@ uint32_t draw_player_start_prompt(void)
 	}
 }
 
+/* Every animate_hud.anim_delay frames puts the next palette of the list at animate_hud.anim (its first
+   word the last index) into the HUD record's sprite_palette; at the end of the list it starts over and
+   wrapped is -1. */
 void animate_hud_palette(uint32_t *p_list_index, uint32_t *p_wrapped)
 {
 	uint32_t list_index = *p_list_index;
 	uint8_t last_frame = 0;
-	uint32_t palettes = 0, wrapped = 0;
+	uint32_t palettes = 0;
 	uint8_t anim_timer = 0;
 
-	wrapped = 0u;
+	*p_wrapped = 0u;
 	anim_timer = OBJECT(current_object)->animate_hud.anim_timer;
 	OBJECT(current_object)->animate_hud.anim_timer = anim_timer - 1u;
 	if ((int8_t)anim_timer > 1)
 	{
-		*p_wrapped = wrapped;
 		return;
 	}
 	OBJECT(current_object)->animate_hud.anim_timer = OBJECT(current_object)->animate_hud.anim_delay;
@@ -424,28 +442,29 @@ void animate_hud_palette(uint32_t *p_list_index, uint32_t *p_wrapped)
 	palettes += 2u;
 	if ((int8_t)last_frame < (int8_t)list_index)
 	{
-		wrapped = 0xFFFFFFFFu;
+		*p_wrapped = 0xFFFFFFFFu;
 		list_index = 0u;
 	}
 	OBJECT(current_object)->animate_hud.frame = list_index;
 	OBJECT(current_object)->sprite_palette = ROM16(palettes + list_index * 2u);
 	*p_list_index = list_index;
-	*p_wrapped = wrapped;
 }
 
+/* As animate_hud_palette for the sprite's frame: every anim_delay frames puts the next frame of the list
+   at animate_hud.anim into sprite_frame; past the last it goes back to index 0 without changing the
+   frame, and wrapped is -1. */
 void animate_hud_tiles(uint32_t *p_list_index, uint32_t *p_wrapped)
 {
 	uint32_t list_index = *p_list_index;
 	uint8_t last_frame = 0;
-	uint32_t frame_list = 0, wrapped = 0;
+	uint32_t frame_list = 0;
 	uint8_t anim_timer = 0;
 
-	wrapped = 0u;
+	*p_wrapped = 0u;
 	anim_timer = OBJECT(current_object)->animate_hud.anim_timer;
 	OBJECT(current_object)->animate_hud.anim_timer = anim_timer - 1u;
 	if ((int8_t)anim_timer > 1)
 	{
-		*p_wrapped = wrapped;
 		return;
 	}
 	OBJECT(current_object)->animate_hud.anim_timer = OBJECT(current_object)->animate_hud.anim_delay;
@@ -458,14 +477,15 @@ void animate_hud_tiles(uint32_t *p_list_index, uint32_t *p_wrapped)
 		OBJECT(current_object)->sprite_frame = ROM16(frame_list + list_index * 2u);
 	else
 	{
-		wrapped = 0xFFFFFFFFu;
+		*p_wrapped = 0xFFFFFFFFu;
 		list_index = 0u;
 	}
 	OBJECT(current_object)->animate_hud.frame = list_index;
 	*p_list_index = list_index;
-	*p_wrapped = wrapped;
 }
 
+/* Every 0x1E frames (hud_blink_timer) toggles hud_blink_on and prints or erases text at the player's HUD
+   prompt position (hud_prompt_positions_2p/3p); hands back that position, or text_position in between. */
 uint32_t blink_player_hud_message(uint32_t text, uint32_t text_position)
 {
 	uint32_t player = 0, prompt_position = 0;
@@ -490,6 +510,8 @@ uint32_t blink_player_hud_message(uint32_t text, uint32_t text_position)
 	return prompt_position;
 }
 
+/* Unused: when stage_rings differs from stage_rings_shown, copies it there and draws it as two hex
+   digits (draw_hex_2, attribute 0) at the player's hud_stage_rings_positions entry. */
 void draw_player_stage_rings(void)
 {
 	uint16_t attribute = 0;
@@ -505,6 +527,8 @@ void draw_player_stage_rings(void)
 	}
 }
 
+/* With no ridden_object yet, when the player's x is past 0xAE0 or before 0xA60, spawns the object it
+   will ride (ridden_object_start) at that x, y 0xEB2, z 0x530, and keeps it in ridden_object. */
 uint32_t spawn_player_ride(uint32_t object)
 {
 	uint32_t free_count = 0;
@@ -540,6 +564,10 @@ uint32_t spawn_player_ride(uint32_t object)
 	return object;
 }
 
+/* The joining player's character select (state 0x34): the first frame starts the chooser
+   (start_join_character_chooser) and notes join_time (game_frames, reset when only one player counts as
+   playing); each frame runs join_character_chooser_update and is done (substate and is_joining 0) once
+   the player's bit leaves players_in_join_chooser. */
 void player_select_character(uint32_t player_number)
 {
 	uint8_t playing_count = 0;
@@ -580,6 +608,9 @@ void player_select_character(uint32_t player_number)
 	}
 }
 
+/* The ring tally's bonus for the player block player: health + 8 (at most max_health_by_setting for its
+   joined_health_setting), rings + 2 x ring_tally_percent, and block flags bit 6, so the HUD flashes for
+   rings. */
 void give_result_bonus(uint32_t player)
 {
 	uint8_t max_health = 0;
@@ -595,6 +626,8 @@ void give_result_bonus(uint32_t player)
 	PLAYER(player)->rings += ring_tally_percent * 2u;
 }
 
+/* Spawns the climb zone splash (climb_zone_effect_animation) at x 0x1CC, z 0x4CC and the player's y; its
+   parent is the player block (current_player). It starts in climb_zone_effect_start. */
 void spawn_climb_zone_effect(uint32_t object)
 {
 	uint32_t free_count = 0;
@@ -619,6 +652,7 @@ void spawn_climb_zone_effect(uint32_t object)
 	}
 }
 
+/* Projects the climb zone splash and makes climb_zone_effect_update its handler, running it at once. */
 void climb_zone_effect_start(void)
 {
 	uint32_t ignored = 0;
@@ -628,6 +662,9 @@ void climb_zone_effect_start(void)
 	climb_zone_effect_update();
 }
 
+/* The climb zone splash: deleted once its player (the block in parent) stops climbing (state 0xA) or
+   leaves the splash_zone; else it follows the player's y, animates and is drawn at depth screen_y +
+   0x28. */
 void climb_zone_effect_update(void)
 {
 	uint32_t climbing_player = 0, depth = 0, ignored = 0;
@@ -645,6 +682,8 @@ void climb_zone_effect_update(void)
 	queue_sprite_at_depth(&ignored, &depth);
 }
 
+/* Spawns the intro marker (frame 0xA0C0, intro_marker_animation), 0x50 above and 8 right of the player
+   object, its parent; intro_marker_update runs it. */
 void spawn_intro_marker(uint32_t object)
 {
 	uint32_t free_count = 0;
@@ -668,6 +707,9 @@ void spawn_intro_marker(uint32_t object)
 	}
 }
 
+/* Keeps the intro marker above its player (parent): the player's screen position plus its sprite
+   offsets, the y one scaled by the player's sprite_scale, which it takes; animates; deleted once
+   scene_step reaches 2. */
 void intro_marker_update(void)
 {
 	uint32_t ignored = 0, object = 0, scale = 0;
@@ -688,6 +730,9 @@ void intro_marker_update(void)
 	scale = queue_sprite(scale);
 }
 
+/* With setting_moving_seat on, sets the player's bit of io_port_d (2 for player 0, 3 for player 1; never
+   player 2) while a game is in progress and it is hurt (states 0xD, 0x20, 0x28, 0x2C, 0x33), and clears
+   it otherwise. */
 void update_hurt_output(void)
 {
 	uint8_t outputs = 0, seat_bit = 0;
@@ -706,6 +751,8 @@ void update_hurt_output(void)
 	mem_write8(io_port_d, outputs);
 }
 
+/* Counts the frames scroll_position has not moved (stall_frames; never in stage 5). After 0x1C20 of them
+   the player loses all its health and is hurt (state 0xD). */
 void check_player_stalled(void)
 {
 	if (stage == 5u || PLAYER(current_player)->last_scroll != scroll_position)

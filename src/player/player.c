@@ -11,24 +11,31 @@
  */
 #include "game.h"
 
+/* Player 1's object starts: player = 0, then player_start. */
 void player_1_start(void)
 {
 	OBJECT(current_object)->player = 0u;
 	player_start();
 }
 
+/* Player 2's object starts: player = 1, then player_start. */
 void player_2_start(void)
 {
 	OBJECT(current_object)->player = 1u;
 	player_start();
 }
 
+/* Player 3's object starts: player = 2, then player_start. */
 void player_3_start(void)
 {
 	OBJECT(current_object)->player = 2u;
 	player_start();
 }
 
+/* A new game for the player object: links it with its player block (current_player), health =
+   starting_health, rings 0, kind = player (its character), state 0xB (0x37 for the third player on a
+   2-player cabinet), two full-screen clip entries; in_game 1 when try_join succeeds. Next comes
+   player_start_stage. */
 void player_start(void)
 {
 	uint32_t clip_cursor = 0, joined = 0, records_left = 0;
@@ -81,11 +88,15 @@ void player_start(void)
 		PLAYER(current_player)->in_game = 1;
 }
 
+/* Makes player_update the handler, for a player already in the stage (reset_objects_from_list sets it). */
 void player_resume(void)
 {
 	OBJECT(current_object)->handler = player_update_ADDRESS;
 }
 
+/* The handler of a player who paid to join: player_status 4 and the character select
+   (player_select_character) until it is done, except when current_game_mode and game_mode are both 0x1B;
+   then player_reset_joined. */
 void player_join(void)
 {
 	uint32_t player = 0;
@@ -103,6 +114,8 @@ void player_join(void)
 	player_reset_joined();
 }
 
+/* The player's handler at a stage start: flags bit 25 (a stage start), block flags bit 4 off,
+   stage_rings 0, the HUD records (player_hud_init), then player_restart. */
 void player_start_stage(void)
 {
 	current_player = PLAYER_BLOCK(1) + ((uint32_t)OBJECT(current_object)->player << 7) * 4u;
@@ -113,12 +126,16 @@ void player_start_stage(void)
 	player_restart();
 }
 
+/* The handler set for a player that comes back after losing health (off screen, sunk, fallen):
+   player_restart without the stage-start flag (flags bit 25). */
 void player_respawn(void)
 {
 	OBJECT(current_object)->flags &= ~0x2000000u;
 	player_restart();
 }
 
+/* Restarts the player: in a game (in_game above 0) player_reset; otherwise it does not play: in_game 0,
+   state 0xB (0x37 for the third player on a 2-player cabinet), player_update as its handler. */
 void player_restart(void)
 {
 	current_player = PLAYER_BLOCK(1) + ((uint32_t)OBJECT(current_object)->player << 7) * 4u;
@@ -136,6 +153,8 @@ void player_restart(void)
 	OBJECT(current_object)->handler = player_update_ADDRESS;
 }
 
+/* After joining: block flags bit 4, health = starting_health, rings_to_health 0 and, unless a stage exit
+   is under way, unused_player_flags and players_finished cleared for it; then player_reset. */
 void player_reset_joined(void)
 {
 	uint32_t player = 0;
@@ -156,6 +175,10 @@ void player_reset_joined(void)
 	player_reset();
 }
 
+/* Resets the player for a start or a respawn: speeds, movement, path and timers cleared, state 0, 0x78
+   frames invulnerable and blinking unless a stage starts (flags bit 25), the stage's palette for its
+   character; plays its character's join or respawn voice unless a stage starts or current_game_mode is
+   0x1B; then player_place. */
 void player_reset(void)
 {
 	uint8_t sound_id = 0;
@@ -259,6 +282,10 @@ void player_reset(void)
 	player_place();
 }
 
+/* Places the player at its restart point on its floor (start_climb_at_spawn on a wall) and sets
+   entry_status and player_status: 0x81 over a pit or while touched or in a zone, 0x82 waiting for the
+   scene (set_player_entry_by_scene), else 0xFF, staying the handler while it waits; then
+   add_player_to_lists and player_hud_start. */
 void player_place(void)
 {
 	uint8_t entry_status = 0;
@@ -336,6 +363,9 @@ void player_place(void)
 	}
 }
 
+/* The player object's handler: the seat output and the HUD, invulnerable_timer counting down to -1, the
+   entry path, goal and scene checks that force states, then player_dispatch_state runs the code of its
+   state. */
 void player_update(void)
 {
 	uint32_t r1 = 0, r11 = 0;
@@ -356,6 +386,9 @@ void player_update(void)
 	player_dispatch_state(r1, r11);
 }
 
+/* Runs the code of the player's state: player_move for the moving states (0, 1, 2, 4, 12, 19, 20, 23 and
+   58), one player_state_ function for each other state. State code that changes the state calls it
+   again, so the new state runs in the same frame. */
 void player_dispatch_state(uint32_t depth, uint32_t cursor)
 {
 	uint32_t jump_offset = 0;
@@ -521,6 +554,10 @@ void player_dispatch_state(uint32_t depth, uint32_t cursor)
 	}
 }
 
+/* Off screen (but in stage 8 before scroll 0x4000) the player loses 8 health and respawns, or dies
+   (state 0x16) when that empties it; stage 5 only respawns it. Near an edge it sets screen_edge, says
+   its edge voice once with 2 or more players in the stage's range, is pushed back and, on edges the
+   scroll pushes, moves with the camera. */
 uint32_t keep_player_on_screen(uint32_t depth)
 {
 	uint8_t sound_id = 0;
@@ -620,6 +657,9 @@ uint32_t keep_player_on_screen(uint32_t depth)
 	return depth;
 }
 
+/* Pushes the player 0x200 along the angle screen_edge_push_directions gives for screen_edge; when its
+   direction is not within a quarter turn after that entry's direction, it first goes back to its
+   previous position, floor block and floor_z. */
 uint32_t push_player_from_screen_edge(void)
 {
 	uint16_t relative_direction = 0;
@@ -645,6 +685,10 @@ uint32_t push_player_from_screen_edge(void)
 	return push_cos;
 }
 
+/* Turns the camera's movement (camera_velocity_x/y) into scroll_drift_speed and scroll_drift_direction
+   for floor block block: on a flat block its length and angle (y counting double), on a slope y slowed
+   by the slope's factor and the block's own direction; also camera_scroll_direction. Skipped when block
+   and velocity are unchanged. */
 void compute_scroll_drift(uint32_t block, uint8_t drift_byte)
 {
 	uint16_t dy = 0;
@@ -694,6 +738,9 @@ void compute_scroll_drift(uint32_t block, uint8_t drift_byte)
 	scroll_drift_vy = camera_velocity_y;
 }
 
+/* The slip effect player_state_dropping spawns: animates and is deleted when its animation is back at
+   frame 0; drawn on top (bucket 0) when its direction (the ledge_side) is 2 or more, else in bucket
+   0xFF. */
 void slip_effect_update(void)
 {
 	uint8_t bucket = 0;
@@ -716,6 +763,9 @@ void slip_effect_update(void)
 	queue_sprite_in_bucket(bucket);
 }
 
+/* Sets the player's speed from its trackball: the length of (trackball_x, trackball_y) squared, at most
+   0x5000000, along its angle (direction = angle + 0x80), then speed_x and speed_y
+   (set_speed_from_direction). */
 uint32_t set_speed_from_trackball(void)
 {
 	uint16_t trackball_y_2 = 0;
@@ -738,6 +788,8 @@ uint32_t set_speed_from_trackball(void)
 	return set_speed_from_direction();
 }
 
+/* As set_speed_from_trackball for climbing: speed at most 0x3000000 and direction the trackball's angle
+   itself. */
 uint32_t set_climb_speed_from_trackball(void)
 {
 	uint16_t trackball_y_2 = 0;
@@ -760,6 +812,8 @@ uint32_t set_climb_speed_from_trackball(void)
 	return set_speed_from_direction();
 }
 
+/* Sets the speed from the trackball (set_speed_from_trackball) and adds to ledge_pullback the part of it
+   that points back from the ledge on ledge_side (side 4: none). */
 uint32_t update_ledge_pullback(void)
 {
 	uint32_t cos_speed = 0;
@@ -792,64 +846,56 @@ uint32_t update_ledge_pullback(void)
 	return cos_speed;
 }
 
+/* Hands back in side which side of its previous floor block the object has gone past (3 before x_min, 1
+   past x_max, 0 before y_min, 2 past y_max, 4 still inside) and in block that block's record. */
 void get_ledge_side(uint32_t *p_side, uint32_t *p_block)
 {
-	uint32_t block = 0, bound_cursor = 0, side = 0;
+	uint32_t bound_cursor = 0;
 	uint32_t x_min = 0, x_max = 0, y_min = 0;
 
 	bound_cursor = floor_blocks + OBJECT(current_object)->previous_floor_block + 2u;
-	block = bound_cursor;
-	side = 3u;
+	*p_block = bound_cursor;
+	*p_side = 3u;
 	x_min = FLOOR_BLOCK(bound_cursor)->x_min;
 	bound_cursor += 4u;
 	if (OBJECT(current_object)->x < (int32_t)x_min)
 	{
-		*p_side = side;
-		*p_block = block;
 		return;
 	}
-	side = 1u;
+	*p_side = 1u;
 	x_max = FLOOR_BLOCK(bound_cursor - 0x4u)->x_max;
 	bound_cursor += 4u;
 	if ((int32_t)x_max < OBJECT(current_object)->x)
 	{
-		*p_side = side;
-		*p_block = block;
 		return;
 	}
-	side = 0u;
+	*p_side = 0u;
 	y_min = FLOOR_BLOCK(bound_cursor - 0x8u)->y_min;
 	bound_cursor += 4u;
 	if (OBJECT(current_object)->y < (int32_t)y_min)
 	{
-		*p_side = side;
-		*p_block = block;
 		return;
 	}
-	side = 2u;
+	*p_side = 2u;
 	if (FLOOR_BLOCK(bound_cursor - 0xCu)->y_max < OBJECT(current_object)->y)
 	{
-		*p_side = side;
-		*p_block = block;
 		return;
 	}
-	side = 4u;
-	*p_side = side;
-	*p_block = block;
+	*p_side = 4u;
 }
 
+/* Jumping with no floor block under it, the player goes over the edge (state 7, substate 1, ledge_side
+   and fall_draw_depth set); on the ground over a pit (floor_z past 0x7FF) it teeters (5), or goes over
+   (7) faster than 0x200 off most block types or with block flags bit 1. Hopping or jumping over a floor:
+   check_fall_into_pit. */
 void check_player_floor_edge(uint32_t *p_depth, uint32_t *p_block)
 {
-	uint32_t depth = *p_depth;
-	uint32_t block = *p_block;
 	uint8_t next_state = 0;
 	uint32_t block_2 = 0, draw_depth = 0, edge_speed_cos = 0, edge_speed_x = 0, edge_speed_y = 0, side = 0;
 
 	if (PLAYER(current_player)->state == 0x17u)
 	{
 		check_fall_into_pit();
-		*p_depth = depth;
-		*p_block = block;
 		return;
 	}
 	if (PLAYER(current_player)->state == 4u)
@@ -862,7 +908,7 @@ void check_player_floor_edge(uint32_t *p_depth, uint32_t *p_block)
 		PLAYER(current_player)->previous_state = PLAYER(current_player)->state;
 		PLAYER(current_player)->state = 7u;
 		PLAYER(current_player)->substate = 1u;
-		get_ledge_side(&side, &block);
+		get_ledge_side(&side, p_block);
 		if ((uint16_t)side == 4u)
 			side = (mem_read8(floor_blocks + 2u + OBJECT(current_object)->previous_floor_block + 0x15u) + 2u) & 3u;
 		PLAYER(current_player)->ledge_side = side;
@@ -898,7 +944,6 @@ void check_player_floor_edge(uint32_t *p_depth, uint32_t *p_block)
 				PLAYER(current_player)->flags |= 0x80u;
 				OBJECT(current_object)->flags &= ~0x2000u;
 				*p_depth = draw_depth;
-				*p_block = block;
 				return;
 			}
 			if (stage == 0xAu)
@@ -921,7 +966,6 @@ void check_player_floor_edge(uint32_t *p_depth, uint32_t *p_block)
 		PLAYER(current_player)->flags |= 0x80u;
 		OBJECT(current_object)->flags &= ~0x2000u;
 		*p_depth = draw_depth;
-		*p_block = block;
 		return;
 	}
 	if (PLAYER(current_player)->state == 2u || OBJECT(current_object)->floor_z_int <= 0x7FF)
@@ -953,6 +997,8 @@ void check_player_floor_edge(uint32_t *p_depth, uint32_t *p_block)
 	PLAYER(current_player)->state = next_state;
 }
 
+/* Over a pit (floor_z 0x7FF or more, not floor type 6), a player falling or still (speed_z not negative)
+   at or below its previous floor's height goes to state 9, falling into the pit. */
 void check_fall_into_pit(void)
 {
 	if (OBJECT(current_object)->speed_z_int >= 0 && OBJECT(current_object)->floor_z_int >= 0x7FF && OBJECT(current_object)->floor_type != 6u && OBJECT(current_object)->previous_floor_z_int <= OBJECT(current_object)->z_int)
@@ -962,12 +1008,15 @@ void check_fall_into_pit(void)
 	}
 }
 
+/* Puts the player object in hitter_list and rider_list for this frame's contact checks. */
 void add_player_to_lists(void)
 {
 	add_to_hitter_list();
 	add_to_rider_list();
 }
 
+/* Copies flags bit 3 (on a platform this frame) into bit 4, so the next frame knows the player was on
+   one. */
 void remember_platform(void)
 {
 	OBJECT(current_object)->flags_low &= ~0x10u;
@@ -975,6 +1024,8 @@ void remember_platform(void)
 		OBJECT(current_object)->flags_low |= 0x10u;
 }
 
+/* While invulnerable_timer runs and flags bit 29 is set, toggles hidden each frame (the blink); once it
+   is out, clears both, so the player shows. */
 void update_player_blink(void)
 {
 	if (PLAYER(current_player)->invulnerable_timer < 0)
@@ -988,11 +1039,14 @@ void update_player_blink(void)
 	toggle_hidden();
 }
 
+/* Flips flags bit 19, which keeps the player from being drawn: the blink. */
 void toggle_hidden(void)
 {
 	OBJECT(current_object)->flags ^= 0x80000u;
 }
 
+/* Unless players_frozen: on floor type 6 the player hops (state 0x17) unless jump_delay is 2; elsewhere,
+   once jump_delay has run out, not falling and with no control_lock, start_jump_if_pressed. */
 void check_player_jump(void)
 {
 	uint8_t jump_delay = 0;
@@ -1022,6 +1076,8 @@ void check_player_jump(void)
 	}
 }
 
+/* Starts a jump (state 4) when the player's button is newly pressed (inputs_pressed bit 0x10, 0x18 or
+   0x12 by player in a game, 0x19 to 0x1B outside one), unless pushed_out or on a path. */
 void start_jump_if_pressed(void)
 {
 	uint32_t button_bit = 0;
@@ -1056,6 +1112,10 @@ void start_jump_if_pressed(void)
 	}
 }
 
+/* In a wall's box (flags bit 5, wall) the player goes back to its previous place and floor, for 0x1E
+   frames per wall. Jumping or hopping it bounces off (speed 0x4000000, a hop, control_lock 0xA); at
+   speed 0x200 or more or on floor type 4 it turns along the wall (push_player_out_of_wall_deflect); else
+   it stops. Not on a path. */
 void push_player_out_of_wall(uint32_t *p_angle, uint32_t *p_push_direction, uint32_t *p_record_index)
 {
 	uint32_t angle = *p_angle;
@@ -1175,13 +1235,15 @@ void push_player_out_of_wall(uint32_t *p_angle, uint32_t *p_push_direction, uint
 	*p_record_index = wall_record_index;
 }
 
+/* Turns the player along the wall: direction = the wall's sonic_bounce_records angle - or + 0x80, by the
+   side the player came from, with control_lock 4; in stage 8 before scroll 0x4000 it is sent straight
+   back instead (the wall's direction + 0x200). */
 void push_player_out_of_wall_deflect(uint32_t *p_angle, uint32_t *p_push_direction, uint32_t *p_record_index)
 {
 	uint16_t angle = 0, new_direction = 0, push_direction = 0;
-	uint32_t record_index = 0;
 
-	record_index = OBJECT(LINKED(current_object, OBJECT(current_object)->wall))->direction_low * 3u;
-	push_direction = sonic_bounce_records[record_index];
+	*p_record_index = OBJECT(LINKED(current_object, OBJECT(current_object)->wall))->direction_low * 3u;
+	push_direction = sonic_bounce_records[*p_record_index];
 	new_direction = (uint16_t)push_direction;
 	angle = (((OBJECT(current_object)->direction + 0x200u) & 0x3FFu) - push_direction) & 0x3FFu;
 	if ((int16_t)angle < 0x200)
@@ -1194,16 +1256,17 @@ void push_player_out_of_wall_deflect(uint32_t *p_angle, uint32_t *p_push_directi
 	{
 		*p_angle = (*p_angle & 0xFFFF0000u) | angle;
 		*p_push_direction = (*p_push_direction & 0xFFFF0000u) | push_direction;
-		*p_record_index = record_index;
 		return;
 	}
 	angle = (((uint32_t)OBJECT(LINKED(current_object, OBJECT(current_object)->wall))->direction << 8) + 0x200u) & 0x3FFu;
 	OBJECT(current_object)->direction = angle;
 	*p_angle = (*p_angle & 0xFFFF0000u) | angle;
 	*p_push_direction = (*p_push_direction & 0xFFFF0000u) | push_direction;
-	*p_record_index = record_index;
 }
 
+/* Steers the player in the air: speed goes to the trackball's (its length squared, at most 0x5000000) at
+   once when higher, by 1/32 of the gap when lower; the trackball turns target_heading unless flags bit
+   13 is set; then turn_player. */
 void player_steer_in_air(void)
 {
 	uint32_t ignored = 0, input_speed = 0, speed_diff = 0, trackball_y = 0;
@@ -1230,6 +1293,10 @@ void player_steer_in_air(void)
 	turn_player();
 }
 
+/* Steers the player on the ground: a path gives the speed (player_steer_approach_speed); else the
+   trackball (zeroed while players_frozen) or a push turns target_heading (not with flags bit 13) and
+   sets the speed (player_steer_speed_from_trackball); with no input it slows down and, under speed 0x20,
+   stops and stands (state 0). */
 void player_steer(uint32_t wanted_speed)
 {
 	wanted_speed = follow_player_path(wanted_speed);
@@ -1266,6 +1333,9 @@ void player_steer(uint32_t wanted_speed)
 	player_steer_turn_and_ground_speed();
 }
 
+/* The wanted speed is 1.5 x the length of trackball + push squared, at most 0x5000000; a quarter of it
+   with flags bit 31 (0 with block flags bit 2), slowed by sink_depth on floor type 0xA (setting
+   struggle_speed), 0x60/0x100 of it on floor type 4; then player_steer_approach_speed. */
 void player_steer_speed_from_trackball(void)
 {
 	uint32_t ignored = 0, input_y = 0, wanted_speed = 0;
@@ -1302,6 +1372,10 @@ void player_steer_speed_from_trackball(void)
 	player_steer_approach_speed(wanted_speed);
 }
 
+/* Brings speed toward wanted_speed (apply_speed_scale): up at once and down 1/32 of the gap (up 1/32,
+   down 1/64 on floor type 7), sets animation_speed, and picks standing (0), walking (1), running (0x13)
+   or fast running (0x14) by it, except in states 4, 0x17, 0x25, 0x26 and 0x2D; then
+   player_steer_turn_and_ground_speed. */
 void player_steer_approach_speed(uint32_t wanted_speed)
 {
 	uint8_t next_state = 0;
@@ -1385,6 +1459,9 @@ void player_steer_approach_speed(uint32_t wanted_speed)
 	player_steer_turn_and_ground_speed();
 }
 
+/* Runs turn_player, then sets ground_speed: speed scaled by heading_speed_factors for the heading (speed
+   itself with flags bit 31), and on a slope by the slope_speed_direction_pairs entry, which also sets
+   direction (as compute_ground_speed). */
 void player_steer_turn_and_ground_speed(void)
 {
 	uint32_t carry = 0;
@@ -1414,6 +1491,9 @@ void player_steer_turn_and_ground_speed(void)
 	OBJECT(current_object)->direction = ROM16(slope_pair);
 }
 
+/* Sets facing_angle to the angle of the trackball (x, 1.5 y) when it moves; target_heading =
+   facing_angle, or with a push the angle of trackball plus push_x/push_y (y 1.5 times unless flags bit
+   31). */
 void set_target_heading_from_trackball(void)
 {
 	uint16_t dy = 0;
@@ -1440,6 +1520,9 @@ void set_target_heading_from_trackball(void)
 	PLAYER(current_player)->target_heading = push_angle;
 }
 
+/* Turns heading toward target_heading: at once at speed 0x200 or less, while free_turn_timer runs, with
+   flags bit 31, or in states 2, 4, 0x17, 0x25 and 0x26; else by at most 0x6000 / speed_int a frame, a
+   quarter turn or more making it skid (state 0xC). Then set_heading_direction. */
 void turn_player(void)
 {
 	uint16_t max_turn = 0, turn = 0;
@@ -1497,6 +1580,8 @@ void turn_player(void)
 	set_heading_direction();
 }
 
+/* Sets heading_snapped to heading rounded to one of 16 directions and direction to that + 0x80, then
+   set_facing. */
 void set_heading_direction(void)
 {
 	uint32_t snapped_heading = 0;
@@ -1507,6 +1592,8 @@ void set_heading_direction(void)
 	snapped_heading = set_facing(snapped_heading);
 }
 
+/* Sets facing to facing_angle rounded to one of 16 directions (((facing_angle + 0x20) >> 6) & 0xF) and
+   hands it back. */
 uint32_t set_facing(uint32_t facing)
 {
 	uint32_t new_facing = 0;
@@ -1519,6 +1606,8 @@ uint32_t set_facing(uint32_t facing)
 	return new_facing;
 }
 
+/* Turns the player to its movement: heading, target_heading and facing_angle = direction - 0xA0, then
+   set_facing. */
 uint32_t face_movement_direction(uint32_t facing)
 {
 	uint32_t new_heading = 0;
@@ -1532,6 +1621,9 @@ uint32_t face_movement_direction(uint32_t facing)
 	return set_facing(new_heading);
 }
 
+/* Sets ground_speed = (speed >> 8) x heading_speed_factors[(heading + 0x20) >> 6]; on a slope it is
+   scaled by the slope_speed_direction_pairs entry for floor_slope and direction, whose second word
+   becomes direction. */
 uint32_t compute_ground_speed(void)
 {
 	uint32_t carry = 0;
@@ -1558,6 +1650,8 @@ uint32_t compute_ground_speed(void)
 	return r1;
 }
 
+/* Reads the player's trackball motion (trackball_1_x on, 4 bytes per player) into trackball_x and
+   trackball_y: each axis with its lowest bit dropped and scaled by 0x100, sign kept. */
 void read_player_trackball(void)
 {
 	uint16_t axis_value = 0;
@@ -1579,24 +1673,30 @@ void read_player_trackball(void)
 	PLAYER(current_player)->trackball_y = axis_value;
 }
 
+/* Player 1's shadow object starts: player = 0, then shadow_start. */
 void shadow_1_start(void)
 {
 	OBJECT(current_object)->player = 0u;
 	shadow_start();
 }
 
+/* Player 2's shadow object starts: player = 1, then shadow_start. */
 void shadow_2_start(void)
 {
 	OBJECT(current_object)->player = 1u;
 	shadow_start();
 }
 
+/* Player 3's shadow object starts: player = 2, then shadow_start. */
 void shadow_3_start(void)
 {
 	OBJECT(current_object)->player = 2u;
 	shadow_start();
 }
 
+/* Sets up the player's shadow object (frame 0x5D90, shadow_update) and a child block (allocate_object_2)
+   for the attack effect; in stage 9 a second child (sprite_flags 0x1088) for a copy of the effect on
+   floor type 7. */
 void shadow_start(void)
 {
 	uint32_t free_count = 0, ignored = 0, object = 0, object_2 = 0;
@@ -1637,6 +1737,10 @@ void shadow_start(void)
 	}
 }
 
+/* Draws the player's shadow (current_player is borrowed for the player's object): on its floor,
+   flickering on some floors, sinking on floor types 0xA and 0xB (setting ground_clip_bottom), the
+   player's reflection in stage 9 on floor types 7 and 8, or game mode 0x10's by scene_step; none over a
+   pit. Then draw_attack_effect. */
 void shadow_update(void)
 {
 	uint16_t priority_bits = 0;
@@ -1858,6 +1962,10 @@ void shadow_update(void)
 	}
 }
 
+/* Draws the attack effect (the shadow's child) over the player while it attacks (flags bit 6) with
+   attack_power 3 or more: the frame for its attack_power, facing and animation_frame, its character's
+   palette, just in front of it; on floor type 7 the second child (stage 9) copies it. current_player is
+   the player object here. */
 void draw_attack_effect(uint32_t player)
 {
 	uint16_t palette = 0, priority_bits = 0;
@@ -1910,10 +2018,11 @@ void draw_attack_effect(uint32_t player)
 	}
 }
 
+/* Sets step_floor_z, the height the player stands on: its floor_z, or a flat platform's z (snapped to at
+   once over a block of type 0x24); then check_player_step_against_floor. In stage 8 before scroll 0x4000
+   the player just snaps to its floor. */
 void check_player_step(uint32_t *p_height_diff, uint32_t *p_cursor)
 {
-	uint32_t height_diff = *p_height_diff;
-	uint32_t cursor = *p_cursor;
 	uint32_t object = 0;
 
 	step_floor_z = OBJECT(current_object)->floor_z;
@@ -1925,34 +2034,31 @@ void check_player_step(uint32_t *p_height_diff, uint32_t *p_cursor)
 	}
 	if ((OBJECT(current_object)->flags & 8u) == 0u)
 	{
-		check_player_step_against_floor(&height_diff, &cursor);
-		*p_height_diff = height_diff;
-		*p_cursor = cursor;
+		check_player_step_against_floor(p_height_diff, p_cursor);
 		return;
 	}
 	object = LINKED(current_object, OBJECT(current_object)->platform);
 	if (OBJECT(object)->floor_slope != 0u)
 	{
-		check_player_step_against_floor(&height_diff, &cursor);
-		*p_height_diff = height_diff;
-		*p_cursor = cursor;
+		check_player_step_against_floor(p_height_diff, p_cursor);
 		return;
 	}
 	step_floor_z = OBJECT(object)->z;
 	if (mem_read8(floor_blocks + 2u + OBJECT(current_object)->previous_floor_block + 0x12u) != 0x24u)
 	{
-		check_player_step_against_floor(&height_diff, &cursor);
-		*p_height_diff = height_diff;
-		*p_cursor = cursor;
+		check_player_step_against_floor(p_height_diff, p_cursor);
 		return;
 	}
 	PLAYER(current_player)->previous_z = OBJECT(current_object)->z;
 	OBJECT(current_object)->z = step_floor_z;
 }
 
+/* Puts the player on step_floor_z: on a path or within 8, z snaps to it (previous_z keeps the old z); a
+   lower floor starts a fall (state 2); a higher one blocks it unless sloped: back to its previous place
+   and floor, bouncing (state 0xE, away from the block's side) at speed 0x500 or more, else stopping
+   (state 0). */
 void check_player_step_against_floor(uint32_t *p_height_diff, uint32_t *p_cursor)
 {
-	uint32_t height_diff = *p_height_diff;
 	uint32_t cursor = *p_cursor;
 	uint32_t floor_block = 0, object_z = 0, opposite_side = 0, x = 0, y = 0;
 	uint16_t floor_z_int = 0, z_int = 0, height_diff_2 = 0;
@@ -1961,47 +2067,41 @@ void check_player_step_against_floor(uint32_t *p_height_diff, uint32_t *p_cursor
 	{
 		PLAYER(current_player)->previous_z = OBJECT(current_object)->z;
 		OBJECT(current_object)->z = step_floor_z;
-		*p_height_diff = height_diff;
 		return;
 	}
-	object_z = (height_diff & ~0xFFFFu) | (uint16_t)OBJECT(current_object)->z_int;
+	object_z = (*p_height_diff & ~0xFFFFu) | (uint16_t)OBJECT(current_object)->z_int;
 	floor_z_int = step_floor_z_int;
 	z_int = object_z;
-	height_diff = (object_z & ~0xFFFFu) | (uint16_t)(z_int - floor_z_int);
+	*p_height_diff = (object_z & ~0xFFFFu) | (uint16_t)(z_int - floor_z_int);
 	if (z_int == floor_z_int)
 	{
 		PLAYER(current_player)->previous_z = OBJECT(current_object)->z;
 		OBJECT(current_object)->z = step_floor_z;
-		*p_height_diff = height_diff;
 		return;
 	}
-	height_diff = (height_diff & ~0xFFFFu) | (uint16_t)(height_diff + 8u);
-	if ((uint16_t)height_diff < 0x11u)
+	*p_height_diff = (*p_height_diff & ~0xFFFFu) | (uint16_t)(*p_height_diff + 8u);
+	if ((uint16_t)*p_height_diff < 0x11u)
 	{
 		PLAYER(current_player)->previous_z = OBJECT(current_object)->z;
 		OBJECT(current_object)->z = step_floor_z;
-		*p_height_diff = height_diff;
 		return;
 	}
-	height_diff_2 = height_diff - 8u;
-	height_diff = (height_diff & ~0xFFFFu) | height_diff_2;
+	height_diff_2 = *p_height_diff - 8u;
+	*p_height_diff = (*p_height_diff & ~0xFFFFu) | height_diff_2;
 	if ((int16_t)height_diff_2 < 0)
 	{
 		if (PLAYER(current_player)->state == 2u)
 		{
-			*p_height_diff = height_diff;
 			return;
 		}
 		PLAYER(current_player)->state = 2u;
 		PLAYER(current_player)->substate = 0u;
-		*p_height_diff = height_diff;
 		return;
 	}
 	if (OBJECT(current_object)->floor_slope != 0u)
 	{
 		PLAYER(current_player)->previous_z = OBJECT(current_object)->z;
 		OBJECT(current_object)->z = step_floor_z;
-		*p_height_diff = height_diff;
 		return;
 	}
 	OBJECT(current_object)->x = PLAYER(current_player)->previous_x;
@@ -2020,11 +2120,10 @@ void check_player_step_against_floor(uint32_t *p_height_diff, uint32_t *p_cursor
 		AS16(PLAYER(current_player)->bounce_direction) = (opposite_side & ~0xFFu) | (opposite_side & 3u);
 		PLAYER(current_player)->state = 0xEu;
 		PLAYER(current_player)->substate = 0u;
-		*p_height_diff = height_diff;
 		*p_cursor = x;
 		return;
 	}
-	height_diff = 0u;
+	*p_height_diff = 0u;
 	OBJECT(current_object)->speed = 0;
 	OBJECT(current_object)->speed_x = 0;
 	OBJECT(current_object)->speed_y = 0;
@@ -2034,19 +2133,19 @@ void check_player_step_against_floor(uint32_t *p_height_diff, uint32_t *p_cursor
 	PLAYER(current_player)->state = 0u;
 	if (step_floor_z <= OBJECT(current_object)->z)
 	{
-		*p_height_diff = height_diff;
 		return;
 	}
 	if (PLAYER(current_player)->state == 2u)
 	{
-		*p_height_diff = height_diff;
 		return;
 	}
 	PLAYER(current_player)->state = 2u;
 	PLAYER(current_player)->substate = 0u;
-	*p_height_diff = height_diff;
 }
 
+/* When the player has moved over a floor block at least 8 higher than its last and is below its top,
+   puts it back at its previous position and floor and turns it 0x80 to one side of straight away from
+   the side it hit (get_floor_block_side), facing that way, with control_lock 0xA and flags bit 13. */
 void bounce_off_wall_in_air(void)
 {
 	uint32_t floor_block = 0, new_direction = 0, x = 0, y = 0;
@@ -2072,6 +2171,9 @@ void bounce_off_wall_in_air(void)
 	OBJECT(current_object)->flags |= 0x2000u;
 }
 
+/* Hands back which side of floor block floor_block the point x, y is on: 3 before x_min, 1 past x_max,
+   else 0 before y_min and 2 otherwise (y_max is not checked: the point is taken to be outside the
+   block). */
 uint32_t get_floor_block_side(uint32_t floor_block, uint32_t x, uint32_t y)
 {
 	uint32_t side = 0;
@@ -2101,9 +2203,11 @@ uint32_t get_floor_block_side(uint32_t floor_block, uint32_t x, uint32_t y)
 	return side;
 }
 
+/* Unused: as get_floor_block_side with the corners: hands back the outcode of x, y against block (1 past
+   x_max, 2 before x_min, 4 before y_min, 8 past y_max) and side_code = floor_block_side_codes[outcode]. */
 void get_floor_block_side_or_corner(uint32_t block, uint32_t x, uint32_t y, uint32_t *p_outcode, uint32_t *p_side_code)
 {
-	uint32_t outcode = 0, side_code = 0;
+	uint32_t outcode = 0;
 
 	outcode = 0u;
 	block = block + floor_blocks + 2u;
@@ -2118,23 +2222,24 @@ void get_floor_block_side_or_corner(uint32_t block, uint32_t x, uint32_t y, uint
 	{
 		if ((int32_t)y <= FLOOR_BLOCK(block)->y_max)
 		{
-			side_code = floor_block_side_codes[outcode];
+			*p_side_code = floor_block_side_codes[outcode];
 			*p_outcode = outcode;
-			*p_side_code = side_code;
 			return;
 		}
 		outcode = outcode | 8u;
-		side_code = floor_block_side_codes[outcode];
+		*p_side_code = floor_block_side_codes[outcode];
 		*p_outcode = outcode;
-		*p_side_code = side_code;
 		return;
 	}
 	outcode = outcode | 4u;
-	side_code = floor_block_side_codes[outcode];
+	*p_side_code = floor_block_side_codes[outcode];
 	*p_outcode = outcode;
-	*p_side_code = side_code;
 }
 
+/* Puts the player at its restart point: the record at current_restart_point as map x, y (kinds 0, 2) or
+   a screen point on the ground (kind 1), players 2 apart in x (the third on the other side); at a stage
+   start in a game (flags bit 25, not game mode 1) the 6 bytes before the stage's list, x + player
+   shifted by their first word. */
 uint32_t place_player_at_restart_point(void)
 {
 	uint8_t offset_shift = 0;
@@ -2192,10 +2297,12 @@ uint32_t place_player_at_restart_point(void)
 	}
 }
 
+/* Hands back in dx and dy a step of 0x200 from the player toward the ground point under the screen
+   centre (0xA0, 0x70) at its z; check_player_contacts_solid pushes the player out with it. */
 void aim_at_screen_centre(uint32_t *p_cos_part, uint32_t *p_dx, uint32_t *p_dy)
 {
 	uint16_t centre_dy = 0;
-	uint32_t centre_angle = 0, centre_x = 0, centre_y = 0, cos_part = 0, dx = 0, dy = 0, ignored = 0, z = 0;
+	uint32_t centre_angle = 0, centre_x = 0, centre_y = 0, ignored = 0, z = 0;
 
 	centre_x = 0xA0u;
 	centre_y = 0x70u;
@@ -2204,14 +2311,13 @@ void aim_at_screen_centre(uint32_t *p_cos_part, uint32_t *p_dx, uint32_t *p_dy)
 	centre_angle = (int32_t)(centre_x - OBJECT(current_object)->x) >> 12;
 	centre_dy = (uint16_t)((int32_t)(centre_y - OBJECT(current_object)->y) >> 12);
 	angle_of_vector(centre_dy, &centre_angle, &ignored);
-	dx = (uint16_t)centre_angle;
-	dy = 0x200u;
-	polar_to_xy(&cos_part, &dx, &dy);
-	*p_cos_part = cos_part;
-	*p_dx = dx;
-	*p_dy = dy;
+	*p_dx = (uint16_t)centre_angle;
+	*p_dy = 0x200u;
+	polar_to_xy(p_cos_part, p_dx, p_dy);
 }
 
+/* Every flash_period frames swaps the player's sprite_palette between its own (from palette_list) and
+   0x83B0. */
 void flash_hurt_palette(void)
 {
 	uint16_t palette = 0;
@@ -2230,6 +2336,8 @@ void flash_hurt_palette(void)
 	OBJECT(current_object)->sprite_palette = palette;
 }
 
+/* Sets the player's sprite priority bits (the top three of sprite_palette) for its floor: 0x4000 on
+   floor type 4, 0xA000 on floor type 0xC when the block it came from is of type 0xC too. */
 void set_floor_sprite_priority(void)
 {
 	if (OBJECT(current_object)->floor_type == 4u)
@@ -2245,6 +2353,9 @@ void set_floor_sprite_priority(void)
 	}
 }
 
+/* While the quicksand holds the player (flags bit 31) its floor_z and z go 0x4EC4 x (0x68 -
+   touch_distance) lower, and with block flags bit 2 it sinks: sink_depth + 0x33 a frame added to z; at
+   0x2000 deep it loses 8 health and respawns, or dies (state 0x16). */
 uint32_t update_quicksand_object(uint32_t sink_offset)
 {
 	uint8_t health = 0;
@@ -2276,6 +2387,9 @@ uint32_t update_quicksand_object(uint32_t sink_offset)
 	return sink_offset;
 }
 
+/* On floor type 0xA the player sinks: sink_depth grows 0x33 a frame less struggle_speed / 16 (at least
+   0x100, and 0xA0 back when past the floor's sink_depth_limits entry), z = floor_z + sink_depth << 8; at
+   0x2000 deep it loses 8 health and respawns, or dies (state 0x16). */
 uint32_t update_sinking_floor(uint32_t sink_offset)
 {
 	uint8_t health = 0;
@@ -2308,6 +2422,9 @@ uint32_t update_sinking_floor(uint32_t sink_offset)
 	return sink_offset;
 }
 
+/* Carries the player with a moving floor: on floor type 7 whose floor_attribute_slopes byte is 1, x +=
+   moving_floor_object's speed_x; on floor type 0xC, y += its platform's speed_y (not while jumping, nor
+   while teetering off a block not of type 0xC). */
 void apply_moving_floor(void)
 {
 	if (OBJECT(current_object)->floor_type == 7u && ROM8(floor_attribute_slopes_ADDRESS + OBJECT(current_object)->floor_attribute) == 1u)
@@ -2316,6 +2433,9 @@ void apply_moving_floor(void)
 		OBJECT(current_object)->y += OBJECT(LINKED(current_object, OBJECT(current_object)->platform))->speed_y;
 }
 
+/* When check_zones put the player in a zone (flags bit 27, the zone in anchor_x): kind 0x16 sends it to
+   state 0x22; kinds 9, 0xC, 0x14, 0x18, 0x1E and 0x21 count as a touch (flags bit 2, touched_by) for
+   check_player_contacts. */
 void check_zone_contact(void)
 {
 	uint32_t object = 0;
@@ -2338,6 +2458,8 @@ void check_zone_contact(void)
 	}
 }
 
+/* With enter_on_respawn set, a stage that has an entry path (stage_player_entries) sends the player to
+   state 0x2A (entering the stage); otherwise enter_on_respawn is cleared. */
 void check_stage_entry_path(void)
 {
 	if (PLAYER(current_player)->enter_on_respawn == 0u)
@@ -2351,6 +2473,8 @@ void check_stage_entry_path(void)
 	PLAYER(current_player)->enter_on_respawn = 0u;
 }
 
+/* Loads the stage's goal from its stage_goals record: goal_scroll_position, goal_direction, goal_line,
+   then, past a word it skips, goal_line_min and goal_line_max. */
 void load_stage_goal(void)
 {
 	uint32_t goal_record = 0;
@@ -2366,6 +2490,10 @@ void load_stage_goal(void)
 	goal_line_max = ROM16(goal_record + 2u);
 }
 
+/* Ends the stage for the player (state 0x21) once scroll_position reaches goal_scroll_position and it
+   crosses goal_line by goal_direction (between goal_line_min and goal_line_max unless 0). Stage 0: 0x18
+   at once; 4: when goal_unlocked; 5: 0x18 with scene_path 0xB, or 0x11 once the spiked press has stood
+   0x258 frames. */
 void check_player_reached_goal(void)
 {
 	uint32_t object = 0;
@@ -2462,6 +2590,8 @@ void check_player_reached_goal(void)
 	}
 }
 
+/* Spawns the tumble effect over the player (tumble_effect_animation, tumble_effect_update), flipped when
+   the player's facing is 1 to 7. */
 void spawn_tumble_effect(uint32_t effect)
 {
 	uint32_t free_count = 0;
@@ -2482,6 +2612,9 @@ void spawn_tumble_effect(uint32_t effect)
 	}
 }
 
+/* The tumble effect: at its player's screen position, deleted once the player leaves state 0x20 or its
+   animation_frame reaches 0xB; its frame follows the player's animation_frame (moved by
+   tumble_effect_y_offsets), drawn by the player's draw_depth and facing. */
 void tumble_effect_update(void)
 {
 	uint32_t animation_frame = 0, depth = 0, ignored = 0, object = 0, player = 0;
@@ -2508,6 +2641,7 @@ void tumble_effect_update(void)
 	queue_sprite_at_depth(&ignored, &depth);
 }
 
+/* Hands back target_speed x speed_scale / 16 when speed_scale is set, else target_speed. */
 uint32_t apply_speed_scale(uint32_t target_speed)
 {
 	if (PLAYER(current_player)->speed_scale != 0u)
@@ -2515,6 +2649,10 @@ uint32_t apply_speed_scale(uint32_t target_speed)
 	return target_speed;
 }
 
+/* Lets the scene decide how the player enters: it waits (entry_status 0x82, player_place staying its
+   handler) in several game modes and events (a stage exit, modes 0xA, 0x1A, 0x1D, the collapsing rope
+   bridge, the ride...), or starts in a scene state: 0x1C in game mode 0x10, 0x1E in 1, 0x2B in 0x18,
+   0x34 in 0x1B. */
 void set_player_entry_by_scene(void)
 {
 	if (current_game_mode == 0xAu && (int8_t)scene_step > 1)
@@ -2602,6 +2740,8 @@ void set_player_entry_by_scene(void)
 	}
 }
 
+/* Unless the player is in state 0x37: in a game, pay_and_join with cost (the continue); with no game in
+   progress it counts as joined at once. Hands back -1 when joined, else 0. */
 uint32_t try_continue(uint8_t cost)
 {
 	uint32_t joined = 0;
@@ -2615,6 +2755,7 @@ uint32_t try_continue(uint8_t cost)
 	return joined;
 }
 
+/* As try_continue with the cost of a start (credits_per_start). */
 uint32_t try_join(void)
 {
 	uint8_t cost = 0;
@@ -2632,6 +2773,10 @@ uint32_t try_join(void)
 	return joined;
 }
 
+/* Joins the player when it has cost credits (none on free play) and its start button (trackball button
+   with setting_no_start_buttons) is newly pressed, from the shared or its own credit block by
+   cabinet_config: credits taken, cabinet event written, io_port_d bit cleared on 2-player setups,
+   credits saved, -1 handed back; else joined. */
 uint32_t pay_and_join(uint8_t cost, uint32_t joined)
 {
 	uint8_t cabinet_event = 0;
@@ -2765,6 +2910,10 @@ uint32_t pay_and_join(uint8_t cost, uint32_t joined)
 	return joined;
 }
 
+/* Forces the states of the current game mode and events on a playing player: 0x19 (mode 0xD), 0x1E (1),
+   0x2B (0x18), 0x30 (0x19, bridge collapsing), 0x31 (0x1A), the ride of mode 0x1C (spawn_player_ride,
+   then 0x35), 0x21 (0x17, 0x1D, 4), 0x26 (players_pulled), 0x38 (mode 3 in stage 0xB, y up to 0x500),
+   0x39 (0x20). */
 uint32_t check_scene_states(uint32_t object)
 {
 	if (PLAYER(current_player)->state == 0xBu || PLAYER(current_player)->state == 0x23u || PLAYER(current_player)->state == 0x24u || PLAYER(current_player)->state == 0x16u || PLAYER(current_player)->state == 0x2Eu || PLAYER(current_player)->state == 0x37u)
@@ -2835,6 +2984,10 @@ uint32_t check_scene_states(uint32_t object)
 	return object;
 }
 
+/* Sets the player's sprite priority bits for its fall into a pit from fall_sprite_priorities: the entry
+   of the block it fell from, by ledge_side (ledge_direction when 4), or by the half of the block it is
+   over when the block it left is of type 0x11 or 0x1F, or its current one 0x1D or 0x1E; a negative entry
+   leaves them. */
 void set_fall_sprite_priority(void)
 {
 	uint8_t priority = 0;
@@ -2878,6 +3031,9 @@ void set_fall_sprite_priority(void)
 	}
 }
 
+/* On floor type 2 (a wall to climb) a player placed there starts climbing: its character's climb
+   animation, z raised by the wall's rise (its floor_types record) times how far it is into the block,
+   climb_remaining and climb_base_z set; state 0xA, substate 3. */
 void start_climb_at_spawn(uint32_t climbed_height)
 {
 	uint32_t attribute_record = 0, block = 0, climb_animation = 0, distance = 0;
@@ -2916,6 +3072,9 @@ void start_climb_at_spawn(uint32_t climbed_height)
 	PLAYER(current_player)->state = 0xAu;
 }
 
+/* On floor type 2 (a wall to climb) starts the riding player climbing: its character's climb animation,
+   x + 0x41000, climb_base_z from the floor block, climb_remaining from floor_attribute_wall_heights less
+   its height above climb_base_z; state 0xA, substate 3. */
 void start_climb(void)
 {
 	uint32_t animation = 0, ignored = 0;
@@ -2949,6 +3108,9 @@ void start_climb(void)
 	PLAYER(current_player)->state = 0xAu;
 }
 
+/* Unused: polar_to_xy(heading_snapped, speed_int) plus the push, each >> 4, gives speed (length << 12, 0
+   when negative, at most 0x5000000) and heading; the push is then cleared. It reads push_x and push_y as
+   32-bit words, each taking the halfword after it, and the clear also zeroes animation_speed's low half. */
 void add_push_to_player_motion(void)
 {
 	uint16_t dy = 0;
@@ -2986,6 +3148,9 @@ void add_push_to_player_motion(void)
 	AS32(PLAYER(current_player)->push_y) = 0u;
 }
 
+/* Sets push_x and push_y from the floor: cleared, then the floor_types record's first two words added on
+   floor types 4, 0xB, 5 (not while hopping) and 7 (with an attribute), not while invulnerable. With
+   flags bit 31 set it leaves the push alone. */
 void apply_floor_push(void)
 {
 	uint32_t attribute_record = 0;
@@ -3002,6 +3167,9 @@ void apply_floor_push(void)
 	}
 }
 
+/* For Mighty (kind 2) slipping off a ledge (player_state_dropping): one piece with the frame at its
+   animation + 0x3A, at the player's position, that waits 0x10 frames before it falls
+   (slip_piece_update). */
 uint32_t spawn_slip_piece(uint32_t piece)
 {
 	uint32_t free_count = 0, ignored = 0;
@@ -3030,6 +3198,9 @@ uint32_t spawn_slip_piece(uint32_t piece)
 	return piece;
 }
 
+/* Mighty's slip piece: deleted off screen; waits while speed_x_fraction (a timer here) counts down from
+   0x10, then falls (gravity 0x6000); drawn at its base when its direction (the ledge_side) is 2 or more,
+   else in bucket 0xFF. */
 void slip_piece_update(void)
 {
 	uint8_t bucket = 0;
@@ -3059,6 +3230,9 @@ void slip_piece_update(void)
 	queue_sprite_in_bucket(bucket);
 }
 
+/* For Ray (kind 1) slipping off a ledge: two pieces (the player's animation + 0x3A) thrown up (speed_z
+   -0x80000) and apart at 0x8000 in x (ledge sides 0, 2 and 4) or y (1 and 3), run by slip_pieces_update;
+   needs 2 free objects. */
 void spawn_slip_pieces(uint32_t piece)
 {
 	uint32_t ignored = 0;
@@ -3108,6 +3282,9 @@ void spawn_slip_pieces(uint32_t piece)
 	} while ((int16_t)pieces_left > 1);
 }
 
+/* Ray's two slip pieces: each moves by speed_x and speed_y, falls (gravity 0x6000), animates and is
+   deleted off screen (margins 0x20 and 0x50); drawn at its base when its direction (the ledge_side) is 2
+   or more, else in bucket 0xFF. */
 void slip_pieces_update(void)
 {
 	uint8_t bucket = 0;
@@ -3137,6 +3314,9 @@ void slip_pieces_update(void)
 	queue_sprite_in_bucket(bucket);
 }
 
+/* The player's autopilot: takes a new path from path_request or all_players_path_request
+   (follow_player_path_start) or runs the current one (follow_player_path_run), and hands back the speed
+   to aim for: the path's, or target_speed with no path. */
 uint32_t follow_player_path(uint32_t target_speed)
 {
 	if (PLAYER(current_player)->path_request != 0u)
@@ -3157,6 +3337,9 @@ uint32_t follow_player_path(uint32_t target_speed)
 	return follow_player_path_start();
 }
 
+/* Starts path on the player: path_pointer from player_path_offsets[path + player], speed 0, z on its
+   floor, state 1, flags bits 6 and 13 off and bit 0 on (so the first aim sets heading too); then its
+   first record. */
 uint32_t follow_player_path_start(void)
 {
 	uint32_t path = 0;
@@ -3176,6 +3359,9 @@ uint32_t follow_player_path_start(void)
 	return follow_player_path_load_record();
 }
 
+/* Runs the current path: during a wait the speed to aim for is 0 (speed stopped below 0x20) until
+   path_wait runs out; else the player heads for the record's point until within 8 in x and y (at once
+   with the record's flag bit 1), then the next record. */
 uint32_t follow_player_path_run(void)
 {
 	uint16_t x_offset = 0;
@@ -3206,6 +3392,8 @@ uint32_t follow_player_path_run(void)
 	return target_speed;
 }
 
+/* Moves path_pointer to the next 8-byte record unless its speed word is negative, which ends the path
+   (path = 0). */
 uint32_t follow_player_path_next_record(void)
 {
 	if ((int16_t)ROM16(PLAYER(current_player)->path_pointer + 8u) >= 0)
@@ -3217,6 +3405,9 @@ uint32_t follow_player_path_next_record(void)
 	return follow_player_path_target_speed();
 }
 
+/* Starts the path record at path_pointer: path_speed from it; its flag bit 0 makes the player jump
+   (state 4); a speed of 0 makes it wait path_wait (the record's second word) frames, else it heads for
+   the record's point (follow_player_path_aim_at_point). */
 uint32_t follow_player_path_load_record(void)
 {
 	PLAYER(current_player)->path_speed = ROM16(PLAYER(current_player)->path_pointer);
@@ -3235,6 +3426,9 @@ uint32_t follow_player_path_load_record(void)
 	return follow_player_path_target_speed();
 }
 
+/* Turns target_heading and facing_angle toward the point of the current path record (its x and y words)
+   and, on a path's first record (flags bit 0, cleared here), heading too; then
+   follow_player_path_target_speed. */
 uint32_t follow_player_path_aim_at_point(void)
 {
 	uint16_t dy = 0;
@@ -3256,6 +3450,8 @@ uint32_t follow_player_path_aim_at_point(void)
 	return follow_player_path_target_speed();
 }
 
+/* Hands back path_speed << 16 as the speed to aim for; a slow path (0x20 or less) gives 0, and stops the
+   player, once its speed is under 0x20. */
 uint32_t follow_player_path_target_speed(void)
 {
 	uint32_t target_speed = 0;
@@ -3269,6 +3465,10 @@ uint32_t follow_player_path_target_speed(void)
 	return target_speed;
 }
 
+/* What touching an object does to the player, by the kind of the object in touched_by: rings (3 and 42)
+   give rings and health, hazards hurt (state 0xD) or tumble it, solid kinds stop or bounce it, others
+   launch, hold, catch or sink it. Nothing on a path (but 0x14-0x16), untouched, or when the object has
+   flags bit 9. */
 void check_player_contacts(uint32_t *p_health_limit, uint32_t *p_cursor)
 {
 	uint32_t health_limit = *p_health_limit;
@@ -3803,6 +4003,8 @@ void check_player_contacts(uint32_t *p_health_limit, uint32_t *p_cursor)
 	}
 }
 
+/* Nothing holds the player: pushed_out 0, last_hazard and last_damaged 0xFFFF (the next touch counts as
+   new), flags bits 18, 23 and 31 off and block flags bit 1 off. */
 void check_player_contacts_clear_state(void)
 {
 	PLAYER(current_player)->pushed_out = 0;
@@ -3814,6 +4016,8 @@ void check_player_contacts_clear_state(void)
 	PLAYER(current_player)->flags &= ~2u;
 }
 
+/* Ignores toucher while invulnerable_timer runs (check_player_contacts_clear_state); else
+   check_player_contacts_hurt. */
 void check_player_contacts_hurt_unless_invulnerable(uint32_t toucher)
 {
 	if (PLAYER(current_player)->invulnerable_timer >= 0)
@@ -3824,6 +4028,8 @@ void check_player_contacts_hurt_unless_invulnerable(uint32_t toucher)
 	check_player_contacts_hurt(toucher);
 }
 
+/* Hurts the player with substate 0 (check_player_contacts_attack_or_hurt), so a jumping player attacks
+   instead. */
 void check_player_contacts_hurt(uint32_t toucher)
 {
 	uint8_t new_substate = 0;
@@ -3832,6 +4038,8 @@ void check_player_contacts_hurt(uint32_t toucher)
 	check_player_contacts_attack_or_hurt(new_substate, toucher);
 }
 
+/* A jumping player attacks toucher (check_player_contacts_attack); otherwise it is hurt (state 0xD),
+   taking new_substate and hurt_contact_delay 2 only for a new toucher (last_hazard). */
 void check_player_contacts_attack_or_hurt(uint8_t new_substate, uint32_t toucher)
 {
 	if (PLAYER(current_player)->state == 4u)
@@ -3848,6 +4056,10 @@ void check_player_contacts_attack_or_hurt(uint8_t new_substate, uint32_t toucher
 	PLAYER(current_player)->state = 0xDu;
 }
 
+/* The player against a solid object: jumping, it attacks it; otherwise it goes back to its previous
+   place and floor and bounces (state 0xE) at speed 0x500 or more (not off kind 0x20) or stops. After
+   0x1E frames on the same object it is pushed out toward the screen centre (pushed_out); climbing, it
+   undoes the climb step. */
 uint32_t check_player_contacts_solid(uint32_t health_limit, uint32_t toucher)
 {
 	uint32_t dx = 0, dy = 0;
@@ -3977,6 +4189,10 @@ uint32_t check_player_contacts_solid(uint32_t health_limit, uint32_t toucher)
 	return health_limit;
 }
 
+/* A jumping player hits toucher once (last_damaged): toucher gets flags bit 6 and loses attack_power
+   health. If that finishes it and it is not a sturdy kind (9, 0xB-0xE, 0x11, 0x18, 0x19), the player
+   gets hit_stop 3; else it is thrown back with a hop, along toucher's direction (flags bit 30) or back
+   the way it came. */
 void check_player_contacts_attack(uint32_t toucher)
 {
 	uint32_t move_angle = 0;

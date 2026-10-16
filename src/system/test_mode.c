@@ -11,10 +11,12 @@
  */
 #include "game.h"
 
+/* Enters the test mode: display off, show_eeprom_write_count when service is held, palettes, video
+   registers, sprites, init_sound and sound 0x94, objects reset, text and bitmap layers cleared (8 bpp,
+   filled with 9), port D outputs and colour offsets off, test_mode 0xFF on the menu; then the first
+   run_test_mode. */
 void start_test_mode(uint32_t *p_color, uint32_t *p_blocks_per_row)
 {
-	uint32_t color = *p_color;
-	uint32_t blocks_per_row = *p_blocks_per_row;
 	uint8_t is_8bpp = 0, mode = 0, sound_id = 0;
 	uint16_t scroll_x = 0;
 	uint32_t r0 = 0, r8 = 0, ignored = 0, scroll_y = 0;
@@ -40,7 +42,7 @@ void start_test_mode(uint32_t *p_color, uint32_t *p_blocks_per_row)
 	mode = 0u;
 	set_screen_mode(mode);
 	clear_text_layer(&r0, &ignored, &ignored);
-	clear_bitmap_layer((uint8_t)r0, &scroll_y, &color, &ignored, &r8, &blocks_per_row, &ignored);
+	clear_bitmap_layer((uint8_t)r0, &scroll_y, p_color, &ignored, &r8, p_blocks_per_row, &ignored);
 	mem_write16(video_layer_disable, 0xFu);
 	scroll_x = 0u;
 	scroll_y &= ~0xFFFFu;
@@ -64,15 +66,16 @@ void start_test_mode(uint32_t *p_color, uint32_t *p_blocks_per_row)
 	mem_write32(video_control, mem_read32(video_control) | 0x800u);
 	fill_value = (fill_value & ~0xFFFFu) | 0x909u;
 	set_halfwords(VIDEO_RAM, 0xE000u, fill_value);
-	run_test_mode(scroll_y, (uint16_t)r8, &color, &blocks_per_row);
-	*p_color = color;
-	*p_blocks_per_row = blocks_per_row;
+	run_test_mode(scroll_y, (uint16_t)r8, p_color, p_blocks_per_row);
 }
 
+/* One frame of the test mode: runs the screen test_screen names: 0 test_menu, 1
+   toggle_test_continue_mode, 2 test_memory, 3 test_inputs, 4 test_sound, 5 test_crt, 6
+   test_game_assignments, 7 test_coin_assignments, 8 test_bookkeeping, 9 test_backup_clear, 0xA
+   test_outputs, 0xB exit_test_mode. */
 void run_test_mode(uint32_t pressed, uint16_t count, uint32_t *p_color, uint32_t *p_blocks_per_row)
 {
 	uint32_t color = *p_color;
-	uint32_t blocks_per_row = *p_blocks_per_row;
 
 	switch (test_screen)
 	{
@@ -83,19 +86,19 @@ void run_test_mode(uint32_t pressed, uint16_t count, uint32_t *p_color, uint32_t
 		toggle_test_continue_mode();
 		break;
 	case 2:
-		test_memory(&color, &blocks_per_row);
+		test_memory(&color, p_blocks_per_row);
 		break;
 	case 3:
-		test_inputs(count, &color, &blocks_per_row);
+		test_inputs(count, &color, p_blocks_per_row);
 		break;
 	case 4:
 		test_sound();
 		break;
 	case 5:
-		test_crt(pressed, &color, &blocks_per_row);
+		test_crt(pressed, &color, p_blocks_per_row);
 		break;
 	case 6:
-		test_game_assignments(&color, &blocks_per_row);
+		test_game_assignments(&color, p_blocks_per_row);
 		break;
 	case 7:
 		color = test_coin_assignments(color);
@@ -119,9 +122,11 @@ void run_test_mode(uint32_t pressed, uint16_t count, uint32_t *p_color, uint32_t
 		invalid_jump(0x9CA0Eu + test_screen * 3u);
 	}
 	*p_color = color;
-	*p_blocks_per_row = blocks_per_row;
 }
 
+/* test_screen 0, the TEST MODE menu: drawn on its first frame with the cursor on EXIT (item 0xA);
+   service moves test_cursor down the items, wrapping, and skips OUTPUT TEST (item 9) without
+   moving_seat_dip; test opens item n as test_screen n + 1 (test_menu_item = n). */
 void test_menu(void)
 {
 	uint32_t cursor_entry = 0, cursor_positions = 0, ignored = 0;
@@ -161,6 +166,9 @@ void test_menu(void)
 	}
 }
 
+/* Prints the TEST MODE menu (test_menu_text) on a cleared text layer, its OUTPUT TEST line only with
+   moving_seat_dip, and eeprom_write_count (decimal, at 31,26) when show_eeprom_write_count is set;
+   test_cursor_positions = test_menu_cursor_positions. */
 void draw_test_menu(void)
 {
 	uint16_t attribute = 0;
@@ -186,6 +194,9 @@ void draw_test_menu(void)
 	}
 }
 
+/* Menu item 0: flips test_continue_mode and prints INDIVIDUAL MODE or CONTINUE MODE, then back to the
+   menu at once (test_screen 0, test_screen_ready 1). In continue mode each test goes on to the next
+   instead of the menu. */
 void toggle_test_continue_mode(void)
 {
 	uint32_t ignored = 0, text = 0;
@@ -199,10 +210,12 @@ void toggle_test_continue_mode(void)
 	test_screen_ready = 1u;
 }
 
+/* MEMORY TEST, all on its first frame: with interrupts off and the sound CPU held (sound_cpu_hold),
+   check_rom_checksums and the work, video, sprite, palette and sound RAM tests; then video and sound set
+   up again and the 0x13 results printed from memory_test_errors, whose clearing also clears
+   show_eeprom_write_count, its second byte. */
 void test_memory(uint32_t *p_results_left, uint32_t *p_blocks_per_row)
 {
-	uint32_t results_left = *p_results_left;
-	uint32_t blocks_per_row = *p_blocks_per_row;
 	uint8_t is_8bpp = 0, mode = 0;
 	uint16_t scroll_x = 0, scroll_y = 0;
 	uint32_t r0 = 0, r4 = 0, delay_count = 0, ignored = 0, offset_entry = 0, print_position = 0, result_index = 0, text = 0;
@@ -275,42 +288,39 @@ void test_memory(uint32_t *p_results_left, uint32_t *p_blocks_per_row)
 			text = memory_test_error_text_ADDRESS;
 			print_text_list(&text, &ignored);
 		}
-		results_left = 0x13u;
+		*p_results_left = 0x13u;
 		result_index = 0u;
 		do
 		{
 			offset_entry = memory_test_good_offsets_ADDRESS + result_index * 2u;
 			if ((memory_test_errors & shl32(1u, (int)(result_index))) != 0u)
 				offset_entry = memory_test_bad_offsets_ADDRESS + result_index * 2u;
-			blocks_per_row = memory_test_result_texts_ADDRESS;
+			*p_blocks_per_row = memory_test_result_texts_ADDRESS;
 			text = ROM16(offset_entry) + memory_test_result_texts_ADDRESS;
 			print_text_list(&text, &ignored);
 			result_index = (uint8_t)(result_index + 1u);
-			results_left--;
-		} while (results_left != 0u);
+			(*p_results_left)--;
+		} while (*p_results_left != 0u);
 	}
 	if ((0x2002u & inputs_pressed) == 0u)
 	{
-		*p_results_left = results_left;
-		*p_blocks_per_row = blocks_per_row;
 		return;
 	}
 	if (test_continue_mode != 0u)
 	{
 		test_screen++;
 		test_screen_ready = 0u;
-		*p_results_left = results_left;
-		*p_blocks_per_row = blocks_per_row;
 		return;
 	}
 	test_cursor = test_menu_item;
 	test_screen = 0u;
 	test_screen_ready = 1u;
 	draw_test_menu();
-	*p_results_left = results_left;
-	*p_blocks_per_row = blocks_per_row;
 }
 
+/* The ROM part of the MEMORY TEST: compute_crc16 of 0x000000-0x01FFFF and of 0x080000-0x09EFFF,
+   compute_crc16_alternate_bytes from 0x100000 and from 0x100001, each against its word of rom_checksums;
+   a mismatch sets memory_test_errors 1, 4, 2 or 8 in that order. */
 void check_rom_checksums(void)
 {
 	uint32_t count = 0, crc = 0, data = 0, ignored = 0, stored_crc = 0;
@@ -343,6 +353,8 @@ void check_rom_checksums(void)
 		memory_test_errors |= 8u;
 }
 
+/* Saves work RAM 0x200000-0x20FFFF in video RAM, fills it with ram_test_patterns and checks it
+   (test_work_ram_verify, which copies it back). */
 void test_work_ram(void)
 {
 	uint32_t bytes_left = 0, passes_left = 0, pattern = 0, pattern_index = 0, ram_cursor = 0;
@@ -376,6 +388,9 @@ void test_work_ram(void)
 	test_work_ram_verify();
 }
 
+/* Compares work RAM with the patterns test_work_ram wrote: a wrong byte sets 0x20 (even address) or 0x40
+   (odd) in memory_test_video_word, the saved copy of memory_test_errors, so the bits land in
+   memory_test_errors when work RAM is then copied back from video RAM. */
 void test_work_ram_verify(void)
 {
 	uint32_t bytes_left = 0, passes_left = 0, pattern = 0, pattern_index = 0, ram_cursor = 0;
@@ -417,6 +432,7 @@ void test_work_ram_verify(void)
 	move_bytes(WORK_RAM, VIDEO_RAM, 0x10000u);
 }
 
+/* Fills video RAM 0x300000-0x31FFFF with ram_test_patterns, then test_video_ram_verify. */
 void test_video_ram(void)
 {
 	uint32_t bytes_left = 0, passes_left = 0, pattern = 0, pattern_index = 0, ram_cursor = 0;
@@ -449,6 +465,9 @@ void test_video_ram(void)
 	test_video_ram_verify();
 }
 
+/* Compares video RAM 0x300000-0x31FFFF with the patterns: a wrong byte at an even address sets
+   memory_test_errors 0x10000 (low nibble) or 0x8000 (high nibble), and any wrong byte, even ones too,
+   sets 0x4000 or 0x2000. */
 void test_video_ram_verify(void)
 {
 	uint32_t bytes_left = 0, passes_left = 0, pattern = 0, pattern_index = 0, ram_cursor = 0;
@@ -493,6 +512,7 @@ void test_video_ram_verify(void)
 	} while (passes_left != 0u);
 }
 
+/* Fills sprite RAM 0x400000-0x41FFFF with ram_test_patterns, then test_sprite_ram_verify. */
 void test_sprite_ram(void)
 {
 	uint32_t bytes_left = 0, passes_left = 0, pattern = 0, pattern_index = 0, ram_cursor = 0;
@@ -525,6 +545,9 @@ void test_sprite_ram(void)
 	test_sprite_ram_verify();
 }
 
+/* Compares sprite RAM 0x400000-0x41FFFF with the patterns: a wrong byte at an even address sets
+   memory_test_errors 0x1000 (low nibble) or 0x800 (high nibble), and any wrong byte, even ones too, sets
+   0x400 or 0x200. */
 void test_sprite_ram_verify(void)
 {
 	uint32_t bytes_left = 0, passes_left = 0, pattern = 0, pattern_index = 0, ram_cursor = 0;
@@ -569,6 +592,9 @@ void test_sprite_ram_verify(void)
 	} while (passes_left != 0u);
 }
 
+/* Fills palette RAM from 0x600000 with ram_test_patterns, then test_palette_ram_verify_first_half. The 8
+   passes of 4 * 0xF9 words end at 0x603E40, so its exit at 0x604000 is never taken and 0x603E40-0x603FFF
+   goes untested (0x607E40-0x607FFF likewise in the second half). */
 void test_palette_ram(void)
 {
 	uint32_t halfwords_left = 0, passes_left = 0, pattern = 0, pattern_index = 0, ram_cursor = 0;
@@ -601,6 +627,8 @@ void test_palette_ram(void)
 	test_palette_ram_verify_first_half();
 }
 
+/* Compares palette RAM from 0x600000 (up to 0x603E40, as filled) with the patterns: a wrong low byte
+   sets memory_test_errors 0x100, a wrong high byte 0x80; then test_palette_ram_fill_second_half. */
 void test_palette_ram_verify_first_half(void)
 {
 	uint32_t halfwords_left = 0, passes_left = 0, pattern = 0, pattern_index = 0, ram_cursor = 0;
@@ -642,6 +670,8 @@ void test_palette_ram_verify_first_half(void)
 	test_palette_ram_fill_second_half();
 }
 
+/* Fills palette RAM from 0x604000 with the patterns (8 passes, up to 0x607E40), then
+   test_palette_ram_verify_second_half. */
 void test_palette_ram_fill_second_half(void)
 {
 	uint32_t halfwords_left = 0, passes_left = 0, pattern = 0, pattern_index = 0, ram_cursor = 0;
@@ -674,6 +704,8 @@ void test_palette_ram_fill_second_half(void)
 	test_palette_ram_verify_second_half();
 }
 
+/* Compares palette RAM from 0x604000 (up to 0x607E40, as filled) with the patterns: a wrong low byte
+   sets memory_test_errors 0x40000, a wrong high byte 0x20000. */
 void test_palette_ram_verify_second_half(void)
 {
 	uint32_t halfwords_left = 0, passes_left = 0, pattern = 0, pattern_index = 0, ram_cursor = 0;
@@ -711,6 +743,8 @@ void test_palette_ram_verify_second_half(void)
 	} while (passes_left != 0u);
 }
 
+/* Saves sound RAM 0x700000-0x701FFF in video RAM and fills it with ram_test_patterns, then
+   test_sound_ram_verify. */
 void test_sound_ram(void)
 {
 	uint32_t bytes_left = 0, passes_left = 0, pattern = 0, pattern_index = 0, ram_cursor = 0;
@@ -744,6 +778,8 @@ void test_sound_ram(void)
 	test_sound_ram_verify();
 }
 
+/* Compares sound RAM 0x700000-0x701FFF with the patterns (any wrong byte sets memory_test_errors 0x10),
+   then copies the saved contents back from video RAM. */
 void test_sound_ram_verify(void)
 {
 	uint32_t bytes_left = 0, passes_left = 0, pattern = 0, pattern_index = 0, ram_cursor = 0;
@@ -780,10 +816,13 @@ void test_sound_ram_verify(void)
 	move_bytes(SOUND_RAM, VIDEO_RAM, 0x2000u);
 }
 
+/* INPUT TEST: on its first frame prints the texts, fills its panels on the bitmap layer (a third for 3
+   players) and sets up three trackball cursors in one pool 2 block (screen_sprite_block); then every
+   frame each switch shows ON or OFF from input_ports_active and the cursors move
+   (move_input_test_cursors). Test, pressed and released, leaves. */
 void test_inputs(uint16_t count, uint32_t *p_panel_color, uint32_t *p_blocks_per_row)
 {
 	uint32_t panel_color = *p_panel_color;
-	uint32_t blocks_per_row = *p_blocks_per_row;
 	uint16_t sprite_block = 0;
 	uint32_t bottom = 0, coin_text = 0, cursors_left = 0, first_panel_color = 0, ignored = 0, input_bits = 0, input_index = 0, inputs_left = 0, left = 0, object = 0, off_texts = 0, on_texts = 0, right = 0, text = 0, text_entry = 0, top = 0, value = 0;
 
@@ -843,11 +882,10 @@ void test_inputs(uint16_t count, uint32_t *p_panel_color, uint32_t *p_blocks_per
 				coin_text = input_test_coin_3_off_text_ADDRESS;
 			print_text_list(&coin_text, &ignored);
 		}
-		move_input_test_cursors(count, coin_text, &cursors_left, &blocks_per_row);
+		move_input_test_cursors(count, coin_text, &cursors_left, p_blocks_per_row);
 		if ((input_ports_active & 0x2002u) != 0u && input_test_switch_released == 0u)
 		{
 			*p_panel_color = cursors_left;
-			*p_blocks_per_row = blocks_per_row;
 			return;
 		}
 		input_test_switch_released = 1u;
@@ -855,13 +893,11 @@ void test_inputs(uint16_t count, uint32_t *p_panel_color, uint32_t *p_blocks_per
 		{
 			input_test_switch_pressed = 1u;
 			*p_panel_color = cursors_left;
-			*p_blocks_per_row = blocks_per_row;
 			return;
 		}
 		if (input_test_switch_pressed == 0u)
 		{
 			*p_panel_color = cursors_left;
-			*p_blocks_per_row = blocks_per_row;
 			return;
 		}
 		sprite_block = screen_sprite_block;
@@ -875,7 +911,6 @@ void test_inputs(uint16_t count, uint32_t *p_panel_color, uint32_t *p_blocks_per
 			test_screen++;
 			test_screen_ready = 0u;
 			*p_panel_color = cursors_left;
-			*p_blocks_per_row = blocks_per_row;
 			return;
 		}
 		test_cursor = test_menu_item;
@@ -883,7 +918,6 @@ void test_inputs(uint16_t count, uint32_t *p_panel_color, uint32_t *p_blocks_per
 		test_screen_ready = 1u;
 		draw_test_menu();
 		*p_panel_color = cursors_left;
-		*p_blocks_per_row = blocks_per_row;
 		return;
 	}
 	test_screen_ready = 1u;
@@ -917,7 +951,7 @@ void test_inputs(uint16_t count, uint32_t *p_panel_color, uint32_t *p_blocks_per
 	first_panel_color = (panel_color & ~0xFFFFu) | 2u;
 	if ((mem_read32(video_control) & 0x200u) != 0u)
 		flip_test_coordinates(&left, &top, &right, &bottom);
-	fill_rect(top, right, bottom, &left, &first_panel_color, &blocks_per_row);
+	fill_rect(top, right, bottom, &left, &first_panel_color, p_blocks_per_row);
 	left = (left & ~0xFFFFu) | 0xA0u;
 	top = 0x68u;
 	right = 0x138u;
@@ -925,7 +959,7 @@ void test_inputs(uint16_t count, uint32_t *p_panel_color, uint32_t *p_blocks_per
 	panel_color = (first_panel_color & ~0xFFFFu) | 0xEu;
 	if ((mem_read32(video_control) & 0x200u) != 0u)
 		flip_test_coordinates(&left, &top, &right, &bottom);
-	fill_rect(top, right, bottom, &left, &panel_color, &blocks_per_row);
+	fill_rect(top, right, bottom, &left, &panel_color, p_blocks_per_row);
 	if (setting_cabinet_type != 0u)
 	{
 		left = (left & ~0xFFFFu) | 0xA0u;
@@ -935,7 +969,7 @@ void test_inputs(uint16_t count, uint32_t *p_panel_color, uint32_t *p_blocks_per
 		panel_color = (panel_color & ~0xFFFFu) | 6u;
 		if ((mem_read32(video_control) & 0x200u) != 0u)
 			flip_test_coordinates(&left, &top, &right, &bottom);
-		fill_rect(top, right, bottom, &left, &panel_color, &blocks_per_row);
+		fill_rect(top, right, bottom, &left, &panel_color, p_blocks_per_row);
 	}
 	allocate_object_2(&ignored, &ignored, &object);
 	screen_sprite_block = object;
@@ -965,12 +999,14 @@ void test_inputs(uint16_t count, uint32_t *p_panel_color, uint32_t *p_blocks_per
 	trackball_2_quadrants = 0u;
 	trackball_3_quadrants = 0u;
 	*p_panel_color = panel_color;
-	*p_blocks_per_row = blocks_per_row;
 }
 
+/* Queues the input test's cursors (the third for 3 players), prints GOOD for each trackball whose
+   quadrant mask is 0xF, draws the sprites (build_sprite_list) and moves each cursor by its trackball /
+   4, within x 0xA5-0x132 and its panel's rows. Cursors 2 and 3 show as handler_high/handler_low and
+   projected_y_int/projected_y_fraction. */
 void move_input_test_cursors(uint32_t count, uint32_t text, uint32_t *p_cursors_left, uint32_t *p_height)
 {
-	uint32_t height = *p_height;
 	uint16_t trackball_dx = 0, trackball_dy = 0;
 	uint32_t bottom_limit = 0, cursors_left = 0, ignored = 0, quadrant_bit = 0, sprite_entry = 0, top_limit = 0;
 
@@ -998,8 +1034,8 @@ void move_input_test_cursors(uint32_t count, uint32_t text, uint32_t *p_cursors_
 			print_text_list(&text, &ignored);
 		}
 	}
-	build_sprite_list(&ignored, &count, &height, &text, &sprite_entry);
-	draw_queued_strings((uint16_t)count, (uint16_t)text, sprite_entry, &ignored, &ignored, &height);
+	build_sprite_list(&ignored, &count, p_height, &text, &sprite_entry);
+	draw_queued_strings((uint16_t)count, (uint16_t)text, sprite_entry, &ignored, &ignored, p_height);
 	current_object = (current_object & ~0xFFFFu) | screen_sprite_block;
 	trackball_dx = (uint16_t)trackball_1_x;
 	trackball_dy = (uint16_t)trackball_1_y;
@@ -1058,9 +1094,10 @@ void move_input_test_cursors(uint32_t count, uint32_t text, uint32_t *p_cursors_
 		cursors_left--;
 	} while (cursors_left != 0u);
 	*p_cursors_left = cursors_left;
-	*p_height = height;
 }
 
+/* quadrant's low byte = the direction bit of a trackball move: 1 (dx and dy not negative), 2 (dy
+   negative), 4 (dx negative) or 8 (both negative); a trackball at rest counts as 1. */
 uint32_t get_trackball_quadrant(uint8_t dx, uint8_t dy, uint32_t quadrant)
 {
 	if ((int8_t)dx < 0)
@@ -1077,6 +1114,8 @@ uint32_t get_trackball_quadrant(uint8_t dx, uint8_t dy, uint32_t quadrant)
 	return quadrant;
 }
 
+/* SOUND TEST: sound_test_number shown at 20,12; service steps it 0-0x8C (wrapping) and plays it after
+   sounds 0x94 and 0x95 (number 0: 0x94 and 0x95 twice); test plays 0x94 and leaves. */
 void test_sound(void)
 {
 	uint8_t sound_id = 0;
@@ -1137,22 +1176,27 @@ void test_sound(void)
 	draw_hex_4(&value, &attribute, &text_position);
 }
 
+/* sound_test_number past 0x8C goes back to 0. */
 void wrap_sound_test_number(void)
 {
 	if ((int16_t)(sound_test_number - 0x8Cu) > 0)
 		sound_test_number = 0u;
 }
 
+/* Unused: sound_test_number past 0x8C (0 stepped down gives 0xFF) becomes 0x8C, the downward twin of
+   wrap_sound_test_number; test_sound only steps up. */
 void wrap_sound_test_number_down(void)
 {
 	if ((int16_t)sound_test_number > 0x8C)
 		sound_test_number = 0x8Cu;
 }
 
+/* C.R.T. TEST, by test_screen_ready: 1/2 is four rows of 0x20 colour bars (crt_test_color_bars) on the
+   bitmap layer; test shows 2/2, a border (crt_test_border_lines) and a crosshatch of lines every 8
+   pixels in colour 0x7E; test again fills the bitmap with 9 and leaves. */
 void test_crt(uint32_t start_y, uint32_t *p_color, uint32_t *p_blocks_per_row)
 {
 	uint32_t color = *p_color;
-	uint32_t blocks_per_row = *p_blocks_per_row;
 	uint16_t end_x = 0, end_y = 0;
 	uint32_t bar_record = 0, bars_left = 0, bottom = 0, ignored = 0, line_record = 0, lines_left = 0, print_position = 0, right = 0, rows_left = 0, start_x = 0, text = 0, top = 0;
 
@@ -1190,7 +1234,7 @@ void test_crt(uint32_t start_y, uint32_t *p_color, uint32_t *p_blocks_per_row)
 				bottom = (uint16_t)(top + 0x1Fu);
 				if ((mem_read32(video_control) & 0x200u) != 0u)
 					flip_test_coordinates(&start_x, &top, &right, &bottom);
-				fill_rect(top, right, bottom, &start_x, &color, &blocks_per_row);
+				fill_rect(top, right, bottom, &start_x, &color, p_blocks_per_row);
 				crt_test_x += 8u;
 				crt_test_color++;
 				bars_left--;
@@ -1199,7 +1243,6 @@ void test_crt(uint32_t start_y, uint32_t *p_color, uint32_t *p_blocks_per_row)
 		} while (rows_left != 0u);
 		test_screen_ready++;
 		*p_color = color;
-		*p_blocks_per_row = blocks_per_row;
 		return;
 	case 2:
 		if ((0x2002u & inputs_pressed) == 0u)
@@ -1275,17 +1318,18 @@ void test_crt(uint32_t start_y, uint32_t *p_color, uint32_t *p_blocks_per_row)
 		test_screen_ready = 1u;
 		draw_test_menu();
 		*p_color = color;
-		*p_blocks_per_row = blocks_per_row;
 		return;
 	default:
 		invalid_jump(0x9D8CCu + test_screen_ready * 3u);
 	}
 }
 
+/* GAME ASSIGNMENTS: service moves the cursor (past MOVING SEAT without moving_seat_dip), test changes
+   difficulty, vitality, advertise sound, monitor flip, cabinet type (type 1 turns the moving seat off),
+   start buttons or moving seat; EXIT saves the EEPROM when test_settings_changed. Item 8,
+   setting_small_large, is past the cursor list. */
 void test_game_assignments(uint32_t *p_color, uint32_t *p_blocks_per_row)
 {
-	uint32_t color = *p_color;
-	uint32_t blocks_per_row = *p_blocks_per_row;
 	uint8_t mode = 0;
 	uint32_t cabinet_type = 0, cursor_positions = 0, ignored = 0, text = 0;
 
@@ -1298,8 +1342,8 @@ void test_game_assignments(uint32_t *p_color, uint32_t *p_blocks_per_row)
 		print_text_list(&text, &ignored);
 		test_cursor_positions = game_assignments_cursor_positions_ADDRESS;
 		test_cursor = 7u;
-		draw_difficulty_setting(&color, &blocks_per_row);
-		draw_vitality_setting(&color, &blocks_per_row);
+		draw_difficulty_setting(p_color, p_blocks_per_row);
+		draw_vitality_setting(p_color, p_blocks_per_row);
 		text = advertise_sound_off_text_ADDRESS;
 		setting_advertise_sound &= 1u;
 		if (setting_advertise_sound != 0u)
@@ -1344,8 +1388,6 @@ void test_game_assignments(uint32_t *p_color, uint32_t *p_blocks_per_row)
 	blink_test_cursor();
 	if ((0x2002u & inputs_pressed) == 0u)
 	{
-		*p_color = color;
-		*p_blocks_per_row = blocks_per_row;
 		return;
 	}
 	switch (test_cursor)
@@ -1353,16 +1395,12 @@ void test_game_assignments(uint32_t *p_color, uint32_t *p_blocks_per_row)
 	case 0:
 		test_settings_changed = 1u;
 		setting_difficulty++;
-		draw_difficulty_setting(&color, &blocks_per_row);
-		*p_color = color;
-		*p_blocks_per_row = blocks_per_row;
+		draw_difficulty_setting(p_color, p_blocks_per_row);
 		return;
 	case 1:
 		test_settings_changed = 1u;
 		setting_initial_vitality++;
-		draw_vitality_setting(&color, &blocks_per_row);
-		*p_color = color;
-		*p_blocks_per_row = blocks_per_row;
+		draw_vitality_setting(p_color, p_blocks_per_row);
 		return;
 	case 2:
 		test_settings_changed = 1u;
@@ -1372,14 +1410,10 @@ void test_game_assignments(uint32_t *p_color, uint32_t *p_blocks_per_row)
 		if (setting_advertise_sound == 0u)
 		{
 			print_text_list(&text, &ignored);
-			*p_color = color;
-			*p_blocks_per_row = blocks_per_row;
 			return;
 		}
 		text = advertise_sound_on_text_ADDRESS;
 		print_text_list(&text, &ignored);
-		*p_color = color;
-		*p_blocks_per_row = blocks_per_row;
 		return;
 	case 3:
 		test_settings_changed = 1u;
@@ -1394,10 +1428,8 @@ void test_game_assignments(uint32_t *p_color, uint32_t *p_blocks_per_row)
 		set_halfwords(VIDEO_RAM, 0xE000u, fill_value);
 		mode = 0u;
 		set_screen_mode(mode);
-		draw_difficulty_setting(&color, &blocks_per_row);
-		draw_vitality_setting(&color, &blocks_per_row);
-		*p_color = color;
-		*p_blocks_per_row = blocks_per_row;
+		draw_difficulty_setting(p_color, p_blocks_per_row);
+		draw_vitality_setting(p_color, p_blocks_per_row);
 		return;
 	case 4:
 		test_settings_changed = 1u;
@@ -1407,8 +1439,6 @@ void test_game_assignments(uint32_t *p_color, uint32_t *p_blocks_per_row)
 		print_text_list(&text, &ignored);
 		if (mem_read8(moving_seat_dip) == 0u || setting_cabinet_type == 0u)
 		{
-			*p_color = color;
-			*p_blocks_per_row = blocks_per_row;
 			return;
 		}
 		setting_moving_seat = 1u;
@@ -1419,14 +1449,10 @@ void test_game_assignments(uint32_t *p_color, uint32_t *p_blocks_per_row)
 		if (setting_moving_seat == 0u)
 		{
 			print_text_list(&text, &ignored);
-			*p_color = color;
-			*p_blocks_per_row = blocks_per_row;
 			return;
 		}
 		text = moving_seat_use_text_ADDRESS;
 		print_text_list(&text, &ignored);
-		*p_color = color;
-		*p_blocks_per_row = blocks_per_row;
 		return;
 	case 5:
 		test_settings_changed = 1u;
@@ -1436,20 +1462,14 @@ void test_game_assignments(uint32_t *p_color, uint32_t *p_blocks_per_row)
 		if (setting_no_start_buttons == 0u)
 		{
 			print_text_list(&text, &ignored);
-			*p_color = color;
-			*p_blocks_per_row = blocks_per_row;
 			return;
 		}
 		text = start_button_no_use_text_ADDRESS;
 		print_text_list(&text, &ignored);
-		*p_color = color;
-		*p_blocks_per_row = blocks_per_row;
 		return;
 	case 6:
 		if (setting_cabinet_type != 0u)
 		{
-			*p_color = color;
-			*p_blocks_per_row = blocks_per_row;
 			return;
 		}
 		test_settings_changed = 1u;
@@ -1459,19 +1479,15 @@ void test_game_assignments(uint32_t *p_color, uint32_t *p_blocks_per_row)
 		if (setting_moving_seat == 0u)
 		{
 			print_text_list(&text, &ignored);
-			*p_color = color;
-			*p_blocks_per_row = blocks_per_row;
 			return;
 		}
 		text = moving_seat_use_text_ADDRESS;
 		print_text_list(&text, &ignored);
-		*p_color = color;
-		*p_blocks_per_row = blocks_per_row;
 		return;
 	case 7:
 		setting_cabinet_config = setting_cabinet_type | ((uint32_t)setting_coin_chute_type << 1);
 		if (test_settings_changed != 0u)
-			eeprom_save_and_lock(&color, &ignored);
+			eeprom_save_and_lock(p_color, &ignored);
 		mem_write32(video_control, mem_read32(video_control) | 0x800u);
 		fill_value = (fill_value & ~0xFFFFu) | 0x909u;
 		set_halfwords(VIDEO_RAM, 0xE000u, fill_value);
@@ -1479,16 +1495,12 @@ void test_game_assignments(uint32_t *p_color, uint32_t *p_blocks_per_row)
 		{
 			test_screen++;
 			test_screen_ready = 0u;
-			*p_color = color;
-			*p_blocks_per_row = blocks_per_row;
 			return;
 		}
 		test_cursor = test_menu_item;
 		test_screen = 0u;
 		test_screen_ready = 1u;
 		draw_test_menu();
-		*p_color = color;
-		*p_blocks_per_row = blocks_per_row;
 		return;
 	case 8:
 		test_settings_changed = 1u;
@@ -1496,18 +1508,17 @@ void test_game_assignments(uint32_t *p_color, uint32_t *p_blocks_per_row)
 		setting_small_large &= 1u;
 		text = small_large_texts[setting_small_large];
 		print_text_list(&text, &ignored);
-		*p_color = color;
-		*p_blocks_per_row = blocks_per_row;
 		return;
 	default:
 		invalid_jump(0x9DBDBu + test_cursor * 3u);
 	}
 }
 
+/* Draws setting_initial_vitality (0-3, back to 0 when out of range) as its vitality_setting_numbers
+   value at text cell 25,9 and as a bar on the bitmap layer: colour 0x17 from x 0x78 to 0xF8, then colour
+   0x49 over (n + 1) * 0x20 pixels, rows 0x58-0x60; flipped coordinates on a flipped screen. */
 void draw_vitality_setting(uint32_t *p_color, uint32_t *p_blocks_per_row)
 {
-	uint32_t color = *p_color;
-	uint32_t blocks_per_row = *p_blocks_per_row;
 	uint32_t attribute = 0, bar_back_color = 0, bottom = 0, left = 0, right = 0, text_position = 0, top = 0, vitality_number = 0;
 
 	if ((setting_initial_vitality & ~3u) != 0u)
@@ -1520,32 +1531,29 @@ void draw_vitality_setting(uint32_t *p_color, uint32_t *p_blocks_per_row)
 	top = 0x58u;
 	right = 0xF8u;
 	bottom = 0x60u;
-	bar_back_color = (color & ~0xFFu) | 0x17u;
+	bar_back_color = (*p_color & ~0xFFu) | 0x17u;
 	if ((mem_read32(video_control) & 0x200u) != 0u)
 		flip_test_coordinates(&left, &top, &right, &bottom);
-	fill_rect(top, right, bottom, &left, &bar_back_color, &blocks_per_row);
+	fill_rect(top, right, bottom, &left, &bar_back_color, p_blocks_per_row);
 	left = (left & ~0xFFFFu) | 0x78u;
 	top = 0x58u;
 	bottom = 0x60u;
 	right = (uint16_t)(((setting_initial_vitality + 1u) << 5) + left);
-	color = (bar_back_color & ~0xFFu) | 0x49u;
+	*p_color = (bar_back_color & ~0xFFu) | 0x49u;
 	if ((mem_read32(video_control) & 0x200u) == 0u)
 	{
-		fill_rect(top, right, bottom, &left, &color, &blocks_per_row);
-		*p_color = color;
-		*p_blocks_per_row = blocks_per_row;
+		fill_rect(top, right, bottom, &left, p_color, p_blocks_per_row);
 		return;
 	}
 	flip_test_coordinates(&left, &top, &right, &bottom);
-	fill_rect(top, right, bottom, &left, &color, &blocks_per_row);
-	*p_color = color;
-	*p_blocks_per_row = blocks_per_row;
+	fill_rect(top, right, bottom, &left, p_color, p_blocks_per_row);
 }
 
+/* Draws setting_difficulty (0-3, back to 0 when out of range) as its number + 1 at text cell 27,5 and as
+   a bar on the bitmap layer: colour 0x17 from x 0x78 to 0xF8, then colour 0x49 over (n + 1) * 0x20
+   pixels, rows 0x38-0x40; flipped coordinates on a flipped screen. */
 void draw_difficulty_setting(uint32_t *p_color, uint32_t *p_blocks_per_row)
 {
-	uint32_t color = *p_color;
-	uint32_t blocks_per_row = *p_blocks_per_row;
 	uint16_t attribute = 0;
 	uint32_t bar_back_color = 0, bottom = 0, difficulty_number = 0, left = 0, right = 0, text_position = 0, top = 0;
 
@@ -1559,28 +1567,28 @@ void draw_difficulty_setting(uint32_t *p_color, uint32_t *p_blocks_per_row)
 	top = 0x38u;
 	right = 0xF8u;
 	bottom = 0x40u;
-	bar_back_color = (color & ~0xFFu) | 0x17u;
+	bar_back_color = (*p_color & ~0xFFu) | 0x17u;
 	if ((mem_read32(video_control) & 0x200u) != 0u)
 		flip_test_coordinates(&left, &top, &right, &bottom);
-	fill_rect(top, right, bottom, &left, &bar_back_color, &blocks_per_row);
+	fill_rect(top, right, bottom, &left, &bar_back_color, p_blocks_per_row);
 	left = (left & ~0xFFFFu) | 0x78u;
 	top = 0x38u;
 	bottom = 0x40u;
 	right = (uint16_t)(((setting_difficulty + 1u) << 5) + left);
-	color = (bar_back_color & ~0xFFu) | 0x49u;
+	*p_color = (bar_back_color & ~0xFFu) | 0x49u;
 	if ((mem_read32(video_control) & 0x200u) == 0u)
 	{
-		fill_rect(top, right, bottom, &left, &color, &blocks_per_row);
-		*p_color = color;
-		*p_blocks_per_row = blocks_per_row;
+		fill_rect(top, right, bottom, &left, p_color, p_blocks_per_row);
 		return;
 	}
 	flip_test_coordinates(&left, &top, &right, &bottom);
-	fill_rect(top, right, bottom, &left, &color, &blocks_per_row);
-	*p_color = color;
-	*p_blocks_per_row = blocks_per_row;
+	fill_rect(top, right, bottom, &left, p_color, p_blocks_per_row);
 }
 
+/* COIN ASSIGNMENTS: service moves the cursor, test acts on the item: chute type (COMMON/INDIVIDUAL;
+   setting 1 again unless manual), credits to start (1 or 2), the next coin/credit setting
+   (apply_coin_setting), MANUAL SETTING (test_coin_assignments_manual_page while coin_manual_page is set)
+   or EXIT, saving the EEPROM if test_settings_changed. */
 uint32_t test_coin_assignments(uint32_t color)
 {
 	uint8_t mode = 0;
@@ -1706,6 +1714,10 @@ uint32_t test_coin_assignments(uint32_t color)
 	}
 }
 
+/* Draws the COIN ASSIGNMENTS main page (coin_manual_page 0): clamps setting_coins_per_credit,
+   setting_bonus_adder and the chute multipliers to 1-9 (an adder of 1 then becomes 0), then prints the
+   chute type, the coin/credit setting and its number (MANUAL SETTING when setting_coin_number is
+   negative) and the credits to start. */
 void test_coin_assignments_draw_main_page(void)
 {
 	uint16_t attribute = 0;
@@ -1774,10 +1786,16 @@ void test_coin_assignments_draw_main_page(void)
 	print_text_list(&text, &ignored);
 }
 
+/* Unused: a second return right after the end of test_coin_assignments' credits-to-start item; nothing
+   jumps to it. */
 void test_coin_assignments_spare_return(void)
 {
 }
 
+/* Applies the chosen coin/credit setting: setting_coin_number wraps past 0x19 and
+   setting_coin_number_individual past 0xE to 0; prints its text and number (common or individual chutes)
+   and copies its 4 bytes of coin_setting_values into setting_coins_per_credit, setting_bonus_adder and
+   the two chute multipliers. test_settings_changed = 1. */
 void apply_coin_setting(void)
 {
 	uint32_t coin_setting = 0, ignored = 0, setting_number = 0, text = 0, values_record = 0;
@@ -1818,6 +1836,7 @@ void apply_coin_setting(void)
 	setting_chute_2_multiplier = ROM8(values_record + 1u);
 }
 
+/* Prints setting_number in decimal (convert_to_bcd, draw_hex_2) at text cell 31,9 with attribute 0x1200. */
 void draw_coin_setting_number(uint32_t setting_number)
 {
 	uint16_t attribute = 0;
@@ -1829,6 +1848,9 @@ void draw_coin_setting_number(uint32_t setting_number)
 	draw_hex_2(setting_number, attribute, text_position);
 }
 
+/* The MANUAL SETTING page, printed on its first frame: coins per credit (1-9), bonus adder (0 or 2-9)
+   and the chute multipliers (1-9, chute 2 only with common chutes), each changed by test
+   (setting_coin_number -1: manual) with the credit table redrawn; EXIT goes back to the main page. */
 uint32_t test_coin_assignments_manual_page(uint32_t color)
 {
 	uint8_t mode = 0;
@@ -1954,10 +1976,13 @@ uint32_t test_coin_assignments_manual_page(uint32_t color)
 	}
 }
 
+/* Unused: a second return right after the end of the manual page's coins-per-credit item
+   (test_coin_assignments_manual_page); nothing jumps to it. */
 void test_coin_assignments_spare_return_2(void)
 {
 }
 
+/* Keeps the setting byte at setting within 1-9. */
 void clamp_coin_setting(uint32_t setting)
 {
 	if ((int8_t)mem_read8(setting) <= 0)
@@ -1966,6 +1991,8 @@ void clamp_coin_setting(uint32_t setting)
 		mem_write8(setting, 9u);
 }
 
+/* The manual page's "1 COIN COUNTS AS" table: draw_coin_credit_cell for 9 down to 1 coins in chute 1
+   and, with common chutes (setting_coin_chute_type 0), in chute 2. */
 uint32_t draw_coin_credit_table(void)
 {
 	uint16_t multiplier = 0;
@@ -1992,6 +2019,9 @@ uint32_t draw_coin_credit_table(void)
 	return coins;
 }
 
+/* Prints the credits for coins (the count) in a chute with multiplier, by setting_coins_per_credit and
+   setting_bonus_adder: the whole credits, 9 at most, and any part as a fraction over
+   setting_coins_per_credit (draw_fraction), at the cell cell_position names; hands back the next cell. */
 uint32_t draw_coin_credit_cell(uint16_t multiplier, uint16_t coins, uint32_t cell_position)
 {
 	uint8_t attribute = 0;
@@ -2039,6 +2069,7 @@ uint32_t draw_coin_credit_cell(uint16_t multiplier, uint16_t coins, uint32_t cel
 	return cell_position;
 }
 
+/* draw_hex_4 of value at text_position with attribute 0x200. */
 void draw_test_hex_4(uint32_t value, uint32_t text_position)
 {
 	uint32_t attribute = 0;
@@ -2047,6 +2078,7 @@ void draw_test_hex_4(uint32_t value, uint32_t text_position)
 	draw_hex_4(&value, &attribute, &text_position);
 }
 
+/* draw_hex_2 of value at text_position with attribute 0x200. */
 void draw_test_hex_2(uint32_t value, uint32_t text_position)
 {
 	uint16_t attribute = 0;
@@ -2055,6 +2087,9 @@ void draw_test_hex_2(uint32_t value, uint32_t text_position)
 	draw_hex_2(value, attribute, text_position);
 }
 
+/* BOOKKEEPING, printed once from bookkeeping_coin_credits: the coins per chute (chute 3 only for
+   individual chutes on a 3-player cabinet) and their total, coin, service and total credits, games, then
+   the total, play, average, longest and shortest times (split_frame_count). Test leaves. */
 void test_bookkeeping(void)
 {
 	uint32_t average_hours = 0, average_minutes = 0, average_seconds = 0, chute_3_coins = 0, days = 0, frames = 0, frames_high = 0, hours = 0, ignored = 0, minutes = 0, print_position = 0, seconds = 0, shortest_game_frames = 0, shortest_hours = 0, shortest_minutes = 0, shortest_seconds = 0, text = 0, text_position = 0, time_high = 0, total_coins = 0, value = 0;
@@ -2221,6 +2256,10 @@ void test_bookkeeping(void)
 	draw_test_menu();
 }
 
+/* BACKUP DATA CLEAR: service moves the cursor between YES and NO; test on YES prints COMPLETED, clears
+   the bookkeeping and the ranking (reset_bookkeeping, reset_ranking) and leaves 0x78 frames later, on NO
+   at once. In continue mode it goes on to OUTPUT TEST only with moving_seat_dip, else to the menu on
+   EXIT. */
 uint32_t test_backup_clear(uint32_t polynomial)
 {
 	uint32_t crc_polynomial = 0, cursor_positions = 0, ignored = 0, text = 0;
@@ -2307,6 +2346,10 @@ uint32_t test_backup_clear(uint32_t polynomial)
 	}
 }
 
+/* OUTPUT TEST: prints whether the moving seat is in use; every frame port D bits 2-3 are cleared and,
+   with setting_moving_seat, held 1P and 2P attack (input_ports_active 0x10000, 0x1000000) set them (0x4,
+   0x8) with ON/OFF texts. Test goes back to the menu (in continue mode on EXIT, with CONTINUE MODE
+   printed). */
 void test_outputs(void)
 {
 	uint32_t ignored = 0, setup_print_position = 0, text = 0;
@@ -2368,6 +2411,8 @@ void test_outputs(void)
 	print_text_list(&text, &ignored);
 }
 
+/* EXIT: clears the three players' credits and bonus coins and test_mode, leaving the test mode; when
+   eeprom_write_count is 10000 (0x2710) or more it first shows the EEPROM caution and waits for test. */
 void exit_test_mode(void)
 {
 	uint32_t ignored = 0, print_position = 0, text = 0;
@@ -2411,6 +2456,8 @@ void exit_test_mode(void)
 	test_mode = 0u;
 }
 
+/* Mirrors the rectangle left, top, right, bottom about the screen's centre (0xA0, 0x70), for drawing on
+   a flipped screen; the callers test the flip (video_control bit 9). */
 void flip_test_coordinates(uint32_t *p_left, uint32_t *p_top, uint32_t *p_right, uint32_t *p_bottom)
 {
 	uint16_t left = (uint16_t)*p_left;
@@ -2428,6 +2475,8 @@ void flip_test_coordinates(uint32_t *p_left, uint32_t *p_top, uint32_t *p_right,
 	*p_bottom = (*p_bottom & 0xFFFF0000u) | bottom;
 }
 
+/* Draws the blinking '>' (test_cursor_arrow) at test_cursor_column/test_cursor_row
+   (draw_blinking_test_cursor). */
 void blink_test_cursor(void)
 {
 	uint32_t cursor_char = 0;
@@ -2436,6 +2485,9 @@ void blink_test_cursor(void)
 	draw_blinking_test_cursor(cursor_char);
 }
 
+/* Writes cursor_char's character with attribute 0x200 at test_cursor_column/test_cursor_row, or a blank
+   (test_cursor_space) while test_cursor_blink, counted down at each call, is below 1; the count goes
+   back to 0x1E at -0xF. */
 void draw_blinking_test_cursor(uint32_t cursor_char)
 {
 	uint8_t blink_before = 0;
@@ -2449,6 +2501,8 @@ void draw_blinking_test_cursor(uint32_t cursor_char)
 	mem_write16(TEXT_CELL(0, 0) + (((uint32_t)test_cursor_row << 7) + ((uint32_t)test_cursor_column << 1)), 0x200u | ROM8(cursor_char));
 }
 
+/* Writes a blank at test_cursor's place in cursor_positions (test_cursor_column/test_cursor_row loaded
+   from it), through draw_blinking_test_cursor, which also counts test_cursor_blink down. */
 void erase_test_cursor(uint32_t cursor_positions)
 {
 	uint32_t cursor_char = 0;
@@ -2460,6 +2514,8 @@ void erase_test_cursor(uint32_t cursor_positions)
 	draw_blinking_test_cursor(cursor_char);
 }
 
+/* Loads test_cursor's column and row from test_cursor_positions into test_cursor_column/test_cursor_row,
+   test_cursor going back to 0 at the list's 0xFF end. */
 void set_test_cursor(void)
 {
 	uint32_t cursor_entry = 0;
@@ -2475,6 +2531,9 @@ void set_test_cursor(void)
 	test_cursor_row = TEXT_CELL_POSITION(cursor_entry)->row;
 }
 
+/* Reads the moving seat DIP switch (io_port_f bit 0, on when low); when it differs from moving_seat_dip
+   it is stored there and in setting_moving_seat, an on switch also sets setting_cabinet_type 0
+   (setting_cabinet_config too), and the EEPROM is saved (eeprom_save_and_lock). */
 uint32_t check_moving_seat_dip(uint32_t words_left)
 {
 	uint8_t seat_dip_on = 0;

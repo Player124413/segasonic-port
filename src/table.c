@@ -13,33 +13,45 @@
 
 uint32_t r14, current_player, current_object, free_objects, first_object, object_cursor, last_object, fill_value, stack_pointer = 0x20FF00u;
 
+/* How call_code() runs metal_wall_rise from a slot that holds its address: with 0 for what it takes, and
+   what it hands back dropped. */
 static void call_00F8B2(void)
 {
 	metal_wall_rise(0);
 }
 
+/* How call_code() runs metal_wall_update from a slot that holds its address: with 0 for what it takes,
+   and what it hands back dropped. */
 static void call_00F8E1(void)
 {
 	metal_wall_update(0);
 }
 
+/* How call_code() runs push_crate_move from a slot that holds its address: with 0 for what it takes, and
+   what it hands back dropped. */
 static void call_01130E(void)
 {
 	push_crate_move(0, 0, 0);
 }
 
+/* How call_code() runs spawn_objects_by_handler from a slot that holds its address: with 0 for what it
+   takes, and what it hands back dropped. */
 static void call_080000(void)
 {
 	uint32_t r1 = 0, r10 = 0, r11 = 0;
 	spawn_objects_by_handler(&r1, &r10, &r11);
 }
 
+/* How call_code() runs delete_object_and_children from a slot that holds its address: with 0 for what it
+   takes, and what it hands back dropped. */
 static void call_08E0CE(void)
 {
 	uint32_t r0 = 0, r2 = 0, r3 = 0;
 	delete_object_and_children(&r0, &r2, &r3);
 }
 
+/* How call_code() runs join_character_chooser_update from a slot that holds its address: with 0 for what
+   it takes, and what it hands back dropped. */
 static void call_090161(void)
 {
 	join_character_chooser_update(0);

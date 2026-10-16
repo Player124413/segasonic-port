@@ -11,6 +11,8 @@
  */
 #include "game.h"
 
+/* Every palette_delay frames (palette_timer) the next palette of palette_list (its first word is the
+   last index; it wraps) goes into every part of the object's part_list. */
 void cycle_part_palettes(void)
 {
 	uint8_t last_index = 0;
@@ -43,6 +45,8 @@ void cycle_part_palettes(void)
 	} while (parts_left != 0u);
 }
 
+/* The animation timer (animation_timer, reloaded from animation_speed when it runs out), then
+   animate_step_with_flags. */
 void animate_with_flags(uint32_t *p_frame, uint32_t *p_at_last_step)
 {
 	uint32_t frame = *p_frame;
@@ -63,6 +67,9 @@ void animate_with_flags(uint32_t *p_frame, uint32_t *p_at_last_step)
 	*p_at_last_step = (*p_at_last_step & 0xFFFFFF00u) | (at_last_step & 0xFFu);
 }
 
+/* The next step of an animation of two-word steps, always forwards: its flags word goes into
+   sprite_flags in place of the flips (bits 6-7) and its frame into sprite_frame. at_last_step is FF on
+   the last step. */
 void animate_step_with_flags(uint32_t *p_frame, uint32_t *p_at_last_step)
 {
 	uint8_t at_last_step = (uint8_t)*p_at_last_step;
@@ -90,6 +97,8 @@ void animate_step_with_flags(uint32_t *p_frame, uint32_t *p_at_last_step)
 	*p_at_last_step = (*p_at_last_step & 0xFFFFFF00u) | at_last_step;
 }
 
+/* Counts animation_timer down; when it runs out it reloads it from animation_speed and moves to the next
+   step (animate_step). wrapped and at_last_step come back FF when the step wrapped round or is the last. */
 void animate(uint32_t *p_frame, uint32_t *p_wrapped, uint32_t *p_at_last_step)
 {
 	uint32_t frame = *p_frame;
@@ -113,6 +122,9 @@ void animate(uint32_t *p_frame, uint32_t *p_wrapped, uint32_t *p_at_last_step)
 	*p_at_last_step = (*p_at_last_step & 0xFFFFFF00u) | (at_last_step & 0xFFu);
 }
 
+/* animation_frame + 1 (- 1 with flags bit 7) and sprite_frame = that step's word. Past the last step
+   (its number is the animation's first word) it wraps to 0 (going back, to the last) with wrapped FF;
+   reaching the last step (0 going back) sets at_last_step FF. frame is the new step. */
 void animate_step(uint32_t *p_frame, uint32_t *p_wrapped, uint32_t *p_at_last_step)
 {
 	uint8_t wrapped = (uint8_t)*p_wrapped;
@@ -176,6 +188,8 @@ void animate_step(uint32_t *p_frame, uint32_t *p_wrapped, uint32_t *p_at_last_st
 	*p_at_last_step = (*p_at_last_step & 0xFFFFFF00u) | at_last_step;
 }
 
+/* animate with steps of frame, dx, dy: on each new step sprite_frame takes the frame and projected_x and
+   projected_y_int move by dx, dy (negated by the flips). Hands back at_last_step FF on the last step. */
 uint32_t animate_and_move(uint32_t at_last_step)
 {
 	uint8_t last_frame = 0;
@@ -231,6 +245,8 @@ uint32_t animate_and_move(uint32_t at_last_step)
 	return at_last_step;
 }
 
+/* The same steps of frame, dx, dy, but placing the object at anchor_x, anchor_y plus dx, dy
+   (set_step_around_anchor). Hands back FFFFFFFF on the last step. */
 uint32_t animate_around_anchor(void)
 {
 	uint8_t last_frame = 0;
@@ -274,6 +290,9 @@ uint32_t animate_around_anchor(void)
 	return at_last_step;
 }
 
+/* Puts the current object on step frame of the steps at steps (a frame word, dx, dy): sprite_frame = the
+   step's frame, projected_x = anchor_x + dx, projected_y_int = anchor_y + dy, dx and dy negated by the
+   flips. */
 void set_step_around_anchor(uint32_t frame, uint32_t steps)
 {
 	uint16_t delta = 0;
@@ -292,6 +311,9 @@ void set_step_around_anchor(uint32_t frame, uint32_t steps)
 	OBJECT(current_object)->projected_y_int = delta + OBJECT(current_object)->anchor_y;
 }
 
+/* animate with steps of frame, dx, dy whose dx, dy are added to screen_x and screen_y
+   (add_step_screen_offset); between steps the current step's offset is added again
+   (apply_step_screen_offset). Hands back at_last_step FF on the last step. */
 uint32_t animate_with_screen_offset(uint32_t at_last_step)
 {
 	uint8_t last_frame = 0;
@@ -341,6 +363,8 @@ uint32_t animate_with_screen_offset(uint32_t at_last_step)
 	return at_last_step;
 }
 
+/* Adds the current animation step's dx, dy to screen_x and screen_y again, without moving on
+   (animate_with_screen_offset between steps). */
 void apply_step_screen_offset(void)
 {
 	uint32_t step_offset = 0;
@@ -349,6 +373,8 @@ void apply_step_screen_offset(void)
 	add_step_screen_offset(step_offset);
 }
 
+/* Adds the dx, dy step_offset points at (an animation step's, after its frame word) to screen_x and
+   screen_y, negated by the x and y flips (sprite_flags bits 6 and 7). */
 void add_step_screen_offset(uint32_t step_offset)
 {
 	uint16_t delta = 0;
@@ -364,6 +390,8 @@ void add_step_screen_offset(uint32_t step_offset)
 	OBJECT(current_object)->screen_y += delta;
 }
 
+/* The animation timer of a sprite whose steps are part lists: when animation_timer runs out it reloads
+   from animation_speed and animate_part_list_step moves on. */
 void animate_part_list(void)
 {
 	uint8_t animation_timer = 0;
@@ -376,6 +404,8 @@ void animate_part_list(void)
 	animate_part_list_step();
 }
 
+/* animate_step for multi-part sprites: animation_frame moves on (backwards with flags bit 7, wrapping)
+   and part_list = the animation's address plus the step's word, the next part list. */
 void animate_part_list_step(void)
 {
 	uint8_t max_frame = 0;
@@ -401,6 +431,9 @@ void animate_part_list_step(void)
 	OBJECT(current_object)->part_list = ROM16(frame_offsets + next_frame * 2u) + frame_offsets - 2u;
 }
 
+/* animate for a multi-part sprite: on each new step (backwards with flags bit 7, wrapping) the step's
+   frame is written into every part of part_list. at_last_step is FF on the last step; part ends past the
+   last part. */
 void animate_all_parts(uint32_t *p_at_last_step, uint32_t *p_part)
 {
 	uint32_t part = *p_part;
@@ -487,6 +520,8 @@ void animate_all_parts(uint32_t *p_at_last_step, uint32_t *p_part)
 	*p_part = part;
 }
 
+/* Unused: init_sprites with vblank_hook = cancel_sprite_buffer_swap: the VBLANK only clears
+   sprite_list_ready, so the sprite buffers never swap. */
 void init_sprites_without_swaps(void)
 {
 	uint32_t end_mark = 0, ignored = 0;
@@ -495,6 +530,8 @@ void init_sprites_without_swaps(void)
 	init_sprites_from_frame_wait(&end_mark, &ignored);
 }
 
+/* Unused: init_sprites with vblank_hook = swap_sprite_buffers_now, a swap at every VBLANK whether the
+   list is ready or not, and frames_to_wait = frames_per_wait = 1. */
 void init_sprites_swapping_every_frame(void)
 {
 	uint32_t end_mark = 0, ignored = 0;
@@ -505,6 +542,8 @@ void init_sprites_swapping_every_frame(void)
 	init_sprite_hardware(&end_mark, &ignored);
 }
 
+/* Sets the sprites up: vblank_hook = swap_sprite_buffers, frames_to_wait = frames_per_wait = 0, then
+   init_sprite_hardware (through init_sprites_from_frame_wait). */
 void init_sprites(uint32_t *p_end_mark, uint32_t *p_source)
 {
 	uint32_t r0 = 0, control_init = 0;
@@ -515,17 +554,22 @@ void init_sprites(uint32_t *p_end_mark, uint32_t *p_source)
 	*p_source = control_init;
 }
 
+/* init_sprites from its frame wait on: frames_to_wait = frames_per_wait = 0, then init_sprite_hardware.
+   init_sprites_without_swaps comes in here. */
 void init_sprites_from_frame_wait(uint32_t *p_end_mark, uint32_t *p_source)
 {
-	uint32_t r0 = 0, control_init = 0;
+	uint32_t r0 = 0;
 
 	frames_to_wait = 0;
 	frames_per_wait = 0u;
-	init_sprite_hardware(&r0, &control_init);
+	init_sprite_hardware(&r0, p_source);
 	*p_end_mark = (*p_end_mark & 0xFFFF0000u) | (r0 & 0xFFFFu);
-	*p_source = control_init;
 }
 
+/* The end of init_sprites: sprite_flip from setting_monitor_flip, the sprite control registers from
+   sprite_control_init, entries 0-1 from sprite_list_header, sprite_back_buffer and sprite_list_start
+   after them, end marks (0xFFFF) in the buffers, sprite_frames at the frame records,
+   clear_sprite_buckets. */
 void init_sprite_hardware(uint32_t *p_end_mark, uint32_t *p_source)
 {
 	uint16_t end_mark = 0;
@@ -560,6 +604,8 @@ void init_sprite_hardware(uint32_t *p_end_mark, uint32_t *p_source)
 	*p_source = control_init;
 }
 
+/* Empties the 256 depth buckets (each points at itself) and puts the end mark 0xFFFF in
+   sprite_buckets_end; hands back the address past the last bucket. */
 uint32_t clear_sprite_buckets(void)
 {
 	uint32_t bucket = 0, buckets_left = 0;
@@ -576,6 +622,8 @@ uint32_t clear_sprite_buckets(void)
 	return bucket;
 }
 
+/* Queues the current object for drawing at the depth of its screen_y (queue_sprite_at_depth); hands back
+   the clamped depth. */
 uint32_t queue_sprite(uint32_t depth)
 {
 	uint32_t ignored = 0;
@@ -585,6 +633,8 @@ uint32_t queue_sprite(uint32_t depth)
 	return depth;
 }
 
+/* Pushes the current object (through draw_next) onto depth bucket 0xFF - clamp(depth + 0x10, 0, 0xFE):
+   the lower on screen, the later it is drawn. bucket_head gets the bucket, depth the clamped value. */
 void queue_sprite_at_depth(uint32_t *p_bucket_head, uint32_t *p_depth)
 {
 	uint32_t depth = *p_depth;
@@ -618,6 +668,7 @@ void queue_sprite_at_depth(uint32_t *p_bucket_head, uint32_t *p_depth)
 	*p_depth = depth;
 }
 
+/* Pushes the current object onto the bucket in sprite_layer's low byte (the HUD and overlays). */
 void queue_sprite_in_layer(void)
 {
 	uint32_t bucket_head = 0;
@@ -627,6 +678,7 @@ void queue_sprite_in_layer(void)
 	OBJECT(bucket_head)->draw_next = current_object;
 }
 
+/* Queues the current object in bucket 0, drawn last, over everything. */
 void queue_sprite_on_top(void)
 {
 	uint8_t bucket = 0;
@@ -635,6 +687,7 @@ void queue_sprite_on_top(void)
 	queue_sprite_in_bucket(bucket);
 }
 
+/* Pushes the current object onto depth bucket bucket (0xFF is drawn first, under everything; 0 last). */
 void queue_sprite_in_bucket(uint32_t bucket)
 {
 	bucket = sprite_buckets_ADDRESS + (bucket & 0xFFu) * 2u;
@@ -642,6 +695,8 @@ void queue_sprite_in_bucket(uint32_t bucket)
 	OBJECT(bucket)->draw_next = current_object;
 }
 
+/* Queues the current object at the depth of the floor under it, (projected_y + floor_z) >> 16 - view_y,
+   for objects in the air; hands back the clamped depth. */
 uint32_t queue_sprite_at_floor(void)
 {
 	uint32_t bucket_head = 0, floor_y = 0;
@@ -662,6 +717,7 @@ uint32_t queue_sprite_at_floor(void)
 	return floor_y;
 }
 
+/* queue_sprite_at_floor with previous_floor_z. */
 uint32_t queue_sprite_at_previous_floor(void)
 {
 	uint32_t bucket_head = 0, floor_y = 0;
@@ -682,6 +738,8 @@ uint32_t queue_sprite_at_previous_floor(void)
 	return floor_y;
 }
 
+/* Queues the current object at the depth of screen_y - sprite_offset_y, its base before the sprite
+   offset; hands back the clamped depth. */
 uint32_t queue_sprite_at_base(uint32_t depth)
 {
 	uint32_t bucket_head = 0;
@@ -702,6 +760,8 @@ uint32_t queue_sprite_at_base(uint32_t depth)
 	return depth;
 }
 
+/* Hands back, in bucket's low word, the bucket queue_sprite_at_depth would use for depth: 0xFF -
+   clamp(depth + 0x10, 0, 0xFE). Nothing is queued. */
 uint32_t depth_to_bucket(uint32_t bucket, uint16_t depth)
 {
 	depth += 0x10u;
@@ -717,6 +777,8 @@ uint32_t depth_to_bucket(uint32_t bucket, uint16_t depth)
 	return bucket;
 }
 
+/* Unused: queue_sprite_at_depth with bucket_offset added to the bucket (& 0xFF): that many buckets
+   further back. */
 void queue_sprite_at_depth_offset(uint16_t depth, uint8_t bucket_offset)
 {
 	uint32_t bucket_head = 0;
@@ -734,6 +796,7 @@ void queue_sprite_at_depth_offset(uint16_t depth, uint8_t bucket_offset)
 	OBJECT(bucket_head)->draw_next = current_object;
 }
 
+/* A second copy of queue_sprite_at_previous_floor that hands nothing back. */
 void queue_sprite_at_previous_floor_2(void)
 {
 	uint16_t floor_depth = 0;
@@ -752,9 +815,12 @@ void queue_sprite_at_previous_floor_2(void)
 	OBJECT(bucket_head)->draw_next = current_object;
 }
 
+/* Unused: the first half of queue_sprite_at_previous_floor_2: floor_depth = (projected_y +
+   previous_floor_z) >> 16 - view_y + 0x10 clamped to 0-0xFE and bucket = 0xFF - floor_depth. Nothing is
+   queued. */
 void get_previous_floor_bucket(uint32_t top_bucket, uint32_t *p_floor_depth, uint32_t *p_bucket)
 {
-	uint32_t bucket = 0, floor_depth = 0;
+	uint32_t floor_depth = 0;
 
 	floor_depth = (int32_t)((uint32_t)OBJECT(current_object)->projected_y + OBJECT(current_object)->previous_floor_z) >> 16;
 	floor_depth = (floor_depth & ~0xFFFFu) | (uint16_t)(floor_depth - view_y);
@@ -764,25 +830,25 @@ void get_previous_floor_bucket(uint32_t top_bucket, uint32_t *p_floor_depth, uin
 		if ((int16_t)floor_depth >= 0)
 		{
 			top_bucket = (top_bucket & ~0xFFFFu) | 0xFFu;
-			bucket = (top_bucket & ~0xFFFFu) | (uint16_t)(top_bucket - floor_depth);
+			*p_bucket = (top_bucket & ~0xFFFFu) | (uint16_t)(top_bucket - floor_depth);
 			*p_floor_depth = floor_depth;
-			*p_bucket = bucket;
 			return;
 		}
 		floor_depth = 0u;
 		top_bucket = (top_bucket & ~0xFFFFu) | 0xFFu;
-		bucket = (top_bucket & ~0xFFFFu) | (uint16_t)(top_bucket - floor_depth);
+		*p_bucket = (top_bucket & ~0xFFFFu) | (uint16_t)(top_bucket - floor_depth);
 		*p_floor_depth = floor_depth;
-		*p_bucket = bucket;
 		return;
 	}
 	floor_depth = 0xFEu;
 	top_bucket = (top_bucket & ~0xFFFFu) | 0xFFu;
-	bucket = (top_bucket & ~0xFFFFu) | (uint16_t)(top_bucket - floor_depth);
+	*p_bucket = (top_bucket & ~0xFFFFu) | (uint16_t)(top_bucket - floor_depth);
 	*p_floor_depth = floor_depth;
-	*p_bucket = bucket;
 }
 
+/* The VBLANK hook init_sprites sets: once sprite_list_ready (which it clears), sprite_buffer_flip + 2
+   and swap_sprite_buffers_now (+ 2 more): the finished list is shown and the other buffer is filled
+   next. */
 void swap_sprite_buffers(void)
 {
 	if (sprite_list_ready == 0u)
@@ -792,6 +858,9 @@ void swap_sprite_buffers(void)
 	swap_sprite_buffers_now();
 }
 
+/* sprite_buffer_flip + 2, then sprite_back_buffer_offset and the jump in sprite_list_jump from
+   sprite_buffer_swaps[flip & 6]; reads sprite_status. As the hook of init_sprites_swapping_every_frame
+   (+ 2 a VBLANK) it also reaches the two records the game's + 4 skips. */
 void swap_sprite_buffers_now(void)
 {
 	uint32_t swap_entry = 0;
@@ -804,11 +873,16 @@ void swap_sprite_buffers_now(void)
 	status = mem_read8(sprite_status);
 }
 
+/* Unused: sprite_list_ready = 0, so swap_sprite_buffers skips the next swap. init_sprites_without_swaps
+   makes it the vblank_hook, and then the buffers never swap. */
 void cancel_sprite_buffer_swap(void)
 {
 	sprite_list_ready = 0u;
 }
 
+/* Unused: sprite_scale (a sized frame's graphics address) = the frame record's address plus row times
+   its width >> 2 (the width halved first unless sprite_flags bit 9, 8 bits a pixel): the frame from row
+   row down. */
 void load_sized_frame_address_at_row(uint16_t row)
 {
 	uint16_t row_bytes = 0;
@@ -822,11 +896,15 @@ void load_sized_frame_address_at_row(uint16_t row)
 	OBJECT(current_object)->sprite_scale = (uint32_t)(row_bytes >> 2) * row + SPRITE_FRAME_RECORD(frame_record - 0x2u)->address;
 }
 
+/* Unused: sprite_scale = the address word of the frame's record, which sized frames take as their
+   graphics address. */
 void load_sized_frame_address(void)
 {
 	OBJECT(current_object)->sprite_scale = mem_read16(((sprite_frames & ~0xFFFFu) | OBJECT(current_object)->sprite_frame) + 6u);
 }
 
+/* Unused: sprite_width and sprite_height = the width and height of the frame's record (sprite_frames +
+   sprite_frame), the size sized frames are drawn at. */
 void load_frame_size(void)
 {
 	uint32_t frame_record = 0;
@@ -836,6 +914,9 @@ void load_frame_size(void)
 	OBJECT(current_object)->sprite_height = (uint8_t)SPRITE_FRAME_RECORD(frame_record)->height;
 }
 
+/* Writes the sprite list from sprite_list_start, emptying the depth buckets from 0xFF (drawn first) to
+   0: an entry per object, by sprite_flags bits 15/14/12: a scaled or unscaled frame, the object's own 16
+   bytes (clips), a jump, a sized frame, or one per part (over 16 parts: int_default). */
 void build_sprite_list(uint32_t *p_height, uint32_t *p_scale_x, uint32_t *p_scale_y, uint32_t *p_sprite_flags, uint32_t *p_sprite_entry)
 {
 	uint32_t height = *p_height;

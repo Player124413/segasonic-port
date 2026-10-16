@@ -11,6 +11,9 @@
  */
 #include "game.h"
 
+/* Cycles the current object's palette: every palette_delay frames palette_index steps on through the
+   list at animate_sign.palette_list (a word with the last index, then the palettes), back to 0 after the
+   last, and sprite_palette takes that entry. */
 void animate_sign(void)
 {
 	uint8_t last_index = 0;
@@ -33,6 +36,8 @@ void animate_sign(void)
 	OBJECT(current_object)->sprite_palette = ROM16(palettes + next_index * 2u);
 }
 
+/* Object type 13: unprojects itself, then place_sign makes it sign kind spawn_arg_1 at its own x, y, z,
+   shown for spawn_arg_2 frames (stage 4's "BREAK!!", stage 9's "CATCH!!"). */
 void sign_start_from_type(void)
 {
 	uint16_t spawn_arg_1 = 0, x_int = 0, y_int = 0, z_int = 0;
@@ -48,6 +53,10 @@ void sign_start_from_type(void)
 	OBJECT(object)->speed_x_fraction = OBJECT(current_object)->spawn_arg_2;
 }
 
+/* Object type 21, which no stage spawns: eight 2-part pieces stepped from the object by
+   crawler_segment_offsets (kind 4, box 0x29 x 0x2F, crawler_segment_animate, staggered step timers and
+   walk steps); the last becomes the tail (kind 0xD, crawler_segment_update), the object the head (kind
+   0xD, crawler_head_update). All have shadows. */
 void crawler_init(void)
 {
 	uint8_t segment_walk_step = 0;
@@ -138,6 +147,10 @@ void crawler_init(void)
 	OBJECT(current_object)->sprite_scale = 0x100u;
 }
 
+/* The crawler's head: moves, falls to its floor and is removed off screen. Once a player's x comes
+   within 0x28 of it (0x35 for variant 1) it sets crawler_head.triggered, which starts the crawl.
+   Touchable, a rider, drawn with its shadow (over a pit with on_platform: at its platform's draw_depth -
+   0xF, no shadow); then crawler_step. */
 void crawler_head_update(void)
 {
 	uint32_t deleted = 0, depth = 0, ignored = 0, over_pit = 0;
@@ -215,6 +228,8 @@ void crawler_head_update(void)
 	crawler_step();
 }
 
+/* Every 4 frames the next of the variant's six walking frames (crawler_walk_steps into
+   crawler_segment_frames, walk_step back to 0 after 5), then crawler_segment_update. */
 void crawler_segment_animate(void)
 {
 	OBJECT(current_object)->crawler.frame_timer++;
@@ -233,6 +248,10 @@ void crawler_segment_animate(void)
 	crawler_segment_update();
 }
 
+/* A segment or the tail: moves, touchable, a rider, falls to its floor (removed off screen while the
+   head is over a pit) and is drawn with its shadow, variant 1's tail sorted 8 lower. Over a pit, while
+   the head is not, it stops falling and is not drawn; with on_platform it sorts at its platform's
+   draw_depth - 0xF. Then crawler_step. */
 void crawler_segment_update(void)
 {
 	uint32_t deleted = 0, depth = 0, ignored = 0, is_over_pit = 0;
@@ -292,6 +311,8 @@ void crawler_segment_update(void)
 	crawler_step();
 }
 
+/* Once the head has crawler_head.triggered set: every 5 frames (step_timer) flips moving; while moving
+   the piece goes at speed 0x200 along the direction in spawn_arg_2, otherwise it stands still. */
 void crawler_step(void)
 {
 	uint32_t direction = 0, speed = 0, speed_x = 0, speed_y = 0;
@@ -341,10 +362,14 @@ void crawler_step(void)
 	}
 }
 
+/* Object type 4's handler (5 blocks): does nothing. No stage list uses type 4. */
 void object_type_4_idle(void)
 {
 }
 
+/* Gives the current chaser its back zone: a new object of kind 9 (flags 0x40000002) whose end_position
+   and handler come from object_steps record zone_index, parent the chaser. Hands back the zone (zone
+   unchanged when no object is free). */
 uint32_t spawn_chaser_back_zone(uint32_t zone_index, uint32_t zone)
 {
 	uint32_t free_count = 0, step_record = 0;
@@ -363,6 +388,8 @@ uint32_t spawn_chaser_back_zone(uint32_t zone_index, uint32_t zone)
 	return zone;
 }
 
+/* The back zone of a stage 8 boulder: kind 0x14; removed once its parent's burning_boulder.state is 3
+   (the boulder falling away), else chaser_back_zone_update. */
 void chaser_back_zone_check_parent(void)
 {
 	OBJECT(current_object)->kind = 0x14u;
@@ -374,6 +401,9 @@ void chaser_back_zone_check_parent(void)
 	chaser_back_zone_update();
 }
 
+/* Removed once scroll_position reaches end_position; until then it takes its parent's box, position,
+   height and direction, turns the box into one 0x200 long right behind the parent (against its
+   direction, direction >> 8) and joins the zone list. */
 void chaser_back_zone_update(void)
 {
 	uint32_t direction = 0, object = 0;
@@ -427,6 +457,9 @@ void chaser_back_zone_update(void)
 	direction = add_to_zone_list(direction);
 }
 
+/* spiked_roller_start's back zone: a new object of kind 0x18 (flags 0x40000002, handler
+   roller_back_zone_update) whose limit is the word of object_steps record zone_index, parent the leader
+   (object_cursor). */
 void spawn_roller_back_zone(uint32_t zone_index, uint32_t zone)
 {
 	uint32_t free_count = 0;
@@ -443,6 +476,9 @@ void spawn_roller_back_zone(uint32_t zone_index, uint32_t zone)
 	}
 }
 
+/* Takes the leader's box, position, height and direction and turns the box into one 0x200 deep behind it
+   and 0x1A2 across, in the zone list; removed once the leader reaches roller_back_zone.limit along its
+   direction (direction >> 8). */
 void roller_back_zone_update(void)
 {
 	uint32_t direction = 0, object = 0;
@@ -516,6 +552,8 @@ void roller_back_zone_update(void)
 	}
 }
 
+/* Stage list object (stages 3, 4 and 8): keeps pacer_end_positions[sprite_frame] in speed_x_fraction as
+   its end, then player_pacer_update now and every frame after. */
 void player_pacer_start(void)
 {
 	OBJECT(current_object)->speed_x_fraction = pacer_end_positions[OBJECT(current_object)->sprite_frame];
@@ -523,6 +561,9 @@ void player_pacer_start(void)
 	player_pacer_update();
 }
 
+/* Every frame clears the three players' speed_scale; until scroll_position reaches its end
+   (speed_x_fraction, then removed) it ranks the players in play along get_pacing_axis: with two, the one
+   ahead gets speed_scale 0xD; with three, the first 0xD and the second 0xE. */
 void player_pacer_update(void)
 {
 	uint32_t axis_field = 0, decreasing = 0, last_player = 0, leader_object = 0, middle_player = 0, other_object = 0, player = 0, player_1 = 0, player_2 = 0, player_3 = 0, players_left = 0, playing_count = 0, status_cursor = 0;
@@ -627,36 +668,34 @@ void player_pacer_update(void)
 	}
 }
 
+/* From the travel direction of the floor block under the object of player (a player block): hands back
+   in axis_field the word index of the object coordinate it runs along (0x29 y_int, 0x27 x_int) and in
+   decreasing 0xFFFF when it runs toward smaller values (0 and 4 along y, 3 along x), else 0. */
 void get_pacing_axis(uint32_t player, uint32_t *p_axis_field, uint32_t *p_decreasing)
 {
 	uint16_t decreasing = 0;
-	uint32_t axis_field = 0;
 
 	switch (mem_read8(floor_blocks + 2u + OBJECT(LINKED(current_object, PLAYER(player)->object))->floor_block + 0x15u))
 	{
 	case 0:
 	case 4:
-		axis_field = 0x29u;
+		*p_axis_field = 0x29u;
 		decreasing = 0xFFFFu;
-		*p_axis_field = axis_field;
 		*p_decreasing = (*p_decreasing & 0xFFFF0000u) | decreasing;
 		return;
 	case 1:
-		axis_field = 0x27u;
+		*p_axis_field = 0x27u;
 		decreasing = 0u;
-		*p_axis_field = axis_field;
 		*p_decreasing = (*p_decreasing & 0xFFFF0000u) | decreasing;
 		return;
 	case 2:
-		axis_field = 0x29u;
+		*p_axis_field = 0x29u;
 		decreasing = 0u;
-		*p_axis_field = axis_field;
 		*p_decreasing = (*p_decreasing & 0xFFFF0000u) | decreasing;
 		return;
 	case 3:
-		axis_field = 0x27u;
+		*p_axis_field = 0x27u;
 		decreasing = 0xFFFFu;
-		*p_axis_field = axis_field;
 		*p_decreasing = (*p_decreasing & 0xFFFF0000u) | decreasing;
 		return;
 	default:
@@ -664,6 +703,8 @@ void get_pacing_axis(uint32_t player, uint32_t *p_axis_field, uint32_t *p_decrea
 	}
 }
 
+/* Stage list object made a sign: its z from record sprite_frame of object_kinds, the rest of the record
+   set up on itself by init_sign_from_kind. */
 void sign_start(void)
 {
 	uint32_t ignored = 0, kind_record = 0, sign = 0;
@@ -676,23 +717,21 @@ void sign_start(void)
 	init_sign_from_kind(kind_record, &ignored, &sign);
 }
 
+/* Takes a free object (allocate_object_outside_loop) and makes it sign kind of object_kinds at x, y, z
+   (place_sign); hands back the sign and its depth. Nothing when no object is free. */
 void spawn_sign(uint16_t x, uint16_t y, uint16_t kind, uint16_t z, uint32_t *p_depth, uint32_t *p_sign)
 {
-	uint32_t depth = *p_depth;
-	uint32_t sign = *p_sign;
 	uint32_t free_count = 0;
 
-	allocate_object_outside_loop(&free_count, &sign);
+	allocate_object_outside_loop(&free_count, p_sign);
 	if (free_count == 0u)
 	{
-		*p_sign = sign;
 		return;
 	}
-	place_sign(x, y, kind, z, &depth, &sign);
-	*p_depth = depth;
-	*p_sign = sign;
+	place_sign(x, y, kind, z, p_depth, p_sign);
 }
 
+/* spawn_sign with allocate_object; hands back the sign. */
 uint32_t spawn_sign_2(uint16_t x, uint16_t y, uint16_t kind, uint16_t z, uint32_t sign)
 {
 	uint32_t free_count = 0, ignored = 0;
@@ -704,10 +743,11 @@ uint32_t spawn_sign_2(uint16_t x, uint16_t y, uint16_t kind, uint16_t z, uint32_
 	return sign;
 }
 
+/* Puts the object sign at x, y, z and sets it up from record kind of object_kinds, without the record's
+   own z (init_sign_from_kind); hands back sign and its depth. */
 void place_sign(uint16_t x, uint16_t y, uint32_t kind, uint16_t z, uint32_t *p_depth, uint32_t *p_sign)
 {
 	uint32_t sign = *p_sign;
-	uint32_t depth = 0;
 
 	OBJECT(sign)->x_int = x;
 	OBJECT(sign)->x_fraction = 0u;
@@ -716,15 +756,18 @@ void place_sign(uint16_t x, uint16_t y, uint32_t kind, uint16_t z, uint32_t *p_d
 	OBJECT(sign)->z_int = z;
 	OBJECT(sign)->z_fraction = 0u;
 	kind = (uint16_t)kind * 0xCu + 0x84FB7u;
-	init_sign_from_kind(kind, &depth, &sign);
-	*p_depth = depth;
+	init_sign_from_kind(kind, p_depth, &sign);
 	*p_sign = sign;
 }
 
+/* Sets up the object sign from the object_kinds record at record (just past its z): sprite_frame, how
+   long it shows (speed_x_fraction), its palette cycle (an offset into sign_palette_lists, a step every 4
+   frames) and handler; sprite_flags 0x1000, parent the current object. Then projects it and hands back
+   its depth. */
 void init_sign_from_kind(uint32_t record, uint32_t *p_depth, uint32_t *p_sign)
 {
 	uint32_t sign = *p_sign;
-	uint32_t depth = 0, ignored = 0;
+	uint32_t ignored = 0;
 	uint32_t saved_current_object = 0;
 
 	OBJECT(sign)->sprite_frame = SIGN_KIND(record - 0x2u)->sprite_frame;
@@ -744,13 +787,13 @@ void init_sign_from_kind(uint32_t record, uint32_t *p_depth, uint32_t *p_sign)
 	OBJECT(sign)->parent = current_object;
 	saved_current_object = current_object;
 	current_object = sign;
-	project_object(&ignored, &depth);
+	project_object(&ignored, p_depth);
 	sign = current_object;
 	current_object = saved_current_object;
-	*p_depth = depth;
 	*p_sign = sign;
 }
 
+/* sign_show, except in game mode 0x20 (YOU FAILED), where the sign is removed. */
 void sign_show_unless_mode_32(void)
 {
 	if (current_game_mode != 0x20u)
@@ -761,6 +804,8 @@ void sign_show_unless_mode_32(void)
 	delete_current_object();
 }
 
+/* sign_show while the parent's player is stuck or trapped (state 0x1D, 0x2C or 0x32); removed once it is
+   not. */
 void sign_show_while_player_busy(void)
 {
 	uint32_t player = 0, player_2 = 0;
@@ -775,6 +820,7 @@ void sign_show_while_player_busy(void)
 	delete_current_object();
 }
 
+/* The "BREAK!!" sign: sign_show until goal_unlocked is set, then removed. */
 void sign_show_until_goal_unlocked(void)
 {
 	if (goal_unlocked == 0u)
@@ -785,6 +831,7 @@ void sign_show_until_goal_unlocked(void)
 	delete_current_object();
 }
 
+/* sign_show while the parent's speed_z_int is 0; removed once it is not. */
 void sign_show_while_parent_still(void)
 {
 	if ((uint16_t)OBJECT(LINKED(current_object, OBJECT(current_object)->parent))->speed_z_int == 0u)
@@ -795,6 +842,7 @@ void sign_show_while_parent_still(void)
 	delete_current_object();
 }
 
+/* sign_show until sign_stop_flag is set, then removed (only the unused exit gate sets the flag). */
 void sign_show_until_gate_closed(void)
 {
 	if (sign_stop_flag == 0u)
@@ -805,6 +853,7 @@ void sign_show_until_gate_closed(void)
 	delete_current_object();
 }
 
+/* The arrow over "BREAK!!" in stage 5: sign_show_unless_stage_0 until cage_bar_hit is set, then removed. */
 void sign_show_until_cage_bar_hit(void)
 {
 	if (cage_bar_hit == 0u)
@@ -815,6 +864,7 @@ void sign_show_until_cage_bar_hit(void)
 	delete_current_object();
 }
 
+/* sign_show, except in stage 0, where the sign is removed. */
 void sign_show_unless_stage_0(void)
 {
 	if (stage != 0u)
@@ -825,6 +875,8 @@ void sign_show_unless_stage_0(void)
 	delete_current_object();
 }
 
+/* Each frame: update_screen_position, animate_sign, counts speed_x_fraction down and is drawn on top
+   (bucket 0); removed when it runs out. */
 void sign_show(void)
 {
 	uint8_t bucket = 0;
@@ -844,6 +896,8 @@ void sign_show(void)
 	delete_current_object();
 }
 
+/* animate_sign, then drawn on top 0x38 above the floor point under the parent, at the parent's screen x,
+   while the parent's flags have bit 0x40; removed once it is clear. */
 void sign_follow_parent(void)
 {
 	uint8_t bucket = 0;
@@ -862,6 +916,8 @@ void sign_follow_parent(void)
 	delete_current_object();
 }
 
+/* animate_sign, then drawn on top 0x28 above the floor point under the parent, at the parent's screen x,
+   while the parent's player is in state 0x22 (in a zone); removed once it is not. */
 void sign_follow_player(void)
 {
 	uint8_t bucket = 0;
@@ -887,6 +943,8 @@ void sign_follow_player(void)
 	delete_current_object();
 }
 
+/* Unused: a stage list object made a screen sign: its x_int/y_int become the screen position and
+   sprite_frame the kind, then place_screen_sign on itself. */
 void screen_sign_start(void)
 {
 	uint16_t sprite_frame = 0, x_int = 0, y_int = 0;
@@ -899,6 +957,8 @@ void screen_sign_start(void)
 	place_screen_sign(x_int, y_int, sprite_frame, sign);
 }
 
+/* Unused: takes a free object (allocate_object_outside_loop) and makes it a screen sign of kind at
+   screen_x, screen_y (place_screen_sign); nothing when none is free. */
 void spawn_screen_sign(uint16_t screen_x, uint16_t screen_y, uint16_t kind, uint32_t sign)
 {
 	uint32_t free_count = 0;
@@ -909,6 +969,7 @@ void spawn_screen_sign(uint16_t screen_x, uint16_t screen_y, uint16_t kind, uint
 	place_screen_sign(screen_x, screen_y, kind, sign);
 }
 
+/* Unused: spawn_screen_sign with allocate_object. */
 void spawn_screen_sign_2(uint16_t screen_x, uint16_t screen_y, uint16_t kind, uint32_t sign)
 {
 	uint32_t free_count = 0;
@@ -919,6 +980,9 @@ void spawn_screen_sign_2(uint16_t screen_x, uint16_t screen_y, uint16_t kind, ui
 	place_screen_sign(screen_x, screen_y, kind, sign);
 }
 
+/* Unused: sets up sign at screen_x, screen_y from screen_sign_kinds[kind]: sprite, how long it shows
+   (speed_x_fraction) and palette cycle from sign_palette_lists (a step every 4 frames); sprite_flags
+   0x1000, handler screen_sign_show. It is never projected: the position stays a screen position. */
 void place_screen_sign(uint16_t screen_x, uint16_t screen_y, uint32_t kind, uint32_t sign)
 {
 	OBJECT(sign)->screen_x = screen_x;
@@ -937,6 +1001,8 @@ void place_screen_sign(uint16_t screen_x, uint16_t screen_y, uint32_t kind, uint
 	OBJECT(sign)->screen_sign.palette_timer = 0u;
 }
 
+/* Unused: sign_show without update_screen_position: animate_sign, counts speed_x_fraction down and is
+   drawn on top (bucket 0); removed when it runs out. */
 void screen_sign_show(void)
 {
 	uint8_t bucket = 0;
@@ -954,6 +1020,8 @@ void screen_sign_show(void)
 	delete_current_object();
 }
 
+/* Unused: a stage list object made a sign on the floor: sprite floor_sign_sprites[sprite_frame], palette
+   0x8450, sprite_flags 0x1004, z at its floor (find_floor); projected, then floor_sign_update. */
 void floor_sign_start(void)
 {
 	uint32_t ignored = 0;
@@ -970,6 +1038,8 @@ void floor_sign_start(void)
 	project_object(&ignored, &ignored);
 }
 
+/* Unused: drawn (update_screen_position, queue_sprite) until check_left_screen says it has left the
+   screen, then removed. */
 void floor_sign_update(void)
 {
 	uint32_t ignored = 0, off_screen = 0;
@@ -984,6 +1054,9 @@ void floor_sign_update(void)
 	delete_current_object();
 }
 
+/* Stage list object, one of the stages' static scenery sprites: loads scenery_sprite_kinds[sprite_frame]
+   (sprite flags, sprite, palette, depth_offset, handler) and stands on its floor (kind 0xD at z_int 0x8D
+   instead); projected. */
 void scenery_sprite_start(void)
 {
 	uint32_t ignored = 0, kind_record = 0, sprite_kind = 0;
@@ -1013,6 +1086,8 @@ void scenery_sprite_start(void)
 	project_object(&ignored, &ignored);
 }
 
+/* Removed once game_mode_timer reaches 0x3C in game mode 0x20 (YOU FAILED); until then
+   scenery_sprite_draw. */
 void scenery_sprite_draw_until_you_failed(void)
 {
 	if (current_game_mode != 0x20u || game_mode_timer < 0x3C)
@@ -1023,6 +1098,7 @@ void scenery_sprite_draw_until_you_failed(void)
 	delete_current_object();
 }
 
+/* Drawn at depth screen_y + depth_offset until map_screen_active is set (the map screen), then removed. */
 void scenery_sprite_draw(void)
 {
 	uint32_t depth = 0, ignored = 0;
@@ -1037,6 +1113,8 @@ void scenery_sprite_draw(void)
 	delete_current_object();
 }
 
+/* Drawn at depth screen_y + depth_offset until check_left_screen says it has left the screen, then
+   removed. */
 void scenery_sprite_draw_until_offscreen(void)
 {
 	uint32_t depth = 0, ignored = 0, off_screen = 0;
@@ -1052,6 +1130,7 @@ void scenery_sprite_draw_until_offscreen(void)
 	delete_current_object();
 }
 
+/* scenery_sprite_draw_until_offscreen with a margin of 0x50 (check_left_screen_margin). */
 void scenery_sprite_draw_wide_margin(void)
 {
 	uint16_t margin = 0;
@@ -1069,6 +1148,9 @@ void scenery_sprite_draw_wide_margin(void)
 	delete_current_object();
 }
 
+/* The handler of scenery kind 0xA (stage 0xF): its palette cycles through scenery_sprite_palettes every
+   6 frames (animate_sign), the sprite 0x10 higher; then scenery_sprite_cycle_palette from the next
+   frame. */
 void scenery_sprite_cycle_palette_start(void)
 {
 	OBJECT(current_object)->scenery_sprite.palette_index = 0u;
@@ -1080,6 +1162,8 @@ void scenery_sprite_cycle_palette_start(void)
 	OBJECT(current_object)->handler = scenery_sprite_cycle_palette_ADDRESS;
 }
 
+/* Until map_screen_active is set (then removed): animate_sign, then drawn at depth screen_y +
+   depth_offset like scenery_sprite_draw. */
 void scenery_sprite_cycle_palette(void)
 {
 	uint32_t depth = 0, ignored = 0;
@@ -1095,6 +1179,9 @@ void scenery_sprite_cycle_palette(void)
 	delete_current_object();
 }
 
+/* Stage list object: loads group_leader_hold_records[sprite_frame] (leader number, direction,
+   coordinate, end scroll position, which_flag) and sets group_leader_0_held, or group_leaders_1_3_held
+   when which_flag is set, so the leaders spawned meanwhile wait; then group_leader_hold_wait. */
 void group_leader_hold_start(void)
 {
 	uint32_t held_flag = 0, hold_record = 0;
@@ -1115,6 +1202,9 @@ void group_leader_hold_start(void)
 	OBJECT(current_object)->handler = group_leader_hold_wait_ADDRESS;
 }
 
+/* Clears its held flag and is removed once scroll_position reaches end_position, or once
+   group_leaders[leader] reaches coordinate along direction (0 and 4: y down to it, 1: x up, 2: y up, 3:
+   x down). */
 void group_leader_hold_wait(void)
 {
 	uint32_t held_flag = 0, object = 0;
@@ -1173,6 +1263,10 @@ void group_leader_hold_wait(void)
 	}
 }
 
+/* Once scroll_position reaches the stage's next wall_spawns record (wall_spawn_cursor; records 0x100 or
+   more behind are skipped) spawns that wall: position, end_position, kind, part count, handler
+   wall_update, parts from build_wall_parts and its far corner's screen offset in speed_z. Short of pool
+   2 blocks it tries again next call. */
 void spawn_walls(uint32_t *p_spawns_offset, uint32_t *p_part_size, uint32_t *p_second_sprite, uint32_t *p_point_y, uint32_t *p_z, uint32_t *p_wall)
 {
 	uint32_t spawns_offset = *p_spawns_offset;
@@ -1283,6 +1377,9 @@ void spawn_walls(uint32_t *p_spawns_offset, uint32_t *p_part_size, uint32_t *p_s
 	*p_wall = wall;
 }
 
+/* spawn_walls' handler: until scroll_position reaches end_position (or, with end_position 0, until
+   check_wall_left_screen says both ends have gone) wall_update_list_and_draw; then, or as soon as
+   map_screen_active is set, frees its pool 2 parts and is removed. */
 void wall_update(void)
 {
 	uint16_t child = 0;
@@ -1315,6 +1412,10 @@ void wall_update(void)
 	delete_current_object();
 }
 
+/* Joins the wall list and, unless invisible, draws its parts as a strip from its screen position, each a
+   step on from the last (those off screen skipped): each sorted at its own screen y + 0x10, or at the
+   next part's - 0x10 with depth_from_next, and with a second sprite its second part under everything
+   (bucket 0xFF). */
 void wall_update_list_and_draw(void)
 {
 	uint8_t bucket = 0;
@@ -1363,10 +1464,14 @@ void wall_update_list_and_draw(void)
 	}
 }
 
+/* Unused: does nothing; a second return right after wall_update_list_and_draw's own. */
 void wall_update_spare_return(void)
 {
 }
 
+/* Follows the wall's two ends in speed_y: bit 0 once its start (screen position less the sprite offsets)
+   is on screen, bit 1 once it has left again, bits 2 and 3 the same for its far corner (at the screen
+   offset spawn_walls keeps in speed_z). Hands back 0xFFFFFFFF once both ends have come and gone, else 0. */
 uint32_t check_wall_left_screen(void)
 {
 	uint32_t off_screen = 0;
@@ -1398,6 +1503,8 @@ uint32_t check_wall_left_screen(void)
 	return off_screen;
 }
 
+/* Unused: copies 12 characters into wall_editor_side_text: wall_editor_far_label ("Oku", far) when the
+   wall's depth_from_next is set, else wall_editor_near_label ("Temae", near). */
 void wall_editor_set_side_label(void)
 {
 	uint32_t label_text = 0;
@@ -1408,6 +1515,10 @@ void wall_editor_set_side_label(void)
 	move_bytes(wall_editor_side_text_ADDRESS, label_text, 0xCu);
 }
 
+/* Unused: draws one more arrow (sprite 0x6388, palette 0x8230, sprite_flags 0x1004) in the next
+   0x80-byte slot after wall_editor_arrow_count, up to 7 (nothing resets the count): at marker_x,
+   marker_y on the floor there, on object_cursor's platform when it rides one, projected and drawn on
+   top. */
 void wall_editor_draw_arrow(uint32_t marker_x, uint32_t marker_y)
 {
 	uint8_t bucket = 0;
@@ -1445,6 +1556,7 @@ void wall_editor_draw_arrow(uint32_t marker_x, uint32_t marker_y)
 	current_object = saved_current_object;
 }
 
+/* Unused: wall_editor_draw_arrow with z = marker_z instead of the floor's. */
 void wall_editor_draw_arrow_at_z(uint32_t marker_x, uint32_t marker_y, uint32_t marker_z)
 {
 	uint8_t bucket = 0;
@@ -1481,6 +1593,8 @@ void wall_editor_draw_arrow_at_z(uint32_t marker_x, uint32_t marker_y, uint32_t 
 	current_object = saved_current_object;
 }
 
+/* Unused: prints the wall's kind (its wall_kinds offset in sprite_frame / 0x14) with draw_hex_2 at text
+   column 12, row 18, after the wall editor menu's "Pattern No.". */
 void wall_editor_draw_pattern_number(void)
 {
 	uint16_t attribute = 0;
@@ -1492,6 +1606,7 @@ void wall_editor_draw_pattern_number(void)
 	value = draw_hex_2(value, attribute, text_position);
 }
 
+/* Unused: frees the wall's chain of pool 2 parts and builds it again with build_wall_parts. */
 void wall_editor_rebuild_parts(uint32_t part)
 {
 	uint16_t child = 0;
@@ -1507,6 +1622,10 @@ void wall_editor_rebuild_parts(uint32_t part)
 	build_wall_parts(&ignored, &ignored, &part);
 }
 
+/* Sets the wall's box and palette from its wall_kinds record (a negative size counts per part: times the
+   part count in speed_x_fraction) and chains its parts from pool 2: per step one with the part sprite
+   and x/y step, and a second (palette 0x9FFE) when the kind has a second sprite. A negative part sprite
+   makes the wall invisible. */
 void build_wall_parts(uint32_t *p_part_size, uint32_t *p_second_sprite, uint32_t *p_part)
 {
 	uint32_t part_size = *p_part_size;

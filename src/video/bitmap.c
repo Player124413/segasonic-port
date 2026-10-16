@@ -11,6 +11,9 @@
  */
 #include "game.h"
 
+/* Unused: draws the packed picture at picture on the bitmap layer at 8 bpp: init_bitmap_layer, the tile
+   layers off (video_layer_disable bits 0-3), init_picture_unpacker and init_picture_colour_cache,
+   read_picture_size and unpack_picture_pixels, then rotate_bitmap_for_monitor_flip. */
 void draw_packed_picture(uint32_t picture)
 {
 	uint8_t is_8bpp = 0;
@@ -27,21 +30,22 @@ void draw_packed_picture(uint32_t picture)
 	rotate_bitmap_for_monitor_flip();
 }
 
+/* Unused: sets up the picture unpacker: the colour cache in bitmap_draw_buffer, newest slot 0, the bit
+   position (current_player, borrowed for it) 0, and the done map, a bit per byte of the 0x200 x 0xE0
+   bitmap, cleared at SPRITE_RAM + 0x100; hands back colour_cache, newest_slot and done_bits. */
 void init_picture_unpacker(uint32_t *p_colour_cache, uint32_t *p_newest_slot, uint32_t *p_done_bits)
 {
-	uint32_t colour_cache = 0, done_bits = 0, newest_slot = 0;
-
-	colour_cache = bitmap_draw_buffer_ADDRESS;
-	newest_slot = 0u;
-	done_bits = SPRITE_RAM + 0x100u;
+	*p_colour_cache = bitmap_draw_buffer_ADDRESS;
+	*p_newest_slot = 0u;
+	*p_done_bits = SPRITE_RAM + 0x100u;
 	current_player = 0u;
 	fill_value = 0u;
 	set_halfwords(SPRITE_RAM + 0x100u, 0x1C00u, fill_value);
-	*p_colour_cache = colour_cache;
-	*p_newest_slot = newest_slot;
-	*p_done_bits = done_bits;
 }
 
+/* Unused: links the 16 three-byte slots of the colour cache at colour_cache (next, previous, colour)
+   into a ring: slot n's next is n + 1 and its previous n - 1, colours 0; slot 0xF's next is 0 and slot
+   0's previous 0xF. */
 void init_picture_colour_cache(uint32_t colour_cache)
 {
 	uint8_t next_slot = 0, previous_slot = 0;
@@ -67,6 +71,8 @@ void init_picture_colour_cache(uint32_t colour_cache)
 	PICTURE_COLOUR_SLOT(colour_cache)->previous = 0xFu;
 }
 
+/* Unused: reads two 16-bit numbers from the picture's bit stream at the bit position in current_player:
+   the width, handed back, and the height, left in r14. */
 uint32_t read_picture_size(uint32_t stream)
 {
 	uint32_t width = 0;
@@ -78,6 +84,10 @@ uint32_t read_picture_size(uint32_t stream)
 	return width;
 }
 
+/* Unused: paints the picture at bitmap_address (rows 0x200 apart, r14 of them) in runs: gamma code n, n
+   - 1 pixels in the current colour (a done one keeps its own, which becomes current), one in
+   read_picture_colour's colour; then a 1 bit starts a chain a row down per pixel (2-bit steps: left,
+   down, right, or 0: end, two left, two right). */
 void unpack_picture_pixels(uint32_t stream, uint32_t width, uint32_t colour_cache, uint32_t newest_slot, uint32_t done_bits)
 {
 	uint16_t x = 0, y = 0;
@@ -195,6 +205,10 @@ void unpack_picture_pixels(uint32_t stream, uint32_t width, uint32_t colour_cach
 	}
 }
 
+/* Unused: the next colour of the picture through its 16-slot cache: a 0 bit and 8 bits are a new colour,
+   stored in the oldest slot (the one after the newest in the ring), which becomes the newest; a 1 bit
+   and 4 bits name a slot, whose colour it takes, and that slot moves to the newest place. Hands back
+   colour and newest_slot. */
 void read_picture_colour(uint32_t stream, uint32_t colour_cache, uint32_t *p_colour, uint32_t *p_newest_slot)
 {
 	uint32_t colour = *p_colour;
@@ -238,6 +252,9 @@ void read_picture_colour(uint32_t stream, uint32_t colour_cache, uint32_t *p_col
 	*p_newest_slot = picked_slot;
 }
 
+/* Unused: with setting_monitor_flip set, turns the 320 x 224 picture on the 8 bpp bitmap layer half a
+   turn: each of the top 0x70 rows swaps its 320 bytes, byte-reversed, with the matching bottom row taken
+   backwards. */
 void rotate_bitmap_for_monitor_flip(void)
 {
 	uint32_t blocks_left = 0, blocks_per_row = 0, bottom_cursor = 0, bottom_word = 0, row_pairs_left = 0, top_cursor = 0;
@@ -281,6 +298,9 @@ void rotate_bitmap_for_monitor_flip(void)
 	} while (row_pairs_left != 0u);
 }
 
+/* Unused: clear_bitmap_layer's set-up without its fill: set_bitmap_scroll_2(0, 0, the depth from
+   is_8bpp), get_bitmap_address_2(0, 0), video_layer_disable bits 5, 10 and 15 off, the bitmap clip 0, 0
+   to 0x13F (0x19F with video_control bit 15), 0xDF, and set_bitmap_window_2(0, 0, 0x1FF, 0xDF). */
 void init_bitmap_layer(uint8_t is_8bpp)
 {
 	uint8_t is_8bpp_2 = 0;
@@ -308,6 +328,7 @@ void init_bitmap_layer(uint8_t is_8bpp)
 	set_bitmap_window_2(left, window_top, right, bottom);
 }
 
+/* Unused: a copy of get_bitmap_address (bitmap_address for x, y by bitmap_8bpp), init_bitmap_layer's. */
 void get_bitmap_address_2(uint16_t x, uint16_t y)
 {
 	uint8_t x_shift = 0;
@@ -316,6 +337,8 @@ void get_bitmap_address_2(uint16_t x, uint16_t y)
 	bitmap_address = shift_by((uint32_t)(int16_t)y, (uint8_t)(x_shift + 9u), 32) + 0x300000u + shift_signed_by((uint32_t)(int16_t)x, x_shift, 32);
 }
 
+/* Unused: a copy of set_bitmap_scroll (video_bitmap_scroll_x/y, bitmap_8bpp and video_control bit 11
+   from is_8bpp), init_bitmap_layer's. */
 void set_bitmap_scroll_2(uint16_t scroll_x, uint16_t scroll_y, uint8_t is_8bpp)
 {
 	mem_write16(video_bitmap_scroll_x, scroll_x);
@@ -326,6 +349,8 @@ void set_bitmap_scroll_2(uint16_t scroll_x, uint16_t scroll_y, uint8_t is_8bpp)
 	mem_write16(video_control, mem_read16(video_control) | ((uint32_t)is_8bpp << 11));
 }
 
+/* Unused: a copy of set_bitmap_window (the corners in order into bitmap_window_left/top/right/bottom),
+   init_bitmap_layer's. */
 void set_bitmap_window_2(uint16_t left, uint16_t top, uint16_t right, uint16_t bottom)
 {
 	uint16_t old_left = 0, old_top = 0;
@@ -348,6 +373,8 @@ void set_bitmap_window_2(uint16_t left, uint16_t top, uint16_t right, uint16_t b
 	bitmap_window_bottom = bottom;
 }
 
+/* Unused: a copy of set_bitmap_clip (the corners in order into video_bitmap_clip_left/top/right/bottom,
+   video_layer_disable bit 15 on). */
 void set_bitmap_clip_2(uint16_t left, uint16_t top, uint16_t right, uint16_t bottom)
 {
 	uint16_t old_left = 0, old_top = 0;
@@ -371,6 +398,10 @@ void set_bitmap_clip_2(uint16_t left, uint16_t top, uint16_t right, uint16_t bot
 	mem_write16(video_bitmap_clip_bottom, bottom);
 }
 
+/* Unused: unpacks the bit stream at packed into dest (current_player is the bit position): a gamma code
+   gives the byte count, then 0 and 8 bits a literal (kept in recent_literals, a ring of 16), 10 and 4
+   bits a byte from recent_literals, 11 and two gamma codes a copy of earlier output (distance, length)
+   that can overshoot the count. */
 void unpack_lz_bytes(uint32_t packed, uint32_t dest)
 {
 	uint8_t literal = 0;
@@ -443,9 +474,12 @@ void unpack_lz_bytes(uint32_t packed, uint32_t dest)
 	}
 }
 
+/* Sets the bitmap layer up and clears it: scroll 0, 0 at the depth is_8bpp gives, bitmap_address at 0,
+   0, video_layer_disable bits 5, 10, 15 off, the bitmap clip 0, 0 to 0x13F (0x19F with video_control bit
+   15), 0xDF, then the window 0, 0 to 0x1FF, 0xDF filled with 0 (at 4 bpp only its bottom row:
+   fill_rect_unclipped). */
 void clear_bitmap_layer(uint8_t is_8bpp, uint32_t *p_top, uint32_t *p_color, uint32_t *p_inner_count, uint32_t *p_row_pairs_left, uint32_t *p_blocks_per_row, uint32_t *p_lower_row_cursor)
 {
-	uint32_t color = *p_color;
 	uint32_t inner_count = *p_inner_count;
 	uint32_t row_pairs_left = *p_row_pairs_left;
 	uint32_t blocks_per_row = *p_blocks_per_row;
@@ -477,16 +511,17 @@ void clear_bitmap_layer(uint8_t is_8bpp, uint32_t *p_top, uint32_t *p_color, uin
 	top = (uint16_t)bitmap_window_top;
 	right = (uint16_t)bitmap_window_right;
 	bottom = (uint16_t)bitmap_window_bottom;
-	color &= ~0xFFu;
-	fill_rect_unclipped(right, bottom, &clip_right_bottom, &top, &color, &inner_count, &row_pairs_left, &blocks_per_row, &lower_row_cursor);
+	*p_color &= ~0xFFu;
+	fill_rect_unclipped(right, bottom, &clip_right_bottom, &top, p_color, &inner_count, &row_pairs_left, &blocks_per_row, &lower_row_cursor);
 	*p_top = top;
-	*p_color = color;
 	*p_inner_count = inner_count;
 	*p_row_pairs_left = row_pairs_left;
 	*p_blocks_per_row = blocks_per_row;
 	*p_lower_row_cursor = lower_row_cursor;
 }
 
+/* Sets bitmap_address to the address of x, y on the bitmap layer: 0x300000 + y x 0x200 + x at 8 bpp,
+   0x300000 + y x 0x100 + x / 2 at 4 bpp (bitmap_8bpp). */
 void get_bitmap_address(uint16_t x, uint16_t y)
 {
 	uint8_t x_shift = 0;
@@ -495,6 +530,8 @@ void get_bitmap_address(uint16_t x, uint16_t y)
 	bitmap_address = 0x300000u + (shift_signed_by((uint32_t)(int16_t)x, x_shift, 32) + shift_by((uint32_t)(int16_t)y, (uint8_t)(x_shift + 9u), 32));
 }
 
+/* Sets the bitmap layer's scroll (video_bitmap_scroll_x/y) and its depth: is_8bpp bit 0 into bitmap_8bpp
+   and video_control bit 11. */
 void set_bitmap_scroll(uint16_t scroll_x, uint16_t scroll_y, uint8_t is_8bpp)
 {
 	mem_write16(video_bitmap_scroll_x, scroll_x);
@@ -505,6 +542,8 @@ void set_bitmap_scroll(uint16_t scroll_x, uint16_t scroll_y, uint8_t is_8bpp)
 	mem_write16(video_control, mem_read16(video_control) | ((uint32_t)is_8bpp << 11));
 }
 
+/* Puts left, top, right, bottom in order into bitmap_window_left/top/right/bottom: the window that
+   draw_line, fill_rect and the pixel routines clip to. */
 void set_bitmap_window(uint16_t left, uint16_t top, uint16_t right, uint16_t bottom)
 {
 	uint16_t old_left = 0, old_top = 0;
@@ -527,6 +566,9 @@ void set_bitmap_window(uint16_t left, uint16_t top, uint16_t right, uint16_t bot
 	bitmap_window_bottom = bottom;
 }
 
+/* Unused: puts left, top, right, bottom in order into the bitmap clip
+   (video_bitmap_clip_left/top/right/bottom), with video_layer_disable bit 15 on (clear_bitmap_layer
+   turns it off). */
 void set_bitmap_clip(uint16_t left, uint16_t top, uint16_t right, uint16_t bottom)
 {
 	uint16_t old_left = 0, old_top = 0;
@@ -550,6 +592,8 @@ void set_bitmap_clip(uint16_t left, uint16_t top, uint16_t right, uint16_t botto
 	mem_write16(video_bitmap_clip_bottom, bottom);
 }
 
+/* Unused: puts color at x, y when it is inside bitmap_window (get_point_outcode): at 8 bpp the byte at y
+   x 0x200 + x, at 4 bpp the low (even x) or high (odd x) nibble of the byte at y x 0x100 + x / 2. */
 void draw_pixel(uint32_t x, uint32_t y, uint8_t color)
 {
 	uint8_t keep_mask = 0, saved_x = 0;
@@ -578,6 +622,8 @@ void draw_pixel(uint32_t x, uint32_t y, uint8_t color)
 	mem_write8(y, (keep_mask & mem_read8(y)) | color);
 }
 
+/* Unused: hands back the pixel at x, y (the 8 bpp byte, or the 4 bpp nibble by x's parity), or -1
+   outside bitmap_window. */
 uint32_t read_pixel(uint32_t x, uint32_t y)
 {
 	uint8_t saved_x = 0;
@@ -608,12 +654,14 @@ uint32_t read_pixel(uint32_t x, uint32_t y)
 	return pixel;
 }
 
+/* Draws a line on the bitmap layer from start_x, start_y to end_x, end_y in color, clipped to
+   bitmap_window (get_window_outcode, clip_line_to_window; start_x comes back -1 when none of it is
+   inside), at 4 or 8 bits per pixel (bitmap_8bpp): the CRT test's border and crosshatch. */
 void draw_line(uint32_t end_x, uint32_t end_y, uint32_t *p_start_x, uint32_t *p_start_y, uint32_t *p_color, uint32_t *p_unclipped_y)
 {
 	uint32_t start_x = *p_start_x;
 	uint32_t start_y = *p_start_y;
 	uint32_t color = *p_color;
-	uint32_t unclipped_y = *p_unclipped_y;
 	bool diagonal_odd_pixel = false, steep_odd_pixel = false;
 	uint32_t zero = 0, negative = 0, overflow = 0, carry = 0;
 	uint8_t high_nibble_mask = 0, low_nibble_color = 0;
@@ -632,12 +680,11 @@ void draw_line(uint32_t end_x, uint32_t end_y, uint32_t *p_start_x, uint32_t *p_
 			pixel = 0xFFFFFFFFu;
 			*p_start_x = pixel;
 			*p_start_y = start_y;
-			*p_unclipped_y = unclipped_y;
 			return;
 		}
 		if ((uint16_t)(outcode | end_outcode) == 0u)
 			break;
-		clip_line_to_window(outcode, end_outcode, &start_x, &start_y, &end_x, &end_y, &unclipped_y);
+		clip_line_to_window(outcode, end_outcode, &start_x, &start_y, &end_x, &end_y, p_unclipped_y);
 	}
 	if (bitmap_8bpp == 0u)
 	{
@@ -655,7 +702,6 @@ void draw_line(uint32_t end_x, uint32_t end_y, uint32_t *p_start_x, uint32_t *p_
 			*p_start_x = start_x;
 			*p_start_y = start_y;
 			*p_color = color;
-			*p_unclipped_y = unclipped_y;
 			return;
 		}
 		if ((negative ^ overflow) | zero)
@@ -676,7 +722,6 @@ void draw_line(uint32_t end_x, uint32_t end_y, uint32_t *p_start_x, uint32_t *p_
 			*p_start_x = start_x;
 			*p_start_y = start_y;
 			*p_color = color;
-			*p_unclipped_y = unclipped_y;
 			return;
 		}
 		if ((negative ^ overflow) | zero)
@@ -718,7 +763,6 @@ void draw_line(uint32_t end_x, uint32_t end_y, uint32_t *p_start_x, uint32_t *p_
 						*p_start_x = start_x;
 						*p_start_y = start_y;
 						*p_color = color;
-						*p_unclipped_y = unclipped_y;
 						return;
 					}
 				}
@@ -738,7 +782,6 @@ void draw_line(uint32_t end_x, uint32_t end_y, uint32_t *p_start_x, uint32_t *p_
 					*p_start_x = start_x;
 					*p_start_y = start_y;
 					*p_color = color;
-					*p_unclipped_y = unclipped_y;
 					return;
 				}
 				steep_odd_pixel = true;
@@ -754,14 +797,12 @@ void draw_line(uint32_t end_x, uint32_t end_y, uint32_t *p_start_x, uint32_t *p_
 				*p_start_x = start_x;
 				*p_start_y = start_y;
 				*p_color = color;
-				*p_unclipped_y = unclipped_y;
 				return;
 			}
 			start_y = draw_line_shallow_even_pixel(start_y, fraction_4bpp, low_nibble_color, (uint8_t)color, (uint16_t)slope, steep_slope, high_nibble_mask, row_step_4bpp);
 			*p_start_x = start_x;
 			*p_start_y = start_y;
 			*p_color = color;
-			*p_unclipped_y = unclipped_y;
 			return;
 		}
 		for (;;)
@@ -779,7 +820,6 @@ void draw_line(uint32_t end_x, uint32_t end_y, uint32_t *p_start_x, uint32_t *p_
 					*p_start_x = start_x;
 					*p_start_y = start_y;
 					*p_color = color;
-					*p_unclipped_y = unclipped_y;
 					return;
 				}
 			}
@@ -795,7 +835,6 @@ void draw_line(uint32_t end_x, uint32_t end_y, uint32_t *p_start_x, uint32_t *p_
 				*p_start_x = start_x;
 				*p_start_y = start_y;
 				*p_color = color;
-				*p_unclipped_y = unclipped_y;
 				return;
 			}
 			diagonal_odd_pixel = true;
@@ -821,7 +860,6 @@ void draw_line(uint32_t end_x, uint32_t end_y, uint32_t *p_start_x, uint32_t *p_
 			*p_start_x = start_x;
 			*p_start_y = start_y;
 			*p_color = color;
-			*p_unclipped_y = unclipped_y;
 			return;
 		}
 		span_length = (uint16_t)(0u - span_length);
@@ -830,7 +868,6 @@ void draw_line(uint32_t end_x, uint32_t end_y, uint32_t *p_start_x, uint32_t *p_
 		*p_start_x = start_x;
 		*p_start_y = start_y;
 		*p_color = color;
-		*p_unclipped_y = unclipped_y;
 		return;
 	}
 	if ((negative ^ overflow) | zero)
@@ -855,7 +892,6 @@ void draw_line(uint32_t end_x, uint32_t end_y, uint32_t *p_start_x, uint32_t *p_
 			*p_start_x = start_x;
 			*p_start_y = start_y;
 			*p_color = color;
-			*p_unclipped_y = unclipped_y;
 			return;
 		}
 		top_row = end_y;
@@ -865,7 +901,6 @@ void draw_line(uint32_t end_x, uint32_t end_y, uint32_t *p_start_x, uint32_t *p_
 		*p_start_x = start_x;
 		*p_start_y = top_row;
 		*p_color = color;
-		*p_unclipped_y = unclipped_y;
 		return;
 	}
 	if ((negative ^ overflow) | zero)
@@ -896,7 +931,6 @@ void draw_line(uint32_t end_x, uint32_t end_y, uint32_t *p_start_x, uint32_t *p_
 		start_x = (uint16_t)slope;
 		*p_start_x = start_x;
 		*p_start_y = start_y;
-		*p_unclipped_y = unclipped_y;
 		return;
 	}
 	if ((uint16_t)steps_left < (uint16_t)slope)
@@ -927,9 +961,11 @@ void draw_line(uint32_t end_x, uint32_t end_y, uint32_t *p_start_x, uint32_t *p_
 	start_x = (uint16_t)steps_left;
 	*p_start_x = start_x;
 	*p_start_y = start_y;
-	*p_unclipped_y = unclipped_y;
 }
 
+/* Fills length + 1 bytes of the 8 bpp bitmap with color from pixel_address: an odd first byte, blocks of
+   16 in long stores, then 8, 4, 2 and 1; hands back pixel_address at the last byte written. Used for
+   draw_line's horizontal lines and the rectangles' rows. */
 void fill_span_8bpp(uint32_t length, uint32_t *p_blocks, uint32_t *p_pixel_address, uint32_t *p_color)
 {
 	uint32_t blocks = *p_blocks;
@@ -1034,6 +1070,8 @@ void fill_span_8bpp(uint32_t length, uint32_t *p_blocks, uint32_t *p_pixel_addre
 	*p_color = color;
 }
 
+/* Runs draw_vertical_span_8bpp with a row step of 0x200 (one 8 bpp row): draw_line's vertical lines and
+   draw_rect_outline's sides; hands back the address of the last pixel. */
 uint32_t draw_vertical_line_8bpp(uint32_t pixel_address, uint8_t color, uint32_t length)
 {
 	uint32_t row_step = 0;
@@ -1043,6 +1081,8 @@ uint32_t draw_vertical_line_8bpp(uint32_t pixel_address, uint8_t color, uint32_t
 	return pixel_address;
 }
 
+/* Puts length + 1 pixels of color down from pixel_address, row_step apart (0x200: one 8 bpp row); hands
+   back the address of the last. */
 void draw_vertical_span_8bpp(uint32_t row_step, uint8_t color, uint32_t *p_pixel_address, uint32_t *p_length)
 {
 	uint32_t pixel_address = *p_pixel_address;
@@ -1074,6 +1114,10 @@ void draw_vertical_span_8bpp(uint32_t row_step, uint8_t color, uint32_t *p_pixel
 	*p_length = length;
 }
 
+/* Part of draw_line at 4 bpp, more columns than rows: puts color in the low nibble (an even x) of the
+   pixel's byte; if the line stays on the row it goes on to the odd pixel of the same byte
+   (draw_line_shallow_set_high_nibble), else it writes the byte and steps a row
+   (draw_line_shallow_odd_pixel). */
 uint32_t draw_line_shallow_even_pixel(uint32_t pixel_address, uint16_t fraction, uint8_t low_nibble_color, uint8_t high_nibble_color, uint16_t slope, uint32_t steps_left, uint8_t high_nibble_mask, uint32_t row_step)
 {
 	uint32_t carry = 0;
@@ -1092,6 +1136,8 @@ uint32_t draw_line_shallow_even_pixel(uint32_t pixel_address, uint16_t fraction,
 	return draw_line_shallow_odd_pixel(pixel_address, fraction, low_nibble_color, high_nibble_color, slope, steps_left, high_nibble_mask, row_step);
 }
 
+/* Part of draw_line at 4 bpp, shallow: an odd x pixel after a row step: reads its byte, then
+   draw_line_shallow_set_high_nibble. */
 uint32_t draw_line_shallow_odd_pixel(uint32_t pixel_address, uint16_t fraction, uint8_t low_nibble_color, uint8_t high_nibble_color, uint16_t slope, uint32_t steps_left, uint8_t high_nibble_mask, uint32_t row_step)
 {
 	uint8_t pixel_byte = 0;
@@ -1100,6 +1146,9 @@ uint32_t draw_line_shallow_odd_pixel(uint32_t pixel_address, uint16_t fraction, 
 	return draw_line_shallow_set_high_nibble(pixel_byte, pixel_address, fraction, low_nibble_color, high_nibble_color, slope, steps_left, high_nibble_mask, row_step);
 }
 
+/* Part of draw_line at 4 bpp, shallow: puts color in the high nibble (an odd x) of pixel_byte, writes it
+   and moves to the next byte, a row further when the step carries; then the next even pixel
+   (draw_line_shallow_even_pixel) until the steps run out, handing back the address. */
 uint32_t draw_line_shallow_set_high_nibble(uint8_t pixel_byte, uint32_t pixel_address, uint16_t fraction, uint8_t low_nibble_color, uint8_t high_nibble_color, uint16_t slope, uint32_t steps_left, uint8_t high_nibble_mask, uint32_t row_step)
 {
 	uint32_t carry = 0;
@@ -1118,6 +1167,9 @@ uint32_t draw_line_shallow_set_high_nibble(uint8_t pixel_byte, uint32_t pixel_ad
 	return draw_line_shallow_even_pixel(pixel_address, fraction, low_nibble_color, high_nibble_color, slope, steps_left, high_nibble_mask, row_step);
 }
 
+/* The horizontal line of draw_line at 4 bits per pixel, from start_x to end_x on row start_y (two pixels
+   a byte, the even one in the low nibble): a lone odd first pixel, a whole byte at an odd address, then
+   8 pixels a long store and a masked long for the rest. */
 void fill_span_4bpp(uint16_t end_x, uint32_t *p_start_x, uint32_t *p_start_y, uint32_t *p_color, uint32_t *p_length)
 {
 	uint32_t start_x = *p_start_x;
@@ -1238,20 +1290,23 @@ void fill_span_4bpp(uint16_t end_x, uint32_t *p_start_x, uint32_t *p_start_y, ui
 	*p_length = length;
 }
 
+/* The vertical line of draw_line at 4 bits per pixel: the byte of start_x on row start_y, then
+   draw_vertical_span_4bpp_here. */
 void draw_vertical_span_4bpp(uint16_t start_x, uint32_t row_step, uint32_t *p_start_y, uint32_t *p_color, uint32_t *p_length)
 {
 	uint32_t start_y = *p_start_y;
 	uint32_t color = *p_color;
-	uint32_t length = *p_length;
 
 	start_y = (uint32_t)(uint16_t)start_y << 8;
 	start_y = ((start_y & ~0xFFFFu) | (uint16_t)(start_y + ((uint16_t)start_x >> 1))) + bitmap_address;
-	draw_vertical_span_4bpp_here((uint8_t)start_x, row_step, &start_y, &color, &length);
+	draw_vertical_span_4bpp_here((uint8_t)start_x, row_step, &start_y, &color, p_length);
 	*p_start_y = start_y;
 	*p_color = (*p_color & 0xFFFFFF00u) | (color & 0xFFu);
-	*p_length = length;
 }
 
+/* Puts length + 1 pixels of color down from pixel_address, row_step apart, in the low nibble for an even
+   start_x or the high nibble for an odd one: draw_vertical_span_4bpp's and draw_rect_outline's 4 bpp
+   sides. */
 void draw_vertical_span_4bpp_here(uint8_t start_x, uint32_t row_step, uint32_t *p_pixel_address, uint32_t *p_color, uint32_t *p_length)
 {
 	uint32_t pixel_address = *p_pixel_address;
@@ -1292,6 +1347,9 @@ void draw_vertical_span_4bpp_here(uint8_t start_x, uint32_t row_step, uint32_t *
 	*p_length = length;
 }
 
+/* Unused: draw_line's 8 bpp part for a dotted line: clipped the same way, it writes every other pixel (2
+   bytes apart across, 0x400 down, double steps on diagonals, other lines skipping a pixel between
+   writes). */
 void draw_dotted_line_8bpp(uint32_t start_x, uint32_t start_y, uint32_t end_x, uint32_t end_y, uint8_t color)
 {
 	uint32_t zero = 0, negative = 0, overflow = 0, carry = 0;
@@ -1439,6 +1497,10 @@ void draw_dotted_line_8bpp(uint32_t start_x, uint32_t start_y, uint32_t end_x, u
 	}
 }
 
+/* Unused: the outline from left, top to width, height (the far corner, made a size by
+   clip_rect_to_window) in color: by the edges still inside (1 left, 2 right, 4 top, 8 bottom), rows by
+   fill_span_8bpp and columns by draw_vertical_line_8bpp. At 4 bpp only a lone left or right edge, with
+   the edge code (3 or 6) as row step. */
 void draw_rect_outline(uint32_t left, uint32_t top, uint32_t width, uint32_t height, uint32_t color)
 {
 	uint32_t column_address = 0, column_length = 0, ignored = 0, left_byte_offset = 0, length = 0, pixel_address = 0, right_side_length = 0, row_step = 0, saved_top_left = 0, top_left_address = 0, unclipped_edges = 0;
@@ -1672,6 +1734,8 @@ void draw_rect_outline(uint32_t left, uint32_t top, uint32_t width, uint32_t hei
 	}
 }
 
+/* Unused: draw_rect_outline's left and right sides: color at pixel_address and pixel_address + width,
+   height + 1 rows down (0x200 apart); hands back the address of the bottom-left pixel. */
 uint32_t draw_rect_sides_8bpp(uint32_t pixel_address, uint32_t width, uint32_t height, uint8_t color)
 {
 	uint32_t right_address = 0, row_step = 0;
@@ -1691,6 +1755,8 @@ uint32_t draw_rect_sides_8bpp(uint32_t pixel_address, uint32_t width, uint32_t h
 	return pixel_address;
 }
 
+/* Unused: draw_rect_outline's top and bottom: width + 1 bytes of color at pixel_address and height rows
+   below it (long stores where it can, as fill_span_8bpp); hands back the last byte of the top row. */
 uint32_t draw_rect_top_bottom_8bpp(uint32_t pixel_address, uint32_t width, uint32_t height, uint32_t color)
 {
 	uint8_t byte_count = 0, tail_bytes = 0;
@@ -1767,11 +1833,12 @@ uint32_t draw_rect_top_bottom_8bpp(uint32_t pixel_address, uint32_t width, uint3
 	return pixel_address;
 }
 
+/* Fills the rectangle left, top to right, bottom with color on the bitmap layer, clipped to
+   bitmap_window (clip_rect_to_window, then fill_rect_unclipped); hands back -1 in left when none of it
+   is inside. The test mode's panels and bars. */
 void fill_rect(uint32_t top, uint32_t right, uint32_t bottom, uint32_t *p_left, uint32_t *p_color, uint32_t *p_blocks_per_row)
 {
 	uint32_t left = *p_left;
-	uint32_t color = *p_color;
-	uint32_t blocks_per_row = *p_blocks_per_row;
 	uint32_t ignored = 0, pixel = 0, unclipped_edges = 0;
 
 	clip_rect_to_window(&left, &top, &right, &bottom, &ignored, &unclipped_edges);
@@ -1781,12 +1848,14 @@ void fill_rect(uint32_t top, uint32_t right, uint32_t bottom, uint32_t *p_left, 
 		*p_left = pixel;
 		return;
 	}
-	fill_rect_unclipped(right, bottom, &left, &top, &color, &ignored, &ignored, &blocks_per_row, &ignored);
+	fill_rect_unclipped(right, bottom, &left, &top, p_color, &ignored, &ignored, p_blocks_per_row, &ignored);
 	*p_left = left;
-	*p_color = color;
-	*p_blocks_per_row = blocks_per_row;
 }
 
+/* Fills left, top to right, bottom with color, unclipped (fill_rect, clear_bitmap_layer): at 8 bpp two
+   rows at a time, by 16, 8, 4, 2 and 1 bytes. At 4 bpp the rows of 4-pixel blocks go up from the bottom,
+   each starting a row above where the last ended: they slant, and a full-width fill rewrites only the
+   bottom row. */
 void fill_rect_unclipped(uint32_t right, uint32_t bottom, uint32_t *p_left, uint32_t *p_top, uint32_t *p_color, uint32_t *p_inner_count, uint32_t *p_row_pairs_left, uint32_t *p_blocks_per_row, uint32_t *p_lower_row_cursor)
 {
 	uint32_t left = *p_left;

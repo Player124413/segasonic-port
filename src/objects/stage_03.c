@@ -11,6 +11,9 @@
  */
 #include "game.h"
 
+/* The spiked panel and four spawned parts: 1-2 (kind 0xC, spike_panel_part_idle), 3 a hitbox 0x8D x 0xBC
+   (kind 0x12, spike_panel_hitbox_update), 4 the plate 0x6B58 (spike_panel_base_draw), cut off the chain.
+   The head: step = start_step, step_timer = spawn_arg_2, trigger_delay 0x1E, spike_panel_hold. */
 void spike_panel_init(void)
 {
 	uint32_t block = 0, first = 0, object = 0, parts_left = 0, spawned = 0;
@@ -69,6 +72,9 @@ void spike_panel_init(void)
 	OBJECT(object)->handler = spike_panel_base_draw_ADDRESS;
 }
 
+/* Holds the panel at start_step while no player is within 0x40 in x (find_nearest_player_x); with one
+   there, or from the start when start_step is 0, trigger_delay counts down, then start_step = 0 and
+   spike_panel_update takes over. Runs spike_panel_update. */
 void spike_panel_hold(void)
 {
 	uint16_t trigger_delay = 0;
@@ -111,6 +117,9 @@ void spike_panel_hold(void)
 	spike_panel_update();
 }
 
+/* With chaser_object at a direction between 0x100 and 0x378 the panel is removed in 0xF debris; else it
+   steps spike_panel_frame_sequence (spike_panel_step_durations) and places, sizes and draws the head and
+   parts 1-2 by the frame. Sound 0x25 sits where frame_index is under 3: it never plays. */
 void spike_panel_update(void)
 {
 	uint8_t bucket = 0, sound_id = 0;
@@ -218,6 +227,8 @@ void spike_panel_update(void)
 	delete_object_and_children(&ignored, &ignored, &ignored);
 }
 
+/* Part 4, the plate with the holes: drawn in bucket 0xFF, behind everything, until it is removed off
+   screen. */
 void spike_panel_base_draw(void)
 {
 	uint8_t bucket = 0;
@@ -233,6 +244,8 @@ void spike_panel_base_draw(void)
 	}
 }
 
+/* Part 3, touchable only while the panel's frame_index is 4 or more: at part 1's place 0xD8 back in
+   projected x, kind 0x12, or 0xC from the panel's step 5. */
 void spike_panel_hitbox_update(void)
 {
 	uint32_t ignored = 0;
@@ -255,10 +268,14 @@ void spike_panel_hitbox_update(void)
 	add_to_touchable_list(ignored);
 }
 
+/* The handler of parts 1 and 2: does nothing, as spike_panel_update moves and draws them. */
 void spike_panel_part_idle(void)
 {
 }
 
+/* The electric pole, closed (sprite 0x67D8): hitbox_size_x 0x19, height 0x53, health 4 (against
+   attacks), kind 5, electric_pole_wait; its three spark pieces get palette 0x83D0, the third a step
+   ahead. */
 void electric_pole_init(void)
 {
 	OBJECT(current_object)->sprite_frame = 0x67D8u;
@@ -279,6 +296,8 @@ void electric_pole_init(void)
 	OBJECT(current_object)->sprite_palette = 0x83D0u;
 }
 
+/* Waits closed (electric_pole_update) until the nearest player (face_nearest_player) is within 0x70,
+   then electric_pole_rise. */
 void electric_pole_wait(void)
 {
 	face_nearest_player(0u, 0u);
@@ -291,6 +310,9 @@ void electric_pole_wait(void)
 	electric_pole_rise();
 }
 
+/* Every other frame the next of electric_pole_rise_frames (through electric_pole_sprites); at step 0xA
+   it is up: projected_y_int - 0xB (draw_offset_y 0xB puts the sprite back) and electric_pole_update
+   takes over. Runs electric_pole_update. */
 void electric_pole_rise(void)
 {
 	uint16_t odd_frame = 0;
@@ -314,6 +336,9 @@ void electric_pole_rise(void)
 	electric_pole_update();
 }
 
+/* Explodes (sprite_scale 0x200, explosion_animate, sound 7) when chaser_object comes within 0xF in x or
+   it is touched with health under 4; touched with health 4 or more it becomes kind 0x15. Then
+   electric_pole_draw. */
 void electric_pole_update(void)
 {
 	uint8_t sound_id = 0;
@@ -356,6 +381,9 @@ void electric_pole_update(void)
 	play_sound(sound_id, &ignored, &ignored);
 }
 
+/* Drawn draw_offset_y lower unless removed off screen. Rising (frame_index under 0xA) it shows the
+   charging spark and is touchable from frame 2 on; risen, it is touchable and the front spark and two
+   side sparks step through their 7 frames every other frame. */
 void electric_pole_draw(void)
 {
 	uint32_t charging_spark_y = 0, deleted = 0, ignored = 0, spark_y = 0;
@@ -424,6 +452,9 @@ void electric_pole_draw(void)
 	add_to_touchable_list(ignored);
 }
 
+/* The crate (0x6968, box hitbox, kind 0x20, push_crate_update) and its stop post with a top piece
+   (spawn_object_with_pieces 2, push_crate_stop_post_update), set back post_distance * (0x22, 0x11) +
+   (0x11, 0x1D). child, which held the crate's own piece, now points at the post. */
 void push_crate_init(void)
 {
 	uint16_t post_distance = 0;
@@ -455,6 +486,9 @@ void push_crate_init(void)
 	OBJECT(object)->sprite_palette = 0x89E0u;
 }
 
+/* chaser_object within 3 in y, or a touch by an attacking object (flag 0x40): push_crate_break. Touched
+   by an object whose (direction + 0x40) / 0x40 - 1 equals push_quadrant, unless stopped: speed along
+   push_crate_push_angles[push_quadrant] at the toucher's speed. Then push_crate_move. */
 void push_crate_update(void)
 {
 	uint32_t direction = 0, distance_y = 0, ignored = 0, object = 0, speed = 0, speed_x = 0, speed_y = 0;
@@ -496,6 +530,8 @@ void push_crate_update(void)
 	push_crate_move(0u, 0u, 0u);
 }
 
+/* Every other frame the next of push_crate_break_sprites; at the last (2) push_crate_move takes over,
+   after push_crate_release_all_rings when ring_count is above 0. Then push_crate_move. */
 void push_crate_break(void)
 {
 	uint32_t r11 = 0, break_frame = 0, random_value = 0, ring = 0;
@@ -523,6 +559,9 @@ void push_crate_break(void)
 	push_crate_move(0u, 0u, 0u);
 }
 
+/* Moves, removed off screen. Whole: touchable, drawn at screen_y - 0xD, and while speed_x is not 0 a
+   ring (push_crate_release_rings) each time ring_timer runs out (reloaded with 0x10) while ring_count
+   lasts. Broken: drawn in bucket 0xFF, under everything. */
 void push_crate_move(uint32_t cursor, uint32_t random_value, uint32_t ring)
 {
 	uint32_t r3 = 0, deleted = 0, depth = 0, ignored = 0;
@@ -558,6 +597,8 @@ void push_crate_move(uint32_t cursor, uint32_t random_value, uint32_t ring)
 	}
 }
 
+/* The stop post: when its crate (parent) comes within 0x33 in y, the crate stops for good (stopped,
+   speeds 0). Draws the post (queue_sprite) and its top piece 0xF higher, at screen_y + 0x11. */
 void push_crate_stop_post_update(void)
 {
 	uint16_t offset_x = 0, offset_y = 0;
@@ -581,24 +622,17 @@ void push_crate_stop_post_update(void)
 	queue_sprite_at_depth(&ignored, &depth);
 }
 
+/* rings_to_release = ring_count, then push_crate_release_rings: every ring the crate still holds. */
 void push_crate_release_all_rings(uint32_t *p_allocated, uint32_t *p_random_value, uint32_t *p_ring)
 {
-	uint32_t allocated = *p_allocated;
-	uint32_t random_value = *p_random_value;
-	uint32_t ring = *p_ring;
-
 	rings_to_release = OBJECT(current_object)->push_crate.ring_count;
-	push_crate_release_rings(0u, &allocated, &random_value, &ring);
-	*p_allocated = allocated;
-	*p_random_value = random_value;
-	*p_ring = ring;
+	push_crate_release_rings(0u, p_allocated, p_random_value, p_ring);
 }
 
+/* drop_rings rings_to_release rings behind the crate: released_ring_angle =
+   push_crate_push_angles[(push_quadrant + 2) & 3], no flip, no random spread. */
 void push_crate_release_rings(uint32_t seed, uint32_t *p_allocated, uint32_t *p_random_value, uint32_t *p_ring)
 {
-	uint32_t allocated = *p_allocated;
-	uint32_t random_value = *p_random_value;
-	uint32_t ring = *p_ring;
 	uint32_t opposite_quadrant = 0;
 
 	opposite_quadrant = OBJECT(current_object)->push_crate.push_quadrant;
@@ -606,12 +640,12 @@ void push_crate_release_rings(uint32_t seed, uint32_t *p_allocated, uint32_t *p_
 	released_ring_angle = push_crate_push_angles[opposite_quadrant & 3u];
 	released_ring_flip = 0u;
 	released_rings_random = 0u;
-	drop_rings(seed, &allocated, &random_value, &ring);
-	*p_allocated = allocated;
-	*p_random_value = random_value;
-	*p_ring = ring;
+	drop_rings(seed, p_allocated, p_random_value, p_ring);
 }
 
+/* The blue stone panel (sprite 0x9278, palette 0x91F0): box 7 x 0x40, height 0x64, kind 5,
+   breakable_panel_wait. Its piece is the arch outline (0x9308) whose palette draw_breakable_panel
+   cycles. */
 void breakable_panel_init(void)
 {
 	OBJECT(current_object)->sprite_frame = 0x9278u;
@@ -629,6 +663,8 @@ void breakable_panel_init(void)
 	OBJECT(current_object)->sprite_palette = 0x9200u;
 }
 
+/* Once touched by an attacking object (flag 0x40 of touched_by): drop_rings spawn_arg_2 rings at angle
+   spawn_arg_1, spread at random, and breakable_panel_break. Until then draw_breakable_panel. */
 void breakable_panel_wait(void)
 {
 	uint32_t allocated = 0, random_value = 0, ring = 0;
@@ -647,6 +683,8 @@ void breakable_panel_wait(void)
 	breakable_panel_break();
 }
 
+/* Plays breakable_panel_break_frames 0-0x10, one every 3 frames (frame_timer), as the panel cracks open
+   to an arched doorway; then only draw_breakable_panel. Drawn every frame. */
 void breakable_panel_break(void)
 {
 	uint16_t frame_timer = 0;
@@ -668,6 +706,9 @@ void breakable_panel_break(void)
 	draw_breakable_panel();
 }
 
+/* Drawn at screen_y - 0x20 and touchable, even open; removed off screen. Unbroken, its outline piece is
+   drawn at screen_y - 0x19 and its palette steps through breakable_panel_glow_steps every 3 frames,
+   pausing midway and at the end. */
 void draw_breakable_panel(void)
 {
 	uint16_t offset_x = 0, offset_y = 0;
@@ -718,6 +759,9 @@ void draw_breakable_panel(void)
 	queue_sprite_at_depth(&ignored, &depth);
 }
 
+/* A stone floor block of the stage 3 finale: its kind (sprite_frame, kept in speed_x_int) gives from
+   stage_03_floor_block_kinds its sprite offsets, a depth offset (speed_y_fraction), the animation and
+   which stage_03_floor_block_falls byte it waits for (speed_x_fraction). Clears both bytes; z 0. */
 void stage_03_floor_block_start(void)
 {
 	uint32_t block_kind = 0, ignored = 0, kind_entry = 0, kind_record = 0;
@@ -750,6 +794,9 @@ void stage_03_floor_block_start(void)
 	project_object(&ignored, &ignored);
 }
 
+/* Waits until its stage_03_floor_block_falls byte is set, then falls (speed_z + 0x1000 a frame), kinds
+   0-3 dropping their sprite offsets, and plays its crumble animation once. Drawn at screen_y - the depth
+   offset - sprite_offset_y; removed below screen y 0x158. */
 void stage_03_floor_block_update(void)
 {
 	uint32_t at_last_step = 0, depth = 0, ignored = 0;
@@ -809,6 +856,9 @@ void stage_03_floor_block_update(void)
 	delete_current_object();
 }
 
+/* Builds a spiked roller of kind sprite_frame (spiked_roller_kinds): its parts side by side (spacing and
+   part record from its layout) in state 2 behind the leader, which takes the first state (0 sets
+   players_frozen, 0xE hides it at z 0x50), the script, the back zone and chaser_object if free. */
 void spiked_roller_start(void)
 {
 	uint32_t r11 = 0, free_count = 0, ignored = 0, object = 0, record_cursor = 0, roller_kind = 0, zone_index = 0;
@@ -920,6 +970,9 @@ void spiked_roller_start(void)
 	}
 }
 
+/* Every roller part's handler: the state's routine (0-0x10); then a part marked in player is removed
+   (clearing chaser_object if it is it), a hidden one (flags bit 0) is not drawn, and the rest join the
+   zone list and are drawn (queue_sprite_at_base, at the previous floor in state 1). */
 void spiked_roller_update(void)
 {
 	uint32_t ignored = 0;
@@ -998,6 +1051,9 @@ void spiked_roller_update(void)
 	ignored = queue_sprite_at_base(0u);
 }
 
+/* State 0, the leader: the first frame and, unless holding back, every frame with no player mishap
+   (no_player_in_play, player_mishap, player_dropping_in) read the script; a mishap starts holding back
+   (base_speed 0, screen_threshold 0x160 or -0x20, hold_timer 0xFF). Then spiked_roller_chase_move_step. */
 void spiked_roller_chase(void)
 {
 	uint32_t flags = 0;
@@ -1043,6 +1099,9 @@ void spiked_roller_chase(void)
 	}
 }
 
+/* With wait_timer out and scroll_position at the next path record: loads screen_threshold,
+   catch_up_factor, base_speed and wait_timer (no wait: kind 0x18 and players_frozen 0); a negative
+   factor ends the path (speeds 0, state 5 once off screen). Then spiked_roller_chase_move_step. */
 void spiked_roller_chase_read_script(void)
 {
 	uint32_t off_screen = 0, record_cursor = 0;
@@ -1092,6 +1151,9 @@ void spiked_roller_chase_read_script(void)
 	OBJECT(current_object)->spiked_roller.state = 5u;
 }
 
+/* Keeps to its floor (not kinds 2 and 5; a drop over 8: state 1, chaser_object 0); chaser_speed =
+   base_speed past screen_threshold, else camera ground speed x catch_up_factor >> 8 (at least base), in
+   the hold-back limits; after wait_timer it moves along path_direction unless grey_screen_active. */
 void spiked_roller_chase_move_step(void)
 {
 	uint16_t chase_speed = 0, height_above_floor = 0;
@@ -1329,6 +1391,9 @@ void spiked_roller_chase_move_step(void)
 	}
 }
 
+/* The rumble on screen: back from off screen (rumble_off_screen) rumble_timer restarts; while it moves,
+   sound 0xB every spiked_roller_rumble_delays[chaser_speed >> 4] frames. Then
+   spiked_roller_chase_check_event. */
 void spiked_roller_chase_rumble(void)
 {
 	uint8_t sound_id = 0;
@@ -1365,6 +1430,9 @@ void spiked_roller_chase_rumble(void)
 	spiked_roller_chase_check_event();
 }
 
+/* Once scroll_position reaches the next spiked_roller_events record (event_offset) with substate 0, its
+   test (y at most, x at least, y at least or x at most a coordinate) passing sets state from the record
+   and moves to the next record. roller_ram_hit = 0. */
 void spiked_roller_chase_check_event(void)
 {
 	uint32_t event_kind = 0, record_cursor = 0;
@@ -1431,12 +1499,15 @@ void spiked_roller_chase_check_event(void)
 	roller_ram_hit = 0u;
 }
 
+/* State 1: its palette word gets 0x4000 (another priority group), then spiked_roller_fall. */
 void spiked_roller_fall_off_ledge(void)
 {
 	OBJECT(current_object)->sprite_palette |= 0x4000u;
 	spiked_roller_fall();
 }
 
+/* States 1 and 8: falls (speed_z + 0x1000 a frame), turning fast (animation_speed 1); player = 0xFF
+   (removal) once below screen y 0x130. */
 void spiked_roller_fall(void)
 {
 	uint32_t ignored = 0;
@@ -1450,6 +1521,9 @@ void spiked_roller_fall(void)
 	project_object(&ignored, &ignored);
 }
 
+/* State 2, the four other parts: the leader's y and speed_y (x and speed_x for path_direction 1 and 3),
+   kind, box, z and floors, its states 1 and 8, its hidden and backwards bits; animated at the chase
+   speed. Removed (player = 0xFF) when the leader is in state 5. */
 void spiked_roller_follow_leader(void)
 {
 	uint32_t ignored = 0, leader_hidden_bit = 0, leader_reverse_bit = 0, object = 0, speed_level = 0;
@@ -1508,6 +1582,8 @@ void spiked_roller_follow_leader(void)
 	OBJECT(current_object)->flags |= leader_hidden_bit;
 }
 
+/* State 0xE: hidden (flags bit 0) until scroll_position reaches 0x9B00 or machine_fire_done is set; then
+   shown, state 3 (spiked_roller_drop_in). */
 void spiked_roller_wait_hidden(void)
 {
 	OBJECT(current_object)->flags |= 1u;
@@ -1518,6 +1594,8 @@ void spiked_roller_wait_hidden(void)
 	}
 }
 
+/* State 3: leaps and comes down (speed_z + 0x8000 a frame, moving by speed_x and speed_y) onto z 0:
+   camera_shake_active, sound 0x20, state 0. */
 void spiked_roller_drop_in(void)
 {
 	uint8_t sound_number = 0;
@@ -1541,6 +1619,8 @@ void spiked_roller_drop_in(void)
 	project_object(&ignored, &ignored);
 }
 
+/* State 4, the ram: spiked_roller_ram_charge, _pause, _back_off or _wait by substate, with its own
+   rumble (sound 0xB). No script or event sets state 4, so it never runs. */
 void spiked_roller_ram(void)
 {
 	uint8_t sound_id = 0;
@@ -1586,6 +1666,9 @@ void spiked_roller_ram(void)
 	project_object(&ignored, &ignored);
 }
 
+/* Ram substates 0 and 4: rolls -y 4 a frame (chaser_speed 0x40) until y is at most the event's
+   coordinate - 0x50: camera_shake_active, roller_ram_hit, sound 7, next substate. Off screen, or after 4
+   charges (roller_ram_count), back to state 0. */
 void spiked_roller_ram_charge(void)
 {
 	uint8_t sound_id = 0;
@@ -1626,6 +1709,8 @@ void spiked_roller_ram_charge(void)
 	}
 }
 
+/* Ram substate 1: stopped (chaser_speed 0, roller_ram_hit 0) for 0x3C frames (pause_timer); then
+   substate 2 with the animation forwards. */
 void spiked_roller_ram_pause(void)
 {
 	OBJECT(current_object)->speed_x = 0;
@@ -1640,6 +1725,8 @@ void spiked_roller_ram_pause(void)
 	}
 }
 
+/* Ram substate 2: rolls back +y one a frame (chaser_speed 0x10) until y reaches the event's coordinate
+   (spiked_roller_event_coords); then substate 3 with the animation backwards (flags bit 7). */
 void spiked_roller_ram_back_off(void)
 {
 	uint32_t ignored = 0;
@@ -1658,6 +1745,8 @@ void spiked_roller_ram_back_off(void)
 	}
 }
 
+/* Ram substate 3: turns in place (chaser_speed 0x40) for 0x3C frames, counted only while a player is in
+   play, then charges again (substate 0). */
 void spiked_roller_ram_wait(void)
 {
 	uint32_t ignored = 0;
@@ -1675,11 +1764,16 @@ void spiked_roller_ram_wait(void)
 	}
 }
 
+/* State 5: player = 0xFF, the mark spiked_roller_update removes the part by (clearing chaser_object if
+   it is the leader). */
 void spiked_roller_remove(void)
 {
 	OBJECT(current_object)->player = 0xFFu;
 }
 
+/* State 6: rolls -y at chaser_speed 0x10 (0x50 once scroll_position reaches 0x8600) with its rumble
+   until y is 0xAE0 or less: stops with camera_shake_active, sound 6, machine_wrecked and
+   scroll_resume_request; state 5 and chaser_object 0 once below screen y 0x158. */
 void spiked_roller_crash_into_machine(void)
 {
 	uint8_t sound_id = 0;
@@ -1753,6 +1847,9 @@ void spiked_roller_crash_into_machine(void)
 	}
 }
 
+/* State 7: sets stage_03_floor_block_falls[0] (sound 0xD the first time) and sinks 0x40 into its floor,
+   then jumps (speed_z -6, speed_x 3, gravity 0x3000) and lands on it: state 8,
+   stage_03_floor_block_falls_1, camera_shake_active, goal_unlocked, sound 0xD. */
 void spiked_roller_sink_and_jump(void)
 {
 	uint8_t sound_number = 0;
@@ -1805,6 +1902,9 @@ void spiked_roller_sink_and_jump(void)
 	project_object(&ignored, &ignored);
 }
 
+/* State 9: hidden for wait_timer frames, then the roller bursts out: state 0, it becomes chaser_object,
+   scroll_resume_request, sound 7, and roller_wall_fragment_count pieces of wall (roller_wall_fragments
+   records) fly off as rock_debris_fly objects. */
 void spiked_roller_burst_out(void)
 {
 	uint8_t sound_id = 0;
@@ -1860,6 +1960,8 @@ void spiked_roller_burst_out(void)
 	} while (fragments_left != 0u);
 }
 
+/* State 0xA: stops as a solid kind 0xC (chaser_speed 0); in stage 0xE it sets chaser_stopped. State 5
+   once off screen (margins 0x68, 0x70). */
 void spiked_roller_smash_wall(void)
 {
 	uint16_t margin_y = 0, x_margin = 0;
@@ -1877,6 +1979,8 @@ void spiked_roller_smash_wall(void)
 	update_screen_position(&ignored, &ignored);
 }
 
+/* State 0xB: waits as a still kind 0xC until chaser_object is free, then takes it: state 0,
+   hitbox_height 0x40. */
 void spiked_roller_wait_for_turn(void)
 {
 	uint32_t ignored = 0;
@@ -1892,6 +1996,8 @@ void spiked_roller_wait_for_turn(void)
 	project_object(&ignored, &ignored);
 }
 
+/* State 0xC: hidden until chaser_object is free, then state 9 with wait_timer 0x3C
+   (spiked_roller_burst_out). */
 void spiked_roller_wait_to_burst_out(void)
 {
 	uint32_t ignored = 0;
@@ -1905,6 +2011,7 @@ void spiked_roller_wait_to_burst_out(void)
 	project_object(&ignored, &ignored);
 }
 
+/* State 0xD: hitbox_offset_y = -0x26, then back to the chase (state 0, spiked_roller_chase). */
 void spiked_roller_shift_box(void)
 {
 	OBJECT(current_object)->spiked_roller.state = 0u;
@@ -1912,6 +2019,8 @@ void spiked_roller_shift_box(void)
 	spiked_roller_chase();
 }
 
+/* State 0xF: leaves an invisible hazard box (0x100 x 0xF3, height 0xA0, kind 0xC,
+   roller_fixed_zone_update) at x -0x8AD, y 0x114A, z 0x470, then back to the chase (state 0). */
 void spiked_roller_spawn_fixed_zone(void)
 {
 	uint32_t free_count = 0, object = 0;
@@ -1939,6 +2048,8 @@ void spiked_roller_spawn_fixed_zone(void)
 	spiked_roller_chase();
 }
 
+/* The hazard box spiked_roller_spawn_fixed_zone leaves: touchable until scroll_position reaches 0x7600,
+   then removed. */
 void roller_fixed_zone_update(void)
 {
 	uint32_t ignored = 0;
@@ -1952,6 +2063,9 @@ void roller_fixed_zone_update(void)
 	delete_current_object();
 }
 
+/* The machinery (machine_animation, box 0xE8 x 0x20, height 0x50, kind 0xC, machine_run) on its floor;
+   clears machine_wrecked. Spawns its fire (machine_fire_update, a small flame) and a GO! arrow sign
+   (spawn_sign kind 5). */
 void machine_start(void)
 {
 	uint16_t kind = 0, x = 0, y = 0, z = 0;
@@ -2005,6 +2119,8 @@ void machine_start(void)
 	}
 }
 
+/* The machine: animated until machine_wrecked, then stopped on the smashed frame (0x68E8); touchable,
+   drawn at screen_y - 0x68; removed once it has left the screen. */
 void machine_run(void)
 {
 	uint32_t depth = 0, ignored = 0, off_screen = 0;
@@ -2028,6 +2144,9 @@ void machine_run(void)
 	queue_sprite_at_depth(&ignored, &depth);
 }
 
+/* The machine's fire: a small flame until the machine is wrecked; then an invisible box (kind 0x13,
+   rising_fire_object): the spawns_with_next_handler fireballs, a climb (machine_fire_script), 0x80
+   frames +x with fireballs in three lanes (lane 3's timer is sound_timer), machine_fire_done. */
 void machine_fire_update(void)
 {
 	uint8_t sound_id = 0;
@@ -2229,6 +2348,9 @@ void machine_fire_update(void)
 	}
 }
 
+/* Until the fire's top (z - hitbox_height) reaches the height of the next machine_fire_script record,
+   machine_fire_climb_step; then it loads the record's screen_threshold, catch_up_factor, base_speed and
+   wait_timer and climbs on, or at a negative factor the climb ends (next state). */
 void machine_fire_read_script(void)
 {
 	uint8_t sound_id = 0;
@@ -2270,6 +2392,9 @@ void machine_fire_read_script(void)
 	machine_fire_climb_step();
 }
 
+/* The climb: base_speed while the top's screen y (screen_y - hitbox_height) is screen_threshold or less,
+   else catching up with the camera, in the hold-back limits; after wait_timer z climbs by it and
+   projected x, y follow floor_attribute_slopes (x, y from them). Sound 9 every 0x3C frames on screen. */
 void machine_fire_climb_step(void)
 {
 	uint16_t climb_speed = 0;
@@ -2399,6 +2524,7 @@ void machine_fire_climb_step(void)
 	sound_id = add_to_touchable_list(sound_id);
 }
 
+/* A fireball flipped in x (sprite flags 0x1044, palette 0x10C0), then init_fireball_flight. */
 void start_fireball_flipped(void)
 {
 	OBJECT(current_object)->sprite_flags = 0x1044u;
@@ -2406,6 +2532,8 @@ void start_fireball_flipped(void)
 	init_fireball_flight();
 }
 
+/* The fireballs machine_fire_update throws: sprite flags 0x1004, palette 0x9010, then
+   init_fireball_flight. */
 void fireball_start(void)
 {
 	OBJECT(current_object)->sprite_flags = 0x1004u;
@@ -2413,6 +2541,8 @@ void fireball_start(void)
 	init_fireball_flight();
 }
 
+/* fireball_animation; flight_timer 0x36 frames (0x24 in stage 0xC), speed_x and speed_y to reach
+   target_x, target_y in that time, the arc's base floor_z = z; sound 0xF, fireball_fly. */
 void init_fireball_flight(void)
 {
 	uint8_t sound_id = 0;
@@ -2443,6 +2573,9 @@ void init_fireball_flight(void)
 	OBJECT(current_object)->handler = fireball_fly_ADDRESS;
 }
 
+/* While flight_timer runs: moves by speed_x, speed_y on an arc, z = floor_z - sine_table[arc_angle] *
+   0x140 (arc_angle + 9 a frame, 0xE in stage 0xC), drawn at its floor. Landed, it plays the rest of its
+   animation, then next_handler takes over 0x28 higher. */
 void fireball_fly(void)
 {
 	uint32_t arc_step = 0, at_last_step = 0, ignored = 0;
@@ -2486,6 +2619,7 @@ void fireball_fly(void)
 	ignored = queue_sprite_at_floor();
 }
 
+/* A big flame (flame_animation, palette 0x9010) set on its floor; flame_burn. */
 void flame_start(void)
 {
 	uint32_t ignored = 0;
@@ -2505,6 +2639,7 @@ void flame_start(void)
 	project_object(&ignored, &ignored);
 }
 
+/* Animated and drawn at screen_y + 0x30 until it has left the screen (check_left_screen), then removed. */
 void flame_burn(void)
 {
 	uint32_t depth = 0, ignored = 0, off_screen = 0;
@@ -2521,6 +2656,9 @@ void flame_burn(void)
 	delete_current_object();
 }
 
+/* The flames that rise along the machine's fire: rising_flame_init, rising_flame_rise,
+   rising_flame_spawn_next or rising_flame_wait_offscreen by state; removed when rising_fire_object
+   reaches state 7 or off_screen is set. Animated, drawn at screen_y + 0x20 up to screen y 0x108. */
 void rising_flame_update(void)
 {
 	uint32_t depth = 0, ignored = 0;
@@ -2558,6 +2696,7 @@ void rising_flame_update(void)
 	queue_sprite_at_depth(&ignored, &depth);
 }
 
+/* A rising flame: flame_animation, palette 0x9010 (0x9260 in stage 8), its base floor_z = z; next state. */
 void rising_flame_init(void)
 {
 	uint32_t ignored = 0;
@@ -2579,6 +2718,7 @@ void rising_flame_init(void)
 	project_object(&ignored, &ignored);
 }
 
+/* z - 1 a frame until 0x28 above its base (floor_z); then the next state. */
 void rising_flame_rise(void)
 {
 	OBJECT(current_object)->z -= 0x10000u;
@@ -2586,6 +2726,9 @@ void rising_flame_rise(void)
 		OBJECT(current_object)->rising_flame.state++;
 }
 
+/* While rising_fire_object climbs (state 2): once the fire's top (z - hitbox_height) is level with this
+   flame or above it, another rising flame at the fire's x and top and this flame's y, and the next
+   state. Without the climb, the next state at once. */
 void rising_flame_spawn_next(void)
 {
 	uint32_t free_count = 0, object = 0, object_2 = 0, object_3 = 0;
@@ -2611,12 +2754,15 @@ void rising_flame_spawn_next(void)
 	OBJECT(current_object)->rising_flame.state++;
 }
 
+/* off_screen = 0xFF once the flame is below screen y 0x110 or left of screen x -0x40. */
 void rising_flame_wait_offscreen(void)
 {
 	if (OBJECT(current_object)->screen_y >= 0x110 || OBJECT(current_object)->screen_x <= -0x40)
 		OBJECT(current_object)->rising_flame.off_screen = 0xFFu;
 }
 
+/* A brick pillar sprite (0x6600, palette 0x8740) fixed at screen 0x146, 0x75, shown by
+   stage_03_end_pillar_show; hands back the object (allocate_object_outside_loop). */
 uint32_t spawn_stage_03_end_pillar(uint32_t pillar)
 {
 	uint32_t free_count = 0;
@@ -2637,6 +2783,7 @@ uint32_t spawn_stage_03_end_pillar(uint32_t pillar)
 	return pillar;
 }
 
+/* The pillar is drawn at screen_y + 0x20 until map_screen_active is set, then removed. */
 void stage_03_end_pillar_show(void)
 {
 	uint32_t depth = 0, ignored = 0;
@@ -2650,6 +2797,8 @@ void stage_03_end_pillar_show(void)
 	delete_current_object();
 }
 
+/* Unused: a gate (sprite 0x6520) hung 0xE0 above its floor, exit_gate_update; clears sign_stop_flag and
+   puts up spawn_sign_2 kind 8 (an IN sign with an arrow) at 0x942, 0x10E0, 0x50 above the floor. */
 void exit_gate_start(uint32_t sign)
 {
 	uint16_t kind = 0, x = 0, y = 0, z = 0;
@@ -2676,6 +2825,9 @@ void exit_gate_start(uint32_t sign)
 	spawn_sign_2(x, y, kind, z, sign);
 }
 
+/* Unused: removed while map_screen_active. Once the three players_finished bytes are FF with
+   goal_unlocked still 0 (one 32-bit test) it falls (speed_z + 0x6000) to its floor: sign_stop_flag =
+   0xFF, sound 0x20. Drawn with queue_sprite. */
 void exit_gate_update(void)
 {
 	uint8_t sound_id = 0;
@@ -2702,6 +2854,9 @@ void exit_gate_update(void)
 	ignored = queue_sprite(ignored);
 }
 
+/* Unused: the roller's ram target (sprite 0x6A58, palette 0x91A0): box 0x30 x 0x10, height 0x28, kind
+   0x21, direction 0x300, ram_target_animation, damage_script = ram_target_damage_script, on its floor;
+   ram_target_update. */
 void ram_target_start(void)
 {
 	uint32_t ignored = 0;
@@ -2732,6 +2887,8 @@ void ram_target_start(void)
 	project_object(&ignored, &ignored);
 }
 
+/* Unused: health 0x7F; removed once it has left the screen (margin 0x40); appear_state 0xFF once
+   screen_x reaches 0x50; then ram_target_draw. It never calls ram_target_check_hits. */
 void ram_target_update(void)
 {
 	uint16_t margin = 0;
@@ -2750,6 +2907,9 @@ void ram_target_update(void)
 	ram_target_draw();
 }
 
+/* Unused: ram_target_update never calls it. On a roller_ram_hit frame hit_count + 1 and the animation
+   restarts; at each threshold of damage_script the next animation; at 4 hits ram_target_burst. Then
+   ram_target_draw. */
 void ram_target_check_hits(void)
 {
 	uint32_t animation = 0, script_record = 0;
@@ -2775,6 +2935,9 @@ void ram_target_check_hits(void)
 	ram_target_draw();
 }
 
+/* Unused: once appear_state is set the animation plays once (then appear_state 1, animation_frame 0xFF);
+   with appear_state 1-0x7F it is solid (add_to_zone_list). Drawn at screen_y - sprite_offset_y + 0x10,
+   0x30 less before it appears. */
 void ram_target_draw(void)
 {
 	uint32_t at_last_step = 0, depth = 0, ignored = 0;
@@ -2797,6 +2960,9 @@ void ram_target_draw(void)
 	queue_sprite_at_depth(&ignored, &depth);
 }
 
+/* Unused: the target bursts into ram_target_debris_count rock_debris_fly pieces, each ram_target_debris
+   record giving its sprite flags, offset from the target's screen position, speeds and animation (in
+   ram_target_debris_animations); palette 0x8240. */
 void ram_target_burst(uint32_t piece)
 {
 	uint16_t screen_x = 0;
@@ -2838,6 +3004,8 @@ void ram_target_burst(uint32_t piece)
 	} while (pieces_left != 0u);
 }
 
+/* Unused: a multi-part sprite (flags 0xD006) of ram_target_part_list_2, or ram_target_part_list_3 when
+   variant (the spawn's sprite_frame) is not 0, on its floor; ram_target_part_update. */
 void ram_target_part_start(void)
 {
 	uint32_t ignored = 0, part_list = 0;
@@ -2858,6 +3026,9 @@ void ram_target_part_start(void)
 	project_object(&ignored, &ignored);
 }
 
+/* Unused: on roller_ram_hit frames with chaser_object no more than 0x60 past its y, hit_count + 1; at 4
+   variant 0 becomes the sprite 0x6A88 and the others are removed. Drawn at screen_y - 0x28; removed once
+   it has left the screen (margin 0x88). */
 void ram_target_part_update(void)
 {
 	uint16_t margin = 0;
@@ -2914,6 +3085,7 @@ void ram_target_part_update(void)
 	delete_current_object();
 }
 
+/* fire_vent_cursor = fire_vent_list, then fire_vent_spawner_update from now on. */
 void fire_vent_spawner_start(void)
 {
 	fire_vent_cursor = fire_vent_list_ADDRESS;
@@ -2921,6 +3093,9 @@ void fire_vent_spawner_start(void)
 	fire_vent_spawner_update();
 }
 
+/* When scroll_position reaches the next fire_vent_list record, a vent at its x, y, z with its
+   blast_delay (sprite 0x6A48, box 0x90 x 0x48, height 0x28, kind 0x22, glow palettes, fire_vent_start);
+   a negative delay ends the list and removes the spawner. */
 void fire_vent_spawner_update(void)
 {
 	uint32_t free_count = 0, object = 0, vent_record = 0;
@@ -2970,6 +3145,7 @@ void fire_vent_spawner_update(void)
 	}
 }
 
+/* project_object, then fire_vent_update from now on. */
 void fire_vent_start(void)
 {
 	uint32_t ignored = 0;
@@ -2979,6 +3155,9 @@ void fire_vent_start(void)
 	fire_vent_update();
 }
 
+/* Removed once it has left the screen (margin 0x40). The glow cycles (animate_sign), faster once
+   blast_delay is 0x1E or less; blast_delay counts down while screen_y is 0x18 or more and at 0
+   fire_vent_blast (-1 means blasted). Else fire_vent_draw. */
 void fire_vent_update(void)
 {
 	uint32_t zero = 0, negative = 0, overflow = 0;
@@ -3029,6 +3208,9 @@ void fire_vent_update(void)
 	fire_vent_draw();
 }
 
+/* The vent blasts: blast_delay -1, burst_state 1, the dark grille (0x6A50, palette 0x9120), the glow
+   stops (palette_index 0xFF); a fire_vent_burst_animate object anchored 0x3A, -0x31 off in projected x,
+   y, and sound 0xA. Then fire_vent_draw. */
 void fire_vent_blast(void)
 {
 	uint8_t sound_id = 0;
@@ -3068,6 +3250,8 @@ void fire_vent_blast(void)
 	fire_vent_draw();
 }
 
+/* Draws the vent at screen_y - 0x48; touchable once it has blasted (burst_state set), and when
+   burst_state is 0xFF (the burst is over) it turns to 1 and the vent to kind 0xC. */
 void fire_vent_draw(void)
 {
 	uint32_t depth = 0, ignored = 0;
@@ -3089,6 +3273,9 @@ void fire_vent_draw(void)
 	queue_sprite_at_depth(&ignored, &depth);
 }
 
+/* The burst of fire: fire_vent_blast_animation, with fire_vent_blast_palettes' palette for each new
+   step, drawn at screen_y + 0x68. At its last step it sets its vent's burst_state to 0xFF and is
+   removed. */
 void fire_vent_burst_animate(void)
 {
 	uint32_t at_last_step = 0, depth = 0, ignored = 0;

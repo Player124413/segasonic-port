@@ -11,29 +11,24 @@
  */
 #include "game.h"
 
+/* Every frame of the title: run_sega_logo; once sega_logo_step is 7 and title_scene_built is 0, builds
+   the title: its variables, tile_bank_1_palette_list, title_sky_script and
+   title_waving_background_script, NBG2/NBG3 scroll and pages, and the objects title_land_slide,
+   title_emblem_animate, timed_spawner_run and title_sky_wave. */
 void run_title_screen(uint32_t text_position, uint32_t *p_color, uint32_t *p_row_pairs_left, uint32_t *p_blocks_per_row, uint32_t *p_text)
 {
-	uint32_t color = *p_color;
-	uint32_t row_pairs_left = *p_row_pairs_left;
-	uint32_t blocks_per_row = *p_blocks_per_row;
 	uint32_t text = *p_text;
 	uint32_t background_script = 0, ignored = 0, object = 0, palette_list = 0, script = 0;
 	uint8_t cnt_bits = 0;
 
-	run_sega_logo(text_position, &color, &row_pairs_left, &blocks_per_row, &text);
+	run_sega_logo(text_position, p_color, p_row_pairs_left, p_blocks_per_row, &text);
 	if (sega_logo_step != 7u)
 	{
-		*p_color = color;
-		*p_row_pairs_left = row_pairs_left;
-		*p_blocks_per_row = blocks_per_row;
 		*p_text = text;
 		return;
 	}
 	if (title_scene_built != 0u)
 	{
-		*p_color = color;
-		*p_row_pairs_left = row_pairs_left;
-		*p_blocks_per_row = blocks_per_row;
 		*p_text = text;
 		return;
 	}
@@ -90,12 +85,13 @@ void run_title_screen(uint32_t text_position, uint32_t *p_color, uint32_t *p_row
 	mem_write16(video_backdrop_control, 0u);
 	mem_write16(video_layer_disable, mem_read16(video_layer_disable) & 0xD0u);
 	mem_write16(video_layer_disable, mem_read16(video_layer_disable) | 0x23u);
-	*p_color = color;
-	*p_row_pairs_left = row_pairs_left;
-	*p_blocks_per_row = blocks_per_row;
 	*p_text = background_script;
 }
 
+/* The title's emblem in four 8 bpp quarters (0x52E0-0x52F8), Sonic rising (0x5300 + 8 * n,
+   title_sonic_rise_heights) then looping (title_sonic_loop_frames), and from step 0x13 Ray and Mighty
+   popping up (title_ray_frames, title_mighty_frames). At title_timer 0x258 it sets title_done, frees its
+   7 pool 2 blocks and goes. */
 void title_emblem_animate(void)
 {
 	uint16_t animation = 0, emblem_bottom_left = 0, floor_z = 0, sonic_frame = 0, sonic_y = 0, speed_y = 0, x = 0, y = 0, z = 0;
@@ -257,10 +253,14 @@ void title_emblem_animate(void)
 	delete_current_object();
 }
 
+/* Unused: a lone return inside title_emblem_animate that nothing reaches: the code before it always
+   branches past it. */
 void title_emblem_animate_spare_return(void)
 {
 }
 
+/* Queues the current object as a part of the title's emblem: palette 0, sprite_flags 0x200 (8 bits per
+   pixel), zoom 0x100 (queue_sprite_in_layer). */
 void draw_title_emblem_part(void)
 {
 	OBJECT(current_object)->sprite_palette = 0u;
@@ -270,6 +270,8 @@ void draw_title_emblem_part(void)
 	queue_sprite_in_layer();
 }
 
+/* The strip of land with green hills (sprite 0xB6D0, palette 0xD70, layer 7) at y 0x7A, sliding left
+   from x 0x190 half a pixel a frame (speed_y holds x in 16.16) until title_done, then removed. */
 void title_land_slide(void)
 {
 	if (OBJECT(current_object)->title.started == 0u)
@@ -295,6 +297,9 @@ void title_land_slide(void)
 	delete_current_object();
 }
 
+/* Spawns the title's timed objects: counts frames in timer and, for each timed_spawns entry whose frame
+   has passed, allocates an object whose handler is the entry's offset from timed_spawner_run
+   (flags_low_byte 0). Removed at the list's 0xFFFF end or once title_done. */
 void timed_spawner_run(void)
 {
 	uint32_t ignored = 0, object = 0, spawn_record = 0, spawned_handler = 0;
@@ -327,6 +332,9 @@ void timed_spawner_run(void)
 	OBJECT(current_object)->timer++;
 }
 
+/* A small craft (sprite 0xBB58, palette 0xEB0, layer 7) flying left from x 0x154 at y 0x70, one pixel a
+   frame; every 0xB frames it leaves a title_smoke_puff_animate puff at its x + 4. Removed once
+   title_done. */
 void title_flying_craft_move(void)
 {
 	uint32_t ignored = 0, object = 0;
@@ -362,6 +370,8 @@ void title_flying_craft_move(void)
 	}
 }
 
+/* A puff of the craft's smoke (palette 0xEB0, layer 7, y 0x70): steps through title_smoke_puff_frames
+   every 3 frames and is removed at its 0xFFFF end or once title_done. */
 void title_smoke_puff_animate(void)
 {
 	uint32_t puff_frame = 0;
@@ -400,6 +410,8 @@ void title_smoke_puff_animate(void)
 	queue_sprite_in_layer();
 }
 
+/* Unused: sets up puff as a smoke puff like title_smoke_puff_animate's, but at y 0x7A: layer 7, zoom
+   0x100, sprite_flags 0, palette 0xEB0. */
 void init_title_puff_sprite(uint32_t puff)
 {
 	OBJECT(puff)->screen_y = 0x7A;
@@ -409,6 +421,9 @@ void init_title_puff_sprite(uint32_t puff)
 	OBJECT(puff)->sprite_palette = 0xEB0u;
 }
 
+/* Twelve white clouds (sprites 0xB6D8, 0xB6E0, 0xB6F0 at several zooms, palette 0xD80, layer 8): itself
+   and 11 pool 2 blocks kept in its fields, moved by drift_title_cloud every 4 frames and drawn every
+   frame. Once title_done it frees the blocks and goes. */
 void title_clouds_1_drift(void)
 {
 	uint16_t animation = 0, cloud_4 = 0, floor_block = 0, floor_z = 0, previous_floor_z = 0, speed_x = 0, speed_y = 0, speed_z = 0, x = 0, y = 0, z = 0;
@@ -607,6 +622,9 @@ void title_clouds_1_drift(void)
 	delete_current_object();
 }
 
+/* Seven more clouds (sprites 0xB6D8-0xB700, palette 0xD80, layer 8): itself and 6 pool 2 blocks kept in
+   its fields, moved by drift_title_cloud_2 every 4 frames and drawn every frame. Once title_done it
+   frees the blocks and goes. */
 void title_clouds_2_drift(void)
 {
 	uint16_t animation = 0, cloud_4 = 0, speed_z = 0, x = 0, y = 0, z = 0;
@@ -730,6 +748,9 @@ void title_clouds_2_drift(void)
 	delete_current_object();
 }
 
+/* Seven clouds coming in from the right (x 0x146-0x1E7, palette 0xD80, layer 8): itself and 6 pool 2
+   blocks, moved by drift_title_cloud every 4 frames and drawn every frame. Once title_done it frees the
+   blocks and goes. */
 void title_clouds_3_drift(void)
 {
 	uint16_t animation = 0, cloud_4 = 0, speed_z = 0, x = 0, y = 0, z = 0;
@@ -853,6 +874,8 @@ void title_clouds_3_drift(void)
 	delete_current_object();
 }
 
+/* Unused: sets up cloud as a title cloud: zoom 0x80, layer 8, sprite_flags 0, palette 0xD80 (the clouds'
+   own set-up is the same with other zooms). */
 void init_title_cloud_block(uint32_t cloud)
 {
 	OBJECT(cloud)->sprite_scale = 0x80u;
@@ -861,6 +884,7 @@ void init_title_cloud_block(uint32_t cloud)
 	OBJECT(cloud)->sprite_palette = 0xD80u;
 }
 
+/* Moves the current cloud up 1 and left 3 and grows it by 2 (sprite_scale), up to 0x140. */
 void drift_title_cloud(void)
 {
 	OBJECT(current_object)->screen_y--;
@@ -870,6 +894,7 @@ void drift_title_cloud(void)
 		OBJECT(current_object)->sprite_scale = 0x140u;
 }
 
+/* drift_title_cloud, but a sprite_scale past 0x120 jumps to 0x140. */
 void drift_title_cloud_2(void)
 {
 	OBJECT(current_object)->screen_y--;
@@ -879,6 +904,10 @@ void drift_title_cloud_2(void)
 		OBJECT(current_object)->sprite_scale = 0x140u;
 }
 
+/* The waving sky: first clears the row scroll table and its sums in video RAM and turns NBG2's row
+   scroll on (video_rowscroll_control 0x401); then each frame its 0x80 rows add a sine_table value to
+   their offsets and scroll by them, NBG3 moves 1/4 pixel and the colours cycle
+   (title_sky_cycle_palettes). Removed once title_done. */
 void title_sky_wave(void)
 {
 	uint16_t halfwords = 0;
@@ -925,12 +954,12 @@ void title_sky_wave(void)
 	cycle_palette(cycle, halfwords, &ignored, &ignored, &palette_count, &source, &dest);
 }
 
+/* The SEGA logo, by sega_logo_step: 0 set-up (8 bpp bitmap filled with 0x8E, colour offsets 0x20), 1
+   fade in (+ 1 every 2 frames to 0x3F), 2 zoom in (sega_logo_scale + 0x18 a frame), 3 animation
+   (sega_logo_frame to 0x1E), 4 0x69 frames, 5 fade out, 6 0x3C frames, 7 done. The sprite is a pool 2
+   block taken and freed every frame. */
 void run_sega_logo(uint32_t logo_block, uint32_t *p_color, uint32_t *p_row_pairs_left, uint32_t *p_blocks_per_row, uint32_t *p_lower_row_cursor)
 {
-	uint32_t color = *p_color;
-	uint32_t row_pairs_left = *p_row_pairs_left;
-	uint32_t blocks_per_row = *p_blocks_per_row;
-	uint32_t lower_row_cursor = *p_lower_row_cursor;
 	uint8_t is_8bpp = 0;
 	uint16_t object = 0, scroll_x = 0, scroll_y = 0;
 	uint32_t r0 = 0, ignored = 0;
@@ -943,9 +972,9 @@ void run_sega_logo(uint32_t logo_block, uint32_t *p_color, uint32_t *p_row_pairs
 		cnt_bits = mem_read8(io_cnt);
 		mem_write8(io_cnt, cnt_bits & ~2u);
 		display_off_frames = 5u;
-		init_sprites(&r0, &lower_row_cursor);
+		init_sprites(&r0, p_lower_row_cursor);
 		logo_block = clear_sprite_buckets();
-		clear_bitmap_layer((uint8_t)r0, &ignored, &color, &ignored, &row_pairs_left, &blocks_per_row, &lower_row_cursor);
+		clear_bitmap_layer((uint8_t)r0, &ignored, p_color, &ignored, p_row_pairs_left, p_blocks_per_row, p_lower_row_cursor);
 		title_scene_built = 1u;
 		title_done = 0u;
 		scroll_x = 0u;
@@ -986,20 +1015,12 @@ void run_sega_logo(uint32_t logo_block, uint32_t *p_color, uint32_t *p_row_pairs
 		{
 			object = screen_sprite_block;
 			free_object_2(object);
-			*p_color = color;
-			*p_row_pairs_left = row_pairs_left;
-			*p_blocks_per_row = blocks_per_row;
-			*p_lower_row_cursor = lower_row_cursor;
 			return;
 		}
 		sega_logo_step++;
 		sega_logo_frame++;
 		object = screen_sprite_block;
 		free_object_2(object);
-		*p_color = color;
-		*p_row_pairs_left = row_pairs_left;
-		*p_blocks_per_row = blocks_per_row;
-		*p_lower_row_cursor = lower_row_cursor;
 		return;
 	case 1:
 	case 7:
@@ -1008,10 +1029,6 @@ void run_sega_logo(uint32_t logo_block, uint32_t *p_color, uint32_t *p_row_pairs
 		{
 			object = screen_sprite_block;
 			free_object_2(object);
-			*p_color = color;
-			*p_row_pairs_left = row_pairs_left;
-			*p_blocks_per_row = blocks_per_row;
-			*p_lower_row_cursor = lower_row_cursor;
 			return;
 		}
 		sega_logo_timer_word = 0u;
@@ -1022,10 +1039,6 @@ void run_sega_logo(uint32_t logo_block, uint32_t *p_color, uint32_t *p_row_pairs
 		{
 			object = screen_sprite_block;
 			free_object_2(object);
-			*p_color = color;
-			*p_row_pairs_left = row_pairs_left;
-			*p_blocks_per_row = blocks_per_row;
-			*p_lower_row_cursor = lower_row_cursor;
 			return;
 		}
 		sega_logo_timer = 0;
@@ -1039,20 +1052,12 @@ void run_sega_logo(uint32_t logo_block, uint32_t *p_color, uint32_t *p_row_pairs
 		{
 			object = screen_sprite_block;
 			free_object_2(object);
-			*p_color = color;
-			*p_row_pairs_left = row_pairs_left;
-			*p_blocks_per_row = blocks_per_row;
-			*p_lower_row_cursor = lower_row_cursor;
 			return;
 		}
 		sega_logo_step++;
 		sega_logo_frame++;
 		object = screen_sprite_block;
 		free_object_2(object);
-		*p_color = color;
-		*p_row_pairs_left = row_pairs_left;
-		*p_blocks_per_row = blocks_per_row;
-		*p_lower_row_cursor = lower_row_cursor;
 		return;
 	case 2:
 		set_sega_logo_sprite();
@@ -1064,20 +1069,12 @@ void run_sega_logo(uint32_t logo_block, uint32_t *p_color, uint32_t *p_row_pairs
 		{
 			object = screen_sprite_block;
 			free_object_2(object);
-			*p_color = color;
-			*p_row_pairs_left = row_pairs_left;
-			*p_blocks_per_row = blocks_per_row;
-			*p_lower_row_cursor = lower_row_cursor;
 			return;
 		}
 		sega_logo_step++;
 		sega_logo_frame++;
 		object = screen_sprite_block;
 		free_object_2(object);
-		*p_color = color;
-		*p_row_pairs_left = row_pairs_left;
-		*p_blocks_per_row = blocks_per_row;
-		*p_lower_row_cursor = lower_row_cursor;
 		return;
 	case 3:
 		set_sega_logo_sprite();
@@ -1087,10 +1084,6 @@ void run_sega_logo(uint32_t logo_block, uint32_t *p_color, uint32_t *p_row_pairs
 		{
 			object = screen_sprite_block;
 			free_object_2(object);
-			*p_color = color;
-			*p_row_pairs_left = row_pairs_left;
-			*p_blocks_per_row = blocks_per_row;
-			*p_lower_row_cursor = lower_row_cursor;
 			return;
 		}
 		sega_logo_timer = 0;
@@ -1099,10 +1092,6 @@ void run_sega_logo(uint32_t logo_block, uint32_t *p_color, uint32_t *p_row_pairs
 		{
 			object = screen_sprite_block;
 			free_object_2(object);
-			*p_color = color;
-			*p_row_pairs_left = row_pairs_left;
-			*p_blocks_per_row = blocks_per_row;
-			*p_lower_row_cursor = lower_row_cursor;
 			return;
 		}
 		sega_logo_step++;
@@ -1114,10 +1103,6 @@ void run_sega_logo(uint32_t logo_block, uint32_t *p_color, uint32_t *p_row_pairs
 		color_offset_green = 0x3Fu;
 		object = screen_sprite_block;
 		free_object_2(object);
-		*p_color = color;
-		*p_row_pairs_left = row_pairs_left;
-		*p_blocks_per_row = blocks_per_row;
-		*p_lower_row_cursor = lower_row_cursor;
 		return;
 	case 4:
 		set_sega_logo_sprite();
@@ -1127,19 +1112,11 @@ void run_sega_logo(uint32_t logo_block, uint32_t *p_color, uint32_t *p_row_pairs
 		{
 			object = screen_sprite_block;
 			free_object_2(object);
-			*p_color = color;
-			*p_row_pairs_left = row_pairs_left;
-			*p_blocks_per_row = blocks_per_row;
-			*p_lower_row_cursor = lower_row_cursor;
 			return;
 		}
 		sega_logo_step++;
 		object = screen_sprite_block;
 		free_object_2(object);
-		*p_color = color;
-		*p_row_pairs_left = row_pairs_left;
-		*p_blocks_per_row = blocks_per_row;
-		*p_lower_row_cursor = lower_row_cursor;
 		return;
 	case 5:
 		set_sega_logo_sprite();
@@ -1151,20 +1128,12 @@ void run_sega_logo(uint32_t logo_block, uint32_t *p_color, uint32_t *p_row_pairs
 		{
 			object = screen_sprite_block;
 			free_object_2(object);
-			*p_color = color;
-			*p_row_pairs_left = row_pairs_left;
-			*p_blocks_per_row = blocks_per_row;
-			*p_lower_row_cursor = lower_row_cursor;
 			return;
 		}
 		sega_logo_step++;
 		sega_logo_timer = 0;
 		object = screen_sprite_block;
 		free_object_2(object);
-		*p_color = color;
-		*p_row_pairs_left = row_pairs_left;
-		*p_blocks_per_row = blocks_per_row;
-		*p_lower_row_cursor = lower_row_cursor;
 		return;
 	case 6:
 		sega_logo_timer++;
@@ -1172,10 +1141,6 @@ void run_sega_logo(uint32_t logo_block, uint32_t *p_color, uint32_t *p_row_pairs
 		{
 			object = screen_sprite_block;
 			free_object_2(object);
-			*p_color = color;
-			*p_row_pairs_left = row_pairs_left;
-			*p_blocks_per_row = blocks_per_row;
-			*p_lower_row_cursor = lower_row_cursor;
 			return;
 		}
 		sega_logo_step++;
@@ -1187,16 +1152,14 @@ void run_sega_logo(uint32_t logo_block, uint32_t *p_color, uint32_t *p_row_pairs
 		title_scene_built = 0u;
 		object = screen_sprite_block;
 		free_object_2(object);
-		*p_color = color;
-		*p_row_pairs_left = row_pairs_left;
-		*p_blocks_per_row = blocks_per_row;
-		*p_lower_row_cursor = lower_row_cursor;
 		return;
 	default:
 		invalid_jump(0x9824Eu + sega_logo_step * 3u);
 	}
 }
 
+/* The SEGA logo's sprite on the current object: at 0xA0,0x70, palette 0x420, layer 0, zoom 0x100,
+   sprite_flags 0, frame 0x53D0 + 8 * sega_logo_frame. */
 void set_sega_logo_sprite(void)
 {
 	OBJECT(current_object)->screen_x = 0xA0;

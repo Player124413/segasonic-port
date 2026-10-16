@@ -11,6 +11,10 @@
  */
 #include "game.h"
 
+/* Sets up the treadmill: the belt (sprite 0x72B0, kind 0x16, box 0x10 x 0xE9; a first 0x61 x 0xE9 box is
+   overwritten at once), the roller (+0x27,+0x18, treadmill_roller_update), the gate's first half
+   (+0x73,+0x31, treadmill_gate_update) and its other half (+0xC3,+0x59, treadmill_gate_half_update),
+   each with a piece. */
 void treadmill_init(void)
 {
 	uint16_t gate = 0;
@@ -102,6 +106,10 @@ void treadmill_init(void)
 	OBJECT(object)->sprite_palette |= 0x4000u;
 }
 
+/* The treadmill: the summed speed of the players in state 0x22 (treadmill_player_blocks), in whole
+   pixels less spawn_arg_1, picks speed_z from treadmill_lift_forces (the gate's lift) and turns the belt
+   (belt_phase, treadmill_belt_sprites). Drawn under everything (bucket 0xFF); in the zone list until the
+   gate is up (flags bit 0). */
 void treadmill_update(void)
 {
 	uint32_t belt_phase = 0, bucket = 0, deleted = 0, ignored = 0, player_block = 0, player_index = 0, speed_level = 0, total_speed = 0;
@@ -145,6 +153,8 @@ void treadmill_update(void)
 	OBJECT(current_object)->flags &= ~0x8000000u;
 }
 
+/* The treadmill's roller: its frame and its piece's (0x10 right, 8 up) from treadmill_roller_sprites and
+   treadmill_roller_part_sprites by the treadmill's belt_phase >> 5; touchable, kept at full health. */
 void treadmill_roller_update(void)
 {
 	uint32_t depth = 0, ignored = 0;
@@ -166,6 +176,9 @@ void treadmill_roller_update(void)
 	add_to_touchable_list(ignored);
 }
 
+/* The gate's first half: falls (fall_to_floor) with the treadmill's speed_z taken off (its lift) and
+   stops 0x28 above its floor, where it sets the treadmill's flags bit 0 (sound 0x1E once); while moving,
+   sounds 0x1E and 0xC. Its chain-top piece 0x63 above is drawn on top; touchable, kept at full health. */
 void treadmill_gate_update(void)
 {
 	uint8_t sound_id = 0;
@@ -233,6 +246,8 @@ void treadmill_gate_update(void)
 	add_to_touchable_list(draw_bucket);
 }
 
+/* The gate's other half: takes the first half's z, with its chain-top piece 0x63 above drawn on top
+   (bucket 0); touchable, kept at full health. */
 void treadmill_gate_half_update(void)
 {
 	uint32_t depth = 0, draw_bucket = 0, ignored = 0;
@@ -254,6 +269,10 @@ void treadmill_gate_half_update(void)
 	add_to_touchable_list(draw_bucket);
 }
 
+/* Sets up a flame jet: the nozzle (flame_jet_nozzle_sprites[spawn_arg_1], box 0x4C x 6, kind 0x14,
+   direction spawn_arg_2) with a shadow piece, and a flame (0x6910, kind 0x14, angle 0x158, 0x350 with
+   spawn_arg_1, flame_jet_pilot) with 9 pieces scaled 0x168 down by 0x18. The flame's start offset tests
+   the shadow's spawn_arg_1. */
 void flame_jet_init(void)
 {
 	uint8_t piece_frame = 0;
@@ -335,6 +354,10 @@ void flame_jet_init(void)
 	}
 }
 
+/* Draws a flame jet's nozzle, removed off screen, and its shadow piece under everything (bucket 0xFF).
+   With spawn_arg_1 0 the nozzle is the touchable part, its hitbox_size_y 1.5 times the flame front's
+   screen distance; with spawn_arg_1 set it is drawn on top (bucket 0) and the flame carries the touch
+   box. */
 void flame_jet_nozzle_update(void)
 {
 	uint8_t bucket = 0;
@@ -377,6 +400,9 @@ void flame_jet_nozzle_update(void)
 	queue_sprite_in_bucket(bucket);
 }
 
+/* The pilot flame: until stage_trigger_bits is set, speed grows to about 0x666 and shrinks to 0 again
+   (growth_rate 0x80 and -0x80) through flame_jet_burn. Then sprite_scale = spawn_arg_2 (0x180),
+   growth_rate 0x380 and flame_jet_ignite. */
 void flame_jet_pilot(void)
 {
 	if (stage_trigger_bits != 0u)
@@ -415,6 +441,8 @@ void flame_jet_pilot(void)
 	flame_jet_burn();
 }
 
+/* The jet fires: flame_jet_burn while speed grows (growth_rate 0x380) up to 0xF000, then growth_rate 0
+   and flame_jet_burn as the handler. */
 void flame_jet_ignite(void)
 {
 	if (OBJECT(current_object)->speed <= 0xF000)
@@ -427,6 +455,10 @@ void flame_jet_ignite(void)
 	flame_jet_burn();
 }
 
+/* The flame of a flame jet: its front sits at the nozzle + speed along angle (speed grows by
+   growth_rate), flickering through flame_jet_flame_sprites; with spawn_arg_1 set it is the touchable
+   part (hitbox_size_y = its screen distance from the nozzle). Once stage_trigger_bits is set its 9
+   pieces fill the line back to the nozzle. */
 void flame_jet_burn(void)
 {
 	uint16_t flame_step_y = 0, offset_x = 0, offset_y = 0, piece_number = 0;
@@ -518,6 +550,8 @@ void flame_jet_burn(void)
 	} while ((uint16_t)current_object != 0xFFFFu);
 }
 
+/* Sets up a rock wall (sprite 0x7C18, palette 0x87C0): box 0x18 x 0x4D, height 0xB4, kind 0xC, its two
+   sparkle parts in palette 0x8A10; then rock_wall_update. */
 void rock_wall_init(void)
 {
 	OBJECT(current_object)->sprite_frame = 0x7C18u;
@@ -537,6 +571,10 @@ void rock_wall_init(void)
 	OBJECT(current_object)->sprite_palette = 0x8A10u;
 }
 
+/* A rock wall: touched by an attacking player (the toucher's flag 0x40) it crumbles open, a
+   rock_wall_break_frames frame every 3 frames, dropping spawn_arg_1 rings at angle spawn_arg_2 at the
+   fifth. While whole its two parts sparkle and glint, pausing twinkle_delay (0x1E) frames after each
+   glint. */
 void rock_wall_update(void)
 {
 	uint8_t bucket = 0;
@@ -642,6 +680,10 @@ void rock_wall_update(void)
 	}
 }
 
+/* State 1: a sagging plank, a platform, until event_1c_riding (plank 0: sound 9); 2: it hangs from the
+   previous plank at its angle + bridge_swing_angle (not below 0x200). Plank 0 falls from 0x300 to 0x200
+   and swings with decay (sound 0x20 a swing); after 6 it stops, clears event_1c_ride_phase and shows
+   sign 0x16. Removed at scroll 0x9000. */
 void collapsing_bridge_plank_update(void)
 {
 	uint8_t sound_id = 0, start_frame = 0;
@@ -805,6 +847,10 @@ void collapsing_bridge_plank_update(void)
 	}
 }
 
+/* Sets up a burning boulder from burning_boulder_records[sprite_frame]: x, start_delay and path
+   (0xFFFFFFFF: the follower, 0x120 wide, spawn_chaser_back_zone 2; else lead_burning_boulder); y 0x3E0 -
+   0x60 * sprite_frame, box 0x90 x 0x90, kind 0x14, 0x70 above its floor; four flames chained through
+   child, then burning_boulder_update. */
 void burning_boulder_start(void)
 {
 	uint32_t boulder_record = 0, ignored = 0, object = 0, object_2 = 0, zone_index = 0;
@@ -881,6 +927,10 @@ void burning_boulder_start(void)
 	OBJECT(current_object)->handler = burning_boulder_update_ADDRESS;
 }
 
+/* State 0 waits start_delay and falls to its floor (shake, sound 7); 1 the leader rolls along y as a
+   chaser (path records, sound 0xD) until it has no floor past scroll 0x3300; 2 the follower rolls at the
+   leader's speed; 3 falls away, flames and follower removed; 4 waits for burning_boulder_released; 5
+   drops onto the seesaw, seesaw_launched from z 0x9E0. */
 void burning_boulder_update(void)
 {
 	uint32_t zero = 0;
@@ -1192,6 +1242,9 @@ void burning_boulder_update(void)
 	}
 }
 
+/* Sets up a boulder's flame from burning_boulder_flame_layout[kind] (kind is the flame's number, 0-3):
+   offset_x and offset_y from the boulder and its animation (an offset into
+   burning_boulder_flame_animations); then burning_boulder_flame_flicker. */
 void burning_boulder_flame_start(void)
 {
 	uint32_t layout_record = 0;
@@ -1208,6 +1261,9 @@ void burning_boulder_flame_start(void)
 	OBJECT(current_object)->handler = burning_boulder_flame_flicker_ADDRESS;
 }
 
+/* A flame on a burning boulder: while the boulder rolls (its speed_fraction above 0) it plays its
+   animation at the boulder's screen position + offset_x/offset_y, sorted just above it (its draw_depth +
+   1); at the end of the animation it waits a random 0-0x3F frames. Removed once it has flag 0x400. */
 void burning_boulder_flame_flicker(void)
 {
 	uint32_t depth = 0, ignored = 0, object = 0, random_bits = 0, wrapped = 0;
@@ -1241,6 +1297,8 @@ void burning_boulder_flame_flicker(void)
 	OBJECT(current_object)->burning_boulder_flame.pause_timer = random_bits & 0x3Fu;
 }
 
+/* Sets up an ember source: end_position from ember_emitter_end_positions[sprite_frame], z on its floor;
+   then ember_emitter_move. */
 void ember_emitter_start(void)
 {
 	uint32_t ignored = 0;
@@ -1255,6 +1313,10 @@ void ember_emitter_start(void)
 	OBJECT(current_object)->handler = ember_emitter_move_ADDRESS;
 }
 
+/* An invisible ember source, removed at end_position. It moves at camera_slope_speed >> 7 along byte
+   0x15 of its floor block (0 and 4 -y, 1 +x, 2 +y, 3 -x; 0 and 3 while screen_x >= 0x40, the others
+   while <= 0x40), on its floor unless sprite_frame is 3; every random 0-0x3F frames a falling ember
+   0-0x7F from it. */
 void ember_emitter_move(void)
 {
 	uint8_t random_low = 0;
@@ -1381,6 +1443,10 @@ void ember_emitter_move(void)
 	OBJECT(current_object)->ember_emitter.spawn_timer = random_bits & 0x3Fu;
 }
 
+/* A falling ember: state 0 raises it 0x70 at a time to above the screen; 1 falls (speed_y, speed_z,
+   falling_ember_animation) to its floor (0x530 where none), then bursts (falling_ember_burst_animation,
+   or the slope one on a sloped or typed floor); 2 plays the burst, then is removed. Removed when it
+   leaves the screen. */
 void falling_ember_update(void)
 {
 	uint32_t burst_animation = 0, ignored = 0, off_screen = 0, wrapped = 0;
@@ -1445,6 +1511,9 @@ void falling_ember_update(void)
 	ignored = queue_sprite(ignored);
 }
 
+/* Sets up a carrier from scene_carrier_records[sprite_frame]: position, 32-bit speed_x/speed_y/speed_z
+   and end_position. Number 0 becomes scene_object, 1-3 player_carriers[sprite_frame - 1]; then
+   scene_carrier_move. */
 void scene_carrier_start(void)
 {
 	uint32_t carrier_record = 0, sprite_frame = 0;
@@ -1473,6 +1542,8 @@ void scene_carrier_start(void)
 	OBJECT(current_object)->handler = scene_carrier_move_ADDRESS;
 }
 
+/* An invisible carrier: adds its speeds to its position every frame (sprite_frame 1-3 only once
+   seesaw_launched is set); removed at end_position. */
 void scene_carrier_move(void)
 {
 	uint32_t ignored = 0;
@@ -1491,6 +1562,8 @@ void scene_carrier_move(void)
 	project_object(&ignored, &ignored);
 }
 
+/* Sets up the seesaw: a multi-part sprite (seesaw_parts in a second-pool block) at (0x70, 0xF68, 0x9E0)
+   with seesaw_animation; then seesaw_tilt (without a free block it tries again next frame). */
 void seesaw_start(void)
 {
 	uint32_t free_count = 0, ignored = 0, part_list = 0;
@@ -1516,6 +1589,8 @@ void seesaw_start(void)
 	}
 }
 
+/* Draws the seesaw; once seesaw_launched is set it plays seesaw_animation once into its part list (the
+   word at +0xA). Frees its part list and is removed at scroll 0x4D00. */
 void seesaw_tilt(void)
 {
 	uint16_t part_list = 0;
@@ -1553,6 +1628,8 @@ void seesaw_tilt(void)
 	queue_sprite_at_depth(&ignored, &depth);
 }
 
+/* Sets up the metal platform's frame (sprite 0xAFB8, palette 0x1230) at z 0x530, then
+   metal_platform_base_draw. */
 void metal_platform_base_start(void)
 {
 	uint32_t ignored = 0;
@@ -1569,6 +1646,8 @@ void metal_platform_base_start(void)
 	metal_platform_base_draw();
 }
 
+/* Draws the metal platform's frame until it leaves the screen (check_left_screen_margins 0x40/0x10),
+   then removes it; it stays when the deck flies off. */
 void metal_platform_base_draw(void)
 {
 	uint16_t margin = 0, unseen_margin = 0;
@@ -1587,6 +1666,9 @@ void metal_platform_base_draw(void)
 	delete_current_object();
 }
 
+/* Sets up the metal platform's deck (sprite 0xAFC0) at z 0x530 with timer 0x12C, and a second object,
+   the far railing (sprite 0xAFC8 at 0x131, 0xF24, state 3); both run metal_platform_update (without a
+   free object it tries again next frame). */
 void metal_platform_start(void)
 {
 	uint32_t free_count = 0, ignored = 0, object = 0;
@@ -1620,6 +1702,10 @@ void metal_platform_start(void)
 	}
 }
 
+/* State 0 waits timer (0x12C) frames; 1 sets metal_platform_lifted, starts the fire wall
+   (fire_wall_start) and the deck flies up (speed_z 0x100000, 0x6000 more a frame after 0xA frames); 3
+   the railing waits for the deck, then flies up with it (state 2). From screen y 0x28 up it shows
+   metal_platform.frame; removed at screen y -0x58. */
 void metal_platform_update(void)
 {
 	uint32_t depth = 0, free_count = 0, ignored = 0, object = 0, object_2 = 0;
@@ -1696,6 +1782,9 @@ void metal_platform_update(void)
 	queue_sprite_at_depth(&ignored, &depth);
 }
 
+/* Sets up the fire wall beside the metal platform: a multi-part sprite (fire_wall_parts in a second-pool
+   block) at (0x100, 0xE47, 0x610), box 0x5B x 0xF0, height 0x100, kind 0x14, fire_wall_animation,
+   speed_z -0x100000; sound 7, then fire_wall_rise (without a free block it tries again next frame). */
 void fire_wall_start(void)
 {
 	uint8_t sound_id = 0;
@@ -1735,6 +1824,8 @@ void fire_wall_start(void)
 	}
 }
 
+/* The fire wall rises until z 0x550 (thrown up at speed_z -0x100000, slowed by 0x6000 a frame),
+   animating its parts, touchable. Removed with its part list at scroll 0x6800. */
 void fire_wall_rise(void)
 {
 	uint16_t part_list = 0;
@@ -1759,6 +1850,8 @@ void fire_wall_rise(void)
 	queue_sprite_at_depth(&ignored, &depth);
 }
 
+/* Sets up a fire trench (sprite 0xB200, palette 0x51F0) at z 0x530 with flame_timer 0, so the first
+   flames come at once; then fire_trench_update. */
 void fire_trench_start(void)
 {
 	uint32_t ignored = 0;
@@ -1775,6 +1868,8 @@ void fire_trench_start(void)
 	project_object(&ignored, &ignored);
 }
 
+/* Draws the fire trench and every 0x12C frames spawn_fire_trench_flames; removed once it has left the
+   screen (check_left_screen_margin 0x70). */
 void fire_trench_update(void)
 {
 	uint16_t margin = 0;
@@ -1800,6 +1895,9 @@ void fire_trench_update(void)
 	queue_sprite_at_depth(&ignored, &depth);
 }
 
+/* Spawns three flame columns along the fire trench (y 0xE47, 0xE97, 0xEE7, z 0x530): box 0x40 x 0x80,
+   kind 0x14, fire_trench_flame_animation, fire_trench_flame_burn; sound 7 when the trench's screen_x is
+   0x140 or less. Nothing without 3 free objects. */
 void spawn_fire_trench_flames(void)
 {
 	uint8_t sound_id = 0;
@@ -1844,6 +1942,8 @@ void spawn_fire_trench_flames(void)
 	}
 }
 
+/* A flame column of a fire trench: plays its animation once, its hitbox_height following
+   fire_trench_flame_heights[animation_frame], touchable; removed at the last step. */
 void fire_trench_flame_burn(void)
 {
 	uint32_t at_last_step = 0, depth = 0, ignored = 0;
@@ -1861,6 +1961,8 @@ void fire_trench_flame_burn(void)
 	delete_current_object();
 }
 
+/* Sets up a player's ride object (made by spawn_player_ride): box 0x10 x 0x10, it becomes scene_object;
+   then ridden_object_fall. */
 void ridden_object_start(void)
 {
 	OBJECT(current_object)->flags = 2u;
@@ -1871,6 +1973,8 @@ void ridden_object_start(void)
 	ridden_object_fall();
 }
 
+/* A player's ride object: in the rider list until it stands on a platform (flags 8), then
+   ridden_object_follow. */
 void ridden_object_fall(void)
 {
 	if ((OBJECT(current_object)->flags & 8u) != 0u)
@@ -1878,6 +1982,8 @@ void ridden_object_fall(void)
 	add_to_rider_list();
 }
 
+/* Keeps the ride object at its platform's (a bridge plank's) x and z every frame; removed at scroll
+   0x8D00. */
 void ridden_object_follow(void)
 {
 	uint32_t object = 0;
@@ -1892,6 +1998,10 @@ void ridden_object_follow(void)
 	delete_current_object();
 }
 
+/* Sets up the invisible fire under the hanging bridge: box 0x40 x 0x80, height 0x70, kind 0x13, z 0x868,
+   rising_fire_object, path bridge_fire_script. With 3 free objects it makes three rising flames
+   (rising_flame_update) 0x20, 0x40 and 0x60 along y at its top and becomes bridge_fire_rise; else it
+   tries again next frame. */
 void bridge_fire_start(void)
 {
 	uint32_t ignored = 0, object = 0;
@@ -1939,6 +2049,10 @@ void bridge_fire_start(void)
 	OBJECT(current_object)->handler = bridge_fire_rise_ADDRESS;
 }
 
+/* The bridge fire's handler: bridge_fire_read_script, unless holding back. When no_player_in_play,
+   player_mishap or player_dropping_in is set it holds back (base_speed 0, screen_threshold 0xE0, the old
+   ones saved, hold_timer 0xFF): bridge_fire_climb_step only, which ends the hold after 0x300 of scroll
+   or hold_timer. */
 void bridge_fire_rise(void)
 {
 	uint32_t flags = 0;
@@ -1970,6 +2084,10 @@ void bridge_fire_rise(void)
 	bridge_fire_climb_step();
 }
 
+/* Steps through bridge_fire_script: a record sets screen_threshold, catch_up_factor, base_speed and
+   wait_timer once the fire's top reaches its height or scroll_position its position less hitbox_height
+   (0: height only); a negative factor removes the fire, a negative threshold sets state 7. Then
+   bridge_fire_climb_step. */
 void bridge_fire_read_script(void)
 {
 	uint32_t path_cursor = 0;
@@ -2002,6 +2120,10 @@ void bridge_fire_read_script(void)
 	bridge_fire_climb_step();
 }
 
+/* The bridge fire's chase: speed_fraction is base_speed while its top (screen_y - hitbox_height) is at
+   or above screen_threshold, else camera_ground_speed * catch_up_factor >> 8, at least base_speed; z
+   climbs by it after wait_timer. Sound 9 every 0x3C frames on screen; its top reaching z 0x534 sets
+   stage_trigger_bits, once (player marks it done). */
 void bridge_fire_climb_step(void)
 {
 	uint16_t climb_speed = 0;
@@ -2151,6 +2273,9 @@ void bridge_fire_climb_step(void)
 	sound_id = add_to_touchable_list(sound_id);
 }
 
+/* Sets up the lava flow (lava_flow_parts in a second-pool block): box 0x60 x 0xE7, height 0x50, kind
+   0x14, z 0x530, lava_flow_animation, path lava_flow_script, wait_timer 0x78; clears
+   metal_platform_lifted and waits in lava_flow_wait (without a free block it tries again next frame). */
 void lava_flow_start(void)
 {
 	uint32_t free_count = 0, ignored = 0, part_list = 0;
@@ -2189,6 +2314,8 @@ void lava_flow_start(void)
 	}
 }
 
+/* Waits for metal_platform_lifted, then wait_timer (0x78) frames; then spawn_lava_steam and
+   lava_flow_advance as the handler. */
 void lava_flow_wait(void)
 {
 	uint16_t wait_timer = 0;
@@ -2205,6 +2332,10 @@ void lava_flow_wait(void)
 	}
 }
 
+/* The lava flow's handler: lava_flow_read_script, unless holding back. When no_player_in_play,
+   player_mishap or player_dropping_in is set it holds back (base_speed 0, screen_threshold -0x50, the
+   old ones saved, hold_timer 0xFF): lava_flow_move_step only, which ends the hold after 0x300 of scroll
+   or hold_timer. */
 void lava_flow_advance(void)
 {
 	uint32_t flags = 0;
@@ -2236,6 +2367,10 @@ void lava_flow_advance(void)
 	lava_flow_move_step();
 }
 
+/* Steps through lava_flow_script: the next record (scroll position, x, screen_threshold,
+   catch_up_factor, base_speed, wait_timer) is taken once scroll_position reaches its position or x_int
+   its x (0: position only); a negative factor removes the flow and its part list. Then
+   lava_flow_move_step. */
 void lava_flow_read_script(void)
 {
 	uint16_t part_list = 0;
@@ -2269,6 +2404,10 @@ void lava_flow_read_script(void)
 	lava_flow_move_step();
 }
 
+/* The lava flow's chase along +x: chaser_speed is base_speed while screen_x is at or past
+   screen_threshold, else camera_ground_speed * catch_up_factor >> 8, at least base_speed; x moves by it
+   after wait_timer; spawn_lava_flame, extend_lava_flow. sound_timer is also its off-screen mark, cleared
+   every frame on screen: sound 0x10 plays every frame. */
 void lava_flow_move_step(void)
 {
 	uint16_t flow_speed = 0;
@@ -2394,6 +2533,9 @@ void lava_flow_move_step(void)
 	queue_sprite_at_depth(&ignored, &depth);
 }
 
+/* Adds a trailing sheet of lava behind the object (lava_flow_segment_follow, linked as its child, with
+   its own copy of lava_flow_parts in a second-pool block) from scroll_position 0x6180, while it has no
+   child yet, its screen_x is -0x50 or more and both pools have a free block. block is only scratch. */
 void extend_lava_flow(uint32_t block)
 {
 	uint32_t ignored = 0, object = 0;
@@ -2418,6 +2560,9 @@ void extend_lava_flow(uint32_t block)
 	}
 }
 
+/* A sheet of lava trailing the one before it (its parent): 0x40 left and 0x20 down on screen, map x 0x50
+   less, the parent's frame in both its parts; also spawn_lava_flame and extend_lava_flow. Removed with
+   its part list at scroll 0x7E00, or past screen x -0xA0 (clearing the parent's child). */
 void lava_flow_segment_follow(void)
 {
 	uint16_t part_list = 0;
@@ -2458,6 +2603,10 @@ void lava_flow_segment_follow(void)
 	queue_sprite_at_depth(&ignored, &depth);
 }
 
+/* Every random 0-0x1F frames (counted in spawn_arg_2) a flame on the lava: lava_flame_animation or
+   lava_flame_animation_2 at random, at a random anchor from the object (x -0x30 to -0x12F, y 0x10 to
+   0xD0), lava_flame_burn. Hands back the flame (flame as it came when none is made); random_value is
+   only scratch. */
 uint32_t spawn_lava_flame(uint32_t random_value, uint32_t flame)
 {
 	uint32_t flame_random = 0, free_count = 0, ignored = 0;
@@ -2499,6 +2648,7 @@ uint32_t spawn_lava_flame(uint32_t random_value, uint32_t flame)
 	return flame;
 }
 
+/* A flame on the lava: follows its parent at anchor_x/anchor_y, plays its animation once and is removed. */
 void lava_flame_burn(void)
 {
 	uint32_t depth = 0, ignored = 0, object = 0, wrapped = 0;
@@ -2519,6 +2669,8 @@ void lava_flame_burn(void)
 	delete_current_object();
 }
 
+/* Spawns lava_steam_puff_count steam puffs (lava_steam_puff_update) at lava_steam_puff_offsets around
+   the lava flow, while objects are free. */
 void spawn_lava_steam(void)
 {
 	uint32_t free_count = 0, object = 0, offset_cursor = 0, puffs_left = 0;
@@ -2550,6 +2702,8 @@ void spawn_lava_steam(void)
 	} while (puffs_left != 0u);
 }
 
+/* A steam puff on the lava flow: plays lava_steam_animation at its parent's position +
+   anchor_x/anchor_y, waits a random 0-0x3F frames and plays it again. Removed at scroll 0x7E00. */
 void lava_steam_puff_update(void)
 {
 	uint32_t depth = 0, ignored = 0, object = 0, random_bits = 0, wrapped = 0;
@@ -2597,6 +2751,10 @@ void lava_steam_puff_update(void)
 	queue_sprite_at_depth(&ignored, &depth);
 }
 
+/* A rock slab over the lava (a platform, its glow cycling): 1 waits for the group leader within 0x5A
+   along direction, or its group_slots entry; 2 bobs, rises to rise_limit and erupts (lava_rock_erupt)
+   once the leader is past it in y or erupt_delay runs out; 3 flies up breaking, removed above the
+   screen. Removed while map_screen_active is set. */
 void lava_rock_update(void)
 {
 	uint16_t part_list = 0;
@@ -2930,6 +3088,9 @@ void lava_rock_update(void)
 	}
 }
 
+/* A lava rock erupts: state 3, its break animation from the start, and spawn_lava_column under it (a
+   second 0x71 along x for a multi-part rock), with sound 7 when screen_x is -0x90 or more. With
+   takes_slot 1 only member 0 does that, and member 2 without the sound. block is only scratch. */
 void lava_rock_erupt(uint32_t block)
 {
 	uint8_t sound_id = 0;
@@ -2985,6 +3146,8 @@ void lava_rock_erupt(uint32_t block)
 	lava_rock_draw_at_previous_floor();
 }
 
+/* Draws a lava rock when on screen (screen_x -0xA0 to 0x1E0): a platform, draw_depth the screen y of
+   previous_floor_z + depth_offset. */
 void lava_rock_draw_at_previous_floor(void)
 {
 	uint32_t ignored = 0, sprite_depth = 0;
@@ -2997,6 +3160,10 @@ void lava_rock_draw_at_previous_floor(void)
 	queue_sprite_at_depth(&ignored, &sprite_depth);
 }
 
+/* Spawns a lava column 0xE0 below the rock: lava_column_parts, box 0x74 x 0x30, height 0xE0, kind 0x14,
+   lava_column_animation, side 1 from x 0xC97, lava_column_start. For a rock with takes_slot 1 it is
+   tossed instead (lava_column_toss_start, speed_z -0xE0000, box 0x70 x 0x60). Hands back the part list
+   block; block is only scratch. */
 uint32_t spawn_lava_column(uint32_t block)
 {
 	uint16_t side = 0;
@@ -3053,6 +3220,7 @@ uint32_t spawn_lava_column(uint32_t block)
 	return block;
 }
 
+/* Projects the new lava column, then lava_column_rise. */
 void lava_column_start(void)
 {
 	uint32_t ignored = 0;
@@ -3062,6 +3230,9 @@ void lava_column_start(void)
 	lava_column_rise();
 }
 
+/* A lava column erupting under a rock: rises (speed_z - 0x6000 a frame) to z 0x570, then stands as
+   lava_columns[side]. Removed off the left of the screen, while map_screen_active is set or when another
+   column has taken its side; animates its parts, touchable. */
 void lava_column_rise(void)
 {
 	uint16_t part_list = 0;
@@ -3106,6 +3277,7 @@ void lava_column_rise(void)
 	queue_sprite_at_depth(&ignored, &sprite_depth);
 }
 
+/* Projects the tossed lava column, then lava_column_toss. */
 void lava_column_toss_start(void)
 {
 	uint32_t ignored = 0;
@@ -3115,6 +3287,9 @@ void lava_column_toss_start(void)
 	lava_column_toss();
 }
 
+/* A lava column thrown up from a slot-triggered rock (speed_z -0xE0000, 0x6000 a frame back down),
+   animating its parts, touchable, sorted by its floor; removed off the left of the screen. Back at z
+   0x660 it frees its part list and lands (lava_column_land). */
 void lava_column_toss(void)
 {
 	uint16_t part_list = 0;
@@ -3144,18 +3319,23 @@ void lava_column_toss(void)
 	lava_column_land();
 }
 
+/* Turns the tossed lava column into a lava bubble 0x40 along x from it (base_x 0x40,
+   lava_column_become_bubble). */
 void lava_column_land(void)
 {
 	OBJECT(current_object)->lava_column.base_x = 0x40;
 	lava_column_become_bubble();
 }
 
+/* Unused: lava_column_land with base_x 0, the bubble at the column's own x. */
 void lava_column_land_in_place(void)
 {
 	OBJECT(current_object)->lava_column.base_x = 0;
 	lava_column_become_bubble();
 }
 
+/* Turns the landed lava column into a lava bubble: base_x += x_int, base_y = y_int, z 0x540, palette
+   0xD000, bubble_animation, handler bubble_near_parent_update. */
 void lava_column_become_bubble(void)
 {
 	uint32_t ignored = 0;
@@ -3176,22 +3356,23 @@ void lava_column_become_bubble(void)
 	project_object(&ignored, &ignored);
 }
 
+/* Spawns the object that fires the lava rocks' group slots: next_trigger = group_slot_triggers + the
+   record's path, handler group_slot_trigger_update; clears group_slots. Hands back spawned 0xFFFFFFFF (0
+   when no object was free), count 0 and the object in trigger. */
 void spawn_group_slot_trigger(uint32_t record, uint32_t *p_spawned, uint32_t *p_count, uint32_t *p_trigger)
 {
 	uint32_t count = *p_count;
-	uint32_t trigger = *p_trigger;
 	uint32_t fill_word = 0, free_count = 0, slot_cursor = 0, spawned = 0;
 
-	allocate_object_outside_loop(&free_count, &trigger);
+	allocate_object_outside_loop(&free_count, p_trigger);
 	if (free_count == 0u)
 	{
 		*p_spawned = free_count;
-		*p_trigger = trigger;
 		return;
 	}
-	OBJECT(trigger)->group_slot_trigger.next_trigger = LEADER_SPAWN(record)->path + group_slot_triggers_ADDRESS;
-	OBJECT(trigger)->handler = group_slot_trigger_update_ADDRESS;
-	OBJECT(trigger)->flags = 0u;
+	OBJECT(*p_trigger)->group_slot_trigger.next_trigger = LEADER_SPAWN(record)->path + group_slot_triggers_ADDRESS;
+	OBJECT(*p_trigger)->handler = group_slot_trigger_update_ADDRESS;
+	OBJECT(*p_trigger)->flags = 0u;
 	slot_cursor = group_slots_ADDRESS;
 	count = 0x20u;
 	fill_word = 0u;
@@ -3204,9 +3385,12 @@ void spawn_group_slot_trigger(uint32_t record, uint32_t *p_spawned, uint32_t *p_
 	spawned = 0xFFFFFFFFu;
 	*p_spawned = spawned;
 	*p_count = count;
-	*p_trigger = trigger;
 }
 
+/* Steps through group_slot_triggers (scroll position, slot, value): once scroll_position reaches the
+   entry and group_slots[slot] is taken (not 0) it becomes the value | 0x8000, which makes that row of
+   lava rocks erupt after the delay, and the next entry follows. Slot 0x8000 sets goal_unlocked; any
+   negative slot removes the object. */
 void group_slot_trigger_update(void)
 {
 	uint32_t cursor = 0, slot = 0;

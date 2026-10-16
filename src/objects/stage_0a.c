@@ -11,6 +11,8 @@
  */
 #include "game.h"
 
+/* Object type 19: a cactus (sprite 0x77D8, palette 0x9070), flipped (sprite_flags 0x40) when spawn_arg_1
+   is set, with a small shadow part (sprite 0x5D80, scale 0x60); then cactus_update. */
 void cactus_init(void)
 {
 	OBJECT(current_object)->sprite_frame = 0x77D8u;
@@ -24,6 +26,10 @@ void cactus_init(void)
 	OBJECT(current_object)->sprite_scale = 0x60u;
 }
 
+/* Rests on its floor until the tornado (tornado_object) comes within 0x60; then, as sprite 0x77E0, it
+   spirals up (angle - 0x10, spiral_speed + 0x18 and speed_z 0xC00 more upward each frame) until removed
+   off screen. Drawn with its shadow. The z_int - 3 after fall_to_floor is never reached: its distance
+   test has already failed. */
 void cactus_update(void)
 {
 	uint32_t bucket = 0, deleted = 0, direction = 0, ignored = 0, speed_x = 0, speed_y = 0, spin_speed = 0;
@@ -87,6 +93,9 @@ void cactus_update(void)
 	queue_sprite_in_bucket(bucket);
 }
 
+/* Called by tornado_throw_whirlwinds: a 1-block whirlwind at the tornado's position (palette 0x90F0, box
+   8, height 0x28, kind 0x1F), its spin_step the shared whirlwind_spin_step + 0xB (mod 0x40); handler
+   whirlwind_aim. The self_copied_byte line copies a byte onto itself. */
 uint32_t spawn_whirlwind(uint32_t spawned, uint32_t free_count, uint32_t whirlwind, uint32_t object)
 {
 	uint32_t ignored = 0;
@@ -110,6 +119,9 @@ uint32_t spawn_whirlwind(uint32_t spawned, uint32_t free_count, uint32_t whirlwi
 	return object;
 }
 
+/* face_nearest_player, then heads for the farthest player (each distance_to_player raised by 1 first) at
+   speed 3 x nearest_player_distance, for 0xF0 frames of whirlwind_move, starting now. When player 3 is
+   the farthest it takes direction_to_player_2. */
 void whirlwind_aim(void)
 {
 	uint16_t farthest_distance = 0;
@@ -133,6 +145,9 @@ void whirlwind_aim(void)
 	whirlwind_move();
 }
 
+/* For whirlwind.timer frames, or until touched: moves along its direction at its speed plus a circle of
+   speed 0x100 (spin_angle + spin_step a frame), cycling the four whirlwind_sprites, touchable; removed
+   off screen. Then whirlwind_vanish. */
 void whirlwind_move(void)
 {
 	uint32_t aim_speed = 0, deleted = 0, direction = 0, frame_index = 0, ignored = 0, speed = 0, speed_x = 0, speed_y = 0, spin_angle = 0;
@@ -181,6 +196,8 @@ void whirlwind_move(void)
 	}
 }
 
+/* Every other frame shows the next of the eight whirlwind_vanish_sprites, then deletes itself; still
+   drawn and touchable meanwhile. */
 void whirlwind_vanish(void)
 {
 	uint32_t ignored = 0;
@@ -204,6 +221,10 @@ void whirlwind_vanish(void)
 	add_to_touchable_list(ignored);
 }
 
+/* Object type 20: the centipede's head (sprite 0x7940, kind 0x24, height 0x32, centipede_chase) and ten
+   2-part pieces at its position that wait 5, 0xA ... 0x32 frames (path_index) before they follow: nine
+   segments (0x7980, centipede_segment_wait) and the tail (0x7A08, centipede_tail_wait, segment_ahead the
+   last segment). All have shadows. */
 void centipede_init(void)
 {
 	uint16_t follow_delay = 0;
@@ -248,6 +269,10 @@ void centipede_init(void)
 	add_to_rider_list();
 }
 
+/* The centipede's head: until scroll_position passes spawn_arg_1, centipede_command 0 and centipede_move
+   (touchable and aiming with face_nearest_player only while not falling). With no active players it
+   holds its last path point and centipede_command 1 holds the body. Then centipede_leave. Its anchor_y
+   stores are never read. */
 void centipede_chase(void)
 {
 	uint32_t r0 = 0, r2 = 0, r3 = 0, r11 = 0, path_cursor = 0;
@@ -313,6 +338,9 @@ void centipede_chase(void)
 	centipede_move(r11);
 }
 
+/* The head once scroll_position has passed spawn_arg_1: heads along spawn_arg_2 with centipede_move at
+   the speed of a player 0x1F away (nearest_player_distance forced); centipede_command 0, and 9 once it
+   is removed off screen, which removes the body. */
 void centipede_leave(void)
 {
 	uint32_t r11 = 0, deleted = 0, ignored = 0;
@@ -331,6 +359,10 @@ void centipede_leave(void)
 	centipede_move(r11);
 }
 
+/* The head's step: sprite centipede_head_frames[(direction / 0x92 + 1) & 7]; speed
+   ((nearest_player_distance x 2) & 0x3FF) + 0x100, twice that along direction plus once along
+   wobble_angle (- 0x10 a frame), so it weaves. Unless centipede_command is 1 it writes its projected x/y
+   to centipede_path. Then hop, sand puff, draw. */
 void centipede_move(uint32_t block)
 {
 	uint16_t saved_direction = 0;
@@ -374,6 +406,8 @@ void centipede_move(uint32_t block)
 	draw_centipede_piece();
 }
 
+/* A body segment's start: counts its delay in path_index down while hopping in place, then
+   centipede_segment_follow. */
 void centipede_segment_wait(void)
 {
 	uint32_t r0 = 0, r2 = 0;
@@ -391,6 +425,9 @@ void centipede_segment_wait(void)
 	draw_centipede_piece();
 }
 
+/* A body segment: removed with its shadow when centipede_command is 9; otherwise takes the next
+   centipede_path point (centipede_follow_path) unless centipede_command is 1, then hops (a sand puff on
+   landing) and is drawn like the head. */
 void centipede_segment_follow(void)
 {
 	uint32_t r0 = 0, r2 = 0, r3 = 0, r11 = 0, ignored = 0;
@@ -409,6 +446,8 @@ void centipede_segment_follow(void)
 	draw_centipede_piece();
 }
 
+/* The tail's start: counts its delay in path_index (0x32 frames) down while hopping in place, then
+   centipede_tail_follow. */
 void centipede_tail_wait(void)
 {
 	uint32_t r0 = 0, r2 = 0;
@@ -426,6 +465,8 @@ void centipede_tail_wait(void)
 	draw_centipede_piece();
 }
 
+/* The tail: centipede_segment_follow, and while following it turns toward segment_ahead
+   (direction_to_object) for its sprite, centipede_tail_frames[(direction / 0x92 + 5) & 7]. */
 void centipede_tail_follow(void)
 {
 	uint32_t r0 = 0, r2 = 0, r3 = 0, r11 = 0, ignored = 0, tail_frame = 0;
@@ -453,6 +494,8 @@ void centipede_tail_follow(void)
 	draw_centipede_piece();
 }
 
+/* Puts the piece at centipede_path[path_index] (projected_x and the whole of projected_y), then
+   path_index steps on, back to 0 after 0x32. Hands back the address after that entry. */
 uint32_t centipede_follow_path(void)
 {
 	uint32_t path_cursor = 0;
@@ -468,32 +511,35 @@ uint32_t centipede_follow_path(void)
 	return path_cursor;
 }
 
+/* The hop of a centipede piece: while hop_timer runs it counts down with speed_z 0x600 more upward each
+   frame; at 0 the piece falls (fall_to_floor with 0x4000 of its gravity taken back) and, once z (all 32
+   bits) is 8 or more, hop_timer restarts at 0x5A with speed_z 0. Hands back fall_to_floor's height and
+   z. */
 void centipede_hop(uint32_t *p_height, uint32_t *p_z)
 {
 	uint32_t height = *p_height;
-	uint32_t z = *p_z;
 	uint32_t fall_height = 0, ignored = 0;
 
 	if (OBJECT(current_object)->centipede.hop_timer == 0u)
 	{
-		fall_to_floor(&fall_height, &ignored, &z);
+		fall_to_floor(&fall_height, &ignored, p_z);
 		OBJECT(current_object)->speed_z -= 0x4000u;
 		if (OBJECT(current_object)->z < 8)
 		{
 			*p_height = fall_height;
-			*p_z = z;
 			return;
 		}
 		OBJECT(current_object)->speed_z = 0;
 		OBJECT(current_object)->centipede.hop_timer = 0x5Au;
 		*p_height = fall_height;
-		*p_z = z;
 		return;
 	}
 	OBJECT(current_object)->centipede.hop_timer--;
 	OBJECT(current_object)->speed_z -= 0x600u;
 }
 
+/* Draws a centipede piece sorted by the floor point under it (queue_sprite_at_floor), puts it in the
+   rider list, and draws its shadow part at its floor at depth screen_y - 0xA. */
 void draw_centipede_piece(void)
 {
 	uint32_t depth = 0, ignored = 0;
@@ -506,6 +552,8 @@ void draw_centipede_piece(void)
 	queue_sprite_at_depth(&ignored, &depth);
 }
 
+/* On the frame a centipede piece lands: a 1-block sand puff at its position, 6 lower (projected_y + 6):
+   sprite 0x75A8, palette 0x1020, scale 0x180, lifetime 0x2D frames, handler sand_puff_start. */
 void spawn_centipede_sand_puff(uint32_t spawned, uint32_t free_count, uint32_t puff, uint32_t block)
 {
 	uint32_t ignored = 0;
@@ -523,6 +571,7 @@ void spawn_centipede_sand_puff(uint32_t spawned, uint32_t free_count, uint32_t p
 	OBJECT(puff)->handler = sand_puff_start_ADDRESS;
 }
 
+/* unproject_object and the rider list, then sand_puff_animate from the next frame. */
 void sand_puff_start(void)
 {
 	uint32_t ignored = 0;
@@ -532,6 +581,8 @@ void sand_puff_start(void)
 	OBJECT(current_object)->handler = sand_puff_animate_ADDRESS;
 }
 
+/* Removed over a pit (floor_z_int 0x800 or more) or after its lifetime frames; meanwhile cycles the
+   three sand_puff_frames every frame, drawn and in the rider list. */
 void sand_puff_animate(void)
 {
 	uint32_t ignored = 0, next_frame = 0;
@@ -560,6 +611,9 @@ void sand_puff_animate(void)
 	add_to_rider_list();
 }
 
+/* Object type 22: a piece of green stone wall, sprite wall_piece_frames[spawn_arg_1], palette 0x9080; a
+   box from wall_piece_boxes[spawn_arg_1] and height 0x28 it never uses (wall_piece_draw joins no list);
+   then wall_piece_draw. */
 void wall_piece_init(void)
 {
 	uint32_t box_record = 0, spawn_arg_1 = 0;
@@ -579,6 +633,8 @@ void wall_piece_init(void)
 	OBJECT(current_object)->hitbox_offset_y = ROM8(box_record + 1u);
 }
 
+/* Unprojects and is removed off screen; drawn at depth screen_y + 0x14 (at most 0xEE) while its screen_y
+   is 0xE0 or less, lower down at its screen_y. */
 void wall_piece_draw(void)
 {
 	uint32_t deleted = 0, depth = 0, ignored = 0;
@@ -597,6 +653,9 @@ void wall_piece_draw(void)
 	queue_sprite_at_depth(&ignored, &depth);
 }
 
+/* Object type 23: palette 0x9050, a box from shaking_block_boxes[spawn_arg_1] it never uses, and one
+   more part: sprite 0x7AA0 with spawn_arg_1 set, else its shadow strip 0x7570 (palette 0x1060); then
+   shaking_block_animate (tried again next frame without a free part). */
 void shaking_block_init(void)
 {
 	uint32_t box_record = 0, ignored = 0, object = 0, spawned = 0;
@@ -628,6 +687,9 @@ void shaking_block_init(void)
 	OBJECT(current_object)->handler = shaking_block_animate_ADDRESS;
 }
 
+/* Every 3 frames the next of its three shaking_block_frames (by spawn_arg_1); removed off screen. With
+   spawn_arg_1 0 it is drawn under everything (bucket 0xFF) with its shadow part 0x10 left and 7 down
+   from its floor point; with 1 on top of everything (bucket 0), its part at -0x28, +0x20. */
 void shaking_block_animate(void)
 {
 	uint8_t bucket = 0;
@@ -672,6 +734,8 @@ void shaking_block_animate(void)
 	}
 }
 
+/* Object type 24: a sandstone boulder (sprite 0x7BA8, palette 0x9010), box 0x22 x 0x21, height 0x20,
+   kind 5, its part in the same palette; then sand_rock_update. */
 void sand_rock_init(void)
 {
 	OBJECT(current_object)->sprite_flags = 0u;
@@ -690,6 +754,9 @@ void sand_rock_init(void)
 	OBJECT(current_object)->sprite_palette = 0x9010u;
 }
 
+/* Falls to its floor; removed off screen. The first touch (flag 4) starts it crumbling
+   (sand_rock_crumble), dropping its ring_count rings at angle spawn_arg_2 first when it has any; until
+   then sand_rock_draw. */
 void sand_rock_update(void)
 {
 	uint32_t r3 = 0, r11 = 0, deleted = 0, ignored = 0, random_value = 0, ring = 0;
@@ -722,6 +789,8 @@ void sand_rock_update(void)
 	sand_rock_draw();
 }
 
+/* Every second frame shows the next of the 0xE sand_rock_crumble_frames on the rock and the one after it
+   on its part, still drawn; past the last the rock and its part are deleted. */
 void sand_rock_crumble(void)
 {
 	uint32_t crumble_frame = 0, ignored = 0;
@@ -755,6 +824,7 @@ void sand_rock_crumble(void)
 	delete_object_and_children(&ignored, &ignored, &ignored);
 }
 
+/* Drawn at depth screen_y + 0x14; touchable while crumble_frame is 0. */
 void sand_rock_draw(void)
 {
 	uint32_t depth = 0, ignored = 0;
@@ -765,6 +835,7 @@ void sand_rock_draw(void)
 		add_to_touchable_list(ignored);
 }
 
+/* Unused: puts the rock's part at the rock's screen position and draws it at depth screen_y + 0x1F. */
 void sand_rock_draw_piece(void)
 {
 	uint32_t depth = 0, ignored = 0;
@@ -776,6 +847,10 @@ void sand_rock_draw_piece(void)
 	queue_sprite_at_depth(&ignored, &depth);
 }
 
+/* Object type 41: a row of sand balls, direction row_direction x 0x40; ball_count 2-part balls at its
+   position (sprite 0xA1C0, palette 0x9200, box 0x10, height 0x10, kind 0x24, with shadows), their
+   row_position 6, 0xC, 0x12 ... and bob_phase spread by spawn_arg_2 / (ball_count + 1); then
+   sand_arch_update. */
 void sand_arch_init(void)
 {
 	uint16_t ball_phase = 0, phase_spacing = 0;
@@ -822,6 +897,9 @@ void sand_arch_init(void)
 	} while (balls_left != 0u);
 }
 
+/* The row's leader: its own sprite is never drawn, only its shadow part at its floor under everything;
+   removed with its balls once balls_gone reaches ball_count. The is_on_screen toggle it keeps in
+   row_position is never read. */
 void sand_arch_update(void)
 {
 	uint32_t bucket = 0, ignored = 0, on_screen = 0;
@@ -841,6 +919,8 @@ void sand_arch_update(void)
 	delete_object_and_children(&ignored, &ignored, &ignored);
 }
 
+/* Moves the ball once by 0x200 x row_position along its direction (each ball 0xC pixels further than the
+   one before), then sand_arch_ball_delay. */
 void sand_arch_ball_init(void)
 {
 	uint32_t ball_direction = 0, ignored = 0, speed = 0, speed_x = 0, speed_y = 0;
@@ -857,6 +937,8 @@ void sand_arch_ball_init(void)
 	sand_arch_ball_delay();
 }
 
+/* In the rider list, not drawn: adds 2 to bob_phase until it passes 0x3FF (so the balls start one after
+   another), then sand_arch_ball_move with the phase wrapped. */
 void sand_arch_ball_delay(void)
 {
 	add_to_rider_list();
@@ -870,6 +952,10 @@ void sand_arch_ball_delay(void)
 	OBJECT(current_object)->handler = sand_arch_ball_move_ADDRESS;
 }
 
+/* Moves, touchable, a rider. Over a floor it bobs (sand_arch_ball_bob): hidden from 0x10 below the
+   surface, its sprite drawn only more than 8 above it, its part showing sand spray at the surface while
+   within 0x10 of it, else its shadow. Over a pit it falls, and at z_int 0x800 counts in the leader's
+   balls_gone and stops. */
 void sand_arch_ball_move(void)
 {
 	uint16_t below_floor = 0, offset_x = 0, offset_y = 0;
@@ -936,10 +1022,13 @@ void sand_arch_ball_move(void)
 	sand_arch_ball_gone();
 }
 
+/* Does nothing: the handler of a ball that has fallen out of the stage, until its leader removes the
+   row; the other ball code also ends in it. */
 void sand_arch_ball_gone(void)
 {
 }
 
+/* bob_phase + 0xC (& 0x3FF) and speed_z = -sine_table[bob_phase] x 0xC: the ball bobs up and down. */
 void sand_arch_ball_bob(void)
 {
 	OBJECT(current_object)->sand_arch.bob_phase += 0xCu;
@@ -947,6 +1036,8 @@ void sand_arch_ball_bob(void)
 	OBJECT(current_object)->speed_z = 0u - sine_table[(uint16_t)OBJECT(current_object)->sand_arch.bob_phase] * 0xCu;
 }
 
+/* Object type 44: a long green wall of five stepped panels (sprite 0xB670, palette 0x8D60 | 0x2000,
+   sprite_flags 6), box 0x1D x 0xDC, height 0x80, kind 0xC; then stepped_wall_draw. */
 void stepped_wall_init(void)
 {
 	OBJECT(current_object)->sprite_flags = 6u;
@@ -963,6 +1054,7 @@ void stepped_wall_init(void)
 	OBJECT(current_object)->handler = stepped_wall_draw_ADDRESS;
 }
 
+/* Unprojects; unless removed off screen, drawn under everything (bucket 0xFF) and touchable. */
 void stepped_wall_draw(void)
 {
 	uint32_t bucket = 0, deleted = 0, ignored = 0;
@@ -978,6 +1070,10 @@ void stepped_wall_draw(void)
 	}
 }
 
+/* Stage list object: waits while sand_block_leader_active is set (kind 1 only before scroll 0x9C00),
+   then takes x, y, hazard and whirlwind lists and script from tornado_records[sprite_frame], becomes
+   chaser_object and tornado_object, holds group leader 0, adds its back zone (kind 0, also freezing the
+   players) or rear zone and five columns. */
 void tornado_start(void)
 {
 	uint16_t angle_offset = 0, radius = 0;
@@ -1061,6 +1157,10 @@ void tornado_start(void)
 	} while (columns_left != 0u);
 }
 
+/* The tornado, a chaser: from its second frame it holds back whenever no player is in play, one has a
+   mishap or drops in. After its wait (not counted in game mode 0x11) it loads the next script record
+   once scroll_position or its x/y along its direction reaches the record's; then tornado_move_step.
+   Removed with its columns on map_screen_active. */
 void tornado_move(void)
 {
 	uint16_t threshold = 0;
@@ -1158,6 +1258,10 @@ void tornado_move(void)
 	}
 }
 
+/* Loads the script record at path_cursor: screen_threshold, catch_up_factor, base_speed, wait_timer,
+   direction (box 0xF0 across, 0x80 along); direction 3 with no wait unfreezes the players, the record
+   ending at tornado_kind_0_end_record frees group leader 0. A negative second word ends it: removed with
+   its columns, goal_unlocked if the third is too. */
 void tornado_load_record(uint32_t path_cursor)
 {
 	uint16_t box_across = 0, box_along = 0;
@@ -1259,6 +1363,8 @@ void tornado_load_record(uint32_t path_cursor)
 	tornado_move_step();
 }
 
+/* Sets flag 0x400 on its five columns (the slots from 0x96, which then delete themselves) and removes
+   the tornado. */
 void tornado_remove_with_columns(void)
 {
 	uint32_t columns_left = 0, object = 0, slot_cursor = 0;
@@ -1276,6 +1382,10 @@ void tornado_remove_with_columns(void)
 	delete_current_object();
 }
 
+/* The tornado's step: 8 below its floor, rotation_angle - 4, zone list, tornado_throw_whirlwinds, a
+   hazard from the edge of its floor block at each point of its hazard list it passes. A hold ends after
+   0x300 of scroll, or 0x100 frames past the last mishap, drop-in or empty play; then
+   tornado_choose_speed or tornado_catch_up_speed. */
 void tornado_move_step(void)
 {
 	uint16_t hazard_coordinate = 0;
@@ -1454,6 +1564,9 @@ void tornado_move_step(void)
 	tornado_choose_speed();
 }
 
+/* base_speed while screen_x is at or below screen_threshold (directions 0 and 3) or at or above it (1, 2
+   and 4); otherwise, or while screen_y is negative, it ends any hold (threshold and base speed back) and
+   catches up with tornado_catch_up_speed. */
 void tornado_choose_speed(void)
 {
 	uint16_t move_speed = 0;
@@ -1517,6 +1630,8 @@ void tornado_choose_speed(void)
 	}
 }
 
+/* The tornado's catching-up speed: camera_slope_speed (with floor_slope_factors' factor where the floor
+   slopes or has a type) x catch_up_factor >> 8, at least base_speed; then tornado_move_at_speed. */
 void tornado_catch_up_speed(void)
 {
 	uint16_t move_speed = 0;
@@ -1539,6 +1654,10 @@ void tornado_catch_up_speed(void)
 	tornado_move_at_speed(move_speed);
 }
 
+/* chaser_speed = move_speed (x4 once every player has finished); after the wait it moves chaser_speed <<
+   12 along its direction (0 y-, 1 x+, 2 and 4 y+, 3 x-). Past screen x 0x180 or -0x40 (by direction) it
+   is off screen; on screen, outside game mode 7, sound 0x12 every 0x29 frames, at once when it comes
+   back. */
 void tornado_move_at_speed(uint16_t move_speed)
 {
 	uint8_t sound_id = 0;
@@ -1609,6 +1728,10 @@ void tornado_move_at_speed(uint16_t move_speed)
 	OBJECT(current_object)->tornado.sound_timer = 0x28u;
 }
 
+/* One of the tornado's five twisters: removed once it has flag 0x400; circles the tornado at its
+   rotation angle (the tornado's spawn_arg_2) plus its own offset (speed_z_int), the radius
+   (speed_z_fraction) swinging between 0x1000 and 0x6800 at a random rate (hitbox_size_y); animated on
+   the floor, its top part 0xE0 higher when it has one. */
 void tornado_column_circle(void)
 {
 	uint16_t radius_limit = 0;
@@ -1661,6 +1784,8 @@ void tornado_column_circle(void)
 	queue_sprite_at_depth(&ignored, &depth);
 }
 
+/* An invisible box the tornado leaves at x, y, z: kind 0xC, height 0x50, 0xF0 by 0x80 turned with the
+   tornado's direction, handler tornado_hazard_update; nothing when no object is free. */
 void spawn_tornado_hazard(uint32_t x, uint32_t y, uint32_t z, uint32_t hazard)
 {
 	uint32_t direction = 0, free_count = 0, ignored = 0;
@@ -1703,6 +1828,7 @@ void spawn_tornado_hazard(uint32_t x, uint32_t y, uint32_t z, uint32_t hazard)
 	current_object = saved_current_object;
 }
 
+/* Touchable (and never drawn) while within 0xF0 of the screen, else removed. */
 void tornado_hazard_update(void)
 {
 	uint16_t margin_x = 0, margin_y = 0;
@@ -1720,6 +1846,8 @@ void tornado_hazard_update(void)
 	delete_current_object();
 }
 
+/* Once scroll_position reaches the next position in its whirlwind list (part_list), spawn_whirlwind, and
+   the list steps on. */
 uint32_t tornado_throw_whirlwinds(uint8_t spawned, uint32_t free_count, uint32_t whirlwind, uint32_t object)
 {
 	uint32_t saved_current_object = 0;
@@ -1734,6 +1862,8 @@ uint32_t tornado_throw_whirlwinds(uint8_t spawned, uint32_t free_count, uint32_t
 	return object;
 }
 
+/* The rear zone of tornado kind 1: a new object of kind 9 (flags 0x40000002, height 0x160) with handler
+   tornado_rear_zone_follow; hands back zone (unchanged when none is free). */
 uint32_t spawn_tornado_rear_zone(uint32_t zone)
 {
 	uint32_t free_count = 0;
@@ -1752,6 +1882,9 @@ uint32_t spawn_tornado_rear_zone(uint32_t zone)
 	return zone;
 }
 
+/* Removed once scroll_position reaches 0xE500; until then takes chaser_object's box, position and
+   direction, 0x60 lower (z_int + 0x60), makes the box 0x200 long starting 0x40 behind the tornado's
+   position (against its direction) and joins the zone list. */
 void tornado_rear_zone_follow(void)
 {
 	uint32_t direction = 0, object = 0;
@@ -1801,6 +1934,10 @@ void tornado_rear_zone_follow(void)
 	direction = add_to_zone_list(direction);
 }
 
+/* Stage list object of stage 0xA: quicksand of kind 0x1C (it sinks the player), touch size 0x60, height
+   0x50, 0x30 below its floor, sprite 0x74E0 cycling quicksand_palettes, quicksand_animation; with two
+   pool 2 blocks free, a multi-part copy of quicksand_parts over it. A non-zero sprite_frame sets flag 1:
+   never drawn. */
 void quicksand_start(void)
 {
 	uint32_t ignored = 0, object = 0, object_2 = 0;
@@ -1842,6 +1979,9 @@ void quicksand_start(void)
 	}
 }
 
+/* Touchable while within 0x70 of the screen (then removed with its two part blocks); unless flag 1 is
+   set it cycles its palette (animate_sign) and every animation_speed frames puts the next
+   quicksand_animation frame in every part of its multi-part sprite, both drawn at depth screen_y - 0x58. */
 void quicksand_swirl(void)
 {
 	uint16_t margin = 0, object = 0, sprite_frame = 0, step_frame = 0;
@@ -1918,6 +2058,9 @@ void quicksand_swirl(void)
 	delete_current_object();
 }
 
+/* Stage list object of stage 0xA: a sinkhole that opens once scroll_position reaches open_position, its
+   delay past now; zoom_step and delay from sinkhole_growth_records[sprite_frame & 0x7FFF], bit 15 flips
+   it; scale 1, kind 0x1B, sinkhole_animation, on its floor; then sinkhole_open. */
 void sinkhole_start(void)
 {
 	uint32_t growth_record = 0, ignored = 0;
@@ -1957,6 +2100,9 @@ void sinkhole_start(void)
 	project_object(&ignored, &ignored);
 }
 
+/* Removed off screen (margin 0x68). From open_position on: sound 0xF on its first step, then
+   sprite_scale + zoom_step a frame up to 0x180 with its sprite offsets and hitbox_size_x scaled to
+   match, animated; touchable and drawn (draw_depth = screen_y) from then on. */
 void sinkhole_open(void)
 {
 	uint16_t scale = 0;
@@ -1997,6 +2143,8 @@ void sinkhole_open(void)
 	margin_or_scale = queue_sprite(margin_or_scale);
 }
 
+/* Stage list object of stage 0xA: a triangle of sand (sprite 0x7530, palette 0x9020), flipped when bit
+   15 of sprite_frame is set, on its floor; then sand_patch_draw. */
 void sand_patch_start(void)
 {
 	uint32_t ignored = 0;
@@ -2015,6 +2163,8 @@ void sand_patch_start(void)
 	project_object(&ignored, &ignored);
 }
 
+/* Drawn at depth screen_y - 0x38 until it leaves the screen (check_left_screen_margins: 0x38 once seen,
+   0x10 before), then removed. */
 void sand_patch_draw(void)
 {
 	uint16_t margin = 0, unseen_margin = 0;
@@ -2033,6 +2183,9 @@ void sand_patch_draw(void)
 	delete_current_object();
 }
 
+/* Stage list object of stage 0xA: stays as the hole's edge zone (kind 0x1D, size 0x70, height 0x40,
+   rimmed_sinkhole_edge_zone_update) and spawns the hole: like sinkhole_start (sinkhole_growth_records,
+   kind 0x1B, sprite 0x7518) with a pool 2 rim part (sprite 0x7538), handler rimmed_sinkhole_open. */
 void rimmed_sinkhole_start(void)
 {
 	uint32_t free_count = 0, growth_record = 0, ignored = 0, object = 0;
@@ -2099,6 +2252,9 @@ void rimmed_sinkhole_start(void)
 	OBJECT(current_object)->child = object;
 }
 
+/* Like sinkhole_open, growing to scale 0x100 with its rim; touchable, drawn at draw_depth = screen_y -
+   0x30 (no less than -0xF) with the rim 8 behind it. Off screen (margins 0x58, 0x20) it frees the rim,
+   sets flag 0x400 on its edge zone (which then goes) and is removed. */
 void rimmed_sinkhole_open(void)
 {
 	uint16_t child = 0, margin = 0, unseen_margin = 0;
@@ -2157,6 +2313,8 @@ void rimmed_sinkhole_open(void)
 	queue_sprite_at_depth(&ignored, &depth);
 }
 
+/* The hole's edge zone: copies the hole's sprite_scale and draw_depth and stays touchable (kind 0x1D)
+   until flag 0x400 is set, then removed. */
 void rimmed_sinkhole_edge_zone_update(void)
 {
 	uint32_t ignored = 0, object = 0;
@@ -2172,6 +2330,10 @@ void rimmed_sinkhole_edge_zone_update(void)
 	delete_current_object();
 }
 
+/* spawn_object_groups' leader of the stage 0xA sand blocks: a new group_leaders entry from the
+   leader_spawn record at record (x, y, z, direction, group_leader_data script), handler
+   sand_block_leader_move (sand_block_leader_wait while group_leader_0_held is set); sets
+   sand_block_leader_active. spawned is 0xFFFFFFFF, or 0 with no object free. */
 void spawn_sand_block_leader(uint32_t record, uint32_t *p_spawned, uint32_t *p_leader)
 {
 	uint32_t leader = *p_leader;
@@ -2212,12 +2374,18 @@ void spawn_sand_block_leader(uint32_t record, uint32_t *p_spawned, uint32_t *p_l
 	*p_leader = leader;
 }
 
+/* Waits until scroll_position reaches 0x5100 or group_leader_0_held is cleared, then
+   sand_block_leader_move from the next frame. */
 void sand_block_leader_wait(void)
 {
 	if (scroll_position >= 0x5100u || group_leader_0_held == 0u)
 		OBJECT(current_object)->handler = sand_block_leader_move_ADDRESS;
 }
 
+/* The sand blocks' leader, an invisible chaser on its group_leader_data script: on its first frame and
+   while all is well sand_block_leader_read_script; when no player is in play, one has a mishap or drops
+   in, it starts holding back (base speed 0, screen_threshold -0x20, or 0x160 in the odd directions) with
+   sand_block_leader_move_step. */
 void sand_block_leader_move(void)
 {
 	uint16_t hold_threshold = 0;
@@ -2253,6 +2421,9 @@ void sand_block_leader_move(void)
 	sand_block_leader_move_step();
 }
 
+/* While wait_timer runs it only moves; then, once scroll_position reaches the next record's position, it
+   loads screen_threshold, catch_up_factor, base_speed and wait_timer from it (a negative factor word
+   ends the script: removed). Then sand_block_leader_move_step. */
 void sand_block_leader_read_script(void)
 {
 	uint32_t path_cursor = 0;
@@ -2290,6 +2461,10 @@ void sand_block_leader_read_script(void)
 	sand_block_leader_move_step();
 }
 
+/* The leader's step: chaser_speed is base_speed on its side of screen_threshold, else the camera's
+   ground speed x catch_up_factor >> 8 (at least base_speed); a hold ends after 0x300 of scroll or 0x100
+   frames with players in play. After the wait it moves along its direction, centred on its floor block;
+   y_int 0xA2B or less clears sand_block_leader_active. */
 void sand_block_leader_move_step(void)
 {
 	uint16_t move_speed = 0;
@@ -2460,6 +2635,10 @@ void sand_block_leader_move_step(void)
 	}
 }
 
+/* A sand block, a platform eaten by its leader: once the leader's y is inside it (y + hitbox_size_y -
+   0x10), objects allowing, out come its cut face (sand_face_update) with sand streams, two clip entries
+   and sound 0x11; then hitbox_size_y shrinks to the leader's y - y, the clip line at the leader, and at
+   0 the face falls (flag 0x400) and the block goes. */
 void sand_block_update(void)
 {
 	uint8_t sound_id = 0;
@@ -2647,6 +2826,9 @@ void sand_block_update(void)
 	}
 }
 
+/* The moving cut face of a sand block (a 2-part sprite): follows the leader's y and z, animated, at
+   depth screen_y - 0x70. With flag 0x400 it falls (speed_z + 0x6000 a frame, sand_face_fall_animation)
+   until screen y 0x150, then frees its part list, sets flag 0x400 on its streams and is removed. */
 void sand_face_update(void)
 {
 	uint16_t part_list = 0;
@@ -2683,6 +2865,9 @@ void sand_face_update(void)
 	queue_sprite_at_depth(&ignored, &depth);
 }
 
+/* Falling sand under a sand block's face: removed with flag 0x400; else at the face's screen position
+   (less its sprite offsets), every part of its multi-part sprite showing sand_stream_frames[the face's
+   animation_frame], at the face's depth. */
 void sand_streams_update(void)
 {
 	uint16_t stream_frame = 0;
@@ -2712,6 +2897,9 @@ void sand_streams_update(void)
 	queue_sprite_at_depth(&ignored, &depth);
 }
 
+/* When a player starts sinking in quicksand, within 8 of its centre (check_player_contacts), with 4
+   objects free: two swirls at the player, 8 lower, from sink_swirl_effects: a streak (palette 0x1210,
+   its depth offset, handler sink_swirl_start) with a sand puff part (palette 0x1230) each. */
 uint32_t spawn_sink_swirl(uint32_t allocated)
 {
 	uint32_t effect_record = 0, ignored = 0, object = 0, swirls_left = 0;
@@ -2756,6 +2944,7 @@ uint32_t spawn_sink_swirl(uint32_t allocated)
 	return allocated;
 }
 
+/* project_object, then sink_swirl_animate from this frame on. */
 void sink_swirl_start(void)
 {
 	uint32_t ignored = 0;
@@ -2765,6 +2954,9 @@ void sink_swirl_start(void)
 	sink_swirl_animate();
 }
 
+/* Animates the swirl's streak and, at the same screen position, its sand puff part, both at depth
+   screen_y + depth_offset; once the streak's animation reaches its last step it frees the puff and is
+   removed. */
 void sink_swirl_animate(void)
 {
 	uint32_t at_last_step = 0, depth = 0, ignored = 0;

@@ -11,6 +11,9 @@
  */
 #include "game.h"
 
+/* Sets up stage 7's metal wall and its seven pieces (left half, shadow, floor cracks, four dust puffs,
+   the last two starting at dust frame 3): kind 5, health 4, a box hitbox, and with flipped set an
+   x-flipped sprite with another hitbox; handler metal_wall_wait. */
 void metal_wall_init(void)
 {
 	OBJECT(current_object)->handler = metal_wall_wait_ADDRESS;
@@ -59,6 +62,9 @@ void metal_wall_init(void)
 	OBJECT(current_object)->sprite_flags = OBJECT(object_cursor)->sprite_flags;
 }
 
+/* The metal wall waiting in the floor: measures the nearest player from 0x10 right of and below its
+   projected position (face_nearest_player); within 0x80 it starts the dust (dust_timer 0x14) and rises
+   (metal_wall_rise), else it runs metal_wall_update as it is. */
 void metal_wall_wait(void)
 {
 	uint32_t octant = 0;
@@ -78,6 +84,9 @@ void metal_wall_wait(void)
 	metal_wall_rise(octant);
 }
 
+/* Raises the metal wall out of the floor: frame_index steps through frames 0-4, one every 4 frames, then
+   rise_limit = 7 and the handler becomes metal_wall_update. Runs metal_wall_update every frame, handing
+   it octant. */
 void metal_wall_rise(uint32_t octant)
 {
 	uint16_t frame_count = 0;
@@ -99,6 +108,10 @@ void metal_wall_rise(uint32_t octant)
 	metal_wall_update(octant);
 }
 
+/* The risen metal wall. When health drops: frame_index from metal_wall_damage_frames, a hop if it lost
+   more than 1, (4 - health) * 2 debris chunks (spawn_arg_1 is last_health as a halfword) and a 2-pixel
+   screen_x nudge that move_object_projected undoes; at 0 it scatters ring_count rings and becomes
+   metal_wall_broken. Moves, lands, touchable while health remains; drawn. */
 void metal_wall_update(uint32_t octant)
 {
 	uint8_t last_health_or_debris = 0;
@@ -142,6 +155,8 @@ void metal_wall_update(uint32_t octant)
 	metal_wall_draw();
 }
 
+/* The broken metal wall: removed once off screen, else placed on screen
+   (update_screen_position_no_offset) and drawn (metal_wall_draw). */
 void metal_wall_broken(void)
 {
 	uint32_t deleted = 0, ignored = 0;
@@ -153,6 +168,10 @@ void metal_wall_broken(void)
 	metal_wall_draw();
 }
 
+/* Draws the metal wall: its sprite by frame_index (metal_wall_sprites) at depth screen_y - 0x14 (bucket
+   0xFE once broken); pieces 1-3, the left half, shadow and floor cracks, from metal_wall_part_tables
+   (the flipped offsets when flipped); and while dust_timer counts down, every other frame, four dust
+   puffs, two at its base and two above them. */
 void metal_wall_draw(void)
 {
 	uint8_t bucket = 0, health = 0;
@@ -251,6 +270,9 @@ void metal_wall_draw(void)
 	}
 }
 
+/* Sets up stage 7's how-to-play hand over the button: a multi-part sprite (part_list
+   how_to_play_button_hand_parts, animation how_to_play_button_hand_animation) at screen 0x42, 0xB5, with
+   next_press at the first pair of how_to_play_button_presses; handler how_to_play_button_hand_update. */
 void how_to_play_button_hand_start(void)
 {
 	OBJECT(current_object)->sprite_flags = 0xD000u;
@@ -267,6 +289,10 @@ void how_to_play_button_hand_start(void)
 	OBJECT(current_object)->handler = how_to_play_button_hand_update_ADDRESS;
 }
 
+/* Stage 7's hand on the button, removed once stage is not 7. When game_mode_timer reaches the time of
+   next_press's (time, frame) pair it sets that animation_frame and steps it (animate_part_list_step, so
+   the part list after it shows), then moves to the next pair; at 0xC8 it opens message box kind 0xC.
+   Queued at depth 0xEE. */
 void how_to_play_button_hand_update(void)
 {
 	uint16_t frames = 0, kind = 0, screen_x = 0, screen_y = 0;
@@ -295,6 +321,9 @@ void how_to_play_button_hand_update(void)
 	queue_sprite_at_depth(&ignored, &depth);
 }
 
+/* Sets up stage 7's hand on the trackball: sprite 0x71C8 at screen 0xFB, 0xB3 (projected_x keeps that x,
+   the hand's rest point), and as its child a second-pool block for the ball, sprite 0x71C0 0x38 left of
+   and 8 above it, which how_to_play_trackball_animation turns every 4 frames. */
 void how_to_play_trackball_hand_start(void)
 {
 	uint32_t free_count = 0, ignored = 0, object = 0;
@@ -330,6 +359,10 @@ void how_to_play_trackball_hand_start(void)
 	}
 }
 
+/* Stage 7's hand on the trackball, removed with the ball once stage is not 7. From game_mode_timer 0x32
+   it rubs the ball (step: down-left to 0x20 left of projected_x, 8 frames' rest, back) while the ball
+   turns. At timer 0xA it lights up until 0xBE and opens message boxes kinds 0xD and 0xB; from 0x20 the
+   scroll runs at speed 0x10. */
 void how_to_play_trackball_hand_update(void)
 {
 	uint8_t last_step = 0;
@@ -437,6 +470,8 @@ void how_to_play_trackball_hand_update(void)
 	queue_sprite_at_depth(&ignored, &depth);
 }
 
+/* Sets up stage 7's control panel strip (sprite 0x71F0, palette 0x8780) at screen 0, 0x88 and shows it:
+   handler how_to_play_panel_show. */
 void how_to_play_panel_start(void)
 {
 	OBJECT(current_object)->sprite_flags = 0x100Au;
@@ -448,6 +483,7 @@ void how_to_play_panel_start(void)
 	how_to_play_panel_show();
 }
 
+/* Stage 7's control panel strip: queued at depth 0xEC while stage is 7, removed otherwise. */
 void how_to_play_panel_show(void)
 {
 	uint32_t depth = 0, ignored = 0;
@@ -461,6 +497,8 @@ void how_to_play_panel_show(void)
 	delete_current_object();
 }
 
+/* Sets up stage 6's opening ground rushing toward the viewer: opening_ground_animation, a step every
+   frame, palette 0x9120, at x 0xA0, y 0xB8 (screen coordinates); handler opening_ground_run. */
 void opening_ground_start(void)
 {
 	OBJECT(current_object)->sprite_flags = 0x1000u;
@@ -476,6 +514,9 @@ void opening_ground_start(void)
 	OBJECT(current_object)->animation_speed = 1u;
 }
 
+/* Stage 6's rushing ground: removed once scene_step reaches 2; moves by speed_y, shows at its x/y shaken
+   up or down by stage_06_shake_pixels (stage_06_shake_sign picks which), animates and is queued at depth
+   0x20. */
 void opening_ground_run(void)
 {
 	uint16_t shake_dy = 0;
@@ -498,6 +539,8 @@ void opening_ground_run(void)
 	queue_sprite_at_depth(&ignored, &depth);
 }
 
+/* Sets up stage 6's opening machine: scene_step_seen = 0xFF, so that its handler, opening_machine_update
+   (run at once), sets it up for the current scene_step. */
 void opening_machine_start(void)
 {
 	OBJECT(current_object)->opening_machine.scene_step_seen = 0xFFu;
@@ -505,6 +548,10 @@ void opening_machine_start(void)
 	opening_machine_update();
 }
 
+/* Stage 6's opening machine, set up again on entering scene_step 0, 1, 2 or 4. In steps 0, 1 and 4 the
+   giant head (a multi-part sprite, opening_machine_object) runs its phase (leap in, approach, lunge,
+   mouth, engulf, hold), shaken with the ground; in steps 2 and 3 it flies off into the distance,
+   sprite_scale 0x4000 / (zoom + 0x10), with its shadow. */
 void opening_machine_update(void)
 {
 	uint16_t shake_dy = 0;
@@ -613,6 +660,9 @@ void opening_machine_update(void)
 	}
 }
 
+/* The opening machine leaps in from below: from scene_timer 0x3C it moves by speed_y under gravity
+   0x6000 (at depth 0x10, behind, while going up); landing at y 0x63 it starts the shake (stage_06_shake
+   0x800), the landed animation and sound 0xA, and moves to the next phase. */
 void opening_machine_leap_in(void)
 {
 	uint8_t sound_id = 0;
@@ -640,6 +690,9 @@ void opening_machine_leap_in(void)
 	}
 }
 
+/* The landed opening machine comes closer: it grows by zoom_speed a frame (sprite_scale = zoom) while
+   the landing shake decays (stage_06_shake - 0x80 a frame down to 0, stage_06_shake_sign flipping every
+   frame); the next phase once scene_timer passes 0xC0. */
 void opening_machine_approach(void)
 {
 	uint16_t shake_before = 0;
@@ -663,6 +716,8 @@ void opening_machine_approach(void)
 		OBJECT(current_object)->opening_machine.phase++;
 }
 
+/* The opening machine lunges at the viewer: it grows faster every frame (zoom_speed + 0x1000), moves up
+   once sprite_scale reaches 0x1B3, and goes to the next phase at zoom 0x32B. */
 void opening_machine_lunge(void)
 {
 	OBJECT(current_object)->opening_machine.zoom_speed += 0x1000u;
@@ -674,6 +729,9 @@ void opening_machine_lunge(void)
 		OBJECT(current_object)->opening_machine.phase++;
 }
 
+/* Turns the machine's multi-part sprite into the single sprite of its open jaws (0x7198, palette
+   0x8510), moved down by 0x1E pixels times the zoom, and goes straight on to the next phase,
+   opening_machine_engulf. */
 void opening_machine_show_mouth(void)
 {
 	OBJECT(current_object)->opening_machine.phase++;
@@ -684,6 +742,8 @@ void opening_machine_show_mouth(void)
 	opening_machine_engulf();
 }
 
+/* The machine's open jaws swallow the screen: zoom grows by zoom_speed, itself + 1 a frame (sprite_scale
+   = zoom); at 0x5B0 the next phase (opening_machine_hold) and palette 0x87A0, black. */
 void opening_machine_engulf(void)
 {
 	OBJECT(current_object)->opening_machine.zoom_speed += 0x10000u;
@@ -699,10 +759,16 @@ void opening_machine_engulf(void)
 	opening_machine_hold();
 }
 
+/* The opening machine's last phase: an empty function; the machine stays as opening_machine_engulf left
+   it, still drawn by opening_machine_update. */
 void opening_machine_hold(void)
 {
 }
 
+/* Places the opening machine's shadow, its child, as the machine flies away: the shadow's sprite_width
+   and sprite_height hold its x and y offsets, scaled by the machine's sprite_scale and added to the
+   machine's screen position; it takes the same sprite_scale and is queued at the machine's screen_y -
+   0x10. */
 void draw_opening_machine_shadow(void)
 {
 	uint16_t scaled_dy = 0;
@@ -719,6 +785,7 @@ void draw_opening_machine_shadow(void)
 	queue_sprite_at_depth(&ignored, &depth);
 }
 
+/* Unused: an empty function, a lone return the original leaves after draw_opening_machine_shadow. */
 void draw_opening_machine_shadow_spare_return(void)
 {
 }

@@ -652,6 +652,7 @@ def write_c(program, out_dir, trace=False, variables_path=None, split_webs=False
     emitter.trampolines = trampolines(built)
     emitter.data_labels = {address: name for address, name in data_names.items() if address not in named.tables}
     emitter.code_labels = {address: symbol.name for address, symbol in program.symbols.items() if symbol.kind == "code"}
+    emitter.comments = dict(known.comments)
     entries_by_name = {name: entry for entry, name in names.items()}
     unknown = sorted(function for function, _ in known.params if function not in entries_by_name)
     if unknown:
@@ -687,6 +688,11 @@ def write_c(program, out_dir, trace=False, variables_path=None, split_webs=False
             texts[entry] = writer.write()
         except emit.EmitError as problem:
             problems.append((entry, str(problem)))
+    # a result some call gives the same variable as another one keeps a copy of its own: written again
+    emitter.shared_results = emit.shared_results(texts.values())
+    for entry in texts:
+        if emitter.shared_results.get(emitter.names.get(entry)):
+            texts[entry] = writers[entry].write()
     if variables_path is not None:
         write_variables(variables_path, writers, names, texts)
     if fields_path is not None:

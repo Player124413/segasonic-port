@@ -11,6 +11,8 @@
  */
 #include "game.h"
 
+/* Stage list object of stage 5: sprite 0x7348, palette 0x91A0, sprite_flags 0x1004, z 0; projected, then
+   exit_door_wait_for_switch. */
 void exit_door_start(void)
 {
 	uint32_t ignored = 0;
@@ -26,6 +28,8 @@ void exit_door_start(void)
 	project_object(&ignored, &ignored);
 }
 
+/* exit_door_show until stage_05_switch_step is 2; then it becomes sprite 0x71A0, palette 0x9140, moved
+   to x 0x1E2, y 0x154C and projected, with exit_door_show from then on. */
 void exit_door_wait_for_switch(void)
 {
 	uint32_t ignored = 0;
@@ -43,6 +47,7 @@ void exit_door_wait_for_switch(void)
 	project_object(&ignored, &ignored);
 }
 
+/* Drawn (queue_sprite) until its screen_y reaches 0x130, then removed. */
 void exit_door_show(void)
 {
 	uint32_t depth = 0, ignored = 0;
@@ -56,6 +61,8 @@ void exit_door_show(void)
 	delete_current_object();
 }
 
+/* Stage list object of stage 5: a patch of stone floor tiles (sprite 0x7050, palette 0xB0E0,
+   sprite_flags 0x1008), z 0; projected, then stage_05_floor_patch_show. */
 void stage_05_floor_patch_start(void)
 {
 	uint32_t ignored = 0;
@@ -71,6 +78,7 @@ void stage_05_floor_patch_start(void)
 	project_object(&ignored, &ignored);
 }
 
+/* Drawn (queue_sprite) while stage is 5, else removed. */
 void stage_05_floor_patch_show(void)
 {
 	uint32_t depth = 0, ignored = 0;
@@ -84,6 +92,9 @@ void stage_05_floor_patch_show(void)
 	delete_current_object();
 }
 
+/* Stage list object (stages 5, 8, 0xB, 0xC): a bubble that swells and pops (bubble_animation, speed 4),
+   z from bubble_heights[sprite_frame] (its variant), base_x/base_y its position, palette 0x9000 (0xD000
+   in stage 8, 0x10B0 outside stages 5 and 8); projected, then bubble_update. */
 void bubble_start(void)
 {
 	uint32_t ignored = 0;
@@ -110,6 +121,8 @@ void bubble_start(void)
 	project_object(&ignored, &ignored);
 }
 
+/* In stages 5, 8, 0xB and 0xC outside game mode 0x20 (YOU FAILED): draw_depth = screen_y, then
+   bubble_pop; anywhere else removed. */
 void bubble_update(void)
 {
 	if ((stage == 0xCu || stage == 8u || stage == 0xBu || stage == 5u) && current_game_mode != 0x20u)
@@ -121,6 +134,8 @@ void bubble_update(void)
 	delete_current_object();
 }
 
+/* A lava column turned bubble (lava_column_become_bubble): bubble_pop at draw_depth 0xFFF0 (under
+   everything) while its y_int is greater than its parent's y_int + 0xB0; removed once it is not. */
 void bubble_near_parent_update(void)
 {
 	if ((int16_t)(OBJECT(LINKED(current_object, OBJECT(current_object)->parent))->y_int + 0xB0u) < OBJECT(current_object)->y_int)
@@ -132,6 +147,10 @@ void bubble_near_parent_update(void)
 	delete_current_object();
 }
 
+/* Removed when map_screen_active is set or it has left the screen; otherwise animated and drawn at its
+   draw_depth. Each time its animation wraps (a pop) it takes a new animation speed 1-8: variant 6 at
+   random; the others first move to base_x and base_y plus one random offset (-0xF to 0xF) on both, the
+   speed from the new x_int's low bits. */
 void bubble_pop(void)
 {
 	uint16_t jitter_y = 0;
@@ -177,6 +196,9 @@ void bubble_pop(void)
 	queue_sprite_at_depth(&ignored, &depth);
 }
 
+/* Stage list object of stage 5: the spiked press (sprite 0x7070), kind 9, box 0xE0 x 0x20, height 0xE0,
+   speed_y 0x2000, on its floor; it becomes spiked_press_object, stops the scroll (scroll_mode 1),
+   freezes the players and spawns Eggman's booth (spawn_eggman_booth); then spiked_press_update. */
 void spiked_press_start(void)
 {
 	uint32_t r0 = 0, r2 = 0, r3 = 0, r11 = 0, ignored = 0;
@@ -209,6 +231,10 @@ void spiked_press_start(void)
 	spawn_eggman_booth(r0, ignored, r3, &r2, &r11);
 }
 
+/* Counts frames in game modes 3 and 0xA: at 0x14 a message box and at 0x50 a voice by caged_character,
+   at 0xC8 the "BREAK!!" sign and arrow, players unfrozen, at 0x168 sign 3. From 0xC8 it creeps along y
+   (sound 0xD every 0x3C frames), pausing 0x100 frames when no one is in play or one drops in, to y
+   0x3D0: scroll speed 5. */
 void spiked_press_update(void)
 {
 	uint8_t sound = 0;
@@ -334,6 +360,9 @@ void spiked_press_update(void)
 	queue_sprite_at_depth(&ignored, &depth);
 }
 
+/* Stage list object of stage 5: once ten objects are free, ten bars 0x18 apart in x from its position
+   (sprite 0x7058, kind 0xC, box 0x20 x 0x10, height 0xE0, cage_bar_animation, handler cage_bar_start),
+   cage_bar_hit cleared; then removes itself. */
 void cage_start(void)
 {
 	uint32_t ignored = 0, object = 0;
@@ -377,6 +406,7 @@ void cage_start(void)
 	delete_current_object();
 }
 
+/* Projects the bar, then cage_bar_update from this frame on. */
 void cage_bar_start(void)
 {
 	uint32_t ignored = 0;
@@ -386,6 +416,10 @@ void cage_bar_start(void)
 	cage_bar_update();
 }
 
+/* A bar of the stage 5 cage, kept at health 5. Once the spiked press has counted 0xC8 frames, a hit by
+   an attacking player bends it (the next frame of cage_bar_animation, cage_bar_hit set, sound 0x21) and
+   the next breaks it: 8 frames later the broken frame 1 pixel right, no longer touchable. Removed
+   outside stage 5 or off screen. */
 void cage_bar_update(void)
 {
 	uint8_t sound_id = 0;

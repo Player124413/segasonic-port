@@ -11,6 +11,10 @@
  */
 #include "game.h"
 
+/* Sets up a vine: segment_count - 1 pieces (sprite 0x6E68), then the bar, a two-part object (sprite
+   0x6E70, kind 0xA, vine_bar_update, its part the shadow 0x5D90) chained after them, current_player
+   serving as the chain's last link; speed = phase_step << 16, base_x = x, depth_offset = segment_count *
+   8, floor_z = z; then vine_swing. */
 void vine_init(void)
 {
 	uint32_t block = 0, free_count = 0, ignored = 0, object = 0, object_2 = 0, object_3 = 0, spawned = 0;
@@ -71,6 +75,10 @@ void vine_init(void)
 	project_object(&ignored, &ignored);
 }
 
+/* Swings the vine: its phase (speed_z) grows by speed, the curl speed_y = sine_table[phase] *
+   curl_scale; each segment steps 0x18 * the sine and cosine of an angle growing by the curl in x and z,
+   leaving the vine's x and z at the tip. holding is 0 only at phase 0x9F-0x110 without
+   vines_hold_players. Deleted at screen_x +-0x200 (vines_hold_players = 0xFF). */
 void vine_swing(void)
 {
 	uint8_t bucket = 0;
@@ -129,6 +137,10 @@ void vine_swing(void)
 	} while ((int16_t)speed_x_fraction > 1);
 }
 
+/* The bar at the vine's tip: the vine's x, y, z and holding, moved to match where vine_swing drew it;
+   touchable and in the rider list (players jumping into it are held until holding is 0), its height
+   reaching its floor (up to 0x50). Its shadow while on a platform; "CATCH!!" (spawn_sign kind 7) while
+   holding is 1 over a floor. */
 void vine_bar_update(void)
 {
 	uint16_t kind = 0, screen_dy = 0, screen_x = 0, x_int = 0, y_int = 0, z = 0;
@@ -180,6 +192,8 @@ void vine_bar_update(void)
 	}
 }
 
+/* The invisible scroll stop at the vines: sets vines_hold_players, so held players cannot let go of the
+   bars, and starts vine_scroll_stop_wait. */
 void vine_scroll_stop_init(void)
 {
 	vines_hold_players = 1u;
@@ -187,6 +201,9 @@ void vine_scroll_stop_init(void)
 	vine_scroll_stop_wait();
 }
 
+/* Stops the scroll (scroll_mode and saved_scroll_mode 1) once scroll_position reaches spawn_arg_1 and
+   goes on to vine_scroll_stop_hold. Before that position it already runs vine_scroll_stop_hold every
+   frame, which can restart the scroll and skip the stop. */
 void vine_scroll_stop_wait(void)
 {
 	if ((int16_t)scroll_position < (int16_t)OBJECT(current_object)->spawn_arg_1)
@@ -200,6 +217,10 @@ void vine_scroll_stop_wait(void)
 	vine_scroll_stop_hold();
 }
 
+/* Restarts the scroll (scroll_mode and saved_scroll_mode 0, scroll_speed 8) and goes on to
+   vine_scroll_stop_end once every player's object (vine_scroll_stop_player_blocks) is out (flags 0x400),
+   held on a bar (flags 0x10000) or at x_int -0x120 or more; until then it runs vine_scroll_stop_end's
+   check. */
 void vine_scroll_stop_hold(void)
 {
 	uint32_t all_clear = 0, player_index = 0, player_object = 0;
@@ -239,6 +260,8 @@ void vine_scroll_stop_hold(void)
 	vine_scroll_stop_end();
 }
 
+/* Once scroll_position passes spawn_arg_2: scroll_mode and saved_scroll_mode 7 (follow the players),
+   vines_hold_players = 0, and the stop object deletes itself. */
 void vine_scroll_stop_end(void)
 {
 	uint32_t ignored = 0;
@@ -252,6 +275,10 @@ void vine_scroll_stop_end(void)
 	}
 }
 
+/* Builds the machine at the end of stage 4 as one chain from the box (sprite 0x6258, kind 0xC, health
+   0x28, time_left 0xE10, flame_machine_update): its floor piece, the capsule's two pieces and shadow,
+   the back wall with two rods, two arms (arm_index 0 and 1, side 1 and -1) and two cannons (spawn_arg_1
+   0 and 1). flame_machine_flags = 2. */
 void flame_machine_init(void)
 {
 	uint16_t back_wall = 0;
@@ -365,6 +392,8 @@ void flame_machine_init(void)
 	flame_machine_flags |= 2u;
 }
 
+/* The box: time_left counts down while active_player_count is non-zero, and when it runs out the machine
+   breaks (flame_machine_destroyed); otherwise flame_machine_draw. */
 void flame_machine_update(void)
 {
 	uint16_t time_left = 0;
@@ -382,6 +411,10 @@ void flame_machine_update(void)
 	flame_machine_draw();
 }
 
+/* Draws the box, touchable. A hit (health no longer previous_health) starts the flash:
+   flame_machine_flags 0x1000, flame_machine_flash_step 4, sound 0x21, then per step a
+   flame_machine_hit_palettes palette and sound 0x1E. Then its floor piece, the capsule (animated every
+   other frame), its second piece and the shadow; at health 0, flame_machine_destroyed. */
 void flame_machine_draw(void)
 {
 	uint8_t sound_id = 0;
@@ -461,6 +494,10 @@ void flame_machine_draw(void)
 	}
 }
 
+/* The machine breaks: goal_unlocked = 0xFF, flame_machine_flags 0x100000 (destroyed), health 0. Every
+   8th of its destroyed_frames an explosion (flame_machine_explosion_start) at a random spot over the
+   box; at 0x130, flame_machine_remove and the wreck (flame_machine_wreck_draw) at projected 0x1B2F,
+   0x14F. */
 void flame_machine_destroyed(uint32_t free_count, uint32_t first, uint32_t block)
 {
 	uint32_t ignored = 0, object = 0, object_2 = 0, spawned = 0;
@@ -515,10 +552,14 @@ void flame_machine_destroyed(uint32_t free_count, uint32_t first, uint32_t block
 	current_object = object_cursor;
 }
 
+/* Unused: an empty function, a lone return the original left between flame_machine_destroyed and
+   flame_machine_remove. */
 void flame_machine_update_spare_return(void)
 {
 }
 
+/* The broken machine's last frame: electric_fence_state = 0xFF, so the electric fence's posts delete
+   themselves, and the machine is deleted with all its parts. */
 void flame_machine_remove(void)
 {
 	uint32_t ignored = 0;
@@ -527,6 +568,8 @@ void flame_machine_remove(void)
 	delete_object_and_children(&ignored, &ignored, &ignored);
 }
 
+/* One of the breaking machine's explosions: speed 0x20, direction 0x80, 8 debris chunks (spawn_debris),
+   then explode_object. */
 void flame_machine_explosion_start(void)
 {
 	uint16_t count = 0;
@@ -538,6 +581,10 @@ void flame_machine_explosion_start(void)
 	explode_object();
 }
 
+/* The back wall: unless the machine is destroyed or an arm is active (0x10, 0x20), it steps
+   flame_machine_back_wall_frames every 3 frames, placed by flame_machine_back_wall_offsets from the box,
+   rods by flame_machine_rod_sprites. Frame 5 starts both arms; the cycle's end sets 4, 8 (fire), 0x400,
+   0x800 (take discs), clears 0x200, pauses 0x1E frames. */
 void flame_machine_back_wall_update(void)
 {
 	uint16_t rod_sprite = 0;
@@ -627,6 +674,10 @@ void flame_machine_back_wall_update(void)
 	queue_sprite_at_depth(&ignored, &depth);
 }
 
+/* Arm arm_index, not run once the machine is destroyed: bit 0x400 << arm_index gives it a disc; with bit
+   0x10 << arm_index (active) it steps flame_machine_arm_frames every other frame; frame 0xC sets bit
+   0x40 << arm_index and it sways (sway_step) until sway_count passes 0x26, then 0x200 (discs dropped)
+   and flame_machine_arm_rest; frame 0xD ends. */
 void flame_machine_arm_update(void)
 {
 	uint32_t r2 = 0, r3 = 0, r11 = 0, frame_number = 0, ignored = 0;
@@ -702,6 +753,8 @@ void flame_machine_arm_update(void)
 	flame_machine_arm_draw();
 }
 
+/* Holds the arm for rest_timer (0x1E) frames, then clears its sway bit in flame_machine_flags (0x40 <<
+   arm_index) and goes back to flame_machine_arm_update. */
 void flame_machine_arm_rest(void)
 {
 	OBJECT(current_object)->flame_machine_arm.rest_timer--;
@@ -716,6 +769,9 @@ void flame_machine_arm_rest(void)
 	flame_machine_arm_draw();
 }
 
+/* Places the arm at the back wall's projected position plus (spawn_arg_1, spawn_arg_2) and its sway
+   offset (flame_machine_arm_sway_offsets[sway_step]) times side; queues it at the depth of the second
+   arm's screen_y - 1, and its part at its screen position in bucket arm_index * 4. */
 void flame_machine_arm_draw(void)
 {
 	uint8_t bucket = 0;
@@ -748,6 +804,10 @@ void flame_machine_arm_draw(void)
 	queue_sprite_in_bucket(bucket);
 }
 
+/* A cannon (spawn_arg_1 0 or 1): drawn, touchable (health 0x7F), flashing with the box
+   (flame_machine_cannon_hit_palettes[flame_machine_flash_step]). When its fire bit (4 << spawn_arg_1) is
+   set it spawns a flame (sprite 0x6910, kind 0x17) at flame_machine_flame_offsets[spawn_arg_1] with
+   flame_machine_flame_burn and clears the bit. */
 void flame_machine_cannon_update(void)
 {
 	uint32_t r2 = 0, r11 = 0, fire_bit_or_spawned = 0, ignored = 0, object = 0, offset_record = 0, spawn_arg_1 = 0;
@@ -789,6 +849,10 @@ void flame_machine_cannon_update(void)
 	}
 }
 
+/* A cannon's flame: every other frame the next of flame_machine_flame_frames (kept in spawn_arg_2;
+   sprites from flame_machine_flame_sprites), touchable on those frames from frame 2, deleted at frame
+   0xB. Placed 0x20 above its z, its shadow on the floor at frames 2-4; explodes when the machine is
+   destroyed. */
 void flame_machine_flame_burn(void)
 {
 	uint32_t bucket = 0, depth = 0, flame_frame = 0, ignored = 0;
@@ -832,6 +896,9 @@ void flame_machine_flame_burn(void)
 	explode_object();
 }
 
+/* Hands the arm a spiked disc: a two-part object at the arm (sprite 0x6278, sprite_scale 0xC0, kind
+   0x24, which hurts players; spawn_arg_1 = arm_index) with spiked_disc_hold, its part the shadow
+   (0x6988); clears the arm's take-disc bit (0x400 << arm_index). */
 void flame_machine_arm_take_disc(uint32_t free_count, uint32_t disc, uint32_t block)
 {
 	uint32_t disc_flag_bit = 0, ignored = 0, object = 0;
@@ -860,6 +927,9 @@ void flame_machine_arm_take_disc(uint32_t free_count, uint32_t disc, uint32_t bl
 	OBJECT(object)->sprite_palette = 0x9FFEu;
 }
 
+/* Holds the disc on its arm (its parent): the arm's position (copy_position_to_cursor) plus
+   spiked_disc_hold_offsets[the arm's frame_index] in projected x and z, arm_frame keeping that frame.
+   Once flame_machine_flags has 0x200 (discs dropped) it goes on to spiked_disc_drop. */
 void spiked_disc_hold(void)
 {
 	uint32_t arm_frame_index = 0, offset_record = 0;
@@ -877,6 +947,8 @@ void spiked_disc_hold(void)
 	spiked_disc_draw_held();
 }
 
+/* Lets the dropped disc fall to its floor (fall_to_floor), then goes on to spiked_disc_roll; drawn by
+   spiked_disc_draw_held. */
 void spiked_disc_drop(void)
 {
 	uint32_t height = 0, ignored = 0;
@@ -891,6 +963,9 @@ void spiked_disc_drop(void)
 	spiked_disc_draw_held();
 }
 
+/* Moves the disc (move_object_projected) and queues it in bucket (spawn_arg_1 + 1) * 2, then its shadow
+   and spiked_disc_spin. The test for arm frame 8 reads arm_frame as a halfword with spin_toggle's low
+   byte, 1 after the disc's first frame, so from then on the shadow is drawn whatever the frame. */
 void spiked_disc_draw_held(void)
 {
 	uint8_t bucket = 0;
@@ -907,6 +982,9 @@ void spiked_disc_draw_held(void)
 	spiked_disc_spin();
 }
 
+/* Rolls toward the players: moves, falls to its floor and is deleted once off screen; else its speed is
+   set along angle 0x154 at 0x300 (direction_to_speed) and it is queued at screen_y + 0x18, with its
+   shadow, then spiked_disc_spin. */
 void spiked_disc_roll(void)
 {
 	uint32_t deleted = 0, depth = 0, direction = 0, ignored = 0, speed = 0, speed_x = 0, speed_y = 0;
@@ -926,6 +1004,8 @@ void spiked_disc_roll(void)
 	spiked_disc_draw_shadow();
 }
 
+/* Draws the disc's shadow part at its floor (place_sprite_at_cursor_floor), 0x28 lower, then
+   spiked_disc_spin. */
 void spiked_disc_draw_shadow(void)
 {
 	uint32_t bucket = 0;
@@ -938,6 +1018,9 @@ void spiked_disc_draw_shadow(void)
 	spiked_disc_spin();
 }
 
+/* Explodes the disc once the machine is destroyed. Else steps its spin through the four
+   spiked_disc_sprites and makes it touchable (health 0x7F) and a rider; spin_toggle, set back to 1 each
+   time, lets that happen every frame after the first instead of every other. */
 void spiked_disc_spin(void)
 {
 	uint16_t odd_frame = 0;
@@ -962,6 +1045,8 @@ void spiked_disc_spin(void)
 	}
 }
 
+/* Stops the scroll (scroll_mode 1) once scroll_position reaches spawn_arg_1, then
+   flame_machine_scroll_stop_hold. Object type 8, which no stage list spawns, so it never runs. */
 void flame_machine_scroll_stop_wait(void)
 {
 	if ((int16_t)scroll_position < (int16_t)OBJECT(current_object)->spawn_arg_1)
@@ -971,16 +1056,22 @@ void flame_machine_scroll_stop_wait(void)
 	flame_machine_scroll_stop_hold();
 }
 
+/* Sets scroll_mode 7 (follow the players) every frame once flame_machine_flags has 0x100000 (the machine
+   destroyed). Object type 8, which no stage list spawns. */
 void flame_machine_scroll_stop_hold(void)
 {
 	if ((flame_machine_flags & 0x100000u) != 0u)
 		scroll_mode = 7u;
 }
 
+/* The handler object_types gives type 9: an empty function. No stage list spawns the type. */
 void object_type_9_idle(void)
 {
 }
 
+/* The machine's wreck: the scorched ground (sprite 0x8360) in bucket 0xFE and two wrecked pieces at
+   (0x6C, -0x66) and (-0x21, -0x27) from it in buckets 0xFD and 0xFC; deleted once map_screen_active is
+   set. */
 void flame_machine_wreck_draw(void)
 {
 	uint8_t bucket = 0;
@@ -1009,6 +1100,10 @@ void flame_machine_wreck_draw(void)
 	queue_sprite_in_bucket(bucket);
 }
 
+/* Builds the electric fence (electric_fence_state = 1): this post and extra_posts more, each a new
+   two-part object fence_post_offsets[row_direction] from the one before (kept in current_player). A
+   post: sprite 0x6CA8, kind 0xE, height 0x64, box by row_direction, fence_post_start; its part the arc
+   (sprite 0x6C88, fence_arc_flags, arc_phase). */
 void fence_post_init(void)
 {
 	uint16_t arc_phase = 0;
@@ -1061,6 +1156,8 @@ void fence_post_init(void)
 	}
 }
 
+/* Joins the rider list, places the post from its projected position (unproject_object) and goes on to
+   fence_post_update. */
 void fence_post_start(void)
 {
 	uint32_t ignored = 0;
@@ -1070,6 +1167,10 @@ void fence_post_start(void)
 	OBJECT(current_object)->handler = fence_post_update_ADDRESS;
 }
 
+/* While electric_fence_state is 1 it draws the post's arc toward the next post (fence_arc_offsets, the
+   next of fence_arc_frames every other frame, the arc's handler_low the toggle) and the post; at 0xFF it
+   deletes the post; any other value makes it a plain post (kind 5, box 0x1B x 0x19) left to
+   fence_post_draw. */
 void fence_post_update(void)
 {
 	uint16_t offset_x = 0, offset_y = 0;
@@ -1129,6 +1230,8 @@ void fence_post_update(void)
 	fence_post_draw();
 }
 
+/* Places the post from its projected position, lets it fall to its floor and deletes it once off screen;
+   else queues it, touchable (health 0x7F) and in the rider list. */
 void fence_post_draw(void)
 {
 	uint32_t deleted = 0, ignored = 0;
@@ -1145,6 +1248,9 @@ void fence_post_draw(void)
 	}
 }
 
+/* A catapult of stage 4 that throws players along +x: keeps template offset 0 (spoon sprites
+   0x6BE0-0x6C08, launch kind 6) in catapult.state and waits in the rider list for a platform
+   (catapult_wait_for_platform). */
 void catapult_x_start(void)
 {
 	OBJECT(current_object)->catapult.state = 0u;
@@ -1153,6 +1259,9 @@ void catapult_x_start(void)
 	add_to_rider_list();
 }
 
+/* A catapult of stage 4 that throws players along +y: keeps template offset 0x1A (sprites 0x6C10-0x6C58
+   with a separate base, launch kind 7) in catapult.state and waits in the rider list for a platform
+   (catapult_wait_for_platform). */
 void catapult_y_start(void)
 {
 	OBJECT(current_object)->catapult.state = 0x1Au;
@@ -1161,6 +1270,8 @@ void catapult_y_start(void)
 	add_to_rider_list();
 }
 
+/* Stays in the rider list until it stands on a platform (flags 8), then sets rides_platform to 0xFF and
+   sets itself up from the template offset kept in catapult.state (catapult_wait_for_platform_setup). */
 void catapult_wait_for_platform(void)
 {
 	uint32_t state = 0;
@@ -1175,6 +1286,8 @@ void catapult_wait_for_platform(void)
 	add_to_rider_list();
 }
 
+/* Unused: sets up catapult_y_start's catapult at once, on the floor: rides_platform 0, flags 0,
+   catapult_wait_for_platform_setup with template offset 0x1A and object. */
 void catapult_y_start_on_floor(uint32_t object)
 {
 	uint32_t template_offset = 0;
@@ -1185,6 +1298,8 @@ void catapult_y_start_on_floor(uint32_t object)
 	catapult_wait_for_platform_setup(template_offset, object);
 }
 
+/* Unused: sets up catapult_x_start's catapult at once, on the floor: rides_platform 0, flags 0,
+   catapult_wait_for_platform_setup with template offset 0 and object. */
 void catapult_x_start_on_floor(uint32_t object)
 {
 	uint32_t template_offset = 0;
@@ -1195,6 +1310,10 @@ void catapult_x_start_on_floor(uint32_t object)
 	catapult_wait_for_platform_setup(template_offset, object);
 }
 
+/* Sets the catapult up from object_pair_templates + template_offset (catapult_pair_template): handler,
+   animation, launch_kind, anchored on its floor; with a catapult_launch_delays[sprite_frame] delay,
+   state 4 as kind 5 until launch_position, else state 0 as launch_kind. Adds its base part (deleting
+   itself when none is free) and, with a delay, a dummy part. */
 void catapult_wait_for_platform_setup(uint32_t template_offset, uint32_t object)
 {
 	uint16_t launch_delay = 0;
@@ -1285,6 +1404,10 @@ void catapult_wait_for_platform_setup(uint32_t template_offset, uint32_t object)
 	}
 }
 
+/* Deletes the catapult and its base part once it has left the screen. Else runs catapult.state (0 and 5
+   wait for a rider, 1 swing up, 2 hold, 3 swing down, 4 wait for the scroll) with current_player on the
+   base part, takes its platform's z when rides_platform, is touchable and queued at screen_y - 0x14 (+
+   0x14 in states 1-3). */
 void catapult_update(void)
 {
 	uint16_t depth_offset = 0;
@@ -1339,6 +1462,8 @@ void catapult_update(void)
 	queue_sprite_at_depth(&ignored, &depth);
 }
 
+/* Shows frame 1 (pressed) while touched (flags 4), else frame 0; touched with touch_distance at most
+   0x211, it throws (catapult_launch). */
 void catapult_wait_for_rider(void)
 {
 	uint32_t frame = 0, steps = 0;
@@ -1354,6 +1479,8 @@ void catapult_wait_for_rider(void)
 	catapult_launch();
 }
 
+/* Throws: state 1 from frame 1 at animation speed 3, forwards (flags 0x80 cleared), sound 0x1D. A player
+   touching it in state 1 is launched (check_player_contacts). */
 void catapult_launch(void)
 {
 	uint8_t sound_id = 0;
@@ -1368,6 +1495,8 @@ void catapult_launch(void)
 	play_sound(sound_id, &ignored, &ignored);
 }
 
+/* Swings the spoon up around its anchor (animate_around_anchor); after the last step, state 2 with
+   animation_speed 0x32 and animation_timer 3 for catapult_hold_up. */
 void catapult_swing_up(void)
 {
 	uint32_t at_last_step = 0;
@@ -1381,6 +1510,10 @@ void catapult_swing_up(void)
 	}
 }
 
+/* Holds the spoon up for animation_speed (0x32) frames, wobbling between frames 4 and 5 every 3 frames,
+   the last 0x1E frames on frame 4; then state 3 from frame 4 at speed 4, animating backwards (flags
+   0x80). The 4 it stores in those last frames goes to current_player, the base part (set by
+   catapult_update), and catapult_base_update overwrites it. */
 void catapult_hold_up(void)
 {
 	uint32_t frame = 0, steps = 0;
@@ -1417,6 +1550,8 @@ void catapult_hold_up(void)
 	set_step_around_anchor(frame, steps);
 }
 
+/* Swings the spoon back down around its anchor; at frame 1 or below it shows frame 0 and goes back to
+   state 0, its kind set back to launch_kind. */
 void catapult_swing_down(void)
 {
 	uint32_t frame = 0, steps = 0;
@@ -1433,6 +1568,8 @@ void catapult_swing_down(void)
 	}
 }
 
+/* State 4 of a catapult with a launch delay: throws by itself (catapult_launch) once scroll_position
+   reaches launch_position. No stage list uses a kind with a delay. */
 void catapult_wait_for_scroll(void)
 {
 	if (scroll_position < OBJECT(current_object)->catapult.launch_position)
@@ -1440,6 +1577,8 @@ void catapult_wait_for_scroll(void)
 	catapult_launch();
 }
 
+/* The catapult's base part: takes its parent's z (and floor_z) and follows its frame (the parent's
+   animation_frame - 1, stepped once by animate_around_anchor); queued when it has a sprite_frame. */
 void catapult_base_update(void)
 {
 	uint32_t ignored = 0, object = 0, parent_z = 0;
@@ -1458,16 +1597,21 @@ void catapult_base_update(void)
 	ignored = queue_sprite(ignored);
 }
 
+/* The handler of the dummy part catapult_wait_for_platform_setup adds to a catapult with a launch delay:
+   an empty function. */
 void catapult_dummy_update(void)
 {
 }
 
+/* Sets goal_unlocked to 0xFF and deletes itself (near the ends of stages B to F). */
 void goal_unlocker_start(void)
 {
 	goal_unlocked = 0xFFu;
 	delete_current_object();
 }
 
+/* An arrow board of stage 4 (sprite 0x6EB8, a wooden board with a red arrow, palette 0x9190), projected
+   from its x and y; then arrow_board_wait_for_platform, this frame too. */
 void arrow_board_start(void)
 {
 	uint32_t ignored = 0;
@@ -1483,6 +1627,7 @@ void arrow_board_start(void)
 	arrow_board_wait_for_platform();
 }
 
+/* Stays in the rider list until it stands on a platform (flags 8), then arrow_board_ride. */
 void arrow_board_wait_for_platform(void)
 {
 	if ((OBJECT(current_object)->flags & 8u) != 0u)
@@ -1490,6 +1635,9 @@ void arrow_board_wait_for_platform(void)
 	add_to_rider_list();
 }
 
+/* Rides its platform (z and floor_z = the platform's z), queued at screen_y - 0x20 until
+   check_left_screen finds it has left the screen, then deleted. Grey (palette 0x8400) while
+   grey_screen_active is set, palette 0x9190 again once grey_screen_ended is set. */
 void arrow_board_ride(void)
 {
 	uint32_t depth = 0, ignored = 0, off_screen = 0, platform_z = 0;
@@ -1542,6 +1690,8 @@ void arrow_board_ride(void)
 	delete_current_object();
 }
 
+/* A pebble of stage 4 (sprite 0x6C60, a small grey rock, palette 0x9020) set on its floor and projected;
+   then pebble_update. */
 void pebble_start(void)
 {
 	uint32_t ignored = 0;
@@ -1558,6 +1708,7 @@ void pebble_start(void)
 	project_object(&ignored, &ignored);
 }
 
+/* Queued at screen_y - 0x10 until check_left_screen finds it has left the screen, then deleted. */
 void pebble_update(void)
 {
 	uint32_t depth = 0, ignored = 0, off_screen = 0;
@@ -1573,6 +1724,9 @@ void pebble_update(void)
 	delete_current_object();
 }
 
+/* The big board propped up in stage 4 (sprite 0x6EA8, kind 0x11, box 0x10 x 0x12B, height 0xE0, z
+   0x230), propped_board_object = it; with two objects free it adds the two props (sprite 0x6EC0, kind
+   0xC, board_prop_start) 0x20 lower in x and 0x70 either way in y. */
 void propped_board_start(void)
 {
 	uint16_t prop_dy = 0;
@@ -1630,6 +1784,10 @@ void propped_board_start(void)
 	} while ((int16_t)props_left_before > 1);
 }
 
+/* Health 0xA; deleted once it has been on screen and left it, or below screen y 0x180. When
+   group_leader_1 (the bridge collapse) reaches its x it falls (speed_z + 0x2000 a frame). Touched, it
+   shakes (shake_strength 0x3C, screen_x moved +-shake_strength >> 4) and the first time releases its
+   rings; touchable, queued at draw_depth. */
 void propped_board_update(void)
 {
 	uint32_t depth = 0, ignored = 0, shake_dx = 0;
@@ -1688,6 +1846,7 @@ void propped_board_update(void)
 	queue_sprite_at_depth(&ignored, &depth);
 }
 
+/* Projects the prop from its x and y and goes on to board_prop_update. */
 void board_prop_start(void)
 {
 	uint32_t ignored = 0;
@@ -1696,6 +1855,9 @@ void board_prop_start(void)
 	OBJECT(current_object)->handler = board_prop_update_ADDRESS;
 }
 
+/* A prop under the propped board: deleted once it has left the screen; falls with the board (its z moves
+   by propped_board_object's speed_z), keeps draw_depth = screen_y - 0xB while the board is still, shakes
+   with it (shake_dx), is touchable and queued at draw_depth. */
 void board_prop_update(void)
 {
 	uint32_t depth = 0, ignored = 0, object = 0, off_screen = 0;
@@ -1717,6 +1879,8 @@ void board_prop_update(void)
 	queue_sprite_at_depth(&ignored, &depth);
 }
 
+/* Scatters the board's rings: scatter_rings_fixed 8 times, from x - 0x40, y - 0x40, z - 0x90 and 0x20
+   further in y each time; the board's x, y and z are put back after. */
 void release_board_rings(void)
 {
 	uint32_t allocated = 0, count = 0, random_value = 0;
@@ -1743,6 +1907,9 @@ void release_board_rings(void)
 	OBJECT(current_object)->x = saved_x;
 }
 
+/* A boulder of stage 4 (boulder_animation, sprite_scale 0x200, kind 9, box 0x80 x 0xC0, height 0x60),
+   direction 0x300, speed 0x30000, wait_timer 0x78; sets group_leader_0_held, so new group leaders wait,
+   joins the rider list and goes on to boulder_wait. */
 void boulder_start(void)
 {
 	OBJECT(current_object)->sprite_flags = 4u;
@@ -1771,6 +1938,8 @@ void boulder_start(void)
 	add_to_rider_list();
 }
 
+/* Waits in the rider list until scroll_position reaches 0x3B00, or for wait_timer (0x78) frames once it
+   is past 0x3800, then boulder_roll. */
 void boulder_wait(void)
 {
 	uint16_t wait_timer = 0;
@@ -1795,6 +1964,10 @@ void boulder_wait(void)
 	add_to_rider_list();
 }
 
+/* Rolls just ahead of the bridge collapse: x = group_leaders[0]'s x - 0x30, speed_x = -chaser_speed <<
+   12, health 0x7F, group_leader_0_held cleared; the first time x_int is 0x180 or less, camera shake and
+   sound 0xF. Falls where there is no floor block (floor height 0x7FF becomes 0x230); touchable, a rider,
+   deleted below screen y 0x180. */
 void boulder_roll(void)
 {
 	uint8_t sound_id = 0;
@@ -1858,6 +2031,9 @@ void boulder_roll(void)
 	delete_current_object();
 }
 
+/* The brick wall with a stone doorway at the start of stage 4 (sprite 0x6EB0, palette 0x9110) at x
+   -0xE2E, y 0xF31 on its floor, with 0x10 pieces to burst into (door_fragments); then
+   door_wall_wait_to_burst. */
 void door_wall_start(void)
 {
 	uint32_t ignored = 0;
@@ -1878,6 +2054,9 @@ void door_wall_start(void)
 	project_object(&ignored, &ignored);
 }
 
+/* Drawn until scene_step reaches 3; then it bursts into pieces_left (0x10) fragments (rock_debris_fly,
+   palette 0x8240) at random spots up to 0x3F pixels from its screen position, with random speeds and the
+   animation of each door_fragments record, and deletes itself. */
 void door_wall_wait_to_burst(void)
 {
 	uint32_t carry = 0;
@@ -1939,26 +2118,23 @@ void door_wall_wait_to_burst(void)
 	delete_current_object();
 }
 
+/* Called by event_0c_start: places four spiked rollers behind the door from door_roller_layout (x, y,
+   first frame; spiked_roller_animation, palette 0x82F0, kind 4, speed_z -0x80000, roll_out_timer 8) on
+   their floors, with door_roller_update; current_object is left on the last one. */
 void spawn_door_rollers(uint32_t *p_block_offset, uint32_t *p_slope_height, uint32_t *p_object)
 {
-	uint32_t block_offset = *p_block_offset;
-	uint32_t slope_height = *p_slope_height;
-	uint32_t object = *p_object;
 	uint32_t free_count = 0, ignored = 0, layout_record = 0;
 	uint16_t rollers_left_before = 0;
 
 	door_rollers_left = 4;
 	do
 	{
-		allocate_object_outside_loop(&free_count, &object);
+		allocate_object_outside_loop(&free_count, p_object);
 		if (free_count == 0u)
 		{
-			*p_block_offset = block_offset;
-			*p_slope_height = slope_height;
-			*p_object = object;
 			return;
 		}
-		current_object = object;
+		current_object = *p_object;
 		layout_record = door_roller_layout_ADDRESS + (uint16_t)door_rollers_left * 3u * 2u;
 		OBJECT(current_object)->x_int = ROM16(layout_record);
 		OBJECT(current_object)->x_fraction = 0u;
@@ -1984,16 +2160,16 @@ void spawn_door_rollers(uint32_t *p_block_offset, uint32_t *p_slope_height, uint
 		OBJECT(current_object)->animation_timer = 0;
 		OBJECT(current_object)->animation = spiked_roller_animation_ADDRESS;
 		OBJECT(current_object)->sprite_frame = spiked_roller_frames[OBJECT(current_object)->animation_frame];
-		find_floor(&ignored, &ignored, &block_offset, &slope_height, &object);
+		find_floor(&ignored, &ignored, p_block_offset, p_slope_height, p_object);
 		OBJECT(current_object)->z = OBJECT(current_object)->floor_z;
 		rollers_left_before = door_rollers_left;
 		door_rollers_left = rollers_left_before - 1u;
 	} while ((int16_t)rollers_left_before > 1);
-	*p_block_offset = block_offset;
-	*p_slope_height = slope_height;
-	*p_object = object;
 }
 
+/* A roller behind the door: runs its state (door_roller.state, var_80: 0 and 4 door_roller_wait, 1
+   door_roller_drop, 2 door_roller_roll_out, 3 door_roller_ride); deleted once off_screen (var_83) is
+   set; animated, projected and, from state 1 on, queued (queue_sprite_at_base). */
 void door_roller_update(void)
 {
 	uint32_t ignored = 0;
@@ -2030,6 +2206,7 @@ void door_roller_update(void)
 	ignored = queue_sprite_at_base(ignored);
 }
 
+/* Health 0x7F; waits for scene_step 3 (the door bursts), then state 1. */
 void door_roller_wait(void)
 {
 	OBJECT(current_object)->health = 0x7F;
@@ -2037,6 +2214,9 @@ void door_roller_wait(void)
 		OBJECT(current_object)->door_roller.state++;
 }
 
+/* Health 0x7F; flies out of the doorway (speed_z starts at -0x80000) and falls 0x6000 a frame, moving 5
+   a frame along y, animated, in the rider list. On its floor: state 2 and a camera shake, or deleted
+   when there is no floor there (z_int 0x800 or more). */
 void door_roller_drop(void)
 {
 	uint32_t ignored = 0;
@@ -2063,6 +2243,8 @@ void door_roller_drop(void)
 	add_to_rider_list();
 }
 
+/* Rolls 1 along y a frame for roll_out_timer (8) frames, then sets flags 0x400000, which drops the
+   crumbling floor under it at once, and goes to state 3. */
 void door_roller_roll_out(void)
 {
 	uint16_t roll_out_timer = 0;
@@ -2077,6 +2259,8 @@ void door_roller_roll_out(void)
 	}
 }
 
+/* Rides its platform, the bridge planks (z and floor_z = the platform's z), in the rider list until it
+   is at screen y 0x130 or below; then sets off_screen, so door_roller_update deletes it. */
 void door_roller_ride(void)
 {
 	uint32_t z = 0;
@@ -2092,6 +2276,9 @@ void door_roller_ride(void)
 	OBJECT(current_object)->door_roller.off_screen = 0xFFu;
 }
 
+/* The fireball emitter near the end of stage 4: from the list fireball_emitter_lists gives for its
+   sprite_frame it takes its x, y and floor height and keeps the rest, its shots, in shot; then
+   fireball_emitter_update. It has no sprite. */
 void fireball_emitter_start(void)
 {
 	uint32_t ignored = 0, list_cursor = 0;
@@ -2111,6 +2298,10 @@ void fireball_emitter_start(void)
 	OBJECT(current_object)->handler = fireball_emitter_update_ADDRESS;
 }
 
+/* Moves with the camera's ground speed for its floor's slope (compute_camera_slope_speed) while screen_y
+   is -0x40 or more, on its floor. When scroll_position reaches the next shot it spawns a fireball
+   (bouncing_fireball_update, kind 0x17) at the shot's x and dy with its speeds, fireball_types looks and
+   a shadow; deleted after the last shot. */
 void fireball_emitter_update(void)
 {
 	uint16_t scale = 0;
@@ -2194,6 +2385,10 @@ void fireball_emitter_update(void)
 	add_to_rider_list();
 }
 
+/* A fireball: moves by speed_x and speed_y, falls 0x6000 a frame and bounces off its floor at half speed
+   (sound 0x21 when it goes back up at 2 or more). Deleted with its shadow once it has left the screen;
+   else animated, touchable if it has a hitbox_size_x, a rider, queued, its shadow at its floor, blinking
+   while on a platform. */
 void bouncing_fireball_update(void)
 {
 	uint8_t sound_id = 0;
@@ -2266,10 +2461,14 @@ void bouncing_fireball_update(void)
 	current_object = (current_object & ~0xFFFFu) | (uint16_t)object_cursor;
 }
 
+/* Unused: an empty function, a lone return the original left after bouncing_fireball_update. */
 void bouncing_fireball_update_spare_return(void)
 {
 }
 
+/* Unused: knocks the object flying: speed_z -0x80000, the direction and speed of the object that touched
+   it (touched_by), the direction turned 0x80 one way or the other by bit 0 of speed_int,
+   set_speed_from_direction; then knocked_object_fly. */
 void bouncing_fireball_knocked_away(void)
 {
 	uint16_t turn = 0;
@@ -2289,6 +2488,9 @@ void bouncing_fireball_knocked_away(void)
 	knocked_object_fly();
 }
 
+/* Unused: flies with gravity (speed_z + 0x6000 a frame) by speed_x, speed_y and speed_z with no floor
+   test, animated and queued until is_off_screen; then frees its pool 2 child and deletes itself. Only
+   bouncing_fireball_knocked_away sets it. */
 void knocked_object_fly(void)
 {
 	uint16_t child = 0;

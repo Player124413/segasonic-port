@@ -11,10 +11,13 @@
  */
 #include "game.h"
 
+/* Spawns the stage's ring rows (stage_template_spawns, cursor set on the stage's first call): once
+   scroll_position reaches a record, count objects of its stage_object_templates record from x, y, dx, dy
+   apart, each var_82 above its floor with a pool 2 shadow. A record passed by 0x100 is skipped; waits
+   while a pool has fewer than count blocks. */
 void spawn_ring_rows(uint32_t *p_stage_list_offset, uint32_t *p_free_stack, uint32_t *p_slope_height, uint32_t *p_object)
 {
 	uint32_t stage_list_offset = *p_stage_list_offset;
-	uint32_t free_stack = *p_free_stack;
 	uint32_t slope_height = *p_slope_height;
 	uint32_t object = *p_object;
 	uint16_t scroll_past_row = 0;
@@ -41,7 +44,6 @@ void spawn_ring_rows(uint32_t *p_stage_list_offset, uint32_t *p_free_stack, uint
 	{
 		ring_spawn_cursor += 0xCu;
 		*p_stage_list_offset = stage_list_offset;
-		*p_free_stack = free_stack;
 		*p_slope_height = slope_height;
 		*p_object = object;
 		return;
@@ -109,7 +111,7 @@ void spawn_ring_rows(uint32_t *p_stage_list_offset, uint32_t *p_free_stack, uint
 		OBJECT(current_object)->z_int -= OBJECT(current_object)->var_82;
 		project_object(&ignored, &stage_list_offset);
 		object_cursor = current_object;
-		allocate_object_2(&ignored, &free_stack, &object);
+		allocate_object_2(&ignored, p_free_stack, &object);
 		OBJECT(object)->sprite_flags = 0x1000u;
 		OBJECT(object)->sprite_palette = 0x9FFEu;
 		OBJECT(object)->sprite_frame = 0x5D90u;
@@ -121,11 +123,14 @@ void spawn_ring_rows(uint32_t *p_stage_list_offset, uint32_t *p_free_stack, uint
 	} while ((int16_t)rings_left > 1);
 	ring_spawn_cursor += 0xCu;
 	*p_stage_list_offset = stage_list_offset;
-	*p_free_stack = free_stack;
 	*p_slope_height = slope_height;
 	*p_object = object;
 }
 
+/* Handler of the spinning ring: removed with its shadow while map_screen_active is set or in game mode
+   0x20; touched (flags bit 2), it is taken (sound 0x13, spawn_ring_sparkle, removed with its shadow)
+   unless the toucher is a player in state 0xD or 0x20 whose hurt_contact_delay is running. Otherwise
+   ring_spin_keep_spinning. */
 void ring_spin(void)
 {
 	uint8_t sound_id = 0;
@@ -162,6 +167,10 @@ void ring_spin(void)
 	delete_current_object();
 }
 
+/* The spinning ring's frame while not taken: animates (a glint at step 0x15, unused_glint_timer 0x78),
+   removed with its shadow once off the screen it was on, else touchable, drawn with its shadow. On floor
+   type 7 the shadow block shows the ring again as far below the floor as it is above, unless bit 4 is
+   set in step_accumulator of whatever block current_player holds. */
 void ring_spin_keep_spinning(uint32_t sparkle)
 {
 	uint16_t child = 0;
@@ -204,6 +213,8 @@ void ring_spin_keep_spinning(uint32_t sparkle)
 	}
 }
 
+/* Handler of a ring that does not spin (stage_object_templates 2): touched, sound 0x13 and removed with
+   its shadow; removed too once off the screen; else on the touchable list and drawn with its shadow. */
 void still_ring_wait(void)
 {
 	uint8_t sound_id = 0;
@@ -233,6 +244,9 @@ void still_ring_wait(void)
 	delete_current_object();
 }
 
+/* Handler of the carried rings (stage_object_templates 1 and 3) until they stand on a platform (flags
+   bit 3), then carried_ring_spin; meanwhile on the rider list and not drawn, its shadow's palette set to
+   0x87A0. */
 void carried_ring_wait(void)
 {
 	if ((OBJECT(current_object)->flags & 8u) != 0u)
@@ -241,6 +255,10 @@ void carried_ring_wait(void)
 	OBJECT(LINKED(current_object, OBJECT(current_object)->child))->sprite_palette = 0x87A0u;
 }
 
+/* Handler of a ring that rides a platform: removed with its shadow while map_screen_active is set;
+   touched (flags bit 2), it is taken (sound 0x13, spawn_ring_sparkle, removed with its shadow) unless
+   the toucher is a player in state 0xD or 0x20 whose hurt_contact_delay is running. Otherwise
+   carried_ring_keep_spinning. */
 void carried_ring_spin(void)
 {
 	uint8_t sound_id = 0;
@@ -277,6 +295,10 @@ void carried_ring_spin(void)
 	delete_current_object();
 }
 
+/* The frame of a ring riding a platform while it is not taken: flags bit 4 copies bit 3; the ring floats
+   hover_height above its platform's z on the platform's floor_block, animates (a glint at step 0x15,
+   glint_timer 0x78), is touchable and drawn with its shadow; once off the screen it was on, removed with
+   its shadow. */
 void carried_ring_keep_spinning(uint32_t sparkle)
 {
 	uint16_t child = 0;
@@ -312,38 +334,37 @@ void carried_ring_keep_spinning(uint32_t sparkle)
 	delete_current_object();
 }
 
+/* Unused: an empty return left after carried_ring_keep_spinning's code; it does nothing. */
 void carried_ring_spin_spare_return(void)
 {
 }
 
+/* scatter_rings with scatter_fixed 0xFFFF: the rings get no speed and no jump and fall from the current
+   object where they are (an odd count still draws a direction). */
 void scatter_rings_fixed(uint32_t count, uint32_t *p_random_value, uint32_t *p_allocated)
 {
-	uint32_t random_value = *p_random_value;
-	uint32_t allocated = *p_allocated;
 	uint32_t ignored = 0;
 
 	scatter_fixed = 0xFFFFu;
-	scatter_rings(count, &random_value, &allocated, &ignored);
-	*p_random_value = random_value;
-	*p_allocated = allocated;
+	scatter_rings(count, p_random_value, p_allocated, &ignored);
 }
 
+/* scatter_rings with scatter_fixed cleared first, so the rings get a random speed and jump (until
+   scatter_rings' kept direction turns them off for the rings after the first odd count). */
 void scatter_rings_random(uint32_t random_value, uint32_t count, uint32_t *p_allocated, uint32_t *p_ring)
 {
-	uint32_t allocated = *p_allocated;
-	uint32_t ring = *p_ring;
-
 	scatter_fixed = 0u;
-	scatter_rings(count, &random_value, &allocated, &ring);
-	*p_allocated = allocated;
-	*p_ring = ring;
+	scatter_rings(count, &random_value, p_allocated, p_ring);
 }
 
+/* Throws count rings (at most 10) from the current object, kind 3 with a pool 2 shadow, handler
+   scattered_ring_wait, until a pool runs out. A ring at an odd count takes a random direction, kept in
+   scatter_fixed, the next its mirror; speed and jump are random only while scatter_fixed's bytes are 0,
+   so the kept direction leaves later rings without them. */
 void scatter_rings(uint32_t count, uint32_t *p_random_value, uint32_t *p_allocated, uint32_t *p_ring)
 {
 	uint32_t random_value = *p_random_value;
 	uint32_t allocated = *p_allocated;
-	uint32_t ring = *p_ring;
 	uint32_t free_count = 0, ignored = 0;
 
 	if ((int16_t)count > 0xA)
@@ -355,7 +376,6 @@ void scatter_rings(uint32_t count, uint32_t *p_random_value, uint32_t *p_allocat
 			current_object = object_cursor;
 			*p_random_value = random_value;
 			*p_allocated = allocated;
-			*p_ring = ring;
 			return;
 		}
 		allocate_object(&free_count, &allocated);
@@ -364,7 +384,6 @@ void scatter_rings(uint32_t count, uint32_t *p_random_value, uint32_t *p_allocat
 			current_object = object_cursor;
 			*p_random_value = random_value;
 			*p_allocated = allocated;
-			*p_ring = ring;
 			return;
 		}
 		OBJECT(allocated)->sprite_flags = 0x1004u;
@@ -418,21 +437,22 @@ void scatter_rings(uint32_t count, uint32_t *p_random_value, uint32_t *p_allocat
 			OBJECT(current_object)->flags |= 8u;
 			OBJECT(current_object)->platform = OBJECT(object_cursor)->platform;
 		}
-		ring = allocated;
+		*p_ring = allocated;
 		allocate_object_2(&ignored, &ignored, &allocated);
 		OBJECT(allocated)->sprite_flags = 0x1000u;
 		OBJECT(allocated)->sprite_palette = 0x9FFEu;
 		OBJECT(allocated)->sprite_frame = 0x5D90u;
-		OBJECT(ring)->child = allocated;
-		OBJECT(allocated)->parent = ring;
+		OBJECT(*p_ring)->child = allocated;
+		OBJECT(allocated)->parent = *p_ring;
 		count--;
 	} while (count != 0u);
 	current_object = object_cursor;
 	*p_random_value = random_value;
 	*p_allocated = allocated;
-	*p_ring = ring;
 }
 
+/* Handler of a ring just thrown: moves it (move_scattered_ring) while pickup_delay counts down with
+   flags bit 9 set (players ignore its touches); then clears the bit and goes on to scattered_ring_live. */
 void scattered_ring_wait(void)
 {
 	uint16_t pickup_delay = 0;
@@ -449,6 +469,10 @@ void scattered_ring_wait(void)
 	scattered_ring_live();
 }
 
+/* Handler of a scattered ring that can be taken: after lifetime frames it shrinks away
+   (scattered_ring_vanish); touched (flags bit 2), it is taken (sound 0x13, spawn_ring_sparkle, removed
+   with its shadow) unless the toucher is a player in state 0xD or 0x20 whose hurt_contact_delay is
+   running; otherwise move_scattered_ring. */
 void scattered_ring_live(void)
 {
 	uint8_t sound_id = 0;
@@ -492,6 +516,10 @@ void scattered_ring_live(void)
 	delete_current_object();
 }
 
+/* Moves a scattered ring by speed_x/speed_y, stepping back and turning round when the floor ahead is
+   more than 8 above it; gravity 0x6000, bouncing with 3/4 of speed_z; animates with a glint. On screen
+   it joins the touchable and rider lists and is drawn with its shadow; off it (margins 0x20, 0x58)
+   scattered_ring_vanish. */
 void move_scattered_ring(uint32_t cursor)
 {
 	uint16_t margin_x = 0, margin_y = 0;
@@ -544,6 +572,8 @@ void move_scattered_ring(uint32_t cursor)
 	scattered_ring_vanish();
 }
 
+/* Handler of a scattered ring going away: drifts on by speed_x/speed_y while it and its shadow shrink by
+   0x10 of sprite_scale a frame; removed with its shadow once it has shrunk away. */
 void scattered_ring_vanish(void)
 {
 	uint16_t child = 0;
@@ -568,6 +598,8 @@ void scattered_ring_vanish(void)
 	delete_current_object();
 }
 
+/* Spawns the sparkle of a taken ring at the current object: ring_sparkle_animation, drawn 0x10 up
+   (init_sparkle_object); nothing when no block is free. */
 void spawn_ring_sparkle(uint32_t sparkle)
 {
 	uint32_t free_count = 0;
@@ -581,6 +613,8 @@ void spawn_ring_sparkle(uint32_t sparkle)
 	init_sparkle_object(sparkle);
 }
 
+/* Spawns a glint on the current ring: ring_glint_animation, drawn 0x10 right of it and 8 up
+   (init_sparkle_object); nothing when no block is free. */
 void spawn_ring_glint(uint32_t sparkle)
 {
 	uint32_t free_count = 0;
@@ -594,6 +628,9 @@ void spawn_ring_glint(uint32_t sparkle)
 	init_sparkle_object(sparkle);
 }
 
+/* Sets up the new sparkle or glint sparkle at the current object's x, y, z and floor_z: sprite_flags
+   0x1000, palette 0x1B0, flags 0, handler sparkle_start, its animation to start from the first step at 2
+   frames a step. */
 void init_sparkle_object(uint32_t sparkle)
 {
 	OBJECT(sparkle)->sprite_flags = 0x1000u;
@@ -609,6 +646,7 @@ void init_sparkle_object(uint32_t sparkle)
 	OBJECT(sparkle)->animation_speed = 2u;
 }
 
+/* First frame of a sparkle or glint: projects it to the screen, then becomes sparkle_animate. */
 void sparkle_start(void)
 {
 	uint32_t ignored = 0;
@@ -618,6 +656,8 @@ void sparkle_start(void)
 	sparkle_animate();
 }
 
+/* Handler of a sparkle or glint: animates it and draws it in front of its floor point (depth: the
+   floor's screen y + 0x10); removed at the end of its animation. */
 void sparkle_animate(void)
 {
 	uint32_t at_last_step = 0, depth = 0, ignored = 0;
@@ -633,6 +673,9 @@ void sparkle_animate(void)
 	delete_current_object();
 }
 
+/* Unused: spawns a ring that flies from the current object (its parent, 0x20 above it on the screen,
+   kind copied) to its player's health gauge: ring_animation, sound 0x7F, speed_x to reach the gauge's x
+   + 0x10 (hud_gauge_positions_3p) in 0x3C frames, handler gauge_ring_update. */
 void spawn_gauge_ring(uint32_t ring)
 {
 	uint8_t sound_id = 0;
@@ -672,6 +715,8 @@ void spawn_gauge_ring(uint32_t ring)
 	}
 }
 
+/* Unused: the gauge ring's handler: step 0 gauge_ring_rise, step 1 gauge_ring_fall_into_gauge (nothing
+   sets step 2), then animates it and queues its sprite. */
 void gauge_ring_update(void)
 {
 	uint32_t ignored = 0;
@@ -694,6 +739,9 @@ void gauge_ring_update(void)
 	ignored = queue_sprite(ignored);
 }
 
+/* Unused: the gauge ring's step 0: moves on by speed_x while it rises along a sine arc up to 0x40 above
+   base_y (direction + turn_speed a frame); after hop_timer frames step 1, with base_y at its gauge's y
+   (hud_gauge_positions_3p_y by kind) and drop_height from the distance down to it. */
 void gauge_ring_rise(void)
 {
 	uint16_t gauge_y = 0, y = 0;
@@ -720,6 +768,9 @@ void gauge_ring_rise(void)
 	}
 }
 
+/* Unused: the gauge ring's step 1: moves on by speed_x and drops along a sine arc from base_y by
+   drop_height onto its gauge while it shrinks (sprite_scale - 8 a frame); when it has shrunk away the
+   parent's health goes up by 1 and the ring is removed. */
 void gauge_ring_fall_into_gauge(void)
 {
 	uint32_t direction = 0, object = 0;
@@ -739,6 +790,10 @@ void gauge_ring_fall_into_gauge(void)
 	delete_current_object();
 }
 
+/* Unused: when pool 2 has a block, spawns stage_object_templates' first record (the spinning ring) at x,
+   y, z (kept in template_spawn_x/_y/_z) with scroll_position in its health halfword, projected,
+   find_floor, and a pool 2 shadow child; current_object is kept, current_player is left on the new
+   object. */
 void spawn_stage_template_0(uint16_t x, uint16_t y, uint16_t z, uint32_t object)
 {
 	uint32_t free_count = 0, ignored = 0;
@@ -790,6 +845,8 @@ void spawn_stage_template_0(uint16_t x, uint16_t y, uint16_t z, uint32_t object)
 	current_object = saved_current_object;
 }
 
+/* Unused: spawn_stage_template_0 with record template_index of stage_object_templates (kept in
+   template_spawn_index) in place of the first. */
 void spawn_stage_template(uint16_t template_index, uint16_t x, uint16_t y, uint16_t z, uint32_t object)
 {
 	uint32_t free_count = 0, ignored = 0, template_cursor = 0;

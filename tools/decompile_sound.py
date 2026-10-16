@@ -3,7 +3,7 @@ Name:        decompile_sound.py
 Description: decompiles the Z80 sound program into readable C, one C function per original function
 Version:     0.1.0
 Created:     13-10-2026
-Modified:    15-10-2026
+Modified:    16-10-2026
 Author:      Sebastian Toyos
 
 Usage: python tools/decompile_sound.py [--check] [--out DIR] [--timing FILE]
@@ -312,6 +312,7 @@ def write_c(program, out_dir, variables_path=None):
     emitter.flow = flow
     emitter.data_labels = {address: name for address, name in data_names.items() if address not in named.tables}
     emitter.code_labels = {address: symbol.name for address, symbol in program.symbols.items() if symbol.kind == "code"}
+    emitter.comments = dict(known.comments)
     entries_by_name = {name: entry for entry, name in names.items()}
     unknown = sorted({function for function, _ in known.params if function not in entries_by_name}
                      | {function for function, spot, _ in known.locals if function not in entries_by_name})
@@ -338,6 +339,11 @@ def write_c(program, out_dir, variables_path=None):
             texts[entry] = writer.write()
         except emit.emit.EmitError as problem:
             problems.append((entry, str(problem)))
+    # a result some call gives the same variable as another one keeps a copy of its own: written again
+    emitter.shared_results = emit.emit.shared_results(texts.values())
+    for entry in texts:
+        if emitter.shared_results.get(emitter.names.get(entry)):
+            texts[entry] = writers[entry].write()
     if problems:
         for entry, problem in problems[:20]:
             print(f"  {entry:04X}  {problem}")

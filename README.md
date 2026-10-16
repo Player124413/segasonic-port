@@ -226,9 +226,10 @@ Other tools:
   instruction) into `build/generated/`; CMake builds it with `-DSEGASONIC_SCAFFOLD=ON`, and
   `check_scenarios.py --translated` checks it.
 - `tools/coverage.py` classifies every byte of the program ROM and lists what is still unexplained.
-- `tools/check_gotos.py OUT_DIR [--sound]` decompiles into `OUT_DIR` and checks that taking the gotos
-  out (`tools/decompiler/gotos.py`) keeps what each function runs: it runs every such function's tree
-  before and after on the same made-up outcomes of its tests, the code no scenario reaches too.
+- `tools/check_structure.py OUT_DIR [--sound]` decompiles into `OUT_DIR` and checks that the C's `if`,
+  loops, `switch` and control variables (`tools/decompiler/structure.py` and `gotos.py`) do what the
+  program's jumps do: it runs every function's blocks and its C on the same made-up outcomes of its tests
+  and compares the blocks each runs, the code no scenario reaches too.
 - `tools/memory_census.py` runs every scenario on a build of the game made with
   `-DSONIC_MEMORY_CENSUS=ON` and says, for each line of `src/` that reads or writes memory through an
   address the code computes, which of the board's memories it reached (the ROM, the work RAM, video RAM,
@@ -266,7 +267,8 @@ src/sound/              the sound driver's C, decompiled from the sound program
 symbols.txt             names of functions, data, variables, board registers, structures and fields,
                         parameters and local variables, what pointers point at, and the layout of the
                         tables that hold code addresses (names only, no data); its comments explain how
-                        each part of the game works
+                        each part of the game works, and its "comment" lines are what the C says above
+                        each function
 sound_symbols.txt       the same for the sound program
 runtime/                System 32 board model (memory map, interrupts, I/O, the sound board), the video
                         library, the YM3438 and RF5C68 libraries, and what the decompiled game and sound
@@ -298,7 +300,7 @@ tools/decompile.py      decompiles the program into readable C (tools/decompiler
                         the C printer)
 tools/decompile_sound.py  decompiles the sound program with the same decompiler, set up for the Z80
 tools/check_scenarios.py  runs the control scripts on the reference and on the decompiled game
-tools/check_gotos.py    checks that taking the gotos out of the C keeps what each function runs
+tools/check_structure.py  checks that the C's control flow runs what the program's jumps run
 tools/reference/        MAME's V60 and Z80 cores and disassemblers, its System 32 video and RF5C68, and
                         ymfm's YM3438, built only into the reference tools (s32ref, the oracles), over
                         stand-ins for the parts of MAME they need
@@ -408,7 +410,14 @@ memory is in `runtime/include/game/support.h`.
   explicitly so that it does what the original does; a register the original reads before anything sets
   it starts at 0.
 - **Results.** A function hands back one value as its return value, and more through pointers
-  (`uint32_t *p_depth`); a caller's variable goes in and comes out.
+  (`uint32_t *p_depth`); a caller's variable goes in and comes out. A result the function only passes on
+  goes straight to the calls (`check_player_step_against_floor(p_height_diff, p_cursor);`), and one it
+  copies back from the same variable at every `return`, and uses little else, is read and set through its
+  pointer (`*p_dest += 2u;`). Otherwise, or when some call hands it the same variable as another result
+  (`ignored`), it has a variable of its own, copied back at each `return`.
+- **Comments.** Every function has a comment above it that says what it does in the game's terms and the
+  C's names (the `comment` lines of `symbols.txt` and `sound_symbols.txt`); code nothing calls starts with
+  "Unused:". The rest of `symbols.txt`'s comments keep the evidence: registers, addresses, the listing.
 - **Control flow.** Loops, `if`, `switch` (a jump through a table of code is a `switch` on the index) and
   `return` come from the original's branches; there is no `goto`. Code several places jump to is a
   function of its own: each game mode (`run_game_mode` jumps by `game_mode`, and a mode that changes it

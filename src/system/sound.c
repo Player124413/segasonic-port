@@ -11,6 +11,8 @@
  */
 #include "game.h"
 
+/* Starts the sound: sound_queue_read 0, sound_queue_write 1 with sound 0x96 queued first, io_cnt bit 2
+   set (the sound CPU runs), io_port_d bit 3 cleared and sound_cpu_hold 0 (the Z80 program goes on). */
 uint32_t init_sound(void)
 {
 	uint32_t sound_hold = 0;
@@ -29,6 +31,8 @@ uint32_t init_sound(void)
 	return sound_hold;
 }
 
+/* Unused: sets io_port_d bit 3 when unused_coin_byte, game_in_progress or setting_advertise_sound is
+   set; init_sound clears that bit. */
 void set_port_d_bit_3_if_sound_allowed(void)
 {
 	uint8_t port_d_bits = 0;
@@ -40,6 +44,7 @@ void set_port_d_bit_3_if_sound_allowed(void)
 	}
 }
 
+/* Unused: sets io_port_d bit 3 and queues sound 0x7F, the coin sound update_coins plays. */
 void queue_coin_sound(void)
 {
 	uint8_t sound_id = 0;
@@ -52,6 +57,8 @@ void queue_coin_sound(void)
 	queue_sound(sound_id, &ignored, &ignored);
 }
 
+/* Asks for sound sound_id: during a game (game_in_progress) always through queue_sound; outside one only
+   when setting_advertise_sound is on and sound_id's bit is set in attract_sound_mask. */
 void play_sound(uint8_t sound_id, uint32_t *p_write_index, uint32_t *p_write_index_address)
 {
 	uint32_t write_index = *p_write_index;
@@ -81,6 +88,8 @@ void play_sound(uint8_t sound_id, uint32_t *p_write_index, uint32_t *p_write_ind
 	*p_write_index_address = write_index_address;
 }
 
+/* Puts sound_id in sound_queue at sound_queue_write and moves it on, wrapping at 32, with no filter (the
+   test mode and the coins use it directly). */
 void queue_sound(uint8_t sound_id, uint32_t *p_write_index, uint32_t *p_write_index_address)
 {
 	uint32_t write_index = 0, write_index_address = 0;

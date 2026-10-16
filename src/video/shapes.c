@@ -11,6 +11,9 @@
  */
 #include "game.h"
 
+/* Unused: fills the triangle top_x, top_y / middle_x, middle_y / bottom_x, bottom_y with color at 8 bpp:
+   sorts the points by y, sets current_player to bitmap_address (the base of the span addresses) and the
+   polygon_span list at bitmap_draw_buffer, then fill_triangle_sorted. */
 void fill_triangle(uint32_t top_x, uint32_t top_y, uint32_t middle_x, uint32_t middle_y, uint32_t bottom_x, uint32_t bottom_y, uint8_t color)
 {
 	uint32_t span_cursor = 0;
@@ -54,6 +57,10 @@ void fill_triangle(uint32_t top_x, uint32_t top_y, uint32_t middle_x, uint32_t m
 	fill_triangle_sorted(top_x, top_y, middle_x, middle_y, bottom_x, bottom_y, color, span_cursor);
 }
 
+/* Unused: the points sorted top to bottom: one row (fill_span_8bpp from the leftmost to the rightmost x)
+   when all share y, fill_flat_top_triangle when the top two do; else both edges stepped in 16.16, a
+   polygon_span (bitmap address, length) a row at span_cursor, turning at the middle point; then
+   fill_span_list. */
 void fill_triangle_sorted(uint32_t top_x, uint32_t top_y, uint32_t middle_x, uint32_t middle_y, uint32_t bottom_x, uint32_t bottom_y, uint8_t color, uint32_t span_cursor)
 {
 	uint8_t integer_shift = 0;
@@ -152,6 +159,9 @@ void fill_triangle_sorted(uint32_t top_x, uint32_t top_y, uint32_t middle_x, uin
 	fill_span_list(span_count, color);
 }
 
+/* Unused: the triangle with its top edge from left_x to right_x on row top_y and its apex at bottom_x,
+   height rows lower: both edges stepped in 16.16, one polygon_span a row at span_cursor (addresses from
+   current_player, 0x200 a row), then fill_span_list. */
 void fill_flat_top_triangle(uint32_t left_x, uint32_t top_y, uint32_t right_x, uint32_t bottom_x, uint32_t height, uint8_t color, uint32_t span_cursor)
 {
 	uint8_t integer_shift = 0;
@@ -184,6 +194,7 @@ void fill_flat_top_triangle(uint32_t left_x, uint32_t top_y, uint32_t right_x, u
 	fill_span_list(span_count, color);
 }
 
+/* Unused: fill_span_list with polygon_color, the colour fill_quad keeps. */
 void fill_span_list_from_r8(uint32_t span_count, uint8_t polygon_color)
 {
 	uint8_t color = 0;
@@ -192,6 +203,9 @@ void fill_span_list_from_r8(uint32_t span_count, uint8_t polygon_color)
 	fill_span_list(span_count, color);
 }
 
+/* Unused: fills span_count polygon_span records from bitmap_draw_buffer (bitmap address and length, a
+   negative length skipping the row) with color at 8 bpp: an odd first byte, 16-byte blocks, then 8, 4, 2
+   and 1. */
 void fill_span_list(uint32_t span_count, uint32_t color)
 {
 	bool aligned = false;
@@ -276,6 +290,10 @@ void fill_span_list(uint32_t span_count, uint32_t color)
 	} while (span_count != 0u);
 }
 
+/* Unused: fills the convex quadrilateral left_x, top_y / second_x, second_y / third_x, third_y /
+   bottom_x, bottom_y (in order round it) with fill_color at 8 bpp: edges walked in 16.16 from the top
+   vertex into polygon_span records at bitmap_draw_buffer, then filled; flat rows go to fill_span_8bpp or
+   the triangle code. Keeps the vertices on the stack. */
 void fill_quad(uint32_t left_x, uint32_t top_y, uint32_t second_x, uint32_t second_y, uint32_t third_x, uint32_t third_y, uint32_t bottom_x, uint32_t bottom_y, uint8_t fill_color)
 {
 	uint8_t bottom_index = 0, pixel_shift = 0, second_index = 0, third_index = 0, top_index = 0, triangle_color = 0;
@@ -824,6 +842,10 @@ void fill_quad(uint32_t left_x, uint32_t top_y, uint32_t second_x, uint32_t seco
 	fill_span_8bpp(length, &ignored, &top_y, &color);
 }
 
+/* Unused: meant to draw a circle of radius |radius| around center_x, center_y in circle_color: 64 points
+   (sine_table * radius >> 14 mirrored into eight octants) in bitmap_draw_buffer joined by draw_line. It
+   cannot: two mirrored stores are off (mirror_cursor + 0x7E, point_cursor + 0x7F) and the line loop
+   steps 2 bytes, joining (x, y) to (y, next x). */
 void draw_circle_polygon(uint32_t center_x, uint32_t center_y, uint32_t radius, uint8_t circle_color, uint32_t color)
 {
 	uint8_t sine_shift = 0;
@@ -903,6 +925,10 @@ void draw_circle_polygon(uint32_t center_x, uint32_t center_y, uint32_t radius, 
 	draw_line(end_x, end_y, &start_x, &start_y, &color, &ignored);
 }
 
+/* Unused: a midpoint circle of radius |radius| around x, y in color, eight points a step
+   (plot_circle_point_8bpp or _4bpp), none when it is wholly outside bitmap_window. current_player holds
+   2 bits a point (plot, or plot if inside), but points 4, 6 and 7 are plotted out of the order they
+   assume; at 4 bpp odd pixels get color << 3, not << 4. */
 void draw_circle(uint16_t x, uint16_t y, uint16_t radius, uint8_t color)
 {
 	uint8_t high_color = 0;
@@ -1039,6 +1065,10 @@ void draw_circle(uint16_t x, uint16_t y, uint16_t radius, uint8_t color)
 	}
 }
 
+/* Unused: one of draw_circle's points at 4 bpp: the top two bits of current_player's mask, shifted out:
+   the first plots, the second plots only inside the window (r14, window_top, _right, _bottom); the byte
+   at (point_y << 8) + (point_x >> 1) + bitmap_base gets high_color in its high nibble at odd x,
+   low_color in its low one at even x. */
 void plot_circle_point_4bpp(uint32_t point_x, uint32_t point_y, uint8_t high_color, uint8_t low_color, uint32_t bitmap_base, uint16_t window_top, uint16_t window_right, uint16_t window_bottom)
 {
 	uint32_t negative = 0, carry = 0;
@@ -1064,6 +1094,8 @@ void plot_circle_point_4bpp(uint32_t point_x, uint32_t point_y, uint8_t high_col
 	current_player = (current_player & ~0xFFFFu) | (uint16_t)(current_player * 2u);
 }
 
+/* Unused: one of draw_circle's points at 8 bpp: the same test of current_player's top two bits, then
+   color at (point_y << 9) + point_x + bitmap_base. */
 void plot_circle_point_8bpp(uint32_t point_x, uint32_t point_y, uint8_t color, uint32_t bitmap_base, uint16_t window_top, uint16_t window_right, uint16_t window_bottom)
 {
 	uint32_t negative = 0, carry = 0;
@@ -1078,6 +1110,10 @@ void plot_circle_point_8bpp(uint32_t point_x, uint32_t point_y, uint8_t color, u
 	current_player = (current_player & ~0xFFFFu) | (uint16_t)(current_player * 2u);
 }
 
+/* Unused: scanline flood fill from seed_x, seed_y with fill_color up to border_color in bitmap_window
+   (none when the seed is outside or either colour): the seed's span, then a ring queue of
+   flood_fill_record spans in bitmap_draw_buffer (object_cursor in, last_object out) worked off a row
+   above and below each; the queue reaches over string_queue. */
 void flood_fill(uint16_t seed_x, uint16_t seed_y, uint8_t fill_color, uint8_t border_color)
 {
 	uint8_t seed_pixel = 0;
@@ -1149,16 +1185,18 @@ void flood_fill(uint16_t seed_x, uint16_t seed_y, uint8_t fill_color, uint8_t bo
 	object_cursor = saved_object_cursor;
 }
 
+/* Unused: fills the run at r14 (x left_x) in the scanned row (flood_fill_span) and queues its
+   flood_fill_record at object_cursor: direction and row y + direction, its right and left ends, the
+   flood_fill_push_parent_* range; object_cursor wraps from 0xCCC4 to bitmap_draw_buffer. right_x and
+   right_address come back at the run's right end. */
 void flood_fill_push_span(uint8_t border_color, uint32_t window_left, uint32_t window_right, uint8_t direction, uint32_t left_x, uint8_t y, uint32_t fill_pattern, uint32_t *p_right_address, uint32_t *p_right_x)
 {
-	uint32_t right_address = 0, right_x = 0;
-
-	flood_fill_span(border_color, window_left, window_right, fill_pattern, &left_x, &right_address, &right_x);
+	flood_fill_span(border_color, window_left, window_right, fill_pattern, &left_x, p_right_address, p_right_x);
 	FLOOD_FILL_RECORD(object_cursor)->direction_and_y = (uint16_t)(((uint32_t)y + direction) << 8) | (uint8_t)direction;
 	object_cursor = object_cursor + 2u;
-	FLOOD_FILL_RECORD(object_cursor - 0x2u)->right_x = right_x;
+	FLOOD_FILL_RECORD(object_cursor - 0x2u)->right_x = *p_right_x;
 	object_cursor = object_cursor + 2u;
-	FLOOD_FILL_RECORD(object_cursor - 0x4u)->right_address = right_address;
+	FLOOD_FILL_RECORD(object_cursor - 0x4u)->right_address = *p_right_address;
 	object_cursor = object_cursor + 4u;
 	FLOOD_FILL_RECORD(object_cursor - 0x8u)->left_x = left_x;
 	object_cursor = object_cursor + 2u;
@@ -1174,15 +1212,15 @@ void flood_fill_push_span(uint8_t border_color, uint32_t window_left, uint32_t w
 	object_cursor = object_cursor + 4u;
 	if ((uint16_t)object_cursor < 0xCCC4u)
 	{
-		*p_right_address = right_address;
-		*p_right_x = right_x;
 		return;
 	}
 	object_cursor = bitmap_draw_buffer_ADDRESS;
-	*p_right_address = right_address;
-	*p_right_x = right_x;
 }
 
+/* Unused: the run through the pixel at r14 (x left_x) at 8 bpp: scans left to window_left and right to
+   window_right up to the fill colour (fill_pattern) or border_color, then fills it
+   (flood_fill_span_fill_run); left_x and r14 come back at its left end, right_x and right_address at its
+   right end. Also fill_span_at_point's 8 bpp path. */
 void flood_fill_span(uint8_t border_color, uint32_t window_left, uint32_t window_right, uint32_t fill_pattern, uint32_t *p_left_x, uint32_t *p_right_address, uint32_t *p_right_x)
 {
 	uint32_t left_x = *p_left_x;
@@ -1222,12 +1260,14 @@ void flood_fill_span(uint8_t border_color, uint32_t window_left, uint32_t window
 	*p_right_x = right_x;
 }
 
+/* Unused: flood_fill_span's left scan: the next two pixels to the left (a halfword before r14), the
+   nearer one first: the fill or border colour there ends the run after it (flood_fill_span_set_left_x);
+   else flood_fill_span_left_pixel for the farther one. */
 void flood_fill_span_left_pair(uint32_t scan_count, uint8_t pixel_count, uint8_t border_color, uint32_t window_right, uint32_t fill_pattern, uint32_t seed_address, uint32_t *p_left_x, uint32_t *p_right_address, uint32_t *p_right_x)
 {
 	uint32_t left_x = *p_left_x;
 	uint32_t right_x = *p_right_x;
 	uint16_t pixels = 0;
-	uint32_t right_address = 0;
 
 	r14 = r14 - 2u;
 	pixels = mem_read16(r14);
@@ -1235,58 +1275,54 @@ void flood_fill_span_left_pair(uint32_t scan_count, uint8_t pixel_count, uint8_t
 	if ((uint8_t)pixels == (uint8_t)fill_pattern || (uint8_t)pixels == (uint8_t)border_color)
 	{
 		r14 = r14 + 2u;
-		flood_fill_span_set_left_x(border_color, window_right, fill_pattern, seed_address, &left_x, &right_address, &right_x);
+		flood_fill_span_set_left_x(border_color, window_right, fill_pattern, seed_address, &left_x, p_right_address, &right_x);
 		*p_left_x = (*p_left_x & 0xFFFF0000u) | (left_x & 0xFFFFu);
-		*p_right_address = right_address;
 		*p_right_x = (*p_right_x & 0xFFFF0000u) | (right_x & 0xFFFFu);
 		return;
 	}
 	pixels = (uint16_t)(((uint32_t)pixels << 8) | (pixels >> 8));
-	flood_fill_span_left_pixel((uint8_t)pixels, scan_count, pixel_count, border_color, window_right, fill_pattern, seed_address, &left_x, &right_address, &right_x);
+	flood_fill_span_left_pixel((uint8_t)pixels, scan_count, pixel_count, border_color, window_right, fill_pattern, seed_address, &left_x, p_right_address, &right_x);
 	*p_left_x = (*p_left_x & 0xFFFF0000u) | (left_x & 0xFFFFu);
-	*p_right_address = right_address;
 	*p_right_x = (*p_right_x & 0xFFFF0000u) | (right_x & 0xFFFFu);
 }
 
+/* Unused: flood_fill_span's left scan: the farther pixel of the pair (or an odd first one): the fill
+   colour ends the run after it, the border colour or the count's end too (an odd last pixel checked
+   first when pixel_count is odd); else the next pair (flood_fill_span_left_pair). */
 void flood_fill_span_left_pixel(uint8_t pixel, uint32_t scan_count, uint8_t pixel_count, uint8_t border_color, uint32_t window_right, uint32_t fill_pattern, uint32_t seed_address, uint32_t *p_left_x, uint32_t *p_right_address, uint32_t *p_right_x)
 {
 	uint32_t left_x = *p_left_x;
 	uint32_t right_x = *p_right_x;
 	uint8_t last_pixel = 0;
-	uint32_t right_address = 0;
 
 	if ((uint8_t)pixel == (uint8_t)fill_pattern)
 	{
 		r14 = r14 + 1u;
-		flood_fill_span_set_left_x(border_color, window_right, fill_pattern, seed_address, &left_x, &right_address, &right_x);
+		flood_fill_span_set_left_x(border_color, window_right, fill_pattern, seed_address, &left_x, p_right_address, &right_x);
 		*p_left_x = (*p_left_x & 0xFFFF0000u) | (left_x & 0xFFFFu);
-		*p_right_address = right_address;
 		*p_right_x = (*p_right_x & 0xFFFF0000u) | (right_x & 0xFFFFu);
 		return;
 	}
 	scan_count--;
 	if ((scan_count != 0u) & ((uint8_t)pixel != (uint8_t)border_color))
 	{
-		flood_fill_span_left_pair(scan_count, pixel_count, border_color, window_right, fill_pattern, seed_address, &left_x, &right_address, &right_x);
+		flood_fill_span_left_pair(scan_count, pixel_count, border_color, window_right, fill_pattern, seed_address, &left_x, p_right_address, &right_x);
 		*p_left_x = (*p_left_x & 0xFFFF0000u) | (left_x & 0xFFFFu);
-		*p_right_address = right_address;
 		*p_right_x = (*p_right_x & 0xFFFF0000u) | (right_x & 0xFFFFu);
 		return;
 	}
 	if ((uint8_t)pixel == (uint8_t)border_color)
 	{
 		r14 = r14 + 1u;
-		flood_fill_span_set_left_x(border_color, window_right, fill_pattern, seed_address, &left_x, &right_address, &right_x);
+		flood_fill_span_set_left_x(border_color, window_right, fill_pattern, seed_address, &left_x, p_right_address, &right_x);
 		*p_left_x = (*p_left_x & 0xFFFF0000u) | (left_x & 0xFFFFu);
-		*p_right_address = right_address;
 		*p_right_x = (*p_right_x & 0xFFFF0000u) | (right_x & 0xFFFFu);
 		return;
 	}
 	if ((pixel_count & 1u) == 0u)
 	{
-		flood_fill_span_set_left_x(border_color, window_right, fill_pattern, seed_address, &left_x, &right_address, &right_x);
+		flood_fill_span_set_left_x(border_color, window_right, fill_pattern, seed_address, &left_x, p_right_address, &right_x);
 		*p_left_x = (*p_left_x & 0xFFFF0000u) | (left_x & 0xFFFFu);
-		*p_right_address = right_address;
 		*p_right_x = (*p_right_x & 0xFFFF0000u) | (right_x & 0xFFFFu);
 		return;
 	}
@@ -1295,31 +1331,32 @@ void flood_fill_span_left_pixel(uint8_t pixel, uint32_t scan_count, uint8_t pixe
 	if (last_pixel == (uint8_t)fill_pattern || last_pixel == (uint8_t)border_color)
 	{
 		r14 = r14 + 1u;
-		flood_fill_span_set_left_x(border_color, window_right, fill_pattern, seed_address, &left_x, &right_address, &right_x);
+		flood_fill_span_set_left_x(border_color, window_right, fill_pattern, seed_address, &left_x, p_right_address, &right_x);
 		*p_left_x = (*p_left_x & 0xFFFF0000u) | (left_x & 0xFFFFu);
-		*p_right_address = right_address;
 		*p_right_x = (*p_right_x & 0xFFFF0000u) | (right_x & 0xFFFFu);
 		return;
 	}
-	flood_fill_span_set_left_x(border_color, window_right, fill_pattern, seed_address, &left_x, &right_address, &right_x);
+	flood_fill_span_set_left_x(border_color, window_right, fill_pattern, seed_address, &left_x, p_right_address, &right_x);
 	*p_left_x = (*p_left_x & 0xFFFF0000u) | (left_x & 0xFFFFu);
-	*p_right_address = right_address;
 	*p_right_x = (*p_right_x & 0xFFFF0000u) | (right_x & 0xFFFFu);
 }
 
+/* Unused: left_x -= seed_address - r14, the run's left end x (r14 on its first pixel), then
+   flood_fill_span_scan_right. */
 void flood_fill_span_set_left_x(uint8_t border_color, uint32_t window_right, uint32_t fill_pattern, uint32_t seed_address, uint32_t *p_left_x, uint32_t *p_right_address, uint32_t *p_right_x)
 {
 	uint32_t left_x = *p_left_x;
 	uint32_t right_x = *p_right_x;
-	uint32_t right_address = 0;
 
 	left_x = (left_x & ~0xFFFFu) | (uint16_t)(left_x - (seed_address - r14));
-	flood_fill_span_scan_right(border_color, window_right, left_x, fill_pattern, seed_address, &right_address, &right_x);
+	flood_fill_span_scan_right(border_color, window_right, left_x, fill_pattern, seed_address, p_right_address, &right_x);
 	*p_left_x = (*p_left_x & 0xFFFF0000u) | (left_x & 0xFFFFu);
-	*p_right_address = right_address;
 	*p_right_x = (*p_right_x & 0xFFFF0000u) | (right_x & 0xFFFFu);
 }
 
+/* Unused: flood_fill_span's right scan from the pixel after the seed (seed_address + 1) toward
+   window_right, a pair at a time (flood_fill_span_right_pair, _right_pixel); with right_x already at
+   window_right straight to flood_fill_span_fill_run. */
 void flood_fill_span_scan_right(uint8_t border_color, uint32_t window_right, uint32_t left_x, uint32_t fill_pattern, uint32_t seed_address, uint32_t *p_right_address, uint32_t *p_right_x)
 {
 	uint32_t right_x = *p_right_x;
@@ -1356,82 +1393,80 @@ void flood_fill_span_scan_right(uint8_t border_color, uint32_t window_right, uin
 	*p_right_x = (*p_right_x & 0xFFFF0000u) | (right_x & 0xFFFFu);
 }
 
+/* Unused: flood_fill_span's right scan: the next two pixels (a halfword at right_cursor), the nearer one
+   first: the fill or border colour there ends the run before it (flood_fill_span_set_right_x); else
+   flood_fill_span_right_pixel for the farther one. */
 void flood_fill_span_right_pair(uint32_t scan_count, uint8_t pixel_count, uint8_t border_color, uint32_t left_x, uint32_t fill_pattern, uint16_t seed_address, uint32_t *p_right_cursor, uint32_t *p_right_x)
 {
-	uint32_t right_cursor = *p_right_cursor;
 	uint32_t right_x = *p_right_x;
 	uint16_t pixels = 0;
 
-	pixels = mem_read16(right_cursor);
-	right_cursor += 2u;
+	pixels = mem_read16(*p_right_cursor);
+	*p_right_cursor += 2u;
 	if ((uint8_t)pixels == (uint8_t)fill_pattern || (uint8_t)pixels == (uint8_t)border_color)
 	{
-		right_cursor = right_cursor - 1u - 1u - 1u;
-		flood_fill_span_set_right_x(left_x, fill_pattern, seed_address, &right_cursor, &right_x);
-		*p_right_cursor = right_cursor;
+		*p_right_cursor = *p_right_cursor - 1u - 1u - 1u;
+		flood_fill_span_set_right_x(left_x, fill_pattern, seed_address, p_right_cursor, &right_x);
 		*p_right_x = (*p_right_x & 0xFFFF0000u) | (right_x & 0xFFFFu);
 		return;
 	}
 	pixels = (uint16_t)(((uint32_t)pixels << 8) | (pixels >> 8));
-	flood_fill_span_right_pixel((uint8_t)pixels, scan_count, pixel_count, border_color, left_x, fill_pattern, seed_address, &right_cursor, &right_x);
-	*p_right_cursor = right_cursor;
+	flood_fill_span_right_pixel((uint8_t)pixels, scan_count, pixel_count, border_color, left_x, fill_pattern, seed_address, p_right_cursor, &right_x);
 	*p_right_x = (*p_right_x & 0xFFFF0000u) | (right_x & 0xFFFFu);
 }
 
+/* Unused: flood_fill_span's right scan: the farther pixel of the pair (or an odd first one): the fill
+   colour ends the run before it, the border colour or the count's end too (an odd last pixel checked
+   first when pixel_count is odd); else the next pair (flood_fill_span_right_pair). */
 void flood_fill_span_right_pixel(uint8_t pixel, uint32_t scan_count, uint8_t pixel_count, uint8_t border_color, uint32_t left_x, uint32_t fill_pattern, uint16_t seed_address, uint32_t *p_right_cursor, uint32_t *p_right_x)
 {
-	uint32_t right_cursor = *p_right_cursor;
 	uint32_t right_x = *p_right_x;
 	uint8_t last_pixel = 0;
 
 	if ((uint8_t)pixel == (uint8_t)fill_pattern)
 	{
-		right_cursor--;
-		right_cursor--;
-		flood_fill_span_set_right_x(left_x, fill_pattern, seed_address, &right_cursor, &right_x);
-		*p_right_cursor = right_cursor;
+		(*p_right_cursor)--;
+		(*p_right_cursor)--;
+		flood_fill_span_set_right_x(left_x, fill_pattern, seed_address, p_right_cursor, &right_x);
 		*p_right_x = (*p_right_x & 0xFFFF0000u) | (right_x & 0xFFFFu);
 		return;
 	}
 	scan_count--;
 	if ((scan_count != 0u) & ((uint8_t)pixel != (uint8_t)border_color))
 	{
-		flood_fill_span_right_pair(scan_count, pixel_count, border_color, left_x, fill_pattern, seed_address, &right_cursor, &right_x);
-		*p_right_cursor = right_cursor;
+		flood_fill_span_right_pair(scan_count, pixel_count, border_color, left_x, fill_pattern, seed_address, p_right_cursor, &right_x);
 		*p_right_x = (*p_right_x & 0xFFFF0000u) | (right_x & 0xFFFFu);
 		return;
 	}
 	if ((uint8_t)pixel == (uint8_t)border_color)
 	{
-		right_cursor--;
-		right_cursor--;
-		flood_fill_span_set_right_x(left_x, fill_pattern, seed_address, &right_cursor, &right_x);
-		*p_right_cursor = right_cursor;
+		(*p_right_cursor)--;
+		(*p_right_cursor)--;
+		flood_fill_span_set_right_x(left_x, fill_pattern, seed_address, p_right_cursor, &right_x);
 		*p_right_x = (*p_right_x & 0xFFFF0000u) | (right_x & 0xFFFFu);
 		return;
 	}
 	if ((pixel_count & 1u) == 0u)
 	{
-		right_cursor--;
-		flood_fill_span_set_right_x(left_x, fill_pattern, seed_address, &right_cursor, &right_x);
-		*p_right_cursor = right_cursor;
+		(*p_right_cursor)--;
+		flood_fill_span_set_right_x(left_x, fill_pattern, seed_address, p_right_cursor, &right_x);
 		*p_right_x = (*p_right_x & 0xFFFF0000u) | (right_x & 0xFFFFu);
 		return;
 	}
-	last_pixel = mem_read8(right_cursor);
+	last_pixel = mem_read8(*p_right_cursor);
 	if (last_pixel == (uint8_t)fill_pattern || last_pixel == (uint8_t)border_color)
 	{
-		right_cursor--;
-		flood_fill_span_set_right_x(left_x, fill_pattern, seed_address, &right_cursor, &right_x);
-		*p_right_cursor = right_cursor;
+		(*p_right_cursor)--;
+		flood_fill_span_set_right_x(left_x, fill_pattern, seed_address, p_right_cursor, &right_x);
 		*p_right_x = (*p_right_x & 0xFFFF0000u) | (right_x & 0xFFFFu);
 		return;
 	}
-	flood_fill_span_set_right_x(left_x, fill_pattern, seed_address, &right_cursor, &right_x);
-	*p_right_cursor = right_cursor;
+	flood_fill_span_set_right_x(left_x, fill_pattern, seed_address, p_right_cursor, &right_x);
 	*p_right_x = (*p_right_x & 0xFFFF0000u) | (right_x & 0xFFFFu);
 }
 
+/* Unused: right_x += right_cursor - seed_address, the run's right end x (right_cursor on its last
+   pixel), then flood_fill_span_fill_run; right_cursor comes back as the last byte written. */
 void flood_fill_span_set_right_x(uint32_t left_x, uint32_t fill_pattern, uint16_t seed_address, uint32_t *p_right_cursor, uint32_t *p_right_x)
 {
 	uint16_t right_cursor = (uint16_t)*p_right_cursor;
@@ -1444,6 +1479,8 @@ void flood_fill_span_set_right_x(uint32_t left_x, uint32_t fill_pattern, uint16_
 	*p_right_x = (*p_right_x & 0xFFFF0000u) | (right_x & 0xFFFFu);
 }
 
+/* Unused: fills the run from left_x to right_x with fill_pattern from r14: an odd first byte, 16-byte
+   blocks, then 8, 4, 2 and 1; hands back the address of the last byte written. */
 uint32_t flood_fill_span_fill_run(uint32_t left_x, uint32_t fill_pattern, uint32_t right_x)
 {
 	uint32_t zero = 0;
@@ -1524,6 +1561,8 @@ uint32_t flood_fill_span_fill_run(uint32_t left_x, uint32_t fill_pattern, uint32
 	return right_address;
 }
 
+/* Unused: the seed span's neighbour rows: flood_fill_scan_row above (direction -1) when y is below
+   window_top, and below (1) when y is above window_bottom; hands back the x the last scan reached. */
 uint32_t flood_fill_scan_seed_rows(uint8_t border_color, uint32_t window_left, uint16_t window_top, uint32_t window_right, uint16_t window_bottom, uint32_t scan_x, uint16_t y, uint32_t fill_pattern)
 {
 	uint32_t direction = 0;
@@ -1539,6 +1578,10 @@ uint32_t flood_fill_scan_seed_rows(uint8_t border_color, uint32_t window_left, u
 	return flood_fill_scan_row(border_color, window_left, window_right, direction, (uint8_t)y, fill_pattern);
 }
 
+/* Unused: scans row y + direction under or over the current span, from flood_fill_left_x to
+   flood_fill_right_x (copied into the flood_fill_push_parent_* range): every run not in the fill or
+   border colour goes through flood_fill_push_span, the scan going on 2 past its right end; hands back
+   the x the scan reached. */
 uint32_t flood_fill_scan_row(uint8_t border_color, uint32_t window_left, uint32_t window_right, uint32_t direction, uint8_t y, uint32_t fill_pattern)
 {
 	bool back_to_pixel = false, first_of_pair = false;
@@ -1656,6 +1699,8 @@ uint32_t flood_fill_scan_row(uint8_t border_color, uint32_t window_left, uint32_
 	return scan_x;
 }
 
+/* Unused: the same as flood_fill_scan_seed_rows for a span taken from the queue, through
+   flood_fill_scan_row_skip_parent. */
 uint32_t flood_fill_scan_span_rows(uint8_t border_color, uint32_t window_left, uint16_t window_top, uint32_t window_right, uint16_t window_bottom, uint32_t scan_x, uint16_t y, uint32_t fill_pattern)
 {
 	uint32_t direction = 0;
@@ -1671,6 +1716,9 @@ uint32_t flood_fill_scan_span_rows(uint8_t border_color, uint32_t window_left, u
 	return flood_fill_scan_row_skip_parent(border_color, window_left, window_right, direction, scan_x, (uint8_t)y, fill_pattern);
 }
 
+/* Unused: a queued span's row in direction: toward its own flood_fill_direction the whole row
+   (flood_fill_scan_row); back toward its parent only the parts left of flood_fill_parent_left_x and
+   right of flood_fill_parent_right_x + 1, each run there through flood_fill_push_span. */
 uint32_t flood_fill_scan_row_skip_parent(uint8_t border_color, uint32_t window_left, uint32_t window_right, uint32_t direction, uint32_t scan_x, uint8_t y, uint32_t fill_pattern)
 {
 	bool left_back_to_pixel = false, left_found = false, left_odd_pixel = false, left_pairs_2 = false, right_found = false;
@@ -1870,6 +1918,10 @@ uint32_t flood_fill_scan_row_skip_parent(uint8_t border_color, uint32_t window_l
 	return scan_x;
 }
 
+/* Unused: fills the one run through point_x, point_y up to border_color (nothing outside bitmap_window
+   or on fill_color or border_color). At 8 bpp flood_fill_span does it; the 4 bpp nibble scans start from
+   outcode (0) instead of point_x and read through right_cursor, which nothing sets: that path cannot
+   work as written. */
 void fill_span_at_point(uint32_t point_x, uint32_t point_y, uint8_t fill_color, uint8_t border_color, uint32_t right_cursor)
 {
 	uint8_t pixel_byte = 0, point_pixel = 0;
@@ -1918,6 +1970,9 @@ void fill_span_at_point(uint32_t point_x, uint32_t point_y, uint8_t fill_color, 
 	fill_span_at_point_left_even_pixel(pixel_byte, scan_count, fill_color, border_color, outcode, right_cursor, right_x);
 }
 
+/* Unused: fill_span_at_point's 4 bpp left scan: the byte to the left (two pixels), its high nibble, the
+   nearer odd pixel, first: fill_color or border_color there ends the run after it, as does the count's
+   end; else its low nibble (fill_span_at_point_left_even_pixel). */
 void fill_span_at_point_left_byte(uint32_t scan_count, uint8_t fill_color, uint8_t border_color, uint32_t left_x, uint32_t right_cursor, uint32_t right_x)
 {
 	uint8_t nibble = 0, pixel_byte = 0;
@@ -1946,6 +2001,9 @@ void fill_span_at_point_left_byte(uint32_t scan_count, uint8_t fill_color, uint8
 	fill_span_at_point_left_even_pixel(pixel_byte, scan_count, fill_color, border_color, left_x, right_cursor, right_x);
 }
 
+/* Unused: fill_span_at_point's 4 bpp left scan: the low nibble, the farther even pixel: fill_color or
+   border_color ends the run after it; else the next byte to the left (fill_span_at_point_left_byte)
+   while the count lasts; then fill_span_at_point_scan_right. */
 void fill_span_at_point_left_even_pixel(uint8_t pixel_byte, uint32_t scan_count, uint8_t fill_color, uint8_t border_color, uint32_t left_x, uint32_t right_cursor, uint32_t right_x)
 {
 	pixel_byte &= 0xFu;
@@ -1970,6 +2028,9 @@ void fill_span_at_point_left_even_pixel(uint8_t pixel_byte, uint32_t scan_count,
 	fill_span_at_point_scan_right(fill_color, border_color, left_x, right_cursor, right_x);
 }
 
+/* Unused: fill_span_at_point's 4 bpp right scan from x right_x + 1 to bitmap_window_right, a byte (two
+   nibbles) at a time through right_cursor (which nothing sets); with right_x already at the window's
+   right edge straight to fill_span_at_point_fill_run. */
 void fill_span_at_point_scan_right(uint8_t fill_color, uint8_t border_color, uint32_t left_x, uint32_t right_cursor, uint32_t right_x)
 {
 	uint8_t pixel_byte = 0;
@@ -1996,6 +2057,9 @@ void fill_span_at_point_scan_right(uint8_t fill_color, uint8_t border_color, uin
 	fill_span_at_point_right_odd_pixel(pixel_byte, scan_count, fill_color, border_color, left_x, right_cursor, right_x);
 }
 
+/* Unused: fill_span_at_point's 4 bpp right scan: the next byte to the right, its low nibble, the nearer
+   even pixel, first: fill_color or border_color there ends the run before it, as does the count's end;
+   else its high nibble (fill_span_at_point_right_odd_pixel). */
 void fill_span_at_point_right_byte(uint32_t scan_count, uint8_t fill_color, uint8_t border_color, uint32_t left_x, uint32_t right_cursor, uint32_t right_x)
 {
 	uint8_t nibble = 0, pixel_byte = 0;
@@ -2023,6 +2087,9 @@ void fill_span_at_point_right_byte(uint32_t scan_count, uint8_t fill_color, uint
 	fill_span_at_point_right_odd_pixel(pixel_byte, scan_count, fill_color, border_color, left_x, right_cursor, right_x);
 }
 
+/* Unused: fill_span_at_point's 4 bpp right scan: the high nibble, the farther odd pixel: fill_color or
+   border_color ends the run before it; else the next byte (fill_span_at_point_right_byte) while the
+   count lasts; then fill_span_at_point_fill_run. */
 void fill_span_at_point_right_odd_pixel(uint8_t pixel_byte, uint32_t scan_count, uint8_t fill_color, uint8_t border_color, uint32_t left_x, uint32_t right_cursor, uint32_t right_x)
 {
 	pixel_byte = (uint8_t)pixel_byte >> 4;
@@ -2047,6 +2114,10 @@ void fill_span_at_point_right_odd_pixel(uint8_t pixel_byte, uint32_t scan_count,
 	fill_span_at_point_fill_run(fill_color, left_x, right_x);
 }
 
+/* Unused: fill_span_at_point's 4 bpp fill of x left_x to right_x from r14 with fill_color's low nibble:
+   an odd first pixel (high nibble), an aligning byte, longs, a halfword, a byte, an even last pixel (low
+   nibble). With one pixel left after the halfwords (or none after the aligning byte) it still writes the
+   byte: 2 pixels too many. */
 void fill_span_at_point_fill_run(uint32_t fill_color, uint32_t left_x, uint32_t right_x)
 {
 	uint8_t pixel_byte = 0;
@@ -2110,6 +2181,10 @@ void fill_span_at_point_fill_run(uint32_t fill_color, uint32_t left_x, uint32_t 
 	mem_write8(fill_cursor, (0xF0u & mem_read8(fill_cursor)) | (fill_color & 0xFu));
 }
 
+/* Unused: meant to save the rectangle left, top to right, bottom of the bitmap (corners sorted) into
+   buffer: a saved_bitmap_rect header (width in bits, * 8 at 8 bpp, * 4 kept to a byte at 4 bpp, and
+   rows), then each row. The row copy is an instruction the V60 cannot run, so the C stops at
+   invalid_operand on the first row. */
 void save_bitmap_rect(uint16_t left, uint16_t top, uint32_t right, uint32_t bottom, uint32_t buffer)
 {
 	uint16_t swap_x = 0, swap_y = 0;
@@ -2144,6 +2219,9 @@ void save_bitmap_rect(uint16_t left, uint16_t top, uint32_t right, uint32_t bott
 	} while (bottom != 0u);
 }
 
+/* Unused: meant to copy a save_bitmap_rect buffer back onto the bitmap row by row, from its
+   saved_bitmap_rect header (row_bits, rows); the row copy is an instruction the V60 cannot run, so the C
+   stops at invalid_operand on the first row. */
 void draw_saved_bitmap_rect(uint32_t buffer)
 {
 	uint32_t rows_left = 0;
@@ -2156,13 +2234,15 @@ void draw_saved_bitmap_rect(uint32_t buffer)
 	} while (rows_left != 0u);
 }
 
+/* Swaps the line's two points (start_x/_y with end_x/_y) and hands back in outcode where the new start
+   is outside bitmap_window (get_point_outcode: 1 left, 2 right, 4 above, 8 below). */
 void get_window_outcode(uint32_t *p_start_x, uint32_t *p_start_y, uint32_t *p_end_x, uint32_t *p_end_y, uint32_t *p_outcode)
 {
 	uint32_t start_x = *p_start_x;
 	uint32_t start_y = *p_start_y;
 	uint16_t end_x = (uint16_t)*p_end_x;
 	uint16_t end_y = (uint16_t)*p_end_y;
-	uint32_t old_start_x = 0, old_start_y = 0, outcode = 0, point_x = 0, point_y = 0;
+	uint32_t old_start_x = 0, old_start_y = 0, point_x = 0, point_y = 0;
 	uint32_t old_end_x = 0, old_end_y = 0;
 
 	old_end_x = end_x;
@@ -2171,14 +2251,15 @@ void get_window_outcode(uint32_t *p_start_x, uint32_t *p_start_y, uint32_t *p_en
 	old_end_y = end_y;
 	old_start_y = start_y;
 	point_y = old_end_y;
-	get_point_outcode(&point_x, &point_y, &outcode);
+	get_point_outcode(&point_x, &point_y, p_outcode);
 	*p_start_x = point_x;
 	*p_start_y = point_y;
 	*p_end_x = old_start_x;
 	*p_end_y = old_start_y;
-	*p_outcode = outcode;
 }
 
+/* Where point_x, point_y is outside bitmap_window, in outcode: 1 left, 2 right, 4 above, 8 below (0
+   inside); both come back sign-extended. */
 void get_point_outcode(uint32_t *p_point_x, uint32_t *p_point_y, uint32_t *p_outcode)
 {
 	uint32_t point_x = *p_point_x;
@@ -2209,13 +2290,15 @@ void get_point_outcode(uint32_t *p_point_x, uint32_t *p_point_y, uint32_t *p_out
 	*p_outcode = outcode;
 }
 
+/* Clips a line to bitmap_window: moves its start onto the edge outcode names (top or bottom when a
+   corner code also has left or right), then swaps the ends and does the same with end_outcode, so the
+   line comes back with its ends swapped; unclipped_y gets the last moved end's y from before the move. */
 void clip_line_to_window(uint32_t outcode, uint32_t end_outcode, uint32_t *p_start_x, uint32_t *p_start_y, uint32_t *p_end_x, uint32_t *p_end_y, uint32_t *p_unclipped_y)
 {
 	uint32_t start_x = *p_start_x;
 	uint32_t start_y = *p_start_y;
 	uint32_t end_x = *p_end_x;
 	uint32_t end_y = *p_end_y;
-	uint32_t unclipped_y = *p_unclipped_y;
 	uint32_t swapped_end_x = 0, swapped_end_y = 0, swapped_start_x = 0, swapped_start_y = 0;
 	uint32_t old_start_x = 0, old_start_y = 0;
 
@@ -2225,34 +2308,34 @@ void clip_line_to_window(uint32_t outcode, uint32_t end_outcode, uint32_t *p_sta
 		clip_line_end_inside();
 		break;
 	case 1:
-		clip_line_to_left_edge(end_x, end_y, &start_x, &start_y, &unclipped_y);
+		clip_line_to_left_edge(end_x, end_y, &start_x, &start_y, p_unclipped_y);
 		break;
 	case 2:
-		clip_line_to_right_edge(end_x, end_y, &start_x, &start_y, &unclipped_y);
+		clip_line_to_right_edge(end_x, end_y, &start_x, &start_y, p_unclipped_y);
 		break;
 	case 3:
 		clip_line_end_inside();
 		break;
 	case 4:
-		clip_line_to_top_edge(end_x, end_y, &start_x, &start_y, &unclipped_y);
+		clip_line_to_top_edge(end_x, end_y, &start_x, &start_y, p_unclipped_y);
 		break;
 	case 5:
-		clip_line_to_top_edge(end_x, end_y, &start_x, &start_y, &unclipped_y);
+		clip_line_to_top_edge(end_x, end_y, &start_x, &start_y, p_unclipped_y);
 		break;
 	case 6:
-		clip_line_to_top_edge(end_x, end_y, &start_x, &start_y, &unclipped_y);
+		clip_line_to_top_edge(end_x, end_y, &start_x, &start_y, p_unclipped_y);
 		break;
 	case 7:
 		clip_line_end_inside();
 		break;
 	case 8:
-		clip_line_to_bottom_edge(end_x, end_y, &start_x, &start_y, &unclipped_y);
+		clip_line_to_bottom_edge(end_x, end_y, &start_x, &start_y, p_unclipped_y);
 		break;
 	case 9:
-		clip_line_to_bottom_edge(end_x, end_y, &start_x, &start_y, &unclipped_y);
+		clip_line_to_bottom_edge(end_x, end_y, &start_x, &start_y, p_unclipped_y);
 		break;
 	case 10:
-		clip_line_to_bottom_edge(end_x, end_y, &start_x, &start_y, &unclipped_y);
+		clip_line_to_bottom_edge(end_x, end_y, &start_x, &start_y, p_unclipped_y);
 		break;
 	case 11:
 		clip_line_end_inside();
@@ -2274,23 +2357,20 @@ void clip_line_to_window(uint32_t outcode, uint32_t end_outcode, uint32_t *p_sta
 		*p_start_y = swapped_start_y;
 		*p_end_x = swapped_end_x;
 		*p_end_y = swapped_end_y;
-		*p_unclipped_y = unclipped_y;
 		return;
 	case 1:
-		clip_line_to_left_edge(swapped_end_x, swapped_end_y, &swapped_start_x, &swapped_start_y, &unclipped_y);
+		clip_line_to_left_edge(swapped_end_x, swapped_end_y, &swapped_start_x, &swapped_start_y, p_unclipped_y);
 		*p_start_x = swapped_start_x;
 		*p_start_y = swapped_start_y;
 		*p_end_x = swapped_end_x;
 		*p_end_y = swapped_end_y;
-		*p_unclipped_y = unclipped_y;
 		return;
 	case 2:
-		clip_line_to_right_edge(swapped_end_x, swapped_end_y, &swapped_start_x, &swapped_start_y, &unclipped_y);
+		clip_line_to_right_edge(swapped_end_x, swapped_end_y, &swapped_start_x, &swapped_start_y, p_unclipped_y);
 		*p_start_x = swapped_start_x;
 		*p_start_y = swapped_start_y;
 		*p_end_x = swapped_end_x;
 		*p_end_y = swapped_end_y;
-		*p_unclipped_y = unclipped_y;
 		return;
 	case 3:
 		clip_line_end_inside();
@@ -2298,31 +2378,27 @@ void clip_line_to_window(uint32_t outcode, uint32_t end_outcode, uint32_t *p_sta
 		*p_start_y = swapped_start_y;
 		*p_end_x = swapped_end_x;
 		*p_end_y = swapped_end_y;
-		*p_unclipped_y = unclipped_y;
 		return;
 	case 4:
-		clip_line_to_top_edge(swapped_end_x, swapped_end_y, &swapped_start_x, &swapped_start_y, &unclipped_y);
+		clip_line_to_top_edge(swapped_end_x, swapped_end_y, &swapped_start_x, &swapped_start_y, p_unclipped_y);
 		*p_start_x = swapped_start_x;
 		*p_start_y = swapped_start_y;
 		*p_end_x = swapped_end_x;
 		*p_end_y = swapped_end_y;
-		*p_unclipped_y = unclipped_y;
 		return;
 	case 5:
-		clip_line_to_top_edge(swapped_end_x, swapped_end_y, &swapped_start_x, &swapped_start_y, &unclipped_y);
+		clip_line_to_top_edge(swapped_end_x, swapped_end_y, &swapped_start_x, &swapped_start_y, p_unclipped_y);
 		*p_start_x = swapped_start_x;
 		*p_start_y = swapped_start_y;
 		*p_end_x = swapped_end_x;
 		*p_end_y = swapped_end_y;
-		*p_unclipped_y = unclipped_y;
 		return;
 	case 6:
-		clip_line_to_top_edge(swapped_end_x, swapped_end_y, &swapped_start_x, &swapped_start_y, &unclipped_y);
+		clip_line_to_top_edge(swapped_end_x, swapped_end_y, &swapped_start_x, &swapped_start_y, p_unclipped_y);
 		*p_start_x = swapped_start_x;
 		*p_start_y = swapped_start_y;
 		*p_end_x = swapped_end_x;
 		*p_end_y = swapped_end_y;
-		*p_unclipped_y = unclipped_y;
 		return;
 	case 7:
 		clip_line_end_inside();
@@ -2330,31 +2406,27 @@ void clip_line_to_window(uint32_t outcode, uint32_t end_outcode, uint32_t *p_sta
 		*p_start_y = swapped_start_y;
 		*p_end_x = swapped_end_x;
 		*p_end_y = swapped_end_y;
-		*p_unclipped_y = unclipped_y;
 		return;
 	case 8:
-		clip_line_to_bottom_edge(swapped_end_x, swapped_end_y, &swapped_start_x, &swapped_start_y, &unclipped_y);
+		clip_line_to_bottom_edge(swapped_end_x, swapped_end_y, &swapped_start_x, &swapped_start_y, p_unclipped_y);
 		*p_start_x = swapped_start_x;
 		*p_start_y = swapped_start_y;
 		*p_end_x = swapped_end_x;
 		*p_end_y = swapped_end_y;
-		*p_unclipped_y = unclipped_y;
 		return;
 	case 9:
-		clip_line_to_bottom_edge(swapped_end_x, swapped_end_y, &swapped_start_x, &swapped_start_y, &unclipped_y);
+		clip_line_to_bottom_edge(swapped_end_x, swapped_end_y, &swapped_start_x, &swapped_start_y, p_unclipped_y);
 		*p_start_x = swapped_start_x;
 		*p_start_y = swapped_start_y;
 		*p_end_x = swapped_end_x;
 		*p_end_y = swapped_end_y;
-		*p_unclipped_y = unclipped_y;
 		return;
 	case 10:
-		clip_line_to_bottom_edge(swapped_end_x, swapped_end_y, &swapped_start_x, &swapped_start_y, &unclipped_y);
+		clip_line_to_bottom_edge(swapped_end_x, swapped_end_y, &swapped_start_x, &swapped_start_y, p_unclipped_y);
 		*p_start_x = swapped_start_x;
 		*p_start_y = swapped_start_y;
 		*p_end_x = swapped_end_x;
 		*p_end_y = swapped_end_y;
-		*p_unclipped_y = unclipped_y;
 		return;
 	case 11:
 		clip_line_end_inside();
@@ -2362,113 +2434,96 @@ void clip_line_to_window(uint32_t outcode, uint32_t end_outcode, uint32_t *p_sta
 		*p_start_y = swapped_start_y;
 		*p_end_x = swapped_end_x;
 		*p_end_y = swapped_end_y;
-		*p_unclipped_y = unclipped_y;
 		return;
 	default:
 		invalid_jump(0x9C3D2u + end_outcode * 3u);
 	}
 }
 
+/* Nothing to move: the end is inside bitmap_window (outcode 0), or its outcode has both left and right
+   (3, 7, 11). */
 void clip_line_end_inside(void)
 {
 }
 
+/* Moves the line's start onto bitmap_window_left (clip_line_at_x by bitmap_window_left - start_x). */
 void clip_line_to_left_edge(uint32_t end_x, uint32_t end_y, uint32_t *p_start_x, uint32_t *p_start_y, uint32_t *p_unclipped_y)
 {
-	uint32_t start_x = *p_start_x;
-	uint32_t start_y = *p_start_y;
-	uint32_t dx = 0, unclipped_y = 0;
+	uint32_t dx = 0;
 
-	dx = bitmap_window_left - start_x;
-	clip_line_at_x(end_x, end_y, dx, &start_x, &start_y, &unclipped_y);
-	*p_start_x = start_x;
-	*p_start_y = start_y;
-	*p_unclipped_y = unclipped_y;
+	dx = bitmap_window_left - *p_start_x;
+	clip_line_at_x(end_x, end_y, dx, p_start_x, p_start_y, p_unclipped_y);
 }
 
+/* Moves the line's start onto bitmap_window_right (clip_line_at_x by bitmap_window_right - start_x). */
 void clip_line_to_right_edge(uint32_t end_x, uint32_t end_y, uint32_t *p_start_x, uint32_t *p_start_y, uint32_t *p_unclipped_y)
 {
-	uint32_t start_x = *p_start_x;
-	uint32_t start_y = *p_start_y;
-	uint32_t dx = 0, unclipped_y = 0;
+	uint32_t dx = 0;
 
-	dx = bitmap_window_right - start_x;
-	clip_line_at_x(end_x, end_y, dx, &start_x, &start_y, &unclipped_y);
-	*p_start_x = start_x;
-	*p_start_y = start_y;
-	*p_unclipped_y = unclipped_y;
+	dx = bitmap_window_right - *p_start_x;
+	clip_line_at_x(end_x, end_y, dx, p_start_x, p_start_y, p_unclipped_y);
 }
 
+/* Moves the line's start dx along x: start_x += dx and start_y += (end_y - start_y) * dx / (end_x -
+   start_x), start_y kept when the line is vertical; unclipped_y gets start_y before the move. */
 void clip_line_at_x(uint32_t end_x, uint32_t end_y, uint32_t dx, uint32_t *p_start_x, uint32_t *p_start_y, uint32_t *p_unclipped_y)
 {
-	uint32_t start_x = *p_start_x;
 	uint32_t start_y = *p_start_y;
-	uint32_t dy_scaled = 0, line_dx = 0, unclipped_y = 0;
+	uint32_t dy_scaled = 0, line_dx = 0;
 
-	line_dx = end_x - start_x;
-	unclipped_y = start_y;
-	dy_scaled = (end_y - unclipped_y) * dx;
-	start_x += dx;
+	line_dx = end_x - *p_start_x;
+	*p_unclipped_y = start_y;
+	dy_scaled = (end_y - *p_unclipped_y) * dx;
+	*p_start_x += dx;
 	if (line_dx != 0u)
 	{
 		start_y += divide_s32(dy_scaled, line_dx);
-		*p_start_x = start_x;
 		*p_start_y = start_y;
-		*p_unclipped_y = unclipped_y;
 		return;
 	}
-	*p_start_x = start_x;
-	*p_unclipped_y = unclipped_y;
 }
 
+/* Moves the line's start onto bitmap_window_top (clip_line_at_y by bitmap_window_top - start_y). */
 void clip_line_to_top_edge(uint32_t end_x, uint32_t end_y, uint32_t *p_start_x, uint32_t *p_start_y, uint32_t *p_unclipped_y)
 {
-	uint32_t start_x = *p_start_x;
-	uint32_t start_y = *p_start_y;
-	uint32_t dy = 0, unclipped_y = 0;
+	uint32_t dy = 0;
 
-	dy = bitmap_window_top - start_y;
-	clip_line_at_y(end_x, end_y, dy, &start_x, &start_y, &unclipped_y);
-	*p_start_x = start_x;
-	*p_start_y = start_y;
-	*p_unclipped_y = unclipped_y;
+	dy = bitmap_window_top - *p_start_y;
+	clip_line_at_y(end_x, end_y, dy, p_start_x, p_start_y, p_unclipped_y);
 }
 
+/* Moves the line's start onto bitmap_window_bottom (clip_line_at_y by bitmap_window_bottom - start_y). */
 void clip_line_to_bottom_edge(uint32_t end_x, uint32_t end_y, uint32_t *p_start_x, uint32_t *p_start_y, uint32_t *p_unclipped_y)
 {
-	uint32_t start_x = *p_start_x;
-	uint32_t start_y = *p_start_y;
-	uint32_t dy = 0, unclipped_y = 0;
+	uint32_t dy = 0;
 
-	dy = bitmap_window_bottom - start_y;
-	clip_line_at_y(end_x, end_y, dy, &start_x, &start_y, &unclipped_y);
-	*p_start_x = start_x;
-	*p_start_y = start_y;
-	*p_unclipped_y = unclipped_y;
+	dy = bitmap_window_bottom - *p_start_y;
+	clip_line_at_y(end_x, end_y, dy, p_start_x, p_start_y, p_unclipped_y);
 }
 
+/* Moves the line's start dy along y: start_y += dy and start_x += (end_x - start_x) * dy / (end_y -
+   start_y), start_x kept when the line is level; unclipped_y gets start_y before the move. */
 void clip_line_at_y(uint32_t end_x, uint32_t end_y, uint32_t dy, uint32_t *p_start_x, uint32_t *p_start_y, uint32_t *p_unclipped_y)
 {
 	uint32_t start_x = *p_start_x;
-	uint32_t start_y = *p_start_y;
-	uint32_t dx_scaled = 0, line_dy = 0, unclipped_y = 0;
+	uint32_t dx_scaled = 0, line_dy = 0;
 
-	unclipped_y = start_y;
-	line_dy = end_y - unclipped_y;
+	*p_unclipped_y = *p_start_y;
+	line_dy = end_y - *p_unclipped_y;
 	dx_scaled = (end_x - start_x) * dy;
-	start_y += dy;
+	*p_start_y += dy;
 	if (line_dy != 0u)
 	{
 		start_x += divide_s32(dx_scaled, line_dy);
 		*p_start_x = start_x;
-		*p_start_y = start_y;
-		*p_unclipped_y = unclipped_y;
 		return;
 	}
-	*p_start_y = start_y;
-	*p_unclipped_y = unclipped_y;
 }
 
+/* Sorts the rectangle left, top, right, bottom and clips it to bitmap_window: unclipped_edges comes back
+   0 when it lies wholly outside, else 0xF less a bit for each edge moved (1 left, 2 right, 4 top, 8
+   bottom). The outside tests take left and top unsigned, so a rectangle starting at a negative x or y
+   counts as outside. */
 void clip_rect_to_window(uint32_t *p_left, uint32_t *p_top, uint32_t *p_right, uint32_t *p_bottom, uint32_t *p_window_min, uint32_t *p_unclipped_edges)
 {
 	uint16_t left = (uint16_t)*p_left;

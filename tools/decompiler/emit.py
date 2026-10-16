@@ -292,6 +292,68 @@ def rerolled(lines):
     return found
 
 
+def shared_results(texts):
+    """For the C of every function ('texts': its text by anything), the result pointers of each function
+    that some call of it gives the same variable as another one ("wait_for_frame(&ignored, &ignored, ...)",
+    or a pointer it was itself given twice): {function name: {"p_released", ...}}."""
+    params = {}
+    for text in texts:
+        for match in re.finditer(r"^\w[\w ]*?\b(\w+)\(([^)\n]*)\)\n\{", text, re.M):
+            params[match.group(1)] = [part.split()[-1].lstrip("*") for part in match.group(2).split(", ")
+                                      if part != "void"]
+    shared = {}
+    for text in texts:
+        for match in re.finditer(r"\b(\w+)\(", text):
+            names = params.get(match.group(1))
+            if not names:
+                continue
+            arguments, depth, start, index = [], 0, match.end(), match.end()
+            while index < len(text):
+                char = text[index]
+                if char == "(":
+                    depth += 1
+                elif char == ")":
+                    if depth == 0:
+                        arguments.append(text[start:index].strip())
+                        break
+                    depth -= 1
+                elif char == "," and depth == 0:
+                    arguments.append(text[start:index].strip())
+                    start = index + 1
+                index += 1
+            if len(arguments) != len(names):
+                continue    # (the definition itself, or a prototype)
+            pointers = [argument for argument in arguments if re.fullmatch(r"&\w+|p_\w+", argument)]
+            for argument, name in zip(arguments, names):
+                if argument in pointers and pointers.count(argument) > 1 and name.startswith("p_"):
+                    shared.setdefault(match.group(1), set()).add(name)
+    return shared
+
+
+def through_pointer(line, name, param):
+    """'line' with the variable 'name' read and set through the result pointer p_'param': &name is the
+    pointer, name is *p_param ((*p_param)++, (*p_param)->...)."""
+    def replace(match):
+        if match.group(1):
+            return f"p_{param}"
+        after = line[match.end():]
+        text = f"(*p_{param})" if after.startswith(("++", "--", "[", "->", ".")) else f"*p_{param}"
+        return " " + text if line[:match.start()].endswith(("/", "*")) else text
+    return re.sub(rf"(&)?(?<![\w.>]){name}\b", replace, line)
+
+
+def comment_lines(text, width=105):
+    """'text' as a /* */ block of lines at most 'width' wide, the lines after the first indented to its text."""
+    lines, line = [], "/*"
+    for word in text.split():
+        if len(line) + 1 + len(word) > width and line.strip() not in ("/*", ""):
+            lines.append(line)
+            line = "  "
+        line += " " + word
+    lines.append(line + " */")
+    return lines
+
+
 CONTROL_MARK = "\x01"    # around a control variable's name while the body is written (name_controls)
 CONTROL_PATTERN = "\x01([^\x01]*)\x01"
 
@@ -314,6 +376,9 @@ class FunctionWriter:
         self.referenced = set()
         self.extra = 0
         self.controls = {}         # control variable of gotos.py -> its C name (control)
+        self.forwarded = set()     # variables of results whose caller's pointer goes straight on (forward_results)
+        self.not_copied = set()    # results some way out of the function does not copy back (copy_out)
+        self.written = None        # the body as the tree gives it, before forward_results (write)
         self.returned = emitter.returned(function.entry)
         self.results = emitter.by_pointer(function.entry)
         self.params = emitter.by_value(function.entry)
@@ -1182,6 +1247,59 @@ class FunctionWriter:
         self.controls.setdefault(name, None)
         return CONTROL_MARK + name + CONTROL_MARK
 
+    def forward_results(self, body):
+        """'body' with the results the function only hands on: a register it takes and hands back by pointer
+        whose variable the function itself never reads or sets, only passes to calls by pointer and copies back
+        as they left it ("update(&count); ... *p_count = count; return;"), goes straight through: the caller's
+        pointer is passed on (update(p_count)), with no copy of its own and nothing to copy back at each
+        return. A result every way out copies back from the same variable (the one it came in, if it comes in
+        at all), and that the function uses no more than twice for each copy back, is that variable: the
+        function works on it through its pointer ("*p_count += 2u;"), with no copy in or back. Neither is
+        done for a result some call hands the same variable as another one (results nobody reads all go to
+        the caller's 'ignored'): writing one through its pointer would change the other. The names of those
+        variables go into self.forwarded (declarations leaves them out)."""
+        self.forwarded = set()
+        shared = self.emitter.shared_results.get(self.emitter.names.get(self.entry, self.function.name), set())
+        for value in self.results:
+            if value[0] != "r":
+                continue
+            param = self.emitter.param_name(self.entry, value)
+            if f"p_{param}" in shared:
+                continue
+            entry = self.vars.entry_name(value[1]) if self.vars.entry_live(value[1]) else None
+            if entry is not None:
+                # copying back the value as it came in, where nothing else reads or sets it, does nothing
+                same = rf"\t+\*p_{param} = {entry};"
+                rest = [line for line in body if not re.fullmatch(same, line)]
+                if len(rest) < len(body) and not any(re.search(rf"(?<![\w.>]){entry}\b", line) for line in rest):
+                    body = rest
+                    self.forwarded.add(entry)
+                    continue
+            copies = [line for line in body if re.fullmatch(rf"\t+\*p_{param} = [^;]*;", line)]
+            names = {re.fullmatch(rf"\t+\*p_{param} = (\w+);", line).group(1) if re.fullmatch(
+                rf"\t+\*p_{param} = (\w+);", line) else None for line in copies}
+            if len(names) != 1 or None in names:
+                continue    # (none, a part of the register, or several variables)
+            name = names.pop()
+            entry = self.vars.entry_name(value[1]) if self.vars.entry_live(value[1]) else None
+            if (entry is not None and entry != name) or self.widths.get(name, 32) != 32 or name in self.params:
+                continue
+            copy_back = rf"\t+\*p_{param} = {name};"
+            rest = [line for line in body if not re.fullmatch(copy_back, line)]
+            uses = sum(len(re.findall(rf"(?<![\w.>]){name}\b", line)) for line in rest)
+            if uses == 0:
+                continue
+            pointed = sum(len(re.findall(rf"&{name}\b", line)) for line in rest)
+            if uses == pointed:
+                body = [re.sub(rf"&{name}\b", f"p_{param}", line) for line in rest]
+            elif value not in self.not_copied and uses - pointed <= 2 * len(copies):
+                # (a variable the function works on much more than it copies back keeps its own copy)
+                body = [through_pointer(line, name, param) for line in rest]
+            else:
+                continue
+            self.forwarded.add(name)
+        return body
+
     def name_controls(self, body):
         """'body' with the control variables named: each its own name, apart from every other name the
         function and the program use."""
@@ -1689,6 +1807,7 @@ class FunctionWriter:
             return self.copy_out() + [self.return_text()]
         if isinstance(end, ir.TailCall):
             if self.returned is not None and self.emitter.returned(self.emitter.resolve(end.target, end.entry)[0])                     == self.returned:
+                self.not_copied.update(self.results)
                 return [f"return {self.call_expression(end.target, None, end.entry)};"]
             return [self.call_text(end.target, None, end.entry)] + self.copy_out() + [self.return_text()]
         if isinstance(end, ir.InterruptReturn):
@@ -1706,10 +1825,12 @@ class FunctionWriter:
         for value in self.results:
             name, text = self.emitter.param_name(self.entry, value), self.out_value(value)
             if value[0] == "r" and isinstance(self.current, ir.Return) and self.vars.unchanged(self.current, value[1]):
+                self.not_copied.add(value)
                 continue    # as it came in: the caller's variable already holds it (after a tail call it may not)
             if value[0] == "r":
                 mask = self.emitter.written_mask(self.entry, value[1])
                 if not mask:
+                    self.not_copied.add(value)
                     continue    # it never writes it (a result only for the others it shares a signature with)
                 if mask != 0xFFFFFFFF:
                     width = self.widths.get(text, 32)
@@ -1844,11 +1965,15 @@ class FunctionWriter:
         return self.emitter.prototype(self.entry)
 
     def write(self):
-        tree, self.labels = structure.structure(self.function, self.control_name)
-        body = self.name_controls(self.nodes(tree, 1))
+        """The function's C. Written again (once emitter.shared_results is known), only its last steps run."""
+        if self.written is None:
+            tree, self.labels = structure.structure(self.function, self.control_name)
+            self.written = self.name_controls(self.nodes(tree, 1))
+        body = self.forward_results(list(self.written))
         if body and body[-1] == "\treturn;":
             body.pop()    # running off the end returns as well
-        text = [self.prototype(), "{"]
+        said = self.emitter.comments.get(self.emitter.names.get(self.entry, self.function.name))
+        text = (comment_lines(said) if said else []) + [self.prototype(), "{"]
         # the names the code mentions, fields (after "->" or ".") aside: an unused variable z is not
         # declared because some OBJECT(...)->z is read
         declarations = self.declarations(set(re.findall(r"(?<![\w.>])[A-Za-z_]\w*", "\n".join(body))))
@@ -1874,6 +1999,8 @@ class FunctionWriter:
             if not self.vars.entry_live(value[1]):
                 continue    # always written before it is read: an ordinary variable
             name = self.vars.entry_name(value[1])
+            if name in self.forwarded:
+                continue    # (the caller's pointer goes straight on: forward_results)
             width = self.widths.get(name, 32)
             cast = "" if width == 32 else f"({cprint.UNSIGNED[width]})"
             lines.append(f"{cprint.UNSIGNED[width]} {name} = {cast}*p_{self.emitter.param_name(self.entry, value)};")
@@ -1922,6 +2049,9 @@ class Emitter:
         self.missing_fields = {}    # (family or "function NAME", offset, bits) -> functions (note_missing)
         self.data_labels = {}       # program ROM address -> name of the data label symbols.txt puts there
         self.code_labels = {}       # address -> name of the code label symbols.txt puts there
+        self.comments = {}          # function name -> what the C says above it (symbols.txt comment lines)
+        self.shared_results = {}    # function name -> its result pointers some call gives the same variable as
+                                    # another one (shared_results)
         self.raw_addresses = {}     # ROM address printed as a number -> the functions that use it
         self.writes = {}            # entry -> what a function may write (dataflow summaries)
         self.always = always    # entry -> what a function writes on every path (dataflow summaries)
@@ -2211,7 +2341,9 @@ class Emitter:
         by_value, by_pointer = self.by_value(entry), self.by_pointer(entry)
         if not by_value and not by_pointer and self.returned(entry) is None and not self.second_entries.get(entry):
             return None
-        lines = [f"static void call_{entry:06X}(void)", "{"]
+        lines = comment_lines(f"How call_code() runs {self.names[entry]} from a slot that holds its address: with 0 "
+                              "for what it takes, and what it hands back dropped.")
+        lines += [f"static void call_{entry:06X}(void)", "{"]
         if by_pointer:
             lines.append("\tuint32_t " + ", ".join(f"{value_name(value)} = 0" for value in by_pointer) + ";")
         values = ["0"] * len(by_value) + [f"&{value_name(value)}" for value in by_pointer]

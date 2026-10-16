@@ -11,6 +11,10 @@
  */
 #include "game.h"
 
+/* Common frame of states 0, 1, 2, 4, 0xC, 0x13, 0x14 and 0x17: counts down hit_stop, control_lock and
+   free_turn_timer, checks contacts and walls, steers by the trackball and moves (in state 1 by the walk
+   animation's steps), find_floor, then player_move_check_edge; a state set on the way, or by
+   floor_type_player_states, goes to player_dispatch_state. */
 void player_move(uint32_t depth, uint32_t cursor)
 {
 	uint32_t ignored = 0, sink_offset = 0, state = 0, state_entry = 0;
@@ -121,6 +125,10 @@ void player_move(uint32_t depth, uint32_t cursor)
 	player_move_check_edge(sink_offset, cursor);
 }
 
+/* The rest of player_move: set_floor_sprite_priority and check_player_floor_edge (states 5-9
+   dispatched), apply_moving_floor, projection (sprite_offset_y 0x12 for it in a jump with attack_power
+   above 1), keep_player_on_screen (state 0x16 dispatched, player_respawn stops), the jump check, blink,
+   platform and lists, then player_animate. */
 void player_move_check_edge(uint32_t depth, uint32_t cursor)
 {
 	uint32_t ignored = 0;
@@ -162,6 +170,9 @@ void player_move_check_edge(uint32_t depth, uint32_t cursor)
 	player_animate(depth, cursor);
 }
 
+/* Second switch on the player's state, after player_move: the animation and drawing of states 0
+   (standing), 1 (walking), 2 (falling), 4 (jumping), 0xC (skidding), 0x13 and 0x14 (running) and 0x17
+   (hopping); state 3 does nothing and every other state goes back to player_dispatch_state. */
 void player_animate(uint32_t depth, uint32_t cursor)
 {
 	switch (PLAYER(current_player)->state)
@@ -251,6 +262,10 @@ void player_animate(uint32_t depth, uint32_t cursor)
 	}
 }
 
+/* State 0's animation: the character's standing table by facing, restarted when it was not standing
+   (first step kind * 8 + 0x2C frames, standing_started), later steps 3 frames but 2 and 6. Drawn unless
+   hidden (flags bit 19): at its base, or with player flags bit 0 clipped at the ground (clip entries at
+   +0x102 and +0xF0) at draw_depth. */
 void player_animate_standing(void)
 {
 	uint32_t animation_table = 0, depth = 0, ignored = 0;
@@ -293,6 +308,10 @@ void player_animate_standing(void)
 	queue_sprite_at_depth(&ignored, &depth);
 }
 
+/* State 1's animation: the character's walking table by facing, stepped the frame after walk_cycle (+
+   animation_speed_int) reaches 0x200, which also sets flags bit 15 for player_move to apply
+   walk_pending_x/_y; walk_pending_x/_y and walk_cycle cleared when it was not walking. Drawn like the
+   standing player. */
 void player_animate_walking(void)
 {
 	uint32_t depth = 0, ignored = 0, walking_animations = 0;
@@ -348,6 +367,8 @@ void player_animate_walking(void)
 	queue_sprite_at_depth(&ignored, &depth);
 }
 
+/* State 0x14's animation: the character's running fast table (sonic/ray/mighty_running_fast_animations)
+   through player_animate_run_cycle. */
 void player_animate_running_fast(void)
 {
 	uint32_t animation_table = 0;
@@ -366,6 +387,8 @@ void player_animate_running_fast(void)
 	player_animate_run_cycle(animation_table);
 }
 
+/* State 0x13's animation: the character's running table (sonic/ray/mighty_running_animations) through
+   player_animate_run_cycle. */
 void player_animate_running(void)
 {
 	uint32_t animation_table = 0;
@@ -384,6 +407,10 @@ void player_animate_running(void)
 	player_animate_run_cycle(animation_table);
 }
 
+/* Picks the run animation: the alternate run (player_animate_run_cycle_alternate) with flags bit 31, or
+   on floor type 1 with floor_attribute 1-4 while facing is 0-4 past
+   floor_1_facing_bases[floor_attribute] (for 1 and 4 only while alternate_run_toggle, + 2 a frame, is
+   0-0x7F); else player_animate_run_from_table. */
 void player_animate_run_cycle(uint32_t animation_table)
 {
 	uint32_t floor_attribute = 0;
@@ -418,6 +445,8 @@ void player_animate_run_cycle(uint32_t animation_table)
 	player_animate_run_cycle_alternate();
 }
 
+/* The alternate run animations of the player's character (sonic/ray/mighty_alternate_run_animations)
+   through player_animate_run_from_table. */
 void player_animate_run_cycle_alternate(void)
 {
 	uint32_t alternate_run_animations = 0;
@@ -436,6 +465,10 @@ void player_animate_run_cycle_alternate(void)
 	player_animate_run_from_table(alternate_run_animations);
 }
 
+/* The run cycles' common part: animation_table's animation for facing (restarted at step 2 after a
+   non-running one), stepped the frame after walk_cycle (+ animation_speed_int) reaches 0x4F0 in state
+   0x14, else 0x600 (0x1800 on floor type 4's floor_4_slow_run_steps), walk_cycle keeping its low byte;
+   drawn like the standing player. */
 void player_animate_run_from_table(uint32_t animation_table)
 {
 	uint32_t depth = 0, ignored = 0, walk_cycle_limit = 0;
@@ -483,6 +516,10 @@ void player_animate_run_from_table(uint32_t animation_table)
 	queue_sprite_at_depth(&ignored, &depth);
 }
 
+/* State 2, falling to a lower floor: a hop on the first frame (speed_z -0x10000, +0x10000 if player
+   flags bit 7 was set), gravity 0x6000, the running animation; on the floor state 1. No floor below
+   (0x7FF) drops it into the pit: state 8, ledge_side, player_status, mishap_flag, the edge hang
+   animation. Drawn at its floor or the previous one. */
 void player_animate_falling(void)
 {
 	uint8_t new_status = 0;
@@ -577,10 +614,15 @@ void player_animate_falling(void)
 	ignored = queue_sprite_at_previous_floor();
 }
 
+/* State 3: returns at once. */
 void player_state_inactive(void)
 {
 }
 
+/* State 4, the jump: speed_z -0x90000 on the first frame, then attack_power 4 (sound 0x1F as it is set,
+   flags bit 6), the attack jump animation and gravity 0x9000 once past its first frame (both less on
+   floor type 4); in stage 5 before cage_bar_hit a sign and "ATTACK!" above. Lands after 0x50 frames, or
+   on the floor once state_timer is out. */
 void player_animate_jumping(uint32_t sign)
 {
 	uint8_t sound_id = 0;
@@ -705,6 +747,8 @@ void player_animate_jumping(uint32_t sign)
 	player_draw();
 }
 
+/* The jump's end: state 1, z on the floor, jump_delay 0, flags bits 6, 13, 20 and 21 cleared, the normal
+   palette (palette_list + 2); then player_draw. */
 void player_animate_jumping_land(void)
 {
 	PLAYER(current_player)->state = 1u;
@@ -719,6 +763,9 @@ void player_animate_jumping_land(void)
 	player_draw();
 }
 
+/* Draws the player unless hidden (flags bit 19): at its floor, or the previous floor when it has no
+   floor block; with player flags bit 0, clipped at the ground: the clip entries at +0x102 and +0xF0 and
+   the player at draw_depth (its floor's screen y). */
 void player_draw(void)
 {
 	uint32_t depth = 0, ignored = 0;
@@ -747,6 +794,10 @@ void player_draw(void)
 	queue_sprite_at_depth(&ignored, &depth);
 }
 
+/* State 5, teetering at a pit's edge with the teeter animation for its ledge_side. Pulled back
+   (ledge_pullback 0x10) it stands on the previous floor, headings from ledge_recover_headings; else it
+   falls off (state 6, player_status, mishap_flag): at once on a kind 0x19 object, else at the
+   animation's step 7 once state_timer (0x3C; 1 for ledge_side 4) is out. */
 void player_state_teetering(uint32_t cursor)
 {
 	uint8_t new_status = 0, sound_id = 0;
@@ -959,6 +1010,10 @@ void player_state_teetering(uint32_t cursor)
 	queue_sprite_at_depth(&ignored, &depth);
 }
 
+/* State 6, falling off the edge into the pit: fall_draw_depth below the edge, the fall animation shifted
+   up and left, the voice at health 8 or less, then gravity 0x3000 (sinking and floor type 0xD as in
+   state 9). Below screen y 0x100: 8 health off and player_respawn (state 0x16 at 8 or less); no loss in
+   stage 5 and stage 8 before scroll_position 0x4000. */
 void player_state_falling_off_edge(void)
 {
 	uint8_t sound_id = 0;
@@ -1142,10 +1197,15 @@ void player_state_falling_off_edge(void)
 	queue_sprite_at_depth(&ignored, &depth);
 }
 
+/* Unused: an empty return left after player_state_falling_off_edge's code; it does nothing. */
 void player_state_falling_off_edge_spare_return(void)
 {
 }
 
+/* State 7, over an edge: slides on until slip_distance reaches 0x20000000 (/4 on floor type 9 or with
+   flags bit 17), then hangs by its ledge_side; pulled back (ledge_pullback 0x14) it climbs back onto the
+   floor, else it drops (state 8; on a moving edge once edge_object has passed it). Off the screen while
+   climbing back: player_respawn, or state 0x16. */
 void player_state_over_edge(uint32_t jump_offset, uint32_t cursor)
 {
 	uint8_t sound_id = 0;
@@ -1599,6 +1659,10 @@ void player_state_over_edge(uint32_t jump_offset, uint32_t cursor)
 	}
 }
 
+/* State 7's hang: ledge_pullback at 0x14 or more moves on to climbing back (substate + 1); state_timer
+   counts down and when out the player drops (player_over_edge_drop), but with player flags bit 1 or
+   flags bit 17 only once the touched object's sprite_scale is 0x100 or more; else
+   player_over_edge_hang_finish. */
 void player_over_edge_check_pull_up(uint32_t cursor)
 {
 	uint16_t state_timer = 0, state_timer_2 = 0;
@@ -1633,6 +1697,8 @@ void player_over_edge_check_pull_up(uint32_t cursor)
 	player_over_edge_hang_finish(cursor);
 }
 
+/* State 7 ends in a drop: state 8, player_status 0xFF (1 with flags bit 10 at health 8 or less),
+   mishap_flag 0xFF; then player_over_edge_hang_finish. */
 void player_over_edge_drop(uint32_t cursor)
 {
 	uint8_t new_status = 0;
@@ -1650,6 +1716,9 @@ void player_over_edge_drop(uint32_t cursor)
 	player_over_edge_hang_finish(cursor);
 }
 
+/* State 7's frame end while hanging (and on the drop): animate, update_player_blink, project, contacts
+   unless flags bit 17, the lists; drawn at the previous floor (ledge_side 2 or more), just in front of
+   touched_by (its draw_depth + 1) with player flags bit 1 or flags bit 17, else at fall_draw_depth. */
 void player_over_edge_hang_finish(uint32_t cursor)
 {
 	uint32_t depth = 0, ignored = 0, projected_depth = 0;
@@ -1680,6 +1749,10 @@ void player_over_edge_hang_finish(uint32_t cursor)
 	queue_sprite_at_depth(&ignored, &depth);
 }
 
+/* State 8, dropping into the pit: holds the hang's last frames 0x1E frames, lets go (a slip effect,
+   characters 1 and 2's slip pieces, sound 0x16, the voice at health 8 or less) and falls down the
+   screen. Below screen y 0x110: 8 health off and player_respawn (state 0x16 at 8 or less); no loss in
+   stage 5 and stage 8 before scroll_position 0x4000. */
 void player_state_dropping(uint32_t cursor)
 {
 	uint8_t sound_id = 0;
@@ -1864,10 +1937,15 @@ void player_state_dropping(uint32_t cursor)
 	}
 }
 
+/* Unused: an empty return left after player_state_dropping's code; it does nothing. */
 void player_state_dropping_spare_return(void)
 {
 }
 
+/* State 9, falling into a pit: fall_draw_depth below the edge, mishap_flag, then gravity 0x6000, drawn
+   at that depth. Over floor block type 0x22 or 0x26 with y_int under group_leaders[0]'s it sinks (state
+   0x33; the depth test reads 0 for both); floor type 0xD from z_int 0x530: state 0x20; below screen y
+   0x130: 8 health off, player_respawn or state 0x16. */
 void player_state_falling_into_pit(void)
 {
 	uint16_t sink_threshold = 0;
@@ -1999,10 +2077,15 @@ void player_state_falling_into_pit(void)
 	queue_sprite_at_depth(&ignored, &depth);
 }
 
+/* Unused: an empty return left after player_state_falling_into_pit's code; it does nothing. */
 void player_state_falling_into_pit_spare_return(void)
 {
 }
 
+/* State 0xA, climbing a wall (attribute_record, its floor_types record by floor_attribute): contacts
+   first (states 0xD, 0x1F, 0x20, 0x36 dispatched); touched by a kind 5 object it only updates its
+   position; else by substate: 0 start (from the top after a jump: state 9), 1 grab the wall, 2 over the
+   top edge, 3 climb, 4 pull up. */
 void player_state_climbing(uint32_t depth, uint32_t cursor)
 {
 	uint32_t attribute_record = 0;
@@ -2056,6 +2139,8 @@ void player_state_climbing(uint32_t depth, uint32_t cursor)
 	player_dispatch_state(depth, cursor);
 }
 
+/* State 0xA substate 0: flags bits 6 and 13 cleared, the normal palette, speed 0, control_lock 0,
+   substate 1; then player_climbing_grab_wall. */
 void player_climbing_start(uint32_t cursor, uint32_t attribute_record)
 {
 	OBJECT(current_object)->flags &= ~0x40u;
@@ -2067,6 +2152,10 @@ void player_climbing_start(uint32_t cursor, uint32_t attribute_record)
 	player_climbing_grab_wall(cursor, attribute_record);
 }
 
+/* State 0xA substate 1: keeps y (x with the wall record's byte 0) within the record's span (+0xA, +0xC
+   long). From below: climb_remaining = record +6, the climb animation, snapped to the block's edge, z
+   and climb_base_z at the floor, player_climbing_begin_climb. From the top: at the block's x_max, the
+   climb-over animation round an anchor, substate 2. */
 void player_climbing_grab_wall(uint32_t cursor, uint32_t attribute_record)
 {
 	uint16_t wall_limit = 0;
@@ -2148,6 +2237,9 @@ void player_climbing_grab_wall(uint32_t cursor, uint32_t attribute_record)
 	player_climbing_descend_over_edge(cursor, attribute_record);
 }
 
+/* State 0xA substate 2, getting over the top edge to climb down: animate_around_anchor (drawn meanwhile)
+   until the climb-over animation ends, then the climb animation from step 6 at the anchor's screen
+   position and player_climbing_begin_climb. */
 void player_climbing_descend_over_edge(uint32_t cursor, uint32_t attribute_record)
 {
 	uint32_t at_last_step = 0, climb_animation = 0, ignored = 0;
@@ -2180,6 +2272,7 @@ void player_climbing_descend_over_edge(uint32_t cursor, uint32_t attribute_recor
 	player_climbing_begin_climb(cursor, attribute_record);
 }
 
+/* State 0xA: step_accumulator 0, substate 3, then player_climbing_move. */
 void player_climbing_begin_climb(uint32_t cursor, uint32_t attribute_record)
 {
 	PLAYER(current_player)->step_accumulator = 0;
@@ -2187,6 +2280,10 @@ void player_climbing_begin_climb(uint32_t cursor, uint32_t attribute_record)
 	player_climbing_move(cursor, attribute_record);
 }
 
+/* State 0xA substate 3: while a step's animation runs, player_climbing_check_vertical_step; else the
+   trackball's speed (pushed_out pushes up) adds to step_accumulator when mostly vertical, to
+   side_step_accumulator when sideways (each cleared when the input turns round), a side step at +-2 (+-8
+   with fast_climb: block type 0x20 above z 0x4DE). */
 void player_climbing_move(uint32_t cursor, uint32_t attribute_record)
 {
 	uint16_t side_threshold = 0;
@@ -2272,6 +2369,10 @@ void player_climbing_move(uint32_t cursor, uint32_t attribute_record)
 	player_climbing_side_step(cos_speed, cursor, attribute_record);
 }
 
+/* State 0xA, a sideways step: both accumulators 0, the climb-sideways animation; screen_x moves 2 (back
+   with flags bit 7) and projected_y 1, unless the new spot, unprojected, leaves the wall record's span
+   or the screen rows 0x10-0xCF; the old position kept in saved_screen_x/_y. Then
+   player_climbing_update_position. */
 void player_climbing_side_step(uint32_t cos_speed, uint32_t cursor, uint32_t attribute_record)
 {
 	uint16_t wall_start = 0;
@@ -2321,6 +2422,9 @@ void player_climbing_side_step(uint32_t cos_speed, uint32_t cursor, uint32_t att
 	player_climbing_update_position(cursor, attribute_record);
 }
 
+/* State 0xA: step_accumulator_int at 4 or more starts a step down (flags bit 7 set), at -4 or less a
+   step up (bit cleared), through player_climbing_start_vertical_step; in between
+   player_climbing_animate_vertical_step. */
 void player_climbing_check_vertical_step(uint32_t cursor, uint32_t attribute_record)
 {
 	if (PLAYER(current_player)->step_accumulator_int >= 4)
@@ -2338,6 +2442,9 @@ void player_climbing_check_vertical_step(uint32_t cursor, uint32_t attribute_rec
 	player_climbing_start_vertical_step(cursor, attribute_record);
 }
 
+/* State 0xA, a new vertical step: both accumulators 0, the climb animation at speed 4. Refused
+   (animation_speed 0xFF, step_accumulator 0) when it would go below climb_base_z or past the screen's
+   edge (screen y 0xD0 going down, 0x10 going up). Then player_climbing_animate_vertical_step. */
 void player_climbing_start_vertical_step(uint32_t cursor, uint32_t attribute_record)
 {
 	uint32_t climb_animation = 0, step_dz = 0, step_target = 0;
@@ -2392,6 +2499,10 @@ void player_climbing_start_vertical_step(uint32_t cursor, uint32_t attribute_rec
 	player_climbing_animate_vertical_step(cursor, attribute_record);
 }
 
+/* State 0xA, a vertical step (none while animation_speed is negative): speed 4 - min(|speed_y_int|, 3),
+   * 4 with fast_climb; each new step moves z and climb_remaining 2 (down with flags bit 7) and the
+   screen position by the wall record's +4 slope, keeping the old ones; it ends at frame 6 or 0. Then
+   player_climbing_update_position. */
 void player_climbing_animate_vertical_step(uint32_t cursor, uint32_t attribute_record)
 {
 	uint8_t animation_speed = 0;
@@ -2444,6 +2555,10 @@ void player_climbing_animate_vertical_step(uint32_t cursor, uint32_t attribute_r
 	player_climbing_update_position(cursor, attribute_record);
 }
 
+/* State 0xA's frame end: climb_remaining at 0 starts the pull-up (substate 4); at the wall record's +6
+   or more (the foot) the player stands (state 0, free_turn_timer 3, 2 off the wall). Then x/y
+   unprojected from the screen, the lists, on floor block type 0x20 the priority and splash_zone (z
+   0x4C7-0x4E9, spawn_climb_zone_effect on entering); drawn. */
 void player_climbing_update_position(uint32_t cursor, uint32_t attribute_record)
 {
 	uint32_t across_wall = 0, climb_over_animation = 0, ignored = 0, world_x = 0, world_y = 0;
@@ -2512,6 +2627,9 @@ void player_climbing_update_position(uint32_t cursor, uint32_t attribute_record)
 	ignored = queue_sprite(ignored);
 }
 
+/* State 0xA substate 4, the pull-up over the top: animate_around_anchor (drawn meanwhile) until it ends;
+   then z and floor_z at the wall record's +8 (the top), state 0 with speeds 0, placed 0xA past the floor
+   block's edge and turned toward heading 0x80 (0x380 when the record's byte 0 is set). */
 void player_climbing_pull_up(uint32_t attribute_record)
 {
 	uint16_t new_heading = 0;
@@ -2561,6 +2679,10 @@ void player_climbing_pull_up(uint32_t attribute_record)
 	ignored = queue_sprite(ignored);
 }
 
+/* States 0xB and 0x37, not playing: out of the game (flags bit 10, in_game and health 0, player_status
+   0). Unless joining_closed, a start with credits (try_join) gives handler player_join, in_game 1, rings
+   0, stages_reached 1 and is_joining, and erases the player's HUD message (hud_text_positions_3p, or _2p
+   with cabinet_config bit 0 clear). */
 void player_state_not_playing(void)
 {
 	uint32_t joined = 0, player = 0, text = 0, text_position = 0;
@@ -2591,6 +2713,10 @@ void player_state_not_playing(void)
 	}
 }
 
+/* State 0xC, skidding, trackball locked; the jump button turns it into a jump at once. First frame: the
+   skid animation for the opposite facing, skid_slowdown and skid_speed_slowdown (ground_speed and speed
+   / 8, / 32 on floor type 7), sound 0x27; then player_animate_skidding_slow_down; stopped, the animation
+   ends in walking (state 1). */
 void player_animate_skidding(uint32_t depth, uint32_t cursor)
 {
 	uint8_t sound_id = 0;
@@ -2671,6 +2797,9 @@ void player_animate_skidding(uint32_t depth, uint32_t cursor)
 	}
 }
 
+/* The skid's slowing down (substate 1): a dust puff every 4 frames (spawn_skid_dust; not on floor type 7
+   or while drawn clipped), the skid animation up to its step 2, ground_speed and speed less
+   skid_slowdown and skid_speed_slowdown; when speed runs out both are 0 and substate 2. Then drawn. */
 void player_animate_skidding_slow_down(uint32_t cursor)
 {
 	uint32_t depth = 0, ignored = 0;
@@ -2721,6 +2850,9 @@ void player_animate_skidding_slow_down(uint32_t cursor)
 	queue_sprite_at_depth(&ignored, &depth);
 }
 
+/* State 0x2E, game over: on its first frame start_ranking_entry and player_status 3;
+   enter_ranking_initials every frame until game_over_done is set, then state 0x24 with
+   continue_countdown and state_timer 0. */
 void player_state_game_over(uint32_t jump_offset)
 {
 	if (PLAYER(current_player)->state_timer <= 0)
@@ -2739,6 +2871,8 @@ void player_state_game_over(uint32_t jump_offset)
 	}
 }
 
+/* State 0x1B: the character's one-off animation (speed 5) with the normal palette for 0x41 frames, then
+   grey_screen_request cleared and standing (state 0). Projected and drawn at its base. */
 void player_state_short_animation(void)
 {
 	uint32_t at_last_step = 0, ignored = 0, state_1b_animation = 0;
@@ -2779,10 +2913,14 @@ void player_state_short_animation(void)
 	ignored = queue_sprite_at_base(ignored);
 }
 
+/* State 0x1A: returns at once. */
 void player_state_inactive_2(void)
 {
 }
 
+/* State 0x17, a hop: on the first frame speed_z -0x80000 (by speed from hop_speeds_by_speed on floor
+   type 6) and the normal palette; then bounce_off_wall_in_air, jump_delay 2, the running animation and
+   gravity 0x6000. Landing: state 1, z on the floor, jump_delay 0, flags bits 13, 20 and 21 cleared. */
 void player_animate_hopping(void)
 {
 	uint32_t ignored = 0, running_animations = 0, speed_int = 0;
@@ -2835,6 +2973,10 @@ void player_animate_hopping(void)
 	ignored = queue_sprite_at_previous_floor();
 }
 
+/* State 0x16: the character's dying frame flies up off the screen from where it was (screen x kept
+   within 0x20-0x100), swaying (direction +-7 a frame, kept in the wall field) and speeding up after 0x40
+   frames, blinking. Past screen y -0x28: player_status 0xFF, in_game 0 and the continue countdown (state
+   0x23, continue_seconds 9). */
 void player_state_dying(void)
 {
 	uint16_t character_frame = 0;
@@ -2917,6 +3059,9 @@ void player_state_dying(void)
 	queue_sprite_at_depth(&ignored, &depth);
 }
 
+/* States 0xF-0x12, launched: by substate 0 a launch toward direction 0x100, 1 toward 0x200
+   (player_launch), 2 and 3 the flight (player_launched_fly), 4 the landing; then animated, projected
+   with sprite_offset_y 0x12, kept on screen, on the lists and drawn at its floor (or the previous one). */
 void player_state_launched(void)
 {
 	uint32_t ignored = 0;
@@ -2959,16 +3104,19 @@ void player_state_launched(void)
 	ignored = queue_sprite_at_previous_floor();
 }
 
+/* Unused: an empty return left after player_state_launched's code; it does nothing. */
 void player_state_launched_spare_return(void)
 {
 }
 
+/* Substate 1 of states 0xF-0x12: direction 0x200, then player_launch. */
 void player_launch_angle_200(void)
 {
 	OBJECT(current_object)->direction = 0x200u;
 	player_launch();
 }
 
+/* Substate 0 of states 0xF-0x12: direction 0x100, then player_launch (which goes on to substate 2). */
 void player_launch_angle_100(void)
 {
 	OBJECT(current_object)->direction = 0x100u;
@@ -2976,6 +3124,9 @@ void player_launch_angle_100(void)
 	player_launch();
 }
 
+/* Launches the player along direction: speed_z -0x100000, speed 0x5000000, facing it, the attack jump
+   animation's first step, flags bits 6 and 13 cleared and 12 set, the normal palette, control_lock 0,
+   the next substate; then player_launched_fly. */
 void player_launch(void)
 {
 	uint32_t animation_record = 0;
@@ -3008,6 +3159,9 @@ void player_launch(void)
 	player_launched_fly();
 }
 
+/* The launch's flight (substates 2 and 3): every speed turned round at screen_x 0x120 or more, gravity
+   0xA000, moves (previous_x/_y kept), find_floor; landing on a floor block: the next substate, z on the
+   floor, speed_x/_y halved and speed_z turned round and halved. */
 void player_launched_fly(void)
 {
 	uint32_t ignored = 0;
@@ -3035,6 +3189,7 @@ void player_launched_fly(void)
 	}
 }
 
+/* The launch's end (substate 4): state 1, every speed and animation_speed 0, flags bit 12 cleared. */
 void player_launched_land(void)
 {
 	OBJECT(current_object)->speed_z = 0;
@@ -3047,6 +3202,10 @@ void player_launched_land(void)
 	OBJECT(current_object)->speed_y = 0;
 }
 
+/* State 0xD, hurt (contacts once hurt_contact_delay is out), by substate: 0 takes 4 health (not in stage
+   5; state 0x16 at 0), 1 (flags bit 24) none, then player_hurt_knockback; 2 flies back; 3 lies
+   state_timer frames, 4 hops, 5 gets up; 6 waits state_timer frames (the button or the trackball cut it
+   short), then walks; 7 and 8 the shock, then flying back. */
 void player_state_hurt(uint32_t depth, uint32_t cursor)
 {
 	uint8_t sound_id = 0;
@@ -3350,6 +3509,10 @@ void player_state_hurt(uint32_t depth, uint32_t cursor)
 	}
 }
 
+/* State 0xD substate 0 or 1: flags bits 2, 6 and 13 cleared, mishap_flag, hurt_contact_delay 0xA,
+   substate 2, speed_z -0x80000 and a push of 0x40000 along the toucher's direction (none from kind 0x24;
+   both halved on floor type 4); the player faces it, sound 0x21 and the character's voice, then
+   player_hurt_set_animation. */
 void player_hurt_knockback(uint32_t cursor)
 {
 	uint8_t sound_id = 0;
@@ -3418,6 +3581,8 @@ void player_hurt_knockback(uint32_t cursor)
 	player_hurt_set_animation(cursor);
 }
 
+/* State 0xD: the character's hurt animation by facing from its first step (flips and frame), the hurt
+   flash every 3 frames (none, 0xFF, with flags bit 24), then player_hurt_fly. */
 void player_hurt_set_animation(uint32_t cursor)
 {
 	uint32_t facing_offset = 0, hurt_animations = 0, step_record = 0;
@@ -3444,6 +3609,10 @@ void player_hurt_set_animation(uint32_t cursor)
 	player_hurt_fly(facing_offset, cursor);
 }
 
+/* State 0xD substate 2, knocked back: gravity 0x6000 (/4 on floor type 4 unless the toucher is kind
+   0x27), moves, find_floor, check_fall_into_pit (state 9 dispatched); a floor 8 or more above sends it
+   back to its previous x, y and floor. Landing: substate 3, state_timer 2, sound 0x20, the animation's
+   next step; drawn at its floor. */
 void player_hurt_fly(uint32_t depth, uint32_t cursor)
 {
 	uint8_t sound_id = 0;
@@ -3508,6 +3677,7 @@ void player_hurt_fly(uint32_t depth, uint32_t cursor)
 	ignored = queue_sprite_at_floor();
 }
 
+/* State 0xD substate 4 lands: substate 5, z on the floor, animation_timer 0, then player_hurt_get_up. */
 void player_hurt_land_after_hop(void)
 {
 	PLAYER(current_player)->substate++;
@@ -3516,6 +3686,9 @@ void player_hurt_land_after_hop(void)
 	player_hurt_get_up();
 }
 
+/* State 0xD substate 5: the get-up animation (speed 3); at its end substate 6, mishap_flag 0, the normal
+   palette, state_timer 0x1E and, unless flags bit 24, invulnerable_timer 0x78 with the blink (flags bit
+   29); state 0x16 at health 0. Each frame the hurt flash, z on the floor, drawn at its base. */
 void player_hurt_get_up(void)
 {
 	uint32_t at_last_step = 0, ignored = 0;
@@ -3569,10 +3742,15 @@ void player_hurt_get_up(void)
 	ignored = queue_sprite_at_base(ignored);
 }
 
+/* Unused: an empty return left after player_state_hurt's code; it does nothing. */
 void player_state_hurt_spare_return(void)
 {
 }
 
+/* State 0xE, bouncing off a wall or an object: the bounce record for bounce_direction, speed 0x1000000,
+   speed_z -0x68000, sound 0x25; a hop and a rebound at half speed_z (gravity 0x8000), the animation
+   stepping as speed_z passes bounce_speed_z; then up to 0x14 frames on the floor (the button or
+   trackball end them) and the headings turned round. */
 void player_state_bouncing(void)
 {
 	uint8_t sound_id = 0;

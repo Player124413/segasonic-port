@@ -11,6 +11,8 @@
  */
 #include "game.h"
 
+/* Sets the white puff's palette (0x90A0, overwritten at once by 0x2000) and white_puff_animate as its
+   handler. */
 void white_puff_init(void)
 {
 	OBJECT(current_object)->sprite_palette = 0x90A0u;
@@ -18,6 +20,8 @@ void white_puff_init(void)
 	OBJECT(current_object)->handler = white_puff_animate_ADDRESS;
 }
 
+/* Animates the white puff: the ten white_puff_frames, four frames each, holding the last one 0x5A frames
+   before starting over; placed from its projected position, deleted far off screen. */
 void white_puff_animate(void)
 {
 	uint32_t deleted = 0, ignored = 0;
@@ -43,12 +47,15 @@ void white_puff_animate(void)
 	queue_sprite(0u);
 }
 
+/* Sets the checkered pad's palette (0x9040) and checker_pad_animate as its handler. */
 void checker_pad_init(void)
 {
 	OBJECT(current_object)->sprite_palette = 0x9040u;
 	OBJECT(current_object)->handler = checker_pad_animate_ADDRESS;
 }
 
+/* Animates the checkered pad: the five checker_pad_frames in turn, nine frames each, at its projected
+   position; deleted far off screen. */
 void checker_pad_animate(void)
 {
 	uint32_t deleted = 0, ignored = 0;
@@ -71,6 +78,8 @@ void checker_pad_animate(void)
 	queue_sprite(0u);
 }
 
+/* Sets the static triangle's palette (0x9050) and handler (static_triangle_animate), and its child's
+   frame 0x7828 and palette 0x9060. */
 void static_triangle_init(void)
 {
 	OBJECT(current_object)->sprite_palette = 0x9050u;
@@ -80,6 +89,8 @@ void static_triangle_init(void)
 	OBJECT(current_object)->sprite_palette = 0x9060u;
 }
 
+/* Animates the static triangle: static_triangle_frames in turn, three frames each; its child is drawn
+   every other frame (its direction field counts them) 0x68 to the right. Deleted far off screen. */
 void static_triangle_animate(void)
 {
 	uint16_t offset_x = 0, offset_y = 0;
@@ -117,6 +128,8 @@ void static_triangle_animate(void)
 	}
 }
 
+/* Sets up the railing (frame 0x7838): a solid box (kind 0xC) 0xF x 0x57, 0x100 high, and a second
+   invisible box 0x56 x 0x11 at the same place, linked as its child (railing_side_update). */
 void railing_init(void)
 {
 	uint32_t block = 0, ignored = 0, object = 0;
@@ -145,6 +158,8 @@ void railing_init(void)
 	OBJECT(object)->handler = railing_side_update_ADDRESS;
 }
 
+/* The railing's handler: placed from its projected position (unproject_object) and, unless deleted far
+   off screen with its second box, drawn and put in the touchable list. */
 void railing_draw(void)
 {
 	uint32_t deleted = 0, ignored = 0;
@@ -159,6 +174,8 @@ void railing_draw(void)
 	}
 }
 
+/* The railing's second box: placed from its projected position and put in the touchable list each frame;
+   it is deleted with the railing, its parent. */
 void railing_side_update(void)
 {
 	uint32_t ignored = 0;
@@ -167,6 +184,10 @@ void railing_side_update(void)
 	add_to_touchable_list(ignored);
 }
 
+/* Sets up the spike gate: this object is the left pillar (frame 0xA200, a solid box 0x2D x 0x21, kind
+   0xC), plus a right pillar at projected +0x94, +0x4A (0xA208) and the beam at +0x1A, +0x14: three
+   sections and a shadow (0xA788 at scale 0x180), a 0x2D x 0xDA box 0x28 high, kind 0xC, starting in
+   spike_gate_beam_wait. */
 void spike_gate_init(void)
 {
 	uint32_t block = 0, free_count = 0, ignored = 0, object = 0;
@@ -226,6 +247,9 @@ void spike_gate_init(void)
 	OBJECT(object)->sprite_palette = 0x87A0u;
 }
 
+/* A spike gate pillar: when the biting head comes within 0x20 in x or scroll_position passes
+   spawn_arg_2, it breaks into five pieces of debris (spawn_debris, from 0x90, 0x40 back in projected x
+   and y) and is deleted with its children; else drawn (depth screen_y - 8) and touchable. */
 void spike_gate_pillar_update(void)
 {
 	uint16_t count = 0;
@@ -248,6 +272,8 @@ void spike_gate_pillar_update(void)
 	add_to_touchable_list(ignored);
 }
 
+/* The beam rises 3 a frame; more than 0x20 above its floor it becomes kind 0x24 (hurts), and past 0x50
+   it holds there (spike_gate_beam_hold). */
 void spike_gate_beam_rise(void)
 {
 	uint16_t height_above_floor = 0;
@@ -266,6 +292,8 @@ void spike_gate_beam_rise(void)
 	spike_gate_beam_hold();
 }
 
+/* Keeps the beam at the top until pause_timer runs out (8 frames from spike_gate_beam_rise), then
+   spike_gate_beam_drop. */
 void spike_gate_beam_hold(void)
 {
 	uint16_t pause_timer = 0;
@@ -281,6 +309,9 @@ void spike_gate_beam_hold(void)
 	spike_gate_beam_drop();
 }
 
+/* The spike gate's beam drops: gravity plus 0x2000 a frame (fall_to_floor). Each landing makes it kind
+   0xC (solid) and lifts it 6 (a bounce); the third leaves it 3 above its floor, plays sound 7 and waits
+   0xA frames there (spike_gate_beam_wait). */
 void spike_gate_beam_drop(void)
 {
 	uint8_t sound_id = 0;
@@ -310,6 +341,8 @@ void spike_gate_beam_drop(void)
 	spike_gate_beam_update();
 }
 
+/* Keeps the beam on the ground until pause_timer runs out (0xA frames after a drop), then
+   spike_gate_beam_rise; spike_gate_init starts it here. */
 void spike_gate_beam_wait(void)
 {
 	uint16_t pause_timer = 0;
@@ -325,6 +358,9 @@ void spike_gate_beam_wait(void)
 	spike_gate_beam_update();
 }
 
+/* Moves the beam (move_object_projected) and breaks it up as the pillars break; else draws its three
+   sections at screen offsets (0, 0), (0x30, 0x19) and (0x60, 0x2D), at depths from its height above the
+   floor (cursor_floor_screen_y), and its shadow on the floor, and puts it in the touchable list. */
 void spike_gate_beam_update(void)
 {
 	uint16_t count = 0, offset_x = 0, offset_y = 0;
@@ -367,6 +403,8 @@ void spike_gate_beam_update(void)
 	queue_sprite_in_bucket(bucket);
 }
 
+/* Starts a flame of the spreading fire on its floor: flame_animation, palette 0x10C0, projected; then
+   spreading_flame_burn. fire_front_init starts four, and each fireball a flame throws becomes one. */
 void spreading_flame_start(void)
 {
 	uint32_t ignored = 0;
@@ -386,6 +424,10 @@ void spreading_flame_start(void)
 	project_object(&ignored, &ignored);
 }
 
+/* A flame of the spreading fire. Once chaser_object is level with it in y, it throws a fireball
+   (start_fireball_flipped) max(random 0-0x3F, its gap to the chaser) on in -y, 0x40 more in stage 0xC at
+   chaser_speed over 8, landing as a new flame (spreading_flame_start); then, or with no chaser, it burns
+   until off screen. */
 void spreading_flame_burn(void)
 {
 	uint16_t chaser_gap = 0;
@@ -454,6 +496,8 @@ void spreading_flame_burn(void)
 	queue_sprite_at_depth(&ignored, &depth);
 }
 
+/* Sets up the brick wall: frame 0x7D90, palette 0x10D0, standing at z 0x1D8 (its floor_z too),
+   projected; brick_wall_wait runs it. */
 void brick_wall_init(void)
 {
 	uint32_t ignored = 0;
@@ -470,6 +514,10 @@ void brick_wall_init(void)
 	project_object(&ignored, &ignored);
 }
 
+/* Draws the brick wall until chaser_stopped is set, then bursts it: brick_wall_bricks bricks from
+   brick_wall_brick_records (screen offsets, speeds, animations) fly off as rock_debris_fly,
+   brick_wall_dust dust puffs start from brick_wall_dust_records (brick_dust_animate), and the wall is
+   deleted. */
 void brick_wall_wait(void)
 {
 	uint16_t screen_x = 0;
@@ -552,6 +600,8 @@ void brick_wall_wait(void)
 	delete_current_object();
 }
 
+/* A dust puff of the bursting brick wall: hidden while its wait_timer runs, then plays
+   brick_dust_animation once and is deleted. */
 void brick_dust_animate(void)
 {
 	uint32_t at_last_step = 0, ignored = 0;
@@ -571,6 +621,10 @@ void brick_dust_animate(void)
 	delete_current_object();
 }
 
+/* Sets up the biting head: x, y and path from biting_head_paths (by its sprite_frame), kind 9 (hurts)
+   with a 0x80 x 0x40 box 0xF0 high, a part block from take_free_object (biting_head_parts and two clip
+   entries) and a second 0x200 x 0x130 box as its child; biting_head = it, biting_head_done = 0; then
+   biting_head_wait. */
 void biting_head_init(void)
 {
 	uint32_t free_count = 0, head_record = 0, taken_object = 0;
@@ -627,6 +681,8 @@ void biting_head_init(void)
 	}
 }
 
+/* Keeps the biting head waiting until chaser_stopped is set, or sets it itself once scroll_position
+   reaches 0x1200; then biting_head_chase. */
 void biting_head_wait(void)
 {
 	if (chaser_stopped != 0u)
@@ -639,6 +695,10 @@ void biting_head_wait(void)
 	}
 }
 
+/* Each frame of the biting head's chase: biting_head_read_script, or biting_head_chase_step while it
+   holds back. From its second frame, when no_player_in_play, player_mishap or player_dropping_in is set,
+   it starts holding back: base_speed 0 and screen_threshold 0x160 (-0x20 in directions 1 and 2), the old
+   ones saved. */
 void biting_head_chase(void)
 {
 	uint16_t hold_threshold = 0;
@@ -674,6 +734,9 @@ void biting_head_chase(void)
 	biting_head_chase_step();
 }
 
+/* Counts the biting head's wait_timer down; once it is out, loads the next path record
+   (biting_head_load_record) when scroll_position reaches its scroll word or the head reaches its
+   coordinate along its direction (y in 0, 2 and 4, x in 1 and 3); then biting_head_chase_step. */
 void biting_head_read_script(void)
 {
 	uint16_t record_coordinate = 0;
@@ -740,6 +803,10 @@ void biting_head_read_script(void)
 	}
 }
 
+/* Loads the biting head's next path record from path_cursor: screen_threshold, catch_up_factor,
+   base_speed, wait_timer and direction, path moving past it. A negative factor ends the chase: the part
+   block (sprite_frame here is the low half of part_list) and the second box are freed and the head
+   deleted. */
 void biting_head_load_record(uint32_t path_cursor)
 {
 	if ((int16_t)ROM16(path_cursor + 2u) < 0)
@@ -764,6 +831,10 @@ void biting_head_load_record(uint32_t path_cursor)
 	biting_head_chase_step();
 }
 
+/* Projects the biting head, puts its second box 0x40 further in x (same y and z) and both boxes in the
+   zone list. A hold-back ends, restoring screen_threshold and base_speed, after 0x300 of scroll or when
+   hold_timer runs out (it only counts in game_mode 3), going to biting_head_catch_up_speed; otherwise
+   biting_head_choose_speed. */
 void biting_head_chase_step(void)
 {
 	uint32_t ignored = 0, object = 0;
@@ -807,6 +878,9 @@ void biting_head_chase_step(void)
 	biting_head_choose_speed();
 }
 
+/* Moves the biting head at base_speed while it is within screen_threshold (screen_x at most it in
+   directions 0 and 3, at least it in 1, 2 and 4); beyond it, or above the screen (screen_y below 0), it
+   drops its wait and any hold-back and catches up (biting_head_catch_up_speed). */
 void biting_head_choose_speed(void)
 {
 	uint16_t move_speed = 0;
@@ -873,6 +947,9 @@ void biting_head_choose_speed(void)
 	}
 }
 
+/* Moves the biting head (biting_head_move_at_speed) at the camera's speed on its slope
+   (compute_camera_slope_speed with its floor_slope_factors entry) times catch_up_factor / 0x100, or at
+   base_speed when that is higher. */
 void biting_head_catch_up_speed(void)
 {
 	uint16_t move_speed = 0;
@@ -895,6 +972,10 @@ void biting_head_catch_up_speed(void)
 	biting_head_move_at_speed(move_speed);
 }
 
+/* Sets chaser_speed = move_speed; after the wait the head moves that much along its direction. Moving,
+   parts 0 and 4 cycle biting_head_move_frames and it bobs; the jaw (part 3) bites, step 5 shaking it
+   (biting_head_bounce). Boxes 0x50 high from x -0x355, biting_head_done from -0x431; drawn (with its
+   clip entries before scroll 0x1500). */
 void biting_head_move_at_speed(uint16_t move_speed)
 {
 	uint16_t bounce_dy = 0, move_frame = 0;
@@ -1008,6 +1089,10 @@ void biting_head_move_at_speed(uint16_t move_speed)
 	queue_sprite_at_depth(&ignored, &depth);
 }
 
+/* Sets up the fire front, an invisible chaser: x, y, floor_z, direction and path from fire_front_paths
+   (by its sprite_frame), a 0x132 x 0x200 box of kind 0x14 (tumbles the players), chaser_object = it;
+   with 3 or more objects free, four flames (spreading_flame_start) 0x38 apart in x from 0x28; then
+   fire_front_chase. */
 void fire_front_init(void)
 {
 	uint16_t flame_offset_x = 0;
@@ -1057,6 +1142,9 @@ void fire_front_init(void)
 	} while (flames_left != 0u);
 }
 
+/* Each frame of the fire front's chase, as biting_head_chase: fire_front_read_script, or
+   fire_front_chase_step while it holds back (base_speed and speeds 0). Its hold screen_threshold is
+   direction ^ (direction >> 1), 0x160 only in direction 0, not the biting head's -0x20 or 0x160. */
 void fire_front_chase(void)
 {
 	uint16_t direction = 0, threshold = 0;
@@ -1097,6 +1185,9 @@ void fire_front_chase(void)
 	fire_front_chase_step();
 }
 
+/* As biting_head_read_script for the fire front: once wait_timer is out, the next record loads when
+   scroll_position reaches its scroll word or the front reaches its coordinate (y + hitbox_offset_y in
+   directions 0 and 4); a coordinate of 0 waits for the scroll only. */
 void fire_front_read_script(void)
 {
 	uint16_t trigger_coordinate = 0;
@@ -1168,6 +1259,9 @@ void fire_front_read_script(void)
 	}
 }
 
+/* Loads the fire front's next path record from path_cursor: screen_threshold, catch_up_factor,
+   base_speed and wait_timer (a wait stops its speeds), path moving past it. A negative factor ends the
+   chase: chaser_object = 0 and the front is deleted. */
 void fire_front_load_record(uint32_t path_cursor)
 {
 	if ((int16_t)ROM16(path_cursor + 2u) < 0)
@@ -1193,6 +1287,10 @@ void fire_front_load_record(uint32_t path_cursor)
 	fire_front_chase_step();
 }
 
+/* Projects the fire front into the zone list and picks its speed as the biting head does (base_speed
+   within screen_threshold, else the camera's ground speed x catch_up_factor / 0x100), ending hold-backs
+   alike. After the wait it moves along its direction (speed_x/y set); a record with factor 0 narrows its
+   box to 0xF2 and sets chaser_stopped. */
 void fire_front_chase_step(void)
 {
 	uint16_t speed = 0;
@@ -1389,6 +1487,10 @@ void fire_front_chase_step(void)
 	}
 }
 
+/* A grate in a row led by its parent (current_player is borrowed for the leader): a platform, drawn at
+   screen_y + depth_offset; within 0x60 of the leader it rattles (z up and down 1), and when the leader
+   reaches it in y or x by its direction it plays sound 0xD and falls (falling_grate_animation), a
+   platform at first, until off the bottom. */
 void falling_grate_update(void)
 {
 	uint8_t sound_id = 0;
@@ -1593,6 +1695,10 @@ void falling_grate_update(void)
 	}
 }
 
+/* Waits (as its own handler) for scroll_position 0x3780 or biting_head_done; then the rising saw: x, y,
+   z and path from rising_saw_paths (by its sprite_frame), rising_saws[sprite_frame] = it, a 0x50 x 0x40
+   box 0x20 high of kind 0x26 (knocks players off); with 4 or more objects free its blade and sparks;
+   then rising_saw_rise. */
 void rising_saw_init(void)
 {
 	uint32_t ignored = 0, object = 0, object_2 = 0, path = 0;
@@ -1674,6 +1780,10 @@ void rising_saw_init(void)
 	OBJECT(current_object)->handler = rising_saw_rise_ADDRESS;
 }
 
+/* Each frame of the rising saw: reads its path records (on scroll_position or its z reaching the
+   record's height; a negative factor deletes it) and holds back like the chasers (screen_threshold
+   0x130). After the wait it rises at base_speed, or with the camera below screen_threshold, along its
+   floor's slope; touchable. */
 void rising_saw_rise(void)
 {
 	uint16_t speed = 0;
@@ -1801,6 +1911,10 @@ void rising_saw_rise(void)
 	add_to_touchable_list(slope_step);
 }
 
+/* The saw's blade by saw_blade.state: 0 starts 0x30 back in y with two clip entries and sound 0xA; 1
+   slides 2 a frame to the saw, clipped at the saw's line; 2 frees the clips; 3 follows the saw, leaving
+   a shaft piece (saw_shaft_update) every 0x1D it rises, sound 8 every 0x3C frames, drawn while screen_y
+   is under 0x140. */
 void saw_blade_update(void)
 {
 	uint8_t sound_id = 0;
@@ -1930,6 +2044,8 @@ void saw_blade_update(void)
 	}
 }
 
+/* The blade's sparks: at the blade's screen position plus their sprite offsets, animated, drawn at the
+   blade's draw_depth + 1 while screen_y is under 0x168 and the saw's base_speed is not 0. */
 void saw_sparks_update(void)
 {
 	uint32_t depth = 0, ignored = 0, object = 0;
@@ -1952,6 +2068,9 @@ void saw_sparks_update(void)
 	}
 }
 
+/* A piece of shaft left under the blade: steps saw_shaft_animation each time its parent (the blade)
+   rises 5 more, until the animation wraps (drawn at depth 0xFFE9), then stays, drawn at depth 0xFFF7,
+   until off screen. */
 void saw_shaft_update(void)
 {
 	uint32_t depth = 0, ignored = 0, off_screen = 0, wrapped = 0;
@@ -1988,6 +2107,9 @@ void saw_shaft_update(void)
 	}
 }
 
+/* Places the grate steps' builder at x -0x3BD, y 0x4F4, z 8 (row_projected_x/y from there), finds its
+   floor, sets rows_left 0xF and clears rising_saws (rising_saws[0], rising_saw_1 and rising_saw_2);
+   build_grate_steps runs it. */
 void grate_steps_init(void)
 {
 	uint32_t ignored = 0;
@@ -2007,6 +2129,9 @@ void grate_steps_init(void)
 	OBJECT(current_object)->handler = build_grate_steps_ADDRESS;
 }
 
+/* Builds the grating steps, one row a frame once 6 objects are free: three steps (frame 0x7FF0,
+   grate_step_update) 0x35 apart in projected x, each with its column 0-2 in kind and cut_z 0x1E below
+   it; each row 0x1E lower down the floor's slope. Deletes itself after 15 rows. */
 void build_grate_steps(void)
 {
 	uint32_t ignored = 0, object = 0, slope_shift = 0;
@@ -2060,6 +2185,9 @@ void build_grate_steps(void)
 	delete_current_object();
 }
 
+/* A grating step: once the top of the saw of its column (rising_saws[kind], 0x20 above its z) reaches
+   cut_z it is cut: cut_z climbs 7 a frame with grate_step_cut_animation, debris and sound 0x28 while
+   within 0x20 of the saw's top. Drawn at depth 0xFFF8 unless above the screen; deleted below it. */
 void grate_step_update(void)
 {
 	uint8_t sound_id = 0;
@@ -2109,6 +2237,9 @@ void grate_step_update(void)
 	queue_sprite_at_depth(&ignored, &depth);
 }
 
+/* Spawns a grate step's debris when enough objects are free: the pieces of grate_step_debris (its first
+   word the count), each at the step's projected position plus the record's offsets and at cut_z, with
+   the record's speeds plus a random part and its animation (grate_step_debris_fly). */
 void spawn_grate_step_debris(void)
 {
 	uint32_t ignored = 0, object = 0, random_value = 0, record = 0;
@@ -2158,6 +2289,8 @@ void spawn_grate_step_debris(void)
 	} while ((int16_t)debris_left > 1);
 }
 
+/* A piece of grate step debris: falls (gravity 0x6000), moves speed_x in projected x, animates at depth
+   0xE0 and is deleted off screen. */
 void grate_step_debris_fly(void)
 {
 	uint32_t depth = 0, ignored = 0, off_screen = 0;
@@ -2178,6 +2311,9 @@ void grate_step_debris_fly(void)
 	delete_current_object();
 }
 
+/* Waits like rising_saw_init (scroll_position 0x3780 or biting_head_done), then builds the base of the
+   saw's shaft: three pieces (0x7FE8, 0x7FB8, then 0x7FE8 with sprite_flags 0x80) from 0x3A above its
+   floor, each 0x1D lower down the floor's slope (saw_shaft_base_draw); then deletes itself. */
 void build_saw_shaft_base(void)
 {
 	uint16_t piece_frame = 0;
@@ -2225,6 +2361,8 @@ void build_saw_shaft_base(void)
 	delete_current_object();
 }
 
+/* Draws a piece of the shaft base at depth 0xFFF7 until it has left the screen (check_left_screen), then
+   deletes it. */
 void saw_shaft_base_draw(void)
 {
 	uint32_t depth = 0, ignored = 0, off_screen = 0;

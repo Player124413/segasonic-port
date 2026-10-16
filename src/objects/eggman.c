@@ -11,18 +11,18 @@
  */
 #include "game.h"
 
+/* Spawns Eggman's booth, a two-part object at screen x 0x9F that slides in at the top of the screen
+   (eggman_booth_slide_in): Eggman (palette 0x8200, his first step held 0x2F frames) and the backdrop
+   (sprite 0x5718, palette 0x8210). Does nothing more when no object is free; hands back free_count and
+   block. */
 void spawn_eggman_booth(uint32_t spawned, uint32_t piece_count, uint32_t booth, uint32_t *p_free_count, uint32_t *p_block)
 {
-	uint32_t free_count = *p_free_count;
-	uint32_t block = *p_block;
 	uint32_t ignored = 0, object = 0;
 
 	spawn_count = 2u;
-	spawn_object_with_pieces(0x012B2Fu, &spawned, &ignored, &free_count, &booth, &block);
+	spawn_object_with_pieces(0x012B2Fu, &spawned, &ignored, p_free_count, &booth, p_block);
 	if ((uint8_t)spawned == 0u)
 	{
-		*p_free_count = free_count;
-		*p_block = block;
 		return;
 	}
 	OBJECT(booth)->sprite_flags |= 0x100u;
@@ -35,10 +35,10 @@ void spawn_eggman_booth(uint32_t spawned, uint32_t piece_count, uint32_t booth, 
 	OBJECT(object)->sprite_palette = 0x8210u;
 	OBJECT(object)->screen_x = 0x9F;
 	OBJECT(object)->sprite_flags |= 0x100u;
-	*p_free_count = free_count;
-	*p_block = block;
 }
 
+/* Slides the booth down 4 lines a frame (slide_y, both parts' screen_y) until slide_y reaches 0x2C, then
+   sets it to 0x2F and starts eggman_booth_animate at step 0. */
 void eggman_booth_slide_in(void)
 {
 	OBJECT(current_object)->eggman_booth.slide_y += 4u;
@@ -53,6 +53,9 @@ void eggman_booth_slide_in(void)
 	eggman_booth_animate();
 }
 
+/* Plays the booth's 0x1D steps, each frame of eggman_booth_steps held for its
+   eggman_booth_frame_durations (step_timer), then slides the booth back up 4 lines a frame and deletes
+   it with its parts once slide_y goes below 0. Drawn by draw_eggman_booth. */
 void eggman_booth_animate(void)
 {
 	uint32_t ignored = 0;
@@ -81,6 +84,9 @@ void eggman_booth_animate(void)
 	delete_object_and_children(&ignored, &ignored, &ignored);
 }
 
+/* Draws the booth's two parts at screen_y = slide_y in bucket 0, on top: Eggman with the frame
+   eggman_booth_steps gives for step (eggman_booth_frames), then the backdrop. Plays sound 0x41 on every
+   frame that shows frame 0xB, except in stages 0 and 5. */
 void draw_eggman_booth(void)
 {
 	uint8_t bucket = 0, sound_id = 0;
@@ -102,6 +108,8 @@ void draw_eggman_booth(void)
 	queue_sprite_in_bucket(bucket);
 }
 
+/* Unused: spawns a two-part object (spawn_object_with_pieces) and gives it eggman_teleport_init, without
+   testing whether one was spawned. */
 void spawn_eggman_teleport(uint32_t free_count, uint32_t teleport, uint32_t block)
 {
 	uint32_t ignored = 0;
@@ -111,6 +119,8 @@ void spawn_eggman_teleport(uint32_t free_count, uint32_t teleport, uint32_t bloc
 	OBJECT(teleport)->handler = eggman_teleport_init_ADDRESS;
 }
 
+/* Sets up Eggman's teleport: sprite_scale 0x180, palette 0x8220, its part a tall beam (sprite 0x79A8),
+   then eggman_teleport_animate. Only spawn_eggman_teleport, which nothing calls, spawns it. */
 void eggman_teleport_init(void)
 {
 	OBJECT(current_object)->sprite_scale = 0x180u;
@@ -121,6 +131,10 @@ void eggman_teleport_init(void)
 	OBJECT(current_object)->sprite_frame = 0x79A8u;
 }
 
+/* Steps Eggman through eggman_teleport_steps, each frame of eggman_teleport_frames held its
+   eggman_teleport_durations: he builds up in stripes, stands, works a remote and fades out; step 0xFF
+   deletes him and the beam. The beam part is drawn every other frame at his floor, 8 to the right;
+   Eggman 3 frames out of 4. */
 void eggman_teleport_animate(void)
 {
 	uint32_t depth = 0, frame_index = 0, ignored = 0;
@@ -162,6 +176,10 @@ void eggman_teleport_animate(void)
 		queue_sprite_at_floor();
 }
 
+/* Sets up Eggman's scene in stage B: Eggman (sprite 0x88A8, palette 0x81F0, step_timer 0x3C) with
+   eggman_scene_wait, and his shadow part (sprite 0xAA50; the palette 0x250 it writes is at once replaced
+   by 0x9FFE). Spawns the button box at his position, projected_x - 0x1E and projected_y + 0x12, with
+   button_box_init. */
 void eggman_scene_init(void)
 {
 	uint32_t block = 0, free_count = 0, ignored = 0, object = 0;
@@ -183,6 +201,8 @@ void eggman_scene_init(void)
 	OBJECT(object)->handler = button_box_init_ADDRESS;
 }
 
+/* Draws Eggman until scroll_position passes 0xFC0, then sets scroll_mode 2 (wait) and stage_trigger_bits
+   to 1, which the players' stage B sequence waits for, and starts eggman_scene_pause. */
 void eggman_scene_wait(void)
 {
 	if ((int16_t)scroll_position <= 0xFC0)
@@ -196,6 +216,8 @@ void eggman_scene_wait(void)
 	eggman_scene_pause();
 }
 
+/* Draws Eggman for step_timer frames (0x3C from eggman_scene_init), then sets eggman_scene.phase to 1, a
+   value nothing tests, and starts eggman_scene_talk. */
 void eggman_scene_pause(void)
 {
 	uint16_t step_timer = 0;
@@ -213,6 +235,10 @@ void eggman_scene_pause(void)
 	eggman_scene_talk();
 }
 
+/* Eggman talks: each time step_timer runs out, the next of three message boxes at (0xA0, 0x80), kind
+   eggman_scene_texts[direction] for eggman_scene_text_durations[direction] frames, with sound
+   eggman_scene_sounds[direction] (direction counts them); a new talking frame every 7 frames. After the
+   third, eggman_scene_press_button. */
 void eggman_scene_talk(void)
 {
 	uint8_t sound_id = 0;
@@ -270,6 +296,9 @@ void eggman_scene_talk(void)
 	eggman_scene_move();
 }
 
+/* Plays Eggman's 7 button-pressing frames (eggman_press_frames, each held its eggman_press_durations).
+   When the fifth shows, eggman_scene.phase = 2 (the box's button goes down) and escape_started = 1;
+   after the last, eggman_scene_run_off with a 0x3C-frame wait. */
 void eggman_scene_press_button(void)
 {
 	uint32_t step = 0;
@@ -302,6 +331,9 @@ void eggman_scene_press_button(void)
 	eggman_scene_run_off();
 }
 
+/* Waits step_timer frames, then runs: every 3 frames the next of the 8 eggman_run_frames, with
+   direction_to_speed(0x20, angle 0x2A0) added to speed_x and speed_y each time, so he speeds up as he
+   goes. */
 void eggman_scene_run_off(void)
 {
 	uint32_t direction = 0, speed = 0, speed_x = 0, speed_y = 0;
@@ -326,6 +358,10 @@ void eggman_scene_run_off(void)
 	eggman_scene_move();
 }
 
+/* Moves Eggman (move_object_projected), lets him fall to his floor and queues him in bucket 0. Once
+   delete_if_off_screen removes him it sets scroll_mode 7 (follow the players) and clears
+   stage_trigger_bits; until then his shadow is drawn every other frame at his floor, 4 lower, in bucket
+   0xFF. */
 void eggman_scene_move(void)
 {
 	uint8_t bucket = 0;
@@ -355,6 +391,8 @@ void eggman_scene_move(void)
 	}
 }
 
+/* Sets up the button box Eggman spawns in his stage B scene: sprite 0x8928, palette 0x11D0, step_timer
+   0xB4 (its wait before it rises), then button_box_wait. */
 void button_box_init(void)
 {
 	OBJECT(current_object)->button_box.step_timer = 0xB4u;
@@ -363,6 +401,8 @@ void button_box_init(void)
 	OBJECT(current_object)->handler = button_box_wait_ADDRESS;
 }
 
+/* Draws the box until its parent, Eggman, has eggman_scene.step 1, which his first talking frame sets;
+   then button_box_rise. */
 void button_box_wait(void)
 {
 	if ((uint8_t)OBJECT(LINKED(current_object, OBJECT(current_object)->parent))->eggman_scene.step != 1u)
@@ -374,6 +414,9 @@ void button_box_wait(void)
 	button_box_rise();
 }
 
+/* Waits out step_timer, then plays the box's steps 0 to 0x12 (button_box_steps, button_box_durations,
+   button_box_frames): it rises out of the floor and its lid opens on a lit button. Then it waits for
+   Eggman's eggman_scene.phase to be 2, when he presses it, and goes on to button_box_press. */
 void button_box_rise(void)
 {
 	uint32_t box_frame = 0, step = 0;
@@ -405,6 +448,9 @@ void button_box_rise(void)
 	button_box_press();
 }
 
+/* Plays the box's steps 0x13 to 0x22 (button_box_steps, each frame of button_box_frames held its
+   button_box_durations): the button held down, the lid closing and the box sinking back into the floor.
+   At step 0x23 it leaves the box to draw_button_box. */
 void button_box_press(void)
 {
 	uint32_t box_frame = 0, step = 0;
@@ -431,6 +477,8 @@ void button_box_press(void)
 	draw_button_box();
 }
 
+/* Places the box on the screen from its projected position (unproject_object), deletes it once it is off
+   screen and queues it in bucket 0xFF, under everything, even on the frame it is deleted. */
 void draw_button_box(void)
 {
 	uint8_t bucket = 0;
@@ -442,6 +490,9 @@ void draw_button_box(void)
 	queue_sprite_in_bucket(bucket);
 }
 
+/* Sets up stage B's sliding door: the main object is a sprite clip entry (sprite_flags 0x5000) with a
+   box 0xE6 x 0x21, height 0x100, kind 0xC; part 2 is the door (sprite 0x7830, palette 0x9070), part 3 a
+   second clip entry. open_delay 0xA, then sliding_door_wait. */
 void sliding_door_init(void)
 {
 	OBJECT(current_object)->sprite_flags |= 0x4000u;
@@ -467,6 +518,9 @@ void sliding_door_init(void)
 	OBJECT(current_object)->sprite_frame = 0x7FFu;
 }
 
+/* Waits until every playing player (player_status negative) has stage_b_path_done set, with at least one
+   playing; then counts down open_delay (0xA) while that holds and starts sliding_door_open. Drawn by
+   sliding_door_draw. */
 void sliding_door_wait(void)
 {
 	uint8_t done_players = 0, ready_players = 0;
@@ -507,6 +561,8 @@ void sliding_door_wait(void)
 	sliding_door_draw();
 }
 
+/* Slides the door along angle 0xB4 at speed 0x100 until its projected_x reaches 0x3EF, then stops it,
+   sets sliding_door_opened to 0xFF and leaves it to sliding_door_draw. */
 void sliding_door_open(void)
 {
 	uint32_t direction = 0, speed = 0, speed_x = 0, speed_y = 0;
@@ -528,6 +584,10 @@ void sliding_door_open(void)
 	sliding_door_draw();
 }
 
+/* Moves the door (move_object_projected) and deletes it once off screen; else adds it to the touchable
+   list and queues its three parts at screen_y - 0x50: the clip entry, the door sprite at its screen
+   position, and the second clip entry, whose edges (sprite_palette, sprite_scale) become screen_x and
+   0x3FF - projected_x + screen_x. */
 void sliding_door_draw(void)
 {
 	uint16_t offset_x = 0, offset_y = 0;
@@ -553,6 +613,8 @@ void sliding_door_draw(void)
 	queue_sprite_at_depth(&ignored, &depth);
 }
 
+/* Starts one of Eggman's speeches: script = the eggman_speech_scripts record for the object's
+   sprite_frame (stage 3 uses 1, stage 8 0, stage A 3), frame_count 0, then eggman_speech_run. */
 void eggman_speech_start(void)
 {
 	OBJECT(current_object)->eggman_speech.frame_count = 0;
@@ -561,6 +623,10 @@ void eggman_speech_start(void)
 	eggman_speech_run();
 }
 
+/* Runs a speech script, except while current_game_mode is 0x11 (the screen wipe): when frame_count
+   reaches the record's delay it runs its command: 1 Eggman's booth (spawn_eggman_booth), 2 a message box
+   (x, y, kind, frames), 3 a sound, each moving script on and restarting frame_count; 7 waits there for
+   good; 0 and 4 delete the object. */
 void eggman_speech_run(void)
 {
 	uint8_t sound_id = 0;

@@ -11,6 +11,9 @@
  */
 #include "sound.h"
 
+/* Takes one message off the MIDI queue when midi_queue_count is not 0: its status byte, or under running
+   status midi_status again, then play_midi_message for each of the 13 parts that is on and listens to
+   its channel, each reading from the same place; then skip_midi_data moves past it. */
 void handle_midi_message(void)
 {
 	uint8_t parts_left = 0, status = 0;
@@ -73,6 +76,9 @@ void handle_midi_message(void)
 	skip_midi_data((uint8_t)parts_left_and_byte);
 }
 
+/* Moves midi_queue_read to the last byte of the message that starts with first_byte: one data byte for
+   0xC0 and 0xD0 (program change, channel pressure), two for the others, after the status byte when
+   first_byte is one. */
 void skip_midi_data(uint8_t first_byte)
 {
 	uint8_t command = 0;
@@ -107,6 +113,10 @@ void skip_midi_data(uint8_t first_byte)
 	midi_queue_read++;
 }
 
+/* One MIDI message for part, by midi_status's high nibble: note on and off (FM voices, or sample voices
+   for sample instruments and drum kits), pitch bend (retune_voice), control change (1, 7, 0x10, 0x11,
+   0x20, 0x40, 0x50, 0x51, 0x7B, 0x80) or program change; 0xA0 and 0xD0 only skip their data. The sample
+   loops of CC 0x7B and CC 0x50 0x7E never leave the first voice. */
 void play_midi_message(uint8_t message_byte, uint16_t part)
 {
 	bool note_off = false, vibrato_preset_check_channel = false, vibrato_preset_check_voice = false, vibrato_preset_next_voice = false;
@@ -1311,6 +1321,9 @@ void play_midi_message(uint8_t message_byte, uint16_t part)
 	skip_midi_data(first_byte);
 }
 
+/* Unused: a drum note on that, for MIDI note 0x2C (note_and_velocity's high byte), walks the 8 sample
+   voices for one whose note is 0xCA but changes nothing whichever it finds; then, as for every other
+   note, allocate_sample_voice. */
 void scan_drum_note_voices(uint16_t note_and_velocity, uint16_t part)
 {
 	uint8_t voices_left = 0;
@@ -1347,6 +1360,10 @@ void scan_drum_note_voices(uint16_t note_and_velocity, uint16_t part)
 	allocate_sample_voice((uint8_t)note_and_velocity, part);
 }
 
+/* A sample note on for part: takes a free sample_voice, or keys off and takes the one with the lowest
+   allocation_order (every order drops by 1; drum notes off channel 15 get orders from 0xF0, stolen
+   last); sets its RF5C68 channel up, starts the sample and writes the pitch (pcm_pitch_tables, bend,
+   detune and octave, or kit_pitch), the level and the pan; keys it on. */
 void allocate_sample_voice(uint8_t note_velocity, uint16_t part)
 {
 	uint32_t carry = 0;
@@ -1589,6 +1606,10 @@ void allocate_sample_voice(uint8_t note_velocity, uint16_t part)
 	write_pcm_register(pcm_register, keys_on);
 }
 
+/* Retunes a sounding voice to pitch_bend: FM (chip_channel bit 7), registers A4/A0 from fm_fnum_tables
+   plus part's fm_detune; a sample voice, RF5C68 registers 3/2 from pcm_pitch_tables shifted by its
+   octave, pitch_step and stream_position following. A sample voice of a nonzero octave uses up the
+   caller's count: loop_count's high byte comes back 0. */
 uint16_t retune_voice(uint16_t loop_count, uint16_t part, uint16_t voice)
 {
 	uint32_t carry = 0;
@@ -1731,6 +1752,9 @@ uint16_t retune_voice(uint16_t loop_count, uint16_t part, uint16_t voice)
 	return loop_count;
 }
 
+/* CC 1 (modulation) for one sounding voice: an FM voice (chip_channel bit 7) gets register 0xB4 of its
+   channel = 0xC0 (both outputs) | fm_pan_modulation's depth, as its frequency modulation sensitivity; a
+   sample voice is left alone. */
 void update_fm_modulation(uint16_t *p_loop_count, uint16_t *p_voice)
 {
 	uint16_t loop_count = (uint16_t)*p_loop_count;
@@ -1766,6 +1790,8 @@ void update_fm_modulation(uint16_t *p_loop_count, uint16_t *p_voice)
 	*p_voice = voice;
 }
 
+/* Moves midi_queue_read on by one and hands back the midi_queue byte there in byte (and in byte_copy's
+   low byte) and its address in queue_slot. */
 void read_midi_byte(uint16_t *p_byte_copy, uint16_t *p_queue_slot, uint8_t *p_byte)
 {
 	uint8_t byte = 0;
@@ -1781,6 +1807,10 @@ void read_midi_byte(uint16_t *p_byte_copy, uint16_t *p_queue_slot, uint8_t *p_by
 	*p_byte = byte;
 }
 
+/* Unused: one byte from the MIDI port into midi_queue: waits out (resetting) USART errors, reads without
+   checking a byte has come, turns 0xF2 into 0x80 and drops the other 0xF0-0xFF bytes. A status byte
+   opens a message of its length (3; 2 for 0xC0-0xDF), a lone data byte reopens the last (running
+   status); a full message adds 1 to midi_queue_count. */
 void receive_midi_byte(void)
 {
 	uint8_t message_length = 0, midi_byte = 0, received = 0, write_index = 0;
@@ -1902,16 +1932,20 @@ void receive_midi_byte(void)
 	midi_queue_count++;
 }
 
+/* Unused: an empty function, a lone return left after receive_midi_byte's own. */
 void receive_midi_byte_spare_return_1(void)
 {
 	z80_block(10);
 }
 
+/* Unused: an empty function, a second lone return left after receive_midi_byte, before send_midi_byte. */
 void receive_midi_byte_spare_return_2(void)
 {
 	z80_block(10);
 }
 
+/* Unused: sends midi_byte out of the MIDI port once the USART is ready to transmit; an error it reports
+   is reset (reset_midi_errors) and the wait starts over. */
 void send_midi_byte(uint8_t midi_byte)
 {
 	uint32_t carry = 0;
@@ -1942,12 +1976,17 @@ void send_midi_byte(uint8_t midi_byte)
 	}
 }
 
+/* Unused: command 0x37 to the MIDI USART (its only callers, receive_midi_byte and send_midi_byte, are
+   unused too): resets its error flags and turns the transmitter, receiver, DTR and RTS on. */
 void reset_midi_errors(void)
 {
 	z80_block(70);
 	port_out(MIDI_USART_CONTROL, 0x37u);
 }
 
+/* Unused: sets the MIDI port's 8251 USART up: three 0 commands and an internal reset (0x40), mode 0x4E
+   (asynchronous, clock / 16, 8 data bits, no parity, 1 stop bit: MIDI's frame), then command 0x37 as
+   reset_midi_errors. */
 void init_midi_port(void)
 {
 	z80_block(329);

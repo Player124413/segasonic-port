@@ -11,6 +11,8 @@
  */
 #include "game.h"
 
+/* sides = where the current object's x, y lies around the box of other: 8 before it in x, 4 past it, 2
+   before it in y, 1 past it (0 inside). hitbox_offset_y gets other's. */
 void side_of_box(uint32_t other, uint32_t *p_hitbox_offset_y, uint32_t *p_sides)
 {
 	uint16_t box_start = 0, hitbox_offset_y = 0, sides = 0;
@@ -44,6 +46,8 @@ void side_of_box(uint32_t other, uint32_t *p_hitbox_offset_y, uint32_t *p_sides)
 	*p_sides = (*p_sides & 0xFFFF0000u) | sides;
 }
 
+/* speed_x = sine_table[direction] * speed_int >> 6 and speed_y = -(cosine_table[direction] * speed_int
+   >> 6): speed (its whole part) along direction. Hands back the cosine product. */
 uint32_t set_speed_from_direction(void)
 {
 	uint32_t cos_speed = 0, direction = 0, speed_int = 0;
@@ -56,22 +60,24 @@ uint32_t set_speed_from_direction(void)
 	return cos_speed;
 }
 
+/* angle becomes dx = sine_table[angle] * length >> 6 and length becomes dy = -(cosine_table[angle] *
+   length >> 6); cos_part keeps the cosine product. */
 void polar_to_xy(uint32_t *p_cos_part, uint32_t *p_angle, uint32_t *p_length)
 {
 	uint16_t angle = (uint16_t)*p_angle;
 	uint16_t length = (uint16_t)*p_length;
-	uint32_t angle_index = 0, cos_part = 0, dx = 0, dy = 0, magnitude = 0;
+	uint32_t angle_index = 0, dx = 0, dy = 0, magnitude = 0;
 
 	angle_index = (int16_t)angle;
 	magnitude = (uint16_t)length;
 	dx = (int32_t)(sine_table[angle_index] * magnitude) >> 6;
-	cos_part = (int32_t)(cosine_table[angle_index] * magnitude) >> 6;
-	dy = 0u - cos_part;
-	*p_cos_part = cos_part;
+	*p_cos_part = (int32_t)(cosine_table[angle_index] * magnitude) >> 6;
+	dy = 0u - *p_cos_part;
 	*p_angle = dx;
 	*p_length = dy;
 }
 
+/* set_speed_from_direction with current_player's ground_speed_int as the speed. */
 uint32_t set_speed_from_player_speed(void)
 {
 	uint32_t cos_speed = 0, direction = 0, ground_speed_int = 0;
@@ -84,6 +90,8 @@ uint32_t set_speed_from_player_speed(void)
 	return cos_speed;
 }
 
+/* The current object's isometric screen point: projected_x = ((x + y) >> 8) * 0xB5 >> 16, projected_y =
+   ((y - x) >> 9) * 0xB5 (16.16; 0xB5 / 0x100 is cos 45 degrees), then update_screen_position. */
 void project_object(uint32_t *p_screen_y, uint32_t *p_depth)
 {
 	uint32_t projected_x = 0, projected_y = 0, screen_y = 0;
@@ -98,6 +106,8 @@ void project_object(uint32_t *p_screen_y, uint32_t *p_depth)
 	*p_depth = projected_y;
 }
 
+/* screen_x = projected_x - view_x + sprite_offset_x and screen_y = (projected_y + z) >> 16 - view_y +
+   sprite_offset_y; screen_y comes back too. */
 void update_screen_position(uint32_t *p_screen_y, uint32_t *p_depth)
 {
 	uint16_t sprite_offset_y = 0;
@@ -113,6 +123,8 @@ void update_screen_position(uint32_t *p_screen_y, uint32_t *p_depth)
 	*p_depth = (*p_depth & 0xFFFF0000u) | sprite_offset_y;
 }
 
+/* The screen position of the map point point_x, point_y at height z: projected as in project_object,
+   then point_to_screen; point_x and point_y become its screen x and y, projected_y the screen y too. */
 void project_point(uint32_t z, uint32_t *p_projected_y, uint32_t *p_point_x, uint32_t *p_point_y)
 {
 	uint32_t point_x = *p_point_x;
@@ -129,6 +141,8 @@ void project_point(uint32_t z, uint32_t *p_projected_y, uint32_t *p_point_x, uin
 	*p_point_y = (*p_point_y & 0xFFFF0000u) | (r8 & 0xFFFFu);
 }
 
+/* The screen position of a projected point: screen_x = projected_x - view_x, screen_y = (projected_y +
+   z) >> 16 - view_y, which projected_y also gets. */
 void point_to_screen(uint16_t projected_x, uint32_t z, uint32_t *p_projected_y, uint32_t *p_screen_x, uint32_t *p_screen_y)
 {
 	uint32_t projected_y = *p_projected_y;
@@ -143,6 +157,8 @@ void point_to_screen(uint16_t projected_x, uint32_t z, uint32_t *p_projected_y, 
 	*p_screen_y = (*p_screen_y & 0xFFFF0000u) | screen_y;
 }
 
+/* project_object with update_screen_position written in, except that once scroll_position reaches 0xA5F0
+   screen_y takes current_player's own_view_y in place of view_y. */
 uint32_t project_object_2(void)
 {
 	uint32_t offset_x = 0, offset_y = 0, projected_x = 0, rotated_y = 0;
@@ -165,6 +181,9 @@ uint32_t project_object_2(void)
 	return offset_y;
 }
 
+/* Lists in nearby_floor_blocks (count in nearby_floor_block_count) the floor blocks with one of the four
+   points of their floor_block_bounds in the area view_x - 0x80 .. + 0x1C0, view_y - 0x80 .. + 0x160 (the
+   bounds' extremes are tested first). Nothing while nearby_floor_blocks_locked. */
 void find_nearby_floor_blocks(uint32_t *p_corner_y, uint32_t *p_floor_block, uint32_t *p_bounds_offset, uint32_t *p_nearby_count, uint32_t *p_corners_left, uint32_t *p_left, uint32_t *p_right)
 {
 	uint16_t corner_y = (uint16_t)*p_corner_y;
@@ -253,6 +272,9 @@ void find_nearby_floor_blocks(uint32_t *p_corner_y, uint32_t *p_floor_block, uin
 	*p_right = (*p_right & 0xFFFF0000u) | right;
 }
 
+/* The floor under the current object, from the nearby_floor_blocks block holding its x, y: floor_block,
+   floor_type, floor_attribute, then find_floor_set_floor_z (none: find_floor_no_block); on a platform
+   (flags bit 3) its block and z. The old real floor goes to previous_floor_block and previous_floor_z. */
 void find_floor(uint32_t *p_x, uint32_t *p_y, uint32_t *p_block_offset, uint32_t *p_slope_height, uint32_t *p_cursor)
 {
 	uint32_t x = *p_x;
@@ -366,32 +388,30 @@ void find_floor(uint32_t *p_x, uint32_t *p_y, uint32_t *p_block_offset, uint32_t
 	*p_cursor = cursor;
 }
 
+/* find_floor when no nearby block holds the object: floor_block = -1 (a real floor is first kept in
+   previous_floor_block and previous_floor_z), and floor_z and floor_slope from no_floor_block through
+   find_floor_set_floor_z. */
 void find_floor_no_block(uint32_t *p_x, uint32_t *p_slope_height, uint32_t *p_cursor)
 {
-	uint32_t x = *p_x;
-	uint32_t cursor = *p_cursor;
-	uint32_t block = 0, slope_height = 0;
+	uint32_t block = 0;
 
 	if (OBJECT(current_object)->floor_block < 0 || OBJECT(current_object)->floor_z_int >= 0x7FF)
 	{
 		OBJECT(current_object)->floor_block = -1;
 		block = no_floor_block_ADDRESS;
-		find_floor_set_floor_z(block, &x, &slope_height, &cursor);
-		*p_x = x;
-		*p_slope_height = slope_height;
-		*p_cursor = cursor;
+		find_floor_set_floor_z(block, p_x, p_slope_height, p_cursor);
 		return;
 	}
 	OBJECT(current_object)->previous_floor_block = OBJECT(current_object)->floor_block;
 	OBJECT(current_object)->previous_floor_z = OBJECT(current_object)->floor_z;
 	OBJECT(current_object)->floor_block = -1;
 	block = no_floor_block_ADDRESS;
-	find_floor_set_floor_z(block, &x, &slope_height, &cursor);
-	*p_x = x;
-	*p_slope_height = slope_height;
-	*p_cursor = cursor;
+	find_floor_set_floor_z(block, p_x, p_slope_height, p_cursor);
 }
 
+/* floor_z = the height of block (whole pixels), floor_slope = its slope; on a slope floor_z adds (y -
+   y_min, or x - x_min when the floor_slopes record has bit 1) >> 12, rounded, times the slope's factor
+   >> 4. */
 void find_floor_set_floor_z(uint32_t block, uint32_t *p_x, uint32_t *p_slope_height, uint32_t *p_cursor)
 {
 	uint32_t x = *p_x;
@@ -428,6 +448,9 @@ void find_floor_set_floor_z(uint32_t block, uint32_t *p_x, uint32_t *p_slope_hei
 	*p_cursor = cursor;
 }
 
+/* Unused: find_floor's floor z for any point: block = the nearby_floor_blocks block whose box holds x, y
+   (no_floor_block when none), floor_z = its height << 16 plus, on a slope, (y - y_min, or x - x_min) >>
+   16 times the floor_slopes factor. With no block nearby floor_z is left alone. */
 void get_floor_z_at_point(uint32_t x, uint32_t y, uint32_t *p_floor_z, uint32_t *p_block)
 {
 	uint32_t floor_z = *p_floor_z;
@@ -491,6 +514,8 @@ void get_floor_z_at_point(uint32_t x, uint32_t y, uint32_t *p_floor_z, uint32_t 
 	*p_block = block;
 }
 
+/* Unused: hands back the floor block of nearby_floor_blocks whose box holds the point x, y, or
+   no_floor_block when none does (floor_blocks + 2 when no block is nearby). */
 uint32_t find_floor_block_at_point(uint32_t x, uint32_t y)
 {
 	uint32_t block = 0, block_offset = 0, blocks_left = 0, bounds = 0, cursor = 0, test_x = 0, test_y = 0;
@@ -531,18 +556,17 @@ uint32_t find_floor_block_at_point(uint32_t x, uint32_t y)
 	return block;
 }
 
+/* The map x, y under the screen point point_x, point_y at height z: adds view_x and view_y, takes z off
+   y, doubles it and unprojects (unproject_point) into point_x and point_y. */
 void screen_point_to_ground(uint32_t z, uint32_t *p_point_x, uint32_t *p_point_y)
 {
-	uint32_t point_x = *p_point_x;
-	uint32_t point_y = *p_point_y;
-
-	point_x = (uint32_t)(uint16_t)(point_x + view_x) << 16;
-	point_y = (((uint32_t)(uint16_t)(point_y + view_y) << 16) - z) * 2u;
-	unproject_point(&point_x, &point_y);
-	*p_point_x = point_x;
-	*p_point_y = point_y;
+	*p_point_x = (uint32_t)(uint16_t)(*p_point_x + view_x) << 16;
+	*p_point_y = (((uint32_t)(uint16_t)(*p_point_y + view_y) << 16) - z) * 2u;
+	unproject_point(p_point_x, p_point_y);
 }
 
+/* The inverse of project_object: from a projected x and twice the projected y (16.16), point_x =
+   ((point_x - point_y) >> 8) * 0xB5 and point_y = ((point_y + point_x) >> 8) * 0xB5, the map x and y. */
 void unproject_point(uint32_t *p_point_x, uint32_t *p_point_y)
 {
 	uint32_t point_x = *p_point_x;
@@ -556,6 +580,8 @@ void unproject_point(uint32_t *p_point_x, uint32_t *p_point_y)
 	*p_point_y = point_y;
 }
 
+/* value becomes its integer square root, two bits of value a round for 16 rounds (steps_left counts them
+   down to 0). */
 void square_root(uint32_t *p_value, uint32_t *p_steps_left)
 {
 	uint32_t value = *p_value;
@@ -599,6 +625,9 @@ void square_root(uint32_t *p_value, uint32_t *p_steps_left)
 	*p_steps_left = steps_left;
 }
 
+/* The angle (0-0x3FF) of the vector dx, dy, handed back in dx: the smaller of |dx| and |dy| over the
+   larger (times 0x100) picks a byte of angle_ratios, added to the base angle angle_octants gives for the
+   signs and the larger axis (taken from ~entry when the entry is negative); octant gets the entry. */
 void angle_of_vector(uint32_t dy, uint32_t *p_dx, uint32_t *p_octant)
 {
 	uint32_t dx = *p_dx;
@@ -666,6 +695,8 @@ void angle_of_vector(uint32_t dy, uint32_t *p_dx, uint32_t *p_octant)
 	*p_octant = octant;
 }
 
+/* Unused: hands back the number the 8 BCD digits of value stand for, from the top digit down (times 10
+   plus each nibble). */
 uint32_t convert_from_bcd(uint32_t value)
 {
 	uint32_t digits_left = 0, number = 0;
@@ -682,6 +713,9 @@ uint32_t convert_from_bcd(uint32_t value)
 	return value;
 }
 
+/* value becomes its BCD, up to 8 digits: each division by 10 puts the remainder in the top nibble and
+   shifts the rest down, and a shorter number is rotated into place. digit keeps the last remainder (past
+   8 digits, the low byte of what is left, in BCD). */
 void convert_to_bcd(uint32_t *p_value, uint32_t *p_digit)
 {
 	uint32_t value = *p_value;
@@ -724,12 +758,15 @@ void convert_to_bcd(uint32_t *p_value, uint32_t *p_digit)
 	*p_digit = digit;
 }
 
+/* Unused: the 64-bit number number_high:number_low in BCD, 24 digits: two divisions by 10 make each
+   byte, written backwards below stack_pointer and padded with zeros, then read back most significant
+   first into bcd_high, number_high and number_low. */
 void convert_64_to_bcd(uint32_t *p_number_low, uint32_t *p_number_high, uint32_t *p_bcd_high)
 {
 	uint32_t number_low = *p_number_low;
 	uint32_t number_high = *p_number_high;
 	uint8_t digit_pair = 0;
-	uint32_t bcd_high = 0, bcd_low = 0, bcd_middle = 0, cursor = 0, dividend = 0, pairs_left = 0, remainder = 0, value_high = 0, value_low = 0;
+	uint32_t bcd_low = 0, bcd_middle = 0, cursor = 0, dividend = 0, pairs_left = 0, remainder = 0, value_high = 0, value_low = 0;
 
 	value_low = number_low;
 	value_high = number_high;
@@ -776,7 +813,7 @@ void convert_64_to_bcd(uint32_t *p_number_low, uint32_t *p_number_high, uint32_t
 		mem_write8(cursor, dividend);
 		pairs_left--;
 	} while (pairs_left != 0u);
-	bcd_high = byte_swap32(mem_read32(cursor));
+	*p_bcd_high = byte_swap32(mem_read32(cursor));
 	cursor += 4u;
 	bcd_middle = byte_swap32(mem_read32(cursor));
 	cursor += 4u;
@@ -784,5 +821,4 @@ void convert_64_to_bcd(uint32_t *p_number_low, uint32_t *p_number_high, uint32_t
 	stack_pointer = cursor + 4u;
 	*p_number_low = bcd_low;
 	*p_number_high = bcd_middle;
-	*p_bcd_high = bcd_high;
 }

@@ -11,10 +11,14 @@
  */
 #include "game.h"
 
+/* Game mode 0x1D's start: ring_tally_percent = the players' stage rings * 100 /
+   stage_ring_counts[stage]; at stage_ring_bonus_percents[stage] or more the players with the most rings
+   get the bonus (pick_ring_bonus_players). A panel per player in the game, the percentage, the ticker
+   and the end sound. */
 void start_ring_tally(uint32_t *p_stage_rings_3, uint32_t *p_player_3_out_flags, uint32_t *p_ring_total, uint32_t *p_p2_object, uint32_t *p_p3_object, uint32_t *p_object)
 {
 	uint16_t bonus_percent = 0;
-	uint32_t ignored = 0, object = 0, object_2 = 0, object_3 = 0, object_4 = 0, percent_fixed = 0, player = 0, player_1 = 0, player_3 = 0, player_3_out_flags = 0, ring_total = 0, stage_index = 0, stage_rings_1 = 0, stage_rings_2 = 0, stage_rings_3 = 0;
+	uint32_t ignored = 0, object = 0, object_2 = 0, object_3 = 0, object_4 = 0, percent_fixed = 0, player = 0, player_1 = 0, player_3 = 0, ring_total = 0, stage_index = 0, stage_rings_1 = 0, stage_rings_2 = 0, stage_rings_3 = 0;
 	uint32_t out_flags = 0;
 
 	stage_results_done = 0u;
@@ -75,7 +79,7 @@ void start_ring_tally(uint32_t *p_stage_rings_3, uint32_t *p_player_3_out_flags,
 		OBJECT(object)->speed_x = 0x208600;
 	}
 	out_flags = OBJECT(object_4)->flags & 0x10000400u;
-	player_3_out_flags = out_flags;
+	*p_player_3_out_flags = out_flags;
 	if (out_flags == 0u)
 	{
 		allocate_object_outside_loop(&ignored, &object);
@@ -99,13 +103,14 @@ void start_ring_tally(uint32_t *p_stage_rings_3, uint32_t *p_player_3_out_flags,
 	allocate_object_outside_loop(&ignored, &object);
 	OBJECT(object)->handler = ring_tally_end_sound_wait_ADDRESS;
 	*p_stage_rings_3 = (*p_stage_rings_3 & 0xFFFF0000u) | (stage_rings_3 & 0xFFFFu);
-	*p_player_3_out_flags = player_3_out_flags;
 	*p_ring_total = ring_total;
 	*p_p2_object = object_3;
 	*p_p3_object = object_4;
 	*p_object = object;
 }
 
+/* The three ring counts come with the bonus bit 0x100; it stays only on the players with the most rings
+   (ties included). The counts compare as signed bytes, so 0x80 rings or more count as fewer. */
 void pick_ring_bonus_players(uint32_t *p_player_1_rings, uint32_t *p_player_2_rings, uint32_t *p_player_3_rings)
 {
 	uint16_t player_1_rings = (uint16_t)*p_player_1_rings;
@@ -186,6 +191,9 @@ void pick_ring_bonus_players(uint32_t *p_player_1_rings, uint32_t *p_player_2_ri
 	*p_player_2_rings = (*p_player_2_rings & 0xFFFF0000u) | player_2_rings;
 }
 
+/* The percentage: the first frame builds "TOTAL RINGS" (0x9E38), the sprite behind the digits (speed_y)
+   and the three digits; then the digits roll at random every frame until ring_tally_counted, then show
+   the percentage (update_ring_tally_percent). Removed when stage_results_done. */
 void ring_tally_percent_update(void)
 {
 	uint8_t shown_percent = 0;
@@ -271,6 +279,8 @@ void ring_tally_percent_update(void)
 	OBJECT(current_object)->ring_tally_percent_view.results_timer = 0x12Cu;
 }
 
+/* Sets the three digit sprites (percent_digit_sprites) to shown_percent in BCD (the hundreds 0 or 1),
+   then ring_tally_percent_draw_digits. */
 void ring_tally_percent_set_digits(uint8_t shown_percent)
 {
 	uint32_t digit = 0, percent_bcd = 0, percent_digit = 0;
@@ -294,6 +304,8 @@ void ring_tally_percent_set_digits(uint8_t shown_percent)
 	ring_tally_percent_draw_digits();
 }
 
+/* Queues the percentage's ones and tens digits in their layers, the hundreds only when it shows a 1
+   (frame 0x9DF0). */
 void ring_tally_percent_draw_digits(void)
 {
 	current_object = OBJECT(object_cursor)->z;
@@ -305,6 +317,8 @@ void ring_tally_percent_draw_digits(void)
 		queue_sprite_in_layer();
 }
 
+/* After results_timer (0x12C frames) stage_results_done; while the percentage is at or above the stage's
+   bonus percentage, the sprite behind the digits cycles ring_tally_blink_palettes every 2 frames. */
 void update_ring_tally_percent(void)
 {
 	uint16_t results_timer = 0;
@@ -328,6 +342,8 @@ void update_ring_tally_percent(void)
 	}
 }
 
+/* Waits for ring_tally_counted; then sound 0x73 if ring_tally_percent is under the stage's bonus
+   percentage, and it is removed. */
 void ring_tally_end_sound_wait(void)
 {
 	uint8_t sound_id = 0;
@@ -343,6 +359,7 @@ void ring_tally_end_sound_wait(void)
 	delete_current_object();
 }
 
+/* The counting sound: 0x83 every 6 frames until ring_tally_counted, then removed. */
 void ring_tally_ticker_update(void)
 {
 	uint8_t sound_id = 0;
@@ -367,6 +384,8 @@ void ring_tally_ticker_update(void)
 	}
 }
 
+/* Player 1's panel: the first frame builds it at the left (build_ring_tally_panel) and starts the count;
+   then update_ring_tally_panel. */
 void ring_tally_player_1_update(void)
 {
 	uint32_t character = 0;
@@ -385,6 +404,8 @@ void ring_tally_player_1_update(void)
 	OBJECT(current_object)->ring_tally_player.started = 1u;
 }
 
+/* Player 2's panel: built in the middle (screen x 0xA0), or in player 3's place on the right
+   (ring_tally_player_3_update) when cabinet_config bit 0 is clear; then update_ring_tally_panel. */
 void ring_tally_player_2_update(void)
 {
 	uint32_t character = 0;
@@ -415,6 +436,7 @@ void ring_tally_player_2_update(void)
 	OBJECT(current_object)->ring_tally_player.started = 1u;
 }
 
+/* Player 3's panel: built on the right (screen x 0x100); then update_ring_tally_panel. */
 void ring_tally_player_3_update(void)
 {
 	uint32_t character = 0;
@@ -440,10 +462,14 @@ void ring_tally_player_3_update(void)
 	OBJECT(current_object)->ring_tally_player.started = 1u;
 }
 
+/* Unused: a lone return left after ring_tally_player_3_update; nothing calls it. */
 void ring_tally_player_3_update_spare_return(void)
 {
 }
 
+/* A player's panel: the portrait of character (ring_tally_portraits, with its result_frames) at 0x40,
+   0xA0, and second-pool pieces: the bonus label (0x9EF0, 0x9EF8 without gets_bonus), the backdrop, the
+   ring icon and three digits. */
 void build_ring_tally_panel(uint32_t character)
 {
 	uint32_t ignored = 0, object = 0, portrait_record = 0;
@@ -523,6 +549,9 @@ void build_ring_tally_panel(uint32_t character)
 	OBJECT(object)->sprite_scale = 0x100u;
 }
 
+/* The panel by step: counting up (update_ring_tally_panel_count_up); the bonus (give_result_bonus, the
+   character's sound and 0x88), then the bonus result with the backdrop cycling; or, without the bonus,
+   sound 0x89 and the other result frame. Removed when stage_results_done. */
 void update_ring_tally_panel(void)
 {
 	uint8_t sound_id = 0;
@@ -630,6 +659,9 @@ void update_ring_tally_panel(void)
 	}
 }
 
+/* Draws the panel (leading zeros hidden) and every 2 frames shows one more ring up to ring_total
+   (rings_counted and ring_total compare as signed bytes); then it counts out of
+   ring_tally_panels_counting (the last sets ring_tally_counted) and goes to the bonus step, or past it. */
 void update_ring_tally_panel_count_up(void)
 {
 	uint32_t counted_bcd = 0, ignored = 0;
@@ -701,10 +733,13 @@ void update_ring_tally_panel_count_up(void)
 	OBJECT(object_cursor)->update_ring_tally_panel.rings_counted++;
 }
 
+/* A lone return that update_ring_tally_panel's bonus step calls last; it does nothing. */
 void update_ring_tally_panel_tail(void)
 {
 }
 
+/* Every 2 frames the panel's backdrop (the concentric squares, the piece z points at) takes the next of
+   the 7 ring_tally_backdrop_palettes. */
 void cycle_ring_tally_backdrop_palette(void)
 {
 	OBJECT(object_cursor)->cycle_ring_tally_backdrop_palette.palette_delay--;

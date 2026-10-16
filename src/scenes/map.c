@@ -11,6 +11,10 @@
  */
 #include "game.h"
 
+/* Game mode 4, the map screen, by map_screen_step: 0 the window wipe in around the stage
+   (map_wipe_in_windows, start_window_wipe), bit 0x4000 set in the mixer blend words, 1 the fade
+   (update_fade), 2 spawns map_intro_update, 3-5 waits while the map's objects run. Its caller
+   (game_mode_stage_end_fade) goes to game mode 2 at step 5. */
 uint32_t run_map_screen(uint32_t bottom_speed, uint32_t object)
 {
 	uint32_t free_count = 0, record = 0;
@@ -64,6 +68,8 @@ uint32_t run_map_screen(uint32_t bottom_speed, uint32_t object)
 	return bottom_speed;
 }
 
+/* Unused: a step of run_map_screen that its jump table does not list: update_screen_wipe until the four
+   edges are done (edges_done & 0xF = 0xF), then map_screen_step + 1. */
 void run_map_screen_wait_for_wipe(uint32_t edges_done)
 {
 	uint32_t ignored = 0;
@@ -73,6 +79,10 @@ void run_map_screen_wait_for_wipe(uint32_t edges_done)
 		map_screen_step++;
 }
 
+/* The map screen's first object, by animation_frame. Step 0 adds 4, so steps 1-3 (the icon from
+   stage_map_icons flying to the corner) never run; 4 loads the island map (map_monitor_script) and
+   Eggman's head (map_eggman_head_script) and starts the fade; 6 fades in over the markers, then spawns
+   map_screen_update; 7 removes it. */
 void map_intro_update(void)
 {
 	uint16_t icon_y = 0;
@@ -180,6 +190,9 @@ void map_intro_update(void)
 	}
 }
 
+/* The stage icon's flight: offset + step each frame, timer - 1 (the caller's animation_frame + 1 at 0),
+   drawn at base + offset blinking with sprite 0x6538 every other frame (palette 0x6B0, layer 1). At
+   0x30,0x10 it stays put and only blinks. */
 void move_map_stage_icon(void)
 {
 	uint16_t icon_x = 0, icon_y = 0;
@@ -224,6 +237,8 @@ void move_map_stage_icon(void)
 	queue_sprite_in_layer();
 }
 
+/* draw_map_stage_markers, then start_map_trail and draw_map_trail_dot: the markers with the trail's
+   first dot, the trail starting over at every call (map_intro_update's fade-in). */
 void draw_map_markers_and_trail(void)
 {
 	uint32_t r11 = 0;
@@ -233,6 +248,9 @@ void draw_map_markers_and_trail(void)
 	draw_map_trail_dot(r11);
 }
 
+/* Unused: map_screen_update's step 4 drawing alone: sprite 0x65C8, palette 0x6C0 at 0x20,0x10, zoom
+   0x100, layer 0, sprite_flags 0x10A; blink_phase cycles 0-2 and timer counts down; sprite_flags gets
+   0x40 while flags bit 1 (in timer's low byte) is set, else 0x80 while blink_phase bit 1 is. */
 void map_screen_draw_flipping_icon(void)
 {
 	OBJECT(current_object)->sprite_frame = 0x65C8u;
@@ -258,6 +276,10 @@ void map_screen_draw_flipping_icon(void)
 	queue_sprite_in_layer();
 }
 
+/* The map's icon, by animation_frame: spawns map_eggman_update; the markers, the trail to the next
+   stage, the stage name blinking; sprite 0x65C8 flipping 0x28 frames; a wipe (map_screen_step + 1); the
+   next stage's icon flying to its marker (map_stage_positions); the last wipe, map_screen_step = 5, then
+   step 10 for good (11 is never reached). */
 void map_screen_update(void)
 {
 	uint16_t next_x = 0;
@@ -465,6 +487,10 @@ void map_screen_update(void)
 	}
 }
 
+/* Eggman on the map (from behind): stage_map_sounds_1; after 0x3C frames his hands
+   (map_eggman_hands_update) and 0x186 frames of map_eggman_gesture_frames (sound 0x21 for gesture 7); a
+   pose held 0x50 frames (stage_map_sounds_2), then a loop (stage_map_sounds_3); gone at map_screen_step
+   4. Its stage 9 count for sound 0x95 only reaches 1. */
 void map_eggman_update(void)
 {
 	uint8_t sound_id = 0;
@@ -624,6 +650,9 @@ void map_eggman_update(void)
 	}
 }
 
+/* Eggman's hands on the map (map_eggman_update spawns them): for timer (0xF0) frames, sprite 0x5798 + 8
+   * frame_step (0-5, a step every 4 frames), palette 0x690, layer 0, at 0xB7,0x9B; then the object stays
+   without drawing. */
 void map_eggman_hands_update(void)
 {
 	if (OBJECT(current_object)->map_eggman_hands.timer != 0u)
@@ -652,18 +681,22 @@ void map_eggman_hands_update(void)
 	}
 }
 
+/* Unused: sprite 0x5760 (the pose before the gestures), then draw_map_eggman. */
 void map_eggman_draw_plain(void)
 {
 	OBJECT(current_object)->sprite_frame = 0x5760u;
 	draw_map_eggman();
 }
 
+/* Unused: the same code again: sprite 0x5760, then draw_map_eggman. */
 void map_eggman_draw_plain_2(void)
 {
 	OBJECT(current_object)->sprite_frame = 0x5760u;
 	draw_map_eggman();
 }
 
+/* Queues the map's Eggman with the sprite_frame it was given: palette 0x680, zoom 0x100, layer 1, at
+   0xB7,0xDF, sprite_flags 0x107 (queue_sprite_in_layer). */
 void draw_map_eggman(void)
 {
 	OBJECT(current_object)->sprite_palette = 0x680u;
@@ -677,6 +710,9 @@ void draw_map_eggman(void)
 	queue_sprite_in_layer();
 }
 
+/* Starts the trail of stage_map_trails[stage] on the current object: its first word is the frames per
+   segment (segment_frames, segment_timer), then next_map_trail_segment from its first point. A stage
+   without a trail (0xFFFFFFFF) sets trail_done, but that address is read all the same. */
 void start_map_trail(void)
 {
 	uint32_t trail = 0;
@@ -691,6 +727,10 @@ void start_map_trail(void)
 	next_map_trail_segment(trail);
 }
 
+/* Starts the trail's next segment, from the point at trail_point to the one after it (next_trail_point):
+   base = start, target = end, steps = (base - target) / segment_frames in 16.16, offsets 0 (offset_y
+   through z_int and the animation bytes that share it). A negative end x is the trail's end: trail_done
+   = -1. */
 void next_map_trail_segment(uint32_t trail_point)
 {
 	uint16_t end_x = 0, end_y = 0, start_x = 0, start_y = 0;
@@ -722,6 +762,9 @@ void next_map_trail_segment(uint32_t trail_point)
 		OBJECT(current_object)->next_map_trail_segment.trail_done = -1;
 }
 
+/* Draws the trail's dot for object_cursor at base + offset, moving it one step along the segment while
+   trail_done is clear (sprite 0x64E0, palette 0x660, layer 1, through a pool 2 block taken and freed
+   again); when segment_timer runs out, the next segment (next_map_trail_segment). */
 void draw_map_trail_dot(uint32_t object)
 {
 	uint16_t dot_y = 0, object_2 = 0;
@@ -759,6 +802,10 @@ void draw_map_trail_dot(uint32_t object)
 	}
 }
 
+/* Draws the map's 7 markers and their number badges (map_marker_layouts) from the sprite blocks at
+   0x209102: those before stage_map_markers[stage] - 1 in cleared_palette, that one too once
+   object_cursor's trail is done, when the stage's badge (map_number_badge_sprites) blinks every 8
+   frames. Nothing for a stage with no marker. */
 uint32_t draw_map_stage_markers(uint32_t badge_offset)
 {
 	uint8_t current_from_end = 0, current_marker = 0;
@@ -831,6 +878,9 @@ uint32_t draw_map_stage_markers(uint32_t badge_offset)
 	return badge_offset;
 }
 
+/* While step_timer (the map screen's timer) counts down, draws the stage's name over its marker
+   (map_marker_blink_sprites for stage_map_markers[stage]: layer, x, y, sprite, palette) on the frames
+   its bit 3 is set, so it blinks every 8 frames. */
 void blink_current_map_marker(void)
 {
 	uint16_t current_marker = 0;
@@ -862,6 +912,10 @@ void blink_current_map_marker(void)
 	}
 }
 
+/* Starts a window wipe: the bitmap layer as a black frame (video RAM from 0xE000 filled with 0x1111)
+   whose window moves from the screen's edges to the record's (left, top, right = left + 0x100, bottom =
+   top + 0x80, kept on the screen) over its frames, or out from it with window_wipe_closing
+   (update_screen_wipe). */
 uint32_t start_window_wipe(uint32_t record)
 {
 	uint16_t left = 0, right = 0, top = 0;
@@ -925,6 +979,10 @@ uint32_t start_window_wipe(uint32_t record)
 	return bottom;
 }
 
+/* Moves the wipe's four window edges by their speeds and stops each at its end (the record's window, or
+   the screen's edges with window_wipe_closing), writing them to the bitmap layer's clip window;
+   edges_done gets a bit per edge that has arrived (0xF for all four). Its test for 0xFFFF, which would
+   turn the layer off, never passes. */
 void update_screen_wipe(uint32_t *p_clip_right, uint32_t *p_clip_top, uint32_t *p_clip_bottom, uint32_t *p_edges_done)
 {
 	uint32_t edges_done = *p_edges_done;

@@ -11,6 +11,10 @@
  */
 #include "sound.h"
 
+/* Starts sample sample_or_patch on voice: register 8 with only pcm_channels_on sounding, the sample's
+   ROM bank from pcm_sample_headers (kept in the voice, set on the bank ports), its first 256 bytes
+   copied to the voice's wave_page; wave_page and source_page move on (past the bank window, into the
+   next bank). Header bytes 3-5 are kept, never read. */
 void start_pcm_sample(uint16_t voice)
 {
 	uint8_t bank_high = 0, bank_low = 0, channels_off = 0, next_wave_page = 0, pcm_register = 0, sample = 0, wave_page = 0;
@@ -61,6 +65,10 @@ void start_pcm_sample(uint16_t voice)
 	SAMPLE_VOICE(voice)->source_page = sample_address >> 8;
 }
 
+/* Streams one sample voice a pass (refill_voice, the next of the 8 each time): a sounding one adds
+   pitch_step to stream_position, and when that passes 0x800 copies 2 pages (256 bytes each) of its
+   sample into its wave RAM, past 0x1000 4, wrapping the wave pages at 0xE0 and the bank window at
+   0xC000; a page ending in 0xFF ends the sample (stop_pcm_voice). */
 void refill_pcm_voice(void)
 {
 	bool copy_pages = false;
@@ -279,6 +287,10 @@ void refill_pcm_voice(void)
 	}
 }
 
+/* Stops a sample voice: its RF5C68 channel's loop (register 5) to channel * 0x20 + 0x18, a stretch
+   init_pcm_chip leaves silent; the voice freed (flags and midi_channel 0, wave_page 0xD0,
+   stream_position 0x7FF), its bit out of pcm_channels_on, pcm_voices_used - 1, and the higher
+   allocation_orders lowered (unless its own is 0x10 or more). */
 void stop_pcm_voice(uint16_t voice)
 {
 	uint8_t own_order = 0, pcm_register = 0, register_value = 0, voices_left = 0;
@@ -332,6 +344,10 @@ void stop_pcm_voice(uint16_t voice)
 	z80_block(10);
 }
 
+/* Note off for an FM program: the sounding fm_voice on midi_status's channel playing note_code, unless
+   held already, is stopped (stop_fm_voice), or held (flags bit 1) while the channel's sustain pedal is
+   down. de, saved_channel and a come back as the original's registers (&channel_controls[channel] after
+   a match): CC 0x7B/0x80's loop walks on from them. */
 void fm_note_off(uint16_t *p_de, uint16_t *p_saved_channel, uint8_t *p_a)
 {
 	uint16_t saved_channel = (uint16_t)*p_saved_channel;
@@ -396,6 +412,8 @@ void fm_note_off(uint16_t *p_de, uint16_t *p_saved_channel, uint8_t *p_a)
 	*p_a = channel;
 }
 
+/* Frees the fm_voice voice (flags, midi_channel and its vibrato state 0) and keys its YM3438 channel off
+   (register 0x28); hands back what write_fm_global does. */
 uint8_t stop_fm_voice(uint16_t voice)
 {
 	uint8_t fm_register = 0, register_value = 0;
@@ -416,6 +434,9 @@ uint8_t stop_fm_voice(uint16_t voice)
 	return write_fm_global(fm_register, register_value);
 }
 
+/* The sustain pedal let go for an fm_voice held at its note off: flags and midi_channel 0 and its
+   channel keyed off (register 0x28 of the YM3438 chip_channel bit 3 picks); unlike stop_fm_voice it
+   leaves the vibrato fields as they are. */
 void release_held_fm_voice(uint16_t voice)
 {
 	uint8_t fm_register = 0, key_on_register = 0, register_value = 0;
@@ -440,6 +461,10 @@ void release_held_fm_voice(uint16_t voice)
 	write_fm2(fm_register, register_value);
 }
 
+/* CC 0x10 for one sounding FM voice of part (level is the address of the voice's chip_channel byte):
+   note_level becomes 0x7F less half of the voice's level scaled by part's effective_volume (taken
+   halfway to 0xFF); each of the 4 operator levels of its instrument's fm_patches entry with bit 7 clear
+   is added to it and written as that operator's total level. */
 void apply_fm_music_volume(uint8_t chip_channel, uint16_t level, uint16_t part)
 {
 	uint8_t channel_code = 0, effective_volume = 0, fm_register = 0, level_register = 0, operator_level = 0, operators_left = 0, part_channel = 0, patch = 0, program = 0, register_number = 0, volume_curve = 0;
@@ -500,6 +525,10 @@ void apply_fm_music_volume(uint8_t chip_channel, uint16_t level, uint16_t part)
 	z80_block(20);
 }
 
+/* CC 7 for one sounding FM voice of part, the same as apply_fm_music_volume does for CC 0x10: from the
+   voice's level (level is the address of its chip_channel byte) and part's effective_volume a new
+   note_level, added to the patch's operator levels that have bit 7 clear and written as their total
+   levels. */
 void apply_fm_channel_volume(uint8_t chip_channel, uint16_t level, uint16_t part)
 {
 	uint8_t channel_code = 0, effective_volume = 0, fm_register = 0, level_register = 0, operator_level = 0, operators_left = 0, part_channel = 0, patch = 0, program = 0, register_number = 0, volume_curve = 0;
@@ -560,6 +589,10 @@ void apply_fm_channel_volume(uint8_t chip_channel, uint16_t level, uint16_t part
 	z80_block(20);
 }
 
+/* Writes the 21 registers of fm_patches[sample_or_patch] (their numbers from fm_patch_registers plus the
+   channel within its part) to the YM3438 channel in fm_channel. Hands back channel_in_part (that channel
+   number), register_list (now at fm_level_registers) and patch_data (at the patch's 4 operator levels)
+   for the note on's level writes. */
 void load_fm_patch(uint16_t *p_channel_in_part, uint16_t *p_register_list, uint16_t *p_patch_data)
 {
 	uint8_t fm_register = 0, part_channel = 0, patch = 0, patch_byte = 0, patch_register = 0, register_number = 0, registers_left = 0;
@@ -600,6 +633,10 @@ void load_fm_patch(uint16_t *p_channel_in_part, uint16_t *p_register_list, uint1
 	*p_patch_data = patch_data;
 }
 
+/* One FM voice's software vibrato: vibrato_delay counts down first, then vibrato_wait (from
+   vibrato_rate) between moves; each move takes vibrato_offset up by vibrato_rise or down by vibrato_fall
+   (vibrato_phase bit 0) around vibrato_center, the note's F-number with pitch_bend, turning at the depth
+   (vibrato_range, vibrato_depth), shifting vibrato_block; then registers A4/A0. */
 void step_fm_vibrato(uint16_t voice)
 {
 	bool fall_block_check = false, fall_into_last_octave = false, rise_into_last_octave = false;
@@ -926,6 +963,8 @@ void step_fm_vibrato(uint16_t voice)
 	z80_block(10);
 }
 
+/* Unused: hands back 0x3AE, read as registers A4/A0 take a frequency: block 0, F-number 0x3AE, a value
+   of fm_fnum_tables. */
 uint16_t load_fixed_fm_frequency(void)
 {
 	uint16_t fixed_frequency = 0;

@@ -11,6 +11,8 @@
  */
 #include "sound.h"
 
+/* The sound CPU's start: interrupts off, the shared RAM 0xE000-0xFEFF cleared, the interrupt inputs
+   mapped (ports 0xD0-0xD2), unmasked and their pending ones cleared, sound_init, then interrupts on. */
 void sound_reset(void)
 {
 	uint8_t unused_c = 0;
@@ -33,6 +35,8 @@ void sound_reset(void)
 	interrupts_on_after_block();
 }
 
+/* The timer interrupt (the first YM3438's timer A): acknowledges every pending input, rearms the timer
+   (register 0x27 = 0x15) and runs sequence_tick, the sequence players' tick. */
 void sound_irq(void)
 {
 	z80_block(121);
@@ -45,6 +49,10 @@ void sound_irq(void)
 	interrupts_on();
 }
 
+/* One pass of the sound program's main loop: waits while sound_cpu_hold is set; when the second YM3438's
+   timer A has run out, rearms it and refills a sample voice (refill_pcm_voice); step_fm_vibrato on
+   vibrato_voice when its vibrato_depth is set, vibrato_voice moving on to the next of the 12 FM voices;
+   poll_sound_command, handle_midi_message. */
 void sound_main_loop(void)
 {
 	uint16_t fm_track = 0, next_fm_track = 0;
@@ -87,6 +95,10 @@ void sound_main_loop(void)
 	z80_block(10);
 }
 
+/* Sets up the sound program: init_pcm_chip, init_fm_chips, the MIDI queue (midi_queue_read 0xFF,
+   midi_queue_write 0, midi_status 0x80), tick_countdown 1, music_volume 0xFF, the voice cursors at their
+   first voices, init_track_channels, init_pcm_tracks and init_midi_parts; then timer A started on both
+   YM3438 (register 0x27 = 0x15). */
 void sound_init(uint8_t unused_c)
 {
 	uint8_t fm_register = 0, leftover_c = 0, timer_control = 0;
@@ -127,6 +139,10 @@ void sound_init(uint8_t unused_c)
 	z80_block(10);
 }
 
+/* Sets up both YM3438: the 11 register/value pairs of fm_global_init to part I of each (LFO, timers,
+   every key off, DAC off), the first YM3438's timer A to 0x3EF (registers 0x24 = 0xFB, 0x25 = 3), then
+   the 36 pairs of fm_operator_init to all four parts (total level 0x7F, sustain level and release 0xFF,
+   SSG-EG 0 on every operator). */
 uint16_t init_fm_chips(void)
 {
 	uint8_t fm_register = 0, init_register = 0, pairs_left = 0, value = 0;
@@ -193,6 +209,8 @@ uint16_t init_fm_chips(void)
 	return leftover_bc;
 }
 
+/* Writes value to register fm_register on part I of the YM3438 that fm_channel's bit 3 picks (the second
+   when set), for the registers of the whole chip such as key on/off (0x28); hands back value. */
 uint8_t write_fm_global(uint8_t fm_register, uint8_t value)
 {
 	uint8_t chip_channel = 0;
@@ -209,6 +227,8 @@ uint8_t write_fm_global(uint8_t fm_register, uint8_t value)
 	return value;
 }
 
+/* Writes value to register fm_register on the chip and part of fm_channel's channel: the second YM3438
+   when its bit 3 is set, part II when its bit 2 is set. */
 void write_fm_channel(uint8_t fm_register, uint8_t value)
 {
 	uint8_t channel_then_value = 0, saved_value = 0;
@@ -241,6 +261,8 @@ void write_fm_channel(uint8_t fm_register, uint8_t value)
 	write_fm1(fm_register, channel_then_value);
 }
 
+/* Writes value to register fm_register of the first YM3438's part I (ports 0x80 and 0x81), interrupts
+   off between the two writes. */
 void write_fm1(uint8_t fm_register, uint8_t value)
 {
 	uint8_t saved_value = 0;
@@ -253,6 +275,8 @@ void write_fm1(uint8_t fm_register, uint8_t value)
 	interrupts_on();
 }
 
+/* Writes value to register fm_register of the first YM3438's part II (ports 0x82 and 0x83), interrupts
+   off between the two writes. */
 void write_fm1_part2(uint8_t fm_register, uint8_t value)
 {
 	uint8_t saved_value = 0;
@@ -265,6 +289,8 @@ void write_fm1_part2(uint8_t fm_register, uint8_t value)
 	interrupts_on();
 }
 
+/* Writes value to register fm_register of the second YM3438's part I (ports 0x90 and 0x91), interrupts
+   off between the two writes. */
 void write_fm2(uint8_t fm_register, uint8_t value)
 {
 	uint8_t saved_value = 0;
@@ -277,6 +303,8 @@ void write_fm2(uint8_t fm_register, uint8_t value)
 	interrupts_on();
 }
 
+/* Writes value to register fm_register of the second YM3438's part II (ports 0x92 and 0x93), interrupts
+   off between the two writes. */
 void write_fm2_part2(uint8_t fm_register, uint8_t value)
 {
 	uint8_t saved_value = 0;
@@ -289,6 +317,9 @@ void write_fm2_part2(uint8_t fm_register, uint8_t value)
 	interrupts_on();
 }
 
+/* Clears the RF5C68's 16 wave banks through the window at 0xD000 (register 7 picks the bank, sound off):
+   even banks to 0x80, odd ones to 0xFF but 0x2BC-0xABC to 0x80; each fill also writes the byte past the
+   window (midi_in_message_length). Then the 41 register/value pairs of pcm_register_init. */
 void init_pcm_chip(uint32_t unused_c)
 {
 	uint8_t bank_pairs_left = 0, init_register = 0, pairs_left = 0, pcm_register = 0, value = 0;
@@ -342,12 +373,16 @@ void init_pcm_chip(uint32_t unused_c)
 	z80_block(10);
 }
 
+/* Writes register_value to RF5C68 register pcm_register (at 0xC000 + it). */
 void write_pcm_register(uint8_t pcm_register, uint8_t register_value)
 {
 	z80_block(45);
 	z80_write8((pcm_register & 0xFFu) | 0xC000u, register_value);
 }
 
+/* Sets the chip_channel of the 20 voices (the 8 sample voices, then the 12 FM voices after them) from
+   voice_chip_channels: 0-7 the RF5C68's channels, 0x80-0x8E the YM3438's (bit 3 the chip, bit 2 the
+   part). */
 void init_track_channels(uint32_t unused_c)
 {
 	uint8_t voices_left = 0;
@@ -373,6 +408,7 @@ void init_track_channels(uint32_t unused_c)
 	z80_block(10);
 }
 
+/* Starts the 8 sample voices: wave_page 0xD0 and stream_position 0x07FF each. */
 void init_pcm_tracks(void)
 {
 	uint8_t voices_left = 0;
@@ -398,6 +434,9 @@ void init_pcm_tracks(void)
 	z80_block(10);
 }
 
+/* Starts the 13 MIDI parts: part_templates[1]'s 8 parts (0x48 bytes) to MIDI part 0 and the first 0x2D
+   bytes of part_templates[0] (5 parts) to part 8; then each part's effective_volume = volume *
+   (music_volume, or 0xFF for parts with flags bit 0) >> 8, + 1 when not 0. */
 void init_midi_parts(void)
 {
 	uint8_t factor = 0, value = 0;
@@ -448,6 +487,7 @@ void init_midi_parts(void)
 	z80_block(10);
 }
 
+/* Hands back the 16-bit entry index of the table at table. */
 uint16_t read_table_word(uint16_t table, uint8_t index)
 {
 	uint16_t offset = 0, word = 0;
@@ -459,6 +499,8 @@ uint16_t read_table_word(uint16_t table, uint8_t index)
 	return word;
 }
 
+/* Hands back value's high byte times factor's low byte, 8 by 8 bits by shift and add (the volume
+   scalings keep the product's high byte). */
 uint16_t multiply_bytes(uint16_t factor, uint16_t value)
 {
 	uint32_t carry = 0;
@@ -534,6 +576,8 @@ uint16_t multiply_bytes(uint16_t factor, uint16_t value)
 	return value;
 }
 
+/* Copies 256 bytes from sample_address to wave_address (a page of sample data into the RF5C68's wave
+   memory window) and hands both back moved on by 256. */
 void copy_sample_page(uint16_t *p_wave_address, uint16_t *p_sample_address)
 {
 	uint16_t wave_address = (uint16_t)*p_wave_address;

@@ -11,6 +11,10 @@
  */
 #include "game.h"
 
+/* From init_system: the settings into credit_coin_cost, credits_per_start, the chute multipliers,
+   bonus_adder (1 is free_play), health_setting and starting_health; coin counters and sounds cleared;
+   shared_coin_counter_word 0xFC when both multipliers match. The credit blocks get back their credits
+   from saved_credits (no coins, at most 9). */
 void apply_settings(void)
 {
 	uint16_t credit_cap = 0;
@@ -55,6 +59,10 @@ void apply_settings(void)
 	} while (credit_blocks_left != 0u);
 }
 
+/* At each VBLANK: clears the blocks' changed flags; unless free_play, plays one pending coin and one
+   service sound (0x7F), gives every block in use a credit on a service press (inputs_pressed 0x1001),
+   adds the coins of the chutes released (bits 2, 3, 6) to the blocks by cabinet_config (add_coin), with
+   the bookkeeping, and pulses the coin counters. */
 void update_coins(void)
 {
 	uint8_t changed_flag = 0, max_credits = 0, sound_id = 0;
@@ -197,6 +205,9 @@ void update_coins(void)
 	pulse_coin_counter(counter_bit, counter_state, (uint16_t)service_credits_added, (uint16_t)coin_credits_added);
 }
 
+/* Pulses a coin counter (io_port_d bit counter_bit) from its state at counter_state: on for 6 frames,
+   off for 6, once per pending coin. Then saves the credits (save_credits) when service_credits or
+   coin_credits were added this frame. */
 void pulse_coin_counter(uint32_t counter_bit, uint32_t counter_state, uint16_t service_credits, uint16_t coin_credits)
 {
 	uint32_t pulse_timers = 0;
@@ -240,6 +251,9 @@ void pulse_coin_counter(uint32_t counter_bit, uint32_t counter_state, uint16_t s
 	save_credits();
 }
 
+/* Gives credit_block a service credit unless it already has max_credits: changed flag, credits + 1,
+   service_coin_sounds + 1, and its coins and bonus_coins cleared when it reaches the maximum. Hands back
+   service_credits + 1, or unchanged when full. */
 uint32_t add_service_credit(uint32_t service_credits, uint32_t credit_block, uint8_t max_credits)
 {
 	if ((uint8_t)max_credits <= CREDIT_BLOCK(credit_block)->credits)
@@ -256,6 +270,10 @@ uint32_t add_service_credit(uint32_t service_credits, uint32_t credit_block, uin
 	return service_credits;
 }
 
+/* Counts a coin: bookkeeping_chute + 1, a pulse more pending at pending_offset for the coin counter.
+   Unless credit_block has max_credits: changed flag, coin_sounds + 1, and the chute's multiplier
+   (chute_offset) of coins, plus a bonus coin every bonus_adder, become credits at credit_coin_cost each,
+   up to max_credits. Hands back coin_credits plus those. */
 uint32_t add_coin(uint32_t chute_offset, uint32_t pending_offset, uint32_t bookkeeping_chute, uint32_t coin_credits, uint32_t credit_block, uint8_t max_credits)
 {
 	uint8_t chute_multiplier = 0, coin_cost = 0, coin_tally = 0;
@@ -300,6 +318,8 @@ uint32_t add_coin(uint32_t chute_offset, uint32_t pending_offset, uint32_t bookk
 	return coin_credits;
 }
 
+/* Copies the coins and credits of the three credit blocks to saved_credits, then
+   update_bookkeeping_checksum, then copies them to saved_credits_backup. */
 void save_credits(void)
 {
 	uint32_t credit_block = 0, dest = 0;
@@ -313,6 +333,8 @@ void save_credits(void)
 	copy_credit_counts(dest, credit_block);
 }
 
+/* Copies the counts halfword (coins and credits) of three credit blocks, 4 bytes apart from
+   credit_block, to dest. */
 void copy_credit_counts(uint32_t dest, uint32_t credit_block)
 {
 	r14 = 3u;
@@ -325,10 +347,12 @@ void copy_credit_counts(uint32_t dest, uint32_t credit_block)
 	} while (r14 != 0u);
 }
 
+/* Draws the credits outside a game, by cabinet_config: with common chutes (0, 1, 4) block 1's count, the
+   big prompt over the demos (blink_demo_prompt) and "2 credits 1 play" when credits_per_start is 2 (not
+   in free play); with individual chutes each player's block: its count (draw_credit_count) and start
+   prompt (blink_start_prompt). */
 void draw_attract_credits(uint32_t *p_credits, uint32_t *p_blink_bit, uint32_t *p_message_text, uint32_t *p_text_position)
 {
-	uint32_t credits = *p_credits;
-	uint32_t blink_bit = *p_blink_bit;
 	uint32_t credit_block = 0, ignored = 0, message_text = 0, prompt_texts = 0, text = 0, text_position = 0;
 
 	switch (cabinet_config)
@@ -338,62 +362,54 @@ void draw_attract_credits(uint32_t *p_credits, uint32_t *p_blink_bit, uint32_t *
 	case 4:
 		credit_block = p1_coins_ADDRESS;
 		text_position = 0x310000u | common_credit_position;
-		draw_credit_count(credit_block, &credits, &blink_bit, &text, &text_position);
-		credits = blink_demo_prompt(credits, credit_block);
+		draw_credit_count(credit_block, p_credits, p_blink_bit, &text, &text_position);
+		*p_credits = blink_demo_prompt(*p_credits, credit_block);
 		if (credits_per_start != 2u || free_play != 0u)
 		{
-			*p_credits = credits;
-			*p_blink_bit = blink_bit;
 			*p_message_text = text;
 			*p_text_position = text_position;
 			return;
 		}
 		message_text = two_credits_one_play_text_ADDRESS;
 		print_text(&message_text, &text_position);
-		*p_credits = credits;
-		*p_blink_bit = blink_bit;
 		*p_message_text = message_text;
 		*p_text_position = text_position;
 		return;
 	case 2:
 		credit_block = p2_coins_ADDRESS;
 		text_position = 0x310000u | credit_position_p3;
-		draw_credit_count(credit_block, &credits, &blink_bit, &ignored, &text_position);
+		draw_credit_count(credit_block, p_credits, p_blink_bit, &ignored, &text_position);
 		text_position = 0x310000u | start_prompt_position_p3;
 		prompt_texts = start_prompt_texts_ADDRESS;
-		blink_start_prompt(credit_block, prompt_texts, &blink_bit, &ignored, &text_position);
+		blink_start_prompt(credit_block, prompt_texts, p_blink_bit, &ignored, &text_position);
 		credit_block = p1_coins_ADDRESS;
 		text_position = 0x310000u | credit_positions_3p[0];
-		draw_credit_count(credit_block, &credits, &blink_bit, &text, &text_position);
+		draw_credit_count(credit_block, p_credits, p_blink_bit, &text, &text_position);
 		text_position = 0x310000u | start_prompt_positions_3p[0];
 		prompt_texts = start_prompt_texts_ADDRESS;
-		blink_start_prompt(credit_block, prompt_texts, &blink_bit, &text, &text_position);
-		*p_credits = credits;
-		*p_blink_bit = blink_bit;
+		blink_start_prompt(credit_block, prompt_texts, p_blink_bit, &text, &text_position);
 		*p_message_text = text;
 		*p_text_position = text_position;
 		return;
 	case 3:
 		credit_block = p3_coins_ADDRESS;
 		text_position = 0x310000u | credit_position_p3;
-		draw_credit_count(credit_block, &credits, &blink_bit, &text, &text_position);
+		draw_credit_count(credit_block, p_credits, p_blink_bit, &text, &text_position);
 		text_position = 0x310000u | start_prompt_position_p3;
 		prompt_texts = start_prompt_texts_ADDRESS;
-		blink_start_prompt(credit_block, prompt_texts, &blink_bit, &ignored, &text_position);
+		blink_start_prompt(credit_block, prompt_texts, p_blink_bit, &ignored, &text_position);
 		credit_block = p2_coins_ADDRESS;
 		text_position = 0x310000u | credit_position_p2;
-		draw_credit_count(credit_block, &credits, &blink_bit, &ignored, &text_position);
+		draw_credit_count(credit_block, p_credits, p_blink_bit, &ignored, &text_position);
 		text_position = 0x310000u | start_prompt_position_p2;
 		prompt_texts = start_prompt_texts_ADDRESS;
-		blink_start_prompt(credit_block, prompt_texts, &blink_bit, &ignored, &text_position);
+		blink_start_prompt(credit_block, prompt_texts, p_blink_bit, &ignored, &text_position);
 		credit_block = p1_coins_ADDRESS;
 		text_position = 0x310000u | credit_positions_3p[0];
-		draw_credit_count(credit_block, &credits, &blink_bit, &text, &text_position);
+		draw_credit_count(credit_block, p_credits, p_blink_bit, &text, &text_position);
 		text_position = 0x310000u | start_prompt_positions_3p[0];
 		prompt_texts = start_prompt_texts_ADDRESS;
-		blink_start_prompt(credit_block, prompt_texts, &blink_bit, &text, &text_position);
-		*p_credits = credits;
-		*p_blink_bit = blink_bit;
+		blink_start_prompt(credit_block, prompt_texts, p_blink_bit, &text, &text_position);
 		*p_message_text = text;
 		*p_text_position = text_position;
 		return;
@@ -402,6 +418,9 @@ void draw_attract_credits(uint32_t *p_credits, uint32_t *p_blink_bit, uint32_t *
 	}
 }
 
+/* Unused: the undo of draw_attract_credits by cabinet_config: erase_credit_count and erase_start_prompt
+   at the common or per-player positions. It takes the positions without the 0x310000 base, so its writes
+   would miss the text map, and with individual chutes they are not all draw_attract_credits' ones. */
 void erase_attract_credits(void)
 {
 	uint32_t prompt_texts = 0, text_position = 0;
@@ -451,11 +470,14 @@ void erase_attract_credits(void)
 	}
 }
 
+/* Every 16th frame redraws credit_block's start prompt at text_position: erased (io_port_d bits 2-3
+   cleared) while bit 5 - frames_per_wait of frame_counter is set; else "Push start button" with
+   free_play or enough credits, "Insert coin" with nothing in, or "Insert more coin" ("2 credits start"
+   by turns when 2 are needed). Its cabinet_config test changes nothing. */
 void blink_start_prompt(uint32_t credit_block, uint32_t prompt_texts, uint32_t *p_blink_bit, uint32_t *p_text, uint32_t *p_text_position)
 {
 	uint32_t blink_bit = *p_blink_bit;
 	uint32_t text = *p_text;
-	uint32_t text_position = *p_text_position;
 	uint16_t credits = 0;
 	uint32_t frame_bit = 0, prompt_index = 0;
 	uint8_t port_d_bits = 0;
@@ -469,10 +491,9 @@ void blink_start_prompt(uint32_t credit_block, uint32_t prompt_texts, uint32_t *
 		port_d_bits = mem_read8(io_port_d);
 		mem_write8(io_port_d, port_d_bits & ~0xCu);
 		text = prompt_texts + ROM16(prompt_texts + prompt_index * 2u);
-		erase_text_lines(&text, &text_position);
+		erase_text_lines(&text, p_text_position);
 		*p_blink_bit = frame_bit;
 		*p_text = text;
-		*p_text_position = text_position;
 		return;
 	}
 	if (free_play != 0u)
@@ -480,18 +501,16 @@ void blink_start_prompt(uint32_t credit_block, uint32_t prompt_texts, uint32_t *
 		if ((cabinet_config & 1u) != 0u || setting_moving_seat != 0u)
 		{
 			text = prompt_texts + ROM16(prompt_texts + prompt_index * 2u);
-			print_text_lines(&text, &text_position);
+			print_text_lines(&text, p_text_position);
 			*p_blink_bit = frame_bit;
 			*p_text = text;
-			*p_text_position = text_position;
 			return;
 		}
 		r14 = p1_coins_ADDRESS;
 		text = prompt_texts + ROM16(prompt_texts + prompt_index * 2u);
-		print_text_lines(&text, &text_position);
+		print_text_lines(&text, p_text_position);
 		*p_blink_bit = frame_bit;
 		*p_text = text;
-		*p_text_position = text_position;
 		return;
 	}
 	credits = CREDIT_BLOCK(credit_block)->credits;
@@ -500,18 +519,16 @@ void blink_start_prompt(uint32_t credit_block, uint32_t prompt_texts, uint32_t *
 		if ((cabinet_config & 1u) != 0u || setting_moving_seat != 0u)
 		{
 			text = prompt_texts + ROM16(prompt_texts + prompt_index * 2u);
-			print_text_lines(&text, &text_position);
+			print_text_lines(&text, p_text_position);
 			*p_blink_bit = frame_bit;
 			*p_text = text;
-			*p_text_position = text_position;
 			return;
 		}
 		r14 = p1_coins_ADDRESS;
 		text = prompt_texts + ROM16(prompt_texts + prompt_index * 2u);
-		print_text_lines(&text, &text_position);
+		print_text_lines(&text, p_text_position);
 		*p_blink_bit = frame_bit;
 		*p_text = text;
-		*p_text_position = text_position;
 		return;
 	}
 	prompt_index = 1u;
@@ -524,20 +541,20 @@ void blink_start_prompt(uint32_t credit_block, uint32_t prompt_texts, uint32_t *
 	if (CREDIT_BLOCK(credit_block)->coins != 0u || credits != 0u)
 	{
 		text = prompt_texts + ROM16(prompt_texts + prompt_index * 2u);
-		print_text_lines(&text, &text_position);
+		print_text_lines(&text, p_text_position);
 		*p_blink_bit = frame_bit;
 		*p_text = text;
-		*p_text_position = text_position;
 		return;
 	}
 	prompt_index = 2u;
 	text = prompt_texts + ROM16(prompt_texts + prompt_index * 2u);
-	print_text_lines(&text, &text_position);
+	print_text_lines(&text, p_text_position);
 	*p_blink_bit = frame_bit;
 	*p_text = text;
-	*p_text_position = text_position;
 }
 
+/* Unused: clears io_port_d bits 2-3 and erases prompt 1 of prompt_texts ("Insert more coin") at
+   text_position (erase_text_lines). */
 void erase_start_prompt(uint32_t text_position, uint32_t prompt_texts)
 {
 	uint32_t text = 0;
@@ -549,11 +566,11 @@ void erase_start_prompt(uint32_t text_position, uint32_t prompt_texts)
 	erase_text_lines(&text, &text_position);
 }
 
+/* Redraws credit_block's count at text_position (draw_credit_count_now) the first time, while its bit of
+   stage_init_flags (0xF, 0x12, 0x13 for blocks 1 to 3) is clear, or when the block's changed flag is
+   set. */
 void draw_credit_count(uint32_t credit_block, uint32_t *p_credits, uint32_t *p_coins_per_credit, uint32_t *p_text, uint32_t *p_text_position)
 {
-	uint32_t credits = *p_credits;
-	uint32_t coins_per_credit = *p_coins_per_credit;
-	uint32_t text_position = *p_text_position;
 	uint32_t compared_block = 0, drawn_bit = 0, text = 0;
 	uint32_t old_flags = 0;
 
@@ -570,16 +587,17 @@ void draw_credit_count(uint32_t credit_block, uint32_t *p_credits, uint32_t *p_c
 	stage_init_flags = old_flags | shl32(1u, (int)(drawn_bit));
 	if ((old_flags & shl32(1u, (int)(drawn_bit))) == 0u || CREDIT_BLOCK(credit_block)->changed != 0u)
 	{
-		draw_credit_count_now(credit_block, &credits, &coins_per_credit, &text, &text_position);
-		*p_credits = credits;
-		*p_coins_per_credit = coins_per_credit;
+		draw_credit_count_now(credit_block, p_credits, p_coins_per_credit, &text, p_text_position);
 		*p_text = text;
-		*p_text_position = text_position;
 		return;
 	}
 	*p_text = compared_block;
 }
 
+/* Draws credit_block's count at text_position (kept in credit_text_position): "Free play" with
+   free_play; else "credit" ("credits" from 2), the count as two BCD digits (one below 10), then the
+   coins toward the next credit as a small fraction over credit_coin_cost (draw_fraction), cleared when
+   none or when a credit costs 1 coin. */
 void draw_credit_count_now(uint32_t credit_block, uint32_t *p_credits, uint32_t *p_coins_per_credit, uint32_t *p_text, uint32_t *p_text_position)
 {
 	uint32_t credits = *p_credits;
@@ -651,22 +669,25 @@ void draw_credit_count_now(uint32_t credit_block, uint32_t *p_credits, uint32_t 
 	*p_text_position = text_position;
 }
 
+/* Unused: hands back the pixel rows of a small fraction: numerator_top_rows and numerator_bottom_rows
+   from fraction_digit_font for numerator, 3 rows higher, and denominator_top_rows and
+   denominator_bottom_rows for denominator ORed with the slash (fraction_slash_top_rows,
+   fraction_slash_bottom_rows). */
 void build_fraction_glyph(uint32_t numerator, uint32_t denominator, uint32_t *p_numerator_top_rows, uint32_t *p_numerator_bottom_rows, uint32_t *p_denominator_top_rows, uint32_t *p_denominator_bottom_rows)
 {
-	uint32_t denominator_bottom_rows = 0, denominator_rows = 0, denominator_top_rows = 0, numerator_bottom_rows = 0, numerator_top_rows = 0;
+	uint32_t denominator_rows = 0;
 
 	numerator = 0x104B79u + numerator * 2u * 4u;
-	numerator_top_rows = ROM32(numerator);
-	numerator_bottom_rows = ROM32(numerator + 4u);
+	*p_numerator_top_rows = ROM32(numerator);
+	*p_numerator_bottom_rows = ROM32(numerator + 4u);
 	denominator_rows = fraction_digit_font_ADDRESS + denominator * 2u * 4u;
-	denominator_top_rows = ROM32(denominator_rows) | fraction_slash_top_rows;
-	denominator_bottom_rows = ROM32(denominator_rows + 4u) | fraction_slash_bottom_rows;
-	*p_numerator_top_rows = numerator_top_rows;
-	*p_numerator_bottom_rows = numerator_bottom_rows;
-	*p_denominator_top_rows = denominator_top_rows;
-	*p_denominator_bottom_rows = denominator_bottom_rows;
+	*p_denominator_top_rows = ROM32(denominator_rows) | fraction_slash_top_rows;
+	*p_denominator_bottom_rows = ROM32(denominator_rows + 4u) | fraction_slash_bottom_rows;
 }
 
+/* Unused: blanks the credit line at text_position: erase_text_here over credits_label_text ("credit "),
+   then over the record after it, the 4 cells of the count and fraction. Only erase_attract_credits calls
+   it. */
 void erase_credit_count(uint32_t text_position)
 {
 	uint16_t cell = 0;
@@ -678,6 +699,9 @@ void erase_credit_count(uint32_t text_position)
 	erase_text_here(cell, &text, &text_position);
 }
 
+/* Unused: unless free_play, adds credits_to_add to credit_pool, at most 9 (credit_pool_coins cleared at
+   the cap), and copies it to bookkeeping_coin_credits and bookkeeping_backup around
+   update_bookkeeping_checksum. Hands back the credits added in its low byte (0 with free play). */
 uint32_t add_to_credit_pool(uint32_t credits_to_add)
 {
 	uint8_t credits_added = 0, excess = 0;
@@ -705,6 +729,8 @@ uint32_t add_to_credit_pool(uint32_t credits_to_add)
 	return result;
 }
 
+/* Unused: unless free_play, takes credits_to_take from credit_pool and copies it to
+   bookkeeping_coin_credits and bookkeeping_backup around update_bookkeeping_checksum. */
 void take_from_credit_pool(uint8_t credits_to_take)
 {
 	if (free_play == 0u)

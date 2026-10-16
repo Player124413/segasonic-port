@@ -11,6 +11,9 @@
  */
 #include "game.h"
 
+/* Matches each hitter of hitter_list with the first object of zone_list whose box holds its x and y and
+   whose height overlaps its own: flags bit 27 on both and anchor_x pointing at each other. Empties
+   zone_list (check_hits empties hitter_list). */
 uint32_t check_zones(uint32_t box_edge)
 {
 	uint16_t box_start = 0;
@@ -63,6 +66,8 @@ uint32_t check_zones(uint32_t box_edge)
 	return box_edge;
 }
 
+/* Puts current_object at the head of zone_list (linked by hit_list_next) and clears its flags bit 27,
+   which check_zones sets when a hitter is inside its box. */
 uint32_t add_to_zone_list(uint32_t old_head)
 {
 	old_head = LINKED(old_head, zone_list);
@@ -72,6 +77,9 @@ uint32_t add_to_zone_list(uint32_t old_head)
 	return old_head;
 }
 
+/* Tests each object of hitter_list against the hitters after it (check_hit) and then, unless that has
+   already hit it (flags bit 2; the last hitter is always tested), against touchable_list. Empties both
+   lists for the next frame. */
 void check_hits(uint32_t *p_box_edge, uint32_t *p_distance, uint32_t *p_dy, uint32_t *p_edge_or_centre_y, uint32_t *p_radius, uint32_t *p_centre_offset, uint32_t *p_previous)
 {
 	uint32_t box_edge = *p_box_edge;
@@ -131,6 +139,10 @@ void check_hits(uint32_t *p_box_edge, uint32_t *p_distance, uint32_t *p_dy, uint
 	*p_previous = previous;
 }
 
+/* Tests hitter against the list from other on, skipping pairs whose kinds are both 2 or less: circle
+   against circle (skewed on a slope), point against box, box against round or box against box (flags bit
+   1: a box) in x and y, then the heights. The first hit sets flags bit 2, touch_distance and touched_by
+   (the other) in both. */
 void check_hit(uint32_t other, uint32_t hitter, uint32_t *p_box_edge, uint32_t *p_distance, uint32_t *p_dy, uint32_t *p_edge_or_centre_y, uint32_t *p_radius, uint32_t *p_centre_offset, uint32_t *p_previous)
 {
 	uint32_t box_edge = *p_box_edge;
@@ -438,6 +450,8 @@ void check_hit(uint32_t other, uint32_t hitter, uint32_t *p_box_edge, uint32_t *
 	*p_previous = (*p_previous & 0xFFFF0000u) | previous;
 }
 
+/* Puts current_object at the head of hitter_list (linked by hit_list_next) and clears its flags bits 2
+   (hit) and 27 (in a zone) for this frame's check_hits and check_zones. */
 void add_to_hitter_list(void)
 {
 	uint16_t old_head = 0;
@@ -449,6 +463,8 @@ void add_to_hitter_list(void)
 	OBJECT(current_object)->flags &= ~0x8000000u;
 }
 
+/* Puts current_object at the head of touchable_list (linked by hit_list_next), which check_hits tests
+   the hitters against, and clears its flags bits 2 (hit) and 6 (hit by a player's attack). */
 uint32_t add_to_touchable_list(uint32_t old_head)
 {
 	old_head = LINKED(old_head, touchable_list);
@@ -459,6 +475,8 @@ uint32_t add_to_touchable_list(uint32_t old_head)
 	return old_head;
 }
 
+/* Puts current_object at the head of rider_list (linked by platform_list_next) and clears its flags bits
+   3 (on a platform) and 5 (in a wall) for check_platforms and check_walls. */
 void add_to_rider_list(void)
 {
 	uint16_t old_head = 0;
@@ -470,6 +488,8 @@ void add_to_rider_list(void)
 	OBJECT(current_object)->flags &= ~0x20u;
 }
 
+/* Puts current_object at the head of platform_list (linked by platform_list_next) and clears its flags
+   bit 3, which check_platforms sets when a rider stands on it. */
 void add_to_platform_list(void)
 {
 	uint16_t old_head = 0;
@@ -480,6 +500,10 @@ void add_to_platform_list(void)
 	OBJECT(current_object)->flags &= ~8u;
 }
 
+/* Matches each rider with the first platform whose box (no offsets) holds its x and y: rider flags bit
+   3, platform pointing at each other. A rider not above floor_z sets the platform's bit 3, the first
+   adding its member_number to a bridge load list (by spawn_arg_2_high). Then compute_bridge_sag per
+   bridge; both lists emptied. */
 void check_platforms(uint32_t *p_middle, uint32_t *p_plank, uint32_t *p_span, uint32_t *p_sag, uint32_t *p_sag_step, uint32_t *p_load_count, uint32_t *p_passes_left, uint32_t *p_platform, uint32_t *p_load_list)
 {
 	uint32_t middle = *p_middle;
@@ -488,7 +512,6 @@ void check_platforms(uint32_t *p_middle, uint32_t *p_plank, uint32_t *p_span, ui
 	uint32_t sag = *p_sag;
 	uint32_t sag_step = *p_sag_step;
 	uint32_t load_count = *p_load_count;
-	uint32_t passes_left = *p_passes_left;
 	uint32_t load_list = *p_load_list;
 	uint16_t plank_count = 0, x_int = 0, y_int = 0;
 	uint32_t load_list_2 = 0, object = 0, rider = 0;
@@ -554,7 +577,7 @@ void check_platforms(uint32_t *p_middle, uint32_t *p_plank, uint32_t *p_span, ui
 		load_list_2 = bridge_0_load_ADDRESS;
 		current_player = bridge_0_sag_ADDRESS;
 		plank_count = bridge_0_plank_count;
-		compute_bridge_sag(load_list_2, plank_count, &middle, &plank, &span, &sag, &sag_step, &load_count, &passes_left, &object, &load_list);
+		compute_bridge_sag(load_list_2, plank_count, &middle, &plank, &span, &sag, &sag_step, &load_count, p_passes_left, &object, &load_list);
 	}
 	if (bridge_1_plank_count == 0u)
 	{
@@ -566,7 +589,6 @@ void check_platforms(uint32_t *p_middle, uint32_t *p_plank, uint32_t *p_span, ui
 		*p_sag = (*p_sag & 0xFFFF0000u) | (sag & 0xFFFFu);
 		*p_sag_step = (*p_sag_step & 0xFFFF0000u) | (sag_step & 0xFFFFu);
 		*p_load_count = load_count;
-		*p_passes_left = passes_left;
 		*p_platform = object;
 		*p_load_list = load_list;
 		return;
@@ -574,7 +596,7 @@ void check_platforms(uint32_t *p_middle, uint32_t *p_plank, uint32_t *p_span, ui
 	load_list_2 = bridge_1_load_ADDRESS;
 	current_player = bridge_1_sag_ADDRESS;
 	plank_count = bridge_1_plank_count;
-	compute_bridge_sag(load_list_2, plank_count, &middle, &plank, &span, &sag, &sag_step, &load_count, &passes_left, &object, &load_list);
+	compute_bridge_sag(load_list_2, plank_count, &middle, &plank, &span, &sag, &sag_step, &load_count, p_passes_left, &object, &load_list);
 	rider_list = 0xFFFFu;
 	platform_list = 0xFFFFu;
 	*p_middle = (*p_middle & 0xFFFF0000u) | (middle & 0xFFFFu);
@@ -583,11 +605,14 @@ void check_platforms(uint32_t *p_middle, uint32_t *p_plank, uint32_t *p_span, ui
 	*p_sag = (*p_sag & 0xFFFF0000u) | (sag & 0xFFFFu);
 	*p_sag_step = (*p_sag_step & 0xFFFF0000u) | (sag_step & 0xFFFFu);
 	*p_load_count = load_count;
-	*p_passes_left = passes_left;
 	*p_platform = object;
 	*p_load_list = load_list;
 }
 
+/* Fills a bridge's sag table, which check_platforms passes in current_player, from load_list: with only
+   the ends 0 and plank_count (no plank loaded) it is cleared; else the loaded planks are sorted and the
+   table gets straight lines between consecutive ones, each sagging bridge_sag_curve[distance to the
+   nearer end] << 8. */
 void compute_bridge_sag(uint32_t load_list, uint16_t plank_count, uint32_t *p_middle, uint32_t *p_plank, uint32_t *p_span, uint32_t *p_sag, uint32_t *p_sag_step, uint32_t *p_count, uint32_t *p_passes_left, uint32_t *p_load_entry, uint32_t *p_sag_curve)
 {
 	uint16_t middle = (uint16_t)*p_middle;
@@ -690,6 +715,8 @@ void compute_bridge_sag(uint32_t load_list, uint16_t plank_count, uint32_t *p_mi
 	*p_sag_curve = sag_curve;
 }
 
+/* Puts current_object, a wall, at the head of wall_list (linked by platform_list_next) and clears its
+   flags bit 5, which check_walls sets when a rider is inside it. */
 void add_to_wall_list(void)
 {
 	uint16_t old_head = 0;
@@ -700,6 +727,9 @@ void add_to_wall_list(void)
 	OBJECT(current_object)->flags &= ~0x20u;
 }
 
+/* Matches each rider of rider_list with the first wall of wall_list whose box holds its x and y and
+   whose height (hitbox_height up from its z) holds the rider's z: flags bit 5 on both and wall pointing
+   at each other. Empties wall_list. */
 uint32_t check_walls(uint32_t hitbox_offset)
 {
 	uint16_t box_start = 0;

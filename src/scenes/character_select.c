@@ -11,6 +11,8 @@
  */
 #include "game.h"
 
+/* Unused: clears characters_taken, players_in_join_chooser, free_character_count and
+   character_select_timer (the original's overlapping stores clear the timer twice). */
 void reset_character_select(void)
 {
 	characters_taken = 0u;
@@ -20,6 +22,10 @@ void reset_character_select(void)
 	character_select_timer = 0;
 }
 
+/* Opens a player's chooser in game mode 0x1B (the first one also shows the background picture and the
+   PLAYER SELECT heading with its countdown), character_select_timer 0x258: the first free character from
+   the player's number, the next two smaller at its sides, a name, the player label, a panel. right_count
+   and left_count start at its screen x and y. */
 void start_character_chooser(uint32_t block)
 {
 	uint16_t chooser_x = 0;
@@ -123,6 +129,10 @@ void start_character_chooser(uint32_t block)
 	OBJECT(object)->screen_y = 0x30;
 }
 
+/* The chooser's handler: confirms (character_chooser_confirm) on its player's button, with one free
+   character left or with character_select_timer below 0x1E. Trackball x adds 8 a frame to right_count or
+   left_count; when their high bytes (taken and cleared each frame) differ it turns that way
+   (character_chooser_turn), else character_chooser_idle. */
 void character_chooser_wait(void)
 {
 	uint8_t left_turns = 0, right_turns = 0, turn = 0;
@@ -175,6 +185,10 @@ void character_chooser_wait(void)
 	character_chooser_turn();
 }
 
+/* Takes the first free character from the one shown into the kind of its player object (the parent) and
+   characters_taken; free_character_count and players_choosing_character drop (none left choosing:
+   character_select_timer 0x3C). The portrait goes back in place in the chosen pose; a random voice of
+   the character (chooser_voice_sounds), sound 0x20. */
 void character_chooser_confirm(void)
 {
 	uint8_t sound_id = 0;
@@ -212,6 +226,9 @@ void character_chooser_confirm(void)
 	character_chooser_chosen();
 }
 
+/* No turn this frame: a taken character turns the chooser on (character_chooser_turn); otherwise the
+   portrait steps through chooser_idle_steps every 3 frames and is drawn with the side portraits (taken
+   ones dimmed, palette 0x87A0) and the labels. */
 void character_chooser_idle(void)
 {
 	uint32_t character_bit = 0, idle_frame = 0, piece_value = 0, taken_bit = 0;
@@ -255,6 +272,9 @@ void character_chooser_idle(void)
 	draw_character_chooser_labels();
 }
 
+/* Draws the chooser's three label parts after the portraits: the name, refreshed to
+   character_name_sprites[character] when name_changed is set (then cleared), the player label and the
+   panel. */
 void draw_character_chooser_labels(void)
 {
 	uint32_t ignored = 0;
@@ -270,6 +290,10 @@ void draw_character_chooser_labels(void)
 	OBJECT(object_cursor)->draw_character_chooser_labels.name_changed = 0u;
 }
 
+/* A turn of 0x18 frames: the middle portrait slides by turn_direction and shrinks while the side ones
+   slide and scale toward that side; then the next character that way shows (taken side ones dimmed),
+   turning on again while it is taken. Confirms at once with one free character, and keeps
+   character_select_timer at 0x1D or more meanwhile. */
 void character_chooser_turn(void)
 {
 	uint16_t turn_step = 0;
@@ -385,6 +409,9 @@ void character_chooser_turn(void)
 	draw_character_chooser_labels();
 }
 
+/* After the choice: until character_select_timer runs out (then removed with its parts) draws the chosen
+   portrait, the chosen character's name, the player label and the panel; the side portraits are no
+   longer drawn. */
 void character_chooser_chosen(void)
 {
 	uint32_t ignored = 0;
@@ -406,6 +433,10 @@ void character_chooser_chosen(void)
 	queue_sprite(ignored);
 }
 
+/* The PLAYER SELECT countdown: counts character_select_timer down, never below 0, its seconds shown as a
+   digit (ranking_letter_sprites 0x20 + n) growing from scale 0x10 to 0x140; the heading's palette
+   bounces through player_select_title_palettes. Removed with the heading once nobody is choosing and the
+   timer is out. */
 void character_select_countdown_update(void)
 {
 	uint32_t ignored = 0, seconds = 0;
@@ -457,6 +488,10 @@ void character_select_countdown_update(void)
 	queue_sprite(ignored);
 }
 
+/* A joining player's chooser (player_select_character), when a character is free: in the player's block
+   of join_chooser_blocks a small portrait of the first free character from the player object's kind,
+   countdown 0x21C, handler join_character_chooser_update, a name block after it; the player's bit set in
+   players_in_join_chooser. */
 uint32_t start_join_character_chooser(void)
 {
 	uint16_t chooser_x = 0;
@@ -503,6 +538,10 @@ uint32_t start_join_character_chooser(void)
 	return x_index;
 }
 
+/* A joining player's chooser, while its bit in players_in_join_chooser is set: shows the countdown's
+   seconds on both sides of the portrait; the trackball steps through the free characters (taken ones
+   skipped), and the button, joining_closed or the end of the countdown takes the one shown
+   (join_character_chooser_take_character). Drawn on top. */
 void join_character_chooser_update(uint32_t text_x)
 {
 	uint8_t left_steps = 0, right_turns = 0, turn = 0;
@@ -604,6 +643,9 @@ void join_character_chooser_update(uint32_t text_x)
 	current_object = object_cursor;
 }
 
+/* Ends a join chooser: the first free character from the one shown becomes the kind of the player object
+   (object_cursor) and gets its characters_taken bit; the player's bit in players_in_join_chooser is
+   cleared. */
 void join_character_chooser_take_character(void)
 {
 	uint32_t character = 0, taken_bit = 0;
@@ -623,6 +665,8 @@ void join_character_chooser_take_character(void)
 	current_object = object_cursor;
 }
 
+/* free_character_count = how many of the three characters have their characters_taken bit
+   (character_taken_bits) clear. */
 void count_free_characters(uint32_t *p_characters_left, uint32_t *p_character, uint32_t *p_taken_bit)
 {
 	uint8_t free_characters = 0;

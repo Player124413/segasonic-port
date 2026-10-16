@@ -99,7 +99,8 @@ def parse_layout(attributes, where):
 
 
 NAME_KINDS = ("var", "io", "table", "struct", "field", "register", "scoped", "param", "result", "local", "port",
-              "file", "anchor")    # names for the decompiled C (load_names; file lines: decompile.source_files)
+              "file", "anchor", "comment")    # names for the decompiled C (load_names; file lines:
+                                              # decompile.source_files)
 
 
 def load_symbols(path):
@@ -158,6 +159,7 @@ class Names(NamedTuple):
                            # the first bytes of one of its fields
     anchors: dict       # work RAM address -> (variable, offset): where a structure would be whose field at
                         # 'offset' is the variable (a list's head), as the code that walks the list starts there
+    comments: dict      # function name -> what the C says above it (comment lines)
 
 
 def load_names(path, registers=None):
@@ -195,9 +197,10 @@ def load_names(path, registers=None):
         ADDRESS  anchor VARIABLE OFFSET  the address a list walk starts from: a structure there would have
                                          VARIABLE (the list's head) as its field at OFFSET (the link the walk
                                          follows), so the C writes it as VARIABLE's address less OFFSET
+        comment  FUNCTION TEXT           what the C says about the function, in a /* */ block above it
     'registers' ({name: number}) lets param and local lines name a register by its name (hl, iy) on a
     processor whose registers have names; RN works on any."""
-    names = Names({}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, set(), {}, {}, {})
+    names = Names({}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, set(), {}, {}, {}, {})
     registers = registers or {}
 
     def register_number(text):
@@ -224,6 +227,14 @@ def load_names(path, registers=None):
         if not parts:
             continue
         where = f"{path.name}:{number}"
+        if parts[0] == "comment":
+            words = line.split(None, 2)
+            if len(words) != 3 or not words[1].isidentifier():
+                raise SystemExit(f"{where}: expected 'comment FUNCTION TEXT'")
+            if words[1] in names.comments:
+                raise SystemExit(f"{where}: {words[1]} has a comment already")
+            names.comments[words[1]] = words[2]
+            continue
         if parts[0] == "struct":
             if len(parts) not in (3, 4) or (len(parts) == 4 and parts[3] != "rom"):
                 raise SystemExit(f"{where}: expected 'struct NAME SIZE [rom]'")

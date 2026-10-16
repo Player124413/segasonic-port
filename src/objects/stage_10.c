@@ -11,6 +11,9 @@
  */
 #include "game.h"
 
+/* Unused: spawns one bubble column (spawn_object_with_pieces) with palette 0x1060, spawn_arg_1 = r14
+   (its run of mine_bubble_frames) and handler bubble_column_animate, and plays sound 0x24, as
+   bubble_column_init sets one up. */
 void spawn_bubble_column(uint32_t spawned, uint32_t free_count, uint32_t column, uint32_t block)
 {
 	uint8_t sound_id = 0;
@@ -28,6 +31,8 @@ void spawn_bubble_column(uint32_t spawned, uint32_t free_count, uint32_t column,
 	}
 }
 
+/* Sets up a bubble column, an object type no stage list spawns: palette 0x1060, sound 0x24; handler
+   bubble_column_animate. */
 void bubble_column_init(void)
 {
 	uint8_t sound_id = 0;
@@ -39,6 +44,8 @@ void bubble_column_init(void)
 	play_sound(sound_id, &ignored, &ignored);
 }
 
+/* A bubble column: every 3 frames the next of 0x14 frames of mine_bubble_frames from entry spawn_arg_1 *
+   0x13 on, looping; queued at its screen_y and never removed. */
 void bubble_column_animate(void)
 {
 	uint32_t frame_base = 0, frame_index = 0, ignored = 0;
@@ -61,6 +68,9 @@ void bubble_column_animate(void)
 	queue_sprite(frame_base);
 }
 
+/* Sets up a mine: sprite 0x8610, half size when spawn_arg_2 is set, a round hitbox of radius 8 and
+   height 0x1E, kind 0x24; its pieces: a shadow at the mine's sprite_scale (the + 0x24 just before is
+   overwritten) and three bubble parts from frames 0, 1 and 2, the last x-flipped; handler mine_float. */
 void mine_init(void)
 {
 	if (OBJECT(current_object)->spawn_arg_2 != 0u)
@@ -90,6 +100,8 @@ void mine_init(void)
 	OBJECT(current_object)->sprite_flags |= 0x40u;
 }
 
+/* A mine bobbing above the water: speed_z = sine_table[timer], timer + 0x10 a frame; once the nearest
+   player is within 0x80 its handler becomes mine_fall. Runs mine_fall every frame. */
 void mine_float(void)
 {
 	face_nearest_player(0u, 0u);
@@ -102,6 +114,10 @@ void mine_float(void)
 	mine_fall();
 }
 
+/* A mine falling (and, run by mine_float, bobbing): moves, removed off screen, falls toward its floor.
+   Above the water height spawn_arg_1 it flashes, is drawn at its floor depth and touchable, its shadow
+   every other frame; at that height it splashes (spawn_mine_splash), plays sound 0x16, drops 4 and sinks
+   (mine_sink). */
 void mine_fall(void)
 {
 	uint8_t sinking = 0, sound_id = 0;
@@ -140,6 +156,9 @@ void mine_fall(void)
 	animate_sinking_mine();
 }
 
+/* A mine sinking through the water: speed_z - 0x5800 a frame against fall_to_floor's 0x6000, drawn by
+   animate_sinking_mine; on the bottom it plays sound 0x20, takes palette 0x1070, switches its shadow off
+   (piece_value 1) and explodes (mine_explode). */
 void mine_sink(void)
 {
 	uint8_t sound_id = 0;
@@ -165,6 +184,10 @@ void mine_sink(void)
 	mine_explode();
 }
 
+/* A mine exploding on the bottom: steps through underwater_explosion_frames, each held by its
+   underwater_explosion_durations count, drawn with draw_mine_with_bubbles; after the table's 0x16 frames
+   it plays sound 0x24 and is removed with its pieces (that last step reads one past both tables, never
+   shown). */
 void mine_explode(void)
 {
 	uint8_t sound = 0;
@@ -201,6 +224,8 @@ void mine_explode(void)
 	draw_mine_with_bubbles();
 }
 
+/* Draws a sinking mine: flash_mine_palette for a sinking mine, a new frame every frame (mine_frames by
+   mine_sink_steps[sink_step], sink_step looping over 8), then draw_mine_with_bubbles. */
 void animate_sinking_mine(void)
 {
 	uint8_t sinking = 0;
@@ -213,6 +238,10 @@ void animate_sinking_mine(void)
 	draw_mine_with_bubbles();
 }
 
+/* Draws a mine under water: at its floor depth and touchable; its shadow, unless switched off
+   (piece_value), every other frame at its floor; the three bubble parts at (0, -0xA), (5, -0x14) and
+   (0xA, -0x14) from it, a new frame every other frame, queued at r14 + 1 and r14 - 1: the shadow's
+   screen_y on its frames, else whatever earlier code left in r14. */
 void draw_mine_with_bubbles(void)
 {
 	uint16_t offset_x = 0, offset_y = 0;
@@ -286,6 +315,8 @@ void draw_mine_with_bubbles(void)
 	queue_sprite_at_depth(&ignored, &depth);
 }
 
+/* Flashes a mine: every 5 frames sprite_palette = mine_flash_palettes[mine_flash_steps[flash_step]],
+   flash_step looping over 0xC; with sinking set, bit 15 of the palette is flipped and bit 14 set. */
 void flash_mine_palette(uint8_t sinking)
 {
 	uint16_t flash_timer = 0;
@@ -305,6 +336,9 @@ void flash_mine_palette(uint8_t sinking)
 	OBJECT(current_object)->flash_mine_palette.flash_step = OBJECT(current_object)->flash_mine_palette.flash_step % 0xCu;
 }
 
+/* As a mine hits the water: its palette becomes 0x1070, and a two-part splash is spawned at its position
+   (projected_y + 1): the water column (palette 0x90A0, handler mine_splash_animate) and the spray,
+   sprite 0x8570, palette 0x1080 | 0x4000. */
 void spawn_mine_splash(uint32_t spawned, uint32_t free_count, uint32_t splash, uint32_t block)
 {
 	uint32_t ignored = 0, object = 0;
@@ -325,6 +359,10 @@ void spawn_mine_splash(uint32_t spawned, uint32_t free_count, uint32_t splash, u
 	}
 }
 
+/* A mine's splash: the water column takes the next of mine_splash_frames every 3 frames, at its floor
+   depth, and is removed with the spray after 0x1A; the spray, 7 below it, steps through
+   mine_splash_spray_frames every 3 frames until 0x14, queued at r14 + 2, r14 being whatever earlier code
+   left in it. */
 void mine_splash_animate(void)
 {
 	uint32_t depth = 0, ignored = 0;
@@ -363,6 +401,8 @@ void mine_splash_animate(void)
 	queue_sprite_at_depth(&ignored, &depth);
 }
 
+/* Sets up a lid trap: a pad (sprite 0x8840) with a 0x26 x 0x26 box hitbox, kind 0x23 (a player touching
+   it gets stuck: state 0x2C), and its open lid as its child (sprite 0x8850); handler lid_trap_update. */
 void lid_trap_init(void)
 {
 	OBJECT(current_object)->sprite_frame = 0x8840u;
@@ -382,6 +422,10 @@ void lid_trap_init(void)
 	OBJECT(current_object)->sprite_palette |= 0x4000u;
 }
 
+/* A lid trap, removed off screen. Once touched (flags bit 2) the pad turns kind 5 with sprite 0x8848,
+   the lid takes palette 0x1110, sound 0x11 plays and sprung is set; then the lid snaps shut, a frame of
+   lid_trap_close_steps every 4 frames. The pad is touchable and queued at screen_y - 0x58, the lid 0x10
+   above it. */
 void lid_trap_update(void)
 {
 	uint8_t sound_id = 0;
@@ -426,6 +470,8 @@ void lid_trap_update(void)
 	queue_sprite_at_depth(&ignored, &depth);
 }
 
+/* Sets up a sea turtle: its shell (sprite 0x7F28) with a 0x26 x 0x26 box hitbox and kind 0xC, and as its
+   pieces its head (sprite 0x7F70) and its shadow (sprite 0x5D88); handler turtle_wait. */
 void turtle_init(void)
 {
 	OBJECT(current_object)->sprite_frame = 0x7F28u;
@@ -449,6 +495,9 @@ void turtle_init(void)
 	OBJECT(current_object)->sprite_palette |= 0x4000u;
 }
 
+/* A turtle waiting under the water: drawn at screen_y - 0x20 and touchable until touched (flags bit 2),
+   then stroke_step 1 and turtle_surface. The head and shadow code after the draw runs only while
+   stroke_step is 4, which it never is here. */
 void turtle_wait(void)
 {
 	uint8_t bucket = 0;
@@ -514,6 +563,8 @@ void turtle_wait(void)
 	queue_sprite_in_bucket(bucket);
 }
 
+/* A touched turtle rising: speed_z alternates between -0x8000 and 0 while it swims (turtle_swim); once
+   0x20 above its floor it stops rising and drops rings (turtle_drop_rings). */
 void turtle_surface(void)
 {
 	OBJECT(current_object)->speed_z = 0u - ((OBJECT(current_object)->speed_z + 0x8000u) & 0x3FFFFu);
@@ -527,6 +578,9 @@ void turtle_surface(void)
 	turtle_drop_rings();
 }
 
+/* The surfaced turtle drops rings while it swims: one (drop_rings, angle 0x154, flip 2) whenever its
+   countdown spawn_arg_1 runs out, then 0x30 again; spawn_arg_2 counts them, and past 4 it only swims
+   (turtle_swim). */
 void turtle_drop_rings(void)
 {
 	uint32_t allocated = 0, random_value = 0, ring = 0;
@@ -551,6 +605,10 @@ void turtle_drop_rings(void)
 	turtle_swim();
 }
 
+/* A swimming turtle: every 3 frames a stroke step (turtle_swim_frames, turtle_swim_speeds), with a
+   0x3C-frame glide after the last; it moves along direction 0x14C at speed + 0xE0, speed losing 3 a
+   frame, and is removed off screen. Its head animates beside it; over a floor its shadow is its own
+   frame, shrunk by its height. Drawn at its floor, touchable. */
 void turtle_swim(void)
 {
 	uint16_t offset_x = 0, offset_y = 0, shadow_offset_y = 0;
@@ -619,6 +677,10 @@ void turtle_swim(void)
 	add_to_touchable_list(bucket);
 }
 
+/* Sets up an eel at its den: the anchor ball (kind 0x24, speed 0x480 its stretch, stretch_step 0x10,
+   direction 0x34A, 0x14A with facing) with two parts and a shadow, then piece_count four-part pieces
+   after it, wave amplitudes growing by wave_step, wave angles 0x30 apart (kept in explode_delay): the
+   head last (eel_head_move), the rest eel_segment_move. */
 void eel_init(void)
 {
 	uint16_t explode_delay_step = 0;
@@ -708,6 +770,10 @@ void eel_init(void)
 	OBJECT(object_2)->sprite_palette |= 0x4000u;
 }
 
+/* An eel's anchor at its den: once the den has set its bit (den_number) of stage_trigger_bits it waits
+   for the pieces to explode (eel_anchor_wait_explode). Otherwise removed off screen, drawn at its floor
+   and touchable, and the eel stretches out and back (eel_anchor_stretch), resting pause_timer frames at
+   each end. */
 void eel_anchor_update(void)
 {
 	uint32_t deleted = 0, ignored = 0;
@@ -741,6 +807,9 @@ void eel_anchor_update(void)
 	eel_anchor_stretch();
 }
 
+/* An eel whose den has collapsed: removed with all its pieces once piece_count, the pieces still to
+   finish exploding, reaches 0. Its chaser test (facing 0 only: chaser_object within 0x10 in y) sets the
+   den's bit of stage_trigger_bits, which is already set when this runs. */
 void eel_anchor_wait_explode(void)
 {
 	uint32_t distance_y = 0, ignored = 0;
@@ -756,6 +825,10 @@ void eel_anchor_wait_explode(void)
 	}
 }
 
+/* Stretches the eel: the anchor's speed changes by stretch_step every frame, turning back in (-0x18)
+   past 0x1111 and out again (+0x28) under 0x480, with a 0x3C-frame pause at each end. Piece n down the
+   chain gets the anchor's direction, n times its speed and stretch_step (as var_81); then the anchor's
+   shadow is drawn. */
 void eel_anchor_stretch(void)
 {
 	uint32_t segment_speed = 0, speed_step = 0, stretch_step = 0;
@@ -798,6 +871,7 @@ void eel_anchor_stretch(void)
 	eel_anchor_draw_shadow();
 }
 
+/* Draws the eel anchor's shadow, its third part, at the anchor's floor in bucket 0xFF. */
 void eel_anchor_draw_shadow(void)
 {
 	uint32_t bucket = 0;
@@ -810,10 +884,15 @@ void eel_anchor_draw_shadow(void)
 	queue_sprite_in_bucket(bucket);
 }
 
+/* Unused: an empty function, a lone return the original leaves after eel_anchor_wait_explode. */
 void eel_anchor_wait_explode_spare_return(void)
 {
 }
 
+/* An eel's head, placed along the eel (place_eel_piece) and drawn at its floor with its shadow, but not
+   touchable: every 4 frames its next frame (eel_head_frames, or with facing set the extend or retract
+   frames as stretch_step goes out or in), resting 0x3C frames after each run. Once its den's bit is set
+   it explodes after (speed / the anchor's speed) * 0xB frames. */
 void eel_head_move(void)
 {
 	uint16_t explosion_delay = 0, head_offset_x = 0, head_offset_y = 0;
@@ -924,6 +1003,9 @@ void eel_head_move(void)
 	eel_head_explode_delay();
 }
 
+/* A body piece of an eel: placed along the eel (place_eel_piece), drawn at its floor and touchable, its
+   shadow (its fourth part) at its floor; parts 2 and 3 are not drawn. Once its den's bit is set it
+   explodes after (speed / the anchor's speed) * 0xB frames (eel_segment_explode_delay). */
 void eel_segment_move(void)
 {
 	uint16_t explosion_delay = 0;
@@ -951,6 +1033,10 @@ void eel_segment_move(void)
 	eel_segment_explode_delay();
 }
 
+/* Unused: an ending for eel_segment_move that also draws a piece's parts 2 and 3: every 3 frames each
+   takes its next frame (eel_part_frames_2 by eel_part_steps, eel_part_frames), both at the piece's
+   screen position and floor depth + 1; then the shadow at its floor. The live code skips parts 2 and 3,
+   so they are never drawn. */
 void draw_eel_piece_parts(void)
 {
 	uint32_t bucket = 0, depth = 0, floor_depth = 0, ignored = 0;
@@ -989,6 +1075,9 @@ void draw_eel_piece_parts(void)
 	queue_sprite_in_bucket(bucket);
 }
 
+/* Puts an eel piece on its anchor (projected position, z and floor_z, z raised by height_offset) with
+   speed_x/speed_y from direction and speed, so the next move carries it out along the eel; wave_angle
+   steps by 8 a frame and sine_table[wave_angle] x wave_amplitude is added to z and, twice, to speed_y. */
 void place_eel_piece(void)
 {
 	uint32_t direction = 0, speed = 0, wave_offset = 0;
@@ -1011,6 +1100,8 @@ void place_eel_piece(void)
 	OBJECT(current_object)->speed_y += wave_offset * 2u;
 }
 
+/* An eel's head waiting its turn to explode: counts explode_delay down, still drawn at its floor with
+   its shadow; then eel_piece_start_explosion. */
 void eel_head_explode_delay(void)
 {
 	uint32_t bucket = 0, ignored = 0;
@@ -1030,6 +1121,8 @@ void eel_head_explode_delay(void)
 	queue_sprite_in_bucket(bucket);
 }
 
+/* A body piece of an eel waiting its turn to explode: counts explode_delay down, still drawn at its
+   floor with its shadow; then eel_piece_start_explosion. */
 void eel_segment_explode_delay(void)
 {
 	uint32_t bucket = 0, ignored = 0;
@@ -1051,6 +1144,8 @@ void eel_segment_explode_delay(void)
 	queue_sprite_in_bucket(bucket);
 }
 
+/* Starts an eel piece's explosion: 0x18 lower (projected_y), palette 0x1070, sprite_flags 4, from frame
+   2 of underwater_explosion_frames; sound 0x24, handler eel_piece_explode. */
 void eel_piece_start_explosion(void)
 {
 	uint8_t sound_id = 0;
@@ -1068,6 +1163,9 @@ void eel_piece_start_explosion(void)
 	eel_piece_explode();
 }
 
+/* An exploding eel piece: the next frame of underwater_explosion_frames every 3 frames, from frame 2;
+   after frame 0x15 it takes one off its anchor's piece count (spawn_arg_2_low), plays sound 0x24 and
+   stays as eel_piece_gone. Queued at screen_y - 0x10. */
 void eel_piece_explode(void)
 {
 	uint8_t sound_id = 0;
@@ -1097,10 +1195,14 @@ void eel_piece_explode(void)
 	eel_piece_gone();
 }
 
+/* An exploded eel piece: an empty function, so it is no longer drawn; its anchor removes it with the
+   rest of the eel (eel_anchor_wait_explode). */
 void eel_piece_gone(void)
 {
 }
 
+/* Unused: spawns one object (spawn_object_with_pieces) and sets it up as an eel den (eel_den_init, which
+   puts current_object back on object_cursor). */
 void spawn_eel_den(uint32_t spawned, uint32_t free_count, uint32_t den, uint32_t block)
 {
 	uint32_t ignored = 0;
@@ -1116,6 +1218,9 @@ void spawn_eel_den(uint32_t spawned, uint32_t free_count, uint32_t den, uint32_t
 	eel_den_init();
 }
 
+/* Sets up an eel den: a stone arch (sprite 0xAC70) with a 0x47 x 0x42 box hitbox 0x28 high, kind 0xC and
+   health 1; handler eel_den_wait. It ends with current_object back on object_cursor, which matters only
+   when spawn_eel_den runs it. */
 void eel_den_init(void)
 {
 	OBJECT(current_object)->flags |= 2u;
@@ -1133,6 +1238,10 @@ void eel_den_init(void)
 	current_object = object_cursor;
 }
 
+/* An eel den waiting: it collapses when chaser_object comes within 0x35 in y, when it is hit with no
+   health left, or when its bit (spawn_arg_1) of stage_trigger_bits is already set: it sets that bit,
+   which makes its eel explode, drops 3 rings from 0x18 up and crumbles (eel_den_collapse). Else drawn
+   (eel_den_draw). */
 void eel_den_wait(void)
 {
 	uint32_t allocated = 0, distance_y = 0, ignored = 0, random_value = 0, ring = 0;
@@ -1159,6 +1268,8 @@ void eel_den_wait(void)
 	eel_den_collapse();
 }
 
+/* A collapsing eel den: the next frame of eel_den_collapse_frames every 3 frames, then (after frame
+   0x2C) only eel_den_draw; drawn every frame. */
 void eel_den_collapse(void)
 {
 	uint16_t frame_timer = 0;
@@ -1180,6 +1291,8 @@ void eel_den_collapse(void)
 	eel_den_draw();
 }
 
+/* Draws an eel den: placed from its map position (unproject_object), removed off screen, else queued at
+   screen_y - 0x18 and touchable. */
 void eel_den_draw(void)
 {
 	uint32_t deleted = 0, depth = 0, ignored = 0;
@@ -1194,6 +1307,9 @@ void eel_den_draw(void)
 	}
 }
 
+/* Sets up a raft spawner from river_raft_spawners[sprite_frame] (the spawn record's index): x, y, floor
+   height, end_position, then its raft list (entry, list_start); last_raft_y = its y, last_raft_speed 0;
+   handler river_raft_spawner_update. */
 void river_raft_spawner_init(void)
 {
 	uint32_t record = 0;
@@ -1218,6 +1334,10 @@ void river_raft_spawner_init(void)
 	OBJECT(current_object)->handler = river_raft_spawner_update_ADDRESS;
 }
 
+/* A raft spawner, removed at end_position (from scroll_position 0x9C00 it sets goal_unlocked). When the
+   last raft it launched (last_raft_y) has drifted down to it and the waterfall (group_leaders[0]) is
+   downstream it launches its list (per raft: distance behind, speed, floor block; with foam) up to
+   0x8000, which loops, or 0xFFFF. It moves upstream with the camera. */
 void river_raft_spawner_update(void)
 {
 	uint32_t floor_block_record = 0, ignored = 0, object = 0, object_2 = 0, raft_entry = 0;
@@ -1316,6 +1436,10 @@ void river_raft_spawner_update(void)
 	}
 }
 
+/* A raft drifting down the river (+y by speed_y) on its floor, 2 lower while carrying something (flags
+   bit 3), a platform with its foam; removed off screen. When the waterfall (group_leaders[0]) reaches
+   its far end, then its middle, it drops the foam and tips over the edge (river_raft_fall_animation,
+   river_raft_fall_palettes), falling till screen y 0xE8. */
 void river_raft_update(void)
 {
 	uint16_t draw_depth = 0;
@@ -1432,6 +1556,9 @@ void river_raft_update(void)
 	}
 }
 
+/* A raft's foam: sits at its raft's (parent's) screen position and animates (river_raft_foam_animation);
+   the raft queues it. Removed once flags bit 10 is set, which the raft does when it leaves the screen or
+   tips over. */
 void river_raft_foam_update(void)
 {
 	uint32_t ignored = 0, object = 0;
@@ -1447,6 +1574,10 @@ void river_raft_foam_update(void)
 	delete_current_object();
 }
 
+/* Unused: sets up sprite 0x7058 (palette 0x5050) standing on its floor; given a free object and two
+   second-pool blocks it keeps a copy of its whole block in palette bank 0x8000 (copy_object) and chains
+   two clip entries (sprite_flags 0x5000) as its child and grandchild, as icicle_buried_part_draw does;
+   handler clipped_copy_sprite_update. */
 void clipped_copy_sprite_start(uint32_t copy)
 {
 	uint32_t clips_left = 0, ignored = 0, object = 0, object_2 = 0, object_3 = 0;
@@ -1496,6 +1627,10 @@ void clipped_copy_sprite_start(uint32_t copy)
 	OBJECT(current_object)->handler = clipped_copy_sprite_update_ADDRESS;
 }
 
+/* Unused: until it leaves the screen (then the copy and the two clip blocks are freed and it goes):
+   draw_depth = its floor's screen y; it queues the second clip entry, itself, the first clip entry with
+   the screen y of the point 0x60 above its floor (point_to_screen) in its low 12 sprite_flags bits, and
+   the copy at its position, all at draw_depth. */
 void clipped_copy_sprite_update(void)
 {
 	uint16_t child = 0, object = 0, projected_x = 0;
@@ -1539,6 +1674,10 @@ void clipped_copy_sprite_update(void)
 	delete_current_object();
 }
 
+/* Sets up stage 0x10's invisible geyser front from geyser_fronts[sprite_frame] (the spawn's index): z,
+   top_height, its run of geyser_lists, path and row_pattern, previous_floor_z_int 0x30 below (a row on
+   the first step); clears geyser_front_start. Once an object is free it takes it as its hazard box (0x30
+   x 0xC0, kind 0x29) and waits (geyser_front_wait). */
 void geyser_front_init(void)
 {
 	uint32_t free_count = 0, hitbox_object = 0, ignored = 0, path = 0;
@@ -1578,6 +1717,9 @@ void geyser_front_init(void)
 	}
 }
 
+/* The geyser front before it rises: spawns its listed geysers as scroll_position reaches them
+   (spawn_listed_geyser) and starts rising (geyser_front_rise) once geyser_front_start is set or
+   scroll_position reaches 0x6500 (0x8400 for the second front). */
 void geyser_front_wait(void)
 {
 	uint16_t start_position = 0;
@@ -1596,6 +1738,10 @@ void geyser_front_wait(void)
 	OBJECT(current_object)->handler = geyser_front_rise_ADDRESS;
 }
 
+/* The rising geyser front, the chasers' routine: its path (geyser_front_read_script) on the first frame
+   and while play goes on; when a player mishap, a drop-in or no player in play begins it holds back
+   (base_speed 0, screen_threshold 0x130, both saved, hold_timer 0xFF), then only steps
+   (geyser_front_rise_step). */
 void geyser_front_rise(void)
 {
 	uint32_t flags = 0;
@@ -1627,6 +1773,9 @@ void geyser_front_rise(void)
 	geyser_front_rise_step();
 }
 
+/* The geyser front's path: with no wait left, once scroll_position reaches the entry's position or the
+   front has risen to its z limit, it loads the entry's screen_threshold, catch_up_factor, base_speed and
+   wait_timer, or at the path's end frees its hazard box and is removed; then geyser_front_rise_step. */
 void geyser_front_read_script(void)
 {
 	uint32_t cursor = 0;
@@ -1661,6 +1810,10 @@ void geyser_front_read_script(void)
 	geyser_front_rise_step();
 }
 
+/* A step of the geyser front: chaser_speed by the chasers' rule (base_speed within screen_threshold,
+   else camera speed x catch_up_factor, at least base_speed; holding back ends after 0x300 scroll units
+   or hold_timer); past the wait it climbs that far up the floor's slope, its hazard box 0xA0 below;
+   listed geysers, a row every 0x30 of rise, the line at top_height. */
 void geyser_front_rise_step(void)
 {
 	uint16_t step = 0;
@@ -1782,6 +1935,10 @@ void geyser_front_rise_step(void)
 	geyser_front_spawn_geyser_row();
 }
 
+/* A row of geysers from the front: sets flags bit 0 (the geysers of earlier rows then go one depth back)
+   and previous_floor_z_int = z_int; with 5 free objects, five geysers at its x and z, 0x2E apart in y
+   from 0x10 past it, each waiting its delay from the geyser_row_delays set its next row_pattern byte
+   picks. Then geyser_front_rise_sound. */
 void geyser_front_spawn_geyser_row(void)
 {
 	uint16_t wait = 0;
@@ -1815,6 +1972,8 @@ void geyser_front_spawn_geyser_row(void)
 	geyser_front_rise_sound();
 }
 
+/* The geyser front's rumble: while its screen_y is at most 0x130, sound 0x12 every 0x32 frames
+   (sound_timer). */
 void geyser_front_rise_sound(void)
 {
 	uint8_t sound_id = 0;
@@ -1834,6 +1993,9 @@ void geyser_front_rise_sound(void)
 	}
 }
 
+/* Spawns the front's next geyser of geyser_lists once scroll_position reaches its position: at its x, y
+   and z, waiting for scroll_position to reach its start position (flags bit 31, animation_speed 0x20).
+   Hands back geyser, the new object (unchanged when none was made). */
 uint32_t spawn_listed_geyser(uint32_t geyser)
 {
 	uint16_t wait = 0;
@@ -1860,6 +2022,9 @@ uint32_t spawn_listed_geyser(uint32_t geyser)
 	return geyser;
 }
 
+/* Makes a geyser at x, y and height r14: sprite 0x5DA0, a 0x20 x 0x30 box hitbox of kind 0x27 (it
+   hurts), geyser_animation, draw_depth 0xEF, the front as its parent, erupt_delay = wait; handler
+   geyser_wait. Hands back spawned (0xFFFFFFFF when made, 0 with no free object) and geyser. */
 void spawn_geyser(uint32_t x, uint32_t y, uint16_t wait, uint32_t *p_spawned, uint32_t *p_geyser)
 {
 	uint32_t geyser = *p_geyser;
@@ -1901,6 +2066,10 @@ void spawn_geyser(uint32_t x, uint32_t y, uint16_t wait, uint32_t *p_spawned, ui
 	*p_geyser = geyser;
 }
 
+/* A geyser waiting to erupt (geyser_erupt): a listed one (flags bit 31) until scroll_position reaches
+   erupt_delay, drawn meanwhile; a row one, not drawn, counts erupt_delay down, going a depth back
+   whenever its front spawns a row. Neither counts while the front holds back; both keep
+   anchor_x/anchor_y on their projected position. */
 void geyser_wait(void)
 {
 	uint32_t ignored = 0;
@@ -1930,6 +2099,10 @@ void geyser_wait(void)
 	}
 }
 
+/* An erupting geyser: the ground cracks (geyser_animation, faster from frame 3, sound 0xA at frame 3),
+   then the water jet (geyser_jet_animation, looping); touchable from frame 4, removed below screen y
+   0x180. Row geysers draw their jet at draw_depth (one back for each new row of their front), the others
+   at screen_y. */
 void geyser_erupt(void)
 {
 	uint8_t sound_id = 0;
@@ -1964,9 +2137,12 @@ void geyser_erupt(void)
 	queue_sprite_at_depth(&ignored, &depth);
 }
 
+/* Spawns the waterfall as a group leader (group_leaders[the record's leader & 3]) from the record: x, y,
+   z, direction and its group_leader_data path; a multi-part sprite whose part list is a second-pool copy
+   of waterfall_parts, waterfall_animation at 3 frames a step; handler waterfall_move. With no
+   second-pool block free the object it allocated is left unset. */
 void spawn_waterfall(uint32_t record, uint32_t *p_spawned, uint32_t *p_free_stack, uint32_t *p_block)
 {
-	uint32_t free_stack = *p_free_stack;
 	uint32_t block = *p_block;
 	uint32_t free_count = 0, ignored = 0, object = 0, spawned = 0;
 
@@ -2004,15 +2180,18 @@ void spawn_waterfall(uint32_t record, uint32_t *p_spawned, uint32_t *p_free_stac
 	OBJECT(block)->animation_speed = 3u;
 	OBJECT(block)->animation_timer = 0;
 	object = block;
-	allocate_object_2(&ignored, &free_stack, &block);
+	allocate_object_2(&ignored, p_free_stack, &block);
 	move_halfwords_backward(block, waterfall_parts_ADDRESS, 0xDu);
 	OBJECT(object)->part_list = block;
 	spawned = 0xFFFFFFFFu;
 	*p_spawned = spawned;
-	*p_free_stack = free_stack;
 	*p_block = block;
 }
 
+/* The waterfall, a group leader moving up the river (-y), the chasers' routine: its path
+   (waterfall_read_script) on the first frame and while play goes on; when a player mishap, a drop-in or
+   no player in play begins it holds back (base_speed 0, screen_threshold 0x160, both saved, hold_timer
+   0xFF), then only steps (waterfall_move_step). */
 void waterfall_move(void)
 {
 	uint32_t flags = 0;
@@ -2044,6 +2223,9 @@ void waterfall_move(void)
 	waterfall_move_step();
 }
 
+/* The waterfall's path: once wait_timer has run out and scroll_position reaches the entry's position it
+   loads the entry's screen_threshold, catch_up_factor, base_speed and wait_timer, or at the path's end
+   frees its part list and is removed; then waterfall_move_step. */
 void waterfall_read_script(void)
 {
 	uint16_t part_list = 0;
@@ -2084,6 +2266,10 @@ void waterfall_read_script(void)
 	waterfall_move_step();
 }
 
+/* A step of the waterfall: chaser_speed by the chasers' rule (base_speed while screen_x is within
+   screen_threshold and screen_y within 0xE0, else camera speed x catch_up_factor, at least base_speed),
+   and past the wait it moves -y by it; from y 0x1480 geyser_front_start. Sound 0x10 every 0x3C frames
+   unless map_screen_active; animated, drawn. */
 void waterfall_move_step(void)
 {
 	uint8_t sound_id = 0;
@@ -2218,6 +2404,10 @@ void waterfall_move_step(void)
 	queue_sprite_at_depth(&ignored, &depth);
 }
 
+/* A row of the river's water, its parent the waterfall: its frame follows the waterfall's
+   animation_frame, drawn at screen_y + depth_offset, removed below screen y 0xE8. Once the waterfall
+   reaches its y it takes two clip entries (given two second-pool blocks) cutting it at the waterfall's
+   line; with the waterfall 0x5C past, it frees them and goes. */
 void river_water_update(void)
 {
 	uint16_t child = 0;
@@ -2343,6 +2533,8 @@ void river_water_update(void)
 	}
 }
 
+/* Sets up a stone block from stone_block_positions[sprite_frame] (the spawn record's index): x, y, z and
+   depth_offset; sprite 0x8A00, palette 0x9120; handler stone_block_draw. */
 void stone_block_init(void)
 {
 	uint32_t ignored = 0, record = 0;
@@ -2367,6 +2559,8 @@ void stone_block_init(void)
 	OBJECT(current_object)->handler = stone_block_draw_ADDRESS;
 }
 
+/* A stone block: queued at screen_y + depth_offset until it has left the screen (check_left_screen),
+   then removed. */
 void stone_block_draw(void)
 {
 	uint32_t depth = 0, ignored = 0, off_screen = 0;
@@ -2382,6 +2576,9 @@ void stone_block_draw(void)
 	delete_current_object();
 }
 
+/* When the geyser front reaches its top: makes the invisible geyser line at
+   geyser_line_starts[sprite_frame] (x, y, z, and its path in geyser_line_scripts); handler
+   geyser_line_move. */
 void spawn_geyser_line(uint32_t line)
 {
 	uint32_t free_count = 0, record = 0;
@@ -2408,6 +2605,10 @@ void spawn_geyser_line(uint32_t line)
 	}
 }
 
+/* The invisible geyser line: once its wait is over it takes the next geyser_line_scripts entry (speed,
+   wait_timer) when scroll_position reaches its position or y its y limit; it moves -y by speed, a geyser
+   burst every 0x300 of travel, one more at the script's end, then goes. After a player mishap it stands
+   still for up to 0xFF frames or 0x300 scroll units. */
 void geyser_line_move(void)
 {
 	uint32_t cursor = 0, hold_distance = 0, ignored = 0, speed = 0;
@@ -2534,6 +2735,8 @@ void geyser_line_move(void)
 	}
 }
 
+/* Makes a geyser burst at the geyser line's position: palette 0x9130, a 0x30 x 0x30 box hitbox 0xA0 high
+   of kind 0x29 (it hurts), geyser_burst_animation at 6 frames a step; handler geyser_burst_start. */
 void spawn_geyser_burst(void)
 {
 	uint32_t free_count = 0, object = 0;
@@ -2564,6 +2767,8 @@ void spawn_geyser_burst(void)
 	}
 }
 
+/* Places a geyser burst on screen (project_object) and hands it to geyser_burst_erupt from the next
+   frame. */
 void geyser_burst_start(void)
 {
 	uint32_t ignored = 0;
@@ -2572,6 +2777,9 @@ void geyser_burst_start(void)
 	OBJECT(current_object)->handler = geyser_burst_erupt_ADDRESS;
 }
 
+/* A geyser burst: the ground cracks and bursts (geyser_burst_animation, faster from frame 4, sound 0xA
+   as frame 4 starts), then it sprays (geyser_burst_spray_animation, looping), touchable only while
+   spraying; queued at screen_y - 0x10, removed once off screen. */
 void geyser_burst_erupt(void)
 {
 	uint8_t sound_id = 0;
@@ -2606,6 +2814,10 @@ void geyser_burst_erupt(void)
 	queue_sprite_at_depth(&ignored, &depth);
 }
 
+/* Sets up stage 0x10's propeller machine as chaser_object: multi-part, a 0xF2 x 0x80 box 0xF0 high of
+   kind 0x18, propeller_machine_animation and propeller_machine_path. With a take_free_object block it
+   copies propeller_machine_parts there as its part list, spawns its back zone (spawn_chaser_back_zone 0)
+   and chases (propeller_machine_chase); else it retries next frame. */
 void propeller_machine_init(void)
 {
 	uint32_t free_count = 0, parts = 0, zone_index = 0;
@@ -2642,6 +2854,10 @@ void propeller_machine_init(void)
 	}
 }
 
+/* The propeller machine chasing the players (+y), the chasers' routine: its path
+   (propeller_machine_read_script) on the first frame and while play goes on; when a player mishap, a
+   drop-in or no player in play begins it holds back (base_speed 0, screen_threshold -0x50, both saved,
+   hold_timer 0xFF), then only steps (propeller_machine_chase_step). */
 void propeller_machine_chase(void)
 {
 	uint32_t flags = 0;
@@ -2673,6 +2889,10 @@ void propeller_machine_chase(void)
 	propeller_machine_chase_step();
 }
 
+/* The propeller machine's path: once wait_timer has run out, when scroll_position reaches the entry's
+   position or y its y limit it loads the entry's screen_threshold, catch_up_factor, base_speed and
+   wait_timer, or at the path's end frees its part list block (sprite_frame is part_list's low half) and
+   is removed; then propeller_machine_chase_step. */
 void propeller_machine_read_script(void)
 {
 	uint32_t cursor = 0;
@@ -2735,6 +2955,10 @@ void propeller_machine_read_script(void)
 	propeller_machine_chase_step();
 }
 
+/* A step of the propeller machine: past the wait it moves +y by chaser_speed (base_speed from
+   screen_threshold on, else camera_slope_speed x catch_up_factor, at least base_speed); the propellers
+   turn (propeller_machine_animation in three parts). From y 0x1B00 its box is 0x68 high, from 0x1BB0
+   geyser_front_start; sound 0xB every 0x3C frames on screen; zone list. */
 void propeller_machine_chase_step(void)
 {
 	uint8_t sound_id = 0;
@@ -2825,6 +3049,8 @@ void propeller_machine_chase_step(void)
 	queue_sprite_at_depth(&ignored, &depth);
 }
 
+/* Sets up stage 0x10's barred gate: sprite 0x9F00 (palette 0x92F0) at height 0x158, with
+   barred_gate_animation ready at 2 frames a step; handler barred_gate_update. */
 void barred_gate_init(void)
 {
 	uint32_t ignored = 0;
@@ -2846,6 +3072,9 @@ void barred_gate_init(void)
 	OBJECT(current_object)->handler = barred_gate_update_ADDRESS;
 }
 
+/* The barred gate: removed once off screen (margin 0x50); once barred_gate_closing is set it plays
+   barred_gate_animation once, then sound 0x29 (animation_frame 0xFF stops it). Queued at screen_y -
+   0x40. */
 void barred_gate_update(void)
 {
 	uint8_t sound_id = 0;
@@ -2874,6 +3103,8 @@ void barred_gate_update(void)
 	queue_sprite_at_depth(&ignored, &depth);
 }
 
+/* Sets up stage 0x10's scene anchor from scene_anchor_positions[sprite_frame]: x, y, floor height and
+   end_position; scene_object = it; handler scene_anchor_update. */
 void scene_anchor_init(void)
 {
 	uint32_t record = 0;
@@ -2892,6 +3123,9 @@ void scene_anchor_init(void)
 	scene_object = current_object;
 }
 
+/* Stage 0x10's scene anchor (scene_object), removed at end_position: every frame it sets its z so that
+   at its x/y it sits at screen y 0xA0; the players caught in game mode 0x19 (state 0x30) ease their x
+   and z toward it. */
 void scene_anchor_update(void)
 {
 	uint32_t floor_z = 0, ignored = 0, point_x = 0, point_y = 0;
@@ -2909,6 +3143,8 @@ void scene_anchor_update(void)
 	OBJECT(current_object)->z_fraction = 0u;
 }
 
+/* Sets up stage 0x10's railing spawner at height 0x520, last_spawn_position 0; handler
+   railing_spawner_update. */
 void railing_spawner_init(void)
 {
 	OBJECT(current_object)->railing_spawner.last_spawn_position = 0u;
@@ -2916,6 +3152,10 @@ void railing_spawner_init(void)
 	OBJECT(current_object)->handler = railing_spawner_update_ADDRESS;
 }
 
+/* Stage 0x10's railing spawner, removed at scroll_position 0x5000: every 0x800 scroll units, with 0xA
+   free objects, it lays 10 railing segments (multi-part railing_parts, handler railing_segment_start) at
+   its x and z, 0xB8 apart in y, carrying on from where the last ten ended. The z of 0x528 each first
+   gets is overwritten with the spawner's. */
 void railing_spawner_update(void)
 {
 	uint32_t ignored = 0, object = 0;
@@ -2951,6 +3191,8 @@ void railing_spawner_update(void)
 	} while ((int16_t)segments_left > 1);
 }
 
+/* Places a railing segment on screen (project_object) and hands it to railing_segment_draw from the next
+   frame. */
 void railing_segment_start(void)
 {
 	uint32_t ignored = 0;
@@ -2959,6 +3201,8 @@ void railing_segment_start(void)
 	OBJECT(current_object)->handler = railing_segment_draw_ADDRESS;
 }
 
+/* A railing segment: removed at scroll_position 0x6700 or once it has left the screen (margin 0x88);
+   queued at screen_y + 0x40 while on screen. */
 void railing_segment_draw(void)
 {
 	uint16_t margin = 0;
@@ -2983,6 +3227,10 @@ void railing_segment_draw(void)
 	queue_sprite_at_depth(&ignored, &depth);
 }
 
+/* A rope bridge plank (its parent the group leader), every 4th with two rope parts. It sags: z eases a
+   quarter of the way a frame (in speed_x) to its floor plus bridge_0_sag/bridge_1_sag[plank_index] (in
+   previous_floor_z). Once the leader passes it along direction, or rope_bridge_collapsing, it falls
+   tumbling; past screen y 0x1C0 it frees its ropes and goes. */
 void rope_bridge_plank_update(void)
 {
 	uint16_t child = 0;
@@ -3117,6 +3365,10 @@ void rope_bridge_plank_update(void)
 	}
 }
 
+/* Starts a plank's fall: the next state, the tumbling animation from its start (2 frames a step),
+   speed_z 0; the bridge's last plank clears its plank count (bridge_0_plank_count or
+   bridge_1_plank_count: no more sag); sound 0x28 when on screen; then
+   rope_bridge_plank_check_rider_and_draw. */
 void rope_bridge_plank_start_falling(void)
 {
 	uint8_t sound_id = 0;
@@ -3147,6 +3399,10 @@ void rope_bridge_plank_start_falling(void)
 	rope_bridge_plank_check_rider_and_draw();
 }
 
+/* Draws a plank on screen: platform list, its ropes, and queued at its floor's screen y + depth_offset
+   (kept in draw_depth). A plank whose takes_slot is negative (none of stage 0x10's) first watches for a
+   kind 0xF rider: the half it stands on marks the plank's group_slots byte, and a marked plank becomes
+   record 0's normal plank on that half. */
 void rope_bridge_plank_check_rider_and_draw(void)
 {
 	uint8_t slot_mark = 0;
@@ -3257,6 +3513,9 @@ void rope_bridge_plank_check_rider_and_draw(void)
 	queue_sprite_at_depth(&ignored, &sprite_depth);
 }
 
+/* Draws a plank's two rope parts, if it has them, at its screen position plus their offsets (kept in
+   projected_x and projected_y_fraction), slack (sprite 0x9D20) while it falls; on a plank that takes a
+   group slot, the slot's mark hides one: 0xFF the first rope, 0x80 the second. */
 void draw_rope_bridge_ropes(void)
 {
 	uint32_t ignored = 0, ropes_left = 0, slot_address = 0;
@@ -3303,12 +3562,13 @@ void draw_rope_bridge_ropes(void)
 	current_object = object_cursor;
 }
 
+/* Game mode 0x19's stage frame: while rope_bridge_collapsing is set the scroll runs at speed 0x1E
+   (scroll_mode_low 0); before, from scroll_position 0xDA0 the scroll stops and, with a player in play,
+   scene_timer counts to 0x78 and sets rope_bridge_collapsing. Then the stage frame; from scroll_position
+   0x1A00 game_mode 3 at scroll speed 5. */
 void event_19_check_rope_bridge(uint32_t position, uint32_t in_play_count, uint32_t object, uint32_t *p_speed_value, uint32_t *p_count, uint32_t *p_cycle, uint32_t *p_list_cursor)
 {
-	uint32_t speed_value = *p_speed_value;
-	uint32_t count = *p_count;
-	uint32_t cycle = *p_cycle;
-	uint32_t ignored = 0, platform = 0;
+	uint32_t ignored = 0;
 
 	if (rope_bridge_collapsing != 0u)
 	{
@@ -3319,34 +3579,26 @@ void event_19_check_rope_bridge(uint32_t position, uint32_t in_play_count, uint3
 	{
 		if (scroll_position < 0xDA0u)
 		{
-			update_scroll(&position, &in_play_count, &speed_value, &ignored, &count, &cycle, &ignored, &object);
-			update_stage_tile_layers(&ignored, &position, &in_play_count, &speed_value, &ignored, &count, &cycle, &ignored, &object);
-			find_nearby_floor_blocks(&ignored, &in_play_count, &speed_value, &ignored, &count, &ignored, &object);
-			speed_value = update_restart_point(speed_value);
-			spawn_objects_by_type(&ignored, &position, &in_play_count, &speed_value, &ignored, &count, &object);
+			update_scroll(&position, &in_play_count, p_speed_value, &ignored, p_count, p_cycle, &ignored, &object);
+			update_stage_tile_layers(&ignored, &position, &in_play_count, p_speed_value, &ignored, p_count, p_cycle, &ignored, &object);
+			find_nearby_floor_blocks(&ignored, &in_play_count, p_speed_value, &ignored, p_count, &ignored, &object);
+			*p_speed_value = update_restart_point(*p_speed_value);
+			spawn_objects_by_type(&ignored, &position, &in_play_count, p_speed_value, &ignored, p_count, &object);
 			spawn_ring_rows(&ignored, &position, &ignored, &object);
-			spawn_walls(&ignored, &position, &ignored, &count, &cycle, &object);
-			spawn_object_groups_2(&ignored, &count, &object);
-			spawn_object_groups(&ignored, &position, &ignored, &count, &object);
+			spawn_walls(&ignored, &position, &ignored, p_count, p_cycle, &object);
+			spawn_object_groups_2(&ignored, p_count, &object);
+			spawn_object_groups(&ignored, &position, &ignored, p_count, &object);
 			spawn_objects_by_handler(&ignored, &ignored, &object);
 			ignored = check_zones(ignored);
-			check_hits(&ignored, &position, &ignored, &speed_value, &ignored, &count, &ignored);
+			check_hits(&ignored, &position, &ignored, p_speed_value, &ignored, p_count, &ignored);
 			check_walls(ignored);
-			check_platforms(&ignored, &ignored, &ignored, &speed_value, &ignored, &count, &cycle, &platform, &ignored);
+			check_platforms(&ignored, &ignored, &ignored, p_speed_value, &ignored, p_count, p_cycle, p_list_cursor, &ignored);
 			if (scroll_position < 0x1A00u)
 			{
-				*p_speed_value = speed_value;
-				*p_count = count;
-				*p_cycle = cycle;
-				*p_list_cursor = platform;
 				return;
 			}
 			game_mode = 3u;
 			scroll_speed_low = 5;
-			*p_speed_value = speed_value;
-			*p_count = count;
-			*p_cycle = cycle;
-			*p_list_cursor = platform;
 			return;
 		}
 		if (no_player_in_play == 0u)
@@ -3357,55 +3609,45 @@ void event_19_check_rope_bridge(uint32_t position, uint32_t in_play_count, uint3
 		}
 		scroll_mode_low = 1u;
 	}
-	update_scroll(&position, &in_play_count, &speed_value, &ignored, &count, &cycle, &ignored, &object);
-	update_stage_tile_layers(&ignored, &position, &in_play_count, &speed_value, &ignored, &count, &cycle, &ignored, &object);
-	find_nearby_floor_blocks(&ignored, &in_play_count, &speed_value, &ignored, &count, &ignored, &object);
-	speed_value = update_restart_point(speed_value);
-	spawn_objects_by_type(&ignored, &position, &in_play_count, &speed_value, &ignored, &count, &object);
+	update_scroll(&position, &in_play_count, p_speed_value, &ignored, p_count, p_cycle, &ignored, &object);
+	update_stage_tile_layers(&ignored, &position, &in_play_count, p_speed_value, &ignored, p_count, p_cycle, &ignored, &object);
+	find_nearby_floor_blocks(&ignored, &in_play_count, p_speed_value, &ignored, p_count, &ignored, &object);
+	*p_speed_value = update_restart_point(*p_speed_value);
+	spawn_objects_by_type(&ignored, &position, &in_play_count, p_speed_value, &ignored, p_count, &object);
 	spawn_ring_rows(&ignored, &position, &ignored, &object);
-	spawn_walls(&ignored, &position, &ignored, &count, &cycle, &object);
-	spawn_object_groups_2(&ignored, &count, &object);
-	spawn_object_groups(&ignored, &position, &ignored, &count, &object);
+	spawn_walls(&ignored, &position, &ignored, p_count, p_cycle, &object);
+	spawn_object_groups_2(&ignored, p_count, &object);
+	spawn_object_groups(&ignored, &position, &ignored, p_count, &object);
 	spawn_objects_by_handler(&ignored, &ignored, &object);
 	ignored = check_zones(ignored);
-	check_hits(&ignored, &position, &ignored, &speed_value, &ignored, &count, &ignored);
+	check_hits(&ignored, &position, &ignored, p_speed_value, &ignored, p_count, &ignored);
 	check_walls(ignored);
-	check_platforms(&ignored, &ignored, &ignored, &speed_value, &ignored, &count, &cycle, &platform, &ignored);
+	check_platforms(&ignored, &ignored, &ignored, p_speed_value, &ignored, p_count, p_cycle, p_list_cursor, &ignored);
 	if (scroll_position < 0x1A00u)
 	{
-		*p_speed_value = speed_value;
-		*p_count = count;
-		*p_cycle = cycle;
-		*p_list_cursor = platform;
 		return;
 	}
 	game_mode = 3u;
 	scroll_speed_low = 5;
-	*p_speed_value = speed_value;
-	*p_count = count;
-	*p_cycle = cycle;
-	*p_list_cursor = platform;
 }
 
+/* The stage frame of game modes 0x12 and 0x13: next_stage_slot_request 0 and update_player_summary; with
+   no player left (player_status all 0) game_mode 7 runs at once, game_mode saved; with
+   event_12_fast_scroll set scroll mode 7 becomes mode 0 at speed 0x20; then the scroll, tiles, floors,
+   spawners and contacts. */
 void event_12_stage_frame(uint32_t pressed, uint32_t position, uint32_t in_play_count, uint16_t next_scroll_position, uint32_t object, uint32_t *p_speed_value, uint32_t *p_count, uint32_t *p_cycle, uint32_t *p_list_cursor)
 {
-	uint32_t speed_value = *p_speed_value;
-	uint32_t count = *p_count;
-	uint32_t cycle = *p_cycle;
 	uint32_t list_cursor = *p_list_cursor;
 	uint32_t ignored = 0, platform = 0;
 
 	next_stage_slot_request = 0u;
-	update_player_summary(&in_play_count, &count, &list_cursor, &object);
+	update_player_summary(&in_play_count, p_count, &list_cursor, &object);
 	if ((player_status[0] | player_2_status | player_3_status | player_status_spare) == 0u)
 	{
 		saved_game_mode = game_mode;
 		game_mode = 7u;
 		game_mode_timer = 0;
-		run_game_mode(pressed, position, in_play_count, next_scroll_position, object, &speed_value, &count, &cycle, &list_cursor);
-		*p_speed_value = speed_value;
-		*p_count = count;
-		*p_cycle = cycle;
+		run_game_mode(pressed, position, in_play_count, next_scroll_position, object, p_speed_value, p_count, p_cycle, &list_cursor);
 		*p_list_cursor = list_cursor;
 		return;
 	}
@@ -3414,22 +3656,19 @@ void event_12_stage_frame(uint32_t pressed, uint32_t position, uint32_t in_play_
 		scroll_mode = 0u;
 		scroll_speed = 0x20u;
 	}
-	update_scroll(&position, &in_play_count, &speed_value, &ignored, &count, &cycle, &ignored, &object);
-	update_stage_tile_layers(&ignored, &position, &in_play_count, &speed_value, &ignored, &count, &cycle, &ignored, &object);
-	find_nearby_floor_blocks(&ignored, &in_play_count, &speed_value, &ignored, &count, &ignored, &object);
-	speed_value = update_restart_point(speed_value);
-	spawn_objects_by_type(&ignored, &position, &in_play_count, &speed_value, &ignored, &count, &object);
+	update_scroll(&position, &in_play_count, p_speed_value, &ignored, p_count, p_cycle, &ignored, &object);
+	update_stage_tile_layers(&ignored, &position, &in_play_count, p_speed_value, &ignored, p_count, p_cycle, &ignored, &object);
+	find_nearby_floor_blocks(&ignored, &in_play_count, p_speed_value, &ignored, p_count, &ignored, &object);
+	*p_speed_value = update_restart_point(*p_speed_value);
+	spawn_objects_by_type(&ignored, &position, &in_play_count, p_speed_value, &ignored, p_count, &object);
 	spawn_ring_rows(&ignored, &position, &ignored, &object);
-	spawn_walls(&ignored, &position, &ignored, &count, &cycle, &object);
-	spawn_object_groups_2(&ignored, &count, &object);
-	spawn_object_groups(&ignored, &position, &ignored, &count, &object);
+	spawn_walls(&ignored, &position, &ignored, p_count, p_cycle, &object);
+	spawn_object_groups_2(&ignored, p_count, &object);
+	spawn_object_groups(&ignored, &position, &ignored, p_count, &object);
 	spawn_objects_by_handler(&ignored, &ignored, &object);
 	ignored = check_zones(ignored);
-	check_hits(&ignored, &position, &ignored, &speed_value, &ignored, &count, &ignored);
+	check_hits(&ignored, &position, &ignored, p_speed_value, &ignored, p_count, &ignored);
 	check_walls(ignored);
-	check_platforms(&ignored, &ignored, &ignored, &speed_value, &ignored, &count, &cycle, &platform, &ignored);
-	*p_speed_value = speed_value;
-	*p_count = count;
-	*p_cycle = cycle;
+	check_platforms(&ignored, &ignored, &ignored, p_speed_value, &ignored, p_count, p_cycle, &platform, &ignored);
 	*p_list_cursor = platform;
 }

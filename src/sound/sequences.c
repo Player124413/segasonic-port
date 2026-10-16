@@ -11,6 +11,10 @@
  */
 #include "sound.h"
 
+/* The sequencer's work on each timer tick: tick_countdown runs 4 to 1; when it wraps, players 1-7 that
+   are playing are stepped (fade_player_volume on player 1 first), and when it reaches 2 the music player
+   0 is (fade_music_volume first while music_fade_speed is set). Nothing while midi_queue_count is 0x40
+   or more. */
 void sequence_tick(void)
 {
 	uint16_t countdown_at = 0, mailbox_page = 0, player = 0, queue_pointer = 0;
@@ -86,6 +90,10 @@ void sequence_tick(void)
 	z80_block(10);
 }
 
+/* Playlist bytes F0-FF by their low nibble (playlist_command_table): F0, F3-FD jump to the address that
+   follows, taking the song there; F1, F2 take song 0x90 + (playlist_song_choice_1/_2 & 7); FE clears the
+   player, FF all eight (spare_players for queue page 0xE2, never passed). Hands back playlist and
+   playlist_byte (the song, 0 stops). */
 void playlist_command(uint16_t queue_pointer, uint16_t player, uint16_t mailbox_page, uint16_t *p_playlist, uint8_t *p_playlist_byte)
 {
 	uint16_t playlist = (uint16_t)*p_playlist;
@@ -163,6 +171,7 @@ void playlist_command(uint16_t queue_pointer, uint16_t player, uint16_t mailbox_
 	*p_playlist_byte = next_song;
 }
 
+/* Runs step_player for the player at player_address when its flags bit 7 (playing) is set. */
 void step_player_if_playing(uint16_t player_address, uint16_t mailbox_page)
 {
 	z80_block(17);
@@ -174,6 +183,10 @@ void step_player_if_playing(uint16_t player_address, uint16_t mailbox_page)
 	step_player(player_address, mailbox_page);
 }
 
+/* Counts delta_time down; at 0 copies the player's events (through the bank window) into the MIDI queue
+   at midi_queue_write until one has a delta time after it: note offs get velocity 0x7F, controller 0x10
+   goes through fade_volume, sysex is skipped but counted. FF 2F or a status F1-F6/F8-FE ends it:
+   playlist (flags bit 5) or stop. */
 void step_player(uint16_t player_address, uint16_t mailbox_page)
 {
 	bool end_of_sequence = false, system_event_other = false;
@@ -548,6 +561,8 @@ void step_player(uint16_t player_address, uint16_t mailbox_page)
 	port_out(ROM_BANK_LOW, rom_bank_low);
 }
 
+/* Hands back data_byte without bit 7, which marks it as chained: the player's flags bit 6 is set so
+   step_player reads the next event at once, with no delta time between them. */
 uint8_t chain_next_event(uint16_t player, uint8_t data_byte)
 {
 	z80_block(41);
@@ -556,12 +571,18 @@ uint8_t chain_next_event(uint16_t player, uint8_t data_byte)
 	return data_byte;
 }
 
+/* Clears player_end_flag; step_player calls it when a player with flags bit 4 stops. Nothing in the
+   sound program sets that bit or reads player_end_flag. */
 void clear_player_end_flag(uint16_t mailbox_page)
 {
 	z80_block(33);
 	player_end_flag = 0u;
 }
 
+/* Takes the V60's sound command: once sound_command_group is set, clears it and finds sound_command in
+   its list (sound_groups). Header flags bit 7 clear: music on player 0 (inline sequence, song header or
+   playlist); set: player 2, or with bit 6 players 3-7 by the first event's MIDI channel, if its priority
+   is not below the playing sound's. */
 void poll_sound_command(void)
 {
 	uint8_t byte = 0, command_number = 0;
@@ -693,6 +714,7 @@ void poll_sound_command(void)
 	start_song(header, byte);
 }
 
+/* Starts song song_number of the songs table on the player at player (start_sequence). */
 void start_song(uint16_t player, uint8_t song_number)
 {
 	uint16_t address = 0, song_header = 0;
@@ -708,6 +730,8 @@ void start_song(uint16_t player, uint8_t song_number)
 	start_sequence(song_header, address);
 }
 
+/* Starts the sequence of the song header at header on the player at player: its bank into bank, its
+   address into position, delta_time 1 (the first event at the next step) and flags bit 7 (playing). */
 void start_sequence(uint16_t header, uint16_t player)
 {
 	uint8_t bank = 0;
@@ -729,6 +753,9 @@ void start_sequence(uint16_t header, uint16_t player)
 	SEQUENCE_PLAYER(player_field)->flags |= 0x80u;
 }
 
+/* Unused: of the byte at player_field and the same byte one and two pages on (the same field of the next
+   two sequence players), hands back the address of the lowest, the first of equal ones, also kept in
+   lowest_player_field. */
 uint16_t find_lowest_player(uint16_t player_field)
 {
 	uint8_t byte = 0, lowest = 0, players_left = 0;
@@ -759,6 +786,9 @@ uint16_t find_lowest_player(uint16_t player_field)
 	return player_field;
 }
 
+/* Picks the player for a sound by the MIDI channel of its first event (the low nibble of the header's
+   second byte): player's page plus that channel - 0xA, so channels 0xA-0xE take players 3-7 from player
+   3's page. */
 void select_channel_player(uint16_t *p_header, uint16_t *p_player)
 {
 	uint16_t header = (uint16_t)*p_header;
@@ -774,6 +804,8 @@ void select_channel_player(uint16_t *p_header, uint16_t *p_player)
 	*p_player = (*p_player & 0xFFu) | player;
 }
 
+/* Zeroes the first 0x31 bytes of the sequence player at player, which stops it, and hands back its
+   address. */
 uint16_t clear_player(uint16_t player)
 {
 	uint16_t saved_player = 0;
@@ -786,6 +818,10 @@ uint16_t clear_player(uint16_t player)
 	return player;
 }
 
+/* The music player's fade: each time music_fade_wait runs down (reloaded from music_fade_speed) its
+   fade_volume drops by one and goes out as controller 0x10 on channel 0xE (BE 10 v); at 0 it stops the
+   player, clears music_fade_speed and sends BE 50 7E and BE 79 00. Nothing in the sound program sets
+   music_fade_speed. */
 void fade_music_volume(uint16_t mailbox_page)
 {
 	uint8_t queue_page = 0, write_index = 0;
@@ -839,6 +875,10 @@ void fade_music_volume(uint16_t mailbox_page)
 	SEQUENCE_PLAYER(fade_field & ~0xFFu)->fade_wait = SEQUENCE_PLAYER(fade_field - 0x18u)->fade_speed;
 }
 
+/* The fade of the sequence player at player: each time fade_wait runs down (reloaded from fade_speed)
+   fade_channel_volume drops by one and goes out as controller 7 on channel 0xA (BA 07 v); at 0 it stops
+   the player and sends BA 7B 00 (all notes off). Only while fade_speed is set, which nothing in the
+   sound program does. */
 void fade_player_volume(uint16_t queue_pointer, uint16_t player, uint16_t mailbox_page)
 {
 	uint8_t write_index = 0;
@@ -890,6 +930,8 @@ void fade_player_volume(uint16_t queue_pointer, uint16_t player, uint16_t mailbo
 	SEQUENCE_PLAYER(fade_field & ~0xFFu)->fade_wait = SEQUENCE_PLAYER(fade_field - 0x18u)->fade_speed;
 }
 
+/* Hands back cursor + 1; past the bank window (0xC000) it maps the player's next bank (bank + 1, out to
+   ROM_BANK_LOW) and goes on from 0xA000. */
 uint16_t next_sequence_byte(uint16_t cursor, uint16_t player)
 {
 	z80_block(38);

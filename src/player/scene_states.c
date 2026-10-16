@@ -11,6 +11,10 @@
  */
 #include "game.h"
 
+/* State 0x24, out of the game: on its first frame clears its player_status and stage_rings, erases its
+   name and prints GAME OVER in its HUD. A start with credits (try_join, unless joining_closed) joins
+   again (player_join, rings 0, stages_reached 1); else after 0x78 frames state 0xB. GAME OVER is erased
+   either way. */
 void player_state_out_of_game(void)
 {
 	uint16_t cell = 0;
@@ -75,6 +79,10 @@ void player_state_out_of_game(void)
 	erase_text_here(cell, &text, &text_position);
 }
 
+/* State 0x23, the continue countdown: on entry (continue_countdown 0x900) out of play (player_status 2,
+   flag 0x400), CONTINUE in its HUD, record_player_game, its character freed. Each frame it shows the
+   credits and continue_seconds; a credit (try_continue) joins again, start below 7 seconds skips one,
+   and past 0 or with joining_closed state 0x2E. */
 void player_state_continue(void)
 {
 	uint8_t cabinet_event = 0, cost = 0;
@@ -222,6 +230,10 @@ void player_state_continue(void)
 	}
 }
 
+/* State 0x22, in a kind 0x16 zone: on entry it stands on its floor facing direction 0x100 with its
+   normal palette and controls, the first time with sign kind 0xB over it (sign_follow_player); then each
+   frame check_player_contacts and, unless that hurt it (state 0xD or 0x20, run at once),
+   player_in_zone_steer. */
 void player_state_in_zone(uint32_t depth, uint32_t cursor)
 {
 	uint16_t kind = 0, x_int = 0, y_int = 0, z_int = 0;
@@ -264,6 +276,9 @@ void player_state_in_zone(uint32_t depth, uint32_t cursor)
 	}
 }
 
+/* Steering in a zone: speed follows the square of the trackball's speed (at most 0x5000000; at once up,
+   1/32 of the gap a frame down) and stops with no input below speed_int 0x20; state 0, 1, 0x13 or 0x14
+   by it for player_animate, then state 0x22 again while flags bit 0x8000000 (in a zone) is set. */
 void player_in_zone_steer(uint32_t depth, uint32_t cursor)
 {
 	uint8_t next_state = 0;
@@ -322,6 +337,10 @@ void player_in_zone_steer(uint32_t depth, uint32_t cursor)
 	add_player_to_lists();
 }
 
+/* State 0x2A, walking in on the stage's entry path (stages 3, 4, 0xA-0x10; others return at once):
+   requests stage_player_entries[stage] with flag 0x4000000 (stage 4 adds sound 0x64, 0x6B or 0x51 by
+   character), clears it and enter_on_respawn once the path ends, moving as previous_state (player_move).
+   Its state 0 store is overwritten at once. */
 void player_state_entering_stage(uint32_t depth, uint32_t cursor)
 {
 	uint8_t sound_id = 0;
@@ -413,6 +432,10 @@ void player_state_entering_stage(uint32_t depth, uint32_t cursor)
 	}
 }
 
+/* State 0x21, the stage exit: walks its goal's exit path (stage_goal_exit_paths, stage_exit_started;
+   stages_reached + 1 except after stages 5 and 0xB-0xF), then sets its players_finished entry, no shadow
+   (player flags 8). In stage 4: stands 0x168 frames, runs to (0x1225, 0x1439), jumps within 0xA0 of it
+   (sound 0x16), falls to screen y 0xB8. */
 void player_state_stage_exit(uint32_t depth, uint32_t cursor)
 {
 	uint8_t sound_id = 0;
@@ -554,6 +577,10 @@ void player_state_stage_exit(uint32_t depth, uint32_t cursor)
 	}
 }
 
+/* State 0x20, hurt and tumbling: substate 0 costs 4 health (not in stage 8 before scroll 0x4000) with
+   invulnerable_timer 0x258, substate 1 nothing; knocked flying (player_tumbling_start), it lands,
+   bounces twice and lies until it walks off after 0x1E frames, or at once on the trackball or a jump.
+   Out of health: knocked-out animation, then state 0x16. */
 void player_state_tumbling(uint32_t depth, uint32_t cursor)
 {
 	uint16_t r1 = 0;
@@ -824,6 +851,10 @@ void player_state_tumbling(uint32_t depth, uint32_t cursor)
 	}
 }
 
+/* Starts the tumble (substate 2): mishap_flag, hurt_contact_delay 0x78, speed_z -0x80000, player_status
+   1 when out of health. A toucher of kind 0x17 gives no push (player_tumbling_launch); others knock it
+   0x40000 along their direction (0x100 on floor type 0xD): 0 y-, 0x100 x+, 0x200 y+, else x-; then
+   player_tumbling_set_launch_speed. */
 void player_tumbling_start(uint32_t cursor)
 {
 	uint16_t knock_direction = 0;
@@ -890,6 +921,8 @@ void player_tumbling_start(uint32_t cursor)
 	player_tumbling_set_launch_speed(object, cursor);
 }
 
+/* Unused: takes twice the toucher's speed_x and speed_y in place of player_tumbling_start's fixed push,
+   then player_tumbling_set_launch_speed. */
 void player_tumbling_knock_with_toucher_speed(uint32_t toucher, uint32_t effect)
 {
 	OBJECT(current_object)->speed_x = OBJECT(toucher)->speed_x;
@@ -899,12 +932,16 @@ void player_tumbling_knock_with_toucher_speed(uint32_t toucher, uint32_t effect)
 	player_tumbling_set_launch_speed(toucher, effect);
 }
 
+/* speed = 0x4000000 for a knocked-back tumble, then player_tumbling_launch. */
 void player_tumbling_set_launch_speed(uint32_t toucher, uint32_t effect)
 {
 	OBJECT(current_object)->speed = 0x4000000;
 	player_tumbling_launch(toucher, effect);
 }
 
+/* Turns the player to the toucher's direction (0x100 on floor type 0xD) and starts the character's
+   tumble animation for its facing, its normal palette with a hurt flash every 3 frames, its voice (sound
+   0x3A, 0x61 or 0x6E) and spawn_tumble_effect(effect); then the first frame of player_tumbling_fly. */
 void player_tumbling_launch(uint32_t toucher, uint32_t effect)
 {
 	uint8_t sound_id = 0;
@@ -942,6 +979,10 @@ void player_tumbling_launch(uint32_t toucher, uint32_t effect)
 	player_tumbling_fly();
 }
 
+/* The tumble's flight: gravity 0x6000 a frame, moves, and steps back where the floor is 8 or more above
+   it; tumble frames while hurt_contact_delay is above 0x50 or it is in the air (frames 5 and 6 when
+   falling fast). On landing substate 3, frame 7, sound 0x20. Sorted at its floor (the previous one where
+   there is none). */
 void player_tumbling_fly(void)
 {
 	uint8_t pose_frame = 0, sound_id = 0;
@@ -999,6 +1040,10 @@ void player_tumbling_fly(void)
 	PLAYER(current_player)->draw_depth = depth;
 }
 
+/* State 0x1F, blown away: on its first frame the character's tumble animation, speed_z -0x80000 and
+   speed_x -0x10000, mishap_flag, its voice (sound 0x3A, 0x61 or 0x6E) and a blown_away_effect_update
+   object over it. It flies under gravity to screen y 0x108, then loses 8 health: player_respawn with
+   health left, else state 0x16. */
 void player_state_blown_away(uint32_t cursor)
 {
 	uint8_t sound_id = 0;
@@ -1073,6 +1118,8 @@ void player_state_blown_away(uint32_t cursor)
 	ignored = queue_sprite(ignored);
 }
 
+/* The effect over a blown-away player (player_state_blown_away): at its parent's screen position,
+   removed once that reaches screen y 0x100; cycles steps 0-2 of its animation at depth screen_y + 0x10. */
 void blown_away_effect_update(void)
 {
 	uint32_t depth = 0, ignored = 0, object = 0;
@@ -1092,6 +1139,8 @@ void blown_away_effect_update(void)
 	queue_sprite_at_depth(&ignored, &depth);
 }
 
+/* State 0x1E, the game intro: waits until intro_character is its character, then requests path 0x14 once
+   and moves as previous_state (player_move). */
 void player_state_intro_turn(uint32_t depth, uint32_t cursor)
 {
 	if ((uint8_t)intro_character != OBJECT(current_object)->kind)
@@ -1105,6 +1154,10 @@ void player_state_intro_turn(uint32_t depth, uint32_t cursor)
 	player_move(depth, cursor);
 }
 
+/* State 0x1C, the opening scene (game mode 0x10), by scene_step: in steps 1 and 4 the player runs toward
+   the screen from its place in opening_scene_player_positions, growing until scene_timer 0x12C, shaken
+   with the stage 6 quake, its voice at 0x140; in step 3 a still frame on opening_machine_object, scaled
+   with it; hidden in steps 0 and 2. */
 void player_state_opening_scene(void)
 {
 	uint8_t sound_id = 0;
@@ -1241,14 +1294,21 @@ void player_state_opening_scene(void)
 	}
 }
 
+/* Unused: does nothing; a lone return after player_state_opening_scene's last jump. */
 void player_state_opening_scene_spare_return(void)
 {
 }
 
+/* Unused: does nothing; a lone return after the opening scene's shadow code, where shadow_update jumps
+   in game mode 0x10. */
 void shadow_update_spare_return(void)
 {
 }
 
+/* State 0x18, the stage 0 and 5 scenes by scene_step: 0 moves as usual; 1 and 8 walk scene_path, then
+   its players_finished entry; 2 waits at (0x1C0, 0x154D) for stage_05_switch_step to finish, then path
+   0xE; 3 stands; 4 path 5; 5-6 hop on stage_00_geyser and rise; 7 shrinks away to the screen centre
+   after a delay by character, sound 0x16, voice. */
 void player_state_stage_scene(uint32_t depth, uint32_t cursor)
 {
 	uint8_t sound_id = 0;
@@ -1467,6 +1527,9 @@ void player_state_stage_scene(uint32_t depth, uint32_t cursor)
 	}
 }
 
+/* State 0x2F, stunned: unless contacts hurt it (state 0xD), it loses 4 health and shows its stunned
+   frame (Ray animated) for 0x3C frames on its floor, then dies (state 0x16) with no health left, or
+   plays its recovery animation and stands (state 0) facing direction 0x300 with control_lock 4. */
 void player_state_stunned(uint32_t depth, uint32_t cursor)
 {
 	uint16_t r0 = 0;
@@ -1582,6 +1645,9 @@ void player_state_stunned(uint32_t depth, uint32_t cursor)
 	ignored = queue_sprite_at_base(ignored);
 }
 
+/* State 0x34, choosing a character: on its first frame keeps game_frames in join_time and, in game mode
+   0x1B, opens its chooser (start_character_chooser). Once the game mode is not 0x1B it starts the stage
+   (handler player_start_stage, is_joining 0), its character becoming intro_character if none is set yet. */
 void player_state_choosing_character(uint32_t cursor)
 {
 	if (PLAYER(current_player)->substate != 0u)
@@ -1615,6 +1681,8 @@ void player_state_choosing_character(uint32_t cursor)
 	}
 }
 
+/* State 0x39, game mode 0x20 (YOU FAILED): once you_failed_done is set it starts the continue countdown
+   (state 0x23 with 9 seconds, player_status 0xFF, in_game 0); drawn until game_mode_timer reaches 0x3C. */
 void player_state_you_failed(void)
 {
 	uint32_t ignored = 0;
@@ -1633,6 +1701,9 @@ void player_state_you_failed(void)
 	ignored = queue_sprite(0u);
 }
 
+/* State 0x15, held by its holder (an object of kind 8 or 0xA): while substate is 0 or the holder's
+   vine_bar.holding is set it hangs at the holder's x, y - 8 and z + 0x20, a rider, drawn at depth 0xFF;
+   when it lets go, state 0x17 (hopping) at speed 0, run at once. */
 void player_state_held(uint32_t depth, uint32_t cursor)
 {
 	uint32_t ignored = 0, object = 0;
@@ -1666,6 +1737,10 @@ void player_state_held(uint32_t depth, uint32_t cursor)
 	player_dispatch_state(depth, cursor);
 }
 
+/* State 0x1D, stuck in an object of kind 0x11: runs its substate (player_stuck_begin,
+   player_stuck_wait_release, player_stuck_shake, player_stuck_jump_out), then moves with that object
+   (touched_by): its speed_z, and the word at its var_80 added to screen_x; drawn at draw_depth, which
+   follows only while the object is still. */
 void player_state_stuck(uint32_t cursor)
 {
 	uint32_t depth = 0, ignored = 0, object = 0;
@@ -1708,6 +1783,9 @@ void player_state_stuck(uint32_t cursor)
 	queue_sprite_at_depth(&ignored, &depth);
 }
 
+/* Substate 0 of state 0x1D: the character's stuck frame with its normal palette, control_lock and
+   escape_progress 0, a stuck_effect_update object over the player, sign kind 0xD 0x28 above it
+   (sign_show_while_player_busy) and sound 0x23. */
 void player_stuck_begin(uint32_t object)
 {
 	uint8_t sound_id = 0;
@@ -1761,6 +1839,8 @@ void player_stuck_begin(uint32_t object)
 	project_object(&ignored, &ignored);
 }
 
+/* Waits until the object it is stuck in (touched_by) has its word at var_80 back to 0, then substate 2:
+   its animation restarted at speed 4 and the character's voice (sound 0x35, 0x31 or 0x3D). */
 void player_stuck_wait_release(void)
 {
 	uint8_t sound_id = 0;
@@ -1782,6 +1862,9 @@ void player_stuck_wait_release(void)
 	play_sound(sound_id, &ignored, &ignored);
 }
 
+/* Shaking free: escape_progress grows by the trackball's speed_int while it pushes at speed 0x100 or
+   more toward headings 0x180-0x380, back to 0 otherwise; the stuck animation at 0, else one of three
+   struggle animations by progress. At 0x10000 the escape animation, sound 0x2B and substate 3. */
 void player_stuck_shake(void)
 {
 	uint8_t sound_id = 0;
@@ -1849,6 +1932,8 @@ void player_stuck_shake(void)
 	play_sound(sound_id, &ignored, &ignored);
 }
 
+/* Once the escape animation ends, bounces out: the character's bounce record 1 (direction, flip,
+   animation), speed 0x4000000, speed_z -0x34000, state 0xE (bouncing) substate 1 for 0x14 frames. */
 void player_stuck_jump_out(void)
 {
 	uint32_t at_last_step = 0, bounce_record = 0, bounce_records = 0, ignored = 0;
@@ -1886,6 +1971,10 @@ void player_stuck_jump_out(void)
 	PLAYER(current_player)->substate = 1u;
 }
 
+/* The object over a stuck player: follows propped_board_object down and its shake, drawn at its
+   draw_depth (screen_y - 0x20 while the board is still); removed off screen. Animated while its player
+   struggles (substates 0, 1, 4), sprite 0x1AA8 in substate 2, sprite 0x1AB0 with the animation over once
+   the player bounces out (state 0xE). */
 void stuck_effect_update(void)
 {
 	uint32_t depth = 0, ignored = 0, off_screen = 0;
@@ -1934,6 +2023,10 @@ void stuck_effect_update(void)
 	queue_sprite_at_depth(&ignored, &depth);
 }
 
+/* State 0x38, the stage 0xB sequence by ending_step: walks path 0x4D, then stands facing direction 0
+   (stage_b_path_done); when sliding_door_opened, restarts the scroll and walks path 0x50 (the first one
+   plays sound 0x94 and its voice); once stage_trigger_bits is set and cleared it runs off on path 0x53
+   (state 0x13) with escape_countdown_running. */
 void player_state_stage_b_sequence(uint32_t depth, uint32_t cursor)
 {
 	uint8_t sound_id = 0;

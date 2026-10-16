@@ -11,6 +11,9 @@
  */
 #include "game.h"
 
+/* Unused: compute_crc16's division by 0x11021 over count bytes from data, byte_gap + 1 apart, except
+   that the first three bytes take the place of the DE BD EB seed (crc is shifted out unused); hands back
+   the 16-bit remainder. */
 uint32_t compute_crc16_strided(uint32_t crc, uint32_t count, uint32_t data, uint32_t byte_gap)
 {
 	uint32_t carry = 0;
@@ -52,6 +55,7 @@ uint32_t compute_crc16_strided(uint32_t crc, uint32_t count, uint32_t data, uint
 	return shift_register;
 }
 
+/* Sends the EEPROM the write-disable command (0), deselects it and turns interrupts back on. */
 void eeprom_lock(void)
 {
 	uint8_t command = 0;
@@ -64,6 +68,7 @@ void eeprom_lock(void)
 	interrupts_on();
 }
 
+/* Unused: sends the EEPROM the write-enable command (0x30), deselects it and turns interrupts back on. */
 void eeprom_unlock(void)
 {
 	uint8_t command = 0;
@@ -76,6 +81,8 @@ void eeprom_unlock(void)
 	interrupts_on();
 }
 
+/* Unused: reads the EEPROM word at address command (read command command | 0x80) and hands it back;
+   interrupts on after. */
 uint32_t eeprom_read_word_at(uint32_t data, uint8_t command)
 {
 	uint32_t lines = 0, port_d = 0, port_f = 0;
@@ -87,6 +94,10 @@ uint32_t eeprom_read_word_at(uint32_t data, uint8_t command)
 	return data;
 }
 
+/* Reads the EEPROM and checks it: a wrong eeprom_magic loads eeprom_defaults ('SEGA' also sets
+   eeprom_write_count 0x64), another ROM's stamp or two bad CRCs reset the settings (default_settings), a
+   bad CRC takes the backup, a bad backup is rewritten. Rebuilds also set moving_seat_dip from DIP 1,
+   clear bookkeeping_rom_stamp, then save. crc is only scratch. */
 void load_settings(uint32_t crc)
 {
 	uint32_t ignored = 0;
@@ -151,12 +162,15 @@ void load_settings(uint32_t crc)
 	eeprom_save(&ignored, &ignored);
 }
 
+/* Unused: eeprom_read_all, then interrupts on. */
 void eeprom_read_all_and_enable_interrupts(uint32_t data)
 {
 	eeprom_read_all(data);
 	interrupts_on();
 }
 
+/* Reads the EEPROM's 0x40 words (read command 0x80 + address) into eeprom_magic onward; interrupts stay
+   off (eeprom_select). data is only scratch. */
 void eeprom_read_all(uint32_t data)
 {
 	uint8_t command = 0;
@@ -176,6 +190,8 @@ void eeprom_read_all(uint32_t data)
 	} while (eeprom_words_left != 0u);
 }
 
+/* Unused: writes data to the EEPROM word at address command (write command command | 0x40); interrupts
+   on after. */
 void eeprom_write_word_at(uint16_t data, uint8_t command)
 {
 	uint32_t lines = 0, port_d = 0, port_f = 0;
@@ -186,16 +202,17 @@ void eeprom_write_word_at(uint16_t data, uint8_t command)
 	interrupts_on();
 }
 
+/* eeprom_save, then eeprom_lock (write disable, interrupts on); command and words_left as eeprom_save
+   hands them back. */
 void eeprom_save_and_lock(uint32_t *p_command, uint32_t *p_words_left)
 {
-	uint32_t command = 0, words_left = 0;
-
-	eeprom_save(&command, &words_left);
+	eeprom_save(p_command, p_words_left);
 	eeprom_lock();
-	*p_command = command;
-	*p_words_left = words_left;
 }
 
+/* Saves the settings: eeprom_write_count + 1, eeprom_checksum recomputed, the 0x40-byte block copied to
+   eeprom_backup, then write enable (command 0x30) and the 0x40 words written (command 0x40 + address).
+   Hands back the last command and words_left 0. */
 void eeprom_save(uint32_t *p_command, uint32_t *p_words_left)
 {
 	uint16_t data = 0;
@@ -224,6 +241,8 @@ void eeprom_save(uint32_t *p_command, uint32_t *p_words_left)
 	*p_words_left = words_left;
 }
 
+/* Reads one EEPROM word: eeprom_send_command(command), then 0x12 clocks reading port_f bit 7, then
+   eeprom_deselect; hands back the 16-bit word in data and the port D lines in lines. */
 void eeprom_read_word(uint8_t command, uint32_t port_f, uint32_t port_d, uint32_t *p_data, uint32_t *p_lines)
 {
 	uint32_t data = *p_data;
@@ -248,6 +267,9 @@ void eeprom_read_word(uint8_t command, uint32_t port_f, uint32_t port_d, uint32_
 	*p_lines = (*p_lines & 0xFFFFFF00u) | (lines & 0xFFu);
 }
 
+/* Writes one EEPROM word: eeprom_send_command(command), then data's 16 bits, high bit first; chip select
+   down for two clocks, then up, clocking until port_f bit 7 goes high (the chip is ready); deselects and
+   hands back lines. */
 uint32_t eeprom_write_word(uint32_t data, uint32_t lines, uint8_t command, uint32_t port_f, uint32_t port_d)
 {
 	uint16_t data_bits = 0;
@@ -290,6 +312,9 @@ uint32_t eeprom_write_word(uint32_t data, uint32_t lines, uint8_t command, uint3
 	return lines;
 }
 
+/* Starts an EEPROM command on port_d: lines low, a clock, chip select up, then the start bit and
+   command's 8 bits, high bit first, each on the data line (bit 7) with a clock (bit 6); hands back
+   lines. */
 uint32_t eeprom_send_command(uint32_t lines, uint8_t command, uint32_t port_d)
 {
 	uint8_t command_bits = 0;
@@ -324,20 +349,21 @@ uint32_t eeprom_send_command(uint32_t lines, uint8_t command, uint32_t port_d)
 	return lines;
 }
 
+/* Gets ready to talk to the EEPROM: hands back port D's value in lines and the port addresses
+   (io_port_f, io_port_d) in port_f and port_d; turns interrupts off. */
 void eeprom_select(uint32_t *p_lines, uint32_t *p_port_f, uint32_t *p_port_d)
 {
 	uint8_t lines = 0;
-	uint32_t port_d = 0, port_f = 0;
 
-	port_d = io_port_d;
-	port_f = io_port_f;
+	*p_port_d = io_port_d;
+	*p_port_f = io_port_f;
 	lines = mem_read8(io_port_d);
 	interrupts_off();
 	*p_lines = (*p_lines & 0xFFFFFF00u) | lines;
-	*p_port_f = port_f;
-	*p_port_d = port_d;
 }
 
+/* compute_eeprom_crc of the EEPROM backup copy from its write count on (0x36 bytes, its address handed
+   over in current_object); hands back the CRC, for eeprom_backup_checksum. */
 uint32_t compute_eeprom_backup_checksum(void)
 {
 	uint32_t crc = 0, ignored = 0;
@@ -347,16 +373,16 @@ uint32_t compute_eeprom_backup_checksum(void)
 	return crc;
 }
 
+/* compute_eeprom_crc of the EEPROM block from eeprom_write_count to its end (0x36 bytes, the address
+   handed over in current_object): hands back crc and polynomial. */
 void compute_eeprom_checksum(uint32_t *p_crc, uint32_t *p_polynomial)
 {
-	uint32_t crc = 0, polynomial = 0;
-
 	current_object = eeprom_write_count_ADDRESS;
-	compute_eeprom_crc(&crc, &polynomial);
-	*p_crc = crc;
-	*p_polynomial = polynomial;
+	compute_eeprom_crc(p_crc, p_polynomial);
 }
 
+/* compute_crc16's CRC of the 0x36 bytes at current_object, counted down in free_objects (both are left
+   changed): hands back crc and polynomial (0x10210000). */
 void compute_eeprom_crc(uint32_t *p_crc, uint32_t *p_polynomial)
 {
 	uint32_t carry = 0;
@@ -394,6 +420,8 @@ void compute_eeprom_crc(uint32_t *p_crc, uint32_t *p_polynomial)
 	*p_polynomial = polynomial;
 }
 
+/* Clears the EEPROM's chip select, clock and data lines (bits 5-7 of lines) on port_d and hands back
+   lines. */
 uint32_t eeprom_deselect(uint32_t lines, uint32_t port_d)
 {
 	uint32_t ignored = 0;
@@ -403,12 +431,17 @@ uint32_t eeprom_deselect(uint32_t lines, uint32_t port_d)
 	return lines;
 }
 
+/* Writes lines to port_d (the EEPROM lines) and hands back data untouched. */
 uint32_t eeprom_set_lines(uint32_t data, uint8_t lines, uint32_t port_d)
 {
 	mem_write8(port_d, lines);
 	return data;
 }
 
+/* Loads the bookkeeping at power-on: reset when bookkeeping_rom_stamp is not this ROM's (rom_checksums +
+   rom_checksum_ic8); else the block if its CRC matches bookkeeping_checksum (then copied to the backup),
+   or the backup copied back, or a reset. Then power_on_time and power_on_frames_top from the
+   bookkeeping. */
 void load_bookkeeping(void)
 {
 	uint32_t copy_dest = 0, copy_source = 0, crc = 0, data = 0;
@@ -449,6 +482,8 @@ void load_bookkeeping(void)
 	power_on_frames_top = mem_read16(bookkeeping_power_on_time_high);
 }
 
+/* Fills the bookkeeping block and its backup with bookkeeping_defaults, stamps both with this ROM's
+   stamp (rom_checksums + rom_checksum_ic8) and updates bookkeeping_checksum. */
 void reset_bookkeeping(void)
 {
 	uint16_t rom_stamp = 0;
@@ -462,6 +497,7 @@ void reset_bookkeeping(void)
 	ignored = update_bookkeeping_checksum();
 }
 
+/* Sets bookkeeping_checksum to compute_bookkeeping_crc of the bookkeeping block and hands the CRC back. */
 uint32_t update_bookkeeping_checksum(void)
 {
 	uint32_t crc = 0, data = 0;
@@ -472,20 +508,20 @@ uint32_t update_bookkeeping_checksum(void)
 	return crc;
 }
 
+/* compute_crc16 of the 0x40 bookkeeping bytes at data: hands back crc, and data moved past them. */
 void compute_bookkeeping_crc(uint32_t *p_crc, uint32_t *p_data)
 {
-	uint32_t data = *p_data;
-	uint32_t count = 0, crc = 0, ignored = 0;
+	uint32_t count = 0, ignored = 0;
 
 	count = 0x40u;
-	compute_crc16(count, &crc, &data, &ignored);
-	*p_crc = crc;
-	*p_data = data;
+	compute_crc16(count, p_crc, p_data, &ignored);
 }
 
+/* CRC-16 (polynomial 0x1021, the register seeded with DE BD EB) of count bytes from data, with 8 more
+   shifts at the end: hands back crc, data past the bytes and polynomial (0x10210000). The EEPROM,
+   bookkeeping, ranking and ROM checks use it. */
 void compute_crc16(uint32_t count, uint32_t *p_crc, uint32_t *p_data, uint32_t *p_polynomial)
 {
-	uint32_t data = *p_data;
 	uint32_t carry = 0;
 	uint32_t bits_left = 0, crc = 0, polynomial = 0;
 
@@ -493,9 +529,9 @@ void compute_crc16(uint32_t count, uint32_t *p_crc, uint32_t *p_data, uint32_t *
 	crc = 0xDEBDEB00u;
 	do
 	{
-		crc = (crc & ~0xFFu) | mem_read8(data);
+		crc = (crc & ~0xFFu) | mem_read8(*p_data);
 		bits_left = 8u;
-		data++;
+		(*p_data)++;
 		do
 		{
 			carry = crc * 2u < crc;
@@ -517,10 +553,12 @@ void compute_crc16(uint32_t count, uint32_t *p_crc, uint32_t *p_data, uint32_t *
 	} while (bits_left != 0u);
 	crc = crc >> 16;
 	*p_crc = crc;
-	*p_data = data;
 	*p_polynomial = polynomial;
 }
 
+/* compute_crc16's CRC of count ROM bytes from data, every other byte: each step adds 1 to the address,
+   then 1 more to its low byte only, so from an odd address it reads the odd bytes across pages, from an
+   even one it circles one 256-byte page. rom_checksums holds what it gives. */
 uint32_t compute_crc16_alternate_bytes(uint32_t data, uint32_t count)
 {
 	uint32_t carry = 0;
@@ -556,6 +594,7 @@ uint32_t compute_crc16_alternate_bytes(uint32_t data, uint32_t count)
 	return shift_register;
 }
 
+/* Adds game_frames to bookkeeping_play_time, carrying into bookkeeping_play_time_high. */
 void add_play_time(void)
 {
 	uint32_t carry = 0;
@@ -571,6 +610,9 @@ void add_play_time(void)
 		mem_write16(bookkeeping_base + 0x1Au, mem_read16(bookkeeping_base + 0x1Au) + 1u);
 }
 
+/* Books a player's game at its end: bookkeeping_games + 1, its time (game_frames - join_time) added to
+   bookkeeping_player_time and checked against the longest and shortest; when nobody is still playing (no
+   player_status negative, 1 or 4) add_play_time. Then the checksum and the backup copy. */
 void record_player_game(void)
 {
 	uint32_t carry = 0;

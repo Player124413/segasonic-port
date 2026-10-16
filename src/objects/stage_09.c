@@ -11,6 +11,9 @@
  */
 #include "game.h"
 
+/* The rod's pivot (0x73B8) raised 0x12 per handle and handle_count handles (handle_rod_handle_init) 0x12
+   apart. The first becomes the near post (handle_rod_post_init) a rod's length away along angle 0x300,
+   the second the grip (kind 0x1A, spawn_arg_2 = the pivot's x); one more object is the far post. */
 void handle_rod_init(void)
 {
 	uint16_t angle_offset = 0, angle_step = 0;
@@ -88,6 +91,7 @@ void handle_rod_init(void)
 	OBJECT(object_cursor)->z_int -= 0x18u;
 }
 
+/* Gives the handle a shadow piece (sprite 0x5D80, sprite_scale 0x80), then handle_rod_handle_update. */
 void handle_rod_handle_init(void)
 {
 	uint32_t ignored = 0, object = 0, spawned = 0;
@@ -103,6 +107,9 @@ void handle_rod_handle_init(void)
 	}
 }
 
+/* Drawn and rideable until the near post (its parent) falls; then with drops_players
+   handle_rod_drop_players = 1, else players_pulled = 1 and event_12_fast_scroll = 1, and
+   handle_rod_start_swing. hitbox_size_x keeps the pivot's screen_y, its handles' depth. */
 void handle_rod_wait(void)
 {
 	uint32_t depth = 0, ignored = 0;
@@ -130,6 +137,8 @@ void handle_rod_wait(void)
 	add_to_rider_list();
 }
 
+/* Clears handle_rod_drop_players and players_pulled (they were set for one frame), then
+   handle_rod_swing. */
 void handle_rod_start_swing(void)
 {
 	handle_rod_drop_players = 0u;
@@ -138,6 +147,9 @@ void handle_rod_start_swing(void)
 	handle_rod_swing();
 }
 
+/* The pendulum: angle_speed + swing_accel and angle + angle_speed_int a frame; at the bottom swing_accel
+   flips and angle_speed loses 0x100 (with drops_players the rod bounces back from angle 0 at half
+   speed). Hangs at angle 0 once slow (handle_rod_hang); removed past end_position. */
 void handle_rod_swing(void)
 {
 	uint32_t depth = 0, ignored = 0;
@@ -222,6 +234,8 @@ void handle_rod_swing(void)
 	add_to_rider_list();
 }
 
+/* The rod hangs straight down, falling when there is no floor under it; moved, drawn, rideable; past
+   end_position, handle_rod_remove. */
 void handle_rod_hang(void)
 {
 	uint32_t depth = 0, ignored = 0;
@@ -241,6 +255,7 @@ void handle_rod_hang(void)
 	add_to_rider_list();
 }
 
+/* Removes the rod's pivot and its children (delete_object_and_children). */
 void handle_rod_remove(void)
 {
 	uint32_t ignored = 0;
@@ -248,6 +263,9 @@ void handle_rod_remove(void)
 	delete_object_and_children(&ignored, &ignored, &ignored);
 }
 
+/* The handle sits index * 0x12 from the pivot (its parent) along the rod's angle, through the speed
+   fields; removed with the rod (end_position 0xFFFF). The grip is touchable and rideable. Drawn by the
+   pivot's depth, its shadow on the floor unless the rod drops_players. */
 void handle_rod_handle_update(void)
 {
 	uint32_t depth = 0, handle_distance = 0, ignored = 0, rod_angle = 0, rod_dx = 0, rod_dz = 0;
@@ -305,6 +323,8 @@ void handle_rod_handle_update(void)
 	}
 }
 
+/* The near post (0x74C8) with its arm piece (0x74D0), or the far post (0x74D8) when fallen is already
+   set; rideable; handle_rod_post_update. */
 void handle_rod_post_init(void)
 {
 	uint32_t ignored = 0, object = 0;
@@ -325,6 +345,9 @@ void handle_rod_post_init(void)
 	}
 }
 
+/* With no floor under it (floor_z 0x800 or more, not on a platform) the post sets fallen and
+   handle_rod_post_fall takes over. Rideable; drawn, a fallen one at the pivot's depth; the near post's
+   arm piece is drawn on top. */
 void handle_rod_post_update(void)
 {
 	uint8_t bucket = 0;
@@ -356,6 +379,7 @@ void handle_rod_post_update(void)
 	}
 }
 
+/* The post falls to its floor and is drawn at it until removed off screen. */
 void handle_rod_post_fall(void)
 {
 	uint32_t deleted = 0, ignored = 0;
@@ -369,18 +393,23 @@ void handle_rod_post_fall(void)
 	}
 }
 
+/* Object type 15: direction 0x100, then spear_trap_init. */
 void spear_trap_init_100(void)
 {
 	OBJECT(current_object)->direction = 0x100u;
 	spear_trap_init();
 }
 
+/* Object type 28: direction 0x300, then spear_trap_init. */
 void spear_trap_init_300(void)
 {
 	OBJECT(current_object)->direction = 0x300u;
 	spear_trap_init();
 }
 
+/* The spear trap of ten objects: spear sprites (0x73A0, 0x7390, 0x7388, 0x7398, 0x73A8) and clip entries
+   (sprite_flags 0x5000, their words a clip rectangle) spear_trap_draw sets at the floor line; box 0x18 x
+   0x18, height 0x100; first wait spawn_arg_2; spear_trap_wait. */
 void spear_trap_init(void)
 {
 	OBJECT(current_object)->sprite_flags |= 0x4000u;
@@ -436,6 +465,8 @@ void spear_trap_init(void)
 	OBJECT(current_object)->sprite_palette = 0x9040u;
 }
 
+/* The spear rests (drawn, not touchable) for phase_timer frames, then kind 4, phase_timer 0xC and
+   spear_trap_rise; removed off screen. */
 void spear_trap_wait(void)
 {
 	uint32_t deleted = 0, ignored = 0;
@@ -458,6 +489,8 @@ void spear_trap_wait(void)
 	spear_trap_rise();
 }
 
+/* The spear shoots up (speed_z - 0x10F00 a frame) for 0xC frames, touchable as kind 4; then sound 0x1B,
+   kind 0xC, and 0x3C frames of spear_trap_stay_up. */
 void spear_trap_rise(void)
 {
 	uint8_t sound_id = 0;
@@ -481,6 +514,7 @@ void spear_trap_rise(void)
 	spear_trap_stay_up();
 }
 
+/* The spear stays up and touchable for phase_timer (0x3C) frames, then spear_trap_retract. */
 void spear_trap_stay_up(void)
 {
 	uint16_t phase_timer = 0;
@@ -496,6 +530,8 @@ void spear_trap_stay_up(void)
 	spear_trap_retract();
 }
 
+/* The spear falls back to its floor (fall_to_floor from spear_z), touchable; landed, phase_timer =
+   spawn_arg_1 (the period) and spear_trap_wait. */
 void spear_trap_retract(void)
 {
 	uint32_t height = 0, ignored = 0;
@@ -512,12 +548,16 @@ void spear_trap_retract(void)
 	spear_trap_draw_touchable();
 }
 
+/* add_to_touchable_list, then spear_trap_draw. */
 void spear_trap_draw_touchable(void)
 {
 	add_to_touchable_list(0u);
 	spear_trap_draw();
 }
 
+/* Moves the spear with z from spear_z, then draws its pieces by the floor's screen y, the clip entries
+   (bottoms floor - 5 and floor + 0x20) cutting the spears at the floor line. Keeps z in spear_z and
+   leaves z = floor_z. */
 void spear_trap_draw(void)
 {
 	uint8_t bucket = 0;
@@ -578,6 +618,7 @@ void spear_trap_draw(void)
 	OBJECT(current_object)->z = OBJECT(current_object)->floor_z;
 }
 
+/* The ice launcher (sprite 0x7420): box hitbox, height 0x28, kind 5, last_step 0xF, ice_launcher_update. */
 void ice_launcher_init(void)
 {
 	OBJECT(current_object)->sprite_frame = 0x7420u;
@@ -590,6 +631,9 @@ void ice_launcher_init(void)
 	OBJECT(current_object)->handler = ice_launcher_update_ADDRESS;
 }
 
+/* Removed once scroll_position reaches spawn_arg_2. Steps through ice_launcher_frames (each step lasts
+   ice_launcher_frame_durations[step_duration_index]) with each frame's hitbox; at step 0xC it launches
+   an ice cube (ice_cube_slide, kind 0x19) at ice_cube_speeds[cube_speed_index]. */
 void ice_launcher_update(void)
 {
 	uint32_t r11 = 0, depth = 0, duration_index_or_spawned = 0, frame_index = 0, ignored = 0, object = 0, offset_record = 0, size_record = 0;
@@ -672,6 +716,9 @@ void ice_launcher_update(void)
 	queue_sprite_at_depth(&ignored, &depth);
 }
 
+/* The launched ice cube slides at direction 0x2B6 with its speed, falling to its floor; drawn at
+   screen_y - 0x10 with its shadow 0x1E below in bucket 0xFF; on the hitter list until removed off
+   screen. */
 void ice_cube_slide(void)
 {
 	uint8_t bucket = 0;
@@ -701,10 +748,14 @@ void ice_cube_slide(void)
 	}
 }
 
+/* The handler object_types gives type 17 (five objects): does nothing. */
 void object_type_17_idle(void)
 {
 }
 
+/* The padded wall (0x77D0, padded_wall_update) and four pads (spawn_objects 4: sprite 0x77A8, box 0x17 x
+   0x35, height 0x20, kind 0xB, wall_pad_update) along it, 0x26, 0x13 apart in projected x, y, each
+   unlinked from the next; all go at spawn_arg_1. */
 void padded_wall_init(void)
 {
 	uint16_t pad_offset_x = 0, pad_offset_y = 0;
@@ -750,6 +801,7 @@ void padded_wall_init(void)
 	} while (pads_left != 0u);
 }
 
+/* The wall is drawn until scroll_position passes spawn_arg_1, then removed with its children. */
 void padded_wall_update(void)
 {
 	uint32_t ignored = 0;
@@ -763,6 +815,8 @@ void padded_wall_update(void)
 	delete_object_and_children(&ignored, &ignored, &ignored);
 }
 
+/* A pad of the padded wall: once touched it plays one round of wall_pad_frames (wall_pad_sprites,
+   wall_pad_frame_durations); drawn and touchable; removed past spawn_arg_1. */
 void wall_pad_update(void)
 {
 	uint32_t frame_index = 0, ignored = 0, pad_step = 0;
@@ -792,6 +846,9 @@ void wall_pad_update(void)
 	add_to_touchable_list(pad_step);
 }
 
+/* The snow mound (0x7B30, palette 0x91B0) 0x20 lower in projected y: box 0x22 x 0x21, height 0x20, kind
+   5, rideable; part 3 flipped in x, part 4 flipped in y (palette 0x31C0, its reflection on the ice);
+   snow_mound_update. */
 void snow_mound_init(void)
 {
 	OBJECT(current_object)->projected_y_int += 0x20u;
@@ -822,6 +879,9 @@ void snow_mound_init(void)
 	OBJECT(current_object)->sprite_palette |= 0x2000u;
 }
 
+/* The mound moves and falls to its floor; removed off screen. At the first touch it bursts
+   (snow_mound_burst), dropping its ring_count rings first (drop_rings at angle spawn_arg_2,
+   random_scatter for the spread); untouched, snow_mound_draw. */
 void snow_mound_update(void)
 {
 	uint32_t r3 = 0, r11 = 0, deleted = 0, ignored = 0, random_value = 0, ring = 0;
@@ -855,6 +915,9 @@ void snow_mound_update(void)
 	snow_mound_burst();
 }
 
+/* The burst into snow: every second frame the mound takes the next of snow_mound_burst_frames and part 2
+   the frame two ahead; every other step, part 3 its own next frame (from part_3_frame 4). Past frame 0xE
+   the mound and its parts are removed. Drawn by snow_mound_draw. */
 void snow_mound_burst(void)
 {
 	uint32_t burst_frame = 0, ignored = 0, object = 0;
@@ -902,6 +965,9 @@ void snow_mound_burst(void)
 	delete_object_and_children(&ignored, &ignored, &ignored);
 }
 
+/* Draws the mound at screen_y + 0x12. Whole, it is touchable and rideable and part 4, its reflection,
+   copies its frame 0x15 lower in bucket 0xFF; bursting, part 2 at its place, part 3 0x16 higher and part
+   4 with part 2's frame. */
 void snow_mound_draw(void)
 {
 	uint8_t bucket = 0;
@@ -955,6 +1021,8 @@ void snow_mound_draw(void)
 	queue_sprite_in_bucket(bucket);
 }
 
+/* Once 0xE objects are free: 0xE ice blocks (sprite 0x7498, box 0x20 x 0x5C, height 0x50, kind 0xC,
+   ice_block_update) at x -0x2B2, z 0x78, 0x5C apart along y from its y; then removed. */
 void ice_block_row_start(void)
 {
 	uint32_t ignored = 0, object = 0;
@@ -992,6 +1060,9 @@ void ice_block_row_start(void)
 	delete_current_object();
 }
 
+/* By state: projected; touchable until touched, then it slides towards -x at 1.0 a frame (pushed by an
+   object that is not a player, at its speed_fraction << 8); it falls past x -0x2BA and is removed below
+   screen y 0x120. */
 void ice_block_update(void)
 {
 	uint16_t margin = 0;
@@ -1052,6 +1123,9 @@ void ice_block_update(void)
 	}
 }
 
+/* The ice platform's invisible leader from the spawn record: group_leaders[its leader & 3],
+   end_position, travel = x - reference_x, x, y, z, speed_x 1.0, ice_platform_leader_move; it becomes
+   moving_floor_object. spawned = -1, or 0 with no free object. */
 void spawn_ice_platform_leader(uint32_t record, uint32_t *p_spawned, uint32_t *p_travel, uint32_t *p_leader)
 {
 	uint16_t travel = (uint16_t)*p_travel;
@@ -1095,6 +1169,8 @@ void spawn_ice_platform_leader(uint32_t record, uint32_t *p_spawned, uint32_t *p
 	*p_leader = leader;
 }
 
+/* The invisible leader of the moving ice platform (moving_floor_object): x + speed_x a frame, turning
+   back (sound 0xF) when travel leaves -0x87..0x87; removed once scroll_position reaches end_position. */
 void ice_platform_leader_move(void)
 {
 	uint8_t sound_id = 0;
@@ -1117,6 +1193,9 @@ void ice_platform_leader_move(void)
 	}
 }
 
+/* A piece of the ice platform, by state: at its leader's (parent's) x - member * 0x2D and y, on the
+   platform list, until an icicle lands on it (icicle_landed): ice_platform_piece_parts_2 and it falls
+   until off screen. The last piece (member 3) starts with those parts. */
 void ice_platform_piece_update(void)
 {
 	uint16_t margin = 0;
@@ -1173,6 +1252,9 @@ void ice_platform_piece_update(void)
 	queue_sprite_at_depth(&ignored, &depth);
 }
 
+/* With 9 objects free (it takes 35): 5 rows of 7 ice cubes (ice_floor_block_update, sprite 0x7490, the
+   first of each row palette | 0x2000) 0x2E apart from its x, y, on the floor block
+   ice_floor_floors[sprite_frame] at its height; then removed. */
 void ice_floor_start(void)
 {
 	uint32_t cubes_left = 0, ignored = 0, object = 0, rows_left = 0;
@@ -1220,6 +1302,9 @@ void ice_floor_start(void)
 	delete_current_object();
 }
 
+/* An ice cube of the floor, by state: a platform until a player stands on it (sound 0x14); it shakes (z
+   +/- 1) for 0x1E frames, 0x12C while that player's invulnerable_timer runs; then palette | 0x2000,
+   sound 0x2A, and it falls until off screen. */
 void ice_floor_block_update(void)
 {
 	uint8_t sound_id = 0;
@@ -1305,6 +1390,9 @@ void ice_floor_block_update(void)
 	}
 }
 
+/* Waits for icicle_dropper_ready (and clears it); then from icicle_dropper_records[sprite_frame]: x, y,
+   z, direction, rides_platform, last_dropper and the path (icicle_dropper_scripts); travel 0x180,
+   wait_timer 1; icicle_dropper_move. current_icicle_dropper = it. */
 void icicle_dropper_start(void)
 {
 	uint32_t dropper_record = 0;
@@ -1338,6 +1426,9 @@ void icicle_dropper_start(void)
 	current_icicle_dropper = current_object;
 }
 
+/* An invisible chaser that drops rows of icicles: holds back on a player mishap; after wait_timer the
+   pending path record loads once its coordinate or scroll position is reached (riding the ice platform,
+   platform_offset reaching the coordinate ends the path). Then icicle_dropper_move_step. */
 void icicle_dropper_move(void)
 {
 	uint16_t hold_threshold = 0;
@@ -1438,12 +1529,16 @@ void icicle_dropper_move(void)
 	}
 }
 
+/* The dropper reached the pending record's coordinate: icicle_dropper_load_record, skipping the record's
+   scroll position. */
 void icicle_dropper_coordinate_reached(uint32_t path_cursor)
 {
 	path_cursor += 2u;
 	icicle_dropper_load_record(path_cursor);
 }
 
+/* The pending path record loads (icicle_dropper_load_record) once scroll_position reaches its scroll
+   position; until then icicle_dropper_move_step. */
 void icicle_dropper_check_scroll_position(uint32_t path_cursor)
 {
 	uint16_t record_scroll = 0;
@@ -1458,6 +1553,9 @@ void icicle_dropper_check_scroll_position(uint32_t path_cursor)
 	icicle_dropper_load_record(path_cursor);
 }
 
+/* Loads the pending path record's screen_threshold, catch_up_factor, base_speed and wait_timer and moves
+   path to the next; a negative factor ends the path: icicle_dropper_ready = 0xFF and removed (the last
+   dropper: icicle_dropper_finish). */
 void icicle_dropper_load_record(uint32_t path_cursor)
 {
 	if ((int16_t)ROM16(path_cursor + 2u) < 0)
@@ -1484,6 +1582,9 @@ void icicle_dropper_load_record(uint32_t path_cursor)
 	icicle_dropper_move_step();
 }
 
+/* On its floor, or riding at moving_floor_object's x - platform_offset + 0x2D; projected. A hold-back
+   ends after 0x300 of scroll, when hold_timer runs out, or for the last dropper once every player
+   finished (catching up); else icicle_dropper_choose_speed. */
 void icicle_dropper_move_step(void)
 {
 	uint32_t cursor = 0, ignored = 0, slope_height = 0;
@@ -1529,6 +1630,9 @@ void icicle_dropper_move_step(void)
 	icicle_dropper_choose_speed(slope_height, cursor);
 }
 
+/* base_speed once the dropper is past screen_threshold in screen_x (the way it moves); else wait_timer
+   is dropped, a hold-back ends and it catches up (icicle_dropper_catch_up_speed). Then
+   icicle_dropper_move_at_speed. */
 void icicle_dropper_choose_speed(uint32_t slope_height, uint32_t cursor)
 {
 	uint16_t move_speed = 0;
@@ -1581,6 +1685,9 @@ void icicle_dropper_choose_speed(uint32_t slope_height, uint32_t cursor)
 	}
 }
 
+/* The catching-up speed: camera_slope_speed_int (compute_camera_slope_speed with the floor slope's
+   floor_slope_factors entry) x catch_up_factor >> 8, at least base_speed; then
+   icicle_dropper_move_at_speed. */
 void icicle_dropper_catch_up_speed(uint32_t slope_height, uint32_t cursor)
 {
 	uint16_t move_speed = 0;
@@ -1603,6 +1710,9 @@ void icicle_dropper_catch_up_speed(uint32_t slope_height, uint32_t cursor)
 	icicle_dropper_move_at_speed(move_speed, slope_height, cursor);
 }
 
+/* chaser_speed = move_speed (0x400 for the last dropper once every player finished); after the wait it
+   moves that far along its direction (only platform_offset while riding) and counts travel; unless the
+   row lined up (flags bit 0), drop_icicle_row every 0x400 of travel (0x300 riding). */
 void icicle_dropper_move_at_speed(uint16_t move_speed, uint32_t slope_height, uint32_t cursor)
 {
 	uint16_t row_spacing = 0;
@@ -1665,6 +1775,8 @@ void icicle_dropper_move_at_speed(uint16_t move_speed, uint32_t slope_height, ui
 	}
 }
 
+/* The last dropper's end: once its icicles have counted goal_unlocked up to 3, after finish_timer (3
+   frames) goal_unlocked = 0xFF and it is removed. */
 void icicle_dropper_finish(void)
 {
 	uint16_t finish_timer = 0;
@@ -1682,6 +1794,9 @@ void icicle_dropper_finish(void)
 	}
 }
 
+/* Three icicles (icicle_update, kind 0x28) 0xE0 above the dropper, 0x48 apart across its direction,
+   falling after 0x3C-0x5B frames, each with an icicle_shadow_follow shadow. Within 0x40 of the pending
+   path record's coordinate they line up 0x20 short of it (flags bit 0 on them and the dropper). */
 void drop_icicle_row(uint32_t random_value, uint32_t block)
 {
 	uint16_t end_coordinate = 0, line_coordinate = 0;
@@ -1812,6 +1927,9 @@ void drop_icicle_row(uint32_t random_value, uint32_t block)
 	} while (icicles_left != 0u);
 }
 
+/* The icicle by state: waits its timer and falls; stabs in (sound 0x29, icicle_buried_part_draw, clips,
+   icicle_cracks_spread), sinks 0x70 and set_icicle_wall_box. On the ice platform it aims where the
+   platform will be and brings its piece down. Lined-up ones with counts_goal count goal_unlocked up. */
 void icicle_update(void)
 {
 	uint8_t sound_id = 0;
@@ -2121,6 +2239,9 @@ void icicle_update(void)
 	}
 }
 
+/* The part of a stabbed icicle below the floor: a copy of it (palette | 0x2000) drawn over it after a
+   clip entry whose top is the floor's screen y (project_point) and before one that resets the clip.
+   Removed with them (free_object_2) off screen or once map_screen_active. */
 void icicle_buried_part_draw(void)
 {
 	uint16_t child = 0, margin_x = 0, margin_y = 0;
@@ -2168,6 +2289,8 @@ void icicle_buried_part_draw(void)
 	queue_sprite_at_depth(&ignored, &depth);
 }
 
+/* The cracks round a stabbed icicle (icicle_crack_animation around its anchor): one step each time the
+   icicle sinks another 0x1C into the floor; drawn over it; removed off screen or once map_screen_active. */
 void icicle_cracks_spread(void)
 {
 	uint32_t depth = 0, ignored = 0, object = 0, off_screen = 0;
@@ -2205,6 +2328,9 @@ void icicle_cracks_spread(void)
 	queue_sprite_at_depth(&ignored, &depth);
 }
 
+/* An icicle's shadow on the floor (sprite 0x5D90): grows (sprite_scale + 9 up to 0x21C) once the
+   icicle's timer is 0x32 or less; removed off screen or when the icicle has sunk. On the ice platform it
+   moves with it, blinks, and falls with a falling piece. */
 void icicle_shadow_follow(void)
 {
 	uint32_t depth = 0, icicle = 0, ignored = 0, off_screen = 0;
@@ -2253,6 +2379,8 @@ void icicle_shadow_follow(void)
 	queue_sprite_at_depth(&ignored, &depth);
 }
 
+/* The sunk icicle becomes a wall: a box hitbox (flags bit 1) 0x70 x 0x80 or 0x80 x 0x70 across its
+   direction, with the offsets for that direction. */
 void set_icicle_wall_box(void)
 {
 	uint32_t direction = 0;

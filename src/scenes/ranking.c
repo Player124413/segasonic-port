@@ -11,6 +11,10 @@
  */
 #include "game.h"
 
+/* Starts a player's ranking entry at game over: rings below every record give OUT OF RANK! for 0x78
+   frames (the block's handler field 1); else the player's ranking_entry_blocks block (three letters, an
+   end mark) with rank, rings, character, stages_reached, time_left 0x4B0 (handler 0). Sets the player's
+   bit in ranking_entry_players. */
 void start_ranking_entry(void)
 {
 	uint8_t ranking_size = 0;
@@ -110,6 +114,10 @@ void start_ranking_entry(void)
 	OBJECT(block)->sprite_palette = 0x8AD0u;
 }
 
+/* A player's ranking entry (player state 0x2E): OUT OF RANK! blinks for out_of_rank_timer, then
+   game_over_done; else the button goes to the next letter (index spawn_arg_1_high, up to 3) or on the
+   end mark saves (enter_ranking_initials_save_record); enter_ranking_initials_count_down does the rest.
+   jump_offset is only scratch. */
 void enter_ranking_initials(uint32_t jump_offset)
 {
 	uint16_t y = 0;
@@ -164,6 +172,10 @@ void enter_ranking_initials(uint32_t jump_offset)
 	enter_ranking_initials_count_down(button_bit);
 }
 
+/* The ranking entry's frame: time_left counts down (at 0 the record is saved), with the seconds and the
+   rank drawn above; trackball x moves between the letters (spawn_arg_1's high byte), trackball y changes
+   the chosen one (codes 0-0x2B, into initials); the letters and the end mark are drawn, the chosen one
+   blinking. button_bit is only scratch. */
 void enter_ranking_initials_count_down(uint32_t button_bit)
 {
 	uint16_t abs_dx = 0, abs_dy = 0, dx = 0, dy = 0, y = 0;
@@ -283,6 +295,9 @@ void enter_ranking_initials_count_down(uint32_t button_bit)
 	current_object = object_cursor;
 }
 
+/* Ends the entry (game_over_done): if the rings beat the lowest record, the lower records move down one
+   and the new one goes in (initials 'sex', 'xxx', 'x x' and 'xx ' become 'tak'), ranking is copied to
+   saved_ranking and ranking_checksum recomputed. Clears the player's bit in ranking_entry_players. */
 void enter_ranking_initials_save_record(void)
 {
 	uint16_t rings = 0;
@@ -350,6 +365,8 @@ void enter_ranking_initials_save_record(void)
 	ranking_entry_players &= ~shl32(1u, (int)(OBJECT(object_cursor)->player));
 }
 
+/* Loads ranking from saved_ranking when compute_crc16 of it (0x78 bytes) matches ranking_checksum, else
+   reset_ranking; hands back what copy_ranking_records does. */
 uint32_t load_ranking(void)
 {
 	uint32_t count = 0, count_2 = 0, crc = 0, data = 0, dest = 0, ignored = 0, source = 0;
@@ -365,6 +382,9 @@ uint32_t load_ranking(void)
 	return copy_ranking_records(source, dest, count);
 }
 
+/* Fills ranking with default_ranking's 15 records (their ASCII initials through
+   ascii_to_ranking_letter), then copies it to saved_ranking with ranking_checksum
+   (copy_ranking_records). */
 uint32_t reset_ranking(void)
 {
 	uint32_t count = 0, dest = 0, letter = 0, read_cursor = 0, records_left = 0, source = 0, write_cursor = 0;
@@ -410,6 +430,8 @@ uint32_t reset_ranking(void)
 	return copy_ranking_records(source, dest, count);
 }
 
+/* Copies count 8-byte ranking records from source to dest, then ranking_checksum = compute_crc16 of
+   ranking (0x78 bytes); hands back compute_crc16's polynomial. */
 uint32_t copy_ranking_records(uint32_t source, uint32_t dest, uint32_t count)
 {
 	uint32_t count_2 = 0, crc = 0, data = 0, polynomial = 0;
@@ -431,6 +453,8 @@ uint32_t copy_ranking_records(uint32_t source, uint32_t dest, uint32_t count)
 	return polynomial;
 }
 
+/* Turns an initial of default_ranking into a ranking letter code: 'a'-'z' to 0-0x19, ' ' to 0x2B, '3' to
+   0x23; any other character hangs in an endless loop. Hands back letter with its low byte replaced. */
 uint32_t ascii_to_ranking_letter(uint32_t letter)
 {
 	if ((int8_t)letter >= 0x61)
@@ -450,23 +474,28 @@ uint32_t ascii_to_ranking_letter(uint32_t letter)
 	return letter;
 }
 
+/* Starts the TOP15 screen: the display object (allocate_object_or_start_list, display) at (0xA0, -0x1A4)
+   with the NBG0 picture shown (show_nbg0_picture, whose rows and source it hands back); handler
+   build_ranking_display. */
 void start_ranking_display(uint32_t display, uint32_t *p_rows, uint32_t *p_source)
 {
-	uint32_t ignored = 0, object = 0, rows = 0, source = 0;
+	uint32_t ignored = 0, object = 0;
 
 	display = allocate_object_or_start_list(display);
 	OBJECT(display)->parent = object_cursor;
 	OBJECT(display)->child = 0xFFFFu;
 	init_object(display);
 	object = display;
-	show_nbg0_picture(&ignored, &rows, &source, &ignored);
+	show_nbg0_picture(&ignored, p_rows, p_source, &ignored);
 	OBJECT(object)->screen_x = 0xA0;
 	OBJECT(object)->screen_y = -0x1A4;
 	OBJECT(object)->handler = build_ranking_display_ADDRESS;
-	*p_rows = rows;
-	*p_source = source;
 }
 
+/* Builds the TOP15 screen once: for each of the 15 records (lowest first, rows 15 up to 1) a row of 12
+   sprites (rank, initials, portrait, name, four score digits, stage) run by ranking_row_update,
+   current_player counting the rows; the five title letters (ranking_title_spin_in), ranking_title_layout
+   toggled; then ranking_display_scroll_in. */
 void build_ranking_display(void)
 {
 	uint32_t block = 0, character = 0, first_initial = 0, free_count = 0, hundreds_digit = 0, ignored = 0, label_second_char = 0, object = 0, rank_label = 0, record = 0, remainder = 0, rows_left = 0, second_initial = 0, stages = 0, tens_digit = 0, third_initial = 0, thousands_digit = 0;
@@ -586,6 +615,9 @@ void build_ranking_display(void)
 	OBJECT(object)->sprite_palette = 0x8B20u;
 }
 
+/* The TOP15 letters spin in: scale + 2 up to 0x200, direction + 8 a frame, speed_x/speed_y =
+   direction_to_speed(0x2000) of it (their spread); at full scale with direction 0x300 they pause
+   (ranking_title_pause, 0x1C frames). */
 void ranking_title_spin_in(void)
 {
 	uint32_t direction = 0, speed = 0, speed_x = 0, speed_y = 0;
@@ -609,6 +641,7 @@ void ranking_title_spin_in(void)
 	ranking_title_pause();
 }
 
+/* Holds the TOP15 title for pause_timer (0x1C) frames, then ranking_title_rise. */
 void ranking_title_pause(void)
 {
 	uint16_t pause_timer = 0;
@@ -624,6 +657,7 @@ void ranking_title_pause(void)
 	ranking_title_rise();
 }
 
+/* Moves the TOP15 title up 1 pixel a frame to screen y 0x23, then leaves it to draw_ranking_title. */
 void ranking_title_rise(void)
 {
 	OBJECT(current_object)->screen_y--;
@@ -637,6 +671,8 @@ void ranking_title_rise(void)
 	draw_ranking_title();
 }
 
+/* Draws the five TOP15 letters at the first one's scale: the centre one, two at +-(speed_x, speed_y),
+   and the outer two at +-2 speed_x with +-2 speed_y added along x (ranking_title_layout 0) or y (1). */
 void draw_ranking_title(void)
 {
 	uint32_t r1 = 0, layout_offset = 0;
@@ -682,6 +718,8 @@ void draw_ranking_title(void)
 	queue_sprite(layout_offset);
 }
 
+/* Brings the TOP15 screen down 1 pixel a frame (screen_y up to 0x24) while the background drifts; then
+   the portraits animate (rows_animate) and ranking_display_hold. */
 void ranking_display_scroll_in(void)
 {
 	OBJECT(current_object)->screen_y++;
@@ -695,6 +733,8 @@ void ranking_display_scroll_in(void)
 	ranking_display_hold();
 }
 
+/* Holds the TOP15 screen for 0x12C frames (hold_timer), the background drifting, then tells the rows to
+   remove themselves (rows_remove) and ends with ranking_display_end. */
 void ranking_display_hold(void)
 {
 	OBJECT(current_object)->ranking_display.hold_timer++;
@@ -709,6 +749,9 @@ void ranking_display_hold(void)
 	drift_ranking_background();
 }
 
+/* Drifts the TOP15 background: the direction (speed_z's low half) swings between 0x180 and 0x280 by 2 a
+   frame, speed_x/speed_y gain direction_to_speed(0x100) of it and NBG0 scrolls to their whole parts.
+   speed's low half swings 0-0x300 as well, but the step always uses 0x100. */
 void drift_ranking_background(void)
 {
 	uint32_t direction = 0, speed = 0, speed_x = 0, speed_y = 0;
@@ -772,6 +815,7 @@ void drift_ranking_background(void)
 	nbg0_scroll_y_int = OBJECT(current_object)->speed_y_int;
 }
 
+/* Sets ranking_done and removes the TOP15 display object (delete_object_and_children). */
 void ranking_display_end(void)
 {
 	uint32_t ignored = 0;
@@ -780,6 +824,9 @@ void ranking_display_end(void)
 	delete_object_and_children(&ignored, &ignored, &ignored);
 }
 
+/* A TOP15 row: at the display's screen_y + row * 0x17, its 12 sprites on top (bucket 0); once
+   rows_animate is set the portrait plays its ranking_portrait_frames (the second set of 0x14 for row 1),
+   one every 2 frames; removed with its sprites when rows_remove is set. */
 void ranking_row_update(void)
 {
 	uint8_t bucket = 0;

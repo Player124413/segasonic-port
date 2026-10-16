@@ -11,13 +11,13 @@
  */
 #include "game.h"
 
+/* Builds the ending by ending_scene_step: 0 sets up the screen (display off for 0x10 frames, layers and
+   palettes, sound 0x94, colour offsets 0x20, pages and scrolls, clip rectangle 1 cleared, six vram
+   scripts) and goes to 1; 1 spawns the tower, the horizon, the three runners and the road (then 2); 2
+   and 3 do nothing. */
 void build_ending_scene(uint32_t *p_write_index_address, uint32_t *p_tile_bank_bits, uint32_t *p_color, uint32_t *p_row_pairs_left, uint32_t *p_blocks_per_row, uint32_t *p_scene_actor)
 {
-	uint32_t write_index_address = *p_write_index_address;
-	uint32_t tile_bank_bits = *p_tile_bank_bits;
 	uint32_t color = *p_color;
-	uint32_t row_pairs_left = *p_row_pairs_left;
-	uint32_t blocks_per_row = *p_blocks_per_row;
 	uint32_t scene_actor = *p_scene_actor;
 	uint8_t is_8bpp = 0, sound_id = 0;
 	uint32_t dest = 0, ignored = 0, script = 0;
@@ -32,11 +32,11 @@ void build_ending_scene(uint32_t *p_write_index_address, uint32_t *p_tile_bank_b
 		display_off_frames = 0x10u;
 		color = set_stage_layer_mixing();
 		clear_sprite_buckets();
-		clear_bitmap_layer(is_8bpp, &ignored, &color, &ignored, &row_pairs_left, &blocks_per_row, &ignored);
+		clear_bitmap_layer(is_8bpp, &ignored, &color, &ignored, p_row_pairs_left, p_blocks_per_row, &ignored);
 		init_video_registers();
-		load_stage_palette_set(&tile_bank_bits, &dest);
+		load_stage_palette_set(p_tile_bank_bits, &dest);
 		sound_id = 0x94u;
-		queue_sound(sound_id, &ignored, &write_index_address);
+		queue_sound(sound_id, &ignored, p_write_index_address);
 		color_offset_red = 0x20u;
 		color_offset_blue = 0x20u;
 		color_offset_green = 0x20u;
@@ -92,11 +92,7 @@ void build_ending_scene(uint32_t *p_write_index_address, uint32_t *p_tile_bank_b
 		nbg0_pages = 0x8080707u;
 		nbg1_pages = 0x1010101u;
 		nbg2_pages = 0x5050505u;
-		*p_write_index_address = write_index_address;
-		*p_tile_bank_bits = tile_bank_bits;
 		*p_color = color;
-		*p_row_pairs_left = row_pairs_left;
-		*p_blocks_per_row = blocks_per_row;
 		*p_scene_actor = dest;
 		return;
 	case 1:
@@ -128,6 +124,8 @@ void build_ending_scene(uint32_t *p_write_index_address, uint32_t *p_tile_bank_b
 	}
 }
 
+/* Clears the flags_low_byte (started), step and timer of object, a new scene object, and sets
+   ending_scene_step to 2. */
 void init_ending_scene_object(uint32_t object)
 {
 	OBJECT(object)->flags_low_byte = 0u;
@@ -136,6 +134,10 @@ void init_ending_scene_object(uint32_t object)
 	ending_scene_step = 2u;
 }
 
+/* The tower behind the runners: the first frame runs cloudy_horizon_script and turns NBG3 on; sprite and
+   palette from ending_tower_frames by its timer (standing, then collapsing), layer 7, and every frame
+   run_timed_spawns_2 starts the debris, blasts, explosion and flash on time. Removed at the end of the
+   list. */
 void ending_tower_animate(void)
 {
 	uint32_t r11 = 0, frame_record = 0, ignored = 0, script = 0;
@@ -185,6 +187,8 @@ void ending_tower_animate(void)
 	delete_current_object();
 }
 
+/* A burning chunk flying off the tower top (from the tower's timed list): sound 0xB on its first frame,
+   then animate_ending_debris along ending_debris_1_path with sprite flags 9. */
 void ending_debris_1_fly(void)
 {
 	uint8_t sound_id = 0;
@@ -203,6 +207,8 @@ void ending_debris_1_fly(void)
 	animate_ending_debris(path);
 }
 
+/* The second chunk: sound 0xB, then animate_ending_debris along ending_debris_2_path with sprite flags
+   0xA. */
 void ending_debris_2_fly(void)
 {
 	uint8_t sound_id = 0;
@@ -221,6 +227,7 @@ void ending_debris_2_fly(void)
 	animate_ending_debris(path);
 }
 
+/* The third chunk: sound 0xB, then animate_ending_debris along ending_debris_3_path with sprite flags 9. */
 void ending_debris_3_fly(void)
 {
 	uint8_t sound_id = 0;
@@ -239,6 +246,8 @@ void ending_debris_3_fly(void)
 	animate_ending_debris(path);
 }
 
+/* A blast at the tower's base (from the tower's timed list): sound 0xA and start_ending_blast on its
+   first frame, at (0x90, 0xA0), animate_tower_blast. */
 void ending_tower_blast_1(void)
 {
 	uint8_t sound_id = 0;
@@ -255,6 +264,7 @@ void ending_tower_blast_1(void)
 	animate_tower_blast();
 }
 
+/* The second tower blast, at (0xA1, 0x98): as ending_tower_blast_1. */
 void ending_tower_blast_2(void)
 {
 	uint8_t sound_id = 0;
@@ -271,6 +281,7 @@ void ending_tower_blast_2(void)
 	animate_tower_blast();
 }
 
+/* The third tower blast, at (0xAE, 0xA0): as ending_tower_blast_1. */
 void ending_tower_blast_3(void)
 {
 	uint8_t sound_id = 0;
@@ -287,6 +298,8 @@ void ending_tower_blast_3(void)
 	animate_tower_blast();
 }
 
+/* A blast along the horizon (from the tower's timed list): sound 9 and start_ending_blast on its first
+   frame, at (0x35, 0xAA), animate_horizon_blast. */
 void ending_horizon_blast_1(void)
 {
 	uint8_t sound_id = 0;
@@ -303,6 +316,7 @@ void ending_horizon_blast_1(void)
 	animate_horizon_blast();
 }
 
+/* The second horizon blast, at (0x52, 0xA8): as ending_horizon_blast_1. */
 void ending_horizon_blast_2(void)
 {
 	uint8_t sound_id = 0;
@@ -319,6 +333,7 @@ void ending_horizon_blast_2(void)
 	animate_horizon_blast();
 }
 
+/* The third horizon blast, at (0x73, 0xA5): as ending_horizon_blast_1. */
 void ending_horizon_blast_3(void)
 {
 	uint8_t sound_id = 0;
@@ -335,6 +350,7 @@ void ending_horizon_blast_3(void)
 	animate_horizon_blast();
 }
 
+/* The fourth horizon blast, at (0x93, 0xA0): as ending_horizon_blast_1. */
 void ending_horizon_blast_4(void)
 {
 	uint8_t sound_id = 0;
@@ -351,6 +367,7 @@ void ending_horizon_blast_4(void)
 	animate_horizon_blast();
 }
 
+/* The fifth horizon blast, at (0xAD, 0x9E): as ending_horizon_blast_1. */
 void ending_horizon_blast_5(void)
 {
 	uint8_t sound_id = 0;
@@ -367,6 +384,7 @@ void ending_horizon_blast_5(void)
 	animate_horizon_blast();
 }
 
+/* The sixth horizon blast, at (0xC6, 0xA2): as ending_horizon_blast_1. */
 void ending_horizon_blast_6(void)
 {
 	uint8_t sound_id = 0;
@@ -383,6 +401,7 @@ void ending_horizon_blast_6(void)
 	animate_horizon_blast();
 }
 
+/* The seventh horizon blast, at (0xCF, 0xAF): as ending_horizon_blast_1. */
 void ending_horizon_blast_7(void)
 {
 	uint8_t sound_id = 0;
@@ -399,6 +418,7 @@ void ending_horizon_blast_7(void)
 	animate_horizon_blast();
 }
 
+/* The eighth horizon blast, at (0xE4, 0xAC): as ending_horizon_blast_1. */
 void ending_horizon_blast_8(void)
 {
 	uint8_t sound_id = 0;
@@ -415,6 +435,8 @@ void ending_horizon_blast_8(void)
 	animate_horizon_blast();
 }
 
+/* The ninth horizon blast: as ending_horizon_blast_1, but only its first frame is at (0xF8, 0xB0); later
+   frames are at (0xE4, 0xAC), the eighth blast's spot. */
 void ending_horizon_blast_9(void)
 {
 	uint8_t sound_id = 0;
@@ -435,6 +457,7 @@ void ending_horizon_blast_9(void)
 	animate_horizon_blast();
 }
 
+/* Starts a blast: started 1, frame_index 0, timer 0. */
 void start_ending_blast(void)
 {
 	OBJECT(current_object)->start_ending_blast.started = 1u;
@@ -442,6 +465,10 @@ void start_ending_blast(void)
 	OBJECT(current_object)->timer = 0;
 }
 
+/* The big explosion at the tower (from its timed list): at (0xA1, 0x62) in layer 9 with a second-pool
+   part kept in speed_x, sound 7; frames from ending_big_explosion_frames and the part's from
+   ending_big_explosion_frames_2, the next every 6 frames; at the 0xFFFF end the part is freed and it is
+   removed. */
 void ending_big_explosion(void)
 {
 	uint8_t sound_id = 0;
@@ -499,6 +526,9 @@ void ending_big_explosion(void)
 	}
 }
 
+/* The flash to white (from the tower's timed list): mixer_offset_select 0x80FF and the second colour
+   offsets up from 0 by 1 every 3 frames; at 0x1F it sets ending_first_scene_done, starts
+   ending_credits_fade_in and is removed. */
 void ending_flash_to_white(void)
 {
 	uint32_t ignored = 0, object = 0;
@@ -529,6 +559,7 @@ void ending_flash_to_white(void)
 	delete_current_object();
 }
 
+/* Draws the next ending_horizon_blast_frames frame (draw_ending_blast_frame); removed at the 0xFFFF end. */
 void animate_horizon_blast(void)
 {
 	uint32_t frame_entry = 0;
@@ -542,6 +573,7 @@ void animate_horizon_blast(void)
 	delete_current_object();
 }
 
+/* Unused: the same code as draw_ending_blast_frame. */
 void draw_ending_blast_frame_copy(uint32_t frame_entry)
 {
 	OBJECT(current_object)->sprite_frame = ROM16(frame_entry);
@@ -558,6 +590,7 @@ void draw_ending_blast_frame_copy(uint32_t frame_entry)
 	}
 }
 
+/* Draws the next ending_tower_blast_frames frame (draw_ending_blast_frame); removed at the 0xFFFF end. */
 void animate_tower_blast(void)
 {
 	uint32_t frame_entry = 0;
@@ -571,6 +604,8 @@ void animate_tower_blast(void)
 	delete_current_object();
 }
 
+/* Draws the blast frame at frame_entry (layer 6, palette 0x10B0, scale 0x100) and steps frame_index
+   every 6 frames. */
 void draw_ending_blast_frame(uint32_t frame_entry)
 {
 	OBJECT(current_object)->sprite_frame = ROM16(frame_entry);
@@ -587,6 +622,9 @@ void draw_ending_blast_frame(uint32_t frame_entry)
 	}
 }
 
+/* Moves a piece of debris along path: the first record whose end_time is above the object's timer gives
+   its screen x, y and sprite (palette 0x10C0, layer 6); removed at the 0xFFFF record. Only timer_low
+   (timer's low byte) counts up, so timer wraps at 0x100. */
 void animate_ending_debris(uint32_t path)
 {
 	OBJECT(current_object)->animate_ending_debris.timer_low++;
@@ -610,6 +648,9 @@ void animate_ending_debris(uint32_t path)
 	queue_sprite_in_layer();
 }
 
+/* One step of timed_spawns_2 for the tower: once the next record's time is reached (the object's timer)
+   it starts an object whose handler is the record's offset from ending_debris_1_fly, and moves on
+   (list_index); the 0xFFFF end does nothing. object is only scratch. */
 void run_timed_spawns_2(uint32_t object)
 {
 	uint32_t ignored = 0, spawn_record = 0;
@@ -626,6 +667,8 @@ void run_timed_spawns_2(uint32_t object)
 	}
 }
 
+/* The dark hills under the tower (sprite 0x9AC0, palette 0x10F0, layer 5) at (0x9E, 0xBE); after 0x258
+   frames it starts ending_dust_cloud_rise once; removed once ending_first_scene_done is 1. */
 void ending_horizon_show(void)
 {
 	uint32_t ignored = 0, object = 0;
@@ -658,6 +701,9 @@ void ending_horizon_show(void)
 	}
 }
 
+/* The dust cloud along the horizon after the collapse: at x 0x9E (palette 0x10D0, layer 6), every 7
+   frames the next (screen y, sprite) of ending_dust_cloud_frames, whose place it keeps in z; removed
+   once ending_first_scene_done is 1. */
 void ending_dust_cloud_rise(void)
 {
 	uint32_t frame_pointer = 0;
@@ -691,6 +737,8 @@ void ending_dust_cloud_rise(void)
 	queue_sprite_in_layer();
 }
 
+/* Sonic, the centre runner of the first scene: at x 0xA0 from y 0xC0, scale 0x40, palette 0x130, 1 pixel
+   up every 0x20 frames; animate_ending_runner with ending_sonic_run_frames. */
 void ending_sonic_run_forward(void)
 {
 	uint32_t frame_entry = 0;
@@ -717,6 +765,8 @@ void ending_sonic_run_forward(void)
 	animate_ending_runner(frame_entry);
 }
 
+/* Ray, the left runner of the first scene: from (0x90, 0xC0) at scale 0x40, palette 0x140, 2 pixels left
+   and 1 up every 0x20 frames; animate_ending_runner with ending_ray_run_frames. */
 void ending_ray_run_forward(void)
 {
 	uint32_t frame_entry = 0;
@@ -745,6 +795,8 @@ void ending_ray_run_forward(void)
 	animate_ending_runner(frame_entry);
 }
 
+/* Mighty, the right runner of the first scene: from (0xB0, 0xC0) at scale 0x40, palette 0x150, 2 pixels
+   right and 1 up every 0x20 frames; animate_ending_runner with ending_mighty_run_frames. */
 void ending_mighty_run_forward(void)
 {
 	uint32_t frame_entry = 0;
@@ -773,6 +825,8 @@ void ending_mighty_run_forward(void)
 	animate_ending_runner(frame_entry);
 }
 
+/* The road under the runners (palette 0x12B0, layer 2) at (0x9F, 0xD4): the next of the 5
+   ending_road_frames every frame; removed once ending_first_scene_done is 1. */
 void ending_road_scroll(void)
 {
 	if (OBJECT(current_object)->ending.started == 0u)
@@ -800,6 +854,10 @@ void ending_road_scroll(void)
 	queue_sprite_in_layer();
 }
 
+/* Back from white for the credits: the first frame loads the credits palettes, sets the second colour
+   offsets to 0x1F, starts ending_credits_spawner_run and sets up the layers, the backdrop colour
+   (0x5FD2) and the scrolls; after 0x78 frames it starts ending_music_play once and lowers the offsets by
+   1 every 3 frames, removed at 0. */
 void ending_credits_fade_in(void)
 {
 	uint32_t ignored = 0, object = 0;
@@ -853,6 +911,8 @@ void ending_credits_fade_in(void)
 	}
 }
 
+/* The credits' timer object: counts its timer and runs run_timed_spawns_3, which starts the portrait,
+   the name plate and the seven credit blocks. */
 void ending_credits_spawner_run(void)
 {
 	if (OBJECT(current_object)->ending.started == 0u)
@@ -865,6 +925,8 @@ void ending_credits_spawner_run(void)
 	run_timed_spawns_3();
 }
 
+/* Sets bit 0x400 of video_control (the tile bank bit), drops the pending vblank copies and loads
+   tile_bank_1_palette_list. */
 uint32_t load_credits_palettes(void)
 {
 	uint32_t dest = 0, ignored = 0, palette_list = 0;
@@ -878,6 +940,8 @@ uint32_t load_credits_palettes(void)
 	return dest;
 }
 
+/* Queues sounds 0x94 and 0x82 (the ending music) on its first frame, then the ending_music_cues sounds
+   at their times; removed at the 0xFFFF end. */
 void ending_music_play(void)
 {
 	uint8_t sound_id = 0;
@@ -910,6 +974,9 @@ void ending_music_play(void)
 	OBJECT(current_object)->timer++;
 }
 
+/* The credits' character portrait at (0xE8, 0x4C): sprite and palette from ending_portrait_frames and
+   ending_portrait_palettes by its timer, over a backdrop part (sprite 0x9880, kept in speed_y, palettes
+   from ending_portrait_backdrop_palettes); at the end the part is freed and it is removed. */
 void ending_portrait_show(void)
 {
 	uint16_t speed_y = 0;
@@ -963,6 +1030,9 @@ void ending_portrait_show(void)
 	queue_sprite_in_layer();
 }
 
+/* The name plate under the portrait: the first frame sets clip rectangle 1 to 0xB1,0x21-0x120,0x78 and
+   takes a second-pool part (kept in z: sprite 0x9800 above, at 0xE9,0x18); the plate by its timer from
+   ending_name_plate_frames at (0xE8, 0xA3), NBG0 scrolling 1 a frame; at the end ending_window_open. */
 void ending_name_plate_show(void)
 {
 	uint32_t frame_record = 0, ignored = 0, object = 0;
@@ -1012,6 +1082,9 @@ void ending_name_plate_show(void)
 	queue_sprite_in_layer();
 }
 
+/* The first credit block: the team logo (header 0x9850 at screen y 0xF4) and its credits_team_logo_parts
+   part, kept in speed_y, scroll up 1 pixel every 2 frames until the part is at screen y -0x14; then the
+   part is freed and it is removed. */
 void ending_credits_team_logo_scroll(void)
 {
 	uint16_t speed_y = 0;
@@ -1066,6 +1139,8 @@ void ending_credits_team_logo_scroll(void)
 	}
 }
 
+/* The DIRECTOR. credit block: header 0x97C8 and its credits_director_parts (kept in speed_y and z);
+   scroll_credits_block does the rest. */
 void ending_credits_director_scroll(void)
 {
 	uint32_t field_cursor = 0, ignored = 0, object = 0;
@@ -1104,6 +1179,9 @@ void ending_credits_director_scroll(void)
 	scroll_credits_block();
 }
 
+/* Scrolls a credit block: the header and its parts in speed_y and z move up 1 pixel every 2 frames until
+   the part in z is at screen y -0x14 (scrolled_out); then the parts are freed and the block removed. The
+   longer blocks use it only on their first frame. */
 void scroll_credits_block(void)
 {
 	uint16_t speed_y = 0, z = 0;
@@ -1132,6 +1210,9 @@ void scroll_credits_block(void)
 	}
 }
 
+/* The PROGRAM. credit block: header 0x97C0 and four credits_program_parts kept in speed_y, z,
+   ending.part_3 and animation, scrolling up 1 pixel every 2 frames until the last is at screen y -0x14;
+   then the parts are freed and it is removed. */
 void ending_credits_program_scroll(void)
 {
 	uint16_t animation = 0, part_3 = 0, speed_y = 0, z = 0;
@@ -1200,6 +1281,9 @@ void ending_credits_program_scroll(void)
 	scroll_credits_block();
 }
 
+/* The DESIGN. credit block: header 0x97E8 and five credits_design_parts kept in speed_y, z,
+   ending.part_3, animation and x, scrolling up 1 pixel every 2 frames until the last is at screen y
+   -0x14; then the parts are freed and it is removed. */
 void ending_credits_design_scroll(void)
 {
 	uint16_t animation = 0, part_3 = 0, speed_y = 0, x = 0, z = 0;
@@ -1272,6 +1356,8 @@ void ending_credits_design_scroll(void)
 	scroll_credits_block();
 }
 
+/* The SOUND. credit block: header 0x97E0 and four credits_sound_parts kept in speed_y, z, ending.part_3
+   and animation, scrolled like ending_credits_program_scroll. */
 void ending_credits_sound_scroll(void)
 {
 	uint16_t animation = 0, part_3 = 0, speed_y = 0, z = 0;
@@ -1340,6 +1426,8 @@ void ending_credits_sound_scroll(void)
 	scroll_credits_block();
 }
 
+/* The VOICE ACTOR. credit block: header 0x97F0 and five credits_voice_actor_parts kept in speed_y, z,
+   ending.part_3, animation and x, scrolled like the other blocks. */
 void ending_credits_voice_actor_scroll(void)
 {
 	uint16_t animation = 0, part_3 = 0, speed_y = 0, x = 0, z = 0;
@@ -1412,6 +1500,9 @@ void ending_credits_voice_actor_scroll(void)
 	scroll_credits_block();
 }
 
+/* The SPECIAL THANKS. credit block, the last: header 0x97D0 and eight credits_special_thanks_parts kept
+   in speed_y, z, ending.part_3, animation, x, y, floor_z and previous_floor_z, scrolled like the other
+   blocks. */
 void ending_credits_special_thanks_scroll(void)
 {
 	uint16_t animation = 0, floor_z = 0, part_3 = 0, previous_floor_z = 0, speed_y = 0, x = 0, y = 0, z = 0;
@@ -1496,6 +1587,8 @@ void ending_credits_special_thanks_scroll(void)
 	scroll_credits_block();
 }
 
+/* Draws a credit sprite in its layer, 1 pixel higher when the block's (object_cursor's) timer has
+   reached 2; current_object goes back to object_cursor. */
 void scroll_credits_sprite(void)
 {
 	if (OBJECT(object_cursor)->timer >= 2)
@@ -1504,12 +1597,16 @@ void scroll_credits_sprite(void)
 	current_object = object_cursor;
 }
 
+/* Puts the block's (object_cursor's) timer back to 0 once it reaches 2: the credits move 1 pixel every 2
+   frames. */
 void wrap_credits_scroll_timer(void)
 {
 	if (OBJECT(object_cursor)->timer >= 2)
 		OBJECT(object_cursor)->timer = 0;
 }
 
+/* Puts the current credit sprite at screen x 0x58, layer 0, no flags, scale 0x100; current_object goes
+   back to object_cursor. */
 void init_credits_sprite(void)
 {
 	OBJECT(current_object)->screen_x = 0x58;
@@ -1519,6 +1616,9 @@ void init_credits_sprite(void)
 	current_object = object_cursor;
 }
 
+/* One step of timed_spawns_3 for the credits: once the next record's time is reached it starts an object
+   whose handler is the record's offset from ending_credits_fade_in, and moves on; at the 0xFFFF end the
+   timer object is removed. */
 void run_timed_spawns_3(void)
 {
 	uint32_t ignored = 0, object = 0, spawn_record = 0;
@@ -1540,6 +1640,8 @@ void run_timed_spawns_3(void)
 	}
 }
 
+/* Draws a runner of the first scene with the frame at frame_entry: it grows by 1 every 4 frames and
+   takes the next of its 12 frames every 2; removed once ending_first_scene_done is 1. */
 void animate_ending_runner(uint32_t frame_entry)
 {
 	if (ending_first_scene_done == 1u)
@@ -1561,6 +1663,9 @@ void animate_ending_runner(uint32_t frame_entry)
 	}
 }
 
+/* Opens the portrait window: clip rectangle 1 grows by 1 pixel a frame on each side up to 0,0-0x140,0xE0
+   (step collects a bit per finished edge) while NBG0 scrolls 1 a frame; then it starts
+   ending_credits_fade_out and is removed. */
 void ending_window_open(void)
 {
 	uint32_t ignored = 0, object = 0;
@@ -1603,6 +1708,8 @@ void ending_window_open(void)
 	delete_current_object();
 }
 
+/* Fades the credits to black (update_fade, fade_kind 0), the second colour offsets following
+   color_offset_red/green/blue; when done it starts ending_eggman_scene_fade_in and is removed. */
 void ending_credits_fade_out(void)
 {
 	uint32_t ignored = 0, object = 0;
@@ -1625,6 +1732,9 @@ void ending_credits_fade_out(void)
 	delete_current_object();
 }
 
+/* Sets up Eggman's scene on its first frame (ending_stripes_script, the page shadows, all layers on) and
+   fades it in from black (fade_kind 2), the second colour offsets following; when done it starts
+   ending_eggman_fly_in and is removed. */
 void ending_eggman_scene_fade_in(void)
 {
 	uint32_t ignored = 0, object = 0, script = 0;
@@ -1657,6 +1767,10 @@ void ending_eggman_scene_fade_in(void)
 	nbg0_scroll_x_int = 0u;
 }
 
+/* Eggman's machine flies in along ending_eggman_flight_path for 0x1E0 frames, a jet flame 0x20 behind it
+   until x 0xA6 and eight smoke puffs handed along every 0xA frames (drawn while timer is above 0x32);
+   sound 0x75 at 0x104. Then ending_eggman_turn with its sprite; it frees its parts, and its path pointer
+   too as if a part. */
 void ending_eggman_fly_in(void)
 {
 	uint8_t sound_id = 0;
@@ -1828,6 +1942,8 @@ void ending_eggman_fly_in(void)
 	delete_current_object();
 }
 
+/* Sets up one of Eggman's smoke puffs, piece: sprite 0x9B88, palette 0x1280, layer 0, at screen (-0x10,
+   0), scale 0x100. */
 void init_eggman_smoke_puff(uint32_t piece)
 {
 	OBJECT(piece)->sprite_frame = 0x9B88u;
@@ -1839,6 +1955,8 @@ void init_eggman_smoke_puff(uint32_t piece)
 	OBJECT(piece)->sprite_palette = 0x1280u;
 }
 
+/* Eggman turns to the viewer: the sprite from ending_eggman_turn_frames by its timer (the other sprite
+   fields come from the fly-in); at the 0xFFFF end it starts ending_eggman_scene_fade_out and is removed. */
 void ending_eggman_turn(void)
 {
 	uint32_t frame_record = 0, ignored = 0, object = 0;
@@ -1865,6 +1983,8 @@ void ending_eggman_turn(void)
 	queue_sprite_in_layer();
 }
 
+/* Fades Eggman's scene to black (fade_kind 0), the second colour offsets following; when done it starts
+   ending_close_up_fade_in and ending_eggman_fly_away and is removed. */
 void ending_eggman_scene_fade_out(void)
 {
 	uint32_t ignored = 0, object = 0;
@@ -1890,6 +2010,8 @@ void ending_eggman_scene_fade_out(void)
 	delete_current_object();
 }
 
+/* Fades the close-up in from black (update_fade, fade_kind 2), the second colour offsets following;
+   removed when the fade is done. */
 void ending_close_up_fade_in(void)
 {
 	if (OBJECT(current_object)->ending.started == 0u)
@@ -1907,6 +2029,10 @@ void ending_close_up_fade_in(void)
 	delete_current_object();
 }
 
+/* Eggman's machine in close-up flying off (scale 0x200 down by 3, by 2 below 0x100), palette cycling;
+   below scale 0x20: sound 9, a twinkle growing to 0x110 and shrinking, the parts freed, then a circle
+   opening around (0xA0, 0x70) in the per-line window tables (radius + 3 every other frame) past 0xE0;
+   then the three runners across. */
 void ending_eggman_fly_away(void)
 {
 	uint8_t sound_id = 0;
@@ -2103,10 +2229,14 @@ void ending_eggman_fly_away(void)
 	}
 }
 
+/* Unused: does nothing (a stray return the original has after ending_eggman_fly_away). */
 void ending_eggman_fly_away_spare_return(void)
 {
 }
 
+/* Sonic crossing the screen first: body 0xA810 and legs 0xA820 (layers 1 and 0, ending_sonic_body_frames
+   and ending_sonic_leg_frames kept in x and y), 5 pixels a frame; after 0x78 frames, counted in
+   hit_list_next, it sets ending_finished. */
 void ending_sonic_run_across(void)
 {
 	uint32_t ignored = 0, second_object = 0;
@@ -2141,6 +2271,8 @@ void ending_sonic_run_across(void)
 	OBJECT(object_cursor)->hit_list_next = 0u;
 }
 
+/* Ray crossing the screen behind Sonic: body 0xA7E0 and legs 0xA7F0 (scale 0xF0, layers 3 and 2,
+   ending_ray_body_frames and ending_ray_leg_frames kept in x and y), 4 pixels a frame. */
 void ending_ray_run_across(void)
 {
 	uint32_t ignored = 0, second_object = 0;
@@ -2171,6 +2303,8 @@ void ending_ray_run_across(void)
 	OBJECT(object_cursor)->y = 0x1E064;
 }
 
+/* Mighty crossing the screen last: body 0xA7B0 and legs 0xA7C0 (scale 0xE0, layers 4 and 3,
+   ending_mighty_body_frames and ending_mighty_leg_frames kept in x and y), 3 pixels a frame. */
 void ending_mighty_run_across(void)
 {
 	uint32_t ignored = 0, second_object = 0;
@@ -2201,6 +2335,8 @@ void ending_mighty_run_across(void)
 	OBJECT(object_cursor)->y = 0x1E070;
 }
 
+/* Starts a runner across: the object's started set, timer and cycle_count 0; the current sprite (body or
+   legs) at (0, 0x68), palette | 0x2000, sprite flags 0x140. */
 void init_ending_runner_across(void)
 {
 	OBJECT(object_cursor)->ending.started = 1u;
@@ -2213,6 +2349,8 @@ void init_ending_runner_across(void)
 	OBJECT(current_object)->sprite_flags |= 0x140u;
 }
 
+/* Draws a runner crossing the screen: the body frame from body_frames by timer >> 2 (timer 0-7) and the
+   legs part from leg_frames by cycle_count (0-3); at screen x 0x300 both go back to 0. */
 void animate_ending_runner_across(void)
 {
 	uint32_t second_frame_record = 0;

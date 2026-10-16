@@ -11,10 +11,13 @@
  */
 #include "game.h"
 
+/* Game mode 0x10's stage 6 background, by stage_06_background_step: 0-2 the cloudy horizon and the
+   forest (palette set 1), drifting sideways; 3-4 the upper and lower jaws drawn and closed over the
+   screen, sound 0x1E, then 7 a shake dying away (stage_06_shake); 5-6 the horizon and the island tower,
+   two palette cycles started at random. */
 void update_stage_06_background(uint32_t random_value, uint32_t dest, uint32_t *p_rolls_left, uint32_t *p_words_left, uint32_t *p_source)
 {
 	uint32_t rolls_left = *p_rolls_left;
-	uint32_t words_left = *p_words_left;
 	uint32_t source = *p_source;
 	uint8_t sound_id = 0;
 	uint16_t shake_y = 0;
@@ -159,7 +162,6 @@ void update_stage_06_background(uint32_t random_value, uint32_t dest, uint32_t *
 			source = cycle_palette_set_0(source);
 			source = cycle_palette_set_1(source);
 			*p_rolls_left = rolls_left;
-			*p_words_left = words_left;
 			*p_source = source;
 			return;
 		}
@@ -167,19 +169,17 @@ void update_stage_06_background(uint32_t random_value, uint32_t dest, uint32_t *
 		{
 			source = cycle_palette_set_1(source);
 			*p_rolls_left = rolls_left;
-			*p_words_left = words_left;
 			*p_source = source;
 			return;
 		}
 		rolls_left = 2u;
 		do
 		{
-			next_random(&random_value, &words_left, &source);
+			next_random(&random_value, p_words_left, &source);
 			random_value &= 0xFu;
 			if ((int8_t)random_value > 2)
 			{
 				*p_rolls_left = rolls_left;
-				*p_words_left = words_left;
 				*p_source = source;
 				return;
 			}
@@ -188,7 +188,6 @@ void update_stage_06_background(uint32_t random_value, uint32_t dest, uint32_t *
 		source = cycle_palette_set_0(source);
 		source = cycle_palette_set_1(source);
 		*p_rolls_left = rolls_left;
-		*p_words_left = words_left;
 		*p_source = source;
 		return;
 	case 7:
@@ -211,15 +210,10 @@ void update_stage_06_background(uint32_t random_value, uint32_t dest, uint32_t *
 	}
 }
 
+/* Runs the stage's palette animation: animate_palette_stage_04, _09, _0a, _0c, _0d_0e (stages 0xD and
+   0xE), _0f or _10; the other stages have none (skip_stage_palette_animation). */
 void animate_stage_palette(uint32_t *p_copy_offset, uint32_t *p_copy_entry, uint32_t *p_palette_count, uint32_t *p_cycle, uint32_t *p_source, uint32_t *p_dest)
 {
-	uint32_t copy_entry = *p_copy_entry;
-	uint32_t palette_count = *p_palette_count;
-	uint32_t cycle = *p_cycle;
-	uint32_t source = *p_source;
-	uint32_t dest = *p_dest;
-	uint32_t copy_offset = 0;
-
 	switch (stage)
 	{
 	case 0:
@@ -235,7 +229,7 @@ void animate_stage_palette(uint32_t *p_copy_offset, uint32_t *p_copy_entry, uint
 		skip_stage_palette_animation();
 		break;
 	case 4:
-		animate_palette_stage_04(&copy_offset, &copy_entry, &palette_count, &cycle, &source, &dest);
+		animate_palette_stage_04(p_copy_offset, p_copy_entry, p_palette_count, p_cycle, p_source, p_dest);
 		break;
 	case 5:
 		skip_stage_palette_animation();
@@ -250,28 +244,28 @@ void animate_stage_palette(uint32_t *p_copy_offset, uint32_t *p_copy_entry, uint
 		skip_stage_palette_animation();
 		break;
 	case 9:
-		animate_palette_stage_09(&copy_offset, &copy_entry, &palette_count, &cycle, &source, &dest);
+		animate_palette_stage_09(p_copy_offset, p_copy_entry, p_palette_count, p_cycle, p_source, p_dest);
 		break;
 	case 10:
-		animate_palette_stage_0a(&copy_offset, &copy_entry, &palette_count, &cycle, &source, &dest);
+		animate_palette_stage_0a(p_copy_offset, p_copy_entry, p_palette_count, p_cycle, p_source, p_dest);
 		break;
 	case 11:
 		skip_stage_palette_animation();
 		break;
 	case 12:
-		animate_palette_stage_0c(&copy_offset, &copy_entry, &palette_count, &cycle, &source, &dest);
+		animate_palette_stage_0c(p_copy_offset, p_copy_entry, p_palette_count, p_cycle, p_source, p_dest);
 		break;
 	case 13:
-		animate_palette_stage_0d_0e(&copy_offset, &copy_entry, &palette_count, &cycle, &source, &dest);
+		animate_palette_stage_0d_0e(p_copy_offset, p_copy_entry, p_palette_count, p_cycle, p_source, p_dest);
 		break;
 	case 14:
-		animate_palette_stage_0d_0e(&copy_offset, &copy_entry, &palette_count, &cycle, &source, &dest);
+		animate_palette_stage_0d_0e(p_copy_offset, p_copy_entry, p_palette_count, p_cycle, p_source, p_dest);
 		break;
 	case 15:
-		animate_palette_stage_0f(&copy_offset, &copy_entry, &palette_count, &cycle, &source, &dest);
+		animate_palette_stage_0f(p_copy_offset, p_copy_entry, p_palette_count, p_cycle, p_source, p_dest);
 		break;
 	case 16:
-		animate_palette_stage_10(&copy_offset, &copy_entry, &palette_count, &cycle, &source, &dest);
+		animate_palette_stage_10(p_copy_offset, p_copy_entry, p_palette_count, p_cycle, p_source, p_dest);
 		break;
 	case 17:
 		skip_stage_palette_animation();
@@ -285,23 +279,20 @@ void animate_stage_palette(uint32_t *p_copy_offset, uint32_t *p_copy_entry, uint
 	default:
 		invalid_jump(0x1AD41u + stage * 3u);
 	}
-	*p_copy_offset = copy_offset;
-	*p_copy_entry = copy_entry;
-	*p_palette_count = palette_count;
-	*p_cycle = cycle;
-	*p_source = source;
-	*p_dest = dest;
 }
 
+/* Does nothing: animate_stage_palette's case for the stages without a palette animation. */
 void skip_stage_palette_animation(void)
 {
 }
 
+/* Stage 0x10's palette animation: palette_cycle_0 every 6 frames through the 8 frames of
+   stage_10_cycle_palettes_0 (6 rows at palette RAM + 0x8B40), palette_cycle_1 every 4 frames through the
+   8 of stage_10_cycle_palettes_1 (1 row at + 0x8940). */
 void animate_palette_stage_10(uint32_t *p_copy_offset, uint32_t *p_copy_entry, uint32_t *p_palette_count, uint32_t *p_cycle, uint32_t *p_source, uint32_t *p_dest)
 {
-	uint32_t copy_entry = *p_copy_entry;
 	uint16_t halfwords = 0;
-	uint32_t copy_offset = 0, cycle = 0, cycle_1 = 0, dest = 0, dest_1 = 0, ignored = 0, palette_count = 0, palette_count_1 = 0, source = 0, source_1 = 0;
+	uint32_t cycle = 0, dest = 0, ignored = 0, palette_count = 0, source = 0;
 
 	dest = PALETTE_RAM + 0x8B40u;
 	palette_count = 6u;
@@ -310,192 +301,157 @@ void animate_palette_stage_10(uint32_t *p_copy_offset, uint32_t *p_copy_entry, u
 	cycle = palette_cycle_0_ADDRESS;
 	palette_cycle_0 = 6u;
 	palette_cycle_0_frames = 8u;
-	cycle_palette(cycle, halfwords, &ignored, &copy_entry, &palette_count, &source, &dest);
-	cycle_1 = palette_cycle_1_ADDRESS;
-	dest_1 = PALETTE_RAM + 0x8940u;
-	palette_count_1 = 1u;
-	source_1 = stage_10_cycle_palettes_1_ADDRESS;
+	cycle_palette(cycle, halfwords, &ignored, p_copy_entry, &palette_count, &source, &dest);
+	*p_cycle = palette_cycle_1_ADDRESS;
+	*p_dest = PALETTE_RAM + 0x8940u;
+	*p_palette_count = 1u;
+	*p_source = stage_10_cycle_palettes_1_ADDRESS;
 	halfwords = 0x10u;
 	palette_cycle_1 = 4u;
 	palette_cycle_1_frames = 8u;
-	cycle_palette(cycle_1, halfwords, &copy_offset, &copy_entry, &palette_count_1, &source_1, &dest_1);
-	*p_copy_offset = copy_offset;
-	*p_copy_entry = copy_entry;
-	*p_palette_count = palette_count_1;
-	*p_cycle = cycle_1;
-	*p_source = source_1;
-	*p_dest = dest_1;
+	cycle_palette(*p_cycle, halfwords, p_copy_offset, p_copy_entry, p_palette_count, p_source, p_dest);
 }
 
+/* Stage 0xC's palette animation: palette_cycle_0 every 6 frames through the 8 frames of
+   stage_0c_cycle_palettes, 1 row at palette RAM + 0x8800. */
 void animate_palette_stage_0c(uint32_t *p_copy_offset, uint32_t *p_copy_entry, uint32_t *p_palette_count, uint32_t *p_cycle, uint32_t *p_source, uint32_t *p_dest)
 {
-	uint32_t copy_entry = *p_copy_entry;
 	uint16_t halfwords = 0;
-	uint32_t copy_offset = 0, cycle = 0, dest = 0, palette_count = 0, source = 0;
 
-	dest = PALETTE_RAM + 0x8800u;
-	palette_count = 1u;
-	source = stage_0c_cycle_palettes_ADDRESS;
+	*p_dest = PALETTE_RAM + 0x8800u;
+	*p_palette_count = 1u;
+	*p_source = stage_0c_cycle_palettes_ADDRESS;
 	halfwords = 0x10u;
-	cycle = palette_cycle_0_ADDRESS;
+	*p_cycle = palette_cycle_0_ADDRESS;
 	palette_cycle_0 = 6u;
 	palette_cycle_0_frames = 8u;
-	cycle_palette(cycle, halfwords, &copy_offset, &copy_entry, &palette_count, &source, &dest);
-	*p_copy_offset = copy_offset;
-	*p_copy_entry = copy_entry;
-	*p_palette_count = palette_count;
-	*p_cycle = cycle;
-	*p_source = source;
-	*p_dest = dest;
+	cycle_palette(*p_cycle, halfwords, p_copy_offset, p_copy_entry, p_palette_count, p_source, p_dest);
 }
 
+/* The palette animation of stages 0xD and 0xE: palette_cycle_0 every 6 frames through the 8 frames of
+   stage_0d_0e_cycle_palettes, 1 row at palette RAM + 0x88C0. */
 void animate_palette_stage_0d_0e(uint32_t *p_copy_offset, uint32_t *p_copy_entry, uint32_t *p_palette_count, uint32_t *p_cycle, uint32_t *p_source, uint32_t *p_dest)
 {
-	uint32_t copy_entry = *p_copy_entry;
 	uint16_t halfwords = 0;
-	uint32_t copy_offset = 0, cycle = 0, dest = 0, palette_count = 0, source = 0;
 
-	dest = PALETTE_RAM + 0x88C0u;
-	palette_count = 1u;
-	source = stage_0d_0e_cycle_palettes_ADDRESS;
+	*p_dest = PALETTE_RAM + 0x88C0u;
+	*p_palette_count = 1u;
+	*p_source = stage_0d_0e_cycle_palettes_ADDRESS;
 	halfwords = 0x10u;
-	cycle = palette_cycle_0_ADDRESS;
+	*p_cycle = palette_cycle_0_ADDRESS;
 	palette_cycle_0 = 6u;
 	palette_cycle_0_frames = 8u;
-	cycle_palette(cycle, halfwords, &copy_offset, &copy_entry, &palette_count, &source, &dest);
-	*p_copy_offset = copy_offset;
-	*p_copy_entry = copy_entry;
-	*p_palette_count = palette_count;
-	*p_cycle = cycle;
-	*p_source = source;
-	*p_dest = dest;
+	cycle_palette(*p_cycle, halfwords, p_copy_offset, p_copy_entry, p_palette_count, p_source, p_dest);
 }
 
+/* Stage 0xF's palette animation: palette_cycle_0 every 0xC frames through the 6 frames of
+   stage_0f_cycle_palettes_0 (3 rows at palette RAM + 0x8920), palette_cycle_1 every 6 frames through the
+   6 of stage_0f_cycle_palettes_1 (1 row at + 0x8900). */
 void animate_palette_stage_0f(uint32_t *p_copy_offset, uint32_t *p_copy_entry, uint32_t *p_palette_count, uint32_t *p_cycle, uint32_t *p_source, uint32_t *p_dest)
 {
-	uint32_t copy_entry = *p_copy_entry;
 	uint16_t halfwords = 0;
-	uint32_t copy_offset = 0, cycle = 0, dest = 0, ignored = 0, palette_count = 0, source = 0;
+	uint32_t cycle = 0, ignored = 0;
 
-	dest = PALETTE_RAM + 0x8920u;
-	palette_count = 3u;
-	source = stage_0f_cycle_palettes_0_ADDRESS;
+	*p_dest = PALETTE_RAM + 0x8920u;
+	*p_palette_count = 3u;
+	*p_source = stage_0f_cycle_palettes_0_ADDRESS;
 	halfwords = 0x10u;
 	cycle = palette_cycle_0_ADDRESS;
 	palette_cycle_0 = 0xCu;
 	palette_cycle_0_frames = 6u;
-	cycle_palette(cycle, halfwords, &ignored, &copy_entry, &palette_count, &source, &dest);
+	cycle_palette(cycle, halfwords, &ignored, p_copy_entry, p_palette_count, p_source, p_dest);
 	cycle = palette_cycle_1_ADDRESS;
-	dest = PALETTE_RAM + 0x8900u;
-	palette_count = 1u;
-	source = stage_0f_cycle_palettes_1_ADDRESS;
+	*p_dest = PALETTE_RAM + 0x8900u;
+	*p_palette_count = 1u;
+	*p_source = stage_0f_cycle_palettes_1_ADDRESS;
 	halfwords = 0x10u;
 	palette_cycle_1 = 6u;
 	palette_cycle_1_frames = 6u;
-	cycle_palette(cycle, halfwords, &copy_offset, &copy_entry, &palette_count, &source, &dest);
-	*p_copy_offset = copy_offset;
-	*p_copy_entry = copy_entry;
-	*p_palette_count = palette_count;
+	cycle_palette(cycle, halfwords, p_copy_offset, p_copy_entry, p_palette_count, p_source, p_dest);
 	*p_cycle = cycle;
-	*p_source = source;
-	*p_dest = dest;
 }
 
+/* Stage 0xA's palette animation: palette_cycle_0 every 5 frames through the 6 frames of
+   stage_0a_cycle_palettes_0 (1 row at palette RAM + 0x8A40), palette_cycle_1 every 5 frames through the
+   0xA of stage_0a_cycle_palettes_1 (9 rows at + 0x8A60). */
 void animate_palette_stage_0a(uint32_t *p_copy_offset, uint32_t *p_copy_entry, uint32_t *p_palette_count, uint32_t *p_cycle, uint32_t *p_source, uint32_t *p_dest)
 {
-	uint32_t copy_entry = *p_copy_entry;
 	uint16_t halfwords = 0;
-	uint32_t copy_offset = 0, cycle = 0, dest = 0, ignored = 0, palette_count = 0, source = 0;
+	uint32_t cycle = 0, ignored = 0;
 
-	dest = PALETTE_RAM + 0x8A40u;
-	palette_count = 1u;
-	source = stage_0a_cycle_palettes_0_ADDRESS;
+	*p_dest = PALETTE_RAM + 0x8A40u;
+	*p_palette_count = 1u;
+	*p_source = stage_0a_cycle_palettes_0_ADDRESS;
 	halfwords = 0x10u;
 	cycle = palette_cycle_0_ADDRESS;
 	palette_cycle_0 = 5u;
 	palette_cycle_0_frames = 6u;
-	cycle_palette(cycle, halfwords, &ignored, &copy_entry, &palette_count, &source, &dest);
+	cycle_palette(cycle, halfwords, &ignored, p_copy_entry, p_palette_count, p_source, p_dest);
 	cycle = palette_cycle_1_ADDRESS;
-	dest = PALETTE_RAM + 0x8A60u;
-	palette_count = 9u;
-	source = stage_0a_cycle_palettes_1_ADDRESS;
+	*p_dest = PALETTE_RAM + 0x8A60u;
+	*p_palette_count = 9u;
+	*p_source = stage_0a_cycle_palettes_1_ADDRESS;
 	halfwords = 0x10u;
 	palette_cycle_1 = 5u;
 	palette_cycle_1_frames = 0xAu;
-	cycle_palette(cycle, halfwords, &copy_offset, &copy_entry, &palette_count, &source, &dest);
-	*p_copy_offset = copy_offset;
-	*p_copy_entry = copy_entry;
-	*p_palette_count = palette_count;
+	cycle_palette(cycle, halfwords, p_copy_offset, p_copy_entry, p_palette_count, p_source, p_dest);
 	*p_cycle = cycle;
-	*p_source = source;
-	*p_dest = dest;
 }
 
+/* Stage 9's palette animation: palette_cycle_0 every 3 frames through the 7 frames of
+   stage_09_cycle_palettes, 2 rows at palette RAM + 0x88A0. */
 void animate_palette_stage_09(uint32_t *p_copy_offset, uint32_t *p_copy_entry, uint32_t *p_palette_count, uint32_t *p_cycle, uint32_t *p_source, uint32_t *p_dest)
 {
-	uint32_t copy_entry = *p_copy_entry;
 	uint16_t halfwords = 0;
-	uint32_t copy_offset = 0, cycle = 0, dest = 0, palette_count = 0, source = 0;
 
-	dest = PALETTE_RAM + 0x88A0u;
-	palette_count = 2u;
-	source = stage_09_cycle_palettes_ADDRESS;
+	*p_dest = PALETTE_RAM + 0x88A0u;
+	*p_palette_count = 2u;
+	*p_source = stage_09_cycle_palettes_ADDRESS;
 	halfwords = 0x10u;
-	cycle = palette_cycle_0_ADDRESS;
+	*p_cycle = palette_cycle_0_ADDRESS;
 	palette_cycle_0 = 3u;
 	palette_cycle_0_frames = 7u;
-	cycle_palette(cycle, halfwords, &copy_offset, &copy_entry, &palette_count, &source, &dest);
-	*p_copy_offset = copy_offset;
-	*p_copy_entry = copy_entry;
-	*p_palette_count = palette_count;
-	*p_cycle = cycle;
-	*p_source = source;
-	*p_dest = dest;
+	cycle_palette(*p_cycle, halfwords, p_copy_offset, p_copy_entry, p_palette_count, p_source, p_dest);
 }
 
+/* Stage 4's palette animation: palette_cycle_0 every 4 frames through the 8 frames of
+   stage_04_cycle_palettes, each copied to 2 rows at palette RAM + 0x8500. */
 void animate_palette_stage_04(uint32_t *p_copy_offset, uint32_t *p_copy_entry, uint32_t *p_palette_count, uint32_t *p_cycle, uint32_t *p_source, uint32_t *p_dest)
 {
-	uint32_t copy_entry = *p_copy_entry;
 	uint16_t halfwords = 0;
-	uint32_t copy_offset = 0, cycle = 0, dest = 0, palette_count = 0, source = 0;
 
-	dest = PALETTE_RAM + 0x8500u;
-	palette_count = 2u;
-	source = stage_04_cycle_palettes_ADDRESS;
+	*p_dest = PALETTE_RAM + 0x8500u;
+	*p_palette_count = 2u;
+	*p_source = stage_04_cycle_palettes_ADDRESS;
 	halfwords = 0x10u;
-	cycle = palette_cycle_0_ADDRESS;
+	*p_cycle = palette_cycle_0_ADDRESS;
 	palette_cycle_0 = 4u;
 	palette_cycle_0_frames = 8u;
-	cycle_palette(cycle, halfwords, &copy_offset, &copy_entry, &palette_count, &source, &dest);
-	*p_copy_offset = copy_offset;
-	*p_copy_entry = copy_entry;
-	*p_palette_count = palette_count;
-	*p_cycle = cycle;
-	*p_source = source;
-	*p_dest = dest;
+	cycle_palette(*p_cycle, halfwords, p_copy_offset, p_copy_entry, p_palette_count, p_source, p_dest);
 }
 
+/* Steps the palette cycle whose state (delay, frame_count, frame, timer) is at cycle: every delay frames
+   it queues the next 16-colour frame from source (halfwords long, the frames 0x20 bytes apart) to the
+   palette_count rows at dest, 0x20 apart, back to the first after frame_count. */
 void cycle_palette(uint32_t cycle, uint16_t halfwords, uint32_t *p_copy_offset, uint32_t *p_copy_entry, uint32_t *p_palette_count, uint32_t *p_source, uint32_t *p_dest)
 {
 	uint32_t copy_entry = *p_copy_entry;
 	uint32_t palette_count = *p_palette_count;
-	uint32_t source = *p_source;
 	uint32_t dest = *p_dest;
 	uint32_t copy_offset = 0, frame_offset = 0;
 
 	frame_offset = (uint32_t)(uint8_t)PALETTE_CYCLE(cycle)->frame << 5;
-	source += frame_offset;
+	*p_source += frame_offset;
 	if (PALETTE_CYCLE(cycle)->timer > 0)
 	{
 		PALETTE_CYCLE(cycle)->timer--;
 		*p_copy_offset = frame_offset;
-		*p_source = source;
 		return;
 	}
 	do
 	{
 		PALETTE_CYCLE(cycle)->timer = PALETTE_CYCLE(cycle)->delay;
-		queue_vblank_copy(source, dest, halfwords, &copy_offset, &copy_entry);
+		queue_vblank_copy(*p_source, dest, halfwords, &copy_offset, &copy_entry);
 		dest += 0x20u;
 		palette_count--;
 	} while (palette_count != 0u);
@@ -506,7 +462,6 @@ void cycle_palette(uint32_t cycle, uint16_t halfwords, uint32_t *p_copy_offset, 
 		*p_copy_offset = copy_offset;
 		*p_copy_entry = copy_entry;
 		*p_palette_count = palette_count;
-		*p_source = source;
 		*p_dest = dest;
 		return;
 	}
@@ -515,10 +470,10 @@ void cycle_palette(uint32_t cycle, uint16_t halfwords, uint32_t *p_copy_offset, 
 	*p_copy_offset = copy_offset;
 	*p_copy_entry = copy_entry;
 	*p_palette_count = palette_count;
-	*p_source = source;
 	*p_dest = dest;
 }
 
+/* cycle_palette_set on the first record (palette_cycle_set = 0x209090), for update_stage_06_background. */
 uint32_t cycle_palette_set_0(uint32_t source)
 {
 	palette_cycle_set = 0x209090u;
@@ -526,6 +481,7 @@ uint32_t cycle_palette_set_0(uint32_t source)
 	return source;
 }
 
+/* cycle_palette_set on the second record (palette_cycle_set = 0x2090A0), for update_stage_06_background. */
 uint32_t cycle_palette_set_1(uint32_t source)
 {
 	palette_cycle_set = 0x2090A0u;
@@ -533,6 +489,9 @@ uint32_t cycle_palette_set_1(uint32_t source)
 	return source;
 }
 
+/* Steps the palette cycle record at palette_cycle_set (frames, dest, timer, delay, rows, frame,
+   frame_count): every delay frames it queues the next 16-colour frame of frames to each of its rows at
+   dest, 0x20 apart, back to the first after frame_count; hands back the last source. */
 uint32_t cycle_palette_set(uint32_t source)
 {
 	uint16_t halfwords = 0;
@@ -565,6 +524,7 @@ uint32_t cycle_palette_set(uint32_t source)
 	return source;
 }
 
+/* load_palette_set_and_backdrop for the current stage; hands back its tile bank bits and dest. */
 void load_stage_palette_set(uint32_t *p_tile_bank_bits, uint32_t *p_dest)
 {
 	uint32_t ignored = 0, palette_dest = 0, stage_index = 0, tile_bank_bits = 0;
@@ -575,20 +535,24 @@ void load_stage_palette_set(uint32_t *p_tile_bank_bits, uint32_t *p_dest)
 	*p_dest = palette_dest;
 }
 
+/* Loads stage_index's palettes: video_control's tile bank bit 0x400 from stage_tile_bank_bits, the
+   palette list stage_palette_sets[stage_index] (load_palette_list), backdrop control bit 0x200, and
+   backdrop_color by the current stage, not stage_index: 0x200 in stages 3 and 7, 0x6212 in 9 and 0x13,
+   else 0. Hands back the tile bank bits. */
 void load_palette_set_and_backdrop(uint32_t stage_index, uint32_t *p_tile_bank_bits, uint32_t *p_source, uint32_t *p_dest)
 {
-	uint32_t dest = 0, palette_list = 0, palette_set = 0, source = 0, tile_bank_bits = 0, tile_bank_entry = 0;
+	uint32_t palette_list = 0, palette_set = 0, tile_bank_entry = 0;
 
 	mem_write32(video_control, mem_read32(video_control) & ~0x400u);
 	tile_bank_entry = stage_tile_bank_bits_ADDRESS + stage_index;
-	tile_bank_bits = (tile_bank_entry & ~0xFFFFu) | ROM8(tile_bank_entry);
-	tile_bank_bits = (tile_bank_bits & ~0xFFFFu) | (uint16_t)(tile_bank_bits << 10);
-	mem_write16(video_control, mem_read16(video_control) | tile_bank_bits);
+	*p_tile_bank_bits = (tile_bank_entry & ~0xFFFFu) | ROM8(tile_bank_entry);
+	*p_tile_bank_bits = (*p_tile_bank_bits & ~0xFFFFu) | (uint16_t)(*p_tile_bank_bits << 10);
+	mem_write16(video_control, mem_read16(video_control) | *p_tile_bank_bits);
 	palette_set = stage_palette_sets[stage_index];
 	vblank_copies_pending = 0u;
 	vblank_copy_count = 0u;
 	palette_list = palette_set;
-	load_palette_list(palette_list, &source, &dest);
+	load_palette_list(palette_list, p_source, p_dest);
 	mem_write16(video_backdrop_control, mem_read16(video_backdrop_control) | 0x200u);
 	switch (stage)
 	{
@@ -609,34 +573,30 @@ void load_palette_set_and_backdrop(uint32_t stage_index, uint32_t *p_tile_bank_b
 	case 17:
 	case 18:
 		mem_write16(backdrop_color, 0u);
-		*p_tile_bank_bits = tile_bank_bits;
-		*p_source = source;
-		*p_dest = dest;
 		return;
 	case 3:
 	case 7:
 		mem_write16(backdrop_color, 0x200u);
-		*p_tile_bank_bits = tile_bank_bits;
-		*p_source = source;
-		*p_dest = dest;
 		return;
 	case 9:
 	case 19:
 		mem_write16(backdrop_color, 0x6212u);
-		*p_tile_bank_bits = tile_bank_bits;
-		*p_source = source;
-		*p_dest = dest;
 		return;
 	default:
 		invalid_jump(0x1B033u + stage * 3u);
 	}
 }
 
+/* Unused: backdrop_color = 0x19AA, a case of load_palette_set_and_backdrop's stage switch that no stage
+   uses. */
 void set_backdrop_color_19aa(void)
 {
 	mem_write16(backdrop_color, 0x19AAu);
 }
 
+/* Prepares a full-screen picture on NBG0: display off for 3 frames, the tile bank bit 0x400 set, the
+   tile_bank_1_palette_list palettes, only NBG0 and the text layer on (video_layer_disable 0x2E), NBG0
+   scroll 0 and pages 0. Hands back load_palette_list's dest. */
 uint32_t init_nbg0_picture_screen(void)
 {
 	uint32_t dest = 0, ignored = 0, palette_list = 0;
@@ -658,6 +618,8 @@ uint32_t init_nbg0_picture_screen(void)
 	return dest;
 }
 
+/* Unused: init_nbg0_picture_screen, then winners_dont_use_drugs_script on page 0: the "WINNERS DON'T USE
+   DRUGS" screen with the FBI seal. */
 void show_winners_dont_use_drugs_screen(void)
 {
 	uint32_t dest = 0, ignored = 0, script = 0;
@@ -667,6 +629,8 @@ void show_winners_dont_use_drugs_screen(void)
 	run_vram_script(&ignored, &script, &dest);
 }
 
+/* Unused: init_nbg0_picture_screen, then recycle_it_script on page 0: the "RECYCLE IT, DON'T TRASH IT!"
+   screen with the EPA seal. */
 void show_recycle_it_screen(void)
 {
 	uint32_t dest = 0, ignored = 0, script = 0;
@@ -676,6 +640,9 @@ void show_recycle_it_screen(void)
 	run_vram_script(&ignored, &script, &dest);
 }
 
+/* init_nbg0_picture_screen, then NBG0 on page 1 with a repeating pattern of Sonic heads
+   (sonic_head_pattern_script) and its 16 colours (nbg0_picture_palette) queued to palette RAM + 0x8BE0:
+   the background of the ranking and PLAYER SELECT screens. */
 void show_nbg0_picture(uint32_t *p_copy_entry, uint32_t *p_rows, uint32_t *p_source, uint32_t *p_dest)
 {
 	uint16_t halfwords = 0;
@@ -701,6 +668,9 @@ void show_nbg0_picture(uint32_t *p_copy_entry, uint32_t *p_rows, uint32_t *p_sou
 	*p_dest = dest;
 }
 
+/* The stage's layer mixing: the four NBG mixer registers from mixer_nbg0 on =
+   stage_layer_priorities[stage] bytes + 0x200, the low four bits of video_layer_disable from
+   stage_layer_disables, video_rowscroll_control from stage_rowscroll_settings. */
 uint32_t set_stage_layer_mixing(void)
 {
 	uint32_t count = 0, mixer_register = 0, priority_cursor = 0, stage_index = 0;
@@ -722,6 +692,8 @@ uint32_t set_stage_layer_mixing(void)
 	return count;
 }
 
+/* Puts NBG1 on pages 0xF-0x12 and clears them (four vram scripts), then sets the stage's mixer blend
+   bits: one setting for stages 9 and 0x13, one for stage 0x10, one for the rest. Hands back dest. */
 uint32_t init_nbg1_layer(uint32_t dest)
 {
 	uint32_t ignored = 0, script = 0;
@@ -775,6 +747,8 @@ uint32_t init_nbg1_layer(uint32_t dest)
 	}
 }
 
+/* NBG1 follows the camera (set_nbg1_scroll_to_camera) in stages 3, 7, 8, 9, 0xA, 0xB and 0x10; in the
+   other stages it stays put. */
 void update_nbg1_scroll(void)
 {
 	switch (stage)
@@ -845,10 +819,12 @@ void update_nbg1_scroll(void)
 	skip_nbg1_scroll();
 }
 
+/* Does nothing: update_nbg1_scroll's case for the stages whose NBG1 stays put, and its common end. */
 void skip_nbg1_scroll(void)
 {
 }
 
+/* NBG1's scroll = the camera's position in whole pixels (camera_x_pixels, camera_y_pixels). */
 void set_nbg1_scroll_to_camera(void)
 {
 	uint16_t layer_scroll_y = 0;
@@ -858,6 +834,9 @@ void set_nbg1_scroll_to_camera(void)
 	nbg1_scroll_y_int = layer_scroll_y;
 }
 
+/* Puts NBG2 on pages 0xA-0xD and clears them, then the stage's mixer blend bits; in stages 1 and 2 it
+   also fills the two row scroll tables (video RAM + 0xA800 and + 0xA000, 0x100 entries each) with a sine
+   wave and blends NBG2 (mixer_blend 0xB00), as stage 4 does without the wave. */
 uint32_t init_nbg2_layer(uint32_t dest)
 {
 	uint32_t entries_left = 0, ignored = 0, script = 0, table_entry = 0, tables_left = 0, wave_index = 0;
@@ -932,6 +911,9 @@ uint32_t init_nbg2_layer(uint32_t dest)
 	}
 }
 
+/* Scrolls NBG2 by stage: with the camera in stages 1, 2, 9, 0xA, 0x10 and 0x13,
+   set_nbg2_scroll_stages_03_07 in stages 3 and 7, set_nbg2_scroll_stage_04 in stage 4; elsewhere it
+   stays put. Hands back position, scroll_position after the stage 3 and 7 case. */
 uint32_t update_nbg2_scroll(uint32_t position)
 {
 	switch (stage)
@@ -1003,6 +985,7 @@ uint32_t update_nbg2_scroll(uint32_t position)
 	return position;
 }
 
+/* NBG2's scroll = the camera's position in whole pixels (camera_x_pixels, camera_y_pixels). */
 void set_nbg2_scroll_to_camera(void)
 {
 	uint16_t layer_scroll_y = 0;
@@ -1012,10 +995,12 @@ void set_nbg2_scroll_to_camera(void)
 	nbg2_scroll_y = layer_scroll_y;
 }
 
+/* Does nothing: update_nbg2_scroll's case for the stages whose NBG2 stays put, and its common end. */
 void skip_nbg2_scroll(void)
 {
 }
 
+/* set_nbg2_scroll_to_camera again: a second copy, for stages 1 and 2. */
 void set_nbg2_scroll_to_camera_2(void)
 {
 	uint16_t layer_scroll_y = 0;
@@ -1025,6 +1010,8 @@ void set_nbg2_scroll_to_camera_2(void)
 	nbg2_scroll_y = layer_scroll_y;
 }
 
+/* Stages 3 and 7: NBG2 on pages 0xA-0xD, scrolled with the camera, 0x10 further in x and y once
+   scroll_position reaches 0x9159; hands back scroll_position. */
 uint32_t set_nbg2_scroll_stages_03_07(void)
 {
 	uint16_t layer_scroll_y = 0;
@@ -1046,6 +1033,8 @@ uint32_t set_nbg2_scroll_stages_03_07(void)
 	return current_position;
 }
 
+/* Stage 4: NBG2 on pages 0xA-0xD, scrolled with the camera (the original adds 0x20 to x and takes it off
+   again). */
 void set_nbg2_scroll_stage_04(void)
 {
 	uint16_t layer_scroll_y = 0;
@@ -1056,6 +1045,9 @@ void set_nbg2_scroll_stage_04(void)
 	nbg2_scroll_y = layer_scroll_y;
 }
 
+/* Draws NBG3 for the stage and sets nbg3_block_map_width (stage_nbg3_widths): the default script with
+   set_nbg3_page_5_flags in stages 0-3, 5-7, 0x11 and 0x12, the stages' own scripts in 4, 8 (also 0x13),
+   0xA and 0xC-0x10, cleared pages 5-8 in 9 and 0xB; then its nbg3_pages, mostly with the scroll at 0. */
 void init_nbg3_layer(uint32_t dest)
 {
 	uint32_t ignored = 0, script = 0, stage_index = 0;
@@ -1157,6 +1149,8 @@ void init_nbg3_layer(uint32_t dest)
 	}
 }
 
+/* Unused: a case of init_nbg3_layer no stage uses: clears tile pages 0xA-0xD (as init_nbg2_layer does)
+   and puts NBG3 on them, scroll 0, then set_nbg3_page_5_flags. */
 void init_nbg3_layer_cleared_pages(uint32_t dest)
 {
 	uint32_t ignored = 0, script = 0;
@@ -1175,6 +1169,8 @@ void init_nbg3_layer_cleared_pages(uint32_t dest)
 	set_nbg3_page_5_flags(&ignored, &ignored);
 }
 
+/* Unused: NBG3 on pages 5, 5, 6, 6 (0x06060505) with scroll 0: the end of init_nbg3_layer's stage 4 case
+   again, without its scripts. */
 void set_nbg3_pages_5_6(void)
 {
 	nbg3_pages = 0x6060505u;
@@ -1182,6 +1178,8 @@ void set_nbg3_pages_5_6(void)
 	nbg3_scroll_y = 0u;
 }
 
+/* video_layer_opaque_shadow = 0xA, palette_color_4000 = 0xF70, and bit 13 (0x2000) set in the 0x400
+   cells from video RAM + 0x1400, tile pages 5 and 6. */
 void set_nbg3_page_5_flags(uint32_t *p_count, uint32_t *p_dest)
 {
 	uint32_t count = 0, dest = 0;
@@ -1200,13 +1198,14 @@ void set_nbg3_page_5_flags(uint32_t *p_count, uint32_t *p_dest)
 	*p_dest = dest;
 }
 
+/* Per-stage NBG3 parallax: half the view (y + 0x80) with select_nbg3_pages in stages 3, 5, 6, 7 and 0xA,
+   and in stage 0 until scroll_ended (then a quarter); three quarters in stages 0xC and 0xE, a quarter in
+   0x10, the camera itself in 9; the other stages leave it alone. */
 void update_nbg3_scroll(uint32_t *p_scroll_y, uint32_t *p_quadrants, uint32_t *p_speed_value, uint32_t *p_next_scroll_position, uint32_t *p_quadrant_cursor)
 {
 	uint32_t scroll_y = *p_scroll_y;
-	uint32_t quadrants = *p_quadrants;
 	uint32_t speed_value = *p_speed_value;
 	uint32_t next_scroll_position = *p_next_scroll_position;
-	uint32_t quadrant_cursor = *p_quadrant_cursor;
 	uint16_t half_view_y = 0, layer_scroll_y = 0;
 	uint32_t block_pages = 0, byte_mask = 0, shift = 0;
 
@@ -1269,18 +1268,19 @@ void update_nbg3_scroll(uint32_t *p_scroll_y, uint32_t *p_quadrants, uint32_t *p
 	nbg3_scroll_x = (int16_t)view_x >> 1;
 	nbg3_scroll_y = half_view_y;
 	nbg3_scroll_y += 0x80u;
-	select_nbg3_pages(&block_pages, &quadrants, &byte_mask, &shift, &quadrant_cursor);
+	select_nbg3_pages(&block_pages, p_quadrants, &byte_mask, &shift, p_quadrant_cursor);
 	*p_scroll_y = block_pages;
-	*p_quadrants = quadrants;
 	*p_speed_value = byte_mask;
 	*p_next_scroll_position = shift;
-	*p_quadrant_cursor = quadrant_cursor;
 }
 
+/* Sets nbg3_pages from the stage's stage_nbg3_block_maps: the pages of the 2 x 2 blocks at NBG3's scroll
+   (get_nbg3_block), each placed by nbg3_quadrant_grid at the parity of the block's column and of its row
+   x (nbg3_block_map_width - 1); the scroll is wrapped to 0x3FF, 0x1FF. */
 void select_nbg3_pages(uint32_t *p_block_pages, uint32_t *p_quadrants, uint32_t *p_byte_mask, uint32_t *p_shift, uint32_t *p_quadrant_cursor)
 {
 	uint8_t byte_shift = 0;
-	uint32_t block_column = 0, block_pages = 0, block_row = 0, byte_mask = 0, bytes_left = 0, gathered_pages = 0, gathered_quadrants = 0, map_cursor = 0, pages = 0, quadrant_cursor = 0, quadrants = 0, shift = 0, stage_index = 0;
+	uint32_t block_column = 0, block_row = 0, byte_mask = 0, bytes_left = 0, gathered_pages = 0, gathered_quadrants = 0, map_cursor = 0, pages = 0, quadrant_cursor = 0, shift = 0, stage_index = 0;
 	uint32_t next_mask = 0;
 
 	get_nbg3_block();
@@ -1308,7 +1308,7 @@ void select_nbg3_pages(uint32_t *p_block_pages, uint32_t *p_quadrants, uint32_t 
 			map_cursor = (map_cursor & ~0xFFFFu) | (uint16_t)(map_cursor + (nbg3_block_map_width - 2u));
 		bytes_left--;
 	} while (bytes_left != 0u);
-	block_pages = gathered_pages;
+	*p_block_pages = gathered_pages;
 	bytes_left = 4u;
 	byte_shift = 0u;
 	gathered_quadrants = 0u;
@@ -1321,25 +1321,25 @@ void select_nbg3_pages(uint32_t *p_block_pages, uint32_t *p_quadrants, uint32_t 
 			quadrant_cursor = (quadrant_cursor & ~0xFFFFu) | (uint16_t)(quadrant_cursor + 1u);
 		bytes_left--;
 	} while (bytes_left != 0u);
-	quadrants = gathered_quadrants;
+	*p_quadrants = gathered_quadrants;
 	byte_mask = 0xFFu;
 	shift = 0u;
 	pages = 0u;
 	do
 	{
-		pages |= shift_by(shift_by(block_pages & byte_mask, (uint8_t)shift, 32), (uint8_t)(shift_by(quadrants & byte_mask, (uint8_t)shift, 32) << 3), 32);
+		pages |= shift_by(shift_by(*p_block_pages & byte_mask, (uint8_t)shift, 32), (uint8_t)(shift_by(*p_quadrants & byte_mask, (uint8_t)shift, 32) << 3), 32);
 		next_mask = byte_mask << 8;
 		byte_mask = next_mask;
 		shift -= 8u;
 	} while (next_mask != 0u);
 	nbg3_pages = pages;
-	*p_block_pages = block_pages;
-	*p_quadrants = quadrants;
 	*p_byte_mask = byte_mask;
 	*p_shift = shift;
 	*p_quadrant_cursor = quadrant_cursor;
 }
 
+/* The NBG3 block under its scroll: nbg3_block_column = nbg3_scroll_x >> 9 (blocks of 0x200 pixels),
+   nbg3_block_row = (nbg3_scroll_y + 0x400) >> 8 (blocks of 0x100). */
 void get_nbg3_block(void)
 {
 	nbg3_block_column = nbg3_scroll_x;
@@ -1351,17 +1351,17 @@ void get_nbg3_block(void)
 	nbg3_block_row = (int16_t)nbg3_block_row >> 8;
 }
 
+/* Copies the stage's own palette: stage_palettes[stage] gives a source and a halfword count, copied to
+   palette RAM + 0xB800. */
 void load_stage_palette(uint32_t *p_palette_record, uint32_t *p_source, uint32_t *p_dest)
 {
-	uint32_t dest = 0, halfword_count = 0, palette_record = 0, source = 0;
+	uint32_t halfword_count = 0, palette_record = 0;
 
 	palette_record = stage_palettes_ADDRESS + ((uint32_t)stage << 3);
-	source = ROM32(palette_record);
+	*p_source = ROM32(palette_record);
 	palette_record += 4u;
 	halfword_count = ROM32(palette_record);
-	dest = PALETTE_RAM + 0xB800u;
-	move_halfwords(PALETTE_RAM + 0xB800u, source, halfword_count);
+	*p_dest = PALETTE_RAM + 0xB800u;
+	move_halfwords(PALETTE_RAM + 0xB800u, *p_source, halfword_count);
 	*p_palette_record = palette_record;
-	*p_source = source;
-	*p_dest = dest;
 }
