@@ -3,7 +3,7 @@ Name:        palette_census.py
 Description: finds where in the program ROM the palette of each sprite frame and each tile is, for extract_assets.py
 Version:     0.1.0
 Created:     14-10-2026
-Modified:    14-10-2026
+Modified:    15-10-2026
 Author:      Sebastian Toyos
 
 Neither the frame records nor the tiles say anything of colors: the object that draws a frame, or the
@@ -109,13 +109,20 @@ def resolve_all(items, seen, program, index):
 
 
 def write_palettes(path, what, found, guessed, digits):
+    """The census's palettes into 'path'; the 'chosen' ones the file already has (a palette picked by hand
+    where the census's is wrong: a frame shown during a flash, a neighbour's palette that does not fit) are
+    kept."""
+    chosen = json.loads(path.read_text(encoding="ascii")).get("chosen", {}) if path.exists() else {}
     path.write_text(json.dumps({
         "notes": [f"Positions only: where in the program ROM the palette of each {what} starts; "
                   "tools/palette_census.py writes it.",
                   f"'drawn': the palette the {what} was shown with in the scenarios; 'nearby': one no scenario "
-                  f"shows, given the palette of the {what} before it."],
+                  f"shows, given the palette of the {what} before it; 'chosen': picked by hand where those are "
+                  "wrong (a frame caught during a flash, a neighbour's palette that is not its own), and used "
+                  "instead of them."],
         "drawn": {f"{item:0{digits}X}": f"0x{offset:06X}" for item, offset in sorted(found.items())},
-        "nearby": {f"{item:0{digits}X}": f"0x{offset:06X}" for item, offset in sorted(guessed.items())}},
+        "nearby": {f"{item:0{digits}X}": f"0x{offset:06X}" for item, offset in sorted(guessed.items())},
+        "chosen": chosen},
         indent=1) + "\n", encoding="ascii")
     print(f"written: {path}")
 

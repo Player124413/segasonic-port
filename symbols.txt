@@ -18,136 +18,132 @@
 #   pointers=N      the table is N 32-bit addresses of such arrays
 # Sizes, offsets and counts are decimal; end and BASE are hexadecimal, like the data and addresses.
 #
-# FILE lines say where each file of src/ starts (tools/decompile.py source_files):
-#   ADDRESS  file  PATH   # what the file holds
-# the functions from ADDRESS up to the next file line go to src/PATH.c, in the order of their addresses
-# (PATH may have folders: player/hud); the comment becomes the Description of the file's header. Every
-# function must come after some file line, and no PATH may be named twice.
+# FILE lines lay the functions out in the files of src/ (tools/decompile.py source_files):
+#   ADDRESS  file  PATH   # what the stretch holds
+# the functions from ADDRESS up to the next file line go to src/PATH.c (PATH has a folder: player/states).
+# A file may take several stretches; its functions go in the order of their addresses, and the comment
+# of its first line is its description (the Description of the file's header).
 
-# ======== source files: where each file of src/ starts (decompile.source_files) ========
-# The original was built from source files laid out one after another: a run of functions on one
-# subject is one file. Where its data ends (tables after the code) or a 00 byte aligns the next
-# routine (the *_padding data lines), one of its files most likely ends.
-000000  file  system/boot                        # power-on and the frame loop: boot, run_frame, the attract screens (warning, title, ranking, demos), init_system and the set-up it calls
-000652  file  stage/game_modes                   # run_game_mode (the game modes) and start_stage; the unused stage select shortcut; the CLEARED banner of the stage clear (game mode 0x17)
-001859  file  stage/stage_frame                  # what the stage frames of run_game_mode call: layer blending, zones, the stage clear check, the player summary, stage slots and events, restart points, the player objects
-001DDD  file  engine/contact_lists                # contacts between objects: the hitter, touchable, rider, platform and wall lists and the checks that pair them (check_hits, check_platforms with the bridge sag, check_walls)
-002342  file  scenes/game_over_banner            # the GAME OVER banner (game mode 7) and the prompt that blinks over the attract demos
-0027F2  file  player/player                      # the player object: starting, joining, resetting and placing a player, and its handler player_update
-002DEC  file  player/basic_states                # player_move (the movement the basic states share) and player_animate: standing, walking, running, falling, jumping, and the player's drawing
-00380D  file  player/ledges_and_climbing         # states 5-0xA: teetering on a ledge, slipping off it, going over it, dropping, falling into a pit, climbing a wall
-004E3B  file  player/hurt_states                 # states 0xB-0x17 and 0x2E: not playing, skidding, game over, a short animation, hopping, dying, launched, hurt, bouncing
-005E24  file  player/scene_states                # states of scenes and stage events: out of the game, continue, in a zone, entering and leaving a stage, tumbling, blown away, intro and opening scenes, stunned, choosing a character, YOU FAILED, held, stuck
-007C0A  file  player/carried_states              # states where the stage moves the player: thrown, carried off, trapped, riding, the final stage, tripped, swept away, climbing an object, pulled, the floor 8 sequence; moving with the scroll
-009CEC  file  player/caught_states               # states 0x2C-0x36: held still, stuck on an object, caught, sinking, knocked off
-00A608  file  player/hud                         # the player's HUD (gauge, portrait, ring count, start prompt, messages); before it the unused stage slot mover and the skid dust
-00AD91  file  player/movement                    # the player's movement: kept on screen, the camera speeds, trackball speed and steering, turning and facing, ledges, jumps, walls, blinking
-00BE20  file  player/shadow                      # the player's shadow object (over water and quicksand too) and the attack spin effect
-00C409  file  engine/projection                  # between the map and the screen (project_object, update_screen_position), speeds from directions, the floor under an object (find_floor), the player's steps against it
-00CB15  file  player/restart_point               # the player placed at the stage's restart point and the unprojection it uses; aiming at the screen centre, the hurt flash; before them the palette steps of signs
-00CDB8  file  player/checks                      # the checks player_update and player_move run: floor types, zones, the goal, scene states, continuing and joining with credits, climbs, slip pieces, the autopilot path
-00DE4F  file  engine/animation                   # animation steps: frames, flips, moves and screen offsets per step, around an anchor, multi-part sprites
-00E149  file  player/scene_objects               # around the player: the ride of game mode 0x1C, joining with a character select, the result bonus, the climb zone splash, the intro marker, the hurt lamp, the stall check
-00E488  file  player/contacts                    # check_player_contacts: what touching each kind of object does to the player
-00EC9E  file  objects/vines                      # object types 2 and 3 (stage 4): the vines with a bar and the scroll stop that holds the players at them
-00F087  file  objects/spike_panels_and_poles     # object types 5 and 6 (stage 3): the spiked panels that flip up and the electric poles
-00F77D  file  objects/metal_wall                 # object type 0: the metal wall that rises and breaks (stage 7, the how to play demo)
-00FBE4  file  objects/flame_machine              # object types 7, 8 and 9: the machine at the end of stage 4 with its arms, cannons, flames and spiked discs, its scroll stop, its wreck
-0108D4  file  objects/treadmill_and_flame_jets   # object types 10 and 11 (stage 8): the treadmill that raises a gate and the flame jets
-0111AF  file  objects/push_crate                 # object types 12 and 13: the crate pushed to a post (stages 3 and 7), a sign from the type list
-011437  file  objects/handle_rod                 # object type 14 (stage 9): the handle rod between two posts
-0119A7  file  objects/stage_09_traps             # object types 15-18 (stage 9): the spear traps, the ice cube launcher, the padded wall
-012086  file  objects/cactus                     # object type 19 (stage A): the cactus, and the whirlwinds the tornado throws
-012309  file  objects/centipede                  # object type 20 (stage A): the centipede, its segments and sand puffs
-01274C  file  objects/crawler                    # object type 21, never spawned: the crawler
-012B24  file  objects/eggman_booth               # Eggman's booth that slides in during his speeches; object type 4 (a lone rsr)
-012C81  file  objects/walls_and_rocks            # object types 22-27: wall pieces, shaking blocks, the sand rock, snow mound and rock wall that drop rings, Eggman teleporting (never spawned)
-013637  file  objects/sand_arch                  # object type 41 (stage A): the arch of sand balls
-0138C6  file  objects/electric_fence             # object type 1 (stage 4): the electric fence posts around the flame machine
-013AAD  file  objects/mine                       # object types 29 and 30 (stage 10): the bubble column (never spawned) and the mines
-014054  file  objects/eggman_scene               # object types 31 and 32 (stage B): Eggman's scene with the button box, the sliding door
-01453E  file  objects/turtle_and_eel             # object types 33-35 (stage 10): the lid trap, the turtle, the eel
-01503C  file  objects/breakable_panel_and_props  # object types 36-40: the breakable panel (stage 3), the white puffs, the checkered pad, the static triangle, the railing
-0153F2  file  objects/spike_gate                 # object type 42 (stages C and E): the spike gate
-0156F4  file  objects/eel_den                    # object type 43 (stage 10): the eel den and its unused spawner
-01586E  file  objects/stepped_wall               # object type 44 (stage A): the stepped wall
-0158E2  file  stage/stage_view                   # init_stage_view (display, layers, block sets, camera) and the tile sets loaded around the camera
-015F3B  file  stage/scroll                       # update_scroll: the scroll modes, the screen edges the players push, the camera velocity, the background scroll; an unused debug sprite mover
-016CE3  file  stage/transitions                  # start_stage_view, stage 5's switch to stage 0, the fades to and from black or white (update_fade), stage 0's exit scene
-0175F6  file  stage/camera                       # the camera: shake, views, the move along the section path; stage 6's background in its opening scene and stage B's escape alarm flash
-01A798  file  stage/scroll_skip                  # the camera put at a start section (the demos start mid-stage) and the unused "Scroll skip mode" debug panel that jumps between sections
-01AD30  file  stage/palettes                     # the palettes animated per stage, the palette sets and the backdrop colour
-01B096  file  stage/background_layers            # the tile layers: NBG0 picture screens, the stage's layer mixing, NBG1, NBG2 and NBG3 (set-up and per-stage scroll)
-01BCC6  file  scenes/ending                      # stage 0x11, the ending: the scene set-up and the first scene (the runners, the tower, the explosions, the flash to white)
-01C82F  file  scenes/ending_credits              # the ending's credits (portraits, name plates, scrolling blocks) and after them: Eggman flying in, turning and away, the three running across
-01E37E  file  objects/rings                      # rings: the stage rows, spinning and carried rings, scattered rings, sparkles; the unused gauge ring and template spawner
-01EEC2  file  engine/object_helpers              # next_random, child shadows, the off-screen tests, allocating and deleting objects from outside the object loop
-080000  file  engine/spawn_by_handler            # spawn_objects_by_handler: starts the objects of the stage lists of handlers (stage_spawns_by_handler)
-080072  file  objects/spiked_roller              # the spiked roller (the chaser of stages 3 and E) and the stone floor blocks that crumble at the stage 3 finale
-080E75  file  objects/catapult                   # stage 4's catapults; the goal unlocker of stages B-F
-08239C  file  objects/stage_04_props             # stage 4: arrow boards, pebbles, the propped board, boulders, the door wall at the start and the rollers behind it
-082B7D  file  objects/bouncing_fireball          # stage 4's end: the fireball emitter and the bouncing fireballs
-082E82  file  objects/back_zones                 # the zones behind the chasers: spawn_chaser_back_zone and the spiked roller's back zone
-08343E  file  objects/stage_03_machine           # stage 3: the machine at 8300, its fire, the fireballs and the rising flames
-083CE8  file  objects/intro_scenes               # the scenes that start a game: stage 7's how to play (the hands on the button and the trackball, the panel), stage 6's opening (the rushing ground, the giant machine head)
-0843C0  file  objects/player_pacer               # the pacer that keeps two players together (stages 3, 4, 8)
-084558  file  objects/stage_05_cage              # stage 5: the exit door, the floor patch, the bubbles, the spiked press, the cage
-084B91  file  objects/signs                      # the signs (object_kinds): placed, shown, following; the unused screen signs and floor sign
-084E83  file  objects/spreading_flame            # stages B and C: the flames that spread ahead of the fire front
-08535E  file  objects/stage_03_end               # stage 3's end pillar; the unused exit gate and the unused target of the spiked roller's ram
-08574A  file  objects/eggman_speech              # Eggman's speech scripts (stages 3, 8, A)
-0857E5  file  objects/scenery_sprites            # the scenery sprites of stages 3, 8 and B-10
-085925  file  objects/fire_vents                 # stage 3's fire vents
-085B75  file  objects/group_leader_hold          # the hold on a group leader (stage 4 at 8B00-9500, stage 9 at 3300)
-085F80  file  objects/burning_boulders           # stage 8: the collapsing log bridge, the burning boulders, the falling embers
-086B6E  file  objects/metal_platform             # stage 8: the carriers and the seesaw (game mode 0x1A), the metal platform and the fire wall, the fire trenches
-0871C4  file  objects/lava_flow                  # stage 8's end: what the players ride and the fire under the hanging bridge (game mode 0x1C), the lava flow
-087D88  file  objects/ice                        # stage 9: the ice blocks along the edge, the moving ice platform, the crumbling ice floor
-088294  file  objects/icicles                    # stage 9: the icicle droppers, the icicles, their cracks and shadows
-0890DC  file  objects/tornado                    # stage A: the tornado, its twisters, its hazard and rear zones, the whirlwinds it throws
-089927  file  objects/quicksand                  # stage A: quicksand, sinkholes, sand patches
-089EB0  file  objects/sand_blocks                # stage A: the sand block leader, the collapsing sand blocks, the swirl around a sinking player
-08A85E  file  objects/biting_head                # the chasers of stages B, C and E: the brick wall that bursts when the chaser stops, the biting head, the fire front
-08B216  file  objects/grates_and_saws            # stages D and F: the falling grates; stages C and E: the rising saws and the grate steps they cut
-08C148  file  objects/river_rafts                # stage 10: the river's rafts and their spawners; an unused object drawn twice between clip entries
-08C6E1  file  objects/geysers                    # stage 10: the geyser front and its geysers, the waterfall and the river water, the stone blocks, the geyser lines
-08D32D  file  objects/stage_10_props             # stage 10: the propeller machine (the chaser), the barred gate, the scene anchor, the railing
-08DC36  file  engine/spawning                    # spawn_objects_by_type (the stage lists of object types) and making objects: with pieces, init_object
-08DFBD  file  engine/object_library              # what the stage objects share: moving and unprojecting, deleting off screen, positions, the nearest player, falling, explosions, dropped rings, debris
-08E8A6  file  text/sprite_strings                # strings drawn with sprites: the string queue and draw_queued_strings
-08EAC9  file  scenes/ranking                     # the ranking: entering initials at game over, loading and resetting the table, the TOP15 display
-08F998  file  scenes/character_select            # choosing a character: the PLAYER SELECT chooser at a new game, the chooser of a player joining
-090CFA  file  objects/walls                      # the walls of spawn_walls (players and objects bounce off them); an unused wall editor
-091220  file  engine/object_groups               # spawn_object_groups: rows of stage objects led by group leaders; the crumbling floor rows
-091939  file  objects/lava_rocks                 # stage 8: the rock slabs over lava, the lava columns, the slot trigger that times them
-09383A  file  objects/rope_bridge                # spawn_object_groups_2 and stage 10's rope bridge
-09460F  file  stage/events                       # the scripted game modes run_game_mode jumps into and what they spawn: platforms, rocks, lightning, message boxes, the escape countdown
-095976  file  scenes/map                         # the map screen between stages (game mode 4): the wipe, the island map, the trail, the markers, Eggman
-096E24  file  scenes/title                       # the title screen: the SEGA logo, the emblem, the land, the craft, the clouds, the sky
-0983FE  file  scenes/ring_tally                  # the ring tally after a stage (game mode 0x1D): the total and the players' panels
-098EC6  file  system/controls                    # the frame wait and the controls: read_controls, the inputs the attract demos replay
-099049  file  engine/math                        # square_root, angle_of_vector, BCD conversions
-0991B3  file  engine/object_list                 # the object list and its two pools: reset, allocate, link, delete, run_objects
-099378  file  text/font                          # the text layer's font: load_text_font, clear_text_layer, the 1-bit (and unused 2-bit) font expansion
-0994B1  file  video/registers                    # the video registers: init_video_registers, applied at VBLANK, the screen mode; block copies and fills
-0995CC  file  text/text_layer                    # printing on the text layer: print_text, erase_text, lines, fractions; the unused formatted text
-09986B  file  video/vram_scripts                 # run_vram_script and its commands; the unused eraser
-099A57  file  text/digits                        # hexadecimal and BCD digits on the text layer
-099AE7  file  video/packed_picture               # unused: a packed picture unpacked into the bitmap layer, an LZ unpacker
-099F11  file  engine/sprite_list                 # the sprites: init_sprites, the depth buckets (queue_sprite...), build_sprite_list, the buffer swap at VBLANK
-09A4A9  file  video/palette_ram                  # palette RAM: load_palette_list and its copies, queue_vblank_copy
-09A56D  file  system/sound_queue                 # the sound queue: init_sound, play_sound, queue_sound; then load_stage_palette and split_frame_count
-09A6DC  file  video/bitmap                       # the bitmap layer: clear, address, scroll, window, pixels, lines, spans, rectangles
-09B187  file  video/bitmap_shapes                # the bitmap layer, mostly unused: triangles, quadrilaterals, circles, flood fill, saved rectangles; the clipping draw_line and fill_rect use
-09C4E2  file  system/attract_modes               # system modes 0, 1 and 7: the warning screen, the idle mode, the attract timer wait
-09C5C0  file  system/eeprom                      # the 93C46 EEPROM: load_settings, saving, reading and writing words, the checksums
-09C8EC  file  test_mode/tests                    # the test mode: start, the menu, the memory test, the input test, the sound test
-09D89F  file  test_mode/settings                 # the test mode: CRT test, game and coin assignments, bookkeeping, backup clear, output test, exit; the moving seat DIP
-09F500  file  system/interrupts                  # the interrupt handlers: VBLANK start and end, sound, timers; the VBLANK copies, the sound mailbox, the frame and test switch counts
-09F6B7  file  system/coins                       # coins and credits: apply_settings, update_coins, the coin counters, saving the credits
-09F9DD  file  system/bookkeeping                 # the bookkeeping in the backup RAM: load, reset, checksums (compute_crc16), play time, games
-09FB98  file  system/credits_display             # the credits and start prompts drawn outside a game; an unused older credit pool
-09FFF0  file  system/reset_vector                # the reset vector at the end of the chip (FFFFFFF0): jmp 0
+# ======== source files: the files of src/ and the stretches of the program each takes (decompile.source_files) ========
+# The files by subject: system/, video/, engine/, stage/, player/, objects/ (one a stage), scenes/. A
+# stretch is a run of functions the original's linker laid out together; where a module of the
+# original ends (its tables after the code, or a 00 byte that aligns the next routine: the *_padding
+# data lines), a stretch ends. A routine the linker left among another subject's has its own stretch.
+000000  file  system/main              # the machine's main program: power-on and boot, the frame loop, the attract mode and the system modes, the frame wait and the controls, the interrupt handlers, the reset vector
+000652  file  stage/game_modes         # the game modes (run_game_mode) and what a stage frame runs: starting a stage, layer blending, the stage clear check, the player summary, stage slots and events, restart points, the player objects, the GAME OVER banner and the demo prompt
+0018B6  file  engine/contacts          # contacts between objects and players: the zones, the hitter, touchable, rider, platform and wall lists, and the checks that pair them
+00196E  file  stage/game_modes         # the stage clear check, the player summary, stage slots and events, restart points, the player objects
+001DDD  file  engine/contacts          # the contact lists and their checks
+002342  file  stage/game_modes         # the GAME OVER banner and the demo prompt
+0027F2  file  player/player            # the player: starting, joining, resetting and placing a player, player_update, the movement (screen edges, trackball, turning, jumps, walls), the shadow, the floor checks, the restart point, the checks of every frame, and check_player_contacts (what touching each kind of object does)
+002DEC  file  player/states            # the player's states in play: standing, walking, running, falling and jumping (player_move, player_animate), teetering on a ledge and going over it, dropping, falling into a pit, climbing a wall, skidding, hopping, dying, launched, hurt, bouncing
+005E24  file  player/scene_states      # the player's states in scenes and stage events: out of the game, continue, entering and leaving a stage, tumbling, blown away, the intro and opening scenes, stunned, choosing a character, YOU FAILED, held, stuck
+007C0A  file  player/carried_states    # the player's states while the stage carries or holds them: thrown, carried off, trapped, riding, the final stage, tripped, swept away, climbing an object, pulled, held still, stuck on an object, caught, sinking, knocked off
+00A608  file  engine/objects           # the object system: the object list and its two pools, allocating, linking and deleting objects, spawning them from the stage lists (by type, by handler, in groups led by a leader), and what the stage objects share
+00A669  file  player/effects           # around the players: the skid dust, the HUD (gauge, portrait, ring count, start prompt, messages), the ride of game mode 0x1C, joining with a character select, the result bonus, the climb zone splash, the intro marker
+00AD91  file  player/player            # the movement
+00AFB3  file  stage/camera             # the stage view, the scroll and the camera: the view set-up and the tile sets around it, the scroll modes and the screen edges the players push, the camera's speeds, shake and path along the sections, the fades between stages, the start section of the demos and the unused scroll skip panel
+00B173  file  player/player            # the movement: trackball, steering, jumps, walls; the shadow
+00C409  file  engine/geometry          # between the map and the screen: projecting objects, the floor under a point, unprojecting a screen point; square roots, angles and BCD
+00C920  file  player/player            # the player's steps against the floor and walls
+00CB15  file  objects/shared           # objects several stages use: the signs, the scenery sprites, the walls players and objects bounce off, the zones behind the chasers, the pacer that keeps two players together, the hold on a group leader; object types 4 and 13; the crawler, which nothing spawns
+00CB58  file  engine/sprites           # animation and the sprite list: animation steps (frames, flips, moves, offsets, multi-part sprites), part palette cycles, the depth buckets, build_sprite_list and the buffer swap at VBLANK
+00CBAC  file  player/player            # the player placed at the restart point
+00CC75  file  engine/geometry          # a screen point unprojected to the ground
+00CCB0  file  player/player            # aiming at the screen centre, the hurt flash, the checks of every frame
+00DE4F  file  engine/sprites           # animation steps
+00E149  file  player/effects           # the ride, the join, the bonus, the climb zone splash, the intro marker
+00E488  file  player/player            # check_player_contacts
+00EC9E  file  objects/stage_04         # stage 4's objects: the vines, the catapults, arrow boards, pebbles, the propped board, boulders, the door wall at the start and the rollers behind it, the fireball emitter and the bouncing fireballs, the electric fence and the flame machine at the end
+00F087  file  objects/stage_03         # stage 3's objects: the spiked panels and the electric poles, the crate pushed to a post, the breakable panel, the spiked roller that chases the players (also in stage E) and the floor that crumbles at the finale, the machine at 8300 with its fire and fireballs, the fire vents, the end pillar
+00F77D  file  objects/intro            # the scenes that start a game: stage 6's opening (the rushing ground, the giant machine head) and stage 7's how to play (the panel, the hands on the button and the trackball, the metal wall that rises and breaks)
+00FBE4  file  objects/stage_04         # object types 7-9: the flame machine
+0108D4  file  objects/stage_08         # stage 8's objects, the lava: the treadmill that raises a gate, the flame jets, the rock wall, the collapsing log bridge, the burning boulders and embers, the carriers and the seesaw, the metal platform and the fire wall, the fire trenches, the lava flow under the hanging bridge, the rock slabs and the lava columns
+0111AF  file  objects/stage_03         # object type 12: the pushed crate
+01140F  file  objects/shared           # object type 13: a sign from the type list
+011437  file  objects/stage_09         # stage 9's objects, the ice: the handle rod between two posts, the spear traps, the ice cube launcher, the padded wall, the snow mound, the ice blocks and the moving ice platform, the crumbling ice floor, the icicles
+012086  file  objects/stage_0a         # stage A's objects, the sand: the cactus, the centipede, the wall pieces, the shaking blocks, the sand rock, the sand arch, the stepped wall, the tornado and the whirlwinds it throws, quicksand, sinkholes, the collapsing sand blocks
+01274C  file  objects/shared           # object type 21: the crawler
+012B24  file  objects/eggman           # Eggman: his booth that slides in during his speeches, the speech scripts (stages 3, 8, A), his scene with the button box in stage B and the sliding door, his teleport (never spawned)
+012C80  file  objects/shared           # object type 4
+012C81  file  objects/stage_0a         # object types 22-24: the wall pieces, the shaking blocks, the sand rock
+012FB9  file  objects/stage_09         # object type 25: the snow mound
+013207  file  objects/stage_08         # object type 26: the rock wall
+013429  file  objects/eggman           # object type 27: Eggman's teleport
+013637  file  objects/stage_0a         # object type 41: the sand arch
+0138C6  file  objects/stage_04         # object type 1: the electric fence
+013AAD  file  objects/stage_10         # stage 10's objects, the river: the mines and the bubble column, the lid trap, the turtle, the eel and its den, the rafts, the geysers, the waterfall and the river water, the propeller machine that chases the players, the barred gate, the rope bridge
+014054  file  objects/eggman           # object types 31 and 32: Eggman's scene, the sliding door
+01453E  file  objects/stage_10         # the lid trap, the turtle, the eel
+01503C  file  objects/stage_03         # object type 36: the breakable panel
+0151DD  file  objects/stages_0b_0f     # the objects of stages B to F: the chasers (the brick wall that bursts, the biting head, the fire front) and the flames that spread ahead of it, the spike gate, the falling grates, the rising saws and the steps they cut, the puffs, the checkered pad, the static triangle, the railing
+0156F4  file  objects/stage_10         # object type 43: the eel den
+01586E  file  objects/stage_0a         # object type 44: the stepped wall
+0158E2  file  stage/camera             # the stage view, the scroll, the fades, the camera
+0178AB  file  stage/layers             # the stage's background: the palettes animated per stage, the palette sets and the backdrop, and the tilemap layers NBG0-NBG3 (pictures, mixing, per-stage scroll)
+01A6E1  file  stage/events             # the scripted game modes run_game_mode jumps into and what they spawn: platforms, rocks, lightning, message boxes, the escape alarm and countdown
+01A798  file  stage/camera             # the start section and the scroll skip panel
+01AD30  file  stage/layers             # the animated palettes and the tilemap layers
+01BCC6  file  scenes/ending            # stage 0x11, the ending: the runners, the tower and the explosions, the flash to white, the credits (portraits, name plates, scrolling blocks), Eggman flying away and the three running across
+01E37E  file  objects/rings            # rings: the stage rows, spinning, carried and scattered rings, sparkles; the unused gauge ring and template spawner
+01EEC2  file  engine/objects           # next_random, child shadows, off-screen tests, objects made outside the object loop
+080000  file  engine/objects           # spawn_objects_by_handler
+080072  file  objects/stage_03         # the spiked roller
+080E75  file  objects/stage_04         # the catapults, the props, the bouncing fireballs
+082E82  file  objects/shared           # the zones behind the chasers
+08343E  file  objects/stage_03         # the machine at 8300
+083CE8  file  objects/intro            # the opening and the how to play
+0843C0  file  objects/shared           # the player pacer
+084558  file  objects/stage_05         # stage 5's objects: the exit door, the floor patch, the bubbles, the spiked press, the cage
+084B91  file  objects/shared           # the signs
+084E83  file  objects/stages_0b_0f     # the spreading flames
+08535E  file  objects/stage_03         # the end pillar
+08574A  file  objects/eggman           # Eggman's speech scripts
+0857E5  file  objects/shared           # the scenery sprites
+085925  file  objects/stage_03         # the fire vents
+085B75  file  objects/shared           # the hold on a group leader
+085F80  file  objects/stage_08         # stage 8
+087D88  file  objects/stage_09         # stage 9
+0890DC  file  objects/stage_0a         # stage A
+08A85E  file  objects/stages_0b_0f     # stages B to F
+08C148  file  objects/stage_10         # stage 10
+08DC36  file  engine/objects           # spawning by type, making objects, what the stage objects share
+08E8A6  file  video/text               # text: the text layer's font, printing and erasing text, lines, fractions and digits, and the strings drawn with sprites
+08EAC9  file  scenes/ranking           # the ranking: entering initials at game over, loading and resetting the table, the TOP15 display
+08F998  file  scenes/character_select  # choosing a character: the PLAYER SELECT chooser at a new game and the chooser of a player joining
+090CFA  file  objects/shared           # the walls and the unused wall editor
+091220  file  engine/objects           # spawn_object_groups
+091939  file  objects/stage_08         # the rock slabs and the lava columns
+09383A  file  engine/objects           # spawn_object_groups_2
+093ADE  file  objects/stage_10         # the rope bridge
+094606  file  stage/events             # the scripted game modes
+095976  file  scenes/map               # the map screen between stages (game mode 4): the wipe, the island map, the trail, the markers, Eggman
+096E24  file  scenes/title             # the title screen: the SEGA logo, the emblem, the land, the craft, Sonic's loop, the clouds and the sky
+0983FE  file  scenes/ring_tally        # the ring tally after a stage (game mode 0x1D): the total and the players' panels
+098EC6  file  system/main              # the frame wait and the controls
+099049  file  engine/geometry          # square roots, angles, BCD
+0991B3  file  engine/objects           # the object list and its pools
+099378  file  video/text               # the font
+0994B1  file  video/video              # the board's video: the video registers and the screen mode, block copies and fills, palette RAM and its copies at VBLANK, the VRAM scripts that build the tilemaps
+0995CC  file  video/text               # printing on the text layer
+09986B  file  video/video              # the VRAM scripts
+099A57  file  video/text               # digits
+099AE7  file  video/bitmap             # the bitmap layer: clearing it, its address, scroll and window, pixels, lines, spans and rectangles; an unused packed picture decoder and LZ unpacker
+099F11  file  engine/sprites           # the sprite list
+09A4A9  file  video/video              # palette RAM
+09A56D  file  system/sound             # the sound the game asks the Z80 for: init_sound, play_sound and the sound queue
+09A5F4  file  stage/layers             # load_stage_palette
+09A621  file  system/main              # split_frame_count
+09A6DC  file  video/bitmap             # the bitmap layer
+09B187  file  video/shapes             # shapes on the bitmap layer, mostly unused: triangles, quadrilaterals, circles, flood fill, saved rectangles, and the clipping the lines and rectangles use
+09C4E2  file  system/main              # system modes 0, 1 and 7
+09C5C0  file  system/settings          # what the board keeps when it is off: the settings in the 93C46 EEPROM and the bookkeeping in the backup RAM, with their checksums
+09C8EC  file  system/test_mode         # the test mode: the menu, the memory, input and sound tests, the CRT test, the game and coin assignments, the bookkeeping screen, the backup clear, the output test, the exit
+09F500  file  system/main              # the interrupt handlers
+09F6B7  file  system/coins             # coins and credits: the coin inputs and counters, the credits and start prompts drawn outside a game
+09F9DD  file  system/settings          # the bookkeeping
+09FB98  file  system/coins             # the credits and prompts outside a game
+09FFF0  file  system/main              # the reset vector
 
 09FFF0  func  reset              # V60 reset vector (0xFFFFFFF0 on a 24-bit bus): "jmp 0"
 000000  func  boot               # SBR = 0FF000, SP = 210000, R25 = 208000, first interrupt controller setup

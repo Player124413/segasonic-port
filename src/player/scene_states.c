@@ -1,6 +1,6 @@
 /**
  *    Name:        player/scene_states.c
- *    Description: states of scenes and stage events: out of the game, continue, in a zone, entering and leaving a stage, tumbling, blown away, intro and opening scenes, stunned, choosing a character, YOU FAILED, held, stuck
+ *    Description: the player's states in scenes and stage events: out of the game, continue, entering and leaving a stage, tumbling, blown away, the intro and opening scenes, stunned, choosing a character, YOU FAILED, held, stuck
  *    Version:     0.1.0
  *    Created:     12-10-2026
  *    Modified:    15-10-2026

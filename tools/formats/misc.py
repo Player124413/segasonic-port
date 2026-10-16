@@ -5,7 +5,7 @@ Description: the formats of the program data no other family takes: texts, fonts
              screen, the players' tables and the system's (vector table, EEPROM defaults, video set-up)
 Version:     0.1.0
 Created:     14-10-2026
-Modified:    14-10-2026
+Modified:    15-10-2026
 Author:      Sebastian Toyos
 
 Each format is a pair to_text(bytes) -> text and from_text(text) -> bytes with from_text(to_text(data)) ==
@@ -790,16 +790,16 @@ SPRITE_RECORD = 8
 
 
 def sprite_frames_to_text(data):
-    lines = ["# sprite_frame_records: a frame a line, named as its PNG in assets/sprites (frame_XXXX: the record's",
-             "# offset, an object's sprite_frame): width and height in pixels, and where its graphics start in the",
-             "# sprite ROM: the bank (0-3: record word 2, bits 11 and 14) and the address in 32-bit words (20 bits:",
-             "# record word 1's top nibble, then word 3); frames.json's word is bank << 20 | address"]
+    lines = ["# sprite_frame_records: a frame a line (the record's offset is an object's sprite_frame), named by",
+             "# its sheet in assets/sprites and its index there: width and height in pixels, and where its graphics",
+             "# start in the sprite ROM: the bank (0-3: record word 2, bits 11 and 14) and the address in 32-bit",
+             "# words (20 bits: record word 1's top nibble, then word 3); a sheet's JSON gives word = bank << 20 | address"]
     count = len(data) // SPRITE_RECORD
     for index in range(count):
         width, height_word, bank_word, address_low = struct.unpack_from("<HHHH", data, index * SPRITE_RECORD)
         bank = (bank_word >> 11) & 1 | (bank_word >> 13) & 2
         address = (height_word & 0xF000) << 4 | address_low
-        line = (f"frame_{index * SPRITE_RECORD:04X}  width {width:3d}  height {height_word & 0xFF:3d}  "
+        line = (f"{frame_text(index * SPRITE_RECORD)}  width {width:3d}  height {height_word & 0xFF:3d}  "
                 f"bank {bank}  address 0x{address:05X}")
         if height_word & 0x0F00:
             line += f"  height_bits 0x{height_word & 0x0F00:04X}"

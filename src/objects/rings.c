@@ -1,6 +1,6 @@
 /**
  *    Name:        objects/rings.c
- *    Description: rings: the stage rows, spinning and carried rings, scattered rings, sparkles; the unused gauge ring and template spawner
+ *    Description: rings: the stage rows, spinning, carried and scattered rings, sparkles; the unused gauge ring and template spawner
  *    Version:     0.1.0
  *    Created:     12-10-2026
  *    Modified:    15-10-2026

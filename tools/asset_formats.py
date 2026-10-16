@@ -3,7 +3,7 @@ Name:        asset_formats.py
 Description: converters from System 32 data formats to standard files (indexed PNG, WAV), and back
 Version:     0.1.0
 Created:     11-10-2026
-Modified:    14-10-2026
+Modified:    15-10-2026
 Author:      Sebastian Toyos
 
 Formats follow MAME's segas32 driver (BSD-3-Clause):
@@ -12,9 +12,12 @@ Formats follow MAME's segas32 driver (BSD-3-Clause):
     the samples are written as 8-bit WAVs one byte for one (rf5c68_to_unsigned), so they go back exactly
   - sprites: rows of 32-bit words (big endian in the ROM image), 8 pens of 4 bits or 4 of 8 bits each, top
     bits first; a frame is a record of sprite_frame_records in the program ROM (symbols.txt): width in
-    pixels, height (low byte) and address bits 16-19 (high nibble), bank bits (0x0800, 0x4000), address
+    pixels, height (low byte) and address bits 16-19 (high nibble), bank bits (0x0800, 0x4000), address;
+    the frames are laid out in sheets (sprite_sheets.txt: an animation family or an object a sheet)
 PNGs keep the original pen numbers as palette indices, so they can be converted back losslessly.
 """
+import bisect
+import re
 import struct
 import zlib
 from pathlib import Path
@@ -323,25 +326,85 @@ def read_png_indexed(path):
     return rows, palette
 
 
+# ---- sprite sheets ----
+
+SHEET_LINE = re.compile(r"([0-9A-F]{4})\s+(sheet|row)\s+([A-Za-z0-9_/]+)\s*(?:#\s*(.*\S))?\s*$")
+SHEET_WIDTH = 1024   # pixels a row of a sheet runs to before it wraps
+SHEET_GAP = 2        # see-through pixels between frames
+SHEET_SLOTS = 8      # palettes a 4-bit sheet holds, 32 entries each: pens 0-15 drawn, then not drawn
+NOT_DRAWN = 16       # a 4-bit frame's pen p where the board does not draw it is entry slot * 32 + 16 + p
+
+
+def load_sprite_sheets(path, numbers):
+    """The sheets the map at 'path' (sprite_sheets.txt) makes of the frames 'numbers':
+    ({sheet path: {"description", "frames": [numbers in order], "rows": [[name, [numbers]]]}},
+     {frame number: (sheet path, its index in the sheet)}). A 'FRAME sheet PATH' line gives the frames from
+    FRAME up to the next sheet line to PATH (a sheet may take several stretches); a 'FRAME row NAME' line
+    starts a row there, as does every stretch; the comment of a sheet's first line is its description.
+    Frames the map leaves out are in neither."""
+    sheets_marks, rows_marks = [], {}
+    for line in Path(path).read_text(encoding="utf-8").splitlines():
+        match = SHEET_LINE.match(line)
+        if not match:
+            continue
+        frame = int(match.group(1), 16)
+        if match.group(2) == "sheet":
+            sheets_marks.append((frame, match.group(3), match.group(4) or ""))
+        else:
+            rows_marks[frame] = match.group(3)
+    sheets_marks.sort()
+    starts = [frame for frame, _, _ in sheets_marks]
+    sheets, where = {}, {}
+    for number in sorted(numbers):
+        at = bisect.bisect_right(starts, number) - 1
+        if at < 0:
+            continue
+        _, sheet_path, description = sheets_marks[at]
+        sheet = sheets.setdefault(sheet_path, {"description": description, "frames": [], "rows": []})
+        if number in rows_marks or number == starts[at] or not sheet["rows"]:
+            name = rows_marks.get(number) or (sheet["rows"][-1][0] if sheet["rows"] else sheet_path.rsplit("/", 1)[-1])
+            sheet["rows"].append([name, []])
+        sheet["rows"][-1][1].append(number)
+        where[number] = (sheet_path, len(sheet["frames"]))
+        sheet["frames"].append(number)
+    return sheets, where
+
+
+def sheet_layout(rows, sizes):
+    """Where each frame goes in its sheet, {number: (x, y)}, and the sheet's (width, height): a row's frames
+    left to right SHEET_GAP apart, wrapping at SHEET_WIDTH, the rows top to bottom."""
+    placed, width, y = {}, 1, 0
+    for _, numbers in rows:
+        x = line_height = 0
+        for number in numbers:
+            frame_width, frame_height = sizes[number]
+            if x and x + frame_width > SHEET_WIDTH:
+                y, x, line_height = y + line_height + SHEET_GAP, 0, 0
+            placed[number] = (x, y)
+            x += frame_width + SHEET_GAP
+            line_height = max(line_height, frame_height)
+            width = max(width, x - SHEET_GAP)
+        y += line_height + SHEET_GAP
+    return placed, (width, max(y - SHEET_GAP, 1))
+
+
 def build_sprite_rom(folder, size):
-    """The sprite ROM image (32-bit big-endian words, 'size' bytes) from the frames extract_assets.py wrote
-    to 'folder' (frames.json and its PNGs): each frame's pens where its graphics go, what no frame covers
-    from its strips, 0xFF everywhere else, as the chips leave it."""
+    """The sprite ROM image (32-bit big-endian words, 'size' bytes) from the sheets extract_assets.py wrote
+    to 'folder' (each NAME.png with NAME.json beside it): each frame cut from its sheet and its pens put
+    where its graphics go, 0xFF everywhere else, as the chips leave it."""
     import json
-    index = json.loads((folder / "frames.json").read_text(encoding="ascii"))
     image = bytearray(b"\xff" * size)
-    for frame in index["frames"]:
-        rows, _ = read_png_indexed(folder / frame["file"])
-        # (4-bit frames: indices 16-31 are pens 0-15 where the board does not draw them)
-        mask = (1 << frame["bits"]) - 1
-        data = pens_to_words([[pen & mask for pen in row] for row in rows], frame["bits"])
-        at = int(frame["word"], 16) * 4
-        image[at:at + len(data)] = data
-    for strip in index["leftovers"]:
-        rows, _ = read_png_indexed(folder / strip["file"])
-        data = pens_to_words(rows, 4)
-        at = int(strip["word"], 16) * 4
-        image[at:at + len(data)] = data
+    for described in sorted(folder.rglob("*.json")):
+        sheet = json.loads(described.read_text(encoding="ascii"))
+        rows, _ = read_png_indexed(described.with_suffix(".png"))
+        # a 4-bit frame's pen is index & 15 (index // 32 its palette slot, 16-31 of a slot not drawn)
+        mask = (1 << sheet["bits"]) - 1
+        for frame in sheet["frames"]:
+            x, y = frame["x"], frame["y"]
+            pens = [[pen & mask for pen in rows[y + line][x:x + frame["width"]]] for line in range(frame["height"])]
+            data = pens_to_words(pens, sheet["bits"])
+            at = int(frame["word"], 16) * 4
+            image[at:at + len(data)] = data
     return bytes(image)
 
 

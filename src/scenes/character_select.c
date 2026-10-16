@@ -1,6 +1,6 @@
 /**
  *    Name:        scenes/character_select.c
- *    Description: choosing a character: the PLAYER SELECT chooser at a new game, the chooser of a player joining
+ *    Description: choosing a character: the PLAYER SELECT chooser at a new game and the chooser of a player joining
  *    Version:     0.1.0
  *    Created:     12-10-2026
  *    Modified:    15-10-2026

@@ -27,16 +27,17 @@ decompiled game plays the scenarios of <code>tests/controls/</code>.</sub></p>
 - [x] Recursive disassembly that follows branch tables, pointer tables and stored code pointers,
       cross-checked against real execution: 541 functions, about 26,000 instructions, no invalid
       or overlapping paths, and every executed address lands on a decoded instruction
-- [x] Asset extraction into plain resources: 16 tile sheets and every sprite frame (6,138 of them) as
-      indexed PNGs in the colors the game shows them with, showing what the board draws; the program's
-      data as text, each piece in a format of its own (palettes, the scripts that build the stages' maps,
-      the characters' animations, floor blocks, object placements and spawn lists, restart points and
-      paths, texts, fonts, the demos' recorded inputs), both the data area and what the code chips hold
-      besides the code; and the sound: the driver's tables as text (instruments, FM patches as an FM
-      editor shows them, drum kits, pitch tables), the music and every sound effect and voice as a
-      Standard MIDI File that plays at the game's speed, named by where the game plays it, and the 175
-      PCM samples as WAV. Everything but the code builds back from those files byte for byte
-      (`extract_assets.py --check`)
+- [x] Asset extraction into plain resources, in folders by subject (see "The assets" below): the 6,138
+      sprite frames in 291 sheets, an animation family or an object a sheet (`sprites/sonic/walking.png`,
+      nine directions of sixteen frames), in the colors the game shows them with, showing what the board
+      draws; 16 tile sheets in color; the program's data as text, a file a subject with a section a piece,
+      each in a format of its own (palettes, the scripts that build the stages' maps, the characters'
+      animations, floor blocks, object placements and spawn lists, restart points and paths, texts, fonts,
+      the demos' recorded inputs), naming every sprite frame by its sheet (`sonic/walking[3]`); and the
+      sound: the driver's tables as text (instruments, FM patches as an FM editor shows them, drum kits,
+      pitch tables), the music and every sound effect and voice as a Standard MIDI File that plays at the
+      game's speed, named by where the game plays it, and the 175 PCM samples as WAV. Everything but the
+      code builds back from those files byte for byte (`extract_assets.py --check`)
 - [x] The game built from its assets: the build makes the game's data from `assets/` (the code, which the
       C replaces, comes from the ROM), so that what is changed there goes into the game: a sprite, a
       palette, a stage's spawn list, an instrument, a sample, a song (the songs may change length: the
@@ -243,11 +244,12 @@ assets.json             asset manifest: positions and formats, no data
 extract_assets.py       extracts assets/ from your ROM, and checks they build back into it (--check)
 sprite_palettes.json    where in the program ROM each sprite frame's palette is (positions only)
 tile_palettes.json      the same for each tile
-data_formats.json       the format of each piece of the program's data (tools/formats/), by its name
+sprite_sheets.txt       which frames make each sprite sheet, with the sheets' and their rows' names
+data_formats.json       the files of the program's data by subject, and each piece's format
+                        (tools/formats/)
 sound_formats.json      the same for the sound program's data
 src/                    the game's C, decompiled from the program (tools/decompile.py writes it), in
-                        files by subject: system/, stage/, engine/, player/, objects/, scenes/, text/,
-                        video/, test_mode/
+                        files by subject: system/, video/, engine/, stage/, player/, objects/, scenes/
 src/sound/              the sound driver's C, decompiled from the sound program
                         (tools/decompile_sound.py writes it)
 symbols.txt             names of functions, data, variables, board registers, structures and fields,
@@ -290,21 +292,73 @@ tools/reference/        MAME's V60 and Z80 cores and disassemblers, its System 3
 assets/, build/         generated on your machine (ignored by git)
 ```
 
+## The assets
+
+`python extract_assets.py` writes them from your ROM into `assets/`, by subject:
+
+```
+sprites/   the sprite frames in sheets, a PNG and a JSON each (where each frame is in the sheet and goes
+           back in the sprite ROM): sonic/, ray/, mighty/ (the players' animations: walking, running,
+           tumble, climb...), stage_03/ ... stage_10/, stages_0b_0f/ (each stage's objects), objects/,
+           effects/, hud/, text/, eggman/, intro/, title/, map/, character_select/, ranking/,
+           ring_tally/, ending/
+tiles/     the tile sheets, in color, with each tile's palette
+data/      the program's data as text, a file a subject, a section a piece: system/ (the main program,
+           the attract demos, the test mode), video/ (fonts, palettes, the frame records), engine/,
+           objects/, player/ (sonic, ray, mighty and the players' own), stages/ (each stage: its spawn
+           lists, floor blocks, restart points, palettes, tilemaps and its objects' tables), scenes/
+sound/     data/: the driver's tables (chips, tuning, instruments, commands) and music/, effects/, voices/,
+           a MIDI file each; samples/: the PCM samples, a WAV each
+```
+
+Edit them and build again: the game takes them. A piece of data keeps its size (the code reaches it at a
+fixed address), but the songs may change length, and a sprite frame is cut from its sheet by its
+rectangle. Every file says what it holds; `layout.json` and the sheets' JSON say where each piece goes.
+
 ## Reading the C
 
-The game's C lives in `src/`: `game.h` (prototypes, file by file), `ram.h` (the game's variables, tables,
-board registers and structures), `table.c` (the code the program reaches through memory slots, by
-address) and the functions in files by subject, as the original's source files were laid out one after
-another in the ROM: the cuts follow the alignment padding and the blocks of tables each module of the
-original ends with, and `symbols.txt`'s `file` lines say where each file starts and what it holds.
-`system/` (boot, the frame loop, interrupts, EEPROM, coins, bookkeeping), `stage/` (game modes, scrolling
-and the camera, palettes, background layers, scripted events), `engine/` (the object list, spawning,
-contacts, projection, animation, the sprite list), `player/` (the player's update, states, movement,
-HUD), `objects/` (the stage objects, one file a type or a family), `scenes/` (title, map, ranking,
-character select, the ring tally, the ending and its credits), `text/`, `video/` (the board's registers,
-VRAM scripts, the bitmap layer) and `test_mode/`. The sound driver's are in `src/sound/` the same way
-(`sound_symbols.txt`'s `file` lines). What the C uses besides memory is in
-`runtime/include/game/support.h`.
+The game's C lives in `src/`, in files by subject:
+
+```
+game.h  ram.h  table.c   the prototypes (file by file); the variables, tables, board registers and
+                         structures; the code the program reaches through memory slots, by address
+system/   main.c         power-on, the frame loop, the attract mode, the controls, the interrupts
+          coins.c        coins, credits and the prompts outside a game
+          settings.c     the EEPROM settings and the bookkeeping, with their checksums
+          sound.c        the sound the game asks the Z80 for
+          test_mode.c    the test mode
+video/    video.c        the video registers, palette RAM, the VRAM scripts that build the tilemaps
+          text.c         fonts and text, digits, strings drawn with sprites
+          bitmap.c       the bitmap layer
+          shapes.c       lines, circles, polygons and fills on the bitmap layer
+engine/   objects.c      the object list and pools, spawning from the stage lists, what objects share
+          contacts.c     contacts between objects and players
+          geometry.c     between the map and the screen; square roots, angles, BCD
+          sprites.c      animation and the sprite list
+stage/    game_modes.c   the game modes and what a stage frame runs
+          camera.c       the stage view, the scroll, the camera, the fades
+          layers.c       the animated palettes and the tilemap layers
+          events.c       the scripted game modes
+player/   player.c       the player's update, movement, checks and contacts
+          states.c       the states in play
+          scene_states.c the states in scenes
+          carried_states.c  the states while the stage carries or holds a player
+          effects.c      the HUD and the effects around the players
+objects/  stage_03.c ... stage_10.c, stages_0b_0f.c   each stage's objects
+          intro.c        the opening and the how to play
+          eggman.c       Eggman's booth, speeches and scene
+          rings.c        rings
+          shared.c       the objects several stages use: signs, scenery, walls, the chasers' zones
+scenes/   title.c  map.c  character_select.c  ranking.c  ring_tally.c  ending.c
+sound/    sound.h  main.c  midi.c  voices.c  sequences.c   the Z80 sound driver
+```
+
+Each file's header says what it holds. The original's linker laid the program out in modules, one after
+another; `symbols.txt`'s `file` lines give each stretch of it to its file (a stretch ends where a module
+of the original ends: its tables after the code, or a byte that aligns the next routine), so a file takes
+the stretches of its subject, such as a stage's objects from both code chips, and its functions are in the
+order of their addresses. `sound_symbols.txt` does the same for `src/sound/`. What the C uses besides
+memory is in `runtime/include/game/support.h`.
 
 - **Memory.** The game's variables are lvalues over the work RAM (`stage`, `scroll_position`), its tables
   read-only arrays over the program ROM (`stage_camera_origins_x[stage]`), and its two structures,

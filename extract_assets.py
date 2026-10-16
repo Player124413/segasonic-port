@@ -4,7 +4,7 @@ Name:        extract_assets.py
 Description: extracts the game's assets from the user's own ROM, driven by assets.json (as in n64decomp/sm64)
 Version:     0.1.0
 Created:     11-10-2026
-Modified:    14-10-2026
+Modified:    15-10-2026
 Author:      Sebastian Toyos
 
 Usage:
@@ -60,43 +60,92 @@ def sprite_palette_colors(program, offset, count):
     return colors
 
 
+SHEET_NOTES = ["Each frame goes back into the sprite ROM at 'word' (32-bit words, bank << 20 | address), cut from "
+               "the sheet at x, y (width, height in pixels); 'frame' is its number in the game (the offset of its "
+               "record in sprite_frame_records). 'rows' are the sheet's animations, by the index of their first frame.",
+               "4-bit sheets: up to 8 palettes, 32 entries each ('palettes', by slot): a pixel is slot * 32 + its pen "
+               "where the board draws it, slot * 32 + 16 + its pen where it does not (pen 0, the end code 15 at a "
+               "word's edges, what follows a word that ends with it), shown see-through. 8-bit sheets: the pixel is "
+               "the pen; pen 0 is see-through.",
+               "'palettes' are where the colours are in the program ROM; a frame's 'palette_from' says how its "
+               "palette was found: 'drawn' in the scenarios, 'nearby' (a frame no scenario draws, given its "
+               "neighbour's) or 'chosen' by hand (sprite_palettes.json)."]
+
+
 def extract_sprites(asset, sprites, program, path):
-    """Every frame of the sprite ROM as an indexed PNG with its palette, what no frame covers as small
-    PNGs of its own, and frames.json: how each one goes back into the sprite ROM."""
+    """The frames of the sprite ROM as sheets (sprite_sheets.txt): a PNG per animation family or object, in
+    folders by subject, each with a JSON beside it that says where each frame is in it and where it goes back
+    in the sprite ROM; what no frame covers as small sheets of their own."""
     frames = asset_formats.sprite_frames(program, int(asset["records"], 0), asset["count"])
+    by_number = {frame["number"]: frame for frame in frames}
     known = json.loads((ROOT / asset["palettes"]).read_text(encoding="ascii"))
     palettes = {int(number, 16): (int(offset, 0), source)
-                for source in ("drawn", "nearby") for number, offset in known[source].items()}
-    path.mkdir(parents=True, exist_ok=True)
-    index = {"notes": ["Each frame goes back into the sprite ROM at 'word' (32-bit words, bank << 20 | address); "
-                       "'bits' is 4 or 8 a pen. A 4-bit frame's PNG has 32 colors: index & 15 is the pen, and "
-                       "16-31 are the pens the board does not draw there (pen 0, the end code 15 at "
-                       "a word's edges, and what follows a word that ends with it), shown see-through.",
-                       "'palette' is where the colors come from in the program ROM ('palette_from': 'drawn' in "
-                       "the scenarios, or 'nearby': a frame no scenario draws, given its neighbour's)."],
-             "frames": [], "leftovers": []}
+                for source in ("drawn", "nearby", "chosen") for number, offset in known.get(source, {}).items()}
+    sheets, where = asset_formats.load_sprite_sheets(ROOT / asset["sheets"], list(by_number))
+    left_out = [number for number in by_number if number not in where]
+    if left_out:
+        raise SystemExit(f"{asset['sheets']}: frames in no sheet: "
+                         + ", ".join(f"{number:04X}" for number in left_out[:12]) + (" ..." if len(left_out) > 12 else ""))
+    files = 0
     covered = bytearray(len(sprites) // 4)
-    for frame in frames:
-        rows = asset_formats.sprite_pens(sprites, frame)
-        pens = 1 << frame["bits"]
-        offset, source = palettes.get(frame["number"], (None, "none"))
-        colors = sprite_palette_colors(program, offset, pens) if offset is not None \
-            else [(level * 255 // (pens - 1),) * 3 for level in range(pens)]
-        name = f"frame_{frame['number']:04X}.png"
-        if frame["bits"] == 4:
-            # 32 entries: pens 0-15 where the board draws them, then the same pens where it does not (seen
-            # through): the picture is what the game shows, and index & 15 is the pen
-            drawn = asset_formats.sprite_drawn(rows, 4)
-            rows = [[pen if shown else pen + 16 for pen, shown in zip(row, flags)] for row, flags in zip(rows, drawn)]
-            asset_formats.write_png_indexed(path / name, rows, colors + colors, 8, alphas=[255] * 16 + [0] * 16)
+    for sheet_path, sheet in sheets.items():
+        members = [by_number[number] for number in sheet["frames"]]
+        bits = {frame["bits"] for frame in members}
+        if len(bits) != 1:
+            raise SystemExit(f"{asset['sheets']}: {sheet_path} mixes 4-bit and 8-bit frames")
+        bits = bits.pop()
+        slots = list(dict.fromkeys(palettes.get(frame["number"], (None, "none"))[0] for frame in members))
+        if len(slots) > (SHEET_SLOTS_4 if bits == 4 else 1):
+            raise SystemExit(f"{asset['sheets']}: {sheet_path} has {len(slots)} palettes, more than a "
+                             f"{bits}-bit sheet holds")
+        pens = {frame["number"]: asset_formats.sprite_pens(sprites, frame) for frame in members}
+        sizes = {number: (len(rows[0]) if rows else 0, len(rows)) for number, rows in pens.items()}
+        placed, (width, height) = asset_formats.sheet_layout(sheet["rows"], sizes)
+        see_through = asset_formats.NOT_DRAWN if bits == 4 else 0
+        canvas = [[see_through] * width for _ in range(height)]
+        listing = []
+        for frame in members:
+            number = frame["number"]
+            offset, source = palettes.get(number, (None, "none"))
+            slot = slots.index(offset)
+            x, y = placed[number]
+            rows = pens[number]
+            drawn = asset_formats.sprite_drawn(rows, 4) if bits == 4 else None
+            for line, row in enumerate(rows):
+                if bits == 4:
+                    canvas[y + line][x:x + len(row)] = [slot * 32 + pen + (0 if shown else asset_formats.NOT_DRAWN)
+                                                        for pen, shown in zip(row, drawn[line])]
+                else:
+                    canvas[y + line][x:x + len(row)] = row
+            listing.append({"index": len(listing), "frame": f"{number:04X}", "x": x, "y": y,
+                            "width": sizes[number][0], "height": sizes[number][1], "word": f"{frame['word']:06X}",
+                            "slot": slot, "palette_from": source})
+            covered[frame["word"]:frame["word"] + frame["words"]] = b"\x01" * frame["words"]
+        if bits == 4:
+            colors, alphas = [], []
+            for offset in slots:
+                shades = sprite_palette_colors(program, offset, 16) if offset is not None \
+                    else [(level * 17,) * 3 for level in range(16)]
+                colors += shades + shades
+                alphas += [255] * 16 + [0] * 16
+            options = {"alphas": alphas}
         else:
-            asset_formats.write_png_indexed(path / name, rows, colors, 8, transparent=0)
-        index["frames"].append({"frame": f"{frame['number']:04X}", "file": name, "width": frame["width"],
-                                "height": frame["height"], "bits": frame["bits"], "word": f"{frame['word']:06X}",
-                                "palette": f"0x{offset:06X}" if offset is not None else None,
-                                "palette_from": source})
-        covered[frame["word"]:frame["word"] + frame["words"]] = b"\x01" * frame["words"]
-    # what no frame covers and is not empty (0xFF): kept as 8-pixel-wide 4-bit strips
+            colors = sprite_palette_colors(program, slots[0], 256) if slots[0] is not None \
+                else [(level,) * 3 for level in range(256)]
+            options = {"transparent": 0}
+        target = path / f"{sheet_path}.png"
+        target.parent.mkdir(parents=True, exist_ok=True)
+        asset_formats.write_png_indexed(target, canvas, colors, 8, **options)
+        firsts, index = [], 0
+        for name, numbers in sheet["rows"]:
+            firsts.append({"row": name, "first": index, "frames": len(numbers)})
+            index += len(numbers)
+        target.with_suffix(".json").write_text(json.dumps({
+            "sheet": sheet_path, "description": sheet["description"], "notes": SHEET_NOTES, "bits": bits,
+            "palettes": [f"0x{offset:06X}" if offset is not None else None for offset in slots],
+            "rows": firsts, "frames": listing}, indent=1) + "\n", encoding="ascii")
+        files += 2
+    # what no frame covers and is not empty (0xFF): sheets of 8-pixel-wide 4-bit strips in unused/
     word = 0
     while word < len(covered):
         if covered[word] or sprites[word * 4:word * 4 + 4] == b"\xff\xff\xff\xff":
@@ -105,13 +154,25 @@ def extract_sprites(asset, sprites, program, path):
         start = word
         while word < len(covered) and not covered[word] and sprites[word * 4:word * 4 + 4] != b"\xff\xff\xff\xff":
             word += 1
-        name = f"leftover_{start:06X}.png"
         strip = {"number": None, "width": 8, "height": word - start, "word": start, "bits": 4}
-        asset_formats.write_png_indexed(path / name, asset_formats.sprite_pens(sprites, strip),
-                                        [(level * 17,) * 3 for level in range(16)], 4)
-        index["leftovers"].append({"file": name, "word": f"{start:06X}", "words": word - start})
-    (path / "frames.json").write_text(json.dumps(index, indent=1) + "\n", encoding="ascii")
-    return len(index["frames"]) + len(index["leftovers"]) + 1
+        rows = asset_formats.sprite_pens(sprites, strip)
+        empty = all(row == [15, 0, 0, 0, 0, 0, 0, 15] for row in rows)
+        name = f"unused/{'blank' if empty else 'graphics'}_strip_{start:06X}"
+        target = path / f"{name}.png"
+        target.parent.mkdir(parents=True, exist_ok=True)
+        asset_formats.write_png_indexed(target, rows, [(level * 17,) * 3 for level in range(16)], 8)
+        target.with_suffix(".json").write_text(json.dumps({
+            "sheet": name, "description": ("rows of nothing (the end code at both edges, pen 0 between) that no "
+                                           "frame record points at" if empty else "graphics no frame record points at"),
+            "notes": ["Pens of the sprite ROM no frame covers, 8 a row: they go back at 'word' (32-bit words)."],
+            "bits": 4, "palettes": [None], "rows": [{"row": "strip", "first": 0, "frames": 1}],
+            "frames": [{"index": 0, "frame": None, "x": 0, "y": 0, "width": 8, "height": word - start,
+                        "word": f"{start:06X}", "slot": 0, "palette_from": "none"}]}, indent=1) + "\n", encoding="ascii")
+        files += 2
+    return files
+
+
+SHEET_SLOTS_4 = asset_formats.SHEET_SLOTS
 
 
 TILE_SLOTS = 16    # palettes a tile sheet's PNG holds: 16 of 16 colors
@@ -202,7 +263,9 @@ def extract(asset, data, region_of):
         start, end = asset["offset"], asset["offset"] + asset["size"]
         places = data_formats.pieces(ROOT / "symbols.txt", start, end)
         code = data_formats.v60_code(region_of("program"), ROOT / "symbols.txt", start, end)
-        return data_formats.export(data, start, places, ROOT / asset["formats"], path, code)
+        # the chips' mirrors are no data of their own: kept, as the code is
+        mirrors = [tuple(int(value, 0) for value in pair) for pair in asset.get("mirrors", [])]
+        return data_formats.export(data, start, places, ROOT / asset["formats"], path, sorted(code + mirrors))
     if kind == "sound_data":
         symbols = ROOT / asset["symbols"]
         movable = tuple(int(value, 0) for value in asset["movable"]) if "movable" in asset else None

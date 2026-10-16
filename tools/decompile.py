@@ -341,11 +341,13 @@ FILE_LINE = re.compile(r"([0-9A-F]{4,6})\s+file\s+([A-Za-z0-9_/]+)\s*(?:#\s*(.*\
 
 
 def source_files(symbols_path, entries, address_of, part_name, part_description):
-    """[(path without .c, description, entries)]: the C files the functions go to. A file line of the
-    symbols ('ADDRESS file PATH  # what it holds') starts a file: the functions from ADDRESS up to the next
-    file line go there, in the order of their addresses, as the original's linker laid out its source
-    files. Without file lines, the functions are cut into parts of FUNCTIONS_PER_FILE (part_name and
-    part_description take the part's number)."""
+    """[(path without .c, description, entries)]: the C files the functions go to, by subject. A file
+    line of the symbols ('ADDRESS file PATH  # ...') gives the functions from ADDRESS up to the next file
+    line to src/PATH.c: a stretch of the program the original's linker laid out as one piece. A file may
+    take several stretches (the objects of one stage, from both code chips); its functions go in the order
+    of their addresses, and the comment of its first line is its description (the others say what their
+    stretch holds). Without file lines, the functions are cut into parts of FUNCTIONS_PER_FILE (part_name
+    and part_description take the part's number)."""
     marks = []
     for line in Path(symbols_path).read_text(encoding="utf-8").splitlines():
         match = FILE_LINE.match(line)
@@ -357,18 +359,20 @@ def source_files(symbols_path, entries, address_of, part_name, part_description)
                  ordered[first:first + FUNCTIONS_PER_FILE])
                 for number, first in enumerate(range(0, len(ordered), FUNCTIONS_PER_FILE))]
     marks.sort()
-    paths = [path for _, path, _ in marks]
-    if len(set(paths)) != len(paths):
-        raise SystemExit(f"{Path(symbols_path).name}: a file is named by two file lines")
     starts = [address for address, _, _ in marks]
+    if len(set(starts)) != len(starts):
+        raise SystemExit(f"{Path(symbols_path).name}: two file lines at one address")
+    descriptions = {}
+    for _, path, description in marks:
+        descriptions.setdefault(path, description)
     groups = {}
     for entry in ordered:
         index = bisect.bisect_right(starts, address_of(entry)) - 1
         if index < 0:
             raise SystemExit(f"{Path(symbols_path).name}: the function at {address_of(entry):06X} comes before "
                              "the first file line")
-        groups.setdefault(index, []).append(entry)
-    return [(marks[index][1], marks[index][2], groups[index]) for index in sorted(groups)]
+        groups.setdefault(marks[index][1], []).append(entry)
+    return [(path, descriptions[path], groups[path]) for path in sorted(groups)]
 
 
 def write_sources(out_dir, files, texts, include, header=None, keep=()):

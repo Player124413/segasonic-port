@@ -1,6 +1,6 @@
 /**
  *    Name:        scenes/title.c
- *    Description: the title screen: the SEGA logo, the emblem, the land, the craft, the clouds, the sky
+ *    Description: the title screen: the SEGA logo, the emblem, the land, the craft, Sonic's loop, the clouds and the sky
  *    Version:     0.1.0
  *    Created:     12-10-2026
  *    Modified:    15-10-2026

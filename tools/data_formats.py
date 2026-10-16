@@ -1,21 +1,24 @@
 """
 Name:        data_formats.py
-Description: the program ROM's data as readable text files, and back, byte for byte
+Description: the program ROM's and the sound program's data as readable files by subject, and back, byte
+             for byte
 Version:     0.1.0
 Created:     14-10-2026
-Modified:    14-10-2026
+Modified:    15-10-2026
 Author:      Sebastian Toyos
 
 The data of the program ROM (the data area, 0x100000-0x17FFFF, and what the code chips hold besides the
 code, at 0x000000-0x01FFFF and 0x080000-0x09FFFF: the tables, palettes, scripts, level data the code
-reads) is cut where symbols.txt names a place, the code left out (the C replaces it; the build takes
-those bytes from the ROM), and each piece goes to a text file of its own in a format
-that says what it is: data_formats.json gives a piece's format by its name; a piece it does not name is
-written as 16-bit words in hex (bytes when its size is odd; a fill when it is one byte over and over),
-which goes back just as well. The sound program's chip goes the same way, cut where sound_symbols.txt
-names a place (sound_formats.json gives the formats), its code left out: the C replaces it, and the
-build takes those bytes from the ROM. Each format is a
-pair: to_text(bytes) -> text, and from_text(text) -> bytes, with from_text(to_text(data)) == data.
+reads) is cut where symbols.txt names a place into pieces, the code left out (the C replaces it; the build
+takes those bytes from the ROM). Each piece is written in a format that says what it is, and goes to the
+text file of its subject as a section (stages/stage_08.txt holds stage 8's spawn lists, palettes,
+tilemaps and its objects' tables): data_formats.json lists the files, each with its description and its
+pieces' formats. A piece no file lists goes with the one before it; one with no format is written as 16-bit
+words in hex (bytes when its size is odd), which goes back just as well; a run of one byte (padding) is
+written in layout.json. The sound program's chip goes the same way, cut where sound_symbols.txt names a
+place (sound_formats.json: the driver's tables by subject, and the music, the effects and the voices as
+MIDI files, a file each in their folders). Each format is a pair: to_text(bytes) -> text, and
+from_text(text) -> bytes, with from_text(to_text(data)) == data.
 
 The program ROM is the V60's and the sound program the Z80's: both little endian.
 """
@@ -230,13 +233,50 @@ def z80_code(chip, symbols_path):
     return [tuple(span) for span in spans]
 
 
+SECTION = re.compile(r"======== (\w+) .*========$")
+SECTION_NOTE = ["# A section a piece of the ROM, in the order of their addresses, each under its line",
+                "#   ======== NAME (ADDRESS, format) ========",
+                "# layout.json says where each piece goes back; a piece keeps its size."]
+
+
+def load_formats(formats_path):
+    """({piece name: format}, {piece name: file}, {file: description}) from a formats file: {"files": {file:
+    {"description", "pieces": {name: format or null}}}}, the pieces grouped in files by subject (a piece no file
+    lists goes with the one before it); or {"formats": {name: format}}, a file a piece."""
+    if not formats_path.exists():
+        return {}, {}, {}
+    document = json.loads(formats_path.read_text(encoding="utf-8"))
+    if "files" not in document:
+        return document.get("formats", {}), {}, {}
+    chosen, groups, descriptions = {}, {}, {}
+    for group, listing in document["files"].items():
+        descriptions[group] = listing.get("description", "")
+        for name, kind in listing["pieces"].items():
+            groups[name] = group
+            if kind:
+                chosen[name] = kind
+    return chosen, groups, descriptions
+
+
+def _wrap(text, prefix="# ", width=110):
+    lines, line = [], prefix
+    for word in text.split():
+        if len(line) + len(word) + 1 > width and line != prefix:
+            lines.append(line.rstrip())
+            line = prefix
+        line += word + " "
+    return lines + [line.rstrip()]
+
+
 def export(region, base, places, formats_path, folder, kept=(), movable=None):
-    """Every piece of 'region' (which starts at address 'base') to a file in 'folder', and layout.json, the
-    pieces in order. 'places' are [(address, name)] where pieces start (pieces() for the program ROM);
-    'kept' are (start, end) ranges the asset does not hold (code): pieces of their own that build() takes
-    from the ROM; 'movable', (start, end), a range whose pieces build() may lay out anew (see build()).
-    Returns how many files."""
-    chosen = json.loads(formats_path.read_text(encoding="ascii"))["formats"] if formats_path.exists() else {}
+    """Every piece of 'region' (which starts at address 'base') into 'folder', and layout.json, the pieces in
+    order. 'places' are [(address, name)] where pieces start (pieces() for the program ROM); 'kept' are (start,
+    end) ranges the asset does not hold (code): pieces of their own that build() takes from the ROM; 'movable',
+    (start, end), a range whose pieces build() may lay out anew (see build()). The formats file (load_formats)
+    gives each piece its format and its file: a text file by subject holds its pieces as sections; a piece
+    in a binary format is a file of its own in the folder of its subject; a run of one byte (padding) is
+    written in layout.json. Returns how many files."""
+    chosen, groups, descriptions = load_formats(formats_path)
     cuts = dict(places)
     if base not in cuts:
         cuts[base] = f"data_{base:06X}"
@@ -247,13 +287,24 @@ def export(region, base, places, formats_path, folder, kept=(), movable=None):
     inside_kept = {address for address in cuts for start, finish in kept if start < address < finish}
     ordered = sorted((address, name) for address, name in cuts.items()
                      if base <= address < base + len(region) and address not in inside_kept)
+    # the file of each piece: its own, else the one of the piece before it (the first ones: the one after)
+    group_of = [None if address in kept_starts else groups.get(name) for address, name in ordered]
+    if groups:
+        held = [index for index, (address, _) in enumerate(ordered) if address not in kept_starts]
+        for previous, index in zip([None] + held, held):
+            if group_of[index] is None and previous is not None:
+                group_of[index] = group_of[previous]
+        for following, index in zip(held[1:] + [None], held):
+            if group_of[index] is None and following is not None:
+                group_of[index] = group_of[following]
     folder.mkdir(parents=True, exist_ok=True)
-    layout = []
+    layout, sections, files = [], {}, set()
     for index, (address, name) in enumerate(ordered):
         end = ordered[index + 1][0] if index + 1 < len(ordered) else base + len(region)
         data = region[address - base:end - base]
+        entry = {"address": f"{address:06X}", "name": name, "size": len(data)}
         if address in kept_starts:
-            layout.append({"address": f"{address:06X}", "name": name, "size": len(data), "format": "kept"})
+            layout.append(dict(entry, format="kept"))
             continue
         kind = chosen.get(name)
         if kind not in FORMATS:
@@ -264,17 +315,62 @@ def export(region, base, places, formats_path, folder, kept=(), movable=None):
             kind = "bytes"
             suffix, to_text, _ = FORMATS[kind]
             text = to_text(data)
-        file_name = f"{address:06X}_{name}{suffix}"
-        if isinstance(text, bytes):
-            (folder / file_name).write_bytes(text)
+        group = group_of[index]
+        if groups and data and data.count(data[0]) == len(data) and len(data) >= FILL_RUN:
+            layout.append(dict(entry, format="fill", fill=f"{data[0]:02X} {len(data)}"))
+            continue
+        if group is None:
+            file_name = f"{address:06X}_{name}{suffix}"
+        elif isinstance(text, bytes) or any(SECTION.match(line) for line in text.split("\n")):
+            file_name = f"{group}/{name}{suffix}"
         else:
-            (folder / file_name).write_text(text, encoding="ascii")
-        layout.append({"address": f"{address:06X}", "name": name, "size": len(data), "format": kind, "file": file_name})
+            file_name = f"{group}.txt"
+            sections.setdefault(file_name, []).append((name, address, kind, text))
+            layout.append(dict(entry, format=kind, file=file_name, section=name,
+                               **({} if text.endswith("\n") else {"newline": False})))
+            continue
+        target = folder / file_name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        if isinstance(text, bytes):
+            target.write_bytes(text)
+        else:
+            target.write_text(text, encoding="ascii")
+        files.add(file_name)
+        layout.append(dict(entry, format=kind, file=file_name))
+    for file_name, members in sections.items():
+        group = file_name[:-4]
+        lines = (_wrap(f"{file_name}: {descriptions[group]}") if descriptions.get(group) else []) + SECTION_NOTE
+        for name, address, kind, text in members:
+            body = text.split("\n")
+            if text.endswith("\n"):
+                body = body[:-1]
+            lines += ["", f"======== {name} ({address:06X}, {kind}) ========"] + body
+        target = folder / file_name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text("\n".join(lines) + "\n", encoding="ascii")
+        files.add(file_name)
     document = {"base": f"{base:06X}", "pieces": layout}
     if movable:
         document["movable"] = [f"{movable[0]:06X}", f"{movable[1]:06X}"]
     (folder / "layout.json").write_text(json.dumps(document, indent=1) + "\n", encoding="ascii")
-    return len(layout) + 1
+    return len(files) + 1
+
+
+def read_sections(path):
+    """{piece name: its text} of a file of sections export() wrote."""
+    sections, name, body = {}, None, []
+    for line in path.read_text(encoding="ascii").split("\n"):
+        match = SECTION.match(line)
+        if match:
+            if name is not None:
+                sections[name] = body
+            name, body = match.group(1), []
+        elif name is not None:
+            body.append(line)
+    if name is not None:
+        sections[name] = body
+    # a blank line goes before every header, and the file ends with a newline: one blank line ends each body
+    return {name: body[:-1] if body and body[-1] == "" else body for name, body in sections.items()}
 
 
 PLACES = {}    # while build() reads the pieces: where this build lays out each one, by its name
@@ -292,15 +388,31 @@ def build(folder, size, original=None):
     pieces = layout["pieces"]
     addresses = [int(piece["address"], 16) for piece in pieces]
 
+    sections = {}
+
+    def text_of(piece):
+        path = folder / piece["file"]
+        if "section" not in piece:
+            return path.read_bytes() if is_binary(piece["format"]) else path.read_text(encoding="ascii")
+        if path not in sections:
+            sections[path] = read_sections(path)
+        if piece["section"] not in sections[path]:
+            raise ValueError(f"{piece['file']}: no section {piece['section']}")
+        body = sections[path][piece["section"]]
+        return "\n".join(body) + ("" if piece.get("newline", True) is False else "\n")
+
     def read_all():
         found = []
         for piece, address in zip(pieces, addresses):
             if piece["format"] == "kept":
                 found.append(original[address - base:address - base + piece["size"]])
                 continue
+            if "fill" in piece:
+                value, count = piece["fill"].split()
+                found.append(bytes([int(value, 16)]) * int(count))
+                continue
             _, _, from_text = FORMATS[piece["format"]][:3]
-            path = folder / piece["file"]
-            found.append(from_text(path.read_bytes() if is_binary(piece["format"]) else path.read_text(encoding="ascii")))
+            found.append(from_text(text_of(piece)))
         return found
 
     PLACES.clear()
@@ -333,7 +445,7 @@ def build(folder, size, original=None):
     for piece, data in zip(pieces, datas):
         if len(data) != piece["size"]:
             # the code reaches every piece at a fixed address: one that grows or shrinks moves the rest
-            raise ValueError(f"{piece['file']}: {len(data)} bytes, not {piece['size']}")
+            raise ValueError(f"{piece.get('file', piece['name'])}: {piece['name']} is {len(data)} bytes, not {piece['size']}")
         out += data
     if len(out) != size:
         raise ValueError(f"{folder}: the pieces make {len(out)} bytes, not {size}")

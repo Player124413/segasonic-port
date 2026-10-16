@@ -1,6 +1,6 @@
 /**
  *    Name:        stage/camera.c
- *    Description: the camera: shake, views, the move along the section path; stage 6's background in its opening scene and stage B's escape alarm flash
+ *    Description: the stage view, the scroll and the camera: the view set-up and the tile sets around it, the scroll modes and the screen edges the players push, the camera's speeds, shake and path along the sections, the fades between stages, the start section of the demos and the unused scroll skip panel
  *    Version:     0.1.0
  *    Created:     12-10-2026
  *    Modified:    15-10-2026
@@ -10,6 +10,2861 @@
  *    tools/decompile.py, with the names of symbols.txt.
  */
 #include "game.h"
+
+uint32_t compute_camera_ground_speed(uint32_t octant)
+{
+	uint16_t dy = 0;
+	uint32_t ground_angle = 0, ignored = 0, map_angle = 0, vx = 0, vy = 0;
+
+	if (camera_ground_speed_vx != (uint32_t)camera_velocity_x || camera_ground_speed_vy != (uint32_t)camera_velocity_y)
+	{
+		vx = (int32_t)camera_velocity_x >> 5;
+		vy = (int32_t)camera_velocity_y >> 4;
+		vx = vx * vx + vy * vy;
+		square_root(&vx, &ignored);
+		camera_ground_speed = (vx & 0xFFFFu) << 13;
+		ground_angle = (int32_t)camera_velocity_x >> 9;
+		dy = (uint16_t)((int32_t)camera_velocity_y >> 8);
+		angle_of_vector(dy, &ground_angle, &ignored);
+		camera_ground_direction = (ground_angle + 0x80u) & 0x3FFu;
+		map_angle = (int32_t)camera_velocity_x >> 8;
+		dy = (uint16_t)((int32_t)camera_velocity_y >> 8);
+		angle_of_vector(dy, &map_angle, &octant);
+		camera_map_direction = map_angle;
+		camera_ground_speed_vx = camera_velocity_x;
+		camera_ground_speed_vy = camera_velocity_y;
+	}
+	return octant;
+}
+
+uint32_t compute_camera_slope_speed(uint32_t octant, uint32_t slope_factor)
+{
+	uint16_t dy = 0;
+	uint32_t ignored = 0, scroll_angle = 0, slope_angle = 0, vx = 0, vy = 0;
+
+	if (((uint32_t)camera_velocity_x != 0u || (uint32_t)camera_velocity_y != 0u || camera_slope_speed == 0u) && camera_slope_factor == (uint16_t)slope_factor && camera_slope_speed_vx == (uint32_t)camera_velocity_x && camera_slope_speed_vy == (uint32_t)camera_velocity_y)
+		return octant;
+	camera_slope_factor = slope_factor;
+	if (slope_factor == 0u)
+	{
+		vx = (int32_t)camera_velocity_x >> 5;
+		vy = (int32_t)camera_velocity_y >> 4;
+		vx = vx * vx + vy * vy;
+		square_root(&vx, &ignored);
+		camera_slope_speed = (vx & 0xFFFFu) << 13;
+		slope_angle = (int32_t)camera_velocity_x >> 9;
+		dy = (uint16_t)((int32_t)camera_velocity_y >> 8);
+		angle_of_vector(dy, &slope_angle, &ignored);
+		camera_slope_direction = (slope_angle + 0x80u) & 0x3FFu;
+	}
+	else
+	{
+		if ((int32_t)slope_factor < 0)
+			slope_factor = 0u - slope_factor;
+		vy = divide_s32((uint32_t)camera_velocity_y << 11, slope_factor + 0x10000u);
+		slope_velocity_y = vy;
+		vx = (int32_t)camera_velocity_x >> 5;
+		vx = vx * vx + vy * vy;
+		square_root(&vx, &ignored);
+		camera_slope_speed = (vx & 0xFFFFu) << 13;
+		slope_angle = (int32_t)camera_velocity_x >> 5;
+		dy = (uint16_t)slope_velocity_y;
+		angle_of_vector(dy, &slope_angle, &ignored);
+		camera_slope_direction = (slope_angle + 0x80u) & 0x3FFu;
+	}
+	scroll_angle = (int32_t)camera_velocity_x >> 5;
+	dy = (uint16_t)((int32_t)camera_velocity_y >> 5);
+	angle_of_vector(dy, &scroll_angle, &octant);
+	camera_scroll_direction = scroll_angle;
+	camera_slope_speed_vx = camera_velocity_x;
+	camera_slope_speed_vy = camera_velocity_y;
+	return octant;
+}
+
+void init_stage_view(uint32_t *p_direction_y, uint32_t *p_direction_x, uint32_t *p_count, uint32_t *p_stage_offset)
+{
+	uint16_t camera_origin = 0;
+	uint32_t count = 0, dest = 0, direction_x = 0, direction_y = 0, direction_y_list = 0, ignored = 0, list = 0, sets_left = 0, stage_number = 0, table_offset = 0, tile_set = 0, tile_set_cursor = 0;
+	uint8_t io_cnt_bits = 0;
+	uint32_t unrotated_sets = 0;
+
+	io_cnt_bits = mem_read8(io_cnt);
+	mem_write8(io_cnt, io_cnt_bits & ~2u);
+	display_off_frames = 8u;
+	dest = load_default_palettes();
+	debug_sprite_x = 0x30u;
+	debug_sprite_y = 0x30u;
+	debug_sprite_spawned = 0u;
+	circle_wipe_left = 0x82u;
+	circle_wipe_right = 0xBEu;
+	circle_wipe_line = 0x32u;
+	unused_circle_wipe_byte = 0u;
+	AS8(circle_wipe_radius) = 0xAu;
+	loaded_tile_sets = 0u;
+	nbg0_pages = 0x3020100u;
+	nbg2_pages = 0xD0C0B0Au;
+	mem_write32(nbg0_page_select, 0x3020100u);
+	tile_set_cursor = stage_initial_tile_sets[stage];
+	sets_left = 4u;
+	mem_write8(video_layer_disable, mem_read8(video_layer_disable) | 0xFu);
+	fade_speed = 3u;
+	mixer_text_blend &= 0xBFFFu;
+	mixer_nbg0_blend &= 0xBFFFu;
+	mixer_nbg1_blend &= 0xBFFFu;
+	mixer_nbg2_blend &= 0xBFFFu;
+	mixer_nbg3_blend &= 0xBFFFu;
+	mixer_bitmap_blend &= 0xBFFFu;
+	mixer_sprite_control &= ~0x8000u;
+	mem_write32(video_control, mem_read32(video_control) & ~0x1000u);
+	mem_write32(video_control, mem_read32(video_control) & ~0x2000u);
+	mem_write32(video_control, mem_read32(video_control) & ~0x4000u);
+	mem_write16(nbg0_zoom_x, 0x200u);
+	mem_write16(nbg0_zoom_y, 0x200u);
+	mem_write16(nbg1_zoom_x, 0x200u);
+	mem_write16(nbg1_zoom_y, 0x200u);
+	nbg0_center_x = 0u;
+	nbg0_center_y = 0u;
+	nbg1_center_x = 0u;
+	nbg1_center_y = 0u;
+	tile_set_cursor += 0x19712u;
+	do
+	{
+		tile_set = ROM32(tile_set_cursor);
+		AS8(loaded_tile_sets) += tile_set;
+		unrotated_sets = loaded_tile_sets;
+		loaded_tile_sets = (unrotated_sets << 8) | (unrotated_sets >> 24);
+		tile_set_cursor += 4u;
+		load_tile_set(tile_set, &list, &ignored, &ignored, &dest);
+		sets_left--;
+	} while (sets_left != 0u);
+	wanted_tile_sets = loaded_tile_sets;
+	mixer_blend &= 0x1F00u;
+	switch (stage)
+	{
+	case 0:
+	case 9:
+	case 16:
+		break;
+	case 1:
+	case 2:
+	case 3:
+	case 4:
+	case 5:
+	case 6:
+	case 7:
+	case 8:
+	case 10:
+	case 11:
+	case 12:
+	case 13:
+	case 14:
+	case 15:
+	case 17:
+	case 18:
+	case 19:
+		mixer_blend = 0u;
+		break;
+	default:
+		unknown_code(0x15A33u + stage * 3u);
+	}
+	stage_06_background_step = 0u;
+	scroll_ended = 0;
+	fade_step = 0u;
+	stage_03_end_started = 0u;
+	stage_03_end_step = 0u;
+	stage_03_end_frames = 0u;
+	unused_view_word = 0u;
+	stage_00_exit_step = 0u;
+	stage_00_exit_delay = 0u;
+	stage_00_exit_timer = 0;
+	stage_00_exit_zoom = 0u;
+	color_offset_red = 0u;
+	color_offset_blue = 0u;
+	color_offset_green = 0u;
+	AS16(stage_05_switch_step) = 0u;
+	map_screen_step = 0u;
+	dest = init_nbg2_layer(dest);
+	dest = init_nbg1_layer(dest);
+	init_nbg3_layer(dest);
+	count = set_stage_layer_mixing();
+	load_stage_palette_set(&ignored, &ignored);
+	view_y = 0;
+	view_x = 0;
+	camera_x_pixels = 0u;
+	camera_y_pixels = 0u;
+	tile_set_slot = 0u;
+	camera_x = 0;
+	camera_y = 0;
+	view_x = 0;
+	view_y = 0;
+	scroll_position = 0u;
+	table_offset = stage;
+	stage_block_map_width = stage_block_map_widths[table_offset];
+	table_offset = (uint16_t)(table_offset * 2u);
+	camera_origin = ROM16(stage_camera_origins_x_ADDRESS + table_offset);
+	camera_origin_x = camera_origin;
+	camera_x += (uint32_t)camera_origin << 16;
+	camera_origin = ROM16(stage_camera_origins_y_ADDRESS + table_offset);
+	camera_origin_y = camera_origin;
+	camera_y += (uint32_t)camera_origin << 16;
+	view_offset_y = ROM16(stage_view_offsets_y_ADDRESS + table_offset);
+	view_offset_x = ROM16(stage_view_offsets_x_ADDRESS + table_offset);
+	scroll_end = ROM16(stage_scroll_ends_ADDRESS + table_offset);
+	stage_number = stage;
+	list = stage_section_speeds[stage_number] + stage_section_speeds_ADDRESS;
+	scroll_speed = ROM8(list);
+	section_speed_list = list + 1u;
+	list = stage_section_follow_speeds[stage_number] + stage_section_follow_speeds_ADDRESS;
+	follow_base_speed = ROM8(list);
+	follow_base_speed_list = list + 1u;
+	section_end_list = stage_section_ends[stage_number] + stage_section_ends_ADDRESS;
+	section_end_list += 2u;
+	section_unused_cursor = stage_section_unused[stage_number];
+	list = stage_section_limits_x[stage_number] + stage_section_limits_x_ADDRESS;
+	list = (list & ~0xFFFFu) | (uint16_t)(list + 2u);
+	section_limit_x = mem_read16(list);
+	section_limit_x_list = list + 2u;
+	list = stage_section_limits_y[stage_number] + stage_section_limits_y_ADDRESS;
+	list = (list & ~0xFFFFu) | (uint16_t)(list + 2u);
+	section_limit_y = mem_read16(list);
+	section_limit_y_list = list + 2u;
+	list = stage_scroll_modes[stage_number] + stage_scroll_modes_ADDRESS;
+	scroll_mode = ROM16(list);
+	list += 2u;
+	scroll_mode_timer = ROM16(list);
+	scroll_mode_duration = scroll_mode_timer;
+	scroll_ramp_speed = 1u;
+	scroll_mode_script = list + 2u;
+	direction_y_list = stage_section_directions_y[stage_number] + stage_section_directions_y_ADDRESS;
+	list = stage_section_directions_x[stage_number] + stage_section_directions_x_ADDRESS;
+	direction_x = (int16_t)ROM16(list);
+	direction_y = (int16_t)ROM16(direction_y_list);
+	section_direction_x = direction_x;
+	section_direction_y = direction_y;
+	section_direction_x_list = list + 2u;
+	section_direction_y_list = direction_y_list + 2u;
+	unused_scroll_flag = 0u;
+	unused_scroll_offset = -0xA;
+	nbg0_scroll_x_int = (int32_t)camera_x >> 16;
+	nbg0_scroll_y_int = (int32_t)camera_y >> 16;
+	nbg2_scroll_x = nbg0_scroll_x_int;
+	nbg1_scroll_x_int = nbg0_scroll_x_int;
+	nbg2_scroll_y = nbg0_scroll_y_int;
+	nbg1_scroll_y_int = nbg0_scroll_y_int;
+	camera_shake_phase = 0u;
+	camera_shake_step = 0u;
+	camera_shake_length = 0u;
+	camera_shake_active = 0u;
+	AS16(camera_shake_frame) = 0u;
+	back_edge_frames = 0u;
+	nearby_floor_blocks_locked = 0u;
+	scroll_skip_open = 0u;
+	*p_direction_y = direction_y;
+	*p_direction_x = direction_x;
+	*p_count = count;
+	*p_stage_offset = table_offset;
+}
+
+void update_stage_tile_layers(uint32_t *p_shifted_tile_set, uint32_t *p_copy_entry, uint32_t *p_columns_left, uint32_t *p_palette_count, uint32_t *p_stage_number, uint32_t *p_row_skip, uint32_t *p_cycle, uint32_t *p_block_cursor, uint32_t *p_dest)
+{
+	uint32_t copy_entry = *p_copy_entry;
+	uint32_t columns_left = *p_columns_left;
+	uint32_t palette_count = *p_palette_count;
+	uint32_t stage_number = *p_stage_number;
+	uint32_t row_skip = *p_row_skip;
+	uint32_t cycle = *p_cycle;
+	uint32_t block_cursor = *p_block_cursor;
+	uint32_t dest = *p_dest;
+	uint32_t r1 = 0, r2 = 0, r4 = 0, r5 = 0, r8 = 0, rows_left = 0, set_shift = 0, shifted_tile_set = 0;
+
+	animate_stage_palette(&r1, &copy_entry, &palette_count, &cycle, &block_cursor, &dest);
+	if (scroll_ended < 0)
+	{
+		*p_shifted_tile_set = r1;
+		*p_copy_entry = copy_entry;
+		*p_palette_count = palette_count;
+		*p_cycle = cycle;
+		*p_block_cursor = block_cursor;
+		*p_dest = dest;
+		return;
+	}
+	clamp_camera_pixels();
+	set_nbg0_scroll_from_camera(copy_entry);
+	stage_number = stage;
+	block_cursor = stage_block_maps[stage_number] + stage_block_maps_ADDRESS + tile_block_row + tile_block_column;
+	columns_left = 2u;
+	rows_left = 2u;
+	set_shift = 0u;
+	wanted_tile_sets = 0u;
+	for (;;)
+	{
+		shifted_tile_set = rotate_by(ROM8(block_cursor), (uint8_t)set_shift, 32);
+		wanted_tile_sets += shifted_tile_set;
+		set_shift = (uint16_t)(set_shift + 8u);
+		columns_left--;
+		block_cursor++;
+		if (columns_left != 0u)
+			continue;
+		row_skip = stage_block_map_width;
+		row_skip = (uint16_t)(row_skip - 2u);
+		block_cursor += row_skip;
+		columns_left = 2u;
+		rows_left--;
+		if (rows_left != 0u)
+			continue;
+		break;
+	}
+	if (wanted_tile_sets != loaded_tile_sets)
+	{
+		if (tile_sets_in_progress != wanted_tile_sets && (int8_t)AS8(tile_set_slot) > 1)
+			wanted_tile_sets = tile_sets_in_progress;
+		reload_changed_tile_set(&shifted_tile_set, &r2, &r4, &r5, &r8, &block_cursor, &dest);
+		clamp_camera_pixels();
+		*p_shifted_tile_set = shifted_tile_set;
+		*p_copy_entry = r2;
+		*p_columns_left = columns_left;
+		*p_palette_count = r4;
+		*p_stage_number = r5;
+		*p_row_skip = r8;
+		*p_cycle = cycle;
+		*p_block_cursor = block_cursor;
+		*p_dest = dest;
+		return;
+	}
+	tile_set_slot = 0u;
+	clamp_camera_pixels();
+	*p_shifted_tile_set = shifted_tile_set;
+	*p_copy_entry = rows_left;
+	*p_columns_left = columns_left;
+	*p_palette_count = set_shift;
+	*p_stage_number = stage_number;
+	*p_row_skip = row_skip;
+	*p_cycle = cycle;
+	*p_block_cursor = block_cursor;
+	*p_dest = dest;
+}
+
+void reload_changed_tile_set(uint32_t *p_shifted_tile_set, uint32_t *p_slots_left, uint32_t *p_r4, uint32_t *p_slot_tile_set, uint32_t *p_loaded_shift, uint32_t *p_script, uint32_t *p_dest)
+{
+	uint32_t shifted_tile_set = *p_shifted_tile_set;
+	uint32_t script = *p_script;
+	uint32_t dest = *p_dest;
+	uint8_t shift_per_slot = 0;
+	uint32_t r4 = 0, r5 = 0, r10 = 0, loaded_shift = 0, slot_tile_set = 0, slots_left = 0, wanted_tile_set = 0;
+
+	slots_left = 4u;
+	r4 = 0u;
+	shift_per_slot = 0xF8u;
+	loaded_shift = 0u;
+	if (tile_sets_in_progress != wanted_tile_sets)
+		tile_set_slot = 0u;
+	wanted_tile_set = shift_by(wanted_tile_sets, (uint8_t)((uint32_t)shift_per_slot * tile_set_slot), 32) & 0xFFu;
+	tile_set_slot++;
+	for (;;)
+	{
+		slot_tile_set = shift_by(loaded_tile_sets, (uint8_t)loaded_shift, 32) & 0xFFu;
+		if (wanted_tile_set == slot_tile_set)
+			break;
+		loaded_shift = (uint16_t)(loaded_shift - 8u);
+		slots_left--;
+		if (slots_left == 0u)
+		{
+			load_tile_set(wanted_tile_set, &shifted_tile_set, &r5, &r10, &dest);
+			*p_shifted_tile_set = shifted_tile_set;
+			*p_slots_left = slots_left;
+			*p_r4 = r4;
+			*p_slot_tile_set = r5;
+			*p_loaded_shift = loaded_shift;
+			*p_script = r10;
+			*p_dest = dest;
+			return;
+		}
+	}
+	if ((int8_t)AS8(tile_set_slot) < 4)
+	{
+		tile_sets_in_progress = wanted_tile_sets;
+		*p_slots_left = slots_left;
+		*p_r4 = r4;
+		*p_slot_tile_set = slot_tile_set;
+		*p_loaded_shift = loaded_shift;
+		return;
+	}
+	loaded_tile_sets = wanted_tile_sets;
+	tile_set_slot = 0u;
+	tile_sets_in_progress = wanted_tile_sets;
+	*p_slots_left = slots_left;
+	*p_r4 = r4;
+	*p_slot_tile_set = slot_tile_set;
+	*p_loaded_shift = loaded_shift;
+}
+
+void load_tile_set(uint32_t tile_set, uint32_t *p_count, uint32_t *p_stage_offset, uint32_t *p_script, uint32_t *p_dest)
+{
+	uint32_t count = *p_count;
+	uint32_t dest = *p_dest;
+	uint32_t script = 0, script_list = 0, stage_offset = 0;
+
+	script_list = stage_tile_sets[stage];
+	get_tile_set_list(tile_set, &stage_offset, &script_list);
+	script_list = get_tile_set_list_bank(script_list);
+	for (;;)
+	{
+		script = mem_read32(script_list);
+		script_list += 4u;
+		if ((int32_t)script < 0)
+			break;
+		script = get_tile_set_script_bank(script);
+		run_vram_script(&count, &script, &dest);
+	}
+	if ((int8_t)AS8(tile_set_slot) < 4)
+	{
+		tile_sets_in_progress = wanted_tile_sets;
+		*p_count = count;
+		*p_stage_offset = stage_offset;
+		*p_script = script;
+		*p_dest = dest;
+		return;
+	}
+	loaded_tile_sets = wanted_tile_sets;
+	tile_set_slot = 0u;
+	tile_sets_in_progress = wanted_tile_sets;
+	*p_count = count;
+	*p_stage_offset = stage_offset;
+	*p_script = script;
+	*p_dest = dest;
+}
+
+uint32_t get_tile_set_script_bank(uint32_t script)
+{
+	uint32_t stage_number = 0;
+
+	stage_number = AS8(stage);
+	switch ((uint16_t)(stage_number << 1))
+	{
+	case 0x0u:
+	case 0x2u:
+	case 0x4u:
+	case 0x22u:
+	case 0x24u:
+		return script;
+	case 0x6u:
+	case 0x8u:
+	case 0xAu:
+	case 0xCu:
+	case 0xEu:
+	case 0x10u:
+	case 0x12u:
+	case 0x14u:
+	case 0x16u:
+	case 0x18u:
+	case 0x1Au:
+	case 0x1Cu:
+	case 0x1Eu:
+	case 0x20u:
+	case 0x26u:
+		script += 0x100000u;
+		return script;
+	default:
+		unknown_code(0x15E85u + (uint16_t)(stage_number << 1));
+	}
+}
+
+uint32_t get_tile_set_list_bank(uint32_t script_list)
+{
+	uint32_t stage_number = 0;
+
+	stage_number = AS8(stage);
+	switch ((uint16_t)(stage_number << 1))
+	{
+	case 0x0u:
+	case 0x2u:
+	case 0x4u:
+	case 0x22u:
+	case 0x24u:
+		return script_list;
+	case 0x6u:
+	case 0x8u:
+	case 0xAu:
+	case 0xCu:
+	case 0xEu:
+	case 0x10u:
+	case 0x12u:
+	case 0x14u:
+	case 0x16u:
+	case 0x18u:
+	case 0x1Au:
+	case 0x1Cu:
+	case 0x1Eu:
+	case 0x20u:
+	case 0x26u:
+		script_list += 0x100000u;
+		return script_list;
+	default:
+		unknown_code(0x15EC0u + (uint16_t)(stage_number << 1));
+	}
+}
+
+void get_tile_set_list(uint32_t tile_set, uint32_t *p_stage_offset, uint32_t *p_script_list)
+{
+	uint32_t script_list = *p_script_list;
+	uint32_t stage_offset = 0;
+
+	stage_offset = AS8(stage);
+	stage_offset = (uint16_t)(stage_offset << 1);
+	switch (stage_offset)
+	{
+	case 0x0u:
+	case 0x2u:
+	case 0x4u:
+	case 0x22u:
+	case 0x24u:
+	case 0x26u:
+		script_list = mem_read16((script_list & ~0xFFFFu) | (uint16_t)(script_list + (tile_set << 1))) + blank_tile_set_lists_ADDRESS;
+		*p_stage_offset = stage_offset;
+		*p_script_list = script_list;
+		return;
+	case 0x6u:
+	case 0x8u:
+	case 0xAu:
+	case 0xCu:
+	case 0xEu:
+	case 0x10u:
+	case 0x12u:
+	case 0x14u:
+	case 0x16u:
+	case 0x18u:
+	case 0x1Au:
+	case 0x1Cu:
+	case 0x1Eu:
+	case 0x20u:
+		script_list = mem_read32(script_list + (tile_set << 2));
+		*p_stage_offset = stage_offset;
+		*p_script_list = script_list;
+		return;
+	default:
+		unknown_code(0x15EFAu + stage_offset);
+	}
+}
+
+void clamp_camera_pixels(void)
+{
+	if ((int16_t)camera_x_pixels <= 0)
+		camera_x_pixels = 0u;
+	if ((int16_t)camera_x_pixels >= 0x2000)
+		camera_x_pixels = 0x1FFFu;
+	if ((int16_t)camera_y_pixels <= 0)
+		camera_y_pixels = 0u;
+	if ((int16_t)camera_y_pixels >= 0x1000)
+		camera_y_pixels = 0xFFFu;
+}
+
+void update_scroll(uint32_t *p_position, uint32_t *p_speed, uint32_t *p_speed_value, uint32_t *p_next_scroll_position, uint32_t *p_second_player_object, uint32_t *p_third_player_object, uint32_t *p_end_script, uint32_t *p_dest)
+{
+	uint32_t position = *p_position;
+	uint32_t speed = *p_speed;
+	uint32_t speed_value = *p_speed_value;
+	uint32_t next_scroll_position = *p_next_scroll_position;
+	uint32_t second_player_object = *p_second_player_object;
+	uint32_t third_player_object = *p_third_player_object;
+	uint32_t end_script = *p_end_script;
+	uint32_t dest = *p_dest;
+	uint16_t layer_scroll_x = 0, target_heading = 0;
+	uint32_t r2 = 0, r3 = 0, r4 = 0, r5 = 0, check_result = 0, count = 0, count_2 = 0, mode_script_cursor = 0, object = 0, object_2 = 0, object_3 = 0, player = 0, player_2 = 0, player_speed = 0, push_speed = 0, script = 0, sine_entry = 0, velocity_y = 0;
+
+	if (scroll_ended < 0)
+	{
+	update_scroll_at_end:
+		scroll_ended = -1;
+		switch (stage)
+		{
+		case 0:
+		case 1:
+		case 2:
+		case 4:
+		case 5:
+		case 6:
+		case 7:
+		case 8:
+		case 9:
+		case 10:
+		case 11:
+		case 12:
+		case 13:
+		case 14:
+		case 15:
+		case 16:
+		case 17:
+		case 18:
+			*p_position = position;
+			return;
+		case 3:
+			break;
+		case 19:
+			*p_position = position;
+			return;
+		default:
+			unknown_code(0x16BE2u + stage * 3u);
+		}
+		if ((int8_t)stage_03_end_started <= 0)
+		{
+			stage_03_end_started++;
+			script = stage_03_end_script_1_ADDRESS;
+			run_vram_script(&count, &script, &dest);
+			end_script = stage_03_end_script_2_ADDRESS;
+			run_vram_script(&count, &end_script, &dest);
+			nbg0_pages = 0x2020202u;
+			scroll_mode_timer = 0x3Cu;
+			scroll_mode_duration = scroll_mode_timer;
+			scroll_mode = 4u;
+			scroll_speed = 0x19u;
+			stage_03_end_step = 0u;
+			stage_03_end_timer = 0x78;
+			stage_03_end_frames = 0u;
+		}
+		switch (stage_03_end_step)
+		{
+		case 0:
+		case 4:
+			stage_03_end_frames++;
+			scroll_speeding_up(&position, &speed, &speed_value, &next_scroll_position, &end_script, &dest);
+			if (AS8(scroll_mode) == 0u)
+			{
+				speed = (speed & ~0xFFFFu) | 0x25u;
+				scroll_speed = 0x25u;
+				stage_03_end_step++;
+			}
+			break;
+		case 1:
+			stage_03_end_frames++;
+			speed = (speed & ~0xFFFFu) | scroll_speed;
+			stage_03_end_timer--;
+			if (stage_03_end_timer <= 0)
+			{
+				camera_y = 0x10000;
+				end_script = stage_03_end_script_3_ADDRESS;
+				run_vram_script(&count, &end_script, &dest);
+				nbg0_pages = 0x2020200u;
+				stage_03_end_step++;
+				scroll_mode_timer = 5u;
+				scroll_mode_duration = scroll_mode_timer;
+				scroll_mode = 4u;
+				scroll_speed = 0x19u;
+			}
+			break;
+		case 2:
+			stage_03_end_frames++;
+			scroll_slowing_down(&position, &speed, &speed_value, &next_scroll_position, &end_script, &dest);
+			if ((int16_t)scroll_speed <= 1)
+			{
+				scroll_speed = 0u;
+				stage_03_end_step++;
+				all_players_path_request = 0x23u;
+				dest = spawn_stage_03_end_pillar(dest);
+				*p_position = position;
+				*p_speed = speed;
+				*p_speed_value = speed_value;
+				*p_next_scroll_position = next_scroll_position;
+				*p_end_script = end_script;
+				*p_dest = dest;
+				return;
+			}
+			break;
+		case 3:
+			camera_velocity_x = 0;
+			camera_velocity_y = 0;
+			*p_position = position;
+			*p_end_script = end_script;
+			*p_dest = dest;
+			return;
+		default:
+			unknown_code(0x174D2u + stage_03_end_step * 3u);
+		}
+		section_limit_y = -1;
+		section_direction_y = -0x4000;
+		section_direction_x = 0;
+		advance_camera_y(speed);
+		update_camera_view();
+		layer_scroll_x = camera_x_pixels;
+		nbg0_scroll_y_int = camera_y_pixels;
+		nbg0_scroll_x_int = layer_scroll_x;
+		nbg0_scroll_x_int &= 0x3FFu;
+		nbg0_scroll_y_int &= 0x1FFu;
+		speed_value = (uint16_t)speed;
+		velocity_y = section_direction_y * speed_value;
+		camera_velocity_x = section_direction_x * speed_value;
+		camera_velocity_y = velocity_y;
+		*p_position = velocity_y;
+		*p_speed = speed;
+		*p_speed_value = speed_value;
+		*p_next_scroll_position = next_scroll_position;
+		*p_end_script = end_script;
+		*p_dest = dest;
+		return;
+	}
+	position = scroll_position;
+	if ((int32_t)scroll_end <= (int32_t)position)
+		goto update_scroll_at_end;
+	switch (scroll_mode)
+	{
+	case 0:
+		scroll_at_scroll_speed(&position, &speed, &speed_value, &next_scroll_position, &end_script, &dest);
+		*p_position = position;
+		*p_speed = speed;
+		*p_speed_value = speed_value;
+		*p_next_scroll_position = next_scroll_position;
+		*p_second_player_object = second_player_object;
+		*p_third_player_object = third_player_object;
+		*p_end_script = end_script;
+		*p_dest = dest;
+		return;
+	case 1:
+		scroll_speed = 0u;
+		speed &= ~0xFFFFu;
+		set_camera_velocity(&r2, &speed, &r4, &next_scroll_position, &end_script, &dest);
+		*p_position = r2;
+		*p_speed = speed;
+		*p_speed_value = r4;
+		*p_next_scroll_position = next_scroll_position;
+		*p_second_player_object = second_player_object;
+		*p_third_player_object = third_player_object;
+		*p_end_script = end_script;
+		*p_dest = dest;
+		return;
+	case 2:
+		scroll_mode_timer--;
+		if (scroll_mode_timer != 0u)
+		{
+			update_camera_view();
+			speed = 0u;
+			update_camera_view();
+			set_camera_velocity(&r2, &speed, &r4, &next_scroll_position, &end_script, &dest);
+			*p_position = r2;
+			*p_speed = speed;
+			*p_speed_value = r4;
+			*p_next_scroll_position = next_scroll_position;
+			*p_second_player_object = second_player_object;
+			*p_third_player_object = third_player_object;
+			*p_end_script = end_script;
+			*p_dest = dest;
+			return;
+		}
+		if (scroll_mode != 2u)
+		{
+			scroll_mode = 0u;
+			scroll_ramp_speed = 1u;
+			update_camera_view();
+			set_camera_velocity(&r2, &speed, &r4, &next_scroll_position, &end_script, &dest);
+			*p_position = r2;
+			*p_speed = speed;
+			*p_speed_value = r4;
+			*p_next_scroll_position = next_scroll_position;
+			*p_second_player_object = second_player_object;
+			*p_third_player_object = third_player_object;
+			*p_end_script = end_script;
+			*p_dest = dest;
+			return;
+		}
+		mode_script_cursor = scroll_mode_script;
+		scroll_mode = ROM16(mode_script_cursor);
+		mode_script_cursor += 2u;
+		scroll_mode_timer = ROM16(mode_script_cursor);
+		scroll_mode_duration = scroll_mode_timer;
+		scroll_mode_script = mode_script_cursor + 2u;
+		scroll_ramp_speed = 1u;
+		set_camera_velocity(&r2, &speed, &r4, &next_scroll_position, &end_script, &dest);
+		*p_position = r2;
+		*p_speed = speed;
+		*p_speed_value = r4;
+		*p_next_scroll_position = next_scroll_position;
+		*p_second_player_object = second_player_object;
+		*p_third_player_object = third_player_object;
+		*p_end_script = end_script;
+		*p_dest = dest;
+		return;
+	case 3:
+		scroll_slowing_down(&position, &r3, &speed_value, &next_scroll_position, &end_script, &dest);
+		*p_position = position;
+		*p_speed = r3;
+		*p_speed_value = speed_value;
+		*p_next_scroll_position = next_scroll_position;
+		*p_second_player_object = second_player_object;
+		*p_third_player_object = third_player_object;
+		*p_end_script = end_script;
+		*p_dest = dest;
+		return;
+	case 4:
+		scroll_speeding_up(&position, &speed, &speed_value, &next_scroll_position, &end_script, &dest);
+		*p_position = position;
+		*p_speed = speed;
+		*p_speed_value = speed_value;
+		*p_next_scroll_position = next_scroll_position;
+		*p_second_player_object = second_player_object;
+		*p_third_player_object = third_player_object;
+		*p_end_script = end_script;
+		*p_dest = dest;
+		return;
+	case 5:
+		nearby_floor_blocks_locked = 1u;
+		mode_script_cursor = scroll_mode_script;
+		scroll_mode = ROM16(mode_script_cursor);
+		mode_script_cursor += 2u;
+		scroll_mode_timer = ROM16(mode_script_cursor);
+		scroll_mode_duration = scroll_mode_timer;
+		scroll_mode_script = mode_script_cursor + 2u;
+		scroll_ramp_speed = 1u;
+		set_camera_velocity(&r2, &speed, &r4, &next_scroll_position, &end_script, &dest);
+		*p_position = r2;
+		*p_speed = speed;
+		*p_speed_value = r4;
+		*p_next_scroll_position = next_scroll_position;
+		*p_second_player_object = second_player_object;
+		*p_third_player_object = third_player_object;
+		*p_end_script = end_script;
+		*p_dest = dest;
+		return;
+	case 6:
+		nearby_floor_blocks_locked = 0u;
+		mode_script_cursor = scroll_mode_script;
+		scroll_mode = ROM16(mode_script_cursor);
+		mode_script_cursor += 2u;
+		scroll_mode_timer = ROM16(mode_script_cursor);
+		scroll_mode_duration = scroll_mode_timer;
+		scroll_mode_script = mode_script_cursor + 2u;
+		scroll_ramp_speed = 1u;
+		set_camera_velocity(&r2, &speed, &r4, &next_scroll_position, &end_script, &dest);
+		*p_position = r2;
+		*p_speed = speed;
+		*p_speed_value = r4;
+		*p_next_scroll_position = next_scroll_position;
+		*p_second_player_object = second_player_object;
+		*p_third_player_object = third_player_object;
+		*p_end_script = end_script;
+		*p_dest = dest;
+		return;
+	case 7:
+	case 8:
+		player = PLAYER_BLOCK(1);
+		player_2 = PLAYER_BLOCK(2);
+		r14 = PLAYER_BLOCK(3);
+		object = LINKED(WORK_RAM, player_1_object);
+		object_2 = LINKED(WORK_RAM, player_2_object);
+		object_3 = LINKED(WORK_RAM, player_3_object);
+		players_pushing_edge = 0u;
+		players_facing_scroll = 0u;
+		players_in_play_bits = 0u;
+		player_past_leading_edge = 0u;
+		if ((OBJECT(object)->flags & 0x10000400u) == 0u)
+			players_in_play_bits |= 1u;
+		if ((OBJECT(object_2)->flags & 0x10000400u) == 0u)
+			players_in_play_bits |= 2u;
+		if ((OBJECT(object_3)->flags & 0x10000400u) == 0u)
+			players_in_play_bits |= 4u;
+		check_result = 0u;
+		set_screen_push_edges(check_result, &count_2, &sine_entry);
+		is_direction_in_quadrant(count_2, &check_result, &sine_entry);
+		if ((uint8_t)check_result == 0u)
+		{
+			if (player_at_trailing_edge != 0u && (int16_t)((uint32_t)ROM16(section_end_list) - scroll_position) <= 0x180)
+			{
+				if ((int8_t)back_edge_frames >= 0x40)
+					follow_base_speed = 6u;
+				else
+					back_edge_frames++;
+			}
+			push_speed = 0u;
+			push_speed &= 0xFFu;
+			push_speed = (uint16_t)(push_speed + follow_base_speed);
+			advance_scroll(&r2, &push_speed, &r4, &r5, &player, &sine_entry);
+			*p_position = r2;
+			*p_speed = push_speed;
+			*p_speed_value = r4;
+			*p_next_scroll_position = r5;
+			*p_second_player_object = object_2;
+			*p_third_player_object = object_3;
+			*p_end_script = player;
+			*p_dest = sine_entry;
+			return;
+		}
+		if ((players_in_play_bits & 1u) != 0u)
+		{
+			target_heading = PLAYER(player)->target_heading;
+			check_result = is_player_facing_scroll(check_result, target_heading, (uint16_t)sine_entry);
+			if ((uint8_t)check_result != 0u)
+				players_facing_scroll |= 1u;
+		}
+		if ((players_in_play_bits & 2u) != 0u)
+		{
+			target_heading = PLAYER(player_2)->target_heading;
+			check_result = is_player_facing_scroll(check_result, target_heading, (uint16_t)sine_entry);
+			if ((uint8_t)check_result != 0u)
+				players_facing_scroll |= 2u;
+		}
+		if ((players_in_play_bits & 4u) != 0u)
+		{
+			target_heading = PLAYER(r14)->target_heading;
+			check_result = is_player_facing_scroll(check_result, target_heading, (uint16_t)sine_entry);
+			if ((uint8_t)check_result != 0u)
+				players_facing_scroll |= 4u;
+		}
+		player_at_trailing_edge = 0u;
+		if ((OBJECT(object)->flags & 0x400u) == 0u)
+		{
+			check_result = is_player_pushing_edge(check_result, object);
+			if ((uint8_t)check_result != 0u)
+				players_pushing_edge |= 1u;
+		}
+		if ((OBJECT(object_2)->flags & 0x400u) == 0u)
+		{
+			object = object_2;
+			check_result = is_player_pushing_edge(check_result, object);
+			if ((uint8_t)check_result != 0u)
+				players_pushing_edge |= 2u;
+		}
+		if ((OBJECT(object_3)->flags & 0x400u) == 0u)
+		{
+			object = object_3;
+			check_result = is_player_pushing_edge(check_result, object);
+			if ((uint8_t)check_result != 0u)
+				players_pushing_edge |= 4u;
+		}
+		if (players_pushing_edge == 0u || (int8_t)players_pushing_edge > 7 || player_at_trailing_edge != 0u)
+		{
+			if (player_at_trailing_edge != 0u && (int16_t)((uint32_t)ROM16(section_end_list) - scroll_position) <= 0x180)
+			{
+				if ((int8_t)back_edge_frames >= 0x40)
+					follow_base_speed = 6u;
+				else
+					back_edge_frames++;
+			}
+			push_speed = 0u;
+			push_speed &= 0xFFu;
+			push_speed = (uint16_t)(push_speed + follow_base_speed);
+			advance_scroll(&r2, &push_speed, &r4, &r5, &player, &sine_entry);
+			*p_position = r2;
+			*p_speed = push_speed;
+			*p_speed_value = r4;
+			*p_next_scroll_position = r5;
+			*p_second_player_object = object_2;
+			*p_third_player_object = object_3;
+			*p_end_script = player;
+			*p_dest = sine_entry;
+			return;
+		}
+		players_pushing_edge &= players_facing_scroll;
+		players_pushing_edge &= players_in_play_bits;
+		object = LINKED(object, PLAYER(player)->object);
+		switch (players_pushing_edge)
+		{
+		case 0:
+		case 8:
+			if (players_facing_scroll != 0u || player_past_leading_edge == 0u)
+			{
+				speed = 5u;
+				speed = (uint16_t)(speed + follow_base_speed);
+				advance_scroll(&r2, &speed, &r4, &r5, &player, &sine_entry);
+				*p_position = r2;
+				*p_speed = speed;
+				*p_speed_value = r4;
+				*p_next_scroll_position = r5;
+				*p_second_player_object = object_2;
+				*p_third_player_object = object_3;
+				*p_end_script = player;
+				*p_dest = sine_entry;
+				return;
+			}
+			speed = 5u;
+			speed = (uint16_t)(speed + follow_base_speed);
+			advance_scroll(&r2, &speed, &r4, &r5, &player, &sine_entry);
+			*p_position = r2;
+			*p_speed = speed;
+			*p_speed_value = r4;
+			*p_next_scroll_position = r5;
+			*p_second_player_object = object_2;
+			*p_third_player_object = object_3;
+			*p_end_script = player;
+			*p_dest = sine_entry;
+			return;
+		case 1:
+		case 9:
+			player_speed = (int32_t)OBJECT(object)->speed >> 16;
+			if ((int32_t)player_speed > 0x500 || (int32_t)player_speed < 0)
+			{
+				speed = 5u;
+				speed = (uint16_t)(speed + follow_base_speed);
+				advance_scroll(&r2, &speed, &r4, &r5, &player, &sine_entry);
+				*p_position = r2;
+				*p_speed = speed;
+				*p_speed_value = r4;
+				*p_next_scroll_position = r5;
+				*p_second_player_object = object_2;
+				*p_third_player_object = object_3;
+				*p_end_script = player;
+				*p_dest = sine_entry;
+				return;
+			}
+			push_speed = ((uint16_t)player_speed * 0x400u) >> 16;
+			if (player_past_leading_edge == 0u)
+			{
+				push_speed &= 0xFFu;
+				push_speed = (uint16_t)(push_speed + follow_base_speed);
+				advance_scroll(&r2, &push_speed, &r4, &r5, &player, &sine_entry);
+				*p_position = r2;
+				*p_speed = push_speed;
+				*p_speed_value = r4;
+				*p_next_scroll_position = r5;
+				*p_second_player_object = object_2;
+				*p_third_player_object = object_3;
+				*p_end_script = player;
+				*p_dest = sine_entry;
+				return;
+			}
+			push_speed = (push_speed & 0xFFu) + 5u;
+			push_speed &= 0xFFu;
+			push_speed = (uint16_t)(push_speed + follow_base_speed);
+			advance_scroll(&r2, &push_speed, &r4, &r5, &player, &sine_entry);
+			*p_position = r2;
+			*p_speed = push_speed;
+			*p_speed_value = r4;
+			*p_next_scroll_position = r5;
+			*p_second_player_object = object_2;
+			*p_third_player_object = object_3;
+			*p_end_script = player;
+			*p_dest = sine_entry;
+			return;
+		case 2:
+		case 10:
+			object = LINKED(object, PLAYER(player_2)->object);
+			player_speed = (int32_t)OBJECT(object)->speed >> 16;
+			if ((int32_t)player_speed > 0x500 || (int32_t)player_speed < 0)
+			{
+				speed = 5u;
+				speed = (uint16_t)(speed + follow_base_speed);
+				advance_scroll(&r2, &speed, &r4, &r5, &player, &sine_entry);
+				*p_position = r2;
+				*p_speed = speed;
+				*p_speed_value = r4;
+				*p_next_scroll_position = r5;
+				*p_second_player_object = object_2;
+				*p_third_player_object = object_3;
+				*p_end_script = player;
+				*p_dest = sine_entry;
+				return;
+			}
+			push_speed = ((uint16_t)player_speed * 0x400u) >> 16;
+			if (player_past_leading_edge != 0u)
+				push_speed = (push_speed & 0xFFu) + 5u;
+			push_speed &= 0xFFu;
+			push_speed = (uint16_t)(push_speed + follow_base_speed);
+			advance_scroll(&r2, &push_speed, &r4, &r5, &player, &sine_entry);
+			*p_position = r2;
+			*p_speed = push_speed;
+			*p_speed_value = r4;
+			*p_next_scroll_position = r5;
+			*p_second_player_object = object_2;
+			*p_third_player_object = object_3;
+			*p_end_script = player;
+			*p_dest = sine_entry;
+			return;
+		case 3:
+			if (OBJECT(object_2)->speed < OBJECT(object)->speed)
+			{
+				player_speed = (int32_t)OBJECT(object)->speed >> 16;
+				if ((int32_t)player_speed > 0x500 || (int32_t)player_speed < 0)
+				{
+					speed = 5u;
+					speed = (uint16_t)(speed + follow_base_speed);
+					advance_scroll(&r2, &speed, &r4, &r5, &player, &sine_entry);
+					*p_position = r2;
+					*p_speed = speed;
+					*p_speed_value = r4;
+					*p_next_scroll_position = r5;
+					*p_second_player_object = object_2;
+					*p_third_player_object = object_3;
+					*p_end_script = player;
+					*p_dest = sine_entry;
+					return;
+				}
+				push_speed = ((uint16_t)player_speed * 0x400u) >> 16;
+				if (player_past_leading_edge != 0u)
+					push_speed = (push_speed & 0xFFu) + 5u;
+				push_speed &= 0xFFu;
+				push_speed = (uint16_t)(push_speed + follow_base_speed);
+				advance_scroll(&r2, &push_speed, &r4, &r5, &player, &sine_entry);
+				*p_position = r2;
+				*p_speed = push_speed;
+				*p_speed_value = r4;
+				*p_next_scroll_position = r5;
+				*p_second_player_object = object_2;
+				*p_third_player_object = object_3;
+				*p_end_script = player;
+				*p_dest = sine_entry;
+				return;
+			}
+			object = object_2;
+			player_speed = (int32_t)OBJECT(object)->speed >> 16;
+			if ((int32_t)player_speed > 0x500 || (int32_t)player_speed < 0)
+			{
+				speed = 5u;
+				speed = (uint16_t)(speed + follow_base_speed);
+				advance_scroll(&r2, &speed, &r4, &r5, &player, &sine_entry);
+				*p_position = r2;
+				*p_speed = speed;
+				*p_speed_value = r4;
+				*p_next_scroll_position = r5;
+				*p_second_player_object = object_2;
+				*p_third_player_object = object_3;
+				*p_end_script = player;
+				*p_dest = sine_entry;
+				return;
+			}
+			push_speed = ((uint16_t)player_speed * 0x400u) >> 16;
+			if (player_past_leading_edge != 0u)
+				push_speed = (push_speed & 0xFFu) + 5u;
+			push_speed &= 0xFFu;
+			push_speed = (uint16_t)(push_speed + follow_base_speed);
+			advance_scroll(&r2, &push_speed, &r4, &r5, &player, &sine_entry);
+			*p_position = r2;
+			*p_speed = push_speed;
+			*p_speed_value = r4;
+			*p_next_scroll_position = r5;
+			*p_second_player_object = object_2;
+			*p_third_player_object = object_3;
+			*p_end_script = player;
+			*p_dest = sine_entry;
+			return;
+		case 4:
+			object = LINKED(object, PLAYER(r14)->object);
+			player_speed = (int32_t)OBJECT(object)->speed >> 16;
+			if ((int32_t)player_speed > 0x500 || (int32_t)player_speed < 0)
+			{
+				speed = 5u;
+				speed = (uint16_t)(speed + follow_base_speed);
+				advance_scroll(&r2, &speed, &r4, &r5, &player, &sine_entry);
+				*p_position = r2;
+				*p_speed = speed;
+				*p_speed_value = r4;
+				*p_next_scroll_position = r5;
+				*p_second_player_object = object_2;
+				*p_third_player_object = object_3;
+				*p_end_script = player;
+				*p_dest = sine_entry;
+				return;
+			}
+			push_speed = ((uint16_t)player_speed * 0x400u) >> 16;
+			if (player_past_leading_edge != 0u)
+				push_speed = (push_speed & 0xFFu) + 5u;
+			push_speed &= 0xFFu;
+			push_speed = (uint16_t)(push_speed + follow_base_speed);
+			advance_scroll(&r2, &push_speed, &r4, &r5, &player, &sine_entry);
+			*p_position = r2;
+			*p_speed = push_speed;
+			*p_speed_value = r4;
+			*p_next_scroll_position = r5;
+			*p_second_player_object = object_2;
+			*p_third_player_object = object_3;
+			*p_end_script = player;
+			*p_dest = sine_entry;
+			return;
+		case 5:
+			if (OBJECT(object_3)->speed < OBJECT(object)->speed)
+			{
+				player_speed = (int32_t)OBJECT(object)->speed >> 16;
+				if ((int32_t)player_speed > 0x500 || (int32_t)player_speed < 0)
+				{
+					speed = 5u;
+					speed = (uint16_t)(speed + follow_base_speed);
+					advance_scroll(&r2, &speed, &r4, &r5, &player, &sine_entry);
+					*p_position = r2;
+					*p_speed = speed;
+					*p_speed_value = r4;
+					*p_next_scroll_position = r5;
+					*p_second_player_object = object_2;
+					*p_third_player_object = object_3;
+					*p_end_script = player;
+					*p_dest = sine_entry;
+					return;
+				}
+				push_speed = ((uint16_t)player_speed * 0x400u) >> 16;
+				if (player_past_leading_edge != 0u)
+					push_speed = (push_speed & 0xFFu) + 5u;
+				push_speed &= 0xFFu;
+				push_speed = (uint16_t)(push_speed + follow_base_speed);
+				advance_scroll(&r2, &push_speed, &r4, &r5, &player, &sine_entry);
+				*p_position = r2;
+				*p_speed = push_speed;
+				*p_speed_value = r4;
+				*p_next_scroll_position = r5;
+				*p_second_player_object = object_2;
+				*p_third_player_object = object_3;
+				*p_end_script = player;
+				*p_dest = sine_entry;
+				return;
+			}
+			object = object_3;
+			player_speed = (int32_t)OBJECT(object)->speed >> 16;
+			if ((int32_t)player_speed > 0x500 || (int32_t)player_speed < 0)
+			{
+				speed = 5u;
+				speed = (uint16_t)(speed + follow_base_speed);
+				advance_scroll(&r2, &speed, &r4, &r5, &player, &sine_entry);
+				*p_position = r2;
+				*p_speed = speed;
+				*p_speed_value = r4;
+				*p_next_scroll_position = r5;
+				*p_second_player_object = object_2;
+				*p_third_player_object = object_3;
+				*p_end_script = player;
+				*p_dest = sine_entry;
+				return;
+			}
+			push_speed = ((uint16_t)player_speed * 0x400u) >> 16;
+			if (player_past_leading_edge != 0u)
+				push_speed = (push_speed & 0xFFu) + 5u;
+			push_speed &= 0xFFu;
+			push_speed = (uint16_t)(push_speed + follow_base_speed);
+			advance_scroll(&r2, &push_speed, &r4, &r5, &player, &sine_entry);
+			*p_position = r2;
+			*p_speed = push_speed;
+			*p_speed_value = r4;
+			*p_next_scroll_position = r5;
+			*p_second_player_object = object_2;
+			*p_third_player_object = object_3;
+			*p_end_script = player;
+			*p_dest = sine_entry;
+			return;
+		case 6:
+			object = object_3;
+			if (OBJECT(object_2)->speed < OBJECT(object)->speed)
+			{
+				player_speed = (int32_t)OBJECT(object)->speed >> 16;
+				if ((int32_t)player_speed > 0x500 || (int32_t)player_speed < 0)
+				{
+					speed = 5u;
+					speed = (uint16_t)(speed + follow_base_speed);
+					advance_scroll(&r2, &speed, &r4, &r5, &player, &sine_entry);
+					*p_position = r2;
+					*p_speed = speed;
+					*p_speed_value = r4;
+					*p_next_scroll_position = r5;
+					*p_second_player_object = object_2;
+					*p_third_player_object = object_3;
+					*p_end_script = player;
+					*p_dest = sine_entry;
+					return;
+				}
+				push_speed = ((uint16_t)player_speed * 0x400u) >> 16;
+				if (player_past_leading_edge != 0u)
+					push_speed = (push_speed & 0xFFu) + 5u;
+				push_speed &= 0xFFu;
+				push_speed = (uint16_t)(push_speed + follow_base_speed);
+				advance_scroll(&r2, &push_speed, &r4, &r5, &player, &sine_entry);
+				*p_position = r2;
+				*p_speed = push_speed;
+				*p_speed_value = r4;
+				*p_next_scroll_position = r5;
+				*p_second_player_object = object_2;
+				*p_third_player_object = object_3;
+				*p_end_script = player;
+				*p_dest = sine_entry;
+				return;
+			}
+			object = object_2;
+			player_speed = (int32_t)OBJECT(object)->speed >> 16;
+			if ((int32_t)player_speed > 0x500 || (int32_t)player_speed < 0)
+			{
+				speed = 5u;
+				speed = (uint16_t)(speed + follow_base_speed);
+				advance_scroll(&r2, &speed, &r4, &r5, &player, &sine_entry);
+				*p_position = r2;
+				*p_speed = speed;
+				*p_speed_value = r4;
+				*p_next_scroll_position = r5;
+				*p_second_player_object = object_2;
+				*p_third_player_object = object_3;
+				*p_end_script = player;
+				*p_dest = sine_entry;
+				return;
+			}
+			push_speed = ((uint16_t)player_speed * 0x400u) >> 16;
+			if (player_past_leading_edge != 0u)
+				push_speed = (push_speed & 0xFFu) + 5u;
+			push_speed &= 0xFFu;
+			push_speed = (uint16_t)(push_speed + follow_base_speed);
+			advance_scroll(&r2, &push_speed, &r4, &r5, &player, &sine_entry);
+			*p_position = r2;
+			*p_speed = push_speed;
+			*p_speed_value = r4;
+			*p_next_scroll_position = r5;
+			*p_second_player_object = object_2;
+			*p_third_player_object = object_3;
+			*p_end_script = player;
+			*p_dest = sine_entry;
+			return;
+		case 7:
+			if (OBJECT(object)->speed <= OBJECT(object_2)->speed)
+				object = object_2;
+			if (OBJECT(object_3)->speed < OBJECT(object)->speed)
+			{
+				player_speed = (int32_t)OBJECT(object)->speed >> 16;
+				if ((int32_t)player_speed > 0x500 || (int32_t)player_speed < 0)
+				{
+					speed = 5u;
+					speed = (uint16_t)(speed + follow_base_speed);
+					advance_scroll(&r2, &speed, &r4, &r5, &player, &sine_entry);
+					*p_position = r2;
+					*p_speed = speed;
+					*p_speed_value = r4;
+					*p_next_scroll_position = r5;
+					*p_second_player_object = object_2;
+					*p_third_player_object = object_3;
+					*p_end_script = player;
+					*p_dest = sine_entry;
+					return;
+				}
+				push_speed = ((uint16_t)player_speed * 0x400u) >> 16;
+				if (player_past_leading_edge != 0u)
+					push_speed = (push_speed & 0xFFu) + 5u;
+				push_speed &= 0xFFu;
+				push_speed = (uint16_t)(push_speed + follow_base_speed);
+				advance_scroll(&r2, &push_speed, &r4, &r5, &player, &sine_entry);
+				*p_position = r2;
+				*p_speed = push_speed;
+				*p_speed_value = r4;
+				*p_next_scroll_position = r5;
+				*p_second_player_object = object_2;
+				*p_third_player_object = object_3;
+				*p_end_script = player;
+				*p_dest = sine_entry;
+				return;
+			}
+			object = object_3;
+			player_speed = (int32_t)OBJECT(object)->speed >> 16;
+			if ((int32_t)player_speed > 0x500 || (int32_t)player_speed < 0)
+			{
+				speed = 5u;
+				speed = (uint16_t)(speed + follow_base_speed);
+				advance_scroll(&r2, &speed, &r4, &r5, &player, &sine_entry);
+				*p_position = r2;
+				*p_speed = speed;
+				*p_speed_value = r4;
+				*p_next_scroll_position = r5;
+				*p_second_player_object = object_2;
+				*p_third_player_object = object_3;
+				*p_end_script = player;
+				*p_dest = sine_entry;
+				return;
+			}
+			push_speed = ((uint16_t)player_speed * 0x400u) >> 16;
+			if (player_past_leading_edge != 0u)
+				push_speed = (push_speed & 0xFFu) + 5u;
+			push_speed &= 0xFFu;
+			push_speed = (uint16_t)(push_speed + follow_base_speed);
+			advance_scroll(&r2, &push_speed, &r4, &r5, &player, &sine_entry);
+			*p_position = r2;
+			*p_speed = push_speed;
+			*p_speed_value = r4;
+			*p_next_scroll_position = r5;
+			*p_second_player_object = object_2;
+			*p_third_player_object = object_3;
+			*p_end_script = player;
+			*p_dest = sine_entry;
+			return;
+		default:
+			unknown_code(0x16151u + players_pushing_edge * 3u);
+		}
+		break;
+	default:
+		unknown_code(0x15FA9u + scroll_mode * 3u);
+	}
+}
+
+uint32_t is_player_pushing_edge(uint32_t pushing, uint32_t object)
+{
+	uint16_t edge_offset = 0;
+	uint32_t current_position = 0;
+
+	switch (push_edge_case)
+	{
+	case 0:
+	case 9:
+		pushing &= ~0xFFu;
+		return pushing;
+	case 1:
+		pushing = is_player_at_left_edge(pushing, object);
+		if ((uint8_t)pushing != 0u)
+		{
+			player_at_trailing_edge = 1u;
+			pushing &= ~0xFFu;
+			return pushing;
+		}
+		pushing = is_player_at_right_edge(pushing, object);
+		if ((uint8_t)pushing != 0u)
+		{
+			pushing = (pushing & ~0xFFu) | 1u;
+			return pushing;
+		}
+		pushing &= ~0xFFu;
+		return pushing;
+	case 2:
+		pushing = is_player_at_left_edge(pushing, object);
+		if ((uint8_t)pushing == 0u)
+		{
+			pushing = is_player_at_top_edge(pushing, object);
+			if ((uint8_t)pushing != 0u)
+			{
+				player_at_trailing_edge = 1u;
+				pushing &= ~0xFFu;
+				return pushing;
+			}
+			edge_offset = 0xF0u;
+			pushing = is_player_at_diagonal_edge_f0(pushing, object, edge_offset);
+			if ((uint8_t)pushing != 0u)
+			{
+				pushing = (pushing & ~0xFFu) | 1u;
+				return pushing;
+			}
+			pushing = is_player_at_right_edge(pushing, object);
+			if ((uint8_t)pushing != 0u)
+			{
+				pushing = (pushing & ~0xFFu) | 1u;
+				return pushing;
+			}
+			pushing = is_player_at_bottom_edge(pushing, object);
+			if ((uint8_t)pushing != 0u)
+			{
+				pushing = (pushing & ~0xFFu) | 1u;
+				return pushing;
+			}
+			pushing &= ~0xFFu;
+			return pushing;
+		}
+		player_at_trailing_edge = 1u;
+		pushing &= ~0xFFu;
+		return pushing;
+	case 3:
+		pushing = is_player_at_top_edge(pushing, object);
+		if ((uint8_t)pushing != 0u)
+		{
+			player_at_trailing_edge = 1u;
+			pushing &= ~0xFFu;
+			return pushing;
+		}
+		pushing = is_player_at_bottom_edge(pushing, object);
+		if ((uint8_t)pushing != 0u)
+		{
+			pushing = (pushing & ~0xFFu) | 1u;
+			return pushing;
+		}
+		pushing &= ~0xFFu;
+		return pushing;
+	case 4:
+		pushing = is_player_at_right_edge(pushing, object);
+		if ((uint8_t)pushing == 0u)
+		{
+			pushing = is_player_at_top_edge(pushing, object);
+			if ((uint8_t)pushing != 0u)
+			{
+				player_at_trailing_edge = 1u;
+				pushing &= ~0xFFu;
+				return pushing;
+			}
+			edge_offset = 0x60u;
+			pushing = is_player_at_diagonal_edge_60(pushing, object, edge_offset);
+			if ((uint8_t)pushing != 0u)
+			{
+				pushing = (pushing & ~0xFFu) | 1u;
+				return pushing;
+			}
+			pushing = is_player_at_left_edge(pushing, object);
+			if ((uint8_t)pushing != 0u)
+			{
+				pushing = (pushing & ~0xFFu) | 1u;
+				return pushing;
+			}
+			pushing = is_player_at_bottom_edge(pushing, object);
+			if ((uint8_t)pushing != 0u)
+			{
+				pushing = (pushing & ~0xFFu) | 1u;
+				return pushing;
+			}
+			pushing &= ~0xFFu;
+			return pushing;
+		}
+		player_at_trailing_edge = 1u;
+		pushing &= ~0xFFu;
+		return pushing;
+	case 5:
+		pushing = is_player_at_right_edge(pushing, object);
+		if ((uint8_t)pushing != 0u)
+		{
+			player_at_trailing_edge = 1u;
+			pushing &= ~0xFFu;
+			return pushing;
+		}
+		pushing = is_player_at_left_edge(pushing, object);
+		if ((uint8_t)pushing != 0u)
+		{
+			pushing = (pushing & ~0xFFu) | 1u;
+			return pushing;
+		}
+		pushing &= ~0xFFu;
+		return pushing;
+	case 6:
+		pushing = is_player_at_bottom_edge(pushing, object);
+		if ((uint8_t)pushing == 0u)
+		{
+			pushing = is_player_at_right_edge(pushing, object);
+			if ((uint8_t)pushing != 0u)
+			{
+				player_at_trailing_edge = 1u;
+				pushing &= ~0xFFu;
+				return pushing;
+			}
+			edge_offset = 0xC0u;
+			pushing = is_player_at_diagonal_edge_c0(pushing, object, edge_offset);
+			if ((uint8_t)pushing != 0u)
+			{
+				pushing = (pushing & ~0xFFu) | 1u;
+				return pushing;
+			}
+			pushing = is_player_at_left_edge(pushing, object);
+			if ((uint8_t)pushing != 0u)
+			{
+				pushing = (pushing & ~0xFFu) | 1u;
+				return pushing;
+			}
+			pushing = is_player_at_top_edge(pushing, object);
+			if ((uint8_t)pushing != 0u)
+			{
+				pushing = (pushing & ~0xFFu) | 1u;
+				return pushing;
+			}
+			pushing &= ~0xFFu;
+			return pushing;
+		}
+		player_at_trailing_edge = 1u;
+		pushing &= ~0xFFu;
+		return pushing;
+	case 7:
+		pushing = is_player_at_bottom_edge(pushing, object);
+		if ((uint8_t)pushing != 0u)
+		{
+			player_at_trailing_edge = 1u;
+			pushing &= ~0xFFu;
+			return pushing;
+		}
+		pushing = is_player_at_top_edge(pushing, object);
+		if ((uint8_t)pushing != 0u)
+		{
+			pushing = (pushing & ~0xFFu) | 1u;
+			return pushing;
+		}
+		pushing &= ~0xFFu;
+		return pushing;
+	case 8:
+		pushing = is_player_at_bottom_edge(pushing, object);
+		if ((uint8_t)pushing == 0u)
+		{
+			pushing = is_player_at_left_edge(pushing, object);
+			if ((uint8_t)pushing != 0u)
+			{
+				player_at_trailing_edge = 1u;
+				pushing &= ~0xFFu;
+				return pushing;
+			}
+			if (stage != 3u)
+			{
+				edge_offset = 0x30u;
+				pushing = is_player_at_diagonal_edge_30(pushing, object, edge_offset);
+				if ((uint8_t)pushing != 0u)
+				{
+					pushing = (pushing & ~0xFFu) | 1u;
+					return pushing;
+				}
+				pushing = is_player_at_right_edge(pushing, object);
+				if ((uint8_t)pushing != 0u)
+				{
+					pushing = (pushing & ~0xFFu) | 1u;
+					return pushing;
+				}
+				pushing = is_player_at_top_edge(pushing, object);
+				if ((uint8_t)pushing != 0u)
+				{
+					pushing = (pushing & ~0xFFu) | 1u;
+					return pushing;
+				}
+				pushing &= ~0xFFu;
+				return pushing;
+			}
+			current_position = scroll_position;
+			if ((int32_t)current_position < 0x87A9 || (int32_t)current_position > 0x96F1)
+			{
+				edge_offset = 0x30u;
+				pushing = is_player_at_diagonal_edge_30(pushing, object, edge_offset);
+				if ((uint8_t)pushing != 0u)
+				{
+					pushing = (pushing & ~0xFFu) | 1u;
+					return pushing;
+				}
+				pushing = is_player_at_right_edge(pushing, object);
+				if ((uint8_t)pushing != 0u)
+				{
+					pushing = (pushing & ~0xFFu) | 1u;
+					return pushing;
+				}
+				pushing = is_player_at_top_edge(pushing, object);
+				if ((uint8_t)pushing != 0u)
+				{
+					pushing = (pushing & ~0xFFu) | 1u;
+					return pushing;
+				}
+				pushing &= ~0xFFu;
+				return pushing;
+			}
+			pushing = is_player_at_top_edge(pushing, object);
+			if ((uint8_t)pushing != 0u)
+			{
+				pushing = (pushing & ~0xFFu) | 1u;
+				return pushing;
+			}
+			pushing &= ~0xFFu;
+			return pushing;
+		}
+		player_at_trailing_edge = 1u;
+		pushing &= ~0xFFu;
+		return pushing;
+	default:
+		unknown_code(0x16274u + push_edge_case * 3u);
+	}
+}
+
+uint32_t is_player_at_diagonal_edge_30(uint32_t at_edge, uint32_t object, uint16_t edge_offset)
+{
+	uint16_t screen_y = 0;
+	uint32_t passes_left = 0;
+
+	passes_left = 2u;
+	at_edge &= ~0xFFFFu;
+	player_past_leading_edge = 0u;
+	do
+	{
+		screen_y = (uint16_t)OBJECT(object)->screen_y;
+		if ((int16_t)(((int16_t)OBJECT(object)->screen_x >> 1) + edge_offset) < (int16_t)screen_y)
+		{
+			if ((int16_t)((uint32_t)(screen_y - edge_offset) << 1) <= OBJECT(object)->screen_x)
+			{
+				at_edge = (at_edge & ~0xFFu) | 1u;
+				if ((uint16_t)passes_left == 1u)
+					player_past_leading_edge = 1u;
+			}
+		}
+		else
+		{
+			at_edge = (at_edge & ~0xFFu) | 1u;
+			if ((uint16_t)passes_left == 1u)
+				player_past_leading_edge = 1u;
+		}
+		edge_offset -= 0xAu;
+		passes_left--;
+	} while (passes_left != 0u);
+	return at_edge;
+}
+
+uint32_t is_player_at_diagonal_edge_f0(uint32_t at_edge, uint32_t object, uint16_t edge_offset)
+{
+	uint16_t screen_y = 0;
+	uint32_t passes_left = 0;
+
+	passes_left = 2u;
+	at_edge &= ~0xFFFFu;
+	player_past_leading_edge = 0u;
+	do
+	{
+		screen_y = (uint16_t)OBJECT(object)->screen_y;
+		if ((int16_t)screen_y < (int16_t)(0u - ((int16_t)OBJECT(object)->screen_x >> 1) + edge_offset))
+		{
+			if ((int16_t)((0u - (screen_y - edge_offset)) << 1) <= OBJECT(object)->screen_x)
+			{
+				at_edge = (at_edge & ~0xFFu) | 1u;
+				if ((uint16_t)passes_left == 1u)
+					player_past_leading_edge = 1u;
+			}
+		}
+		else
+		{
+			at_edge = (at_edge & ~0xFFu) | 1u;
+			if ((uint16_t)passes_left == 1u)
+				player_past_leading_edge = 1u;
+		}
+		edge_offset -= 0xAu;
+		passes_left--;
+	} while (passes_left != 0u);
+	return at_edge;
+}
+
+uint32_t is_player_at_diagonal_edge_c0(uint32_t at_edge, uint32_t object, uint16_t edge_offset)
+{
+	uint16_t screen_y = 0;
+	uint32_t passes_left = 0;
+
+	passes_left = 2u;
+	at_edge &= ~0xFFFFu;
+	player_past_leading_edge = 0u;
+	do
+	{
+		screen_y = (uint16_t)OBJECT(object)->screen_y;
+		if ((int16_t)(0u - ((int16_t)OBJECT(object)->screen_x >> 1) + edge_offset) < (int16_t)screen_y)
+		{
+			if (OBJECT(object)->screen_x <= (int16_t)((0u - (screen_y - edge_offset)) << 1))
+			{
+				at_edge = (at_edge & ~0xFFu) | 1u;
+				if ((uint16_t)passes_left == 1u)
+					player_past_leading_edge = 1u;
+			}
+		}
+		else
+		{
+			at_edge = (at_edge & ~0xFFu) | 1u;
+			if ((uint16_t)passes_left == 1u)
+				player_past_leading_edge = 1u;
+		}
+		edge_offset -= 0xAu;
+		passes_left--;
+	} while (passes_left != 0u);
+	return at_edge;
+}
+
+uint32_t is_player_at_diagonal_edge_60(uint32_t at_edge, uint32_t object, uint16_t edge_offset)
+{
+	uint16_t screen_y = 0;
+	uint32_t passes_left = 0;
+
+	passes_left = 2u;
+	at_edge &= ~0xFFFFu;
+	player_past_leading_edge = 0u;
+	do
+	{
+		screen_y = (uint16_t)OBJECT(object)->screen_y;
+		if ((int16_t)screen_y < (int16_t)(((int16_t)OBJECT(object)->screen_x >> 1) + edge_offset))
+		{
+			if (OBJECT(object)->screen_x <= (int16_t)((uint32_t)(screen_y - edge_offset) << 1))
+			{
+				at_edge = (at_edge & ~0xFFu) | 1u;
+				if ((uint16_t)passes_left == 1u)
+					player_past_leading_edge = 1u;
+			}
+		}
+		else
+		{
+			at_edge = (at_edge & ~0xFFu) | 1u;
+			if ((uint16_t)passes_left == 1u)
+				player_past_leading_edge = 1u;
+		}
+		edge_offset -= 0xAu;
+		passes_left--;
+	} while (passes_left != 0u);
+	return at_edge;
+}
+
+uint32_t is_player_at_right_edge(uint32_t at_edge, uint32_t object)
+{
+	uint32_t leading_limit = 0;
+
+	if (OBJECT(object)->screen_x < (int16_t)push_edge_right)
+	{
+		at_edge &= ~0xFFu;
+		return at_edge;
+	}
+	leading_limit = (at_edge & ~0xFFFFu) | push_edge_right;
+	leading_limit = (leading_limit & ~0xFFFFu) | (uint16_t)(leading_limit + 0xAu);
+	if ((int16_t)leading_limit <= OBJECT(object)->screen_x)
+		player_past_leading_edge = 1u;
+	at_edge = (leading_limit & ~0xFFu) | 1u;
+	return at_edge;
+}
+
+uint32_t is_player_at_left_edge(uint32_t at_edge, uint32_t object)
+{
+	uint32_t leading_limit = 0;
+
+	if ((int16_t)push_edge_left < OBJECT(object)->screen_x)
+	{
+		at_edge &= ~0xFFu;
+		return at_edge;
+	}
+	leading_limit = (at_edge & ~0xFFFFu) | push_edge_left;
+	leading_limit = (leading_limit & ~0xFFFFu) | (uint16_t)(leading_limit - 0xAu);
+	if (OBJECT(object)->screen_x <= (int16_t)leading_limit)
+		player_past_leading_edge = 1u;
+	at_edge = (leading_limit & ~0xFFu) | 1u;
+	return at_edge;
+}
+
+uint32_t is_player_at_top_edge(uint32_t at_edge, uint32_t object)
+{
+	uint32_t leading_limit = 0;
+
+	if ((int16_t)push_edge_top < OBJECT(object)->screen_y)
+	{
+		at_edge &= ~0xFFu;
+		return at_edge;
+	}
+	leading_limit = (at_edge & ~0xFFFFu) | push_edge_top;
+	leading_limit = (leading_limit & ~0xFFFFu) | (uint16_t)(leading_limit - 0xAu);
+	if (OBJECT(object)->screen_y <= (int16_t)leading_limit)
+		player_past_leading_edge = 1u;
+	at_edge = (leading_limit & ~0xFFu) | 1u;
+	return at_edge;
+}
+
+uint32_t is_player_at_bottom_edge(uint32_t at_edge, uint32_t object)
+{
+	uint32_t leading_limit = 0;
+
+	if (OBJECT(object)->screen_y < (int16_t)push_edge_bottom)
+	{
+		at_edge &= ~0xFFu;
+		return at_edge;
+	}
+	leading_limit = (at_edge & ~0xFFFFu) | push_edge_bottom;
+	leading_limit = (leading_limit & ~0xFFFFu) | (uint16_t)(leading_limit + 0xAu);
+	if ((int16_t)leading_limit <= OBJECT(object)->screen_y)
+		player_past_leading_edge = 1u;
+	at_edge = (leading_limit & ~0xFFu) | 1u;
+	return at_edge;
+}
+
+void set_screen_push_edges(uint32_t quadrant_bits, uint32_t *p_count, uint32_t *p_sine_entry)
+{
+	uint32_t count = 0, sine_entry = 0;
+
+	sine_entry = sine_table_ADDRESS;
+	if ((int16_t)AS16(section_direction_y) < 0)
+	{
+		if ((int16_t)AS16(section_direction_x) >= 0)
+		{
+			sine_entry += 0x200u;
+			quadrant_bits |= 8u;
+		}
+		sine_entry += 0x200u;
+		quadrant_bits |= 4u;
+		goto set_screen_push_edges_past_quadrant_0;
+	}
+	if ((int16_t)AS16(section_direction_x) < 0)
+	{
+	set_screen_push_edges_past_quadrant_0:
+		sine_entry += 0x200u;
+		quadrant_bits |= 2u;
+	}
+	count = 0x100u;
+	push_edge_top = 0xFFFFu;
+	push_edge_bottom = 0xFFFFu;
+	push_edge_right = 0xFFFFu;
+	push_edge_left = 0xFFFFu;
+	switch (quadrant_bits | 1u)
+	{
+	case 0:
+	case 2:
+	case 4:
+	case 5:
+	case 6:
+	case 8:
+	case 9:
+	case 10:
+	case 11:
+	case 12:
+	case 13:
+	case 14:
+	case 16:
+		*p_count = count;
+		*p_sine_entry = sine_entry;
+		return;
+	case 1:
+		push_edge_case = 0u;
+		if (AS16(section_direction_y) != 0u)
+		{
+			push_edge_bottom = 0x88u;
+			push_edge_top = 0x20u;
+			push_edge_case++;
+		}
+		push_edge_case++;
+		push_edge_right = 0xB8u;
+		push_edge_left = 0x40u;
+		*p_count = count;
+		*p_sine_entry = sine_entry;
+		return;
+	case 3:
+		push_edge_case = 2u;
+		if (AS16(section_direction_x) != 0u)
+		{
+			push_edge_left = 0x88u;
+			push_edge_right = 0x100u;
+			push_edge_case++;
+		}
+		push_edge_case++;
+		push_edge_bottom = 0x88u;
+		push_edge_top = 0x20u;
+		*p_count = count;
+		*p_sine_entry = sine_entry;
+		return;
+	case 7:
+		push_edge_case = 4u;
+		if (AS16(section_direction_y) != 0u)
+		{
+			push_edge_top = 0x58u;
+			push_edge_bottom = 0xC0u;
+			push_edge_case++;
+		}
+		push_edge_case++;
+		push_edge_left = 0x88u;
+		push_edge_right = 0x100u;
+		*p_count = count;
+		*p_sine_entry = sine_entry;
+		return;
+	case 15:
+		push_edge_case = 6u;
+		if (AS16(section_direction_x) != 0u)
+		{
+			push_edge_right = 0xB8u;
+			push_edge_left = 0x40u;
+			push_edge_case++;
+		}
+		push_edge_case++;
+		push_edge_top = 0x58u;
+		push_edge_bottom = 0xC0u;
+		*p_count = count;
+		*p_sine_entry = sine_entry;
+		return;
+	default:
+		unknown_code(0x16726u + (quadrant_bits | 1u) * 3u);
+	}
+}
+
+uint32_t is_player_facing_scroll(uint32_t facing, uint16_t heading, uint16_t sine_entry)
+{
+	uint16_t sine_offset = 0;
+
+	heading = (uint16_t)((uint32_t)heading << 1);
+	sine_offset = (uint16_t)(sine_entry - sine_table_ADDRESS);
+	if ((int16_t)sine_offset < 0x200)
+	{
+		if ((int16_t)heading < 0x100 || (int16_t)heading > 0x500)
+		{
+			facing &= ~0xFFu;
+			return facing;
+		}
+		facing = (facing & ~0xFFu) | 1u;
+		return facing;
+	}
+	if ((int16_t)sine_offset < 0x400)
+	{
+		if ((int16_t)heading < 0x300 || (int16_t)heading > 0x700)
+		{
+			facing &= ~0xFFu;
+			return facing;
+		}
+		facing = (facing & ~0xFFu) | 1u;
+		return facing;
+	}
+	if ((int16_t)sine_offset < 0x600)
+	{
+		if ((int16_t)heading < 0x500)
+			heading += 0x800u;
+		if ((int16_t)heading > 0x900)
+		{
+			facing &= ~0xFFu;
+			return facing;
+		}
+		facing = (facing & ~0xFFu) | 1u;
+		return facing;
+	}
+	if ((int16_t)heading < 0x700)
+		heading += 0x800u;
+	if ((int16_t)heading > 0xB00)
+	{
+		facing &= ~0xFFu;
+		return facing;
+	}
+	facing = (facing & ~0xFFu) | 1u;
+	return facing;
+}
+
+void is_direction_in_quadrant(uint32_t count, uint32_t *p_found, uint32_t *p_sine_entry)
+{
+	uint32_t sine_entry = *p_sine_entry;
+	uint8_t entry_at_least = 0, found = 0, next_at_least = 0;
+	uint16_t direction_y = 0, next_entry = 0;
+
+	for (;;)
+	{
+		if (AS16(section_direction_y) != 0u)
+		{
+			if (AS16(section_direction_x) == 0u && (AS16(section_direction_y) == 0x4000u || AS16(section_direction_y) == 0xC000u))
+			{
+				found = 1u;
+				*p_found = (*p_found & 0xFFFFFF00u) | found;
+				*p_sine_entry = sine_entry;
+				return;
+			}
+		}
+		else if (AS16(section_direction_x) == 0x4000u || AS16(section_direction_x) == 0xC000u)
+			break;
+		direction_y = AS16(section_direction_y);
+		next_entry = mem_read16(sine_entry + 2u);
+		if ((int16_t)mem_read16(sine_entry) < (int16_t)direction_y)
+			entry_at_least = 0u;
+		else
+			entry_at_least = 1u;
+		if ((int16_t)next_entry < (int16_t)direction_y)
+			next_at_least = 0u;
+		else
+			next_at_least = 1u;
+		if (next_at_least != entry_at_least)
+		{
+			found = 1u;
+			*p_found = (*p_found & 0xFFFFFF00u) | found;
+			*p_sine_entry = sine_entry;
+			return;
+		}
+		sine_entry += 2u;
+		count--;
+		if (count == 0u)
+		{
+			found = 0u;
+			*p_found = (*p_found & 0xFFFFFF00u) | found;
+			*p_sine_entry = sine_entry;
+			return;
+		}
+	}
+	found = 1u;
+	*p_found = (*p_found & 0xFFFFFF00u) | found;
+	*p_sine_entry = sine_entry;
+}
+
+void scroll_slowing_down(uint32_t *p_other_list, uint32_t *p_speed, uint32_t *p_speed_value, uint32_t *p_next_scroll_position, uint32_t *p_range, uint32_t *p_quadrant_cursor)
+{
+	uint32_t other_list = *p_other_list;
+	uint32_t speed_value = *p_speed_value;
+	uint32_t next_scroll_position = *p_next_scroll_position;
+	uint32_t range = *p_range;
+	uint32_t quadrant_cursor = *p_quadrant_cursor;
+	uint32_t speed = 0;
+
+	scroll_mode_timer--;
+	if (scroll_mode_timer != 0u || (int16_t)scroll_speed < 2)
+	{
+		scroll_at_scroll_speed(&other_list, &speed, &speed_value, &next_scroll_position, &range, &quadrant_cursor);
+		*p_other_list = other_list;
+		*p_speed = speed;
+		*p_speed_value = speed_value;
+		*p_next_scroll_position = next_scroll_position;
+		*p_range = range;
+		*p_quadrant_cursor = quadrant_cursor;
+		return;
+	}
+	scroll_speed--;
+	scroll_mode_timer = scroll_mode_duration;
+	scroll_at_scroll_speed(&other_list, &speed, &speed_value, &next_scroll_position, &range, &quadrant_cursor);
+	*p_other_list = other_list;
+	*p_speed = speed;
+	*p_speed_value = speed_value;
+	*p_next_scroll_position = next_scroll_position;
+	*p_range = range;
+	*p_quadrant_cursor = quadrant_cursor;
+}
+
+void scroll_speeding_up(uint32_t *p_other_list, uint32_t *p_speed, uint32_t *p_speed_value, uint32_t *p_next_scroll_position, uint32_t *p_range, uint32_t *p_quadrant_cursor)
+{
+	uint32_t other_list = *p_other_list;
+	uint32_t speed = *p_speed;
+	uint32_t speed_value = *p_speed_value;
+	uint32_t next_scroll_position = *p_next_scroll_position;
+	uint32_t range = *p_range;
+	uint32_t quadrant_cursor = *p_quadrant_cursor;
+	uint32_t r2 = 0, r4 = 0;
+
+	scroll_mode_timer--;
+	if (scroll_mode_timer != 0u)
+	{
+		speed = scroll_ramp_speed;
+		advance_scroll_unless_ended(&other_list, &speed, &speed_value, &next_scroll_position, &range, &quadrant_cursor);
+		*p_other_list = other_list;
+		*p_speed = speed;
+		*p_speed_value = speed_value;
+		*p_next_scroll_position = next_scroll_position;
+		*p_range = range;
+		*p_quadrant_cursor = quadrant_cursor;
+		return;
+	}
+	if ((int8_t)AS8(scroll_speed) <= (int8_t)scroll_ramp_speed)
+	{
+		scroll_mode = 0u;
+		scroll_ramp_speed = 1u;
+		set_camera_velocity(&r2, &speed, &r4, &next_scroll_position, &range, &quadrant_cursor);
+		*p_other_list = r2;
+		*p_speed = speed;
+		*p_speed_value = r4;
+		*p_next_scroll_position = next_scroll_position;
+		*p_range = range;
+		*p_quadrant_cursor = quadrant_cursor;
+		return;
+	}
+	scroll_ramp_speed++;
+	scroll_mode_timer = scroll_mode_duration;
+	speed = scroll_ramp_speed;
+	advance_scroll_unless_ended(&other_list, &speed, &speed_value, &next_scroll_position, &range, &quadrant_cursor);
+	*p_other_list = other_list;
+	*p_speed = speed;
+	*p_speed_value = speed_value;
+	*p_next_scroll_position = next_scroll_position;
+	*p_range = range;
+	*p_quadrant_cursor = quadrant_cursor;
+}
+
+void scroll_at_scroll_speed(uint32_t *p_other_list, uint32_t *p_speed, uint32_t *p_speed_value, uint32_t *p_next_scroll_position, uint32_t *p_range, uint32_t *p_quadrant_cursor)
+{
+	uint32_t other_list = *p_other_list;
+	uint32_t speed_value = *p_speed_value;
+	uint32_t next_scroll_position = *p_next_scroll_position;
+	uint32_t range = *p_range;
+	uint32_t quadrant_cursor = *p_quadrant_cursor;
+	uint32_t speed = 0;
+
+	speed = scroll_speed;
+	advance_scroll_unless_ended(&other_list, &speed, &speed_value, &next_scroll_position, &range, &quadrant_cursor);
+	*p_other_list = other_list;
+	*p_speed = speed;
+	*p_speed_value = speed_value;
+	*p_next_scroll_position = next_scroll_position;
+	*p_range = range;
+	*p_quadrant_cursor = quadrant_cursor;
+}
+
+void advance_scroll_unless_ended(uint32_t *p_other_list, uint32_t *p_speed, uint32_t *p_speed_value, uint32_t *p_next_scroll_position, uint32_t *p_range, uint32_t *p_quadrant_cursor)
+{
+	uint32_t other_list = *p_other_list;
+	uint32_t speed = *p_speed;
+	uint32_t speed_value = *p_speed_value;
+	uint32_t next_scroll_position = *p_next_scroll_position;
+	uint32_t range = *p_range;
+	uint32_t quadrant_cursor = *p_quadrant_cursor;
+	uint32_t r2 = 0, r4 = 0, r5 = 0;
+
+	if (scroll_ended < 0)
+		return;
+	advance_scroll(&r2, &speed, &r4, &r5, &range, &quadrant_cursor);
+	*p_other_list = r2;
+	*p_speed = speed;
+	*p_speed_value = r4;
+	*p_next_scroll_position = r5;
+	*p_range = range;
+	*p_quadrant_cursor = quadrant_cursor;
+}
+
+void advance_scroll(uint32_t *p_other_list, uint32_t *p_speed, uint32_t *p_speed_value, uint32_t *p_next_scroll_position, uint32_t *p_range, uint32_t *p_quadrant_cursor)
+{
+	uint32_t speed = *p_speed;
+	uint32_t range = *p_range;
+	uint32_t quadrant_cursor = *p_quadrant_cursor;
+	uint32_t r2 = 0, r4 = 0, direction_y_list = 0, limit_x_cursor = 0, limit_y_cursor = 0, list = 0, mode_script_cursor = 0, next_scroll_position = 0;
+	uint16_t direction_y = 0;
+
+	next_scroll_position = move_camera_along_path(speed);
+	update_camera_view();
+	if ((int32_t)scroll_position < (int32_t)ROM16(section_end_list))
+	{
+		set_camera_velocity(&r2, &speed, &r4, &next_scroll_position, &range, &quadrant_cursor);
+		*p_other_list = r2;
+		*p_speed = speed;
+		*p_speed_value = r4;
+		*p_next_scroll_position = next_scroll_position;
+		*p_range = range;
+		*p_quadrant_cursor = quadrant_cursor;
+		return;
+	}
+	back_edge_frames = 0u;
+	list = section_speed_list;
+	scroll_speed = ROM8(list);
+	section_speed_list = list + 1u;
+	list = follow_base_speed_list;
+	follow_base_speed = mem_read8(list);
+	follow_base_speed_list = list + 1u;
+	limit_y_cursor = section_limit_y_list;
+	section_limit_y = ROM16(limit_y_cursor);
+	section_limit_y_list = limit_y_cursor + 2u;
+	limit_x_cursor = section_limit_x_list;
+	section_limit_x = ROM16(limit_x_cursor);
+	section_limit_x_list = limit_x_cursor + 2u;
+	mode_script_cursor = scroll_mode_script;
+	scroll_mode = ROM16(mode_script_cursor);
+	mode_script_cursor += 2u;
+	scroll_mode_timer = ROM16(mode_script_cursor);
+	scroll_mode_duration = scroll_mode_timer;
+	scroll_mode_script = mode_script_cursor + 2u;
+	list = section_direction_x_list;
+	direction_y_list = section_direction_y_list;
+	direction_y = ROM16(direction_y_list);
+	section_direction_x = (int16_t)ROM16(list);
+	section_direction_y = (int16_t)direction_y;
+	section_direction_x_list = list + 2u;
+	section_direction_y_list = direction_y_list + 2u;
+	section_end_list += 2u;
+	section_unused_cursor += 2u;
+	set_camera_velocity(&r2, &speed, &r4, &next_scroll_position, &range, &quadrant_cursor);
+	*p_other_list = r2;
+	*p_speed = speed;
+	*p_speed_value = r4;
+	*p_next_scroll_position = next_scroll_position;
+	*p_range = range;
+	*p_quadrant_cursor = quadrant_cursor;
+}
+
+void set_camera_velocity(uint32_t *p_scroll_y, uint32_t *p_speed, uint32_t *p_speed_value, uint32_t *p_next_scroll_position, uint32_t *p_range, uint32_t *p_quadrant_cursor)
+{
+	uint32_t speed = *p_speed;
+	uint32_t next_scroll_position = *p_next_scroll_position;
+	uint32_t range = *p_range;
+	uint32_t quadrant_cursor = *p_quadrant_cursor;
+	uint32_t r2 = 0, r10 = 0, ignored = 0, speed_value = 0, velocity_y = 0;
+
+	speed_value = (uint16_t)speed;
+	velocity_y = section_direction_y * speed_value;
+	camera_velocity_x = section_direction_x * speed_value;
+	camera_velocity_y = velocity_y;
+	camera_shake_length = 0x200u;
+	camera_shake_wave = 0x200u;
+	r2 = update_camera_with_shake();
+	if (scroll_ended < 0)
+	{
+		*p_scroll_y = r2;
+		*p_speed_value = speed_value;
+		return;
+	}
+	update_background_scroll(&ignored, &r2, &speed, &speed_value, &next_scroll_position, &r10, &quadrant_cursor);
+	*p_scroll_y = r2;
+	*p_speed = speed;
+	*p_speed_value = speed_value;
+	*p_next_scroll_position = next_scroll_position;
+	*p_range = r10;
+	*p_quadrant_cursor = quadrant_cursor;
+}
+
+void update_background_scroll(uint32_t *p_fast_scroll_start, uint32_t *p_scroll_y, uint32_t *p_speed, uint32_t *p_speed_value, uint32_t *p_next_scroll_position, uint32_t *p_range, uint32_t *p_quadrant_cursor)
+{
+	uint32_t scroll_y = *p_scroll_y;
+	uint32_t speed = *p_speed;
+	uint32_t speed_value = *p_speed_value;
+	uint32_t next_scroll_position = *p_next_scroll_position;
+	uint32_t quadrant_cursor = *p_quadrant_cursor;
+	uint32_t current_position = 0, fast_scroll_start = 0, range = 0, section_start = 0;
+
+	update_nbg1_scroll();
+	update_nbg3_scroll(&scroll_y, &speed, &speed_value, &next_scroll_position, &quadrant_cursor);
+	speed = update_nbg2_scroll(speed);
+	fast_scroll_start = stage;
+	range = stage_fast_scroll_ranges[fast_scroll_start] + stage_fast_scroll_ranges_ADDRESS;
+	section_start = mem_read16(section_end_list - 2u);
+	do
+	{
+		if (ROM16(range) == 0xFFFFu)
+		{
+			*p_fast_scroll_start = fast_scroll_start;
+			*p_scroll_y = scroll_y;
+			*p_speed = speed;
+			*p_speed_value = speed_value;
+			*p_next_scroll_position = next_scroll_position;
+			*p_range = range;
+			*p_quadrant_cursor = quadrant_cursor;
+			return;
+		}
+		fast_scroll_start = ROM16(range);
+		range += 2u;
+	} while ((int32_t)fast_scroll_start <= (int32_t)section_start);
+	current_position = scroll_position;
+	if ((int32_t)current_position < (int32_t)fast_scroll_start)
+	{
+		*p_fast_scroll_start = fast_scroll_start;
+		*p_scroll_y = current_position;
+		*p_speed = speed;
+		*p_speed_value = speed_value;
+		*p_next_scroll_position = next_scroll_position;
+		*p_range = range;
+		*p_quadrant_cursor = quadrant_cursor;
+		return;
+	}
+	follow_base_speed = 0x10u;
+	*p_fast_scroll_start = fast_scroll_start;
+	*p_scroll_y = current_position;
+	*p_speed = speed;
+	*p_speed_value = speed_value;
+	*p_next_scroll_position = next_scroll_position;
+	*p_range = range;
+	*p_quadrant_cursor = quadrant_cursor;
+}
+
+void spawn_debug_sprite_mover(uint32_t object)
+{
+	uint32_t free_count = 0;
+
+	if (debug_sprite_spawned == 0u)
+	{
+		allocate_object_outside_loop(&free_count, &object);
+		if ((uint8_t)free_count != 0u)
+		{
+			OBJECT(object)->handler = debug_sprite_mover_update_ADDRESS;
+			debug_sprite_spawned++;
+		}
+	}
+}
+
+void debug_sprite_mover_update(void)
+{
+	uint32_t attribute = 0, text_position = 0, value = 0;
+
+	OBJECT(current_object)->screen_x = debug_sprite_x;
+	OBJECT(current_object)->screen_y = debug_sprite_y;
+	OBJECT(current_object)->sprite_layer = 0x32u;
+	OBJECT(current_object)->sprite_frame = 0x8DB8u;
+	OBJECT(current_object)->sprite_palette = 0x130u;
+	OBJECT(current_object)->sprite_flags = 0u;
+	OBJECT(current_object)->sprite_scale = 0x100u;
+	queue_sprite_in_layer();
+	if ((input_ports_active & 0x10000u) != 0u)
+		debug_sprite_x++;
+	if ((input_ports_active & 0x10u) != 0u)
+		debug_sprite_x--;
+	if ((input_ports_active & 0x1000000u) != 0u)
+		debug_sprite_y++;
+	if ((input_ports_active & 0x2000000u) != 0u)
+		debug_sprite_y--;
+	value = debug_sprite_x;
+	text_position = TEXT_CELL(3, 22);
+	attribute = 0x200u;
+	draw_hex_4(&value, &attribute, &text_position);
+	value = debug_sprite_y;
+	text_position = TEXT_CELL(8, 22);
+	attribute = 0x200u;
+	draw_hex_4(&value, &attribute, &text_position);
+}
+
+void start_stage_view(uint32_t *p_direction_y, uint32_t *p_direction_x, uint32_t *p_count, uint32_t *p_stage_offset)
+{
+	uint32_t direction_y = *p_direction_y;
+	uint32_t direction_x = *p_direction_x;
+	uint32_t count = *p_count;
+	uint32_t stage_offset = *p_stage_offset;
+
+	if (stage != 0x11u)
+	{
+		unused_scroll_flag = 1u;
+		init_stage_view(&direction_y, &direction_x, &count, &stage_offset);
+		*p_direction_y = direction_y;
+		*p_direction_x = direction_x;
+		*p_count = count;
+		*p_stage_offset = stage_offset;
+		return;
+	}
+	ending_scene_step = 0u;
+}
+
+void call_run_map_screen(uint32_t object)
+{
+	run_map_screen(0u, object);
+}
+
+void run_stage_05_switch(uint32_t speed, uint32_t *p_scroll_y, uint32_t *p_speed_value, uint32_t *p_dest)
+{
+	uint32_t scroll_y = *p_scroll_y;
+	uint32_t speed_value = *p_speed_value;
+	uint32_t dest = *p_dest;
+	uint32_t r1 = 0, camera_view_y = 0, ignored = 0, layer_scroll_x = 0, next_scroll_position = 0, script = 0;
+
+	r1 = (uint8_t)stage_05_switch_step * 3u;
+	switch ((uint8_t)stage_05_switch_step)
+	{
+	case 0:
+	case 4:
+		mixer_text_blend |= 0x4000u;
+		mixer_nbg0_blend |= 0x4000u;
+		mixer_nbg1_blend |= 0x4000u;
+		mixer_nbg2_blend |= 0x4000u;
+		mixer_nbg3_blend |= 0x4000u;
+		mixer_bitmap_blend |= 0x4000u;
+		mixer_sprite_control |= 0x8000u;
+		stage_05_switch_step++;
+		return;
+	case 1:
+		fade_kind = 0;
+		update_fade(r1);
+		if (fade_kind >= 0)
+			return;
+		stage_05_switch_step++;
+		fade_step = 0u;
+		return;
+	case 2:
+		mem_write8(video_layer_disable, 0x3Fu);
+		script = stage_00_coast_script_ADDRESS;
+		run_vram_script(&r1, &script, &dest);
+		script = stage_00_horizon_script_ADDRESS;
+		run_vram_script(&r1, &script, &dest);
+		script = blue_sky_script_ADDRESS;
+		run_vram_script(&r1, &script, &dest);
+		script = aerial_city_script_ADDRESS;
+		run_vram_script(&r1, &script, &dest);
+		script = stage_00_tower_top_page_1_script_ADDRESS;
+		run_vram_script(&r1, &script, &dest);
+		script = stage_00_tower_top_page_3_script_ADDRESS;
+		run_vram_script(&r1, &script, &dest);
+		script = stage_00_tower_top_page_0_script_ADDRESS;
+		run_vram_script(&r1, &script, &dest);
+		script = stage_00_tower_top_page_2_script_ADDRESS;
+		run_vram_script(&r1, &script, &dest);
+		nbg3_pages = 0x7070707u;
+		camera_x = 0xF800000;
+		camera_y = 0x6700000;
+		camera_view_y = update_camera_view();
+		layer_scroll_x = (camera_view_y & ~0xFFFFu) | camera_x_pixels;
+		nbg0_scroll_y_int = camera_y_pixels;
+		nbg0_scroll_x_int = layer_scroll_x;
+		nbg0_scroll_x_int &= 0x3FFu;
+		nbg0_scroll_y_int &= 0x1FFu;
+		stage = 0u;
+		update_background_scroll(&ignored, &layer_scroll_x, &speed, &speed_value, &next_scroll_position, &ignored, &dest);
+		stage = 5u;
+		mem_write8(video_layer_disable, mem_read8(video_layer_disable) & 0xE6u);
+		stage_05_switch_step++;
+		*p_scroll_y = layer_scroll_x;
+		*p_speed_value = speed_value;
+		*p_dest = dest;
+		return;
+	case 3:
+		fade_kind = 2;
+		update_fade(r1);
+		if (fade_kind >= 0)
+			return;
+		stage_05_switch_step = -1;
+		scroll_position = 0x5E5Au;
+		stage = 0u;
+		mixer_text_blend &= 0xBFFFu;
+		mixer_nbg0_blend &= 0xBFFFu;
+		mixer_nbg1_blend &= 0xBFFFu;
+		mixer_nbg2_blend &= 0xBFFFu;
+		mixer_nbg3_blend &= 0xBFFFu;
+		mixer_bitmap_blend &= 0xBFFFu;
+		mixer_sprite_control &= ~0x8000u;
+		set_nbg3_page_5_flags(&ignored, &dest);
+		loaded_tile_sets = 0x32A03u;
+		*p_dest = dest;
+		return;
+	default:
+		unknown_code(0x16D16u + (uint8_t)stage_05_switch_step * 3u);
+	}
+}
+
+uint32_t update_fade(uint32_t delta)
+{
+	uint32_t jump_offset = 0;
+
+	jump_offset = fade_step * 3u;
+	switch (fade_step)
+	{
+	case 0:
+	case 3:
+		fade_kind &= 3u;
+		switch ((jump_offset & ~0xFFu) | (uint8_t)fade_kind)
+		{
+		case 0:
+		case 4:
+			color_offset_red = 0x3Fu;
+			color_offset_blue = 0x3Fu;
+			color_offset_green = 0x3Fu;
+			delta = (delta & ~0xFFFFu) | fade_speed;
+			delta = (delta & ~0xFFFFu) | (uint16_t)(0u - delta);
+			fade_delta = delta;
+			break;
+		case 1:
+			color_offset_red = 0x1Fu;
+			color_offset_blue = 0x1Fu;
+			color_offset_green = 0x1Fu;
+			delta = (delta & ~0xFFFFu) | fade_speed;
+			delta = (delta & ~0xFFFFu) | (uint16_t)(0u - delta);
+			fade_delta = delta;
+			break;
+		case 2:
+			color_offset_red = 0x20u;
+			color_offset_blue = 0x20u;
+			color_offset_green = 0x20u;
+			delta = (delta & ~0xFFFFu) | fade_speed;
+			fade_delta = delta;
+			break;
+		case 3:
+			color_offset_red = 0u;
+			color_offset_blue = 0u;
+			color_offset_green = 0u;
+			delta = (delta & ~0xFFFFu) | fade_speed;
+			fade_delta = delta;
+			break;
+		default:
+			unknown_code(0x16EF2u + ((jump_offset & ~0xFFu) | (uint8_t)fade_kind) * 3u);
+		}
+		AS16(fade_delay) = 1u;
+		fade_step++;
+		return delta;
+	case 1:
+		AS16(fade_delay)--;
+		if (AS16(fade_delay) != 0u)
+			return delta;
+		AS16(fade_delay) = 1u;
+		color_offset_red += fade_delta;
+		color_offset_blue += fade_delta;
+		color_offset_green += fade_delta;
+		switch ((jump_offset & ~0xFFu) | (uint8_t)fade_kind)
+		{
+		case 0:
+		case 4:
+			if ((int16_t)color_offset_red <= 0x20)
+			{
+				fade_step++;
+				color_offset_red = 0x20u;
+				color_offset_blue = 0x20u;
+				color_offset_green = 0x20u;
+			}
+			break;
+		case 1:
+			if ((int16_t)color_offset_red <= 0)
+			{
+				fade_step++;
+				color_offset_red = 0u;
+				color_offset_blue = 0u;
+				color_offset_green = 0u;
+			}
+			break;
+		case 2:
+			if ((int16_t)color_offset_red >= 0x3F)
+			{
+				fade_step++;
+				color_offset_red = 0x3Fu;
+				color_offset_blue = 0x3Fu;
+				color_offset_green = 0x3Fu;
+			}
+			break;
+		case 3:
+			if ((int16_t)color_offset_red >= 0x1F)
+			{
+				fade_step++;
+				color_offset_red = 0x1Fu;
+				color_offset_blue = 0x1Fu;
+				color_offset_green = 0x1Fu;
+			}
+			break;
+		default:
+			unknown_code(0x16FD3u + ((jump_offset & ~0xFFu) | (uint8_t)fade_kind) * 3u);
+		}
+		return delta;
+	case 2:
+		fade_kind = -1;
+		return delta;
+	default:
+		unknown_code(0x16ED6u + fade_step * 3u);
+	}
+}
+
+void update_stage_00_exit_scene(uint32_t dest, uint32_t *p_speed_value, uint32_t *p_script)
+{
+	uint32_t speed_value = *p_speed_value;
+	uint32_t script = *p_script;
+	uint16_t layer_zoom = 0;
+	uint32_t r10 = 0, ignored = 0, layer_scroll_x = 0, next_scroll_position = 0, scroll_y_past_trigger = 0, speed = 0;
+	uint16_t scroll_y_offset = 0;
+
+	if ((int8_t)stage_00_exit_step < 2)
+	{
+		if (stage_00_exit_step == 0u)
+		{
+			scroll_speed = 0x35u;
+			scroll_y_past_trigger = (uint16_t)(nbg0_scroll_y_int - 0x20u);
+			if ((int16_t)scroll_y_past_trigger < 8 && (int16_t)scroll_y_past_trigger >= 0)
+			{
+				script = stage_00_exit_tower_wall_script_ADDRESS;
+				run_vram_script(&scroll_y_past_trigger, &script, &dest);
+				script = clear_tile_page_03_script_ADDRESS;
+				run_vram_script(&scroll_y_past_trigger, &script, &dest);
+				stage_00_exit_step++;
+			}
+		}
+		if ((int8_t)stage_00_exit_step < 2)
+		{
+			scroll_y_offset = nbg0_scroll_y_int - 0xF6u;
+			scroll_y_past_trigger = scroll_y_offset;
+			if ((int16_t)scroll_y_offset >= 0 && (int16_t)scroll_y_past_trigger < 8)
+			{
+				nbg0_pages = 0x2020202u;
+				script = stage_00_exit_beam_script_ADDRESS;
+				run_vram_script(&scroll_y_past_trigger, &script, &dest);
+				script = stage_00_exit_beam_end_script_ADDRESS;
+				run_vram_script(&scroll_y_past_trigger, &script, &dest);
+				mixer_text_blend &= 0xBFFFu;
+				mixer_nbg0_blend |= 0x4000u;
+				mixer_nbg1_blend |= 0x4000u;
+				mixer_nbg2_blend |= 0x4000u;
+				mixer_nbg3_blend |= 0x4000u;
+				mixer_bitmap_blend &= 0xBFFFu;
+				mixer_sprite_control |= 0x8000u;
+				color_offset_red = 0u;
+				color_offset_blue = 0u;
+				color_offset_green = 0u;
+				stage_00_exit_step++;
+			}
+		}
+	}
+	switch (stage_00_exit_step)
+	{
+	case 0:
+	case 1:
+	case 2:
+	case 11:
+		if (stage_00_exit_timer >= 0x8C)
+		{
+			nbg0_pages = 0x3020100u;
+			stage_00_exit_step++;
+			*p_script = script;
+			return;
+		}
+		stage_00_exit_timer++;
+		speed = scroll_speed;
+		section_limit_y = -1;
+		section_direction_y = -0x4000;
+		section_direction_x = 0;
+		advance_camera_y(speed);
+		update_camera_view();
+		layer_scroll_x = camera_x_pixels;
+		nbg0_scroll_y_int = camera_y_pixels;
+		nbg0_scroll_x_int = layer_scroll_x;
+		nbg0_scroll_x_int &= 0x3FFu;
+		nbg0_scroll_y_int &= 0x1FFu;
+		update_background_scroll(&ignored, &layer_scroll_x, &speed, &speed_value, &next_scroll_position, &r10, &dest);
+		*p_speed_value = speed_value;
+		*p_script = r10;
+		return;
+	case 3:
+		if (stage_00_exit_timer >= 0xA0)
+		{
+			nbg0_pages = 0x3030100u;
+			stage_00_exit_step++;
+			*p_script = script;
+			return;
+		}
+		stage_00_exit_timer++;
+		speed = scroll_speed;
+		section_limit_y = -1;
+		section_direction_y = -0x4000;
+		section_direction_x = 0;
+		advance_camera_y(speed);
+		update_camera_view();
+		layer_scroll_x = camera_x_pixels;
+		nbg0_scroll_y_int = camera_y_pixels;
+		nbg0_scroll_x_int = layer_scroll_x;
+		nbg0_scroll_x_int &= 0x3FFu;
+		nbg0_scroll_y_int &= 0x1FFu;
+		update_background_scroll(&ignored, &layer_scroll_x, &speed, &speed_value, &next_scroll_position, &r10, &dest);
+		*p_speed_value = speed_value;
+		*p_script = r10;
+		return;
+	case 4:
+		if (stage_00_exit_timer >= 0xAF)
+		{
+			nbg0_pages = 0x3030303u;
+			stage_00_exit_step++;
+			*p_script = script;
+			return;
+		}
+		stage_00_exit_timer++;
+		speed = scroll_speed;
+		section_limit_y = -1;
+		section_direction_y = -0x4000;
+		section_direction_x = 0;
+		advance_camera_y(speed);
+		update_camera_view();
+		layer_scroll_x = camera_x_pixels;
+		nbg0_scroll_y_int = camera_y_pixels;
+		nbg0_scroll_x_int = layer_scroll_x;
+		nbg0_scroll_x_int &= 0x3FFu;
+		nbg0_scroll_y_int &= 0x1FFu;
+		update_background_scroll(&ignored, &layer_scroll_x, &speed, &speed_value, &next_scroll_position, &r10, &dest);
+		*p_speed_value = speed_value;
+		*p_script = r10;
+		return;
+	case 5:
+		scroll_speed--;
+		if ((int16_t)scroll_speed <= 2)
+			scroll_speed = 2u;
+		if (stage_00_exit_timer >= 0xD2)
+		{
+			stage_00_exit_step++;
+			*p_script = script;
+			return;
+		}
+		stage_00_exit_timer++;
+		speed = scroll_speed;
+		section_limit_y = -1;
+		section_direction_y = -0x4000;
+		section_direction_x = 0;
+		advance_camera_y(speed);
+		update_camera_view();
+		layer_scroll_x = camera_x_pixels;
+		nbg0_scroll_y_int = camera_y_pixels;
+		nbg0_scroll_x_int = layer_scroll_x;
+		nbg0_scroll_x_int &= 0x3FFu;
+		nbg0_scroll_y_int &= 0x1FFu;
+		update_background_scroll(&ignored, &layer_scroll_x, &speed, &speed_value, &next_scroll_position, &r10, &dest);
+		*p_speed_value = speed_value;
+		*p_script = r10;
+		return;
+	case 6:
+		clamp_colour_offsets();
+		stage_00_exit_delay++;
+		if (stage_00_exit_delay != 5u)
+		{
+			stage_00_exit_timer++;
+			speed = scroll_speed;
+			section_limit_y = -1;
+			section_direction_y = -0x4000;
+			section_direction_x = 0;
+			advance_camera_y(speed);
+			update_camera_view();
+			layer_scroll_x = camera_x_pixels;
+			nbg0_scroll_y_int = camera_y_pixels;
+			nbg0_scroll_x_int = layer_scroll_x;
+			nbg0_scroll_x_int &= 0x3FFu;
+			nbg0_scroll_y_int &= 0x1FFu;
+			update_background_scroll(&ignored, &layer_scroll_x, &speed, &speed_value, &next_scroll_position, &r10, &dest);
+			*p_speed_value = speed_value;
+			*p_script = r10;
+			return;
+		}
+		stage_00_exit_delay = 0u;
+		color_offset_red++;
+		color_offset_blue++;
+		color_offset_green++;
+		scroll_speed--;
+		if ((int16_t)scroll_speed <= 2)
+			scroll_speed = 2u;
+		if ((int16_t)color_offset_red < 0x1F)
+		{
+			stage_00_exit_timer++;
+			speed = scroll_speed;
+			section_limit_y = -1;
+			section_direction_y = -0x4000;
+			section_direction_x = 0;
+			advance_camera_y(speed);
+			update_camera_view();
+			layer_scroll_x = camera_x_pixels;
+			nbg0_scroll_y_int = camera_y_pixels;
+			nbg0_scroll_x_int = layer_scroll_x;
+			nbg0_scroll_x_int &= 0x3FFu;
+			nbg0_scroll_y_int &= 0x1FFu;
+			update_background_scroll(&ignored, &layer_scroll_x, &speed, &speed_value, &next_scroll_position, &r10, &dest);
+			*p_speed_value = speed_value;
+			*p_script = r10;
+			return;
+		}
+		nbg0_scroll_y_int = 0x58u;
+		nbg0_scroll_x_int = 0xB8u;
+		nbg1_scroll_y_int = 0x58u;
+		nbg1_scroll_x_int = 0xB8u;
+		nbg0_center_x = 0xA0u;
+		nbg0_center_y = 0x90u;
+		nbg1_center_x = 0xA0u;
+		nbg1_center_y = 0x90u;
+		mem_write32(video_layer_disable, mem_read32(video_layer_disable) | 1u);
+		mem_write32(video_layer_disable, mem_read32(video_layer_disable) | 2u);
+		stage_00_exit_step++;
+		*p_script = script;
+		return;
+	case 7:
+		nbg0_pages = 0x6060505u;
+		video_layer_opaque_shadow = 0xBu;
+		stage_00_exit_step++;
+		*p_script = script;
+		return;
+	case 8:
+		mem_write32(video_layer_disable, mem_read32(video_layer_disable) & ~1u);
+		mem_write32(video_layer_disable, mem_read32(video_layer_disable) & ~2u);
+		mem_write32(video_layer_disable, mem_read32(video_layer_disable) | 8u);
+		mem_write32(video_control, mem_read32(video_control) | 0x1000u);
+		mem_write32(video_control, mem_read32(video_control) | 0x2000u);
+		mem_write32(video_control, mem_read32(video_control) | 0x4000u);
+		mem_write16(nbg0_zoom_x, 0x100u);
+		mem_write16(nbg0_zoom_y, 0x100u);
+		mem_write16(nbg1_zoom_x, 0x100u);
+		mem_write16(nbg1_zoom_y, 0x100u);
+		script = stage_00_exit_zoom_page_0_script_ADDRESS;
+		run_vram_script(&scroll_y_past_trigger, &script, &dest);
+		script = stage_00_exit_zoom_page_1_script_ADDRESS;
+		run_vram_script(&scroll_y_past_trigger, &script, &dest);
+		script = stage_00_exit_zoom_page_2_script_ADDRESS;
+		run_vram_script(&scroll_y_past_trigger, &script, &dest);
+		mem_write16(backdrop_color, 0x1356u);
+		nbg0_pages = 0x2020200u;
+		nbg1_pages = 0x2020201u;
+		stage_00_exit_step++;
+		stage_00_exit_zoom = 0x200u;
+		*p_script = script;
+		return;
+	case 9:
+		stage_00_exit_zoom--;
+		layer_zoom = (uint16_t)(divide_s32(0x2000000u, stage_00_exit_zoom) >> 8);
+		mem_write16(nbg0_zoom_x, layer_zoom);
+		mem_write16(nbg0_zoom_y, layer_zoom);
+		mem_write16(nbg1_zoom_x, layer_zoom);
+		mem_write16(nbg1_zoom_y, layer_zoom);
+		clamp_colour_offsets();
+		stage_00_exit_delay++;
+		if (stage_00_exit_delay != 3u)
+		{
+			update_background_scroll(&ignored, &layer_scroll_x, &speed, &speed_value, &next_scroll_position, &r10, &dest);
+			*p_speed_value = speed_value;
+			*p_script = r10;
+			return;
+		}
+		stage_00_exit_delay = 0u;
+		color_offset_red--;
+		color_offset_blue--;
+		color_offset_green--;
+		if (color_offset_red != 0u)
+		{
+			update_background_scroll(&ignored, &layer_scroll_x, &speed, &speed_value, &next_scroll_position, &r10, &dest);
+			*p_speed_value = speed_value;
+			*p_script = r10;
+			return;
+		}
+		stage_00_exit_step++;
+		*p_script = script;
+		return;
+	case 10:
+		update_background_scroll(&ignored, &layer_scroll_x, &speed, &speed_value, &next_scroll_position, &r10, &dest);
+		if ((int16_t)stage_00_exit_zoom < 0x42)
+			stage_00_exit_zoom = 0x42u;
+		stage_00_exit_zoom--;
+		layer_zoom = (uint16_t)(divide_s32(0x2000000u, stage_00_exit_zoom) >> 8);
+		mem_write16(nbg0_zoom_x, layer_zoom);
+		mem_write16(nbg0_zoom_y, layer_zoom);
+		mem_write16(nbg1_zoom_x, layer_zoom);
+		mem_write16(nbg1_zoom_y, layer_zoom);
+		*p_speed_value = speed_value;
+		*p_script = r10;
+		return;
+	default:
+		unknown_code(0x17160u + stage_00_exit_step * 3u);
+	}
+}
+
+void clamp_colour_offsets(void)
+{
+	color_offset_red &= 0x1Fu;
+	color_offset_blue &= 0x1Fu;
+	color_offset_green &= 0x1Fu;
+}
 
 uint32_t update_camera_with_shake(void)
 {
@@ -347,250 +3202,271 @@ void snap_camera_to_section_end(void)
 	scroll_position = ROM16(section_end_list);
 }
 
-void update_stage_06_background(uint32_t random_value, uint32_t dest, uint32_t *p_rolls_left, uint32_t *p_words_left, uint32_t *p_source)
+void run_scroll_skip_mode(void)
 {
-	uint32_t rolls_left = *p_rolls_left;
-	uint32_t words_left = *p_words_left;
-	uint32_t source = *p_source;
-	uint8_t sound_id = 0;
-	uint16_t shake_y = 0;
-	uint32_t r1 = 0, cycle_set = 0, ignored = 0, palette_stage = 0, script = 0, write_index_address = 0;
-	uint8_t flipped_sign = 0;
-	uint16_t previous_shake = 0;
-
-	switch (stage_06_background_step)
+	if (scroll_skip_open == 0u)
 	{
-	case 0:
-	case 8:
-		mixer_blend &= 0x1F00u;
-		mixer_blend |= 0xA4u;
-		camera_x = 0;
-		camera_y = 0;
-		update_camera_view();
-		stage_06_background_step++;
-		return;
-	case 1:
-		if (mixer_blend != 0xA4u)
+		if ((input_ports_active & 0x21u) != 0x21u)
 		{
-			mixer_blend = 0xA4u;
+			scroll_skip_open = 0u;
 			return;
 		}
-		load_default_palettes();
-		palette_stage = 1u;
-		load_palette_set_and_backdrop(palette_stage, &ignored, &source, &dest);
-		if (mem_read16(palette_color_61D0) != 0x7B0u)
-		{
-			mixer_blend = 0xA4u;
-			*p_source = source;
-			return;
-		}
-		camera_x = 0;
-		camera_y = -0x600000;
-		update_camera_view();
-		nbg3_scroll_x = 0u;
-		nbg3_scroll_y = 0u;
-		nbg1_scroll_x = 0u;
-		nbg1_scroll_y = 0u;
-		nbg0_scroll_x = 0u;
-		nbg0_scroll_y = 0xFFA00000u;
-		mem_write8(video_layer_disable, mem_read8(video_layer_disable) | 0x3Fu);
-		script = cloudy_horizon_script_ADDRESS;
-		run_vram_script(&palette_stage, &script, &dest);
-		script = stage_06_forest_script_ADDRESS;
-		run_vram_script(&palette_stage, &script, &dest);
-		nbg3_pages = 0u;
-		nbg0_pages = 0x5050505u;
-		mem_write8(video_layer_disable, mem_read8(video_layer_disable) & 0x26u);
-		stage_06_background_step++;
-		*p_source = script;
-		return;
-	case 2:
-		nbg0_scroll_x -= 0x2000u;
-		nbg1_scroll_x -= 0x1000u;
-		AS32(nbg3_scroll_x) = (int32_t)nbg1_scroll_x >> 16;
-		return;
-	case 3:
-		mem_write8(video_layer_disable, mem_read8(video_layer_disable) | 0x3Fu);
-		mixer_blend &= 0x1F00u;
-		script = clear_tile_page_00_script_ADDRESS;
-		run_vram_script(&r1, &script, &dest);
-		script = stage_06_upper_jaw_script_ADDRESS;
-		run_vram_script(&r1, &script, &dest);
-		script = clear_tile_page_0a_script_ADDRESS;
-		run_vram_script(&r1, &script, &dest);
-		script = stage_06_lower_jaw_script_ADDRESS;
-		run_vram_script(&r1, &script, &dest);
-		nbg0_pages = 1u;
-		nbg3_pages = 6u;
-		mem_write8(video_layer_disable, mem_read8(video_layer_disable) & 0x26u);
-		nbg0_scroll_x_int = 0u;
-		nbg0_scroll_y_int = 0x90u;
-		nbg3_scroll_x = 0u;
-		nbg3_scroll_y = 0xFF70u;
-		mem_write16(mixer_nbg0, mixer_default_nbg0 | 0xFu);
-		mem_write16(mixer_nbg3, mixer_default_nbg3 | 0xFu);
-		stage_06_background_step++;
-		*p_source = script;
-		return;
-	case 4:
-		nbg0_scroll_y_int -= 0x10u;
-		if ((int16_t)nbg0_scroll_y_int <= 0)
-			nbg0_scroll_y_int = 0u;
-		nbg3_scroll_y += 0x10u;
-		if ((int16_t)nbg3_scroll_y >= 0)
-			nbg3_scroll_y = 0u;
-		if ((nbg0_scroll_y_int | nbg3_scroll_y) != 0u)
-			return;
-		stage_06_background_step = 7u;
-		stage_06_shake = 0x800u;
-		stage_06_shake_sign = 0;
-		sound_id = 0x1Eu;
-		play_sound(sound_id, &r1, &write_index_address);
-		return;
-	case 5:
-		mixer_blend &= 0x1F00u;
-		mixer_blend |= 0xA4u;
-		palette_cycle_set = 0x209090u;
-		cycle_set = palette_cycle_set;
-		mem_write32(cycle_set + 4u, PALETTE_RAM + 0x83A0u);
-		mem_write32(cycle_set, stage_06_cycle_palettes_0_ADDRESS);
-		mem_write8(cycle_set + 8u, 2u);
-		mem_write8(cycle_set + 0xAu, 2u);
-		mem_write8(cycle_set + 9u, 3u);
-		mem_write8(cycle_set + 0xBu, 3u);
-		mem_write8(cycle_set + 0xCu, 0u);
-		mem_write8(cycle_set + 0xDu, 6u);
-		cycle_set += 0x10u;
-		mem_write32(cycle_set + 4u, PALETTE_RAM + 0x8400u);
-		mem_write32(cycle_set, stage_06_cycle_palettes_1_ADDRESS);
-		mem_write8(cycle_set + 8u, 7u);
-		mem_write8(cycle_set + 0xAu, 7u);
-		mem_write8(cycle_set + 9u, 2u);
-		mem_write8(cycle_set + 0xBu, 2u);
-		mem_write8(cycle_set + 0xCu, 0u);
-		mem_write8(cycle_set + 0xDu, 6u);
-		camera_x = 0;
-		camera_y = 0;
-		update_camera_view();
-		nbg3_scroll_x = 0u;
-		nbg3_scroll_y = 0u;
-		nbg0_scroll_x_int = 0u;
-		nbg0_scroll_y_int = 0u;
-		mem_write8(video_layer_disable, mem_read8(video_layer_disable) | 0x3Fu);
-		script = cloudy_horizon_script_ADDRESS;
-		run_vram_script(&r1, &script, &dest);
-		script = stage_06_island_tower_script_ADDRESS;
-		run_vram_script(&r1, &script, &dest);
-		nbg3_pages = 0x3020100u;
-		nbg0_pages = 0x8070605u;
-		mem_write8(video_layer_disable, mem_read8(video_layer_disable) & 0x26u);
-		mem_write16(mixer_nbg0, mixer_default_nbg0);
-		mem_write16(mixer_nbg3, mixer_default_nbg3);
-		stage_06_background_step++;
-		*p_source = script;
-		return;
-	case 6:
-		if (palette_cycle_set_0_frame != 0u)
-		{
-			source = cycle_palette_set_0(source);
-			source = cycle_palette_set_1(source);
-			*p_rolls_left = rolls_left;
-			*p_words_left = words_left;
-			*p_source = source;
-			return;
-		}
-		if (palette_cycle_set_1_frame == 0u)
-		{
-			rolls_left = 2u;
-			do
-			{
-				next_random(&random_value, &words_left, &source);
-				random_value &= 0xFu;
-				if ((int8_t)random_value > 2)
-				{
-					*p_rolls_left = rolls_left;
-					*p_words_left = words_left;
-					*p_source = source;
-					return;
-				}
-				rolls_left--;
-			} while (rolls_left != 0u);
-			source = cycle_palette_set_0(source);
-		}
-		source = cycle_palette_set_1(source);
-		*p_rolls_left = rolls_left;
-		*p_words_left = words_left;
-		*p_source = source;
-		return;
-	case 7:
-		if (stage_06_shake == 0u)
-			return;
-		previous_shake = stage_06_shake;
-		stage_06_shake = previous_shake - 0x80u;
-		if ((int16_t)previous_shake < 0x80)
-			stage_06_shake = 0u;
-		shake_y = AT8(stage_06_shake, 1);
-		flipped_sign = ~stage_06_shake_sign;
-		stage_06_shake_sign = flipped_sign;
-		if (flipped_sign != 0u)
-			shake_y = (uint16_t)(0u - shake_y);
-		nbg0_scroll_y_int = shake_y;
-		nbg3_scroll_y = shake_y;
-		return;
-	default:
-		unknown_code(0x178B8u + stage_06_background_step * 3u);
+		scroll_skip_last_point = scroll_skip_last_points[stage];
+		stage_start_section = 0xDu;
+		scroll_skip_value_index = 0u;
+		scroll_skip_next_armed = 0u;
+		scroll_skip_back_armed = 0u;
+		scroll_skip_exit_armed = 0u;
+		scroll_skip_call_armed = 0u;
+		scroll_skip_open = 1u;
+		scroll_skip_print_panel();
 	}
+	scroll_skip_draw_values();
+	scroll_skip_next_point();
+	scroll_skip_previous_point();
+	scroll_skip_check_call();
+	scroll_skip_check_exit();
 }
 
-void escape_alarm_flash(void)
+void scroll_skip_next_point(void)
 {
-	uint8_t sound_id = 0;
-	uint32_t write_index = 0, write_index_address = 0;
+	uint32_t held_buttons = 0;
 
-	if (escape_seconds == 0u)
+	held_buttons = input_ports_active & 0x1010000u;
+	if (held_buttons != 0x1010000u)
 	{
-		delete_current_object();
-		return;
-	}
-	if (OBJECT(current_object)->escape_alarm_flash.started == 0u)
-	{
-		mixer_nbg0_blend |= 0x4000u;
-		mixer_nbg1_blend |= 0x4000u;
-		mixer_nbg2_blend |= 0x4000u;
-		mixer_nbg3_blend |= 0x4000u;
-		mixer_bitmap_blend |= 0x4000u;
-		escape_alarm_stray_flags |= 0x4000u;
-		color_offset_red = 0u;
-		color_offset_blue = 0x40u;
-		color_offset_green = 0x40u;
-		OBJECT(current_object)->escape_alarm_flash.counting_up = 0u;
-		OBJECT(current_object)->escape_alarm_flash.step_timer = 0;
-		OBJECT(current_object)->escape_alarm_flash.started++;
-	}
-	OBJECT(current_object)->escape_alarm_flash.step_timer++;
-	if (OBJECT(current_object)->escape_alarm_flash.step_timer < 2)
-		return;
-	OBJECT(current_object)->escape_alarm_flash.step_timer = 0;
-	if (OBJECT(current_object)->escape_alarm_flash.counting_up != 0u)
-	{
-		color_offset_blue++;
-		color_offset_green++;
-		if (color_offset_blue == 0x3Fu)
+		if ((held_buttons & 0x10000u) != 0u)
 		{
-			OBJECT(current_object)->escape_alarm_flash.counting_up = 0u;
-			sound_id = 0x19u;
-			play_sound(sound_id, &write_index, &write_index_address);
+			if (scroll_skip_next_armed != 0u)
+			{
+				stage_start_section++;
+				scroll_skip_next_armed = 0u;
+			}
+		}
+		else
+			scroll_skip_next_armed = 1u;
+	}
+	if (scroll_skip_last_point < (int16_t)stage_start_section)
+		stage_start_section = scroll_skip_last_point;
+}
+
+void scroll_skip_previous_point(void)
+{
+	uint32_t held_buttons = 0;
+
+	held_buttons = input_ports_active & 0x1010000u;
+	if (held_buttons != 0x1010000u)
+	{
+		if ((held_buttons & 0x1000000u) != 0u)
+		{
+			if (scroll_skip_back_armed != 0u)
+			{
+				stage_start_section--;
+				scroll_skip_back_armed = 0u;
+			}
+		}
+		else
+			scroll_skip_back_armed = 1u;
+	}
+	if ((int16_t)stage_start_section < 0)
+		stage_start_section = 0u;
+}
+
+void scroll_skip_check_exit(void)
+{
+	uint32_t held_buttons = 0;
+
+	held_buttons = input_ports_active & 0x30u;
+	if (held_buttons == 0x30u)
+		return;
+	if ((held_buttons & 0x20u) != 0u)
+	{
+		if (scroll_skip_exit_armed != 0u)
+		{
+			scroll_skip_open = 0u;
+			scroll_skip_erase_panel();
+			scroll_skip_exit_armed = 0u;
 		}
 	}
 	else
+		scroll_skip_exit_armed = 1u;
+}
+
+void scroll_skip_erase_panel(void)
+{
+	uint32_t text = 0, text_position = 0;
+
+	text = scroll_skip_blank_text_ADDRESS;
+	print_text_list(&text, &text_position);
+}
+
+void scroll_skip_check_call(void)
+{
+	uint32_t held_buttons = 0, ignored = 0;
+
+	held_buttons = input_ports_active & 0x30u;
+	if (held_buttons == 0x30u)
+		return;
+	if ((held_buttons & 0x10u) != 0u)
 	{
-		color_offset_blue--;
-		color_offset_green--;
-		if (color_offset_blue == 0x28u)
-		{
-			OBJECT(current_object)->escape_alarm_flash.counting_up = 1u;
-			sound_id = 0x19u;
-			play_sound(sound_id, &write_index, &write_index_address);
-		}
+		if (scroll_skip_call_armed == 0u)
+			return;
+		move_camera_to_start_section(&ignored, &ignored, &ignored);
+		return;
 	}
+	scroll_skip_call_armed = 1u;
+}
+
+void move_camera_to_start_section(uint32_t *p_y, uint32_t *p_section_offset, uint32_t *p_stage_index)
+{
+	uint32_t r2 = 0, section_offset = 0, stage_index = 0;
+
+	load_camera_start_section(&section_offset, &stage_index);
+	r2 = update_camera_view();
+	*p_y = r2;
+	*p_section_offset = section_offset;
+	*p_stage_index = stage_index;
+}
+
+void load_camera_start_section(uint32_t *p_section_offset, uint32_t *p_stage_index)
+{
+	uint32_t direction_y_cursor = 0, limit_y_cursor = 0, list = 0, section_index = 0, section_offset = 0, stage_index = 0;
+	uint16_t start_y = 0, limit_y = 0, direction_y = 0;
+
+	stage_index = stage;
+	section_offset = stage_start_section;
+	section_offset = (uint16_t)(section_offset << 1);
+	list = stage_section_limits_x[stage_index] + stage_section_limits_x_ADDRESS + section_offset;
+	limit_y_cursor = stage_section_limits_y[stage_index] + stage_section_limits_y_ADDRESS + section_offset;
+	start_y = ROM16(limit_y_cursor);
+	limit_y_cursor += 2u;
+	camera_x = (uint32_t)ROM16(list) << 16;
+	camera_y = (uint32_t)start_y << 16;
+	camera_x += (uint32_t)camera_origin_x << 16;
+	camera_y += (uint32_t)camera_origin_y << 16;
+	list += 2u;
+	section_limit_x = ROM16(list);
+	limit_y = ROM16(limit_y_cursor);
+	section_limit_y = limit_y;
+	section_limit_x_list = list + 2u;
+	section_limit_y_list = limit_y_cursor + 2u;
+	list = stage_section_directions_x[stage_index] + stage_section_directions_x_ADDRESS + section_offset;
+	direction_y_cursor = stage_section_directions_y[stage_index] + stage_section_directions_y_ADDRESS + section_offset;
+	section_direction_x = (int16_t)ROM16(list);
+	direction_y = ROM16(direction_y_cursor);
+	section_direction_y = (int16_t)direction_y;
+	section_direction_x_list = list + 2u;
+	section_direction_y_list = direction_y_cursor + 2u;
+	list = stage_section_ends[stage_index] + stage_section_ends_ADDRESS + section_offset;
+	scroll_position = ROM16(list);
+	section_end_list = list + 2u;
+	section_index = section_offset >> 1;
+	list = stage_section_speeds[stage_index] + stage_section_speeds_ADDRESS + section_index;
+	scroll_speed = mem_read8(list);
+	section_speed_list = list + 1u;
+	list = stage_section_follow_speeds[stage_index] + stage_section_follow_speeds_ADDRESS + section_index;
+	follow_base_speed = mem_read8(list);
+	follow_base_speed_list = list + 1u;
+	list = stage_scroll_modes[stage_index] + stage_scroll_modes_ADDRESS + section_offset + section_offset;
+	scroll_mode = ROM16(list);
+	list += 2u;
+	scroll_mode_timer = ROM16(list);
+	scroll_mode_duration = scroll_mode_timer;
+	AS16(scroll_ramp_speed) = 1u;
+	scroll_mode_script = list + 2u;
+	*p_section_offset = section_offset;
+	*p_stage_index = stage_index;
+}
+
+void index_stage_list_pair(uint32_t section_offset, uint32_t stage_offset, uint32_t *p_first_entry, uint32_t *p_second_entry)
+{
+	uint32_t first_entry = *p_first_entry;
+	uint32_t second_entry = *p_second_entry;
+
+	second_entry = mem_read32((second_entry & ~0xFFFFu) | (uint16_t)(second_entry + stage_offset)) + section_offset;
+	first_entry = mem_read32(first_entry + stage_offset) + section_offset;
+	*p_first_entry = first_entry;
+	*p_second_entry = second_entry;
+}
+
+uint32_t scroll_skip_x_position_cell(void)
+{
+	uint32_t text_position = 0;
+
+	text_position = TEXT_CELL(34, 18);
+	return text_position;
+}
+
+uint32_t scroll_skip_y_position_cell(void)
+{
+	uint32_t text_position = 0;
+
+	text_position = TEXT_CELL(34, 19);
+	return text_position;
+}
+
+uint32_t scroll_skip_total_cell(void)
+{
+	uint32_t text_position = 0;
+
+	text_position = TEXT_CELL(34, 17);
+	return text_position;
+}
+
+void scroll_skip_draw_values(void)
+{
+	uint16_t attribute_2 = 0;
+	uint32_t attribute = 0, point = 0, text_position = 0, value = 0, value_list = 0;
+
+	point = stage_start_section;
+	value_list = ROM32(scroll_skip_value_lists_ADDRESS + scroll_skip_value_index * 2u * 2u);
+	value = ROM16(mem_read16((value_list & ~0xFFFFu) | (uint16_t)(value_list + stage * 2u)) + value_list + (uint16_t)(point * 2u));
+	switch (scroll_skip_value_index)
+	{
+	case 0:
+		text_position = scroll_skip_x_position_cell();
+		break;
+	case 1:
+		text_position = scroll_skip_y_position_cell();
+		break;
+	case 2:
+		text_position = scroll_skip_total_cell();
+		break;
+	case 3:
+		text_position = scroll_skip_x_position_cell();
+		break;
+	default:
+		unknown_code(0x1AAC1u + scroll_skip_value_index * 3u);
+	}
+	attribute = 0x200u;
+	draw_hex_4(&value, &attribute, &text_position);
+	scroll_skip_value_index++;
+	if (scroll_skip_value_index != 3u)
+		return;
+	scroll_skip_value_index = 0u;
+	value = stage_start_section;
+	text_position = TEXT_CELL(24, 15);
+	attribute_2 = 0x600u;
+	draw_hex_2(value, attribute_2, text_position);
+}
+
+void scroll_skip_print_panel(void)
+{
+	uint32_t text = 0, text_position = 0;
+
+	text = scroll_skip_panel_text_ADDRESS;
+	print_text_list(&text, &text_position);
+}
+
+void clear_bitmap_lower_half(void)
+{
+	bitmap_address = VIDEO_RAM + 0xE000u;
+	fill_value = fill_value & ~0xFFFFu;
+	set_halfwords(VIDEO_RAM + 0xE000u, 0x7000u, fill_value);
+	mem_write32(video_layer_disable, mem_read32(video_layer_disable) & ~0x20u);
+	AS16(bitmap_8bpp) = 1u;
+	bitmap_window_left = 0;
+	bitmap_window_top = 0;
+	bitmap_window_right = 0x13F;
+	bitmap_window_bottom = 0xDF;
 }

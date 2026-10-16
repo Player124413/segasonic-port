@@ -33,24 +33,24 @@
 #                                        lists them: tools/decompile_sound.py --variables)
 # build/sound/listing.s and build/sound/index.txt (written with the C) are what naming works from.
 #
-# FILE lines say where each file of src/sound/ starts (tools/decompile.py source_files, as symbols.txt's):
-#   ADDRESS  file   PATH                 the functions from ADDRESS up to the next file line go to
-#                                        src/sound/PATH.c, in address order; the comment becomes the
-#                                        Description of the file's header
+# FILE lines lay the functions out in the files of src/sound/ (tools/decompile.py source_files, as
+# symbols.txt's):
+#   ADDRESS  file   PATH   # what the stretch holds
+# the functions from ADDRESS up to the next file line go to src/sound/PATH.c. A file may take several
+# stretches; its functions go in the order of their addresses, and the comment of its first line is
+# its description (the Description of the file's header).
 
-
-
-# ======== source files: where each file of src/sound/ starts (decompile.source_files) ========
-0000  file  main              # the reset, the timer interrupt (the players' tick), the main loop and sound_init
-01D1  file  chips             # the two YM3438 and the RF5C68 set up and written; the tracks' and MIDI parts' start values; read_table_word
-040B  file  midi_messages     # the MIDI messages of the queue for each part on their channel: note on and off, pitch bend, control and program changes; picking a sample voice, retuning, FM modulation
-0B9C  file  sample_voices     # the RF5C68's sample voices: starting a sample, refilling its pages as it plays, stopping it
-0D64  file  midi_port         # unused: a MIDI port on an 8251 USART (ports F0 and F1)
-0DFE  file  utilities         # multiply_bytes (the volume scaling) and copy_sample_page (256 LDIs from the sample window to the wave memory)
-1192  file  fm_voices         # the YM3438 voices: note off, stop, release with the sustain pedal, the music and channel volumes, the patches
-4645  file  sequence_players  # the sequence players stepped at every tick: their events into the MIDI queue, the playlist commands
-48E0  file  sound_commands    # the V60's sound commands (poll_sound_command): songs and sequences started on players; the volume fades and next_sequence_byte
-61EF  file  fm_vibrato        # the FM vibrato the main loop steps; an unused fixed FM frequency
+# ======== source files: the files of src/sound/ and the stretches of the program each takes (decompile.source_files) ========
+0000  file  main       # the sound program's frame: the reset, the timer interrupt (the players' tick), the main loop and sound_init; the two YM3438 and the RF5C68 set up and written; the tracks' and MIDI parts' start values; read_table_word, multiply_bytes, copy_sample_page
+01D1  file  main       # the chips set up and written
+040B  file  midi       # the MIDI messages of the queue for each part on their channel: note on and off, pitch bend, control and program changes, picking a sample voice, retuning, FM modulation; the unused MIDI port on an 8251 USART (ports F0 and F1)
+0B9C  file  voices     # the voices: the RF5C68's sample voices (starting a sample, refilling its pages, stopping it) and the YM3438's FM voices (note off, release with the sustain pedal, volumes, patches, the vibrato)
+0D64  file  midi       # the unused MIDI port
+0DFE  file  main       # multiply_bytes, copy_sample_page
+1192  file  voices     # the FM voices
+4645  file  sequences  # the sequence players stepped at every tick (their events into the MIDI queue, the playlist commands) and the V60's sound commands (songs and sequences started on players, volume fades)
+48E0  file  sequences  # the sound commands
+61EF  file  voices     # the FM vibrato
 
 
 # Functions and labels

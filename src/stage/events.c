@@ -1,6 +1,6 @@
 /**
  *    Name:        stage/events.c
- *    Description: the scripted game modes run_game_mode jumps into and what they spawn: platforms, rocks, lightning, message boxes, the escape countdown
+ *    Description: the scripted game modes run_game_mode jumps into and what they spawn: platforms, rocks, lightning, message boxes, the escape alarm and countdown
  *    Version:     0.1.0
  *    Created:     12-10-2026
  *    Modified:    15-10-2026
@@ -10,6 +10,59 @@
  *    tools/decompile.py, with the names of symbols.txt.
  */
 #include "game.h"
+
+void escape_alarm_flash(void)
+{
+	uint8_t sound_id = 0;
+	uint32_t write_index = 0, write_index_address = 0;
+
+	if (escape_seconds == 0u)
+	{
+		delete_current_object();
+		return;
+	}
+	if (OBJECT(current_object)->escape_alarm_flash.started == 0u)
+	{
+		mixer_nbg0_blend |= 0x4000u;
+		mixer_nbg1_blend |= 0x4000u;
+		mixer_nbg2_blend |= 0x4000u;
+		mixer_nbg3_blend |= 0x4000u;
+		mixer_bitmap_blend |= 0x4000u;
+		escape_alarm_stray_flags |= 0x4000u;
+		color_offset_red = 0u;
+		color_offset_blue = 0x40u;
+		color_offset_green = 0x40u;
+		OBJECT(current_object)->escape_alarm_flash.counting_up = 0u;
+		OBJECT(current_object)->escape_alarm_flash.step_timer = 0;
+		OBJECT(current_object)->escape_alarm_flash.started++;
+	}
+	OBJECT(current_object)->escape_alarm_flash.step_timer++;
+	if (OBJECT(current_object)->escape_alarm_flash.step_timer < 2)
+		return;
+	OBJECT(current_object)->escape_alarm_flash.step_timer = 0;
+	if (OBJECT(current_object)->escape_alarm_flash.counting_up != 0u)
+	{
+		color_offset_blue++;
+		color_offset_green++;
+		if (color_offset_blue == 0x3Fu)
+		{
+			OBJECT(current_object)->escape_alarm_flash.counting_up = 0u;
+			sound_id = 0x19u;
+			play_sound(sound_id, &write_index, &write_index_address);
+		}
+	}
+	else
+	{
+		color_offset_blue--;
+		color_offset_green--;
+		if (color_offset_blue == 0x28u)
+		{
+			OBJECT(current_object)->escape_alarm_flash.counting_up = 1u;
+			sound_id = 0x19u;
+			play_sound(sound_id, &write_index, &write_index_address);
+		}
+	}
+}
 
 void event_0f_start(void)
 {

@@ -4,15 +4,16 @@ Description: what the format modules share: the names of symbols.txt, values as 
              and the two ways their lines are written and read back
 Version:     0.1.0
 Created:     14-10-2026
-Modified:    14-10-2026
+Modified:    15-10-2026
 Author:      Sebastian Toyos
 
 A module of helpers only (no FORMATS: tools/data_formats.py gathers none from it).
 
-Values: numbers are 0x.. hex or decimal, either with a sign; sprite frames read frame_XXXX (the offset of the
-frame's record in sprite_frame_records, the name of its PNG in assets/sprites); program addresses read
-0x0XXXXX, with the name symbols.txt gives the place (name+0xNN inside a named data piece; a variable's name
-for a work RAM address): the address is what goes back, a name in its place is read too.
+Values: numbers are 0x.. hex or decimal, either with a sign; sprite frames read as their sheet and index
+(sonic/walking[3]: the fourth frame of assets/sprites/sonic/walking.png, as sprite_sheets.txt lays the
+sheets out), or frame_XXXX (the offset of the frame's record in sprite_frame_records); program addresses
+read 0x0XXXXX, with the name symbols.txt gives the place (name+0xNN inside a named data piece; a
+variable's name for a work RAM address): the address is what goes back, a name in its place is read too.
 
 A record is fields (name, offset, struct code, style) that tile its bytes; its lines are written one of two
 ways:
@@ -121,12 +122,43 @@ def number(token, where):
         raise ValueError(f"{where}: '{token}' is not a number") from None
 
 
+_SHEETS = {}
+
+
+def _sheets():
+    """{'name': {frame number: 'sheet[index]'}, 'number': the reverse}: where sprite_sheets.txt puts each
+    frame of assets.json's sprite asset (assets/sprites/SHEET.png, the index-th frame of the sheet)."""
+    if _SHEETS:
+        return _SHEETS
+    import json
+    import asset_formats
+    names = {}
+    manifest, sheets_map = ROOT / "assets.json", ROOT / "sprite_sheets.txt"
+    if manifest.exists() and sheets_map.exists():
+        assets = json.loads(manifest.read_text(encoding="utf-8"))["assets"]
+        asset = next((asset for asset in assets if asset["type"] == "sprite_frames"), None)
+        if asset is not None:
+            numbers = [index * asset_formats.SPRITE_RECORD for index in range(asset["count"])]
+            _, where = asset_formats.load_sprite_sheets(sheets_map, numbers)
+            names = {number: f"{path}[{index}]" for number, (path, index) in where.items()}
+    _SHEETS.update({"name": names, "number": {name: number for number, name in names.items()}})
+    return _SHEETS
+
+
 def frame_text(value):
-    """A sprite frame word: frame_XXXX (an offset in sprite_frame_records, 8 bytes a record), else 0xXXXX."""
-    return f"frame_{value:04X}" if value % 8 == 0 else f"0x{value:04X}"
+    """A sprite frame word: the frame's sheet and its index there (sonic/walking[3]: the fourth frame of
+    assets/sprites/sonic/walking.png), frame_XXXX for a frame no sheet holds (the offset of its record in
+    sprite_frame_records, 8 bytes a record), else 0xXXXX."""
+    if value % 8:
+        return f"0x{value:04X}"
+    return _sheets()["name"].get(value, f"frame_{value:04X}")
 
 
 def frame_value(token, where):
+    if token.endswith("]"):
+        if token not in _sheets()["number"]:
+            raise ValueError(f"{where}: '{token}' is no frame of a sprite sheet")
+        return _sheets()["number"][token]
     if token.startswith("frame_"):
         try:
             return int(token[6:], 16)
@@ -586,7 +618,7 @@ def byte_table(header, keyword, field, label, style="d", code="B"):
     return indexed(header, Rec(keyword, 1, [(field, 0, code, style)]), label)
 
 
-# ---- animations of frames inside records in columns: 'frames last N: frame_XXXX ...' ----
+# ---- animations of frames inside records in columns: 'frames last N: FRAME ...' ----
 
 def counted_words(out, keyword, show, limit=0x40):
     """A word with the last index N (its low byte; the high byte 0), then N + 1 words: one line
@@ -606,7 +638,7 @@ def frames_line(out):
 
 
 def frames_special(tokens, where):
-    """'frames last N: frame_XXXX ...' -> the header word N and the frame words."""
+    """'frames last N: FRAME ...' -> the header word N and the frame words."""
     if len(tokens) < 2 or tokens[0] != "last" or not tokens[1].endswith(":"):
         raise ValueError(f"{where}: 'frames last N: FRAME ...' expected")
     out = struct.pack("<H", number(tokens[1][:-1], where) & 0xFFFF)

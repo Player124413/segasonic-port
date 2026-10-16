@@ -1,0 +1,1359 @@
+# Sprite sheets: which frames make each sheet of assets/sprites (extract_assets.py), in frame order.
+# A frame's number is the offset of its record in sprite_frame_records (0x130000 of the program ROM).
+#   FRAME  sheet  PATH   # the frames from FRAME up to the next sheet line go to assets/sprites/PATH.png
+#                        (a sheet may take several stretches; the comment of its first one describes it)
+#   FRAME  row    NAME   # a row of the sheet starts at FRAME: an animation, a direction, a pose group
+# The data texts of assets/ name a frame by its sheet and index there: sonic/walking[3].
+
+0000  sheet  sonic/walking                     # Sonic walking (state 1) (sonic_walking_animations; 9 directions x 16)
+0000  row    down                              # facing 8: toward the viewer
+0080  row    down_down_left                    # facing 9: facing 7 mirrors it
+0100  row    down_left                         # facing 10: facing 6 mirrors it
+0180  row    left_down_left                    # facing 11: facing 5 mirrors it
+0200  row    left                              # facing 12: side view; facing 4 (right) mirrors it
+0280  row    left_up_left                      # facing 13: facing 3 mirrors it
+0300  row    up_left                           # facing 14: facing 2 mirrors it
+0380  row    up_up_left                        # facing 15: facing 1 mirrors it
+0400  row    up                                # facing 0: away from the viewer
+0480  sheet  sonic/running                     # Sonic running (state 13, player_animate_run_cycle) (sonic_running_animations; 9 directions x 10)
+0480  row    down                              # facing 8: toward the viewer
+04D0  row    down_down_left                    # facing 9: facing 7 mirrors it
+0520  row    down_left                         # facing 10: facing 6 mirrors it
+0570  row    left_down_left                    # facing 11: facing 5 mirrors it
+05C0  row    left                              # facing 12: side view; facing 4 (right) mirrors it
+0610  row    left_up_left                      # facing 13: facing 3 mirrors it
+0660  row    up_left                           # facing 14: facing 2 mirrors it
+06B0  row    up_up_left                        # facing 15: facing 1 mirrors it
+0700  row    up                                # facing 0: away from the viewer
+0750  sheet  sonic/alternate_run               # Sonic running with the mouth wide open, a panicked run: player_animate_run_cycle_alternate on floor type 1 facing along floor_1_facing_bases, or with object flag bit 31 (sonic_alternate_run_animations; 9 directions x 10)
+0750  row    down                              # facing 8: toward the viewer
+07A0  row    down_down_left                    # facing 9: facing 7 mirrors it
+07F0  row    down_left                         # facing 10: facing 6 mirrors it
+0840  row    left_down_left                    # facing 11: facing 5 mirrors it
+0890  row    left                              # facing 12: side view; facing 4 (right) mirrors it
+08E0  row    left_up_left                      # facing 13: facing 3 mirrors it
+0930  row    up_left                           # facing 14: facing 2 mirrors it
+0980  row    up_up_left                        # facing 15: facing 1 mirrors it
+09D0  row    up                                # facing 0: away from the viewer
+0A20  sheet  sonic/running_fast                # Sonic running fast (state 14) (sonic_running_fast_animations; 9 directions x 10)
+0A20  row    down                              # facing 8: toward the viewer
+0A70  row    down_down_left                    # facing 9: facing 7 mirrors it
+0AC0  row    down_left                         # facing 10: facing 6 mirrors it
+0B10  row    left_down_left                    # facing 11: facing 5 mirrors it
+0B60  row    left                              # facing 12: side view; facing 4 (right) mirrors it
+0BB0  row    left_up_left                      # facing 13: facing 3 mirrors it
+0C00  row    up_left                           # facing 14: facing 2 mirrors it
+0C50  row    up_up_left                        # facing 15: facing 1 mirrors it
+0CA0  row    up                                # facing 0: away from the viewer
+0CF0  sheet  sonic/standing                    # Sonic standing, idle (player_animate_standing) (sonic_standing_animations; 9 directions x 5)
+0CF0  row    down                              # facing 8: toward the viewer
+0D18  row    down_down_left                    # facing 9: facing 7 mirrors it
+0D40  row    down_left                         # facing 10: facing 6 mirrors it
+0D68  row    left_down_left                    # facing 11: facing 5 mirrors it
+0D90  row    left                              # facing 12: side view; facing 4 (right) mirrors it
+0DB8  row    left_up_left                      # facing 13: facing 3 mirrors it
+0DE0  row    up_left                           # facing 14: facing 2 mirrors it
+0E08  row    up_up_left                        # facing 15: facing 1 mirrors it
+0E30  row    up                                # facing 0: away from the viewer
+0E58  sheet  sonic/skid                        # Sonic skidding into a turn of 90 degrees or more (state 0C); player_animate_skidding reads the table at facing + 8, so a row is the turn that ends facing its direction (the player's facing) (sonic_skid_animations; 9 directions x 6)
+0E58  row    up                                # table entry 8: the turn that ends facing up (facing 0)
+0E88  row    up_up_right                       # table entry 9: ends facing 1; facing 15 mirrors it
+0EB8  row    up_right                          # table entry 10: ends facing 2; facing 14 mirrors it
+0EE8  row    right_up_right                    # table entry 11: ends facing 3; facing 13 mirrors it
+0F18  row    right                             # table entry 12: ends facing right (4); facing 12 (left) mirrors it
+0F48  row    right_down_right                  # table entry 13: ends facing 5; facing 11 mirrors it
+0F78  row    down_right                        # table entry 14: ends facing 6; facing 10 mirrors it
+0FA8  row    down_down_right                   # table entry 15: ends facing 7; facing 9 mirrors it
+0FD8  row    down                              # table entry 0: the turn that ends facing down (facing 8)
+1008  sheet  sonic/plain_jump                  # Sonic's jump with a somersault, when attack_power is 0 (never: it is always 4, so never drawn); a row is the take-off frame then 5 steps (sonic_plain_jump_animations; 5 directions x 6)
+1008  row    down                              # facings 8-9
+1038  row    down_left                         # facings 10-11 (6-7 mirrored)
+1068  row    left                              # facings 12-13 (4-5 mirrored)
+1098  row    up_left                           # facings 14-15 (2-3 mirrored)
+10C8  row    up                                # facings 0-1
+10F8  sheet  sonic/attack_jump                 # Sonic's jump, curling into a spinning ball (state 4, player_launch); a row is the take-off frame then the curl (sonic_attack_jump_animations; 5 directions x 5, and the ball)
+10F8  row    down                              # facings 8-9
+1120  row    spin_ball                         # the plain ball every direction ends on (also mighty_attack_jump_animations' last step, and test_inputs in test mode)
+1128  row    down_left                         # facings 10-11 (6-7 mirrored)
+1150  row    left                              # facings 12-13 (4-5 mirrored)
+1178  row    up_left                           # facings 14-15 (2-3 mirrored)
+11A0  row    up                                # facings 0-1
+11C8  sheet  sonic/tumble                      # Sonic hurt and tumbling (state 20, also blown away, state 1F), each direction ending on a hurt frame; frames recorded with palette 0x105CEE (all white) are these drawings in the hurt flash (sonic_tumble_animations; 5 directions x 12)
+11C8  row    down                              # facing 8
+1228  row    down_left                         # facings 9-11 (5-7 mirrored)
+1288  row    left                              # facing 12 (4 mirrored)
+12E8  row    up_left                           # facings 13-15 (1-3 mirrored)
+1348  row    up                                # facing 0
+13A8  sheet  sonic/hurt                        # Sonic hurt, knocked back (state 0D and the hurt steps of states 19, 25, 29-31, 36); frames recorded with palette 0x105CEE (all white) are these drawings in the hurt flash (sonic_hurt_animations; 5 directions x 9)
+13A8  row    down                              # facing 8
+13F0  row    down_left                         # facings 9-11 (5-7 mirrored)
+1438  row    left                              # facing 12 (4 mirrored)
+1480  row    up_left                           # facings 13-15 (1-3 mirrored)
+14C8  row    up                                # facing 0
+1510  sheet  sonic/shocked                     # Sonic electrocuted (state 0D step 7, electric fences and poles): the character and its skeleton in turn, shocked_palettes giving the skeleton the electric palette (sonic_shocked_animations; 2 directions x 6)
+1510  row    down_left                         # facings 8-11 (4-7 mirrored)
+1540  row    up_right                          # facings 0-3 (12-15 mirrored)
+1570  sheet  sonic/edge_fall                   # Sonic falling off a pit edge head over heels after teetering (state 6; sonic_near_edge_fall_animation, sonic_far_edge_fall_animation)
+1570  row    near_edge                         # the edge toward the viewer: seen from the front
+1598  row    far_edge                          # the edge away from the viewer
+15B8  sheet  sonic/edge_drop                   # Sonic dropping from an edge into the pit (state 8; sonic_near/far_edge_hang_animations + 36, + 38) and his slip effect, an object of its own (+ 22): he vanishes in a puff, leaving his eyes
+15B8  row    near_edge                         # state 8 at its start, then when the slip effect appears
+15C8  row    near_edge_slip_puff               # the slip effect (first step shown twice): quills and eyes go up in a puff, the eyes drop out
+1608  row    far_edge                          # the same, from behind
+1618  row    far_edge_slip_puff                # the slip effect from behind (its last two frames are 15F8 and 1600 again)
+1658  sheet  sonic/teeter                      # Sonic teetering at a pit edge, arms windmilling (state 5; the first frame is shown at once, then the animation; sonic_near_edge_teeter_animation, sonic_far_edge_teeter_animation)
+1658  row    near_edge                         # the edge toward the viewer: seen from the front
+16C8  row    far_edge                          # the edge away from the viewer
+1738  sheet  sonic/edge_hang                   # Sonic over an edge, hanging on and climbing back (state 7; sonic_near_edge_hang_animations, sonic_far_edge_hang_animations)
+1738  row    near_edge                         # hanging on (animation_speed 1)
+1788  row    near_edge_climb_back              # climbing back up (+ 16)
+17B0  row    far_edge                          # hanging on, from behind
+1800  row    far_edge_climb_back               # climbing back up, from behind
+1828  sheet  sonic/bounce                      # Sonic bouncing off a wall or an object at speed, a backward somersault (state 0E; sonic_bounce_records pick the animation and the mirroring by the bounce direction)
+1828  row    front                             # sonic_bounce_000_animation (bounce directions 000, 100): seen from the front
+1870  row    back                              # sonic_bounce_200_animation (bounce directions 200, 300): seen from behind
+18B8  sheet  sonic/climb                       # Sonic climbing a wall, seen from behind (state 0A, floor type 2)
+18B8  row    climb                             # sonic_climb_animation: up the wall
+1918  row    climb_over                        # sonic_climb_over_animation: over the top (frames with x/y offsets)
+1968  row    climb_sideways                    # sonic_climb_sideways_animation: side steps along the wall
+1998  row    unused_climb_sideways_lunge       # nothing uses it: from the side step pose, looks back, swings an arm over and lunges far along the wall (the 56-wide frame), then holds on again
+19D8  sheet  sonic/drift                       # Sonic sitting in the air, carried along with the scroll (state 25, the floor type 8 sequence: player_move_with_scroll); the plus_x/minus_x rows are drawn for every character (Ray and Mighty show these Sonic drawings in their colours)
+19D8  row    slow                              # sonic_drift_animation: drifting slowly or straight (19E0 again as last step)
+19F0  row    plus_x_start                      # drift_plus_x_start_animation (19D8 then these): turning, direction 40-1C0 (+x)
+1A00  row    plus_x                            # drift_plus_x_animation: drifting toward +x, face to the right
+1A18  row    minus_x_start                     # drift_minus_x_start_animation (19D8 then these): turning, direction 240-3C0
+1A28  row    minus_x                           # drift_minus_x_animation: drifting toward -x, face to the left
+1A40  sheet  sonic/stuck                       # Sonic stuck head first in an object, legs kicking; shake the trackball to escape (states 1D, 2C)
+1A40  row    start                             # player_stuck_begin, player_stuck_on_object_begin (stuck_frame)
+1A48  row    stuck                             # sonic_stuck_animation: no escape progress yet
+1A68  row    struggle                          # sonic_stuck_struggle_level_animations: two frames a level of escape progress
+1A88  row    escape                            # sonic_stuck_escape_animation: pulling free, stretched out flat
+1A98  sheet  effects/stuck_impact              # over a player stuck in an object, any character (player_stuck_begin's object, stuck_effect_update; it follows the propped board of stage 4)
+1A98  row    impact_star                       # stuck_effect_animation: a yellow star (palette 0x105C8E)
+1AA8  row    hole                              # a broken hole with cracks: 1AA8 at the stuck player's substate 2, 1AB0 once the player bounces out (state 0E); palette 0x105CAE
+1AB8  sheet  sonic/geyser_hop                  # Sonic thrown up by a geyser, flat out in the air and startled (stage scene, state 18 scene_step 5: player_stage_scene_geyser_start, speed_z -30000 and the voice; sonic_geyser_hop_animation)
+1AB8  row    hop                               # 5 steps
+1AE0  sheet  sonic/shrink_away                 # Sonic doing a big backflip before shrinking into the distance (stage scene, state 18 scene_step 7: player_stage_scene_shrink_away; sonic_shrink_away_animation)
+1AE0  row    backflip                          # 6 steps
+1B10  sheet  sonic/held                        # Sonic held by an object (state 15: caught jumping by kinds 8/10, as the vine bar), hanging from it, seen from behind: check_player_contacts sets it (held_frame)
+1B10  row    hanging                           # one frame
+1B18  sheet  sonic/flex                        # Sonic stretching up tall, then flexing his muscles (state 1B, no setter found; sonic_state_1b_animation, first frame shown twice)
+1B18  row    stretch_and_flex                  # 7 frames
+1B50  sheet  sonic/dying                       # Sonic with a halo and wings, eyes shut (state 16, player_state_dying: flies off the screen)
+1B50  row    angel                             # one frame
+1B58  sheet  sonic/opening_scene               # Sonic in the opening scene (state 1C, player_state_opening_scene, game mode 0x10)
+1B58  row    fists_on_hips                     # standing toward the viewer, fists on hips: scene_step 3 sets it and keeps it at the opening machine's place and zoom as it flies off
+1B60  row    gloves                            # two white gloves: in scene_steps 2-3 shadow_update shows them at the player (8 lower, zoomed alike) for every character, with palette 130 (Sonic's)
+1B68  sheet  ending/sonic_run                  # Sonic running toward the viewer, the ending's centre runner (ending_sonic_run_frames, ending_sonic_run_forward)
+1B68  row    run                               # 12 steps
+1BC8  sheet  sonic/opening_scene               # the shout
+1BC8  row    voice                             # sonic_opening_voice_animation: running toward the viewer shouting, the ending run with the mouth open (at scene_timer 140, with his voice)
+1C28  sheet  mighty/walking                    # Mighty walking (state 1) (mighty_walking_animations; 9 directions x 16)
+1C28  row    down                              # facing 8: toward the viewer
+1CA8  row    down_down_left                    # facing 9: facing 7 mirrors it
+1D28  row    down_left                         # facing 10: facing 6 mirrors it
+1DA8  row    left_down_left                    # facing 11: facing 5 mirrors it
+1E28  row    left                              # facing 12: side view; facing 4 (right) mirrors it
+1EA8  row    left_up_left                      # facing 13: facing 3 mirrors it
+1F28  row    up_left                           # facing 14: facing 2 mirrors it
+1FA8  row    up_up_left                        # facing 15: facing 1 mirrors it
+2028  row    up                                # facing 0: away from the viewer
+20A8  sheet  mighty/running                    # Mighty running (state 13, player_animate_run_cycle) (mighty_running_animations; 9 directions x 10)
+20A8  row    down                              # facing 8: toward the viewer
+20F8  row    down_down_left                    # facing 9: facing 7 mirrors it
+2148  row    down_left                         # facing 10: facing 6 mirrors it
+2198  row    left_down_left                    # facing 11: facing 5 mirrors it
+21E8  row    left                              # facing 12: side view; facing 4 (right) mirrors it
+2238  row    left_up_left                      # facing 13: facing 3 mirrors it
+2288  row    up_left                           # facing 14: facing 2 mirrors it
+22D8  row    up_up_left                        # facing 15: facing 1 mirrors it
+2328  row    up                                # facing 0: away from the viewer
+2378  sheet  mighty/alternate_run              # Mighty running with the mouth wide open, a panicked run: player_animate_run_cycle_alternate on floor type 1 facing along floor_1_facing_bases, or with object flag bit 31 (mighty_alternate_run_animations; 9 directions x 10)
+2378  row    down                              # facing 8: toward the viewer
+23C8  row    down_down_left                    # facing 9: facing 7 mirrors it
+2418  row    down_left                         # facing 10: facing 6 mirrors it
+2468  row    left_down_left                    # facing 11: facing 5 mirrors it
+24B8  row    left                              # facing 12: side view; facing 4 (right) mirrors it
+2508  row    left_up_left                      # facing 13: facing 3 mirrors it
+2558  row    up_left                           # facing 14: facing 2 mirrors it
+25A8  row    up_up_left                        # facing 15: facing 1 mirrors it
+25F8  row    up                                # facing 0: away from the viewer
+2648  sheet  mighty/running_fast               # Mighty running fast (state 14) (mighty_running_fast_animations; 9 directions x 10)
+2648  row    down                              # facing 8: toward the viewer
+2698  row    down_down_left                    # facing 9: facing 7 mirrors it
+26E8  row    down_left                         # facing 10: facing 6 mirrors it
+2738  row    left_down_left                    # facing 11: facing 5 mirrors it
+2788  row    left                              # facing 12: side view; facing 4 (right) mirrors it
+27D8  row    left_up_left                      # facing 13: facing 3 mirrors it
+2828  row    up_left                           # facing 14: facing 2 mirrors it
+2878  row    up_up_left                        # facing 15: facing 1 mirrors it
+28C8  row    up                                # facing 0: away from the viewer
+2918  sheet  mighty/standing                   # Mighty standing, idle (player_animate_standing) (mighty_standing_animations; 9 directions x 5)
+2918  row    down                              # facing 8: toward the viewer
+2940  row    down_down_left                    # facing 9: facing 7 mirrors it
+2968  row    down_left                         # facing 10: facing 6 mirrors it
+2990  row    left_down_left                    # facing 11: facing 5 mirrors it
+29B8  row    left                              # facing 12: side view; facing 4 (right) mirrors it
+29E0  row    left_up_left                      # facing 13: facing 3 mirrors it
+2A08  row    up_left                           # facing 14: facing 2 mirrors it
+2A30  row    up_up_left                        # facing 15: facing 1 mirrors it
+2A58  row    up                                # facing 0: away from the viewer
+2A80  sheet  mighty/skid                       # Mighty skidding into a turn of 90 degrees or more (state 0C); player_animate_skidding reads the table at facing + 8, so a row is the turn that ends facing its direction (the player's facing) (mighty_skid_animations; 9 directions x 6)
+2A80  row    up                                # table entry 8: the turn that ends facing up (facing 0)
+2AB0  row    up_up_right                       # table entry 9: ends facing 1; facing 15 mirrors it
+2AE0  row    up_right                          # table entry 10: ends facing 2; facing 14 mirrors it
+2B10  row    right_up_right                    # table entry 11: ends facing 3; facing 13 mirrors it
+2B40  row    right                             # table entry 12: ends facing right (4); facing 12 (left) mirrors it
+2B70  row    right_down_right                  # table entry 13: ends facing 5; facing 11 mirrors it
+2BA0  row    down_right                        # table entry 14: ends facing 6; facing 10 mirrors it
+2BD0  row    down_down_right                   # table entry 15: ends facing 7; facing 9 mirrors it
+2C00  row    down                              # table entry 0: the turn that ends facing down (facing 8)
+2C30  sheet  mighty/plain_jump                 # Mighty's jump with a somersault, when attack_power is 0 (never: it is always 4, so never drawn); a row is the take-off frame then 5 steps (mighty_plain_jump_animations; 5 directions x 6)
+2C30  row    down                              # facings 8-9
+2C60  row    down_left                         # facings 10-11 (6-7 mirrored)
+2C90  row    left                              # facings 12-13 (4-5 mirrored)
+2CC0  row    up_left                           # facings 14-15 (2-3 mirrored)
+2CF0  row    up                                # facings 0-1
+2D20  sheet  mighty/attack_jump                # Mighty's jump, curling into a spinning ball; a row is the take-off frame then the curl (mighty_attack_jump_animations; 5 directions x 5, and an unused ball)
+2D20  row    down                              # facings 8-9
+2D48  row    unused_spin_ball                  # Mighty's own ball: nothing uses it (his table ends every direction on Sonic's 1120 instead); 1120's ball with the shine moved a little
+2D50  row    down_left                         # facings 10-11 (6-7 mirrored)
+2D78  row    left                              # facings 12-13 (4-5 mirrored)
+2DA0  row    up_left                           # facings 14-15 (2-3 mirrored)
+2DC8  row    up                                # facings 0-1
+2DF0  sheet  mighty/tumble                     # Mighty hurt and tumbling (state 20, also blown away, state 1F), each direction ending on a hurt frame; frames recorded with palette 0x105CEE (all white) are these drawings in the hurt flash (mighty_tumble_animations; 5 directions x 12)
+2DF0  row    down                              # facing 8
+2E50  row    down_left                         # facings 9-11 (5-7 mirrored)
+2EB0  row    left                              # facing 12 (4 mirrored)
+2F10  row    up_left                           # facings 13-15 (1-3 mirrored)
+2F70  row    up                                # facing 0
+2FD0  sheet  mighty/hurt                       # Mighty hurt, knocked back (state 0D and the hurt steps of states 19, 25, 29-31, 36); frames recorded with palette 0x105CEE (all white) are these drawings in the hurt flash (mighty_hurt_animations; 5 directions x 9)
+2FD0  row    down                              # facing 8
+3018  row    down_left                         # facings 9-11 (5-7 mirrored)
+3060  row    left                              # facing 12 (4 mirrored)
+30A8  row    up_left                           # facings 13-15 (1-3 mirrored)
+30F0  row    up                                # facing 0
+3138  sheet  mighty/shocked                    # Mighty electrocuted (state 0D step 7, electric fences and poles): the character and its skeleton in turn, shocked_palettes giving the skeleton the electric palette (mighty_shocked_animations; 2 directions x 6)
+3138  row    down_left                         # facings 8-11 (4-7 mirrored)
+3168  row    up_right                          # facings 0-3 (12-15 mirrored)
+3198  sheet  mighty/edge_fall                  # Mighty falling off a pit edge head over heels after teetering (state 6; mighty_near_edge_fall_animation, mighty_far_edge_fall_animation)
+3198  row    near_edge                         # the edge toward the viewer: seen from the front
+31C0  row    far_edge                          # the edge away from the viewer
+31E0  sheet  mighty/edge_drop                  # Mighty dropping from an edge into the pit (state 8; mighty_near/far_edge_hang_animations + 36, + 38) and the shell he slips out of (spawn_slip_piece, + 3A)
+31E0  row    near_edge                         # state 8 at its start, then out of his shell when the slip effect appears
+31F0  row    near_edge_shell                   # the shell flying off (the slip piece)
+31F8  sheet  effects/edge_slip_puff            # a puff of dust: the slip effect (an object of its own) of Mighty and Ray dropping from an edge (mighty_ and ray_near/far_edge_hang_animations + 22); Ray's palette
+31F8  row    puff                              # first and last steps shown twice
+3230  sheet  mighty/edge_drop                  # the far edge
+3230  row    far_edge                          # the same, from behind
+3240  row    far_edge_shell                    # the shell flying off, from behind
+3248  sheet  mighty/teeter                     # Mighty teetering at a pit edge, arms windmilling (state 5; the first frame is shown at once, then the animation; mighty_near_edge_teeter_animation, mighty_far_edge_teeter_animation)
+3248  row    near_edge                         # the edge toward the viewer: seen from the front
+32B8  row    far_edge                          # the edge away from the viewer
+3328  sheet  mighty/edge_hang                  # Mighty over an edge, hanging on and climbing back (state 7; mighty_near_edge_hang_animations, mighty_far_edge_hang_animations)
+3328  row    near_edge                         # hanging on (animation_speed 1)
+3378  row    near_edge_climb_back              # climbing back up (+ 16)
+33A0  row    far_edge                          # hanging on, from behind
+33F0  row    far_edge_climb_back               # climbing back up, from behind
+3418  sheet  mighty/bounce                     # Mighty bouncing off a wall or an object at speed, a backward somersault (state 0E; mighty_bounce_records pick the animation and the mirroring by the bounce direction)
+3418  row    front                             # mighty_bounce_000_animation (bounce directions 000, 100): seen from the front
+3460  row    back                              # mighty_bounce_200_animation (bounce directions 200, 300): seen from behind
+34A8  sheet  mighty/climb                      # Mighty climbing a wall, seen from behind (state 0A, floor type 2)
+34A8  row    climb                             # mighty_climb_animation: up the wall
+3508  row    climb_over                        # mighty_climb_over_animation: over the top (frames with x/y offsets)
+3558  row    climb_sideways                    # mighty_climb_sideways_animation: side steps along the wall
+3588  row    unused_climb_sideways_lunge       # nothing uses it: from the side step pose, looks back, swings an arm over and lunges far along the wall (the 56-wide frame), then holds on again
+35C8  sheet  mighty/stuck                      # Mighty stuck head first in an object, legs kicking; shake the trackball to escape (states 1D, 2C)
+35C8  row    start                             # player_stuck_begin, player_stuck_on_object_begin (stuck_frame)
+35D0  row    stuck                             # mighty_stuck_animation: no escape progress yet
+35F0  row    struggle                          # mighty_stuck_struggle_level_animations: two frames a level of escape progress
+3610  row    escape                            # mighty_stuck_escape_animation: pulling free, stretched out flat
+3620  sheet  mighty/geyser_hop                 # Mighty thrown up by a geyser, flat out in the air and startled (stage scene, state 18 scene_step 5: player_stage_scene_geyser_start, speed_z -30000 and the voice; mighty_geyser_hop_animation)
+3620  row    hop                               # 5 steps
+3648  sheet  mighty/shrink_away                # Mighty doing a big backflip before shrinking into the distance (stage scene, state 18 scene_step 7: player_stage_scene_shrink_away; mighty_shrink_away_animation)
+3648  row    backflip                          # 6 steps
+3678  sheet  mighty/held                       # Mighty held by an object (state 15: caught jumping by kinds 8/10, as the vine bar), hanging from it, seen from behind: check_player_contacts sets it (held_frame)
+3678  row    hanging                           # one frame
+3680  sheet  mighty/flex                       # Mighty stretching up tall, then flexing his muscles (state 1B, no setter found; mighty_state_1b_animation, first frame shown twice)
+3680  row    stretch_and_flex                  # 7 frames
+36B8  sheet  mighty/dying                      # Mighty with a halo and wings, eyes shut (state 16, player_state_dying: flies off the screen)
+36B8  row    angel                             # one frame
+36C0  sheet  mighty/opening_scene              # Mighty in the opening scene (state 1C, player_state_opening_scene, game mode 0x10)
+36C0  row    fists_on_hips                     # standing toward the viewer, fists on hips: scene_step 3 sets it and keeps it at the opening machine's place and zoom as it flies off
+36C8  sheet  ending/mighty_run                 # Mighty running toward the viewer, the ending's right runner (ending_mighty_run_frames, ending_mighty_run_forward)
+36C8  row    run                               # 12 steps
+3728  row    unused_other_eyes                 # nothing uses it: the same 12 steps with the pupils redrawn
+3788  sheet  ray/walking                       # Ray walking (state 1) (ray_walking_animations; 9 directions x 16)
+3788  row    down                              # facing 8: toward the viewer
+3808  row    down_down_left                    # facing 9: facing 7 mirrors it
+3888  row    down_left                         # facing 10: facing 6 mirrors it
+3908  row    left_down_left                    # facing 11: facing 5 mirrors it
+3988  row    left                              # facing 12: side view; facing 4 (right) mirrors it
+3A08  row    left_up_left                      # facing 13: facing 3 mirrors it
+3A88  row    up_left                           # facing 14: facing 2 mirrors it
+3B08  row    up_up_left                        # facing 15: facing 1 mirrors it
+3B88  row    up                                # facing 0: away from the viewer
+3C08  sheet  ray/running                       # Ray running (state 13, player_animate_run_cycle) (ray_running_animations; 9 directions x 10)
+3C08  row    down                              # facing 8: toward the viewer
+3C58  row    down_down_left                    # facing 9: facing 7 mirrors it
+3CA8  row    down_left                         # facing 10: facing 6 mirrors it
+3CF8  row    left_down_left                    # facing 11: facing 5 mirrors it
+3D48  row    left                              # facing 12: side view; facing 4 (right) mirrors it
+3D98  row    left_up_left                      # facing 13: facing 3 mirrors it
+3DE8  row    up_left                           # facing 14: facing 2 mirrors it
+3E38  row    up_up_left                        # facing 15: facing 1 mirrors it
+3E88  row    up                                # facing 0: away from the viewer
+3ED8  sheet  ray/alternate_run                 # Ray running with the mouth wide open, a panicked run: player_animate_run_cycle_alternate on floor type 1 facing along floor_1_facing_bases, or with object flag bit 31 (ray_alternate_run_animations; 9 directions x 10)
+3ED8  row    down                              # facing 8: toward the viewer
+3F28  row    down_down_left                    # facing 9: facing 7 mirrors it
+3F78  row    down_left                         # facing 10: facing 6 mirrors it
+3FC8  row    left_down_left                    # facing 11: facing 5 mirrors it
+4018  row    left                              # facing 12: side view; facing 4 (right) mirrors it
+4068  row    left_up_left                      # facing 13: facing 3 mirrors it
+40B8  row    up_left                           # facing 14: facing 2 mirrors it
+4108  row    up_up_left                        # facing 15: facing 1 mirrors it
+4158  row    up                                # facing 0: away from the viewer
+41A8  sheet  ray/running_fast                  # Ray running fast (state 14) (ray_running_fast_animations; 9 directions x 10)
+41A8  row    down                              # facing 8: toward the viewer
+41F8  row    down_down_left                    # facing 9: facing 7 mirrors it
+4248  row    down_left                         # facing 10: facing 6 mirrors it
+4298  row    left_down_left                    # facing 11: facing 5 mirrors it
+42E8  row    left                              # facing 12: side view; facing 4 (right) mirrors it
+4338  row    left_up_left                      # facing 13: facing 3 mirrors it
+4388  row    up_left                           # facing 14: facing 2 mirrors it
+43D8  row    up_up_left                        # facing 15: facing 1 mirrors it
+4428  row    up                                # facing 0: away from the viewer
+4478  sheet  ray/standing                      # Ray standing, idle (player_animate_standing) (ray_standing_animations; 9 directions x 5)
+4478  row    down                              # facing 8: toward the viewer
+44A0  row    down_down_left                    # facing 9: facing 7 mirrors it
+44C8  row    down_left                         # facing 10: facing 6 mirrors it
+44F0  row    left_down_left                    # facing 11: facing 5 mirrors it
+4518  row    left                              # facing 12: side view; facing 4 (right) mirrors it
+4540  row    left_up_left                      # facing 13: facing 3 mirrors it
+4568  row    up_left                           # facing 14: facing 2 mirrors it
+4590  row    up_up_left                        # facing 15: facing 1 mirrors it
+45B8  row    up                                # facing 0: away from the viewer
+45E0  sheet  ray/skid                          # Ray skidding into a turn of 90 degrees or more (state 0C); player_animate_skidding reads the table at facing + 8, so a row is the turn that ends facing its direction (the player's facing) (ray_skid_animations; 9 directions x 6)
+45E0  row    up                                # table entry 8: the turn that ends facing up (facing 0)
+4610  row    up_up_right                       # table entry 9: ends facing 1; facing 15 mirrors it
+4640  row    up_right                          # table entry 10: ends facing 2; facing 14 mirrors it
+4670  row    right_up_right                    # table entry 11: ends facing 3; facing 13 mirrors it
+46A0  row    right                             # table entry 12: ends facing right (4); facing 12 (left) mirrors it
+46D0  row    right_down_right                  # table entry 13: ends facing 5; facing 11 mirrors it
+4700  row    down_right                        # table entry 14: ends facing 6; facing 10 mirrors it
+4730  row    down_down_right                   # table entry 15: ends facing 7; facing 9 mirrors it
+4760  row    down                              # table entry 0: the turn that ends facing down (facing 8)
+4790  sheet  ray/plain_jump                    # Ray's jump with a somersault, when attack_power is 0 (never: it is always 4, so never drawn); a row is the take-off frame then 5 steps (ray_plain_jump_animations; 5 directions x 6)
+4790  row    down                              # facings 8-9
+47C0  row    down_left                         # facings 10-11 (6-7 mirrored)
+47F0  row    left                              # facings 12-13 (4-5 mirrored)
+4820  row    up_left                           # facings 14-15 (2-3 mirrored)
+4850  row    up                                # facings 0-1
+4880  sheet  ray/attack_jump                   # Ray's jump, curling into a spinning ball (his own ball, tail out, ends each direction); a row is the take-off frame then 5 steps (ray_attack_jump_animations; 5 directions x 6)
+4880  row    down                              # facings 8-9
+48B0  row    down_left                         # facings 10-11 (6-7 mirrored)
+48E0  row    left                              # facings 12-13 (4-5 mirrored)
+4910  row    up_left                           # facings 14-15 (2-3 mirrored)
+4940  row    up                                # facings 0-1
+4970  sheet  ray/tumble                        # Ray hurt and tumbling (state 20, also blown away, state 1F), each direction ending on a hurt frame; frames recorded with palette 0x105CEE (all white) are these drawings in the hurt flash (ray_tumble_animations; 5 directions x 12)
+4970  row    down                              # facing 8
+49D0  row    down_left                         # facings 9-11 (5-7 mirrored)
+4A30  row    left                              # facing 12 (4 mirrored)
+4A90  row    up_left                           # facings 13-15 (1-3 mirrored)
+4AF0  row    up                                # facing 0
+4B50  sheet  ray/hurt                          # Ray hurt, knocked back (state 0D and the hurt steps of states 19, 25, 29-31, 36); frames recorded with palette 0x105CEE (all white) are these drawings in the hurt flash (ray_hurt_animations; 5 directions x 9)
+4B50  row    down                              # facing 8
+4B98  row    down_left                         # facings 9-11 (5-7 mirrored)
+4BE0  row    left                              # facing 12 (4 mirrored)
+4C28  row    up_left                           # facings 13-15 (1-3 mirrored)
+4C70  row    up                                # facing 0
+4CB8  sheet  ray/shocked                       # Ray electrocuted (state 0D step 7, electric fences and poles): the character and its skeleton in turn, shocked_palettes giving the skeleton the electric palette (ray_shocked_animations; 2 directions x 6)
+4CB8  row    down_left                         # facings 8-11 (4-7 mirrored)
+4CE8  row    up_right                          # facings 0-3 (12-15 mirrored)
+4D18  sheet  ray/edge_fall                     # Ray falling off a pit edge head over heels after teetering (state 6; ray_near_edge_fall_animation, ray_far_edge_fall_animation)
+4D18  row    near_edge                         # the edge toward the viewer: seen from the front
+4D40  row    far_edge                          # the edge away from the viewer
+4D60  sheet  ray/edge_drop                     # Ray dropping from an edge into the pit (state 8; ray_near/far_edge_hang_animations + 36, + 38) and the shoes he slips out of (spawn_slip_pieces, + 3A, animation_speed 4)
+4D60  row    far_edge_shoes                    # a red shoe spinning off (the slip pieces), from behind
+4DA0  row    near_edge_shoes                   # a red shoe spinning off (the slip pieces)
+4DE0  row    near_edge                         # state 8 at its start, then out of his shoes when the slip effect appears
+4DF0  row    far_edge                          # the same, from behind
+4E00  sheet  ray/teeter                        # Ray teetering at a pit edge, arms windmilling (state 5; the first frame is shown at once, then the animation; ray_near_edge_teeter_animation, ray_far_edge_teeter_animation)
+4E00  row    near_edge                         # the edge toward the viewer: seen from the front
+4E70  row    far_edge                          # the edge away from the viewer
+4EE0  sheet  ray/edge_hang                     # Ray over an edge, hanging on and climbing back (state 7; ray_near_edge_hang_animations, ray_far_edge_hang_animations)
+4EE0  row    near_edge                         # hanging on (animation_speed 1)
+4F30  row    near_edge_climb_back              # climbing back up (+ 16)
+4F58  row    far_edge                          # hanging on, from behind
+4FA8  row    far_edge_climb_back               # climbing back up, from behind
+4FD0  sheet  ray/bounce                        # Ray bouncing off a wall or an object at speed, a backward somersault (state 0E; ray_bounce_records pick the animation and the mirroring by the bounce direction)
+4FD0  row    front                             # ray_bounce_000_animation (bounce directions 000, 100): seen from the front
+5018  row    back                              # ray_bounce_200_animation (bounce directions 200, 300): seen from behind
+5060  sheet  ray/climb                         # Ray climbing a wall, seen from behind (state 0A, floor type 2)
+5060  row    climb                             # ray_climb_animation: up the wall
+50C0  row    climb_over                        # ray_climb_over_animation: over the top (frames with x/y offsets)
+5110  row    climb_sideways                    # ray_climb_sideways_animation: side steps along the wall
+5140  row    unused_climb_sideways_lunge       # nothing uses it: from the side step pose, looks back, swings an arm over and lunges far along the wall (the 56-wide frame), then holds on again
+5180  sheet  ray/stuck                         # Ray stuck head first in an object, legs kicking; shake the trackball to escape (states 1D, 2C)
+5180  row    start                             # player_stuck_begin, player_stuck_on_object_begin (stuck_frame)
+5188  row    stuck                             # ray_stuck_animation: no escape progress yet
+51A8  row    struggle                          # ray_stuck_struggle_level_animations: two frames a level of escape progress
+51C8  row    escape                            # ray_stuck_escape_animation: pulling free, stretched out flat
+51D8  sheet  ray/geyser_hop                    # Ray thrown up by a geyser, flat out in the air and startled (stage scene, state 18 scene_step 5: player_stage_scene_geyser_start, speed_z -30000 and the voice; ray_geyser_hop_animation)
+51D8  row    hop                               # 5 steps
+5200  sheet  ray/shrink_away                   # Ray doing a big backflip before shrinking into the distance (stage scene, state 18 scene_step 7: player_stage_scene_shrink_away; ray_shrink_away_animation)
+5200  row    backflip                          # 6 steps
+5230  sheet  ray/held                          # Ray held by an object (state 15: caught jumping by kinds 8/10, as the vine bar), hanging from it, seen from behind: check_player_contacts sets it (held_frame)
+5230  row    hanging                           # one frame
+5238  sheet  ray/flex                          # Ray stretching up tall, then flexing his muscles (state 1B, no setter found; ray_state_1b_animation, first frame shown twice)
+5238  row    stretch_and_flex                  # 7 frames
+5270  sheet  ray/dying                         # Ray with a halo and wings, eyes shut (state 16, player_state_dying: flies off the screen)
+5270  row    angel                             # one frame
+5278  sheet  ray/opening_scene                 # Ray in the opening scene (state 1C, player_state_opening_scene, game mode 0x10)
+5278  row    fists_on_hips                     # standing toward the viewer, fists on hips: scene_step 3 sets it and keeps it at the opening machine's place and zoom as it flies off
+5280  sheet  ending/ray_run                    # Ray running toward the viewer, the ending's left runner (ending_ray_run_frames, ending_ray_run_forward)
+5280  row    run                               # 12 steps
+52E0  sheet  title/emblem                      # the title emblem, 8 bpp: the ring with wings in two halves and the SEGASONIC THE HEDGEHOG banner in two halves (title_emblem_animate)
+52E0  row    emblem_halves                     # 52E0 left half (at 5A,72), 52E8 right half (E6,72), layer 5 behind Sonic
+52F0  row    banner_halves                     # 52F0 left (63,98), 52F8 right (DB,98), layer 0 in front of Sonic
+5300  sheet  title/sonic                       # Sonic's title animation: he rises out of the emblem, looks around, raises a finger and wags it (title_emblem_animate: 5300 + 8 x title_sonic_step, then title_sonic_loop_frames); a scene of Sonic's own, so in sonic/
+5300  row    rise                              # steps 0-8: the top of his head peeks over the banner, he rises to face the viewer (heights title_sonic_rise_heights)
+5348  row    look_around                       # steps 9-F: he turns his head away (back of the quills) and back again
+5380  row    raise_finger                      # steps 10-12: hand up, hand at the brow, index finger raised
+5398  row    finger_wag                        # step 13 on: the loop of title_sonic_loop_frames (5398-53C8 and back)
+53D0  sheet  title/sega_logo                   # the SEGA logo turning from edge-on to face-on (run_sega_logo, set_sega_logo_sprite: 53D0 + 8 x sega_logo_frame 0-1E)
+53D0  row    spin_in                           # 31 frames, 16x48 edge-on to 120x44 face-on
+54C8  sheet  eggman/tantrum                    # unused: Eggman stomping from foot to foot with his hands on his head, teeth clenched, puffs over his head (nothing names 54C8-5500, never drawn; its nearby palette 105DCE is the SEGA logo's, his own would be 1059CE)
+54C8  row    stomp                             # 8 frames
+5508  sheet  eggman/teleport                   # Eggman standing: appears in a beam, talks, takes out a remote control and presses it, disappears (eggman_teleport_frames, object type 27, never spawned by a stage)
+5508  row    talk                              # eggman_teleport_frames 0C-0E, repeated by eggman_teleport_steps
+5520  row    reach_back                        # 0F-12: his arm swings behind his back
+5540  row    raise_remote                      # 13-14: holds the remote up, its antenna sending
+5550  sheet  eggman/booth                      # Eggman at a console with two levers (red and black) over a 320-pixel backdrop, the booth that slides in for his speeches (spawn_eggman_booth, eggman_booth_frames)
+5550  row    talk                              # eggman_booth_frames 0-2 (eggman_booth_steps repeat them six times); 5550 is the same picture as 5690
+5568  sheet  eggman/teleport                   # unused frames of the standing Eggman with the remote (never drawn; nearby palette 10598E, the booth's)
+5568  row    unused_throw_remote               # holds the remote, winds up, throws it over his head, it blows up at his feet (5590), a small fire (5598), stands (55A0)
+55A8  row    materialize                       # eggman_teleport_frames 00-0B: built up in stripes from the feet, wobbles, stands (played backwards to leave)
+5608  row    press_remote                      # 1A-1F: turned aside, thumbing the remote (eggman_teleport_steps loop 1B-1F)
+5638  sheet  eggman/booth                      # unused console frames (never drawn; nearby palette 1059CE, the teleport's)
+5638  row    unused_pull_red_lever             # 5638 hands on both levers, 5640-5660 pulls the red lever toward him
+5668  row    unused_pull_black_lever           # 5668-5688 pulls the black lever
+5690  row    laugh                             # eggman_booth_frames 3-E, once after the talk loop: hands on the levers, leans back laughing, flings an arm up, slumps over the console
+56F0  sheet  eggman/teleport                   # the rest of the remote
+56F0  row    point_remote                      # eggman_teleport_frames 15-19: lowers the remote and turns aside to aim it
+5718  sheet  eggman/booth                      # the booth's backdrop
+5718  row    backdrop                          # 320x48, palette 8210 (spawn_eggman_booth)
+5720  sheet  intro/opening_machine             # stage 6's opening: the giant machine head with Eggman riding it (opening_machine_leap_in / opening_machine_update; part lists opening_machine_leap/landed/fly_away_animation)
+5720  row    front                             # 320x182: the head with its jaws open, two frames alternating
+5730  row    back                              # 320x182: the head from behind, a grille, while it flies into the distance (fly_away)
+5740  row    dust                              # clouds under it, both sides (the second x-flipped)
+5750  row    eggman                            # Eggman on top: 5750 facing the viewer at the levers, 5758 from behind (fly_away)
+5760  sheet  map/eggman                        # the big Eggman seen from behind at the bottom of the map screen (map_eggman_update)
+5760  row    idle                              # steps 0-1, and gesture byte 1
+5768  row    raise_fists                       # map_eggman_gesture_frames bytes 2-7 (5760 + 8 x (byte - 1)), sound 21 on 7
+5798  row    puffs                             # white puffs rising over his head, 5798 + 8 x frame_step 0-5 (map_eggman_hands_update, palette 690)
+57C8  row    turn_around                       # step 3: 57C8 + 8 x kind 0-3, from his back to facing the viewer, held on 57E0
+57E8  row    laugh                             # kinds 4-5 alternating: grinning
+57F8  sheet  intro/metal_wall                  # stage 7's how to play: the metal wall with Eggman's face that rises out of the floor and is smashed, with its dust, shadow and the cracked floor (metal_wall_draw)
+57F8  row    rise                              # pairs (wall, half with the face) from full height to the lowest: metal_wall_sprites/metal_wall_half_sprites 4 to 0 (it rises from 5838 to 57F8)
+5848  row    broken                            # index 7, flattened
+5858  row    damaged                           # indexes 5 and 6: cracked at full height, top knocked off
+5878  row    dust                              # metal_wall_dust_sprites: a left swirl (56 wide, 0-7) and a right one (48 wide, 8-F) alternating
+58F8  sheet  effects/skid_dust                 # the dust a skidding player kicks up (spawn_skid_dust, skid_dust_animation, palette 8260)
+58F8  row    puff                              # 6 frames: a puff growing and breaking up
+5928  sheet  effects/attack_spin               # the swirl drawn around an attacking player (draw_attack_effect): white for attack_power 3 (attack_power_3_effect_animations), cyan above 3 (attack_power_4_effect_animations); 5 steps a facing
+5928  row    power_3_down                      # facings 8-9
+5950  row    power_3_down_left                 # facings 10-11 (x-flipped for 6-7)
+5978  row    power_3_left                      # facings 12-13 (x-flipped for 4-5)
+59A0  row    power_3_up_left                   # facings 14-15 (x-flipped for 2-3)
+59C8  row    power_3_up                        # facings 0-1
+59F0  row    power_4_down                      # facings 8-9
+5A18  row    power_4_down_left                 # facings 10-11 (6-7 flipped)
+5A40  row    power_4_left                      # facings 12-13 (4-5 flipped)
+5A68  row    power_4_up_left                   # facings 14-15 (2-3 flipped)
+5A90  row    power_4_up                        # facings 0-1
+5AB8  sheet  effects/burn                      # flames and smoke streaming off a player blown away (state 1F, blown_away_effect_animation, palette 8360) or tumbling after a burn (state 20, tumble_effect_animation)
+5AB8  row    flames                            # tumble_effect_animation plays them twice
+5AD0  row    smoke_trail                       # flame streaks breaking into smoke
+5AF8  sheet  test_mode/object_editor           # unused: the menu of an object placement editor drawn as sprites (nothing names 5AF8-5B88, never drawn; nearby palette 105C4E); no code of it is left (the wall editor's leftovers in objects/shared.c print on the text layer)
+5AF8  row    menu_highlight                    # an 80x10 white bar, the size of a label
+5B00  row    crosshair                         # a plus with a dark centre
+5B08  row    base_point_grid                   # 3x3 grids with one dark square in different places (for BASE POINT)
+5B30  row    menu_labels                       # ZPOS, BASE POINT, 16.256, SAVE, H.V FLIP, ZOOM, CLEAR, COLOR BANK, NEW OBJECT, EXIT, END FLAG, OBJECT
+5B90  sheet  effects/debris                    # pieces that fly off broken things: stone (rock_debris_fly) and metal (spawn_debris, debris_fly)
+5B90  row    unused_panel_pieces               # unused: flat broken pieces, tiles and wedges (never drawn; nearby palette 105C4E; 5C10-5C28 repeat 5BD0-5BE8)
+5C30  row    rock_tumble                       # rock_debris_animations +0 (stage 0's platform rocks, roller_wall_fragments, door_fragments, brick_wall_bricks)
+5C50  row    block_tumble                      # rock_debris_animations +A
+5C70  row    pebble_tumble                     # rock_debris_animations +14
+5C90  row    metal_plate_tumble                # debris_frames 0-9 (debris_fly, every 4 frames; spawn_debris: the metal wall, stage 3's spiked panels, the spike gates of stages B-F, the flame machine's explosions)
+5CE0  row    metal_bracket_tumble              # debris_frames A-13 (spawn_debris starts half the chunks at A)
+5D30  row    unused_metal_shard_tumble         # unused: curved shards turning over (never drawn)
+5D80  sheet  effects/shadow                    # black shadows under objects and players (palette 9FFE / 87A0)
+5D80  row    ovals                             # 5D80 large (crawler, handle rod, cactus, centipede), 5D88 tiny (turtle), 5D90 the common one (players, rings, create_child_shadow, vines, icicles, mines)
+5D98  row    unused_ring_outline               # unused: a tilted black ring outline (never drawn)
+5DA0  sheet  stage_10/geyser                   # stage 10's geysers: water bursting from the river bed (spawn_geyser, palette 8280)
+5DA0  row    burst                             # geyser_animation: a splash growing into a tall spray
+5E08  row    jet                               # geyser_jet_animation
+5E20  sheet  stage_03/spiked_roller            # the gear-shaped spiked roller that chases the players (stage 3 and stage E; stage 4's door rollers too)
+5E20  row    turn                              # spiked_roller_animation / spiked_roller_frames, 9 frames
+5E68  sheet  eggman/speech_boxes               # the red caption boxes with Eggman's lines (message_box_kinds, spawn_message_box: Eggman's speeches, events, the press, the how to play)
+5E68  row    this_time_its_this                # kinds 00 and 09: "kondo wa kou da!"
+5E70  sheet  objects/rings                     # the ring (ring_animation; spawn_ring_rows, scatter_rings, stage_object_templates)
+5E70  row    spin                              # 30 frames: the ring turning over in 3D
+5F60  sheet  text/font                         # letters and digits drawn as sprites (text_frames); their palettes are the ones the scenarios drew them in
+5F60  row    digits                            # 0-9 (5F60 "0" is the same picture as 6020 "O")
+5FB0  row    uppercase                         # A-Z (5FF0 "I" is the same picture as 60E8 "l")
+6080  row    punctuation                       # ! ?
+6090  row    lowercase                         # a-z
+6160  sheet  stage_04/flame_machine_arm        # the flame machine's two arms swinging (flame_machine_arm_update: flame_machine_arm_frames index both tables)
+6160  row    slab                              # flame_machine_arm_part_sprites: the arm's green slab alone, 13 angles
+61C8  sheet  stage_04/flame_machine            # stage 4's flame machine at the end (object types 7-9: flame_machine_init, its pieces and objects)
+61C8  row    cannons                           # the two grey cannons (flame_machine_cannon_update, palette 91D0)
+61D8  sheet  effects/flame_jet                 # a jet of flame: the flame machine's cannons (flame_machine_flame_burn) and stage 8's flame jets (flame_jet_init) draw it, with its shadow on the floor
+61D8  row    unused_short_jet                  # unused: a shorter copy of the jet below, flicker, burn, fade (never drawn; the nearby palette 10972C is the cannons' grey, the flame palette 1064EE fits it)
+6230  sheet  stage_04/flame_machine            # the back wall's rods
+6230  row    rods                              # flame_machine_rod_sprites by back wall frame, long to short
+6258  row    housing                           # 6258 the box (kind C, 28 hits), 6260 its floor
+6268  row    back_wall                         # 6268 the back wall (flame_machine_back_wall_update); 6270 unused, the same wall lying flat
+6278  sheet  stage_04/spiked_disc              # the spiked disc an arm takes and drops to roll at the players (flame_machine_arm_take_disc, spiked_disc_*)
+6278  row    spin                              # spiked_disc_sprites
+6298  sheet  stage_04/flame_machine_arm        # the arm itself
+6298  row    arm                               # flame_machine_arm_sprites: slab, orange joint and base, 13 angles
+6300  sheet  stage_04/flame_machine            # an unused picture after the arms
+6300  row    unused_brick_wall                 # unused: green and orange bricks in diagonal rows, 128x135 (never drawn; nearby palette 1097CC, the arms')
+6308  sheet  objects/signs                     # the signs (object_kinds, screen_sign_kinds, floor_sign_sprites; sign_start, place_screen_sign)
+6308  row    captions                          # BREAK!!, CATCH!! (object_kinds), DANGER!! (screen_sign_kinds 1)
+6320  row    unused_white_go_arrows            # unused: white arrows pointing down with a yellow GO! (never drawn)
+6330  row    in_arrow                          # IN over a down arrow (spawn_sign kind 8, exit_gate_start)
+6338  row    signposts                         # boards with arrows on two posts, four ways; 6350 is floor_sign_sprites[0] (floor_sign_start, unused), 6338-6348 never drawn
+6358  row    go_arrows                         # red arrows with GO! in black: four diagonal, two upright (6378 also screen_sign_kinds 0 and floor_sign_sprites[1])
+6388  row    small_arrows                      # yellow arrows down, left, right, up (6388 also wall_editor_draw_arrow)
+63A8  row    shard_spin                        # a white and yellow shard turning over: ram_target_debris_animations +2A, which no ram_target_debris piece uses (never drawn)
+6418  row    unused_shard_burst                # unused: a shard breaking into specks (never drawn)
+6460  sheet  stage_08/treadmill                # stage 8's treadmill that raises a gate (treadmill_init)
+6460  row    gate_chain                        # the chain over each gate half (piece 63 above it)
+6468  sheet  objects/scenery                   # static scenery sprites (scenery_sprite_start, scenery_sprite_kinds)
+6468  row    grey_door                         # kind 0 (never drawn)
+6470  sheet  map/landmarks                     # the landmarks drawn on the island map, one palette each (map_marker_layouts)
+6470  row    landmarks                         # volcano, blue tower, rock arch, dark wreck, sand dune, waterfall, lighthouse with a ring
+64A8  sheet  map/markers                       # the stage badges on the island map and the marker that runs along the trail
+64A8  row    eggman_badges                     # Eggman-head badges numbered 1-7 (map_number_badge_sprites, 64A8 + 8 n; blink_current_map_marker), 1 and 2 drawn grey
+64E0  row    sonic_head_marker                 # Sonic's head moving along the trail (draw_map_trail_dot)
+64E8  sheet  map/zone_labels                   # unused: zone names with arrows for the map (nothing names 64E8-6518, never drawn)
+64E8  row    unused_zone_names                 # VOLCANIC ZONE, TRAP TOWER, LANDSLIDE ZONE, ICE WORLD, DESERT ZONE, WATER ZONE, EGGMAN'S TOWER
+6520  sheet  stage_03/exit_gate                # unused: the exit gate hung above its floor (exit_gate_start, palette 86A0; never drawn, its nearby palette 10624E is a guess)
+6520  row    gate                              # 64x128
+6528  sheet  map/stage_pictures                # 256x128 pictures of the stages on the map screen (stage_map_icons, next_stage_map_icons; map_intro_update, move_map_stage_icon)
+6528  row    stage_03                          # stage_map_icons[3]: a grey stone room
+6530  row    after_stage_03                    # next_stage_map_icons[3]
+6538  row    blink_blank                       # shown instead of the icon every other frame while it moves (blink_phase 0)
+6540  sheet  effects/explosion                 # explosions (explosion_frames; explode_object, explosion_animate)
+6540  row    big                               # explosion_frames 20-2C (explode_object): a fireball turning to smoke
+65A8  sheet  map/stage_pictures                # stage 8's picture
+65A8  row    stage_08                          # stage_map_icons[8]: lava
+65B0  sheet  objects/scenery                   # the blue wall blocks at the start of stage 3
+65B0  row    blue_doorway                      # kind 1
+65B8  row    blue_wall_block                   # kind 2
+65C0  sheet  map/stage_pictures                # more pictures
+65C0  row    after_stage_0a                    # next_stage_map_icons[A]
+65C8  row    flip_static                       # map_screen_update step 4, map_screen_draw_flipping_icon: the static of a flipping icon
+65D0  sheet  eggman/speech_boxes               # Eggman's lines
+65D0  row    ha_ha_ha                          # kind 0E: "hahhahha" (never drawn; nearby palette 10630E, its neighbours' 10636E fits)
+65D8  row    drop_dead_sonic                   # kinds 0F and 19: "kutabare Sonic!!"
+65E0  row    escape_this_island                # kind 10, two lines: "anshin suru no wa mada hayai zo / kono Eggman-tou kara dasshutsu dekiru ka na?" (the stage 0 message)
+65E8  row    know_this_islands_terror          # kind 11: "kono shima no osoroshisa wo omoishire!!"
+65F0  row    haaa                              # kind 12: "haaa!!"
+65F8  row    dont_think_its_over               # kind 13: "kore de owatta to omou na yo"
+6600  sheet  stage_03/end_pillar               # the brick pillar at the end of stage 3 (spawn_stage_03_end_pillar)
+6600  row    pillar                            # 40x112
+6608  sheet  effects/fire                      # fireballs and the flame they turn into (stage 3's machine fire, stage 8's rising flames, the spreading flames of stages B-F)
+6608  row    fireball_fly                      # fireball_animation 0-11 (init_fireball_flight, fireball_fly); 6608 never drawn, its nearby palette 10640E is the pillar's, 108D8C fits
+6698  row    flame                             # flame_animation (flame_start, rising_flame_init, spreading_flame_start)
+66B8  row    fireball_land                     # fireball_animation 12-17: the burst where it lands
+66E8  sheet  stage_03/spike_panel              # stage 3's spiked panel that flips up (object type 5, spike_panel_init)
+66E8  row    flip                              # six poses from upright to flat, each the plate (spike_panel_part_1_sprites), the hinge (part_2; the fourth pose has none) and the head (spike_panel_head_sprites)
+6770  sheet  stage_03/floor_block              # the stone floor blocks that crumble at stage 3's finale (stage_03_floor_block_start, stage_03_floor_block_kinds)
+6770  row    blocks                            # the first frames of the big kinds: a slab on a pillar, a cube, a flat slab
+6788  row    crumble                           # they all crumble through 6788 to the rubble 6790
+6798  row    tall_block_crumble                # the tall block and its two crumbling frames
+67B0  sheet  intro/metal_wall                  # the wall's shadow on the floor
+67B0  row    shadow                            # metal_wall_shadow_sprites, by height
+67D8  sheet  stage_03/electric_pole            # stage 3's electric pole (object type 6, electric_pole_init, palette 83D0 for the sparks)
+67D8  row    rise                              # electric_pole_sprites: closed (67D8) to the red core risen (6810)
+6818  row    front_spark                       # electric_pole_front_spark_sprites
+6850  row    side_spark                        # electric_pole_side_spark_sprites: one bolt, then three growing (6890-68B0 never drawn)
+68B8  sheet  stage_03/machine                  # the machine at 8300 in stage 3 (machine_start, machine_run)
+68B8  row    run                               # machine_animation
+68E8  row    wrecked                           # machine_run once machine_wrecked
+68F0  row    flame                             # machine_flame_animation (the small fire on it)
+6910  sheet  effects/flame_jet                 # the jet (flame_machine_flame_sprites by flame_machine_flame_frames; 6910 also every stage 8 flame jet piece's first frame)
+6910  row    flicker                           # frames 0-1
+6920  row    burn                              # frames 2-4
+6938  row    fade                              # frames 5-A (6938 and 6940 are the same picture)
+6968  sheet  stage_03/push_crate               # the crate pushed to a post (object type 12, push_crate_init)
+6968  row    crate                             # 64x63
+6970  sheet  stage_04/flame_machine            # shadows
+6970  row    shadows                           # 6970 the machine's (its fifth piece, on the floor); 6978 and 6980 unused, a long bar and a small wedge
+6988  sheet  stage_04/spiked_disc              # its shadow
+6988  row    shadow                            # flame_machine_arm_take_disc's piece
+6990  sheet  effects/flame_jet                 # the jet's shadow
+6990  row    shadow                            # flame_machine_flame_shadow_sprites (burn frames 2-4); 6990 also stage 8's flame jet nozzle piece
+69A8  sheet  stage_03/fire_vent                # stage 3's fire vents (fire_vent_spawner_update, fire_vent_update, fire_vent_burst_animate)
+69A8  row    blast                             # fire_vent_blast_animation, 20 frames (palettes from fire_vent_blast_palettes); 69A8 never drawn, its nearby palette is the shadows' black
+6A48  row    grille                            # 6A48 the glowing vent, 6A50 its dark grille after the blast
+6A58  sheet  stage_03/ram_target               # unused: a target the spiked roller rams (ram_target_start, ram_target_part_update; never drawn)
+6A58  row    panel_rise                        # ram_target_animation 6A58-6A70: a dark red panel swinging up; 6A78 the upright panel of the damage script
+6A80  row    trench_segment                    # ram_target_part_list_2/3: two or three of it in a row
+6A88  row    machine_trench                    # what part variant 0 becomes after 4 hits: a long trench with three machines
+6A90  sheet  stage_03/push_crate               # the crate breaking
+6A90  row    break                             # push_crate_break_sprites (6A90 never drawn, its nearby palette 108FAC is the fire vent's; the crate's 10692E fits)
+6AA8  sheet  stage_03/ram_target               # its debris
+6AA8  row    debris                            # ram_target_debris_animations +0, +E, +1A/+22: chunks, slivers, bits (never drawn; nearby palette 10692E, the crate's)
+6B18  sheet  stage_04/flame_machine            # the energy capsule on the box
+6B18  row    capsule                           # 6B18 (palette 9230)
+6B20  row    capsule_spark                     # flame_machine_capsule_sprites (palette 9240)
+6B58  sheet  stage_03/spike_panel              # the base
+6B58  row    base_plate                        # the plate with the holes (spike_panel_base_draw)
+6B60  sheet  effects/explosion                 # the small one
+6B60  row    small                             # explosion_frames 0-F (the small explosion at 08E43B: electric poles)
+6BE0  sheet  stage_04/catapult                 # stage 4's catapults: a spoon on a block that swings up and throws the player (catapult_x_start, catapult_y_start)
+6BE0  row    x_swing                           # catapult_x_animation, launches along +x
+6C10  row    y_swing                           # catapult_y_animation, launches along +y: spoon and base as separate sprites (6C10/6C18 ... 6C40/6C48), then whole (6C50, 6C58)
+6C60  sheet  stage_04/pebble                   # stage 4's pebbles (pebble_start)
+6C60  row    pebble                            # a small grey rock
+6C68  row    unused_cracks                     # unused: pale squiggles like cracks in the ground (never drawn; nearby palette)
+6C88  sheet  stage_04/electric_fence           # stage 4's electric fence (object type 1, fence_post_init)
+6C88  row    arc                               # fence_arc_frames: the arc between two posts
+6CA8  row    post                              # the post
+6CB0  sheet  stage_04/crumbling_floor          # stage 4's rock ledges that crack and fall (stage_object_records, crumbling_floor_update, crumbling_floor_animations: 4 cracking steps, then 4 crumbling)
+6CB0  row    narrow_ledge                      # 160x116: whole (6CB0), crumbling (6CB8-6CD0), two cracking sets (6CD8-6CE8 animation 5, 6CF0-6D00 animation 0)
+6D08  row    wide_ledge_up_right               # 160x136, rising to the right: whole and crumbling (animation 1; never drawn)
+6D30  row    wide_ledge_down_right             # 160x136, falling to the right: whole and crumbling (animation 2); 6D58-6D68 the cracking steps both wide ledges share
+6D70  row    small_block                       # 96x88: whole, crumbling (6D78-6D90), two cracking sets (6D98-6DA8 animation 3, 6DB0-6DC0 animation 6)
+6DC8  row    peaked_block                      # 96x95: whole, crumbling (6DD0-6DE8), cracking (6DF0-6E00) (animation 4)
+6E08  row    long_ridge                        # 208x152: whole, cracking (6E10-6E20), crumbling (6E28-6E38) (animation 7)
+6E40  sheet  intro/metal_wall                  # the cracked floor under it
+6E40  row    floor_crack                       # metal_wall_crack_sprites
+6E68  sheet  stage_04/vine                     # stage 4's vines (vine_init)
+6E68  row    segment                           # the 8x8 segments hanging from the anchor
+6E70  row    bar                               # the wooden bar at the tip
+6E78  sheet  stage_04/boulder                  # stage 4's rolling boulders (boulder_start)
+6E78  row    roll                              # boulder_animation
+6EA8  sheet  stage_04/propped_board            # the big board propped up at 8700 (propped_board_start)
+6EA8  row    board                             # 272x208
+6EB0  sheet  stage_04/door_wall                # the brick wall with a stone doorway at stage 4's start (door_wall_start)
+6EB0  row    wall                              # 200x168
+6EB8  sheet  stage_04/arrow_board              # the wooden board with a red arrow (arrow_board_start)
+6EB8  row    board                             # 104x64
+6EC0  sheet  stage_04/propped_board            # its props
+6EC0  row    prop                              # board_prop_start's wooden prop
+6EC8  sheet  stage_04/bouncing_fireball        # the burning balls the fireball emitter throws (fireball_types type 60, the second animation after boulder_animation)
+6EC8  row    spin                              # 5 frames
+6EF0  sheet  stage_05/bubble                   # the yellow bubbles that swell and pop (bubble_start in stages 5, 8, B, C)
+6EF0  row    swell                             # bubble_animation 0-4
+6F18  row    pop                               # bubble_animation 5-8
+6F38  sheet  stage_00/geyser                   # stage 0's water spout bursting out of the platform (stage_00_geyser_rise)
+6F38  row    top                               # stage_00_geyser_animation
+6F58  row    column                            # stage_00_geyser_column_sprites, by the top's frame
+6F78  sheet  stage_00/platform                 # stage 0's stone platform (stage_00_platform_start, stage_00_platform_stand)
+6F78  row    break                             # stage_00_platform_break_animation: the platform bursting into spray
+6F90  row    unused_spray                      # unused: white droplets in a turning arc (never drawn; nearby palette 10988C)
+6FF8  row    stand                             # the platform the players stand on (palette 9040)
+7000  sheet  stage_08/lava_rock                # rock slabs over the lava (lava_rock_update, stage_object_records +108/+11E; lava_rock_parts: two 7000 parts); a lava column erupts under them
+7000  row    break                             # lava_rock_break_animation 7000-7028: the slab (7000, also the slab at rest) flies up and breaks into pieces
+7030  sheet  stage_08/lava_column              # a pillar of fire, 128 x 224: lava_column_animation (spawn_lava_column, 2 parts under a lava rock) and fire_wall_animation (fire_wall_start, two pillars) play the same 4 frames
+7030  row    burn                              # the 4 frames of the pillar flickering (lava_column_animation, fire_wall_animation)
+7050  sheet  stage_05/floor_patch              # stage_05_floor_patch_start: stone floor tiles, 256 x 128, drawn while stage is 5
+7050  row    tiles                             # one frame: the patch of floor tiles
+7058  sheet  stage_05/cage                     # cage_start: ten bars; cage_bar_animation 7058 straight, 7060 bent, 7068 broken (cage_bar_update); the unused clipped_copy_sprite_start (stage_10.c) also starts with 7058
+7058  row    bar_break                         # a bar straight (7058), bent by an attacking player (7060), broken (7068)
+7070  sheet  stage_05/spiked_press             # spiked_press_start: a block of spikes, 224 x 224
+7070  row    press                             # one frame: the press
+7078  sheet  intro/opening_machine             # stage 6's opening: the giant machine head (its leap, landing and fly-away frames are 5720-5758, in another range)
+7078  row    shadow                            # draw_opening_machine_shadow: a black block (palette 87A0) scaled under the machine
+7080  sheet  stage_06/lightning                # spawn_stage_06_lightning (stage/events.c): stage_06_lightning_strikes' five 6-frame strikes: a flash at the top, the bolt, the bolt fading yellow to brown
+7080  row    bolt_branch_left                  # strike +CA: a long bolt with a short branch to the left (7080's palette is a guess: 002524, black)
+70B0  row    bolt_short                        # strike +D8: a short bolt, 32 x 48
+70E0  row    bolt_fork_high                    # strike +E6: forks to the right near the top
+7110  row    bolt_fork_wide                    # strike +F4: forks to the right at mid height, both branches reach the ground
+7140  row    bolt_fork_low                     # strike +102: forks low, to the left
+7170  sheet  intro/opening_ground              # opening_ground_start (stage 6): opening_ground_animation, the ground rushing toward the viewer (320 x 79); the ending's road (ending_road_frames, ending_road_scroll in scenes/ending.c) is the same 5 frames
+7170  row    rush                              # opening_ground_animation 7170-7190 (and ending_road_frames)
+7198  sheet  intro/opening_machine             # this stretch: the machine's open mouth
+7198  row    mouth                             # opening_machine_show_mouth: the open jaws (176 x 104); the map tables stage_map_icons and next_stage_map_icons give it as a filler to the stages with no picture
+71A0  sheet  stage_05/exit_door                # the exit door (exit_door_start, exit_door_wait_for_switch)
+71A0  row    door_panel                        # exit_door_wait_for_switch (stage_05_switch_step 2): a red door panel, placed in the stage 0 area
+71A8  sheet  intro/how_to_play                 # stage 7's how to play: the trackball, the hands, the button and the control panel (the captions are intro/how_to_play_messages)
+71A8  row    trackball                         # how_to_play_trackball_animation: 71B0 71A8 71B8 71C0 (71C0 is also the trackball part how_to_play_trackball_hand_start places)
+71C8  row    trackball_hand                    # how_to_play_trackball_hand_start: an open hand rubbing the trackball
+71D0  row    button_hand                       # how_to_play_button_hand_parts: the hand over the button (71D0) and pressing it (71D8)
+71E0  row    button                            # the button up (71E0) and pressed (71E8)
+71F0  row    panel                             # how_to_play_panel_start: the control panel strip ("SEGA SONIC THE HEDGEHOG"), 320 x 97
+71F8  sheet  intro/how_to_play_messages        # the how to play's captions (message_box_kinds 0B-0D, Japanese text; kind C's box, 91E0, and the unused English ones, 9F90 and 9FF8, are in another range)
+71F8  row    turning_trackball                 # kind B (how_to_play_trackball_hand_update): "torakkubooru wo mawashinagara," (while turning the trackball,)
+7200  row    unused_press_button               # nothing uses it: "botan wo osu!!" (press the button!!), 112 x 18, which would finish kind B's line; kind C (91E0) says "press the button to spin jump!!"
+7208  row    controls_title                    # kind D (how_to_play_trackball_hand_update): "sousa houhou" (how to play), in a box
+7210  sheet  stage_08/lava_flow                # lava_flow_start: the lava flow under the hanging bridge (lava_flow_parts: 2 parts, 160 x 80)
+7210  row    flow                              # lava_flow_animation
+7230  sheet  stage_08/lava_flame               # spawn_lava_flame: flames leaping off the lava flow, one of two animations at random
+7230  row    burst                             # lava_flame_animation: 7230 7238 7240-7258 (7230's palette is a guess, the flow's)
+7260  row    burst_alternate                   # lava_flame_animation_2: 7230 7238 then 7260-7278
+7280  sheet  stage_08/lava_steam               # spawn_lava_steam: puffs of white steam over the lava
+7280  row    puff                              # lava_steam_animation
+72B0  sheet  stage_08/treadmill                # treadmill_init (type 10): the treadmill that raises a gate
+72B0  row    belt                              # treadmill_belt_sprites: 8 phases of the belt, stepped as the players run in it (treadmill_update)
+72F0  row    roller                            # treadmill_roller_sprites (treadmill_roller_update)
+7310  row    chain                             # treadmill_roller_part_sprites: a chain hanging from the roller, drawn with it in the same phase, 8 x 200
+7330  sheet  stage_08/flame_jet                # flame_jet_init (type 11): flame_jet_nozzle_sprites by field 92 (the flames, flame_jet_flame_sprites 91E8-9208, are in another range)
+7330  row    nozzles                           # 7330 on a wall, 7338 on the floor
+7340  sheet  stage_08/treadmill                # this stretch: the gate the treadmill raises
+7340  row    gate                              # treadmill_init: the barred gate both halves show (treadmill_gate_update, treadmill_gate_half_update)
+7348  sheet  stage_05/exit_door                # this stretch: the door frame
+7348  row    door_frame                        # exit_door_start: a red door frame (80 x 112); also scenery_sprite_kinds kind 4 (stage B, drawn until YOU FAILED)
+7350  sheet  stage_09/crumbling_ice_floor      # crumbling_floor_update rows of stage 9 (stage_object_records +160): an ice slab; the moving ice platform's pieces (ice_platform_piece_parts, _2) show the whole slab
+7350  row    crumble                           # crumbling_floor_animations +110: the slab cracking and breaking apart
+7388  sheet  stage_09/spear_trap               # spear_trap_init (types 15 and 28): a spear that rises out of a hole in the ice
+7388  row    socket                            # the spear's red and gold socket, back (7388) and front (7390)
+7398  row    rim_back                          # the hole's rim behind the spear
+73A0  row    spear                             # the spear, 8 x 112; also the part of the shared walls (wall_kinds, wall_kind_second_sprites: spawn_walls in objects/shared.c lines them up)
+73A8  row    rim_front                         # the hole's rim in front of the spear
+73B0  sheet  stage_03/push_crate               # push_crate_init (type 12); the crate itself (6968) is in another range
+73B0  row    stop_post                         # the striped post the crate is pushed to (push_crate_stop_post_update, two of them)
+73B8  sheet  stage_09/handle_rod               # handle_rod_init: the rod between two posts that players climb hand over hand
+73B8  row    handle                            # the pivot and every handle along the rod: a red ball on a bracket
+73C0  sheet  stage_0a/sand_block               # sand_block_update: the collapsing sand blocks (stage_object_records +176/+18C/+1A2, sand_block_parts)
+73C0  row    block                             # the block, 160 x 160
+73C8  row    sand_column                       # the sand column under the +1A2 block, 160 x 24
+73D0  row    face                              # sand_face_animation (sand_face_update): the block's moving cut face
+73F0  row    streams                           # sand_stream_frames (sand_streams_update): sand pouring off the face
+7410  row    unused_stepped_bricks             # nothing uses it: sandstone bricks laid in steps, 160 x 144 (its palette is a guess, the blocks')
+7418  sheet  stage_09/ice_launcher             # ice_launcher_init/update (type 16): a wall of ice that swells and pushes out ice cubes
+7418  row    ice_cube                          # ice_launcher_update: the cube it pushes out (ice_cube_slide) and a second copy 1E lower (palette 11D0, bank 2000: probably its reflection on the ice)
+7420  row    launch                            # ice_launcher_sprites by ice_launcher_frames (00 01 00 02 .. 0D): wobble, swell and push (step C launches the cube)
+7490  sheet  stage_09/ice_floor                # ice_floor_start: 5 rows of 7 ice cubes
+7490  row    cube                              # one frame: an ice cube of the floor (the first of each row in palette bank 2000)
+7498  sheet  stage_09/ice_block                # ice_block_row_start: 14 ice blocks pushed off the edge (ice_block_update)
+7498  row    block                             # one frame: an ice block
+74A0  sheet  stage_09/icicle                   # drop_icicle_row, icicle_update
+74A0  row    icicle                            # the icicle, 72 x 168
+74A8  row    cracks                            # icicle_crack_animation (74B0 74B8 74C0 74A8): cracks spreading in the ice where the icicle stabbed in
+74C8  sheet  stage_09/handle_rod               # this stretch: the rod's two posts
+74C8  row    posts                             # handle_rod_post_init: the near post 74C8 with its arm piece 74D0, the far post 74D8
+74E0  sheet  stage_0a/quicksand                # quicksand_start: a funnel of sand that sinks the players
+74E0  row    pit                               # the sand pit, 208 x 128
+74E8  row    swirl                             # quicksand_animation on the 4 parts (quicksand_parts)
+7500  sheet  stage_0a/sinkhole                 # sinkhole_start: a sand funnel opening, 160 x 208
+7500  row    open                              # sinkhole_animation
+7518  sheet  stage_0a/rimmed_sinkhole          # rimmed_sinkhole_start
+7518  row    open                              # rimmed_sinkhole_animation: the rim of sand opening
+7530  sheet  stage_0a/sand_patch               # sand_patch_start: a triangle of sand on the floor
+7530  row    patch                             # one frame: the patch of sand (bit 15 of field 04 flips it)
+7538  sheet  stage_0a/rimmed_sinkhole          # this stretch: the hole inside the rim
+7538  row    hole                              # rimmed_sinkhole_start's second-pool part (symbols.txt calls it the rim): a black half-ellipse, the hole
+7540  sheet  stage_0a/shaking_block            # shaking_block_init/animate: blue metal blocks shaking (shaking_block_frames, 3 frames a kind)
+7540  row    rounded_block                     # kind 0
+7558  row    tall_block                        # kind 1
+7570  row    shadow                            # kind 0's shadow strip (palette 1060)
+7578  sheet  stage_0a/wall_piece               # wall_piece_init: wall_piece_frames by field 04
+7578  row    pieces                            # six green wall pieces
+75A8  sheet  effects/sand_puff                 # sand_puff_frames: the puffs where the centipede's pieces land (spawn_centipede_sand_puff); sinking_shadow_animation: the puffs around a player sinking in quicksand (shadow_update, player.c)
+75A8  row    puff                              # sand_puff_frames 75A8 75B0 75B8 (sand_puff_animate), the same three in sinking_shadow_animation
+75C0  sheet  ray/floor_8_sequence              # player state 0x25 (floor type 8 sequence, player_state_floor_8_sequence): Ray's frames (his landing is at 8A58)
+75C0  row    ride                              # ray_floor_8_ride_animation: lying flat while the scroll carries him (sequence steps 9-10)
+75D8  row    idle                              # floor_8_idle_animation_ray: stuck, while escape_progress is 0
+7608  row    escape                            # floor_8_escape_animation_ray: the frame by escape_progress, pulling free
+7628  sheet  ray/flail                         # flail_animation_ray: tumbling, arms and legs flailing (player_state_tripped, player_state_swept_away, player_state_pulled)
+7628  row    flail                             # flail_animation_ray 7628-7648
+7650  sheet  mighty/floor_8_sequence           # player state 0x25 (floor type 8 sequence): Mighty's frames (his landing is at 8A30)
+7650  row    ride                              # mighty_floor_8_ride_animation
+7668  row    idle                              # floor_8_idle_animation_mighty
+7698  row    escape                            # floor_8_escape_animation_mighty
+76B8  sheet  mighty/flail                      # flail_animation_mighty (tripped, swept away, pulled)
+76B8  row    flail                             # flail_animation_mighty 76B8-76D8
+76E0  sheet  sonic/floor_8_sequence            # player state 0x25 (floor type 8 sequence): Sonic's frames (his landing is at 8A08)
+76E0  row    ride                              # sonic_floor_8_ride_animation
+76F8  row    idle                              # floor_8_idle_animation_sonic
+7728  row    escape                            # floor_8_escape_animation_sonic
+7748  sheet  sonic/flail                       # flail_animation_sonic (tripped, swept away, pulled)
+7748  row    flail                             # flail_animation_sonic 7748-7768
+7770  sheet  effects/player_splash             # player_effect_animation (spawn_player_effect, player states 25, 30 and 33, palette D190): a white splash where a player drops in
+7770  row    burst                             # player_effect_animation 7770-7798: the splash bursting up and settling
+77A0  sheet  effects/struggle_hands            # spawn_struggle_marker (state 0x25 step C): two white gloves waving over a stuck player, in that player's palette (all three characters)
+77A0  row    hands                             # one frame: the two waving gloves (spawn_struggle_marker, struggle_marker_update)
+77A8  sheet  stage_09/padded_wall              # padded_wall_init: a wall with four spring pads players bounce off
+77A8  row    pad                               # wall_pad_sprites by wall_pad_frames (77A8 77C8 77B0 77B8 77C0), one round when touched (wall_pad_update): the pad pushing out on its spring and back
+77D0  row    wall                              # the wall's frame, 160 x 122
+77D8  sheet  stage_0a/cactus                   # cactus_init, cactus_update
+77D8  row    standing                          # cactus_init: the cactus on its floor
+77E0  row    lifted                            # spiralling up when the tornado comes near
+77E8  sheet  stages_0b_0f/checker_pad          # checker_pad_init/animate (stage B, next to Eggman's scene): a yellow checkered pad with a red lamp
+77E8  row    blink                             # checker_pad_frames: its squares lighting in turn
+7810  sheet  stages_0b_0f/static_triangle      # static_triangle_init/animate
+7810  row    static                            # static_triangle_frames: a triangle of white noise
+7828  row    red_triangle                      # its part, drawn every other frame
+7830  sheet  eggman/sliding_door               # sliding_door_init (stage B, Eggman's scene): a wall of white and red panels with a handle that slides away
+7830  row    door                              # one frame: the door (sliding_door_init's part 2, palette 9070)
+7838  sheet  stages_0b_0f/railing              # railing_init: a V-shaped railing
+7838  row    corner                            # one frame: the railing's corner (railing_init, palette 9080)
+7840  sheet  stages_0b_0f/falling_grate        # falling_grate_update (stage_object_records +1B8/+1CE): metal grating that falls once the leader passes
+7840  row    grate                             # the grating at rest (falling_grate_rattle_steps, never played, are all 7840)
+7848  row    fall                              # falling_grate_animation
+7870  sheet  stages_0b_0f/white_puff           # white_puff_animate: a burst of white puff every 5A frames
+7870  row    puff                              # white_puff_frames
+78C0  sheet  stage_0a/sand_block               # this stretch: the face falling
+78C0  row    face_fall                         # sand_face_fall_animation: the face falling once its block is gone
+78E0  sheet  objects/crawler                   # the crawler (objects/shared.c, nothing spawns it): purple box segments on claws, a pincer head and a hooked tail, two facings (field 92)
+78E0  row    segments_facing_left              # crawler_segment_frames 0-3, facing 0 (its head 7920's claws point left), walked 0 1 2 3 2 1 (crawler_walk_steps)
+7900  row    segments_facing_right             # crawler_segment_frames 4-7, facing 1 (its head 7928's claws point right)
+7920  row    head                              # crawler_head_frames: 7920 facing 0, 7928 facing 1
+7930  row    tail                              # crawler_tail_frames: 7930 facing 0, 7938 facing 1
+7940  sheet  stage_0a/centipede                # centipede_init (type 20): a head, nine segments and a spiked tail hopping in the sand
+7940  row    head                              # centipede_head_frames: 8 directions (centipede_move)
+7980  row    segment                           # the nine body segments
+7988  sheet  stage_0a/whirlwind                # the whirlwinds the tornado throws (spawn_whirlwind)
+7988  row    spin                              # whirlwind_sprites (whirlwind_move)
+79A8  sheet  stage_0a/tornado                  # tornado_start: the tornado, stage A's chaser
+79A8  row    column                            # tornado_column_animation; 79A8 is also the beam of the unused Eggman teleport (eggman_teleport_init)
+79D8  row    column_top                        # tornado_column_top_frames: the top that goes with each column frame (tornado_column_circle)
+7A08  sheet  stage_0a/centipede                # this stretch: the tail
+7A08  row    tail                              # centipede_tail_frames: the spiked tail, 8 directions (centipede_tail_follow)
+7A48  sheet  stages_0b_0f/biting_head          # biting_head_init/chase (stages C and E's chaser): a big metal head with toothed jaws on tank treads (biting_head_parts: 6 parts)
+7A48  row    jaw                               # biting_head_bite_step_records: open to shut
+7A68  row    head                              # the top of the head (part 2)
+7A70  row    engine                            # the engine behind it (part 1)
+7A78  row    treads                            # biting_head_move_frames: the treads rolling (parts 0 and 4)
+7A98  row    side_piece                        # part 5, beside the jaw
+7AA0  sheet  stage_0a/shaking_block            # this stretch: the tall block's second part and an unused frame
+7AA0  row    tall_block_side                   # kind 1's second part
+7AA8  row    unused_rubble                     # nothing uses it: a heap of broken slabs, 40 x 24 (its palette is a guess, the blocks')
+7AB0  sheet  stage_10/river_water              # river_water_update (stage_object_records +1E4): river_water_frames, water flowing down a slope
+7AB0  row    flow                              # river_water_frames 7AB0-7AE8 (record +1E4's field 48)
+7AF0  sheet  stage_10/waterfall                # spawn_waterfall, waterfall_move: 3 parts (waterfall_parts)
+7AF0  row    fall                              # waterfall_animation
+7B30  sheet  stage_09/snow_mound               # snow_mound_init/update: a mound of snow that bursts when touched (dropping its rings); part 4 is its reflection on the ice
+7B30  row    mound                             # snow_mound_init: the mound before it bursts (snow_mound_burst_frames 0)
+7B38  row    burst                             # snow_mound_burst_frames 1-E
+7BA8  sheet  stage_0a/sand_rock                # sand_rock_init/update: a sandstone boulder that crumbles to dust when touched (dropping its rings)
+7BA8  row    rock                              # sand_rock_init: the boulder before it crumbles (sand_rock_crumble_frames 0)
+7BB0  row    crumble                           # sand_rock_crumble_frames 1-D
+7C18  sheet  stage_08/rock_wall                # rock_wall_init/update: a cobblestone block that breaks (and drops rings) when an attacking player hits it
+7C18  row    wall                              # rock_wall_init: the block whole
+7C20  row    break                             # rock_wall_break_frames
+7C90  sheet  effects/ring_sparkle              # the rings' sparkles (objects/rings.c)
+7C90  row    sparkle                           # ring_sparkle_animation: spawn_ring_sparkle (a ring collected), spawn_banner_sparkle (the stage clear banners), player_hud_init
+7D10  row    glint                             # ring_glint_animation: spawn_ring_glint (ring_spin, every loop of the spin)
+7D90  sheet  stages_0b_0f/brick_wall           # brick_wall_init/wait (stages C and E's chaser): a brick wall that bursts into bricks and dust
+7D90  row    wall                              # brick_wall_init: the wall whole, 168 x 144
+7D98  row    dust                              # brick_dust_animation (palette 10E0; 7D98's palette is a guess, the wall's)
+7DE0  row    red_brick_tumble                  # brick_animations: palette 10F0, 7DE0-7E08
+7E10  row    orange_brick_tumble               # brick_animations: palette 1100, 7E10-7E68 (7E10's palette is a guess, the red brick's)
+7E70  sheet  objects/scenery                   # scenery_sprite_kinds (scenery_sprite_start, objects/shared.c); kinds 0-2 (6468, 65B0, 65B8), B-C (B1F8) and D (BB50) are in other ranges, kind 4 is 7348 (stage_05/exit_door)
+7E70  row    brick_wall_ends                   # kinds 5 and 6
+7E80  row    pale_walls                        # kinds 7-9: pale wall panels with an orange mark and a plaque, a wall with a winged relief
+7E98  row    warning_light                     # kind A (stage F): an orange triangle with red lights, its palette cycled (scenery_sprite_palettes)
+7EA0  row    doorway                           # kind 3
+7EA8  sheet  stage_10/turtle                   # turtle_init: a green sea turtle that surfaces, drops rings and swims off
+7EA8  row    swim                              # turtle_swim_frames (7F10-7F20, then 7EA8-7F08); its shadow copies the frame, and the palette shown here, 002524, is the shadow's
+7F28  row    shell                             # turtle_init: waiting in its shell
+7F30  row    unused_emerge                     # unused_014907 (no code reads the table): head and flippers coming out of the shell
+7F70  row    head                              # turtle_head_frames
+7F98  sheet  stages_0b_0f/rising_saw           # rising_saw_init: a spiked wheel rising out of the floor, leaving a shaft
+7F98  row    blade                             # saw_blade_animation (saw_blade_update)
+7FB8  row    shaft                             # saw_shaft_animation (saw_shaft_update), taller as the saw rises; build_saw_shaft_base uses 7FB8 and 7FE8
+7FF0  sheet  stages_0b_0f/grate_steps          # build_grate_steps: a staircase of grating the saw cuts through
+7FF0  row    cut                               # grate_step_cut_animation: 4, 3, 2, 1, 0 bars
+8018  row    debris_spin_2                     # grate_step_debris_animations' third animation: a cut bar spinning
+8048  row    debris_spin_0                     # its first
+8078  row    debris_spin_1                     # its second
+80A8  sheet  stage_0a/whirlwind                # this stretch: the whirlwind vanishing
+80A8  row    vanish                            # whirlwind_vanish_sprites (whirlwind_vanish)
+80E8  sheet  stage_10/bubbles                  # white bubbles rising: the sinking mine's parts (draw_mine_with_bubbles) and the bubble column (bubble_column_animate)
+80E8  row    rise                              # mine_bubble_frames
+8188  row    rise_alternate                    # mine_bubble_frames_2 (the mine's middle part); 81D0-81F0 repeat 8130-8150
+8228  sheet  mighty/object_climb               # player_object_climb_begin/move (player_state_climbing_object): climbing up an object hand over hand
+8228  row    climb                             # object_climb_animation_mighty
+8258  row    hand                              # spawn_climb_hand: the gripping hand
+8260  sheet  ray/object_climb                  # player_object_climb_begin/move: Ray's frames
+8260  row    climb_other_hand                  # object_climb_animation_ray_2 (player_object_climb_move, climb_hand positive again)
+8290  row    climb                             # object_climb_animation_ray
+82C0  row    hand                              # spawn_climb_hand: 82C0, or 82C8 when climb_hand is negative
+82D0  sheet  sonic/object_climb                # player_object_climb_begin/move: Sonic's frames
+82D0  row    climb                             # object_climb_animation_sonic
+8300  row    hand                              # spawn_climb_hand
+8308  sheet  mighty/drift                      # mighty_drift_animation: carried along with the scroll (state 25, player_move_with_scroll); Sonic's drift (19D8-1A38, sonic/drift) is in the characters' range, its turning rows drawn for every character
+8308  row    slow                              # mighty_drift_animation 8308-8318: drifting slowly or straight (as sonic/drift's slow row)
+8320  sheet  ray/drift                         # ray_drift_animation: the same for Ray
+8320  row    slow                              # ray_drift_animation 8320-8330: drifting slowly or straight
+8338  sheet  stage_08/rock_wall                # this stretch: an unused frame of the wall
+8338  row    unused_edge                       # nothing uses it: a strip of the wall's cobblestones at the right edge, 48 x 79 like the wall's frames (its palette is a guess, Ray's)
+8340  sheet  map/stage_pictures                # the pictures in the map screen's window (scenes/map.c: stage_map_icons by map_intro_update, next_stage_map_icons by map_screen_update), 256 x 128; 6528, 6530, 65A8 and 65C0 are in another range
+8340  row    after_stage_08                    # next_stage_map_icons[8]: grey ruins
+8348  row    stage_04                          # stage_map_icons[4]: grey rubble
+8350  row    stage_09                          # stage_map_icons[9]: black rocks
+8358  row    after_stage_09                    # next_stage_map_icons[9]: blue water
+8360  sheet  stage_04/flame_machine_wreck      # flame_machine_wreck_draw (spawn_flame_machine_wreck, stage 4): what is left of the flame machine (the machine's own frames, 6160-6B50, are in another range)
+8360  row    scorched_ground                   # flame_machine_wreck_draw: the scorched ground, 192 x 128
+8368  row    pieces                            # the two wrecked pieces (8368, 8370)
+8378  sheet  stages_0b_0f/rising_saw           # this stretch: the sparks
+8378  row    sparks                            # saw_sparks_animation (saw_sparks_update)
+83A8  sheet  stage_03/ram_target               # the unused ram target of stage 3 (ram_target_start, never spawned): ram_target_damage_script's later steps 83B0/83C0, 83A8/83C8, 83B8 (its first frames, 6A58-6A78, are in another range)
+83A8  row    cracking                          # the upright panel cracking under the roller's hits, then broken (83B8); their palette is a guess (the saw sparks' 10B0EC): the target's 108FAC fits
+83D0  sheet  mighty/stunned                    # player_state_stunned (state 2F, player/scene_states.c)
+83D0  row    stunned                           # the frame state 2F sets for Mighty (mov.h #83D0)
+83D8  row    recover                           # mighty_stun_recover_animation
+8410  sheet  sonic/stunned                     # player_state_stunned (state 2F)
+8410  row    stunned                           # the frame state 2F sets for Sonic (mov.h #8410)
+8418  row    recover                           # sonic_stun_recover_animation
+8450  sheet  ray/stunned                       # player_state_stunned (state 2F)
+8450  row    stunned                           # ray_stunned_animation (Ray only)
+8488  row    recover                           # ray_stun_recover_animation
+84C0  sheet  stage_10/underwater_explosion     # underwater_explosion_frames: a white cloud breaking up (mine_explode; eel_piece_explode too)
+84C0  row    explode                           # underwater_explosion_frames 84C0-8568 (durations underwater_explosion_durations)
+8570  sheet  stage_10/mine                     # mine_init: a spiked mine that falls into the water, sinks flashing and explodes on the bottom
+8570  row    splash_spray                      # mine_splash_spray_frames (spawn_mine_splash's part 2)
+8610  row    sink                              # mine_frames by mine_sink_steps (0 1 2 1 0 3 4 3), in the flashing palettes; 8610 is also the floating mine (mine_init)
+8638  row    splash                            # mine_splash_frames: the water column where it falls in
+8708  row    unused_splash                     # nothing uses it: 8660 again with 28 pixels changed
+8710  sheet  stage_10/eel                      # probably an earlier design of the eel (the eel is A898-AA48 and its den AC70-AD08, in another range); nothing uses these frames and their palette is a guess (the mine splash's)
+8710  row    unused_head                       # a robot eel's head opening its jaws
+8738  row    unused_segments                   # body segments turning
+8790  row    unused_den_hole                   # a hole in the rocks
+87A0  row    unused_moving_dot                 # one pixel moving along, in frames 16 wide and 10 to 23 high
+8840  sheet  stage_10/lid_trap                 # lid_trap_init/update: a round pad that snaps a red lid shut on a player
+8840  row    pad                               # 8840, and 8848 once touched
+8850  row    lid_open                          # lid_trap_init's part 2: the open red lid
+8858  row    lid_shut                          # lid_trap_lid_frames
+8870  sheet  eggman/speech_boxes               # Eggman's red speech boxes (message_box_kinds 14-18, 1A, 1B; spawn_message_box from the speech scripts, stage B's scene and the spiked press); kinds 00, 09, 0E-13, 19 (5E68, 65D0-65F8) and unused blank and English boxes are in other ranges
+8870  row    damn                              # kind 16: "chikushoo!!" (damn!!)
+8878  row    this_is_the_end                   # kind 17: "kore de saigo da" (this is the end)
+8880  row    blow_up_with_the_tower            # kind 18, two lines: "tou morotomo futtonde shimaee" (blow up along with the tower!)
+8888  row    drop_dead_mighty                  # kind 1B (spiked_press_update, Mighty caged): "kutabare Mighty!!"
+8890  row    drop_dead_ray                     # kind 1A (spiked_press_update, Ray caged): "kutabare Ray!!"
+8898  row    blow_away                         # kind 15: "futtonde shimaee" (be blown away!)
+88A0  row    not_yet                           # kind 14: "mada mada" (not yet)
+88A8  sheet  eggman/scene                      # eggman_scene_init (stage B): Eggman on foot talking, pressing the button box's button and running off
+88A8  row    talk                              # eggman_talk_frames (88A8 also ends the press)
+88C0  row    press_button                      # eggman_press_frames
+88E8  row    run_off                           # eggman_run_frames
+8928  sheet  eggman/button_box                 # button_box_init/rise/press: the box with Eggman's button
+8928  row    rise                              # button_box_frames 0-9: rising out of the floor
+8978  row    open                              # button_box_frames A-E: the lid opening on the lit button
+89A0  sheet  hud/game_over_banner              # draw_game_over_banner (game mode 7): GAME OVER with Eggman behind, drawn on top (sprite block 209FC0); an unused variant (AFF0) is in another range
+89A0  row    game_over                         # one frame: the banner, 136 x 40
+89A8  sheet  hud/start_prompts                 # blink_demo_prompt (the attract demos): the prompt in sprite block 209FC0 (banner_sprite_frame), a character peeking over it
+89A8  row    insert_coin                       # blink_demo_prompt without enough credits: INSERT COIN(S), with Sonic
+89B0  row    unused_insert_more_coins_mighty   # nothing uses it: INSERT MORE COIN(S), with Mighty
+89B8  row    push_start_button                 # blink_demo_prompt: PUSH START BUTTON, with Ray
+89C0  row    unused_insert_more_coins_sonic    # nothing uses it: INSERT MORE COIN(S), with Sonic
+89C8  sheet  hud/portraits                     # hud_portrait_sprites (player_hud_init, player_hud_start): the players' portraits with their names
+89C8  row    portraits                         # Sonic (89C8), Mighty (89D0), Ray (89D8), each in its palette
+89E0  sheet  hud/gauge                         # player_hud_init: the gauge's sized frame (hud_gauge_address copies its record's address word)
+89E0  row    bar                               # one frame: the gauge bar, 32 x 8, drawn sized
+89E8  sheet  hud/portraits                     # this stretch: three unused name labels
+89E8  row    unused_names                      # nothing uses them: SONIC, MIGHTY, RAY in blue letters, 56 x 16 (their palette is a guess, the gauge's)
+8A00  sheet  stage_10/stone_block              # stone_block_init: a stone block
+8A00  row    block                             # one frame: the stone block (palette 9120)
+8A08  sheet  sonic/floor_8_sequence            # this stretch: Sonic's landing
+8A08  row    landing                           # sonic_floor_8_landing_animation (player_floor_8_sequence_bounce on landing)
+8A30  sheet  mighty/floor_8_sequence           # this stretch: Mighty's landing
+8A30  row    landing                           # mighty_floor_8_landing_animation
+8A58  sheet  ray/floor_8_sequence              # this stretch: Ray's landing
+8A58  row    landing                           # ray_floor_8_landing_animation
+8A80  sheet  hud/stage_clear_banners           # game mode 0x17 (game_mode_stage_clear): banners revealed letter by letter (stage_clear_banner_reveal) that then split into letters (banner_letter_animation 90E0-9150, in another range)
+8A80  row    cleared                           # cleared_banner_animation: CLEARED
+8AB0  sheet  stage_08/rock_wall                # this stretch: the glint and the sparkles that show the wall can be broken
+8AB0  row    glint                             # rock_wall_glint_frames: the glint on the breakable wall
+8B08  row    sparkle                           # rock_wall_sparkle_frames: its sparkles
+8BD8  sheet  hud/stage_clear_banners           # this stretch: the stages' name banners (stage_name_banners, game mode 0x17)
+8BD8  row    volcanic_vault                    # stage_08_name_banner
+8C30  row    trap_tower                        # stage_03_name_banner
+8C70  row    landslide_limbo                   # stage_04_name_banner
+8CC8  row    icy_isle                          # stage_09_name_banner
+8CF0  row    desert_dodge                      # stage_0a_name_banner
+8D40  row    wild_water_ways                   # stage_10_name_banner
+8DA0  sheet  map/stage_pictures                # this stretch: two more used pictures and four unused ones
+8DA0  row    unused_pictures                   # nothing uses them: cobblestones on a slope (8DA0), a room with pillars and a doorway (8DA8); their palette is a guess (the banners')
+8DB0  row    after_stage_04                    # next_stage_map_icons[4]: a rope bridge over cobblestones
+8DB8  row    after_stage_10                    # next_stage_map_icons[10]: grey brick walls (also the unused debug_sprite_mover's sprite, stage/camera.c)
+8DC0  row    unused_wall_pieces                # nothing uses them: a stone wall with an arched opening (112 x 184) and a wall slab (48 x 152)
+8DD0  sheet  stage_10/river_raft               # river_raft_spawner_update, river_raft_update: wooden rafts drifting down the river
+8DD0  row    unused_spray                      # river_raft_unused_animation_2 (no code reads it): white spray (its palette is a guess, the map's)
+8DF0  row    raft                              # 8DF0, the raft every spawner launches; 8DF0-8E00 are also river_raft_unused_animation (no code reads it)
+8E08  row    foam                              # river_raft_foam_animation: the foam at the raft's front
+8E20  row    unused_foam                       # nothing uses it: a fourth foam frame
+8E28  row    fall                              # river_raft_fall_animation: tipping over the waterfall's edge
+8E50  sheet  stage_10/unused_barrel            # nothing uses these frames: probably a wooden barrel, its palette a guess (the raft's)
+8E50  row    top                               # its top, 88 x 50
+8E58  row    spin                              # its side turning, 11 frames
+8EB0  sheet  title/ray                         # title_emblem_animate: Ray beside the emblem (title_ray_frames 00-04 here; 05-0B, 9210-9240, are in another range)
+8EB0  row    rise                              # title_ray_frames 00-04: his head rising into view, then his thumbs up
+8ED8  sheet  title/mighty                      # title_emblem_animate's Mighty (title_mighty_frames B678-B6C8, in another range); this stretch: an older copy, unused
+8ED8  row    unused_copy_rise                  # nothing uses them: Mighty rising (8ED8-8EE8 equal B678-B688; 8EF0, 8EF8 differ from B690, B698 by 14 and 11 pixels); the copy's pose frames are 9248-9270; palette a guess (Ray's title palette 1065EE, Mighty's is 10660E)
+8F00  sheet  character_select/portraits        # the chooser's portraits (chooser_portrait_frames, scenes/character_select.c): Sonic's B2F0-B308, Ray's BF60-BF78 and Mighty's 8F20-8F38 are in other ranges
+8F00  row    unused_older_sonic                # nothing uses them: an older drawing of Sonic's portraits (frowning, thumbs up; B2F0-B308 smirk), 64 x 96 like Mighty's 8F20; palette a guess (Ray's title palette 1065EE; Sonic's 1057EE fits)
+8F20  sheet  character_select/portraits        # the chooser's character portraits (chooser_portrait_frames, character_select.c); Sonic's are B2F0-B308 and Ray's BF60-BF78, an older Sonic set 8F00-8F18
+8F20  row    mighty                            # chooser_portrait_frames 08-0B: steps 0-2 arms crossed tapping a foot (idle), step 3 the chosen pose (fist to the chin)
+8F40  row    unused_ray_copy                   # unused: Ray's chooser portrait, the same drawing as BF60-BF78 (3-75 pens differ a frame); nearby palette (Mighty's 0x10582E)
+8F60  sheet  ranking/letters                   # the ranking font (ranking_letter_sprites, ranking.c); this stretch: an older flat-coloured copy of it, unused
+8F60  row    unused_flat_letters               # unused: A-Z, the same glyphs as A238-A300 drawn in flat pens (no gradient)
+9030  row    unused_flat_punctuation           # unused: ? ! . (middle dot) - , as A308-A330
+9060  row    unused_flat_digits                # unused: 0-9 as A338-A380
+90B0  sheet  eggman/speech_boxes               # Eggman's speech boxes (message_box_kinds, spawn_message_box: 5E68, 65D0-65F8, 8870-88A0); this stretch: blank boxes
+90B0  row    unused_blank                      # unused: three empty rounded boxes, 184x24, 296x24, 304x48 (the speech box sizes), one pen
+90C8  sheet  character_select/join_portraits   # the small head of the chooser shown when a player joins mid-game (join_chooser_portraits, start_join_character_chooser)
+90C8  row    heads                             # Sonic, Mighty, Ray (join_chooser_portraits 00, 02, 01), each on its own palette
+90E0  sheet  hud/banner_break                  # the stage name / cleared banner breaking up (stage_clear_banner_hold, game_modes.c): each letter bursts into dust and sparkles
+90E0  row    letter_burst                      # banner_letter_animation (banner_letter_spin): a letter scattering into a disc of dots that spreads and fades
+9158  row    sparkles                          # banner_sparkle_animation (spawned by odd letters at step 0C): twinkling stars fading out
+91E0  sheet  intro/how_to_play_messages        # the how to play's captions (message_box_kinds 0B-0D: 71F8, 7208 and this one)
+91E0  row    spin_jump                         # message box kind 0C (how_to_play_button_hand, stage 7): 'press the button to spin jump!!' in Japanese
+91E8  sheet  stage_08/flame_jet                # the flame jet (flame_jet_burn, stage_08.c); its nozzles are 7330-7338 (flame_jet_nozzle_sprites)
+91E8  row    flame                             # flame_jet_flame_sprites 00-04: the flame puff, cycled along the jet
+9210  sheet  title/ray                         # Ray on the title screen (title_ray_frames, title.c); steps 00-04 (rising into view) are 8EB0-8ED0
+9210  row    tail_swing                        # title_ray_frames 05-0B: thumbs up, his tail swings in from the left and back
+9248  sheet  title/mighty                      # Mighty on the title screen (title_mighty_frames B678-B6C8); this stretch: an older copy, unused
+9248  row    unused_copy_pose                  # unused: the fist-to-chin pose, the same drawing as B6A0-B6C8 (11 pens differ); the copy's first frames (rising) are 8ED8-8EF8; nearby palette (Ray's title 0x1065EE)
+9278  sheet  stage_03/breakable_panel          # the breakable wall panel of stage 3 (breakable_panel_*, stage_03.c): a doorway shape that breaks open and drops rings
+9278  row    intact                            # breakable_panel_init: the closed panel
+9280  row    break                             # breakable_panel_break_frames 00-10: cracking and caving in
+9308  row    glow                              # breakable_panel_init (child): the doorway outline, palette cycled (breakable_panel_glow_palettes)
+9310  sheet  mighty/knocked_out                # mighty_knocked_out_animations (tumbling with no health left): he burns black and crumbles to ash
+9310  row    down                              # +0010, facings 4-11 (flipped for 4-7): facing the viewer
+93A0  row    up                                # +003C, facings 12-3 (flipped for 0-3): from behind
+9430  sheet  sonic/knocked_out                 # sonic_knocked_out_animations: as Mighty's
+9430  row    down                              # +0010, facings 4-11; no scenario drew it: nearby palette (Mighty's 0x10582E)
+94C0  row    up                                # +0044, facings 12-3
+9550  sheet  ray/knocked_out                   # ray_knocked_out_animations: as Mighty's
+9550  row    down                              # +0010, facings 4-11; no scenario drew it: nearby palette (Sonic's 0x1057EE)
+95E0  row    up                                # +0044, facings 12-3
+9670  sheet  ending/big_explosion              # the ending's big explosion (ending_big_explosion_frames and _2, ending_big_explosion), 8 bits a pen
+9670  row    burst                             # steps 00-0A of both lists: the fireball growing
+96C8  row    halves                            # steps 0B-: the left (list 1, flags 0201) and right (list 2, flags 0202) halves alternating, as it fills the screen
+9718  sheet  ending/credits                    # the staff credits (ending_credits_*_scroll, credits_*_parts); this stretch: SEGA logos, unused
+9718  row    unused_sega_logos                 # unused: SEGA, a small SEGA, SEGA ENTERPRISES; nearby palette (the explosion's)
+9730  row    names                             # credits_*_parts: the staff names (the voice actors' with their character's label)
+97C0  row    headings                          # the page headings (ending_credits_*_scroll): PROGRAM, DIRECTOR, SPECIAL THANKS, SOUND, DESIGN, VOICE ACTOR; RADIO ACTOR (97D8) and CHARACTER DESIGN (97F8) unused
+9800  sheet  ending/name_plates                # the cast plates beside the portraits (ending_name_plate_show)
+9800  row    starring                          # STARRING, at the top of the screen while the plates change
+9808  row    plates                            # ending_name_plate_frames: RAY the flying squirrel, SONIC the hedgehog, EGGMAN evil scientist, MIGHTY the armadillo
+9828  sheet  ending/credits                    # more staff names and the team logo
+9828  row    special_thanks_names              # credits_special_thanks_parts: S.BURTON, J.SPAHN, AONI PRO., RECORDING STUDIO TAVAC
+9848  row    team_logo                         # credits_team_logo_parts and ending_credits_team_logo_scroll: STAFF, R&D/AM-3 SONIC TEAM
+9858  sheet  ending/name_plates                # an unused plate
+9858  row    unused_robotnik_plate             # unused: ROBOTNIK evil scientist, the plate's design (the game shows EGGMAN, 9818)
+9860  sheet  ending/credits                    # an unused label
+9860  row    unused_robotnik_label             # unused: a ROBOTNIK label like the EGGMAN one over the voice actor's name in 9738
+9868  sheet  ending/portraits                  # the credits' portraits (ending_portrait_show, ending_portrait_frames)
+9868  row    portraits                         # Sonic, Ray, Mighty
+9880  row    backdrop                          # ending_portrait_show: the checkered square behind them (ending_portrait_backdrop_palettes)
+9888  sheet  ending/credits                    # the page icons
+9888  row    unused_sonic_head_icon            # unused: Sonic's head drawn as a credits icon (seen with the icons' palette 0x10B28C); nearby palette (the backdrop's)
+9890  row    page_icons                        # credits_*_parts: the icon over each page: design, director (clapperboard), program (computer), sound (speaker), special thanks (winged heart THNKS!!), voice actor (microphone)
+98C0  sheet  ending/blasts                     # the explosions on the island (ending_tower_blast_*, ending_horizon_blast_*)
+98C0  row    tower                             # ending_tower_blast_frames: a flash, a fireball, smoke rings thinning out
+9960  row    horizon                           # ending_horizon_blast_frames: the same, smaller, along the horizon
+9A10  sheet  ending/dust_cloud                 # ending_dust_cloud_frames (ending_dust_cloud_rise)
+9A10  row    rise                              # the wide cloud of dust swelling on the horizon
+9AB0  sheet  ending/eggman                     # Eggman's flight in the ending (ending_eggman_fly_in, _turn, _fly_away)
+9AB0  row    exhaust_flame                     # ending_eggman_fly_in: the flame behind his craft, two frames flickering
+9AC0  sheet  ending/horizon                    # ending_horizon_show: the island's horizon with the tower
+9AC0  row    horizon                           # one frame
+9AC8  sheet  ending/tower                      # the tower (ending_tower_frames, ending_tower_animate)
+9AC8  row    standing                          # step 0: the tower standing
+9AD0  sheet  ending/eggman                     # the close-ups and the turn
+9AD0  row    craft_close_up                    # ending_eggman_fly_away: the craft from below, shrinking away
+9AD8  row    eggman_close_up                   # ending_eggman_fly_away: Eggman gritting his teeth
+9AE0  row    turn                              # ending_eggman_turn_frames (9AE0 also ending_eggman_fly_in): the craft turning
+9B00  sheet  ending/tower                      # the tower falls
+9B00  row    crumble                           # ending_tower_frames steps 1-9: dark, cracking with light, breaking into falling rocks
+9B48  sheet  ending/eggman                     # his twinkle and his smoke
+9B48  row    twinkle                           # the star he leaves as he flies off (9B50, ending_eggman_fly_away, scaled up); 9B48, 9B58, 9B60 unused frames of the same twinkle
+9B68  row    smoke_puffs                       # ending_eggman_fly_in, init_eggman_smoke_puff: the trail of puffs, smallest to largest
+9B90  sheet  ending/debris                     # burning debris flying off the tower (animate_ending_debris)
+9B90  row    arc_right                         # ending_debris_1_path and _3_path: a burning chunk arcing down to the right, trailing smoke
+9C20  row    arc_left                          # ending_debris_2_path: arcing down to the left
+9CA0  sheet  stage_10/rope_bridge              # the rope bridge (rope_bridge_plank_update, draw_rope_bridge_ropes, stage_10.c)
+9CA0  row    even_plank_fall                   # rope_bridge_plank_animations +0000 (rope_plank_frame 9CA0 at rest): an even plank turning as the bridge collapses
+9CE0  row    odd_plank_fall                    # rope_bridge_plank_animations +0012 (from 9CA0): an odd plank turning the other way
+9D18  row    rope                              # rope_bridge_plank_update: a hanging rope, taut
+9D20  row    slack_rope                        # draw_rope_bridge_ropes (state 2, the bridge falling): the rope gone slack
+9D28  sheet  stage_10/geyser_burst             # the geysers a geyser line bursts (spawn_geyser_burst, geyser_burst_erupt, stage_10.c)
+9D28  row    burst                             # geyser_burst_animation: the ground cracking, then the water bursting out
+9D68  row    spray                             # geyser_burst_spray_animation: the spray falling back
+9D88  sheet  sonic/geyser_hop                  # sonic_geyser_hop_animation (1AB8-1AD8); this stretch: an unused back view
+9D88  row    unused_back_view                  # unused: Sonic from behind, arms and legs flung out (seen with Sonic's palette); the same pose as Ray's 9FE8 and Mighty's 9FF0; nearby palette (the geyser's)
+9D90  sheet  ring_tally/portraits              # the ring tally's portraits (ring_tally_portraits, build_ring_tally_panel): normal, then the two other faces the panel switches to
+9D90  row    sonic                             # 9D90 normal, 9D98 frowning, 9DA0 laughing
+9DA8  row    ray                               # the same three faces
+9DC0  row    mighty                            # the same three faces
+9DD8  sheet  ring_tally/panel                  # a player's panel (build_ring_tally_panel, update_ring_tally_panel)
+9DD8  row    portrait_backdrop                 # the concentric squares behind the portrait (layer 1)
+9DE0  sheet  ring_tally/total                  # the total of the tally (ring_tally_percent_update)
+9DE0  row    percent_box                       # the box with the % sign
+9DE8  row    percent_digits                    # percent_digit_sprites 0-9; the same frames are escape_countdown_digits (update_escape_countdown, events.c)
+9E38  row    total_rings_label                 # TOTAL RINGS
+9E40  sheet  ring_tally/panel                  # the panel's ring count, labels and an unused score
+9E40  row    ring_count_digits                 # ring_tally_digits 0-9
+9E90  row    ring_icon                         # a ring and RING
+9E98  row    unused_score_label                # unused: SCORE
+9EA0  row    unused_score_digits               # unused: 0-9, 8x16
+9EF0  row    bonus_labels                      # RING BONUS, NO BONUS (gets_bonus)
+9F00  sheet  stage_10/barred_gate              # the barred gate of stage 10 (barred_gate_init, barred_gate_update)
+9F00  row    close                             # barred_gate_animation: the bars coming down (barred_gate_closing)
+9F28  sheet  eggman/speech_boxes               # English speech boxes, unused (the game shows the Japanese ones)
+9F28  row    unused_english                    # unused: This is only the beginning. / Can you escape from Eggman's island of traps? / the first again (9F38, the same pens as 9F28) / ...Robotnik's island of traps? / I'll show you what terror really means. / I'll get you. / Try to get through this! / You'll never pass through here! / What went wrong? / You'll never escape! / This is the end. / I'll blow you away! / This is just the beginning!; nearby palette (the barred gate's)
+9F90  sheet  intro/how_to_play_messages        # an English caption, unused
+9F90  row    unused_english_spin_jump          # unused: Press button while spinning control ball for "Spin Jump". (the English of 91E0 and 71F8)
+9F98  sheet  map/marker_labels                 # the stage names that blink over the map's markers (map_marker_blink_sprites, blink_current_map_marker)
+9F98  row    stage_names                       # in frame order the labels of markers 00, 03, 04, 01, 02, 05, 06: VOLCANIC VAULT (never drawn in the scenarios), TRAP TOWER, LANDSLIDE LIMBO, ICY ISLE, DESERT DODGE, WILD WATER WAY, EGGMAN'S TOWER
+9FD0  row    unused_robotnik_tower             # unused: ROBOTNIK'S TOWER (the game shows EGGMAN'S TOWER, 9FC8)
+9FD8  sheet  effects/starburst                 # unused: two white starburst shapes (one pen), what uses them is not known; they sit before the unused back views 9FE8-9FF0
+9FD8  row    unused_flash                      # a small and a large starburst with flecks
+9FE8  sheet  ray/geyser_hop                    # ray_geyser_hop_animation (51D8-51F8); this stretch: an unused back view
+9FE8  row    unused_back_view                  # unused: Ray from behind, arms and legs flung out (seen with Ray's palette), as Sonic's 9D88; nearby palette (the map's)
+9FF0  sheet  mighty/geyser_hop                 # mighty_geyser_hop_animation (3620-3640); this stretch: an unused back view
+9FF0  row    unused_back_view                  # unused: Mighty from behind, arms and legs flung out (seen with Mighty's palette), as Sonic's 9D88; nearby palette (the map's)
+9FF8  sheet  intro/how_to_play_messages        # an English title, unused
+9FF8  row    unused_english_controls_title     # unused: CONTROLS (the English of 7208); nearby palette (the map's)
+A000  sheet  mighty/opening_scene              # mighty_opening_voice_animation (player_state_opening_scene, with his voice): running at the viewer, eyes narrowed
+A000  row    voice                             # 12 steps
+A060  sheet  mighty/opening_scene              # mighty_opening_run_animation (player_state_opening_scene): running at the viewer
+A060  row    run                               # 12 steps
+A0C0  sheet  intro/player_marker               # intro_marker_animation (spawn_intro_marker, intro_marker_update): the marker over each player in the opening
+A0C0  row    twinkle                           # a few twinkling dots (under 20 pixels a frame); A0D0, A0D8 and A0F0 draw nothing (the pauses of the animation)
+A0F8  sheet  ray/opening_scene                 # ray_opening_run_animation: running at the viewer
+A0F8  row    run                               # 12 steps
+A158  sheet  sonic/opening_scene               # sonic_opening_run_animation: running at the viewer
+A158  row    run                               # 12 steps
+A1B8  sheet  eggman/speech_boxes               # one more English speech box, unused
+A1B8  row    unused_english_doggonit           # unused: Doggonit! (the Japanese box 8870 says the same); nearby palette (Sonic's)
+A1C0  sheet  stage_0a/sand_arch                # the balls that leap out of the sand in an arch (sand_arch_*, stage_0a.c); the spray is BBE8-BC00 (sand_arch_spray_frames)
+A1C0  row    ball                              # sand_arch_init, sand_arch_ball_move: the spotted ball, also drawn as its shadow (palette 87A0)
+A1C8  row    unused_spiked_pipe                # unused: a spiked capsule with the ball's spots pushed out of an octagonal pipe on a jointed arm, four views; nearby palette (the shadow's: all black)
+A1E8  sheet  stages_0b_0f/spike_gate           # the spike gate (spike_gate_init, stages_0b_0f.c)
+A1E8  row    beam                              # the spiked beam, three parts
+A200  row    pillars                           # the near pillar with its slot, the far pillar
+A210  sheet  ranking/letters                   # the ranking font (ranking_letter_sprites: the rows, the initials, the character select countdown digits)
+A210  row    unused_ordinals                   # unused: st, nd, rd, th (the rows are numbered 1-15 without them); nearby palette (the spike gate's)
+A230  row    end_key                           # start_ranking_entry: END, after the three initials
+A238  row    letters                           # ranking_letter_sprites 00-19: A-Z (also the T, O, P of the TOP15 title, build_ranking_display)
+A308  row    punctuation                       # ranking_letter_sprites 1A-1F: ? ! . (middle dot) - ,
+A338  row    digits                            # ranking_letter_sprites 20-29: 0-9 (also the 1 and 5 of TOP15)
+A388  row    arrow                             # ranking_letter_sprites 2A: an arrow; the blank (2B) is A890
+A390  sheet  ranking/portraits                 # the faces in the ranking rows (ranking_portrait_frames, ranking_row_update): a glint sweeping across the glass
+A390  row    mighty                            # frames 00-13: the rows
+A430  row    mighty_top                        # frames 14-27: the top row, grinning
+A4D0  row    ray                               # the rows
+A570  row    ray_top                           # the top row, eyes shut happily
+A610  row    sonic                             # the rows
+A6B0  row    sonic_top                         # the top row, eyes shut, grinning
+A750  sheet  ranking/labels                    # the ranking's text pictures (ranking_name_sprites, build_ranking_display); the stage labels are A840-A888 (ranking_stage_sprites)
+A750  row    character_names                   # ranking_name_sprites 00-02: SONIC, RAY, MIGHTY
+A768  row    unused_top_20_title               # unused: TOP 20 (the game spells TOP15 with letters)
+A770  row    unused_rule                       # ranking_name_sprites 03-05, never read (character % 3): the left end, middle and right end of a horizontal rule
+A788  sheet  stage_08/collapsing_bridge_plank  # the log bridge that collapses (collapsing_bridge_plank_update, stage_08.c)
+A788  row    roll                              # collapsing_bridge_plank_animation: a log rolling as it swings; A788 is also the spike gate beam's shadow (spike_gate_init, scaled, shadow palette)
+A7B0  sheet  ending/mighty_run_across          # Mighty running across in the ending (ending_mighty_run_across): upper body and legs drawn apart; the legs are A7C0-A7D8 (ending_mighty_leg_frames)
+A7B0  row    body                              # ending_mighty_body_frames 00-01
+A7C0  sheet  ending/mighty_run_across          # Mighty running across the screen at the end, body and legs drawn apart (ending_mighty_run_across); his body A7B0-A7B8 is in range_3
+A7C0  row    legs                              # ending_mighty_leg_frames: spinning legs, the next frame every frame (the body every 4; animate_ending_runner_across)
+A7E0  sheet  ending/ray_run_across             # Ray running across the screen at the end, body and legs drawn apart (ending_ray_run_across, animate_ending_runner_across)
+A7E0  row    body                              # ending_ray_body_frames
+A7F0  row    legs                              # ending_ray_leg_frames (A800 has the same pens as Sonic's A830)
+A810  sheet  ending/sonic_run_across           # Sonic running across the screen at the end, body and legs drawn apart (ending_sonic_run_across, animate_ending_runner_across)
+A810  row    body                              # ending_sonic_body_frames
+A820  row    legs                              # ending_sonic_leg_frames
+A840  sheet  ranking/labels                    # the stage a ranking row reached (ranking_stage_sprites, build_ranking_display); the names and rule A750-A780 are in range_3
+A840  row    stage_labels                      # STAGE 1-9, then ALL CLEAR (A888); STAGE 8 and 9 (A878, A880) are never reached
+A890  sheet  ranking/letters                   # a later addition to the ranking letters (A238-A388, range_3)
+A890  row    blank                             # ranking_letter_sprites 2B (' '): an empty 16x16 frame
+A898  sheet  stage_10/eel                      # stage 10's eel (stage_10.c eel_init, eel_head_move): a chain of round body pieces ending in a robot head (colours in palette 0x10A9EC); an earlier design, 8710-8738, is in range_2
+A898  row    segment                           # the body piece (eel_init: the anchor and every piece; also their shadows)
+A8A0  row    unused_segment_light              # eel_part_frames: an orange light running round a piece's rim; read only by draw_eel_piece_parts, which nothing calls
+A998  row    unused_segment_glow               # eel_part_frames_2: a piece's rim glowing white and fading; read only by draw_eel_piece_parts
+AA00  row    head_retract                      # eel_head_retract_frames (facing 1, going back in): AA08 AA10 AA18 AA00
+AA20  row    head_extend                       # eel_head_extend_frames (facing 1, going out)
+AA38  row    head                              # eel_head_frames (facing 0); AA38 is also the head's shadow (eel_init)
+AA50  sheet  eggman/scene                      # a later addition to Eggman's scene in stage B (eggman.c eggman_scene_init; his frames 88A8-8920 are in range_2)
+AA50  row    shadow                            # his shadow, part 2 of eggman_scene_init (palette 9FFE): a black oval
+AA58  sheet  stage_08/burning_boulder          # stage 8's burning boulders (stage_08.c burning_boulder_start, burning_boulder_flame_flicker)
+AA58  row    roll                              # burning_boulder_roll_animation: the boulder rolling
+AA88  row    flame                             # burning_boulder_flame_animations, the start both animations share: a flame licking up; AA88-AAD0 and AAE0 are copies of fireball_animation 6608-6660 (range_1); AAD8, a second copy of AAD0, unused
+AAF8  row    trailing_flame_end                # the end of the animation at +24 (flames 01-03, behind the boulder): the flame drifts off and dies
+AB18  row    top_flame_end                     # the end of the animation at +0 (flame 00, on top); AB18 unused (it starts at AB20)
+AB40  sheet  stage_08/falling_ember            # stage 8's falling embers (stage_08.c falling_ember_update): an ember falls and bursts into sparks
+AB40  row    unused_slanted_fall               # an ember falling at a slant, growing (nothing names it)
+AB70  row    unused_landing_flame              # a small flame on the ground where the slanted ember lands (unused)
+AB80  row    unused_slanted_streak             # a longer ember streak at a slant (unused)
+ABB0  row    burst                             # falling_ember_burst_animation: a ring of sparks spreading out
+AC00  row    unused_shallow_streak             # an ember streak at a shallow angle (unused)
+AC30  row    unused_streak                     # a short ember streak (unused)
+AC60  sheet  stage_08/dome                     # a round dome on a banded base, two frames (white-hot in the embers' palette it is given); nothing uses it (filed with the stage 8 embers around it, probably theirs)
+AC60  row    unused_dome                       # unused
+AC70  sheet  stage_10/eel_den                  # stage 10's stone arch the eel lives in (stage_10.c eel_den_init, eel_den_collapse)
+AC70  row    collapse                          # eel_den_collapse_frames: the arch whole, then crumbling
+ADD8  sheet  stage_10/eel                      # unused frames after the eel den, in the eel's dark blue (colours in palette 0x10A9EC)
+ADD8  row    unused_eye                        # a slanted eye with an orange iris, as the eel head's (ADD8 on a filled patch)
+ADE8  row    unused_wriggle                    # a thin strand that twists, lies flat, arches and straightens (like a small eel), 40x36
+AEA0  row    unused_wriggle_wide               # the same strand in a wider frame, 56x36
+AF28  sheet  stage_10/propeller_machine        # stage 10's chaser, a tracked machine with spinning propellers (stage_10.c propeller_machine_init, propeller_machine_parts)
+AF28  row    body                              # part 0: the tracked body
+AF30  row    engine                            # part 1: the engine block with hazard stripes
+AF38  row    shaft                             # the propeller shafts (parts 2, 3, 8)
+AF48  row    hub                               # the propeller hub caps (parts 5, 7, A)
+AF50  row    big_propeller                     # propeller_machine_animation frame_a: the big propellers spinning
+AF70  row    small_propeller                   # propeller_machine_animation frame_b: the small propeller spinning
+AF90  sheet  ending/eggman                     # unused frames of Eggman in his flying craft, like the ending's 9AD0-9AF8 (range_3); colours in palette 0x10B5EC
+AF90  row    unused_eggman_close_up            # Eggman from the front gripping two levers, like 9AD8 (it uses pen 15 inside: as the board draws it, its rows are cut)
+AF98  row    unused_big_turn                   # Eggman in the craft seen from the side, turning to the front and shaking his fists, larger than 9AE0-9AF8
+AFB8  sheet  stage_08/metal_platform           # stage 8's metal platform the players are trapped on, which lifts off (stage_08.c metal_platform_start, metal_platform_update)
+AFB8  row    base                              # metal_platform_base_start: the frame and supports, left behind
+AFC0  row    deck                              # metal_platform_start: the deck at rest
+AFC8  row    far_railing                       # the far railing, a second object (state 3)
+AFD0  row    lift_off                          # the deck (AFD0) and the railing (AFD8, then AFE8 high up) rising; AFE0, a second rising deck, unused
+AFF0  sheet  hud/game_over_banner              # an unused variant of the GAME OVER banner (89A0, draw_game_over_banner, range_2)
+AFF0  row    unused_caped_eggman               # GAME OVER with the caped Eggman of B000-B0E8 laughing over it, where 89A0 has the usual one; colours in palette 0x10686E, as 89A0
+AFF8  sheet  title/copyright                   # (c)SEGA 1992 as a sprite, unused (attract_title prints it as text)
+AFF8  row    copyright                         # unused
+B000  sheet  eggman/scene                      # unused: a caped, armoured Eggman doing the three things of his stage B scene (88A8-8920, range_2); colours in palette 0x10686E (the GAME OVER banner's)
+B000  row    unused_caped_talk                 # standing, small arm gestures
+B030  row    unused_caped_press_button         # raising an arm, then reaching forward
+B048  row    unused_caped_run_off              # running, 8 frames as eggman_run_frames
+B088  sheet  map/eggman                        # unused: the caped Eggman doing what the map's big Eggman seen from behind does (map_eggman_update, 5760-57F0, range_1); colours in palette 0x10628E
+B088  row    unused_caped_raise_fists          # from behind: standing, raising and lowering his fists
+B0C0  row    unused_caped_turn_around          # turning round to the front
+B0D8  row    unused_caped_laugh                # facing the front, grinning
+B0F0  sheet  map/markers                       # unused variants of the map's number badges (map_number_badge_sprites 64A8-64D8, range_1; B108 has 92% the same pens as 64C0); colours in palette 0x10628E
+B0F0  row    unused_caped_eggman_badges        # round badges numbered 1 to 7 with the caped Eggman's head on top
+B128  sheet  eggman/booth                      # a larger, unused version of Eggman's booth (eggman_booth_frames 5550-56E8, range_1); colours in palette 0x10598E
+B128  row    unused_large_pull_levers          # grinning at his two levers, working them with one hand then the other (B128, B140 and B198 are the same)
+B1A0  row    unused_large_laugh                # leaning back laughing, then slumping forward and pointing (as 5690-56E8)
+B1F8  sheet  objects/scenery                   # later scenery kinds (shared.c scenery_sprite_start, scenery_sprite_kinds; kinds 0-3 and 5-A are in range_1 and range_2)
+B1F8  row    panel_wall                        # kinds B (stage 8) and C (stage 10): a tall wall face with recesses
+B200  sheet  stage_08/fire_trench              # stage 8's fire trench (stage_08.c fire_trench_start, spawn_fire_trench_flames)
+B200  row    trench                            # a trench of glowing lava with stone edges
+B208  row    flame                             # fire_trench_flame_animation: a flame column rising out of the trench
+B260  sheet  ray/seesaw_launch                 # Ray thrown off the seesaw in stage 8 (state 0x31, player_carried_off_wait_seesaw)
+B260  row    launch                            # ray_seesaw_launch_animation
+B288  sheet  ray/riding                        # Ray riding the stage 8 metal platform (player_state_riding)
+B288  row    riding                            # seen from behind, arms out
+B290  sheet  sonic/seesaw_launch               # Sonic thrown off the seesaw in stage 8 (state 0x31, player_carried_off_wait_seesaw)
+B290  row    launch                            # sonic_seesaw_launch_animation
+B2B8  sheet  sonic/riding                      # Sonic riding the stage 8 metal platform (player_state_riding)
+B2B8  row    riding                            # seen from behind, arms out
+B2C0  sheet  mighty/seesaw_launch              # Mighty thrown off the seesaw in stage 8 (state 0x31, player_carried_off_wait_seesaw)
+B2C0  row    launch                            # mighty_seesaw_launch_animation
+B2E8  sheet  mighty/riding                     # Mighty riding the stage 8 metal platform (player_state_riding)
+B2E8  row    riding                            # seen from behind, arms out
+B2F0  sheet  character_select/portraits        # the chooser's portraits, 4 steps a character, step 3 the chosen pose (chooser_portrait_frames; 8F00-8F58 are in range_2 and range_3)
+B2F0  row    sonic                             # chooser_portrait_frames 00-03
+B310  sheet  stage_08/seesaw                   # stage 8's seesaw the burning boulder lands on (stage_08.c seesaw_start, seesaw_tilt, seesaw_parts)
+B310  row    plank                             # seesaw_animation: the plank with a pad at each end, tilting
+B338  row    unused_small_pivot                # a smaller pivot frame (unused)
+B340  row    post                              # seesaw_parts: the near post
+B348  row    pivot                             # seesaw_parts: the axle on its two posts
+B350  sheet  stage_10/railing                  # stage 10's railing segments, a console with a rail on posts above it (stage_10.c railing_segment_draw, railing_parts)
+B350  row    upper                             # railing_parts part 0
+B358  sheet  stage_08/falling_ember            # the falling ember's fall and its burst on a slope
+B358  row    fall                              # falling_ember_animation: a small flame falling
+B388  row    unused_fall_end                   # three more fall frames, kept after the animation's end in the ROM (nothing reads them)
+B3A0  row    slope_burst                       # falling_ember_slope_burst_animation: sparks bursting on a slope
+B3F0  sheet  mighty/trapped                    # Mighty stuck in the floor of the stage 8 metal platform (state 0x32, player_state_trapped)
+B3F0  row    trapped                           # mighty_trapped_animation: sinking in, flailing, struggling
+B440  row    struggle                          # mighty_trap_struggle_level_animations: pulling out, by escape progress
+B468  row    escape                            # jumping out (player_state_trapped, escape_progress >= 4)
+B470  sheet  sonic/trapped                     # Sonic stuck in the floor of the stage 8 metal platform (state 0x32, player_state_trapped)
+B470  row    trapped                           # sonic_trapped_animation
+B4C0  row    struggle                          # sonic_trap_struggle_level_animations
+B4E8  row    escape                            # jumping out
+B4F0  sheet  effects/trap                      # the trap of player state 0x32 (carried_states.c player_state_trapped)
+B4F0  row    flash                             # trap_flash_start: a yellow star, blinking
+B4F8  row    hole                              # trap_start: a crack in the floor (B4F8), larger once the player broke free (B500, trap_update)
+B508  sheet  ray/trapped                       # Ray stuck in the floor of the stage 8 metal platform (state 0x32, player_state_trapped)
+B508  row    trapped                           # ray_trapped_animation
+B558  row    struggle                          # ray_trap_struggle_level_animations
+B580  row    escape                            # jumping out
+B588  sheet  stage_08/flame_jet                # unused frames of stage 8's flame jets (stage_08.c flame_jet_init; the nozzles 7330-7338 are in range_2, the flame 91E8-9208 in range_3)
+B588  row    unused_nozzles                    # the wall nozzle with its gas tanks: one tank (B588), two (B590, 98% the same pens as 7330); colours in palette 0x109B2C, as 7330
+B598  row    unused_flame_streak               # a jet of fire with a long tail (probably the jet's: it sits with the nozzles, and the pilot flame 6910 is drawn the same way)
+B5C0  row    unused_flame_ball                 # a round ball of fire churning (probably the jet's too); B598-B608 look right in the flames' palette 0x1064EE
+B610  sheet  mighty/pit_sinking                # Mighty sinking after falling into a pit (state 0x33, player_state_sinking)
+B610  row    sinking                           # mighty_pit_sinking_animation: head and a waving hand
+B628  sheet  effects/pit_sinking_splash        # in place of the shadow while a player sinks in a pit (player.c shadow_update, state 0x33)
+B628  row    splash                            # pit_sinking_shadow_animation: a ring of white specks
+B640  sheet  sonic/pit_sinking                 # Sonic sinking after falling into a pit (state 0x33, player_state_sinking)
+B640  row    sinking                           # sonic_pit_sinking_animation
+B658  sheet  ray/pit_sinking                   # Ray sinking after falling into a pit (state 0x33, player_state_sinking)
+B658  row    sinking                           # ray_pit_sinking_animation
+B670  sheet  stage_0a/stepped_wall             # stage A's long green wall of five stepped panels (stage_0a.c stepped_wall_init)
+B670  row    wall                              # stepped_wall_init
+B678  sheet  title/mighty                      # Mighty on the title screen (title.c title_emblem_animate, title_mighty_frames); an older copy is 8ED8-8EF8 (range_2) and 9248-9270 (range_3)
+B678  row    rise                              # rising into view from the bottom (B678-B688 have the same pens as 8ED8-8EE8)
+B698  row    fist_up                           # his fist raised to his chin, the frames he stays on
+B6D0  sheet  title/land                        # the strip of land with green hills that slides in on the title (title.c title_land_slide)
+B6D0  row    land                              # title_land_slide
+B6D8  sheet  title/clouds                      # the white clouds drifting on the title (title.c title_clouds_1/2/3_drift)
+B6D8  row    clouds                            # B6E8 unused (no drift routine uses it)
+B708  sheet  character_select/heading          # the PLAYER SELECT heading (character_select.c start_character_chooser)
+B708  row    heading                           # PLAYER SELECT
+B710  sheet  character_select/labels           # the labels under a chooser (draw_character_chooser_labels)
+B710  row    player                            # chooser_player_labels: Player 1, Player 2, Player 3
+B728  row    name                              # character_name_sprites: SONIC, MIGHTY, RAY
+B740  sheet  character_select/panel            # the chooser's panel (start_character_chooser), then unused bits drawn with it
+B740  row    panel                             # a plain green panel with a red border
+B748  row    unused_twinkle                    # a tiny dot growing into a cross of light, 8x8 (unused)
+B790  row    unused_arrow                      # a white arrow pointing up-left (unused)
+B798  sheet  ray/climb                         # unused: Ray climbing up the wall in profile, face showing (ray_climb_animation 5060-50B8, characters, is seen from behind; B7D8 has 83% the same pens as 5090); colours in palette 0x10580E
+B798  row    unused_climb_profile              # 12 frames, as ray_climb_animation
+B7F8  sheet  sonic/climb                       # unused: Sonic climbing up the wall in profile, face showing (sonic_climb_animation 18B8-1910, characters, is seen from behind); colours in palette 0x1057EE
+B7F8  row    unused_climb_profile              # 12 frames, as sonic_climb_animation
+B858  sheet  mighty/climb                      # unused: Mighty climbing up the wall in profile, face showing (mighty_climb_animation 34A8-3500, characters, is seen from behind); colours in palette 0x10582E
+B858  row    unused_climb_profile              # 12 frames, as mighty_climb_animation
+B8B8  sheet  sonic/opening_scene               # a later, unused copy of Sonic running toward the viewer in the opening (sonic_opening_run_animation A158-A1B0, range_3); colours in palette 0x1057EE
+B8B8  row    unused_copy_run                   # the same pens as A158-A1B0, frame for frame; nothing names B8B8-B910
+B918  sheet  ray/opening_scene                 # Ray in the opening scene (5278 is in characters): running toward the viewer at scene_timer 140, with his voice (player_state_opening_scene)
+B918  row    voice                             # ray_opening_voice_animation (Sonic's is 1BC8-1C20, Mighty's A000-A058)
+B978  sheet  stage_10/railing                  # the railing's lower part
+B978  row    lower                             # railing_parts part 1 (dy 103)
+B980  sheet  text/plain_alphabet               # a 16x16 alphabet in one dark colour, upper and lower case and punctuation; nothing uses it
+B980  row    upper_case                        # A-Z (I, B9C0, is the same as l, BAA8)
+BA50  row    lower_case                        # a-z
+BB20  row    punctuation                       # ? ! . (middle dot) - ,
+BB50  sheet  objects/scenery                   # the stone wall of stage 10
+BB50  row    stone_wall                        # kind D (stage 10, scenery_sprite_draw_wide_margin)
+BB58  sheet  title/flying_craft                # the small craft crossing the title and its smoke puffs (title.c title_flying_craft_move, title_smoke_puff_animate)
+BB58  row    craft                             # title_flying_craft_move
+BB60  row    smoke_puff                        # title_smoke_puff_frames (BB60 its first frame): a brown puff fading
+BBA8  sheet  stage_0a/sand_arch                # the sand arch's spray (the balls, A1C0, are in range_3; stage_0a.c sand_arch_ball_move)
+BBA8  row    unused_spray                      # a bigger burst of sand, 8 frames (unused); colours in palette 0x10A10C
+BBE8  row    spray                             # sand_arch_spray_frames: sand thrown up where a ball crosses the surface
+BC08  row    unused_splat                      # a round hole with sand splashing round it (unused)
+BC28  sheet  stage_0a/unused_sand_blocks       # sand-coloured blocks and pieces, nothing uses them (in stage A's sand palette 0x10A10C, which they fit)
+BC28  row    cracked_layer                     # a flat layer of small blocks, cracked
+BC30  row    cube                              # a cube of small blocks (BC38 lit on top)
+BC40  row    small_piece_tumble                # a small block tumbling
+BC70  row    piece_tumble                      # a larger block tumbling
+BC90  row    rod_block                         # blocks with striped rods sticking out
+BCB0  row    wedge_block                       # a tall block on a wedge
+BCB8  row    wedge_shadow                      # a black wedge-shaped shadow
+BCC0  row    sand_cube                         # a cube of sand
+BCC8  row    flat_shadow                       # a black flat shadow
+BCD0  sheet  text/block_letters                # blocky capital letters and a company name, nothing uses them
+BCD0  row    dark_letters                      # A-Z and a dot, black fading to gold at the bottom
+BDA8  row    shepard_co_ltd                    # SHEPARD CO.,LTD. in the same black and gold
+BDB0  row    light_letters                     # capitals and a dot in pale yellow, in the order A X B C ... W Y Z .
+BE88  row    tall_bar                          # a tall pale yellow bar
+BE90  sheet  stage_0a/sink_swirl               # streaks and sand puffs round a player sinking in stage A's quicksand (stage_0a.c spawn_sink_swirl, sink_swirl_effects)
+BE90  row    streak_front                      # the first swirl's streak (depth offset +8)
+BEE0  row    streak_back                       # the second swirl's streak (depth offset -16)
+BF30  row    puff_front                        # the first swirl's sand puff
+BF48  row    puff_back                         # the second swirl's sand puff
+BF60  sheet  character_select/portraits        # Ray's chooser portraits (8F40-8F58, range_3, are an unused copy)
+BF60  row    ray                               # chooser_portrait_frames 04-07
+BF80  sheet  stage_10/railing                  # an unused piece of the railing's console
+BF80  row    unused_corner                     # the console's lower corner with vents and panels; colours in the railing's palette 0x10AAEC (it matches B978 there)
+BF88  sheet  character_select/tiny_figure      # a 16x16 figure leaping (its pens fit Sonic's, Ray's or Mighty's palette); nothing uses it (filed with the portraits before it, probably the chooser's)
+BF88  row    unused_figure                     # unused
+BF90  sheet  effects/climb_zone_splash         # a white splash where a climbing player enters the splash zone (effects.c spawn_climb_zone_effect; no scenario reaches it)
+BF90  row    splash                            # climb_zone_effect_animation
+BFB0  row    unused_splash                     # unused_00E463: a second splash animation nothing points at

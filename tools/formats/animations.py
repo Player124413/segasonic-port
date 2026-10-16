@@ -4,7 +4,7 @@ Description: the animations of the characters and objects as text, and back, byt
              tables of sprite frames, multi-part sprites' part lists and the steps animations pick
 Version:     0.1.0
 Created:     14-10-2026
-Modified:    14-10-2026
+Modified:    15-10-2026
 Author:      Sebastian Toyos
 
 An object plays an animation through its fields animation (a ROM pointer), animation_frame (the current
@@ -16,18 +16,19 @@ a word whose low byte is the number of the last step, then the steps, one after 
   moving    the frame, then a signed byte dx and a signed byte dy (animate_and_move adds them to the
             projected position, animate_around_anchor places the object at anchor + dx/dy,
             animate_with_screen_offset adds them to the screen position; the flips negate them): 4 bytes
-A frame is the offset of its record in sprite_frame_records (0x130000): frame_XXXX, the name of its PNG in
-assets/sprites. The steps hold no time: each one lasts animation_speed frames, which the code that starts
+A frame (FRAME below) reads as its sprite sheet and its index there (sonic/walking[3]: the fourth frame of
+assets/sprites/sonic/walking.png), or frame_XXXX (the offset of its record in sprite_frame_records) where
+no sheet holds it. The steps hold no time: each one lasts animation_speed frames, which the code that starts
 the animation sets (a frame shown twice in a row is shown twice as long).
 
 The text, one item a line, in the order of the bytes ('#' starts a comment):
   animation KIND [header=0xXXXX]   then its steps, one a line: the step number, then
-     N frame_XXXX [flip_x] [flip_y] [flags=0xXXXX]   (flagged)
-     N frame_XXXX dx=D dy=D                          (moving)
-     N frame_XXXX                                    (frames)
+     N FRAME [flip_x] [flip_y] [flags=0xXXXX]        (flagged)
+     N FRAME dx=D dy=D                               (moving)
+     N FRAME                                         (frames)
     the header word is the number of steps - 1 unless header= gives it
-  frame frame_XXXX                 a lone frame word
-  step frame_XXXX [flip_x]...      a lone (flags, frame) step
+  frame FRAME                      a lone frame word
+  step FRAME [flip_x]...           a lone (flags, frame) step
   offset +XXXX                     a word: bytes from the start of the piece to what it points at
   entry +XXXX [flip_x]...          a (flags, offset) pair
   pointer 0xXXXXXX                 a 32-bit program address
@@ -37,7 +38,7 @@ anim_moving_list animations one after the other; name_banner a stage's name bann
 an animation of frames).
 
 Tables of sprite frames (sprite_list and the tables a reader of its own picks from: spiked_roller_frames,
-chooser_portrait_frames, text_frames...): one frame a line, 'NN: frame_XXXX' (NN the index in hex; FFFF
+chooser_portrait_frames, text_frames...): one frame a line, 'NN: FRAME' (NN the index in hex; FFFF
 reads 'end', where the lists that have one stop), a comment after it where the index means something;
 sprite_list_headN: only the first N bytes are frames, the rest is kept as hex.
 
@@ -369,6 +370,8 @@ def animation_pointers_to_text(data):
 # ---- back to bytes: one parser for every format ----
 
 def _parse_frame(token):
+    if token.endswith("]"):
+        return frame_value(token, "a frame")
     if token.startswith("frame_"):
         value = int(token[6:], 16)
     elif token.lower().startswith("0x"):
@@ -534,11 +537,12 @@ FORMATS["name_banner"] = (SUFFIX, name_banner_to_text, name_banner_from_text)
 
 # ---- tables of sprite frames ----
 
-SPRITE_LIST_HEADER = ["sprite frames, one a line: the index (hex), then frame_XXXX (the frame's PNG in assets/sprites)"]
+SPRITE_LIST_HEADER = ["sprite frames, one a line: the index (hex), then the frame (its sheet in assets/sprites and its "
+                      "index there)"]
 
 
 def sprite_list_format(header=SPRITE_LIST_HEADER, comment=None, head=None, leftover=None):
-    """Sprite frame words, one a line: 'NN: frame_XXXX' (the index in hex; FFFF reads 'end', where the
+    """Sprite frame words, one a line: 'NN: FRAME' (the index in hex; FFFF reads 'end', where the
     lists that have one stop), then comment(index) when it gives one. With 'head', only the first 'head'
     bytes are sprites: the rest is kept as hex, with the note 'leftover'."""
 
