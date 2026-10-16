@@ -250,30 +250,24 @@ uint32_t animate_around_anchor(void)
 	if ((OBJECT(current_object)->flags & 0x80u) == 0u)
 	{
 		frame = (uint8_t)(frame + 1u);
-		if ((int8_t)frame < (int8_t)last_frame)
+		if ((int8_t)last_frame <= (int8_t)frame)
 		{
-			OBJECT(current_object)->animation_frame = frame;
-			set_step_around_anchor(frame, steps);
-			return at_last_step;
+			if ((int8_t)last_frame < (int8_t)frame)
+				frame = 0u;
+			else
+				at_last_step = 0xFFFFFFFFu;
 		}
-		if ((int8_t)last_frame < (int8_t)frame)
-			frame = 0u;
-		else
-			at_last_step = 0xFFFFFFFFu;
 	}
 	else
 	{
 		frame = (uint8_t)(frame - 1u);
-		if ((int8_t)frame > 0)
+		if ((int8_t)frame <= 0)
 		{
-			OBJECT(current_object)->animation_frame = frame;
-			set_step_around_anchor(frame, steps);
-			return at_last_step;
+			if ((int8_t)frame < 0)
+				frame = (uint8_t)last_frame;
+			else
+				at_last_step = 0xFFFFFFFFu;
 		}
-		if ((int8_t)frame < 0)
-			frame = (uint8_t)last_frame;
-		else
-			at_last_step = 0xFFFFFFFFu;
 	}
 	OBJECT(current_object)->animation_frame = frame;
 	set_step_around_anchor(frame, steps);
@@ -320,36 +314,24 @@ uint32_t animate_with_screen_offset(uint32_t at_last_step)
 	if ((OBJECT(current_object)->flags & 0x80u) == 0u)
 	{
 		frame = (uint8_t)(frame + 1u);
-		if ((int8_t)frame < (int8_t)last_frame)
+		if ((int8_t)last_frame <= (int8_t)frame)
 		{
-			OBJECT(current_object)->animation_frame = frame;
-			step_record += frame * 4u;
-			OBJECT(current_object)->sprite_frame = ANIMATION_STEP(step_record)->frame;
-			step_record += 2u;
-			add_step_screen_offset(step_record);
-			return at_last_step;
+			if ((int8_t)last_frame < (int8_t)frame)
+				frame = 0u;
+			else
+				at_last_step |= 0xFFu;
 		}
-		if ((int8_t)last_frame < (int8_t)frame)
-			frame = 0u;
-		else
-			at_last_step |= 0xFFu;
 	}
 	else
 	{
 		frame = (uint8_t)(frame - 1u);
-		if ((int8_t)frame > 0)
+		if ((int8_t)frame <= 0)
 		{
-			OBJECT(current_object)->animation_frame = frame;
-			step_record += frame * 4u;
-			OBJECT(current_object)->sprite_frame = ANIMATION_STEP(step_record)->frame;
-			step_record += 2u;
-			add_step_screen_offset(step_record);
-			return at_last_step;
+			if ((int8_t)frame < 0)
+				frame = (uint8_t)last_frame;
+			else
+				at_last_step |= 0xFFu;
 		}
-		if ((int8_t)frame < 0)
-			frame = (uint8_t)last_frame;
-		else
-			at_last_step |= 0xFFu;
 	}
 	OBJECT(current_object)->animation_frame = frame;
 	step_record += frame * 4u;
@@ -443,24 +425,52 @@ void animate_all_parts(uint32_t *p_at_last_step, uint32_t *p_part)
 	if ((OBJECT(current_object)->flags & 0x80u) == 0u)
 	{
 		next_frame = (uint8_t)(next_frame + 1u);
-		if ((int8_t)max_frame <= (int8_t)next_frame)
+		if ((int8_t)next_frame < (int8_t)max_frame)
 		{
-			if ((int8_t)max_frame < (int8_t)next_frame)
-				next_frame = 0u;
-			else
-				at_last_step = 0xFFu;
+			OBJECT(current_object)->animation_frame = next_frame;
+			frame_sprite = ROM16(frame_sprites + next_frame * 2u);
+			part = OBJECT(current_object)->part_list;
+			parts_left = SPRITE_PART_LIST(part)->count;
+			part += 2u;
+			do
+			{
+				SPRITE_PART(part)->frame = frame_sprite;
+				part += 8u;
+				parts_left--;
+			} while (parts_left != 0u);
+			*p_at_last_step = (*p_at_last_step & 0xFFFFFF00u) | at_last_step;
+			*p_part = part;
+			return;
 		}
+		if ((int8_t)max_frame < (int8_t)next_frame)
+			next_frame = 0u;
+		else
+			at_last_step = 0xFFu;
 	}
 	else
 	{
 		next_frame = (uint8_t)(next_frame - 1u);
-		if ((int8_t)next_frame <= 0)
+		if ((int8_t)next_frame > 0)
 		{
-			if ((int8_t)next_frame < 0)
-				next_frame = (uint8_t)max_frame;
-			else
-				at_last_step = 0xFFu;
+			OBJECT(current_object)->animation_frame = next_frame;
+			frame_sprite = ROM16(frame_sprites + next_frame * 2u);
+			part = OBJECT(current_object)->part_list;
+			parts_left = SPRITE_PART_LIST(part)->count;
+			part += 2u;
+			do
+			{
+				SPRITE_PART(part)->frame = frame_sprite;
+				part += 8u;
+				parts_left--;
+			} while (parts_left != 0u);
+			*p_at_last_step = (*p_at_last_step & 0xFFFFFF00u) | at_last_step;
+			*p_part = part;
+			return;
 		}
+		if ((int8_t)next_frame < 0)
+			next_frame = (uint8_t)max_frame;
+		else
+			at_last_step = 0xFFu;
 	}
 	OBJECT(current_object)->animation_frame = next_frame;
 	frame_sprite = ROM16(frame_sprites + next_frame * 2u);
@@ -832,6 +842,7 @@ void build_sprite_list(uint32_t *p_height, uint32_t *p_scale_x, uint32_t *p_scal
 	uint32_t scale_x = *p_scale_x;
 	uint32_t scale_y = *p_scale_y;
 	uint16_t sprite_flags = (uint16_t)*p_sprite_flags;
+	bool write_entry = false, write_parts = false;
 	uint8_t scale_shift = 0;
 	uint16_t dest_height = 0, dest_width = 0, part_dest_width = 0, screen_x = 0, screen_y = 0, sized_width = 0, source_width = 0;
 	uint32_t r2 = 0, copy_entry = 0, flags_word = 0, frame_data = 0, ignored = 0, object = 0, part_scale = 0, parts_left = 0, rounding = 0, sprite_entry = 0, sprite_scale = 0;
@@ -877,23 +888,7 @@ void build_sprite_list(uint32_t *p_height, uint32_t *p_scale_x, uint32_t *p_scal
 				height &= ~0xFFu;
 				height = (height & ~0xFFFFu) | (uint16_t)(height | dest_height);
 				frame_data += 2u;
-			build_sprite_list_write_entry:
-				dest_width |= SPRITE_FRAME_RECORD(frame_data - 0x4u)->bank_bits;
-				mem_write16(sprite_entry, sprite_flags);
-				sprite_entry += 2u;
-				mem_write16(sprite_entry, rotate_by(source_width, scale_shift, 16));
-				sprite_entry += 2u;
-				mem_write16(sprite_entry, height);
-				sprite_entry += 2u;
-				mem_write16(sprite_entry, dest_width);
-				sprite_entry += 2u;
-				mem_write32(sprite_entry, AS32(OBJECT(current_object)->screen_y));
-				sprite_entry += 4u;
-				frame_data += 2u;
-				mem_write16(sprite_entry, SPRITE_FRAME_RECORD(frame_data - 0x6u)->address);
-				sprite_entry += 2u;
-				mem_write16(sprite_entry, OBJECT(current_object)->sprite_palette);
-				sprite_entry += 2u;
+				write_entry = true;
 				break;
 			case 0x3u:
 			case 0x4u:
@@ -905,7 +900,8 @@ void build_sprite_list(uint32_t *p_height, uint32_t *p_scale_x, uint32_t *p_scal
 				source_width = (uint16_t)(((uint16_t)((uint32_t)source_width << 6) & ~0xFFu) | (uint8_t)height);
 				sprite_flags &= 0x2FFFu;
 				frame_data += 2u;
-				goto build_sprite_list_write_entry;
+				write_entry = true;
+				break;
 			case 0x7u:
 			case 0x8u:
 			case 0x9u:
@@ -984,17 +980,49 @@ void build_sprite_list(uint32_t *p_height, uint32_t *p_scale_x, uint32_t *p_scal
 			case 0x2Fu:
 			case 0x30u:
 				part_scale = OBJECT(current_object)->sprite_scale;
-			build_sprite_list_write_parts:
+				write_parts = true;
+				break;
+			case 0x33u:
+			case 0x34u:
+				part_scale = 0x100u;
+				write_parts = true;
+				break;
+			default:
+				invalid_jump(0x9A2E0u + (flags_word & 0x34u));
+			}
+			if (write_entry)
+			{
+				write_entry = false;
+				dest_width |= SPRITE_FRAME_RECORD(frame_data - 0x4u)->bank_bits;
+				mem_write16(sprite_entry, sprite_flags);
+				sprite_entry += 2u;
+				mem_write16(sprite_entry, rotate_by(source_width, scale_shift, 16));
+				sprite_entry += 2u;
+				mem_write16(sprite_entry, height);
+				sprite_entry += 2u;
+				mem_write16(sprite_entry, dest_width);
+				sprite_entry += 2u;
+				mem_write32(sprite_entry, AS32(OBJECT(current_object)->screen_y));
+				sprite_entry += 4u;
+				frame_data += 2u;
+				mem_write16(sprite_entry, SPRITE_FRAME_RECORD(frame_data - 0x6u)->address);
+				sprite_entry += 2u;
+				mem_write16(sprite_entry, OBJECT(current_object)->sprite_palette);
+				sprite_entry += 2u;
+			}
+			if (write_parts)
+			{
+				write_parts = false;
 				switch ((sprite_flags >> 5) & 6u)
 				{
 				case 0x0u:
 					scale_x = part_scale;
-				build_sprite_list_y_not_flipped:
 					scale_y = part_scale;
 					break;
 				case 0x2u:
 					scale_x = 0u - part_scale;
-					goto build_sprite_list_y_not_flipped;
+					scale_y = part_scale;
+					break;
 				case 0x4u:
 					scale_x = part_scale;
 					scale_y = 0u - part_scale;
@@ -1062,13 +1090,6 @@ void build_sprite_list(uint32_t *p_height, uint32_t *p_scale_x, uint32_t *p_scal
 					parts_left--;
 					r14 = r14 + 2u;
 				} while (parts_left != 0u);
-				break;
-			case 0x33u:
-			case 0x34u:
-				part_scale = 0x100u;
-				goto build_sprite_list_write_parts;
-			default:
-				invalid_jump(0x9A2E0u + (flags_word & 0x34u));
 			}
 			current_object = LINKED(current_object, OBJECT(current_object)->draw_next);
 		} while ((uint16_t)current_object != (uint16_t)last_object);

@@ -62,7 +62,7 @@ decompiled game plays the scenarios of <code>tests/controls/</code>.</sub></p>
       scenario of `tests/controls/`
 - [x] Names: every function, variable, table, structure field and board register has one in
       `symbols.txt`, with the evidence for it, and so do the parameters and results of the functions,
-      the labels the remaining `goto`s jump to, and what each object type keeps in the object structure
+      the places the C's control variables are named after, and what each object type keeps in the object structure
       (`OBJECT(current_object)->fire_front.path`, per family of functions, wherever the code shows which
       type an object is: its own, one it gives a handler, one a typed link leads to); local variables have
       the names `symbols.txt` gives them by the instructions that write them, or take the name of what they
@@ -226,6 +226,9 @@ Other tools:
   instruction) into `build/generated/`; CMake builds it with `-DSEGASONIC_SCAFFOLD=ON`, and
   `check_scenarios.py --translated` checks it.
 - `tools/coverage.py` classifies every byte of the program ROM and lists what is still unexplained.
+- `tools/check_gotos.py OUT_DIR [--sound]` decompiles into `OUT_DIR` and checks that taking the gotos
+  out (`tools/decompiler/gotos.py`) keeps what each function runs: it runs every such function's tree
+  before and after on the same made-up outcomes of its tests, the code no scenario reaches too.
 - `tools/memory_census.py` runs every scenario on a build of the game made with
   `-DSONIC_MEMORY_CENSUS=ON` and says, for each line of `src/` that reads or writes memory through an
   address the code computes, which of the board's memories it reached (the ROM, the work RAM, video RAM,
@@ -290,10 +293,12 @@ tools/disassemble.py    recursive disassembler, listing and analysis report
 tools/coverage.py       byte map of the program ROM: code, data, fill and what is still unknown
 tools/recompile.py      splits the program into functions; translates them to C (the scaffold)
 tools/decompile.py      decompiles the program into readable C (tools/decompiler/: lifting to IR,
-                        stack, data flow and signatures, conditions, expressions, structure, memory
-                        and pointer types, variables, the C printer)
+                        stack, data flow and signatures, conditions, expressions, structure and the
+                        control variables that take the gotos out, memory and pointer types, variables,
+                        the C printer)
 tools/decompile_sound.py  decompiles the sound program with the same decompiler, set up for the Z80
 tools/check_scenarios.py  runs the control scripts on the reference and on the decompiled game
+tools/check_gotos.py    checks that taking the gotos out of the C keeps what each function runs
 tools/reference/        MAME's V60 and Z80 cores and disassemblers, its System 32 video and RF5C68, and
                         ymfm's YM3438, built only into the reference tools (s32ref, the oracles), over
                         stand-ins for the parts of MAME they need
@@ -405,10 +410,16 @@ memory is in `runtime/include/game/support.h`.
 - **Results.** A function hands back one value as its return value, and more through pointers
   (`uint32_t *p_depth`); a caller's variable goes in and comes out.
 - **Control flow.** Loops, `if`, `switch` (a jump through a table of code is a `switch` on the index) and
-  `return` come from the original's branches. A `goto` remains where the original jumps into code already
-  written elsewhere (a state that goes on in another state's code); its label is named in `symbols.txt`.
-  `default: invalid_jump(address)` is where a jump table's index would leave the table: the original
-  checks nothing and would jump into whatever follows it; the C stops there.
+  `return` come from the original's branches; there is no `goto`. Code several places jump to is a
+  function of its own: each game mode (`run_game_mode` jumps by `game_mode`, and a mode that changes it
+  runs the new one at once: `run_game_mode(...); return;`), each player state, the code two states share
+  (`player_hurt_fly`). Where the original's jumps cross in a way blocks cannot (a loop entered at two
+  places, a way out of two loops at once, two branches whose code joins halfway), a `bool` named after
+  the place the jump goes to carries it: `within_box_x = ...; if (!within_box_x) { ...; within_box_x =
+  ...; } if (within_box_x) { ... }` in `check_hit`. Six functions of the game have such variables (the
+  flood fill and the line drawing among them) and four of the sound driver. `default:
+  invalid_jump(address)` is where a jump table's index would leave the table: the original checks
+  nothing and would jump into whatever follows it; the C stops there.
 - **Interrupts and the frame.** `frame_wait()` is where the game waits for the next frame and the board
   runs its events, and `take_interrupts()` where the interrupts that raised are handled; the interrupt
   handlers are ordinary functions. `halt()` (only in `int_default` and `int_vector_02`) does nothing, as in

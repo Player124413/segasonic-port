@@ -165,20 +165,30 @@ void player_state_carried_off(uint32_t depth, uint32_t cursor)
 			if ((uint8_t)at_last_step != 0u)
 				OBJECT(current_object)->animation_speed = 0xFFu;
 		}
-		if (OBJECT(current_object)->z_int < 0x9C0)
+		if (OBJECT(current_object)->z_int >= 0x9C0)
 		{
-			object = LINKED(current_object, scene_object);
-			if ((uint16_t)object != 0xFFFFu)
-			{
-				OBJECT(current_object)->x += (int32_t)((uint32_t)OBJECT(object)->x - OBJECT(current_object)->x) >> 4;
-				OBJECT(current_object)->y += (int32_t)(OBJECT(object)->y + ((uint32_t)OBJECT(current_object)->player << 21) - OBJECT(current_object)->y) >> 4;
-				OBJECT(current_object)->z += (int32_t)((uint32_t)OBJECT(object)->z - OBJECT(current_object)->z) >> 3;
-			}
-			else
-				OBJECT(current_object)->z += 0x40000u;
-		}
-		else
 			OBJECT(current_object)->z += 0x40000u;
+			if (OBJECT(current_object)->z_int >= 0x9D0)
+				PLAYER(current_player)->sequence_step++;
+			find_floor(&ignored, &ignored, &ignored, &ignored, &ignored);
+			project_object(&ignored, &ignored);
+			ignored = queue_sprite(ignored);
+			return;
+		}
+		object = LINKED(current_object, scene_object);
+		if ((uint16_t)object != 0xFFFFu)
+		{
+			OBJECT(current_object)->x += (int32_t)((uint32_t)OBJECT(object)->x - OBJECT(current_object)->x) >> 4;
+			OBJECT(current_object)->y += (int32_t)(OBJECT(object)->y + ((uint32_t)OBJECT(current_object)->player << 21) - OBJECT(current_object)->y) >> 4;
+			OBJECT(current_object)->z += (int32_t)((uint32_t)OBJECT(object)->z - OBJECT(current_object)->z) >> 3;
+			if (OBJECT(current_object)->z_int >= 0x9D0)
+				PLAYER(current_player)->sequence_step++;
+			find_floor(&ignored, &ignored, &ignored, &ignored, &ignored);
+			project_object(&ignored, &ignored);
+			ignored = queue_sprite(ignored);
+			return;
+		}
+		OBJECT(current_object)->z += 0x40000u;
 		if (OBJECT(current_object)->z_int >= 0x9D0)
 			PLAYER(current_player)->sequence_step++;
 		find_floor(&ignored, &ignored, &ignored, &ignored, &ignored);
@@ -296,196 +306,14 @@ void player_state_trapped(uint32_t depth, uint32_t cursor)
 {
 	uint8_t sound_id = 0;
 	uint16_t kind = 0, x_int = 0, y_int = 0, z = 0;
-	uint32_t at_last_step = 0, character_frame = 0, free_count = 0, ignored = 0, jump_offset = 0, running_animations = 0, speed_int = 0, struggle_index = 0, trackball_speed = 0, trackball_y = 0, trap_struggle_animations = 0, trapped_animation = 0;
+	uint32_t at_last_step = 0, character_frame = 0, free_count = 0, ignored = 0, running_animations = 0, speed_int = 0, struggle_index = 0, trackball_speed = 0, trackball_y = 0, trap_struggle_animations = 0, trapped_animation = 0;
 	uint32_t escape_progress = 0;
 
-	for (;;)
+	check_player_contacts(&depth, &cursor);
+	if (PLAYER(current_player)->state == 0x20u)
 	{
-		check_player_contacts(&depth, &cursor);
-		if (PLAYER(current_player)->state != 0x20u)
-			break;
-		jump_offset = PLAYER(current_player)->state * 3u;
-		switch (PLAYER(current_player)->state)
-		{
-		case 0:
-			player_move(depth, cursor);
-			return;
-		case 1:
-			player_move(depth, cursor);
-			return;
-		case 2:
-			player_move(depth, cursor);
-			return;
-		case 3:
-			player_state_inactive();
-			return;
-		case 4:
-			player_move(depth, cursor);
-			return;
-		case 5:
-			player_state_teetering(cursor);
-			return;
-		case 6:
-			player_state_falling_off_edge();
-			return;
-		case 7:
-			player_state_over_edge(jump_offset, cursor);
-			return;
-		case 8:
-			player_state_dropping(cursor);
-			return;
-		case 9:
-			player_state_falling_into_pit();
-			return;
-		case 10:
-			player_state_climbing(depth, cursor);
-			return;
-		case 11:
-			player_state_not_playing();
-			return;
-		case 12:
-			player_move(depth, cursor);
-			return;
-		case 13:
-			player_state_hurt(depth, cursor);
-			return;
-		case 14:
-			player_state_bouncing();
-			return;
-		case 15:
-			player_state_launched();
-			return;
-		case 16:
-			player_state_launched();
-			return;
-		case 17:
-			player_state_launched();
-			return;
-		case 18:
-			player_state_launched();
-			return;
-		case 19:
-			player_move(depth, cursor);
-			return;
-		case 20:
-			player_move(depth, cursor);
-			return;
-		case 21:
-			player_state_held(depth, cursor);
-			return;
-		case 22:
-			player_state_dying();
-			return;
-		case 23:
-			player_move(depth, cursor);
-			return;
-		case 24:
-			player_state_stage_scene(depth, cursor);
-			return;
-		case 25:
-			player_state_scene_thrown(depth, cursor);
-			return;
-		case 26:
-			player_state_inactive_2();
-			return;
-		case 27:
-			player_state_short_animation();
-			return;
-		case 28:
-			player_state_opening_scene();
-			return;
-		case 29:
-			player_state_stuck(cursor);
-			return;
-		case 30:
-			player_state_intro_turn(depth, cursor);
-			return;
-		case 31:
-			player_state_blown_away(cursor);
-			return;
-		case 32:
-			player_state_tumbling(depth, cursor);
-			return;
-		case 33:
-			player_state_stage_exit(depth, cursor);
-			return;
-		case 34:
-			player_state_in_zone(depth, cursor);
-			return;
-		case 35:
-			player_state_continue();
-			return;
-		case 36:
-			player_state_out_of_game();
-			return;
-		case 37:
-			player_state_floor_8_sequence(cursor);
-			return;
-		case 38:
-			player_state_pulled(cursor);
-			return;
-		case 39:
-			player_state_climbing_object(cursor);
-			return;
-		case 40:
-			player_state_swept_away();
-			return;
-		case 41:
-			player_state_tripped(cursor);
-			return;
-		case 42:
-			player_state_entering_stage(depth, cursor);
-			return;
-		case 43:
-			player_state_final_stage();
-			return;
-		case 44:
-			player_state_stuck_on_object(depth, cursor);
-			return;
-		case 45:
-			player_state_held_still();
-			return;
-		case 46:
-			player_state_game_over(jump_offset);
-			return;
-		case 47:
-			player_state_stunned(depth, cursor);
-			return;
-		case 48:
-			player_state_caught(cursor);
-			return;
-		case 49:
-			player_state_carried_off(depth, cursor);
-			return;
-		case 50:
-			continue;
-		case 51:
-			player_state_sinking(cursor);
-			return;
-		case 52:
-			player_state_choosing_character(cursor);
-			return;
-		case 53:
-			player_state_riding();
-			return;
-		case 54:
-			player_state_knocked_off(depth, cursor);
-			return;
-		case 55:
-			player_state_not_playing();
-			return;
-		case 56:
-			player_state_stage_b_sequence(depth, cursor);
-			return;
-		case 57:
-			player_state_you_failed();
-			return;
-		case 58:
-			player_move(depth, cursor);
-			return;
-		default:
-			invalid_jump(0x2D3Eu + PLAYER(current_player)->state * 3u);
-		}
+		player_dispatch_state(depth, cursor);
+		return;
 	}
 	switch (PLAYER(current_player)->substate)
 	{
@@ -969,50 +797,86 @@ void player_state_climbing_object(uint32_t cursor)
 	update_player_blink();
 	OBJECT(current_object)->projected_x = PLAYER(current_player)->screen_x_int;
 	project_object(&ignored, &ignored);
-	if (OBJECT(current_object)->x_int <= 0x450 && handle_rod_drop_players != 0u)
+	if (OBJECT(current_object)->x_int > 0x450 || handle_rod_drop_players == 0u)
 	{
-		PLAYER(current_player)->state = 6u;
-		PLAYER(current_player)->substate = 1u;
-		PLAYER(current_player)->ledge_side = 4;
-		OBJECT(current_object)->player_view.floor_block_low = -1;
-		OBJECT(current_object)->player_view.floor_block_high = -1;
-		OBJECT(current_object)->floor_z = 0x8000000;
-		OBJECT(current_object)->sprite_offset_x = 0;
-		OBJECT(current_object)->sprite_offset_y = 0xA;
-		PLAYER(current_player)->fall_draw_depth = ((int32_t)((uint32_t)OBJECT(current_object)->projected_y + OBJECT(current_object)->z) >> 16) - view_y;
-		near_edge_fall_animation = sonic_near_edge_fall_animation_ADDRESS;
-		if (OBJECT(current_object)->kind != 0u)
+		if (PLAYER(current_player)->climb_remaining <= OBJECT(current_object)->x_int)
 		{
-			near_edge_fall_animation = ray_near_edge_fall_animation_ADDRESS;
-			if (OBJECT(current_object)->kind != 1u)
-				near_edge_fall_animation = mighty_near_edge_fall_animation_ADDRESS;
+			PLAYER(current_player)->substate = 0u;
+			PLAYER(current_player)->state = 0u;
+			OBJECT(current_object)->speed = 0;
+			PLAYER(current_player)->animation_speed = 0;
+			OBJECT(current_object)->sprite_flags &= ~0xFu;
+			OBJECT(current_object)->sprite_flags |= 4u;
+			OBJECT(current_object)->sprite_offset_x = 0;
+			OBJECT(current_object)->sprite_offset_y = 0xA;
+			OBJECT(current_object)->flags &= ~4u;
 		}
-		OBJECT(current_object)->animation = near_edge_fall_animation;
-		OBJECT(current_object)->animation_frame = 0xFFu;
-		OBJECT(current_object)->animation_speed = 3u;
-		OBJECT(current_object)->animation_timer = 0;
-		OBJECT(current_object)->sprite_flags &= ~0xFu;
-		OBJECT(current_object)->sprite_flags |= 0xAu;
-		OBJECT(current_object)->sprite_palette |= 0x8000u;
-		OBJECT(current_object)->projected_y -= 0x200000u;
-		OBJECT(current_object)->sprite_layer = OBJECT(current_object)->projected_y_int;
-		x_shift = 0x18u;
-		if ((int32_t)OBJECT(current_object)->animation >= 0x1128EE)
-			x_shift = 0x14u;
-		OBJECT(current_object)->projected_x -= x_shift;
-		OBJECT(current_object)->speed_z = 0;
-		if (OBJECT(current_object)->health <= 8)
-		{
-			sound_id = 0x2Fu;
-			if (OBJECT(current_object)->kind != 0u)
-			{
-				sound_id = 0x37u;
-				if (OBJECT(current_object)->kind != 1u)
-					sound_id = 0x77u;
-			}
-			play_sound(sound_id, &ignored, &ignored);
-		}
+		object = LINKED(current_object, OBJECT(current_object)->touched_by);
+		object = LINKED(object, OBJECT(object)->parent);
+		PLAYER(current_player)->draw_depth = (OBJECT(object)->spawn_arg_1_low - PLAYER(current_player)->object_climb_steps) * 4u + OBJECT(object)->hitbox_size_x;
+		depth = (uint16_t)(PLAYER(current_player)->draw_depth + 2u);
+		queue_sprite_at_depth(&ignored, &depth);
+		return;
 	}
+	PLAYER(current_player)->state = 6u;
+	PLAYER(current_player)->substate = 1u;
+	PLAYER(current_player)->ledge_side = 4;
+	OBJECT(current_object)->player_view.floor_block_low = -1;
+	OBJECT(current_object)->player_view.floor_block_high = -1;
+	OBJECT(current_object)->floor_z = 0x8000000;
+	OBJECT(current_object)->sprite_offset_x = 0;
+	OBJECT(current_object)->sprite_offset_y = 0xA;
+	PLAYER(current_player)->fall_draw_depth = ((int32_t)((uint32_t)OBJECT(current_object)->projected_y + OBJECT(current_object)->z) >> 16) - view_y;
+	near_edge_fall_animation = sonic_near_edge_fall_animation_ADDRESS;
+	if (OBJECT(current_object)->kind != 0u)
+	{
+		near_edge_fall_animation = ray_near_edge_fall_animation_ADDRESS;
+		if (OBJECT(current_object)->kind != 1u)
+			near_edge_fall_animation = mighty_near_edge_fall_animation_ADDRESS;
+	}
+	OBJECT(current_object)->animation = near_edge_fall_animation;
+	OBJECT(current_object)->animation_frame = 0xFFu;
+	OBJECT(current_object)->animation_speed = 3u;
+	OBJECT(current_object)->animation_timer = 0;
+	OBJECT(current_object)->sprite_flags &= ~0xFu;
+	OBJECT(current_object)->sprite_flags |= 0xAu;
+	OBJECT(current_object)->sprite_palette |= 0x8000u;
+	OBJECT(current_object)->projected_y -= 0x200000u;
+	OBJECT(current_object)->sprite_layer = OBJECT(current_object)->projected_y_int;
+	x_shift = 0x18u;
+	if ((int32_t)OBJECT(current_object)->animation >= 0x1128EE)
+		x_shift = 0x14u;
+	OBJECT(current_object)->projected_x -= x_shift;
+	OBJECT(current_object)->speed_z = 0;
+	if (OBJECT(current_object)->health > 8)
+	{
+		if (PLAYER(current_player)->climb_remaining <= OBJECT(current_object)->x_int)
+		{
+			PLAYER(current_player)->substate = 0u;
+			PLAYER(current_player)->state = 0u;
+			OBJECT(current_object)->speed = 0;
+			PLAYER(current_player)->animation_speed = 0;
+			OBJECT(current_object)->sprite_flags &= ~0xFu;
+			OBJECT(current_object)->sprite_flags |= 4u;
+			OBJECT(current_object)->sprite_offset_x = 0;
+			OBJECT(current_object)->sprite_offset_y = 0xA;
+			OBJECT(current_object)->flags &= ~4u;
+		}
+		object = LINKED(current_object, OBJECT(current_object)->touched_by);
+		object = LINKED(object, OBJECT(object)->parent);
+		PLAYER(current_player)->draw_depth = (OBJECT(object)->spawn_arg_1_low - PLAYER(current_player)->object_climb_steps) * 4u + OBJECT(object)->hitbox_size_x;
+		depth = (uint16_t)(PLAYER(current_player)->draw_depth + 2u);
+		queue_sprite_at_depth(&ignored, &depth);
+		return;
+	}
+	sound_id = 0x2Fu;
+	if (OBJECT(current_object)->kind != 0u)
+	{
+		sound_id = 0x37u;
+		if (OBJECT(current_object)->kind != 1u)
+			sound_id = 0x77u;
+	}
+	play_sound(sound_id, &ignored, &ignored);
 	if (PLAYER(current_player)->climb_remaining <= OBJECT(current_object)->x_int)
 	{
 		PLAYER(current_player)->substate = 0u;
@@ -1115,21 +979,36 @@ void player_object_climb_move(void)
 	next_hand = 0u - PLAYER(current_player)->climb_hand;
 	negative = next_hand >> 7;
 	PLAYER(current_player)->climb_hand = next_hand;
-	if (next_hand != 0u)
+	if (next_hand == 0u)
 	{
-		if (negative)
-		{
-			OBJECT(current_object)->animation = object_climb_animation_ray_ADDRESS;
-			OBJECT(current_object)->sprite_offset_x = -0x16;
-			OBJECT(current_object)->sprite_offset_y = -0x33;
-		}
-		else
-		{
-			OBJECT(current_object)->animation = object_climb_animation_ray_2_ADDRESS;
-			OBJECT(current_object)->sprite_offset_x = -0x10;
-			OBJECT(current_object)->sprite_offset_y = -0x2A;
-		}
+		OBJECT(current_object)->sprite_frame = ROM16(OBJECT(current_object)->animation + 2u);
+		PLAYER(current_player)->screen_x += 0x120000u;
+		OBJECT(current_object)->projected_y -= 0x90000u;
+		world_x = PLAYER(current_player)->screen_x;
+		world_y = OBJECT(current_object)->projected_y * 2u;
+		unproject_point(&world_x, &world_y);
+		OBJECT(current_object)->x = world_x;
+		OBJECT(current_object)->y = world_y;
+		return;
 	}
+	if (negative)
+	{
+		OBJECT(current_object)->animation = object_climb_animation_ray_ADDRESS;
+		OBJECT(current_object)->sprite_offset_x = -0x16;
+		OBJECT(current_object)->sprite_offset_y = -0x33;
+		OBJECT(current_object)->sprite_frame = ROM16(OBJECT(current_object)->animation + 2u);
+		PLAYER(current_player)->screen_x += 0x120000u;
+		OBJECT(current_object)->projected_y -= 0x90000u;
+		world_x = PLAYER(current_player)->screen_x;
+		world_y = OBJECT(current_object)->projected_y * 2u;
+		unproject_point(&world_x, &world_y);
+		OBJECT(current_object)->x = world_x;
+		OBJECT(current_object)->y = world_y;
+		return;
+	}
+	OBJECT(current_object)->animation = object_climb_animation_ray_2_ADDRESS;
+	OBJECT(current_object)->sprite_offset_x = -0x10;
+	OBJECT(current_object)->sprite_offset_y = -0x2A;
 	OBJECT(current_object)->sprite_frame = ROM16(OBJECT(current_object)->animation + 2u);
 	PLAYER(current_player)->screen_x += 0x120000u;
 	OBJECT(current_object)->projected_y -= 0x90000u;
@@ -1159,11 +1038,24 @@ void spawn_climb_hand(uint32_t hand)
 		sprite_frame = 0x8300u;
 		if (OBJECT(current_object)->kind != 0u)
 			sprite_frame = 0x8258u;
+		OBJECT(hand)->sprite_frame = sprite_frame;
+		OBJECT(hand)->projected_x = OBJECT(current_object)->projected_x;
+		OBJECT(hand)->projected_y = OBJECT(current_object)->projected_y;
+		OBJECT(hand)->z = OBJECT(current_object)->z;
+		OBJECT(hand)->handler = climb_hand_update_ADDRESS;
+		return;
 	}
-	else if (PLAYER(current_player)->climb_hand < 0)
+	if (PLAYER(current_player)->climb_hand < 0)
+	{
 		sprite_frame = 0x82C8u;
-	else
-		sprite_frame = 0x82C0u;
+		OBJECT(hand)->sprite_frame = sprite_frame;
+		OBJECT(hand)->projected_x = OBJECT(current_object)->projected_x;
+		OBJECT(hand)->projected_y = OBJECT(current_object)->projected_y;
+		OBJECT(hand)->z = OBJECT(current_object)->z;
+		OBJECT(hand)->handler = climb_hand_update_ADDRESS;
+		return;
+	}
+	sprite_frame = 0x82C0u;
 	OBJECT(hand)->sprite_frame = sprite_frame;
 	OBJECT(hand)->projected_x = OBJECT(current_object)->projected_x;
 	OBJECT(hand)->projected_y = OBJECT(current_object)->projected_y;
@@ -1175,18 +1067,16 @@ void climb_hand_update(void)
 {
 	uint32_t depth = 0, ignored = 0, object = 0;
 
-	if (PLAYER(PLAYER_BLOCK(1) + ((uint32_t)OBJECT(LINKED(current_object, OBJECT(current_object)->parent))->player << 9))->state != 0x27u)
+	if (PLAYER(PLAYER_BLOCK(1) + ((uint32_t)OBJECT(LINKED(current_object, OBJECT(current_object)->parent))->player << 9))->state == 0x27u)
 	{
-		delete_current_object();
-		return;
-	}
-	object = LINKED(current_object, OBJECT(current_object)->parent);
-	if ((uint8_t)OBJECT(object)->animation_timer != OBJECT(object)->animation_speed || OBJECT(object)->animation_frame != 4u)
-	{
-		update_screen_position(&ignored, &ignored);
-		depth = (uint16_t)(PLAYER(PLAYER_BLOCK(1) + ((uint32_t)OBJECT(LINKED(current_object, OBJECT(current_object)->parent))->player << 9))->draw_depth + 5u);
-		queue_sprite_at_depth(&ignored, &depth);
-		return;
+		object = LINKED(current_object, OBJECT(current_object)->parent);
+		if ((uint8_t)OBJECT(object)->animation_timer != OBJECT(object)->animation_speed || OBJECT(object)->animation_frame != 4u)
+		{
+			update_screen_position(&ignored, &ignored);
+			depth = (uint16_t)(PLAYER(PLAYER_BLOCK(1) + ((uint32_t)OBJECT(LINKED(current_object, OBJECT(current_object)->parent))->player << 9))->draw_depth + 5u);
+			queue_sprite_at_depth(&ignored, &depth);
+			return;
+		}
 	}
 	delete_current_object();
 }
@@ -1195,913 +1085,584 @@ void player_state_pulled(uint32_t cursor)
 {
 	uint8_t sound_id = 0;
 	uint16_t new_heading = 0, pull_distance = 0;
-	uint32_t r1 = 0, depth = 0, flail_animation = 0, ignored = 0, jump_offset = 0, object = 0;
+	uint32_t r1 = 0, depth = 0, flail_animation = 0, ignored = 0, object = 0;
 
-	for (;;)
+	switch (PLAYER(current_player)->substate)
 	{
-		switch (PLAYER(current_player)->substate)
+	case 0:
+	case 6:
+		PLAYER(current_player)->substate++;
+		OBJECT(current_object)->sprite_flags &= ~0xFu;
+		OBJECT(current_object)->sprite_flags |= 4u;
+		OBJECT(current_object)->sprite_offset_x = 0;
+		OBJECT(current_object)->sprite_offset_y = 0xA;
+		OBJECT(current_object)->flags &= ~0x2000u;
+		PLAYER(current_player)->control_lock = 0u;
+		OBJECT(current_object)->sprite_palette = ROM16(OBJECT(current_object)->player_view.palette_list + 2u);
+		OBJECT(current_object)->flags &= ~0x40u;
+		OBJECT(current_object)->flags &= ~4u;
+		OBJECT(current_object)->flags &= ~8u;
+		OBJECT(current_object)->flags &= ~0x10u;
+		PLAYER(current_player)->pull_angle = 0x300u;
+		pull_distance = (uint16_t)((int32_t)(0x5D00000u - OBJECT(current_object)->x) >> 12);
+		PLAYER(current_player)->pull_start_distance = pull_distance;
+		PLAYER(current_player)->pull_distance_factor = (int16_t)(0x1200u - pull_distance) >> 5;
+		sound_id = 0x36u;
+		if (OBJECT(current_object)->kind != 0u)
 		{
-		case 0:
-		case 6:
-			PLAYER(current_player)->substate++;
-			OBJECT(current_object)->sprite_flags &= ~0xFu;
-			OBJECT(current_object)->sprite_flags |= 4u;
-			OBJECT(current_object)->sprite_offset_x = 0;
-			OBJECT(current_object)->sprite_offset_y = 0xA;
-			OBJECT(current_object)->flags &= ~0x2000u;
-			PLAYER(current_player)->control_lock = 0u;
-			OBJECT(current_object)->sprite_palette = ROM16(OBJECT(current_object)->player_view.palette_list + 2u);
-			OBJECT(current_object)->flags &= ~0x40u;
-			OBJECT(current_object)->flags &= ~4u;
-			OBJECT(current_object)->flags &= ~8u;
-			OBJECT(current_object)->flags &= ~0x10u;
-			PLAYER(current_player)->pull_angle = 0x300u;
-			pull_distance = (uint16_t)((int32_t)(0x5D00000u - OBJECT(current_object)->x) >> 12);
-			PLAYER(current_player)->pull_start_distance = pull_distance;
-			PLAYER(current_player)->pull_distance_factor = (int16_t)(0x1200u - pull_distance) >> 5;
-			sound_id = 0x36u;
-			if (OBJECT(current_object)->kind != 0u)
-			{
-				sound_id = 0x46u;
-				if (OBJECT(current_object)->kind != 1u)
-					sound_id = 0x56u;
-			}
-			play_sound(sound_id, &ignored, &ignored);
-			object = LINKED(current_object, scene_object);
-			OBJECT(current_object)->x += (int32_t)((uint32_t)OBJECT(object)->x - OBJECT(current_object)->x) >> 3;
-			OBJECT(current_object)->z += (int32_t)((uint32_t)OBJECT(object)->z - OBJECT(current_object)->z) >> 3;
-			PLAYER(current_player)->pull_angle = OBJECT(object)->direction;
-			project_object(&ignored, &ignored);
-			if ((int16_t)PLAYER(current_player)->pull_angle <= 0x1D0)
-			{
-				PLAYER(current_player)->substate++;
-				OBJECT(current_object)->speed = 0;
-				OBJECT(current_object)->speed_x = 0xA0000;
-				OBJECT(current_object)->speed_y = 0;
-				OBJECT(current_object)->speed_z = 0;
-			}
-			update_player_blink();
-			find_floor(&ignored, &ignored, &ignored, &ignored, &ignored);
-			ignored = queue_sprite_at_floor();
-			return;
-		case 1:
-			object = LINKED(current_object, scene_object);
-			OBJECT(current_object)->x += (int32_t)((uint32_t)OBJECT(object)->x - OBJECT(current_object)->x) >> 3;
-			OBJECT(current_object)->z += (int32_t)((uint32_t)OBJECT(object)->z - OBJECT(current_object)->z) >> 3;
-			PLAYER(current_player)->pull_angle = OBJECT(object)->direction;
-			project_object(&ignored, &ignored);
-			if ((int16_t)PLAYER(current_player)->pull_angle <= 0x1D0)
-			{
-				PLAYER(current_player)->substate++;
-				OBJECT(current_object)->speed = 0;
-				OBJECT(current_object)->speed_x = 0xA0000;
-				OBJECT(current_object)->speed_y = 0;
-				OBJECT(current_object)->speed_z = 0;
-			}
-			update_player_blink();
-			find_floor(&ignored, &ignored, &ignored, &ignored, &ignored);
-			ignored = queue_sprite_at_floor();
-			return;
-		case 2:
-			find_floor(&ignored, &ignored, &ignored, &ignored, &ignored);
-			if (OBJECT(current_object)->floor_z_int <= OBJECT(current_object)->z_int)
-				PLAYER(current_player)->substate++;
-			OBJECT(current_object)->speed_z += 0x6000u;
-			OBJECT(current_object)->z += OBJECT(current_object)->speed_z;
-			PLAYER(current_player)->previous_x = OBJECT(current_object)->x;
-			PLAYER(current_player)->previous_y = OBJECT(current_object)->y;
-			OBJECT(current_object)->x += OBJECT(current_object)->speed_x;
-			OBJECT(current_object)->y += OBJECT(current_object)->speed_y;
-			project_object(&ignored, &ignored);
-			ignored = queue_sprite_at_floor();
-			return;
-		case 3:
-			PLAYER(current_player)->substate++;
-			PLAYER(current_player)->drift_anim_step = 1u;
-			PLAYER(current_player)->previous_state = PLAYER(current_player)->state;
-			PLAYER(current_player)->drift_turned_back = 0u;
-			PLAYER(current_player)->drift_done = 0u;
-			OBJECT(current_object)->speed = 0;
-			PLAYER(current_player)->ground_speed = 0;
-			OBJECT(current_object)->sprite_flags &= 0xFF7Fu;
-			OBJECT(current_object)->sprite_flags |= 0x40u;
-			OBJECT(current_object)->animation_frame = 0u;
-			OBJECT(current_object)->animation_speed = 2u;
-			OBJECT(current_object)->animation_timer = 0;
-		case 4:
-			PLAYER(current_player)->control_lock = 0x7Fu;
-			player_move_with_scroll(&depth, &cursor);
-			if (PLAYER(current_player)->state != 0x16u)
-			{
-				if (OBJECT(current_object)->handler != player_respawn_ADDRESS)
-				{
-					flail_animation = flail_animation_sonic_ADDRESS;
-					if (OBJECT(current_object)->kind != 0u)
-					{
-						flail_animation = flail_animation_ray_ADDRESS;
-						if (OBJECT(current_object)->kind != 1u)
-							flail_animation = flail_animation_mighty_ADDRESS;
-					}
-					OBJECT(current_object)->animation = flail_animation;
-					animate_with_flags(&ignored, &ignored);
-					if (OBJECT(current_object)->x_int >= 0xCD0)
-						PLAYER(current_player)->drift_turned_back = 0xFFu;
-				}
-				if (PLAYER(current_player)->drift_turned_back != 0u && OBJECT(current_object)->x_int <= 0x630)
-				{
-					PLAYER(current_player)->substate++;
-					PLAYER(current_player)->drift_done = 0xFFu;
-					PLAYER(current_player)->control_lock = 0u;
-				}
-				return;
-			}
-			jump_offset = PLAYER(current_player)->state * 3u;
-			switch (PLAYER(current_player)->state)
-			{
-			case 0:
-				player_move(depth, cursor);
-				return;
-			case 1:
-				player_move(depth, cursor);
-				return;
-			case 2:
-				player_move(depth, cursor);
-				return;
-			case 3:
-				player_state_inactive();
-				return;
-			case 4:
-				player_move(depth, cursor);
-				return;
-			case 5:
-				player_state_teetering(cursor);
-				return;
-			case 6:
-				player_state_falling_off_edge();
-				return;
-			case 7:
-				player_state_over_edge(jump_offset, cursor);
-				return;
-			case 8:
-				player_state_dropping(cursor);
-				return;
-			case 9:
-				player_state_falling_into_pit();
-				return;
-			case 10:
-				player_state_climbing(depth, cursor);
-				return;
-			case 11:
-				player_state_not_playing();
-				return;
-			case 12:
-				player_move(depth, cursor);
-				return;
-			case 13:
-				player_state_hurt(depth, cursor);
-				return;
-			case 14:
-				player_state_bouncing();
-				return;
-			case 15:
-				player_state_launched();
-				return;
-			case 16:
-				player_state_launched();
-				return;
-			case 17:
-				player_state_launched();
-				return;
-			case 18:
-				player_state_launched();
-				return;
-			case 19:
-				player_move(depth, cursor);
-				return;
-			case 20:
-				player_move(depth, cursor);
-				return;
-			case 21:
-				player_state_held(depth, cursor);
-				return;
-			case 22:
-				player_state_dying();
-				return;
-			case 23:
-				player_move(depth, cursor);
-				return;
-			case 24:
-				player_state_stage_scene(depth, cursor);
-				return;
-			case 25:
-				player_state_scene_thrown(depth, cursor);
-				return;
-			case 26:
-				player_state_inactive_2();
-				return;
-			case 27:
-				player_state_short_animation();
-				return;
-			case 28:
-				player_state_opening_scene();
-				return;
-			case 29:
-				player_state_stuck(cursor);
-				return;
-			case 30:
-				player_state_intro_turn(depth, cursor);
-				return;
-			case 31:
-				player_state_blown_away(cursor);
-				return;
-			case 32:
-				player_state_tumbling(depth, cursor);
-				return;
-			case 33:
-				player_state_stage_exit(depth, cursor);
-				return;
-			case 34:
-				player_state_in_zone(depth, cursor);
-				return;
-			case 35:
-				player_state_continue();
-				return;
-			case 36:
-				player_state_out_of_game();
-				return;
-			case 37:
-				player_state_floor_8_sequence(cursor);
-				return;
-			case 38:
-				continue;
-			case 39:
-				player_state_climbing_object(cursor);
-				return;
-			case 40:
-				player_state_swept_away();
-				return;
-			case 41:
-				player_state_tripped(cursor);
-				return;
-			case 42:
-				player_state_entering_stage(depth, cursor);
-				return;
-			case 43:
-				player_state_final_stage();
-				return;
-			case 44:
-				player_state_stuck_on_object(depth, cursor);
-				return;
-			case 45:
-				player_state_held_still();
-				return;
-			case 46:
-				player_state_game_over(jump_offset);
-				return;
-			case 47:
-				player_state_stunned(depth, cursor);
-				return;
-			case 48:
-				player_state_caught(cursor);
-				return;
-			case 49:
-				player_state_carried_off(depth, cursor);
-				return;
-			case 50:
-				player_state_trapped(depth, cursor);
-				return;
-			case 51:
-				player_state_sinking(cursor);
-				return;
-			case 52:
-				player_state_choosing_character(cursor);
-				return;
-			case 53:
-				player_state_riding();
-				return;
-			case 54:
-				player_state_knocked_off(depth, cursor);
-				return;
-			case 55:
-				player_state_not_playing();
-				return;
-			case 56:
-				player_state_stage_b_sequence(depth, cursor);
-				return;
-			case 57:
-				player_state_you_failed();
-				return;
-			case 58:
-				player_move(depth, cursor);
-				return;
-			default:
-				invalid_jump(0x2D3Eu + PLAYER(current_player)->state * 3u);
-			}
-			break;
-		case 5:
-			PLAYER(current_player)->heading = 0x2A0u;
-			new_heading = (PLAYER(current_player)->heading + 0x200u) & 0x3FFu;
-			PLAYER(current_player)->target_heading = new_heading;
-			PLAYER(current_player)->facing_angle = new_heading;
-			set_heading_direction();
-			OBJECT(current_object)->speed = 0x5000000;
-			r1 = compute_ground_speed();
-			PLAYER(current_player)->substate = 0u;
-			PLAYER(current_player)->previous_state = PLAYER(current_player)->state;
-			PLAYER(current_player)->state = 0xCu;
-			sound_id = 0x48u;
-			if (OBJECT(current_object)->kind != 0u)
-			{
-				sound_id = 0x6Du;
-				if (OBJECT(current_object)->kind != 1u)
-					sound_id = 0x49u;
-			}
-			play_sound(sound_id, &r1, &ignored);
-			player_animate_skidding(r1, cursor);
-			return;
-		default:
-			invalid_jump(0x8CD7u + PLAYER(current_player)->substate * 3u);
+			sound_id = 0x46u;
+			if (OBJECT(current_object)->kind != 1u)
+				sound_id = 0x56u;
 		}
+		play_sound(sound_id, &ignored, &ignored);
+		object = LINKED(current_object, scene_object);
+		OBJECT(current_object)->x += (int32_t)((uint32_t)OBJECT(object)->x - OBJECT(current_object)->x) >> 3;
+		OBJECT(current_object)->z += (int32_t)((uint32_t)OBJECT(object)->z - OBJECT(current_object)->z) >> 3;
+		PLAYER(current_player)->pull_angle = OBJECT(object)->direction;
+		project_object(&ignored, &ignored);
+		if ((int16_t)PLAYER(current_player)->pull_angle <= 0x1D0)
+		{
+			PLAYER(current_player)->substate++;
+			OBJECT(current_object)->speed = 0;
+			OBJECT(current_object)->speed_x = 0xA0000;
+			OBJECT(current_object)->speed_y = 0;
+			OBJECT(current_object)->speed_z = 0;
+		}
+		update_player_blink();
+		find_floor(&ignored, &ignored, &ignored, &ignored, &ignored);
+		ignored = queue_sprite_at_floor();
+		return;
+	case 1:
+		object = LINKED(current_object, scene_object);
+		OBJECT(current_object)->x += (int32_t)((uint32_t)OBJECT(object)->x - OBJECT(current_object)->x) >> 3;
+		OBJECT(current_object)->z += (int32_t)((uint32_t)OBJECT(object)->z - OBJECT(current_object)->z) >> 3;
+		PLAYER(current_player)->pull_angle = OBJECT(object)->direction;
+		project_object(&ignored, &ignored);
+		if ((int16_t)PLAYER(current_player)->pull_angle <= 0x1D0)
+		{
+			PLAYER(current_player)->substate++;
+			OBJECT(current_object)->speed = 0;
+			OBJECT(current_object)->speed_x = 0xA0000;
+			OBJECT(current_object)->speed_y = 0;
+			OBJECT(current_object)->speed_z = 0;
+		}
+		update_player_blink();
+		find_floor(&ignored, &ignored, &ignored, &ignored, &ignored);
+		ignored = queue_sprite_at_floor();
+		return;
+	case 2:
+		find_floor(&ignored, &ignored, &ignored, &ignored, &ignored);
+		if (OBJECT(current_object)->floor_z_int <= OBJECT(current_object)->z_int)
+			PLAYER(current_player)->substate++;
+		OBJECT(current_object)->speed_z += 0x6000u;
+		OBJECT(current_object)->z += OBJECT(current_object)->speed_z;
+		PLAYER(current_player)->previous_x = OBJECT(current_object)->x;
+		PLAYER(current_player)->previous_y = OBJECT(current_object)->y;
+		OBJECT(current_object)->x += OBJECT(current_object)->speed_x;
+		OBJECT(current_object)->y += OBJECT(current_object)->speed_y;
+		project_object(&ignored, &ignored);
+		ignored = queue_sprite_at_floor();
+		return;
+	case 3:
+		PLAYER(current_player)->substate++;
+		PLAYER(current_player)->drift_anim_step = 1u;
+		PLAYER(current_player)->previous_state = PLAYER(current_player)->state;
+		PLAYER(current_player)->drift_turned_back = 0u;
+		PLAYER(current_player)->drift_done = 0u;
+		OBJECT(current_object)->speed = 0;
+		PLAYER(current_player)->ground_speed = 0;
+		OBJECT(current_object)->sprite_flags &= 0xFF7Fu;
+		OBJECT(current_object)->sprite_flags |= 0x40u;
+		OBJECT(current_object)->animation_frame = 0u;
+		OBJECT(current_object)->animation_speed = 2u;
+		OBJECT(current_object)->animation_timer = 0;
+	case 4:
+		PLAYER(current_player)->control_lock = 0x7Fu;
+		player_move_with_scroll(&depth, &cursor);
+		if (PLAYER(current_player)->state == 0x16u)
+		{
+			player_dispatch_state(depth, cursor);
+			return;
+		}
+		if (OBJECT(current_object)->handler == player_respawn_ADDRESS)
+		{
+			if (PLAYER(current_player)->drift_turned_back != 0u && OBJECT(current_object)->x_int <= 0x630)
+			{
+				PLAYER(current_player)->substate++;
+				PLAYER(current_player)->drift_done = 0xFFu;
+				PLAYER(current_player)->control_lock = 0u;
+			}
+			return;
+		}
+		flail_animation = flail_animation_sonic_ADDRESS;
+		if (OBJECT(current_object)->kind != 0u)
+		{
+			flail_animation = flail_animation_ray_ADDRESS;
+			if (OBJECT(current_object)->kind != 1u)
+				flail_animation = flail_animation_mighty_ADDRESS;
+		}
+		OBJECT(current_object)->animation = flail_animation;
+		animate_with_flags(&ignored, &ignored);
+		if (OBJECT(current_object)->x_int < 0xCD0)
+		{
+			if (PLAYER(current_player)->drift_turned_back != 0u && OBJECT(current_object)->x_int <= 0x630)
+			{
+				PLAYER(current_player)->substate++;
+				PLAYER(current_player)->drift_done = 0xFFu;
+				PLAYER(current_player)->control_lock = 0u;
+			}
+			return;
+		}
+		PLAYER(current_player)->drift_turned_back = 0xFFu;
+		if (PLAYER(current_player)->drift_turned_back != 0u && OBJECT(current_object)->x_int <= 0x630)
+		{
+			PLAYER(current_player)->substate++;
+			PLAYER(current_player)->drift_done = 0xFFu;
+			PLAYER(current_player)->control_lock = 0u;
+		}
+		return;
+	case 5:
+		PLAYER(current_player)->heading = 0x2A0u;
+		new_heading = (PLAYER(current_player)->heading + 0x200u) & 0x3FFu;
+		PLAYER(current_player)->target_heading = new_heading;
+		PLAYER(current_player)->facing_angle = new_heading;
+		set_heading_direction();
+		OBJECT(current_object)->speed = 0x5000000;
+		r1 = compute_ground_speed();
+		PLAYER(current_player)->substate = 0u;
+		PLAYER(current_player)->previous_state = PLAYER(current_player)->state;
+		PLAYER(current_player)->state = 0xCu;
+		sound_id = 0x48u;
+		if (OBJECT(current_object)->kind != 0u)
+		{
+			sound_id = 0x6Du;
+			if (OBJECT(current_object)->kind != 1u)
+				sound_id = 0x49u;
+		}
+		play_sound(sound_id, &r1, &ignored);
+		player_animate_skidding(r1, cursor);
+		return;
+	default:
+		invalid_jump(0x8CD7u + PLAYER(current_player)->substate * 3u);
 	}
 }
 
 void player_state_floor_8_sequence(uint32_t cursor)
 {
 	uint8_t drift_byte = 0, sound_id = 0;
-	uint16_t input_dy = 0, kind = 0, x_int = 0, y_int = 0, z = 0;
-	uint32_t r0 = 0, r1 = 0, drift_animation = 0, drift_direction = 0, drift_speed = 0, drift_x = 0, drift_y = 0, floor_8_escape_animation = 0, floor_8_idle_animation = 0, floor_8_landing_animation = 0, floor_8_ride_animation = 0, floor_block_record = 0, hurt_animations = 0, ignored = 0, jump_offset = 0, running_animations = 0, step_record = 0, trackball_speed = 0, trackball_y = 0;
-	uint16_t state_timer = 0, state_timer_2 = 0, state_timer_3 = 0;
+	uint16_t kind = 0, x_int = 0, y_int = 0, z = 0;
+	uint32_t r1 = 0, drift_animation = 0, drift_direction = 0, drift_speed = 0, drift_x = 0, drift_y = 0, floor_8_landing_animation = 0, floor_8_ride_animation = 0, floor_block_record = 0, hurt_animations = 0, ignored = 0, running_animations = 0, step_record = 0;
+	uint16_t state_timer = 0, state_timer_2 = 0;
 
-	for (;;)
+	switch (PLAYER(current_player)->sequence_step)
 	{
-		switch (PLAYER(current_player)->sequence_step)
+	case 0:
+	case 17:
+		PLAYER(current_player)->sequence_step++;
+		PLAYER(current_player)->flags |= 8u;
+		PLAYER(current_player)->sequence_bounced = 0u;
+		if (scene_step == 2u)
+			PLAYER(current_player)->sequence_step++;
+		return;
+	case 1:
+		if (scene_step == 2u)
+			PLAYER(current_player)->sequence_step++;
+		return;
+	case 2:
+		PLAYER(current_player)->sequence_step++;
+		scroll_mode = 1u;
+		OBJECT(current_object)->player_view.hurt_flash_period = 0xFFu;
+		OBJECT(current_object)->flags |= 0x1000000u;
+		PLAYER(current_player)->flags &= ~8u;
+		OBJECT(current_object)->z_int -= 0xA0u;
+		OBJECT(current_object)->z_int -= (uint32_t)OBJECT(current_object)->kind << 5;
+		OBJECT(current_object)->speed_z = 0;
+		OBJECT(current_object)->speed_x = 0;
+		OBJECT(current_object)->speed_y = 0;
+		OBJECT(current_object)->speed = 0;
+		PLAYER(current_player)->ground_speed = 0;
+		OBJECT(current_object)->direction = 0x200u;
+		face_movement_direction(0u);
+		hurt_animations = sonic_hurt_animations_ADDRESS;
+		if (OBJECT(current_object)->kind != 0u)
 		{
-		case 0:
-		case 17:
+			hurt_animations = ray_hurt_animations_ADDRESS;
+			if (OBJECT(current_object)->kind != 1u)
+				hurt_animations = mighty_hurt_animations_ADDRESS;
+		}
+		OBJECT(current_object)->animation = hurt_animations + ROM16(hurt_animations + PLAYER(current_player)->facing * 2u);
+		OBJECT(current_object)->animation_frame = 0u;
+		step_record = OBJECT(current_object)->animation;
+		OBJECT(current_object)->sprite_flags &= ~0xC0u;
+		step_record += 2u;
+		OBJECT(current_object)->sprite_flags |= FLAGGED_STEP(step_record)->flags;
+		OBJECT(current_object)->sprite_frame = FLAGGED_STEP(step_record)->frame;
+		sound_id = 0x57u;
+		if (OBJECT(current_object)->kind != 0u)
+		{
+			sound_id = 0x65u;
+			if (OBJECT(current_object)->kind != 1u)
+				sound_id = 0x67u;
+		}
+		play_sound(sound_id, &ignored, &ignored);
+		OBJECT(current_object)->speed_z += 0x6000u;
+		PLAYER(current_player)->previous_z = OBJECT(current_object)->z;
+		OBJECT(current_object)->z += OBJECT(current_object)->speed_z;
+		if (OBJECT(current_object)->floor_z_int <= OBJECT(current_object)->z_int)
+		{
 			PLAYER(current_player)->sequence_step++;
-			PLAYER(current_player)->flags |= 8u;
-			PLAYER(current_player)->sequence_bounced = 0u;
-			if (scene_step == 2u)
-				PLAYER(current_player)->sequence_step++;
-			return;
-		case 1:
-			if (scene_step == 2u)
-				PLAYER(current_player)->sequence_step++;
-			return;
-		case 2:
-			PLAYER(current_player)->sequence_step++;
-			scroll_mode = 1u;
-			OBJECT(current_object)->player_view.hurt_flash_period = 0xFFu;
-			OBJECT(current_object)->flags |= 0x1000000u;
-			PLAYER(current_player)->flags &= ~8u;
-			OBJECT(current_object)->z_int -= 0xA0u;
-			OBJECT(current_object)->z_int -= (uint32_t)OBJECT(current_object)->kind << 5;
-			OBJECT(current_object)->speed_z = 0;
-			OBJECT(current_object)->speed_x = 0;
-			OBJECT(current_object)->speed_y = 0;
-			OBJECT(current_object)->speed = 0;
-			PLAYER(current_player)->ground_speed = 0;
-			OBJECT(current_object)->direction = 0x200u;
-			face_movement_direction(jump_offset);
-			hurt_animations = sonic_hurt_animations_ADDRESS;
-			if (OBJECT(current_object)->kind != 0u)
-			{
-				hurt_animations = ray_hurt_animations_ADDRESS;
-				if (OBJECT(current_object)->kind != 1u)
-					hurt_animations = mighty_hurt_animations_ADDRESS;
-			}
-			OBJECT(current_object)->animation = hurt_animations + ROM16(hurt_animations + PLAYER(current_player)->facing * 2u);
-			OBJECT(current_object)->animation_frame = 0u;
-			step_record = OBJECT(current_object)->animation;
+			PLAYER(current_player)->state_timer = 2;
+			OBJECT(current_object)->z = OBJECT(current_object)->floor_z;
+			OBJECT(current_object)->animation_frame++;
+			step_record = OBJECT(current_object)->animation + 2u + OBJECT(current_object)->animation_frame * 4u;
 			OBJECT(current_object)->sprite_flags &= ~0xC0u;
-			step_record += 2u;
 			OBJECT(current_object)->sprite_flags |= FLAGGED_STEP(step_record)->flags;
 			OBJECT(current_object)->sprite_frame = FLAGGED_STEP(step_record)->frame;
-			sound_id = 0x57u;
-			if (OBJECT(current_object)->kind != 0u)
-			{
-				sound_id = 0x65u;
-				if (OBJECT(current_object)->kind != 1u)
-					sound_id = 0x67u;
-			}
-			play_sound(sound_id, &ignored, &ignored);
-			OBJECT(current_object)->speed_z += 0x6000u;
-			PLAYER(current_player)->previous_z = OBJECT(current_object)->z;
-			OBJECT(current_object)->z += OBJECT(current_object)->speed_z;
-			if (OBJECT(current_object)->floor_z_int <= OBJECT(current_object)->z_int)
-			{
-				PLAYER(current_player)->sequence_step++;
-				PLAYER(current_player)->state_timer = 2;
-				OBJECT(current_object)->z = OBJECT(current_object)->floor_z;
-				OBJECT(current_object)->animation_frame++;
-				step_record = OBJECT(current_object)->animation + 2u + OBJECT(current_object)->animation_frame * 4u;
-				OBJECT(current_object)->sprite_flags &= ~0xC0u;
-				OBJECT(current_object)->sprite_flags |= FLAGGED_STEP(step_record)->flags;
-				OBJECT(current_object)->sprite_frame = FLAGGED_STEP(step_record)->frame;
-				project_object(&ignored, &ignored);
-				ignored = queue_sprite_at_floor();
-				return;
-			}
-			if (OBJECT(current_object)->animation_frame == 0u && OBJECT(current_object)->speed_z_int >= 0)
-			{
-				OBJECT(current_object)->animation_frame++;
-				step_record = OBJECT(current_object)->animation + 2u + OBJECT(current_object)->animation_frame * 4u;
-				OBJECT(current_object)->sprite_flags &= ~0xC0u;
-				OBJECT(current_object)->sprite_flags |= FLAGGED_STEP(step_record)->flags;
-				OBJECT(current_object)->sprite_frame = FLAGGED_STEP(step_record)->frame;
-			}
 			project_object(&ignored, &ignored);
 			ignored = queue_sprite_at_floor();
 			return;
-		case 3:
-			OBJECT(current_object)->speed_z += 0x6000u;
-			PLAYER(current_player)->previous_z = OBJECT(current_object)->z;
-			OBJECT(current_object)->z += OBJECT(current_object)->speed_z;
-			if (OBJECT(current_object)->floor_z_int <= OBJECT(current_object)->z_int)
-			{
-				PLAYER(current_player)->sequence_step++;
-				PLAYER(current_player)->state_timer = 2;
-				OBJECT(current_object)->z = OBJECT(current_object)->floor_z;
-				OBJECT(current_object)->animation_frame++;
-				step_record = OBJECT(current_object)->animation + 2u + OBJECT(current_object)->animation_frame * 4u;
-				OBJECT(current_object)->sprite_flags &= ~0xC0u;
-				OBJECT(current_object)->sprite_flags |= FLAGGED_STEP(step_record)->flags;
-				OBJECT(current_object)->sprite_frame = FLAGGED_STEP(step_record)->frame;
-				project_object(&ignored, &ignored);
-				ignored = queue_sprite_at_floor();
-				return;
-			}
-			if (OBJECT(current_object)->animation_frame == 0u && OBJECT(current_object)->speed_z_int >= 0)
-			{
-				OBJECT(current_object)->animation_frame++;
-				step_record = OBJECT(current_object)->animation + 2u + OBJECT(current_object)->animation_frame * 4u;
-				OBJECT(current_object)->sprite_flags &= ~0xC0u;
-				OBJECT(current_object)->sprite_flags |= FLAGGED_STEP(step_record)->flags;
-				OBJECT(current_object)->sprite_frame = FLAGGED_STEP(step_record)->frame;
-			}
-			project_object(&ignored, &ignored);
-			ignored = queue_sprite_at_floor();
-			return;
-		case 4:
-			state_timer = PLAYER(current_player)->state_timer;
-			PLAYER(current_player)->state_timer = state_timer - 1u;
-			if ((int16_t)state_timer <= 1)
-			{
-				PLAYER(current_player)->sequence_step++;
-				OBJECT(current_object)->speed_z = -0x40000;
-				OBJECT(current_object)->animation_timer = 0;
-				OBJECT(current_object)->animation_speed = 3u;
-				OBJECT(current_object)->speed_x = 0;
-				OBJECT(current_object)->speed_y = 0x40000;
-				scroll_mode = 0u;
-				scroll_speed_low = 0x10;
-			}
-			find_floor(&ignored, &ignored, &ignored, &ignored, &ignored);
-			project_object(&ignored, &ignored);
-			ignored = queue_sprite_at_base(ignored);
-			return;
-		case 5:
-			OBJECT(current_object)->speed_z += 0x6000u;
-			PLAYER(current_player)->previous_z = OBJECT(current_object)->z;
-			OBJECT(current_object)->z += OBJECT(current_object)->speed_z;
-			PLAYER(current_player)->previous_x = OBJECT(current_object)->x;
-			PLAYER(current_player)->previous_y = OBJECT(current_object)->y;
-			OBJECT(current_object)->x += OBJECT(current_object)->speed_x;
-			OBJECT(current_object)->y += OBJECT(current_object)->speed_y;
-			if (OBJECT(current_object)->floor_z_int <= OBJECT(current_object)->z_int)
-			{
-				PLAYER(current_player)->sequence_step++;
-				OBJECT(current_object)->z = OBJECT(current_object)->floor_z;
-			}
-			if ((int8_t)OBJECT(current_object)->animation_speed >= 0)
-			{
-				animate_with_flags(&ignored, &ignored);
-				if (OBJECT(current_object)->animation_frame == 3u)
-					OBJECT(current_object)->animation_speed = 0xFFu;
-			}
-			find_floor(&ignored, &ignored, &ignored, &ignored, &ignored);
-			project_object(&ignored, &ignored);
-			ignored = queue_sprite_at_floor();
-			return;
-		case 6:
+		}
+		if (OBJECT(current_object)->animation_frame == 0u && OBJECT(current_object)->speed_z_int >= 0)
+		{
+			OBJECT(current_object)->animation_frame++;
+			step_record = OBJECT(current_object)->animation + 2u + OBJECT(current_object)->animation_frame * 4u;
+			OBJECT(current_object)->sprite_flags &= ~0xC0u;
+			OBJECT(current_object)->sprite_flags |= FLAGGED_STEP(step_record)->flags;
+			OBJECT(current_object)->sprite_frame = FLAGGED_STEP(step_record)->frame;
+		}
+		project_object(&ignored, &ignored);
+		ignored = queue_sprite_at_floor();
+		return;
+	case 3:
+		OBJECT(current_object)->speed_z += 0x6000u;
+		PLAYER(current_player)->previous_z = OBJECT(current_object)->z;
+		OBJECT(current_object)->z += OBJECT(current_object)->speed_z;
+		if (OBJECT(current_object)->floor_z_int <= OBJECT(current_object)->z_int)
+		{
 			PLAYER(current_player)->sequence_step++;
-			PLAYER(current_player)->drift_anim_step = 1u;
-			PLAYER(current_player)->previous_state = PLAYER(current_player)->state;
-			OBJECT(current_object)->sprite_flags &= 0xFF7Fu;
-			OBJECT(current_object)->sprite_flags |= 0x40u;
-			OBJECT(current_object)->animation_frame = 0u;
-			OBJECT(current_object)->animation_speed = 4u;
+			PLAYER(current_player)->state_timer = 2;
+			OBJECT(current_object)->z = OBJECT(current_object)->floor_z;
+			OBJECT(current_object)->animation_frame++;
+			step_record = OBJECT(current_object)->animation + 2u + OBJECT(current_object)->animation_frame * 4u;
+			OBJECT(current_object)->sprite_flags &= ~0xC0u;
+			OBJECT(current_object)->sprite_flags |= FLAGGED_STEP(step_record)->flags;
+			OBJECT(current_object)->sprite_frame = FLAGGED_STEP(step_record)->frame;
+			project_object(&ignored, &ignored);
+			ignored = queue_sprite_at_floor();
+			return;
+		}
+		if (OBJECT(current_object)->animation_frame == 0u && OBJECT(current_object)->speed_z_int >= 0)
+		{
+			OBJECT(current_object)->animation_frame++;
+			step_record = OBJECT(current_object)->animation + 2u + OBJECT(current_object)->animation_frame * 4u;
+			OBJECT(current_object)->sprite_flags &= ~0xC0u;
+			OBJECT(current_object)->sprite_flags |= FLAGGED_STEP(step_record)->flags;
+			OBJECT(current_object)->sprite_frame = FLAGGED_STEP(step_record)->frame;
+		}
+		project_object(&ignored, &ignored);
+		ignored = queue_sprite_at_floor();
+		return;
+	case 4:
+		state_timer = PLAYER(current_player)->state_timer;
+		PLAYER(current_player)->state_timer = state_timer - 1u;
+		if ((int16_t)state_timer <= 1)
+		{
+			PLAYER(current_player)->sequence_step++;
+			OBJECT(current_object)->speed_z = -0x40000;
 			OBJECT(current_object)->animation_timer = 0;
-		case 7:
-			PLAYER(current_player)->control_lock = 0x10u;
-			player_move_with_scroll(&r1, &cursor);
-			if (PLAYER(current_player)->state != 0x16u)
-			{
-				if (OBJECT(current_object)->handler != player_respawn_ADDRESS && OBJECT(current_object)->y_int >= 0x4F2)
-				{
-					PLAYER(current_player)->sequence_step++;
-					OBJECT(current_object)->speed_z = 0;
-				}
-				return;
-			}
-		player_dispatch_state:
-			jump_offset = PLAYER(current_player)->state * 3u;
-			switch (PLAYER(current_player)->state)
-			{
-			case 0:
-				player_move(r1, cursor);
-				return;
-			case 1:
-				player_move(r1, cursor);
-				return;
-			case 2:
-				player_move(r1, cursor);
-				return;
-			case 3:
-				player_state_inactive();
-				return;
-			case 4:
-				player_move(r1, cursor);
-				return;
-			case 5:
-				player_state_teetering(cursor);
-				return;
-			case 6:
-				player_state_falling_off_edge();
-				return;
-			case 7:
-				player_state_over_edge(jump_offset, cursor);
-				return;
-			case 8:
-				player_state_dropping(cursor);
-				return;
-			case 9:
-				player_state_falling_into_pit();
-				return;
-			case 10:
-				player_state_climbing(r1, cursor);
-				return;
-			case 11:
-				player_state_not_playing();
-				return;
-			case 12:
-				player_move(r1, cursor);
-				return;
-			case 13:
-				player_state_hurt(r1, cursor);
-				return;
-			case 14:
-				player_state_bouncing();
-				return;
-			case 15:
-				player_state_launched();
-				return;
-			case 16:
-				player_state_launched();
-				return;
-			case 17:
-				player_state_launched();
-				return;
-			case 18:
-				player_state_launched();
-				return;
-			case 19:
-				player_move(r1, cursor);
-				return;
-			case 20:
-				player_move(r1, cursor);
-				return;
-			case 21:
-				player_state_held(r1, cursor);
-				return;
-			case 22:
-				player_state_dying();
-				return;
-			case 23:
-				player_move(r1, cursor);
-				return;
-			case 24:
-				player_state_stage_scene(r1, cursor);
-				return;
-			case 25:
-				player_state_scene_thrown(r1, cursor);
-				return;
-			case 26:
-				player_state_inactive_2();
-				return;
-			case 27:
-				player_state_short_animation();
-				return;
-			case 28:
-				player_state_opening_scene();
-				return;
-			case 29:
-				player_state_stuck(cursor);
-				return;
-			case 30:
-				player_state_intro_turn(r1, cursor);
-				return;
-			case 31:
-				player_state_blown_away(cursor);
-				return;
-			case 32:
-				player_state_tumbling(r1, cursor);
-				return;
-			case 33:
-				player_state_stage_exit(r1, cursor);
-				return;
-			case 34:
-				player_state_in_zone(r1, cursor);
-				return;
-			case 35:
-				player_state_continue();
-				return;
-			case 36:
-				player_state_out_of_game();
-				return;
-			case 37:
-				continue;
-			case 38:
-				player_state_pulled(cursor);
-				return;
-			case 39:
-				player_state_climbing_object(cursor);
-				return;
-			case 40:
-				player_state_swept_away();
-				return;
-			case 41:
-				player_state_tripped(cursor);
-				return;
-			case 42:
-				player_state_entering_stage(r1, cursor);
-				return;
-			case 43:
-				player_state_final_stage();
-				return;
-			case 44:
-				player_state_stuck_on_object(r1, cursor);
-				return;
-			case 45:
-				player_state_held_still();
-				return;
-			case 46:
-				player_state_game_over(jump_offset);
-				return;
-			case 47:
-				player_state_stunned(r1, cursor);
-				return;
-			case 48:
-				player_state_caught(cursor);
-				return;
-			case 49:
-				player_state_carried_off(r1, cursor);
-				return;
-			case 50:
-				player_state_trapped(r1, cursor);
-				return;
-			case 51:
-				player_state_sinking(cursor);
-				return;
-			case 52:
-				player_state_choosing_character(cursor);
-				return;
-			case 53:
-				player_state_riding();
-				return;
-			case 54:
-				player_state_knocked_off(r1, cursor);
-				return;
-			case 55:
-				player_state_not_playing();
-				return;
-			case 56:
-				player_state_stage_b_sequence(r1, cursor);
-				return;
-			case 57:
-				player_state_you_failed();
-				return;
-			case 58:
-				player_move(r1, cursor);
-				return;
-			default:
-				invalid_jump(0x2D3Eu + PLAYER(current_player)->state * 3u);
-			}
-			break;
-		case 8:
-			OBJECT(current_object)->speed_z += 0x6000u;
-			PLAYER(current_player)->previous_z = OBJECT(current_object)->z;
-			OBJECT(current_object)->z += OBJECT(current_object)->speed_z;
-			floor_block_record = floor_blocks + 2u + OBJECT(current_object)->floor_block;
-			drift_byte = 0u;
-			compute_scroll_drift(floor_block_record, drift_byte);
-			drift_direction = scroll_drift_direction;
-			drift_speed = scroll_drift_speed >> 14;
-			drift_x = (int32_t)(sine_table[drift_direction] * drift_speed) >> 8;
-			PLAYER(current_player)->previous_x = OBJECT(current_object)->x;
-			OBJECT(current_object)->x += drift_x;
-			drift_y = (int32_t)(cosine_table[drift_direction] * drift_speed) >> 8;
-			PLAYER(current_player)->previous_y = OBJECT(current_object)->y;
-			OBJECT(current_object)->y -= drift_y;
-			find_floor(&ignored, &ignored, &ignored, &ignored, &ignored);
-			OBJECT(current_object)->floor_z_int += 0x20u;
-			if (OBJECT(current_object)->floor_z_int <= OBJECT(current_object)->z_int)
-				PLAYER(current_player)->sequence_step++;
-			animate(&ignored, &ignored, &ignored);
-			project_object(&ignored, &ignored);
-			ignored = queue_sprite_at_floor();
-			return;
-		case 9:
-			PLAYER(current_player)->sequence_step++;
-			PLAYER(current_player)->control_lock = 0u;
-			PLAYER(current_player)->previous_state = PLAYER(current_player)->state;
-			OBJECT(current_object)->sprite_flags &= 0xFFBFu;
-			PLAYER(current_player)->drift_anim_step = 1u;
-			OBJECT(current_object)->sprite_palette = (OBJECT(current_object)->sprite_palette & 0x1FFFu) | 0x2000u;
-			floor_8_ride_animation = sonic_floor_8_ride_animation_ADDRESS;
-			if (OBJECT(current_object)->kind != 0u)
-			{
-				floor_8_ride_animation = ray_floor_8_ride_animation_ADDRESS;
-				if (OBJECT(current_object)->kind != 1u)
-					floor_8_ride_animation = mighty_floor_8_ride_animation_ADDRESS;
-			}
-			OBJECT(current_object)->animation = floor_8_ride_animation;
-			OBJECT(current_object)->animation_frame = 0u;
-			OBJECT(current_object)->animation_speed = 4u;
-			OBJECT(current_object)->animation_timer = 0;
-			cursor = spawn_player_effect(cursor);
-		case 10:
-			player_move_with_scroll(&r1, &cursor);
-			animate(&r1, &ignored, &ignored);
-			if (PLAYER(current_player)->state == 0x16u)
-				goto player_dispatch_state;
-			if (OBJECT(current_object)->handler == player_respawn_ADDRESS)
-				return;
-			if (scroll_drift_speed == 0u)
-			{
-				PLAYER(current_player)->previous_y = OBJECT(current_object)->y;
-				OBJECT(current_object)->y += 0x40000u;
-			}
-			if (OBJECT(current_object)->y_int >= 0x800)
-			{
-				PLAYER(current_player)->control_lock = 0x7Fu;
-				OBJECT(current_object)->speed = 0;
-				PLAYER(current_player)->ground_speed = 0;
-			}
-			if (OBJECT(current_object)->y_int < 0x9B0)
-				return;
-			PLAYER(current_player)->sequence_step++;
-			PLAYER(current_player)->control_lock = 0u;
-			PLAYER(current_player)->state_timer = 0x258;
-			OBJECT(current_object)->speed_z = -0x20000;
+			OBJECT(current_object)->animation_speed = 3u;
 			OBJECT(current_object)->speed_x = 0;
 			OBJECT(current_object)->speed_y = 0x40000;
-			drift_animation = sonic_drift_animation_ADDRESS;
-			if (OBJECT(current_object)->kind != 0u)
-			{
-				drift_animation = ray_drift_animation_ADDRESS;
-				if (OBJECT(current_object)->kind != 1u)
-					drift_animation = mighty_drift_animation_ADDRESS;
-			}
-			OBJECT(current_object)->animation = drift_animation;
-			OBJECT(current_object)->sprite_flags |= 0x40u;
-			spawn_player_effect(cursor);
-			return;
-		case 11:
-			OBJECT(current_object)->speed_z += 0x2000u;
-			PLAYER(current_player)->previous_z = OBJECT(current_object)->z;
-			OBJECT(current_object)->z += OBJECT(current_object)->speed_z;
-			PLAYER(current_player)->previous_x = OBJECT(current_object)->x;
-			PLAYER(current_player)->previous_y = OBJECT(current_object)->y;
-			OBJECT(current_object)->x += OBJECT(current_object)->speed_x;
-			OBJECT(current_object)->y += OBJECT(current_object)->speed_y;
-			if (OBJECT(current_object)->y_int < 0xA1C)
-			{
-				animate(&ignored, &ignored, &ignored);
-				project_object(&ignored, &ignored);
-				ignored = queue_sprite_at_floor();
-				return;
-			}
+			scroll_mode = 0u;
+			scroll_speed_low = 0x10;
+		}
+		find_floor(&ignored, &ignored, &ignored, &ignored, &ignored);
+		project_object(&ignored, &ignored);
+		ignored = queue_sprite_at_base(ignored);
+		return;
+	case 5:
+		OBJECT(current_object)->speed_z += 0x6000u;
+		PLAYER(current_player)->previous_z = OBJECT(current_object)->z;
+		OBJECT(current_object)->z += OBJECT(current_object)->speed_z;
+		PLAYER(current_player)->previous_x = OBJECT(current_object)->x;
+		PLAYER(current_player)->previous_y = OBJECT(current_object)->y;
+		OBJECT(current_object)->x += OBJECT(current_object)->speed_x;
+		OBJECT(current_object)->y += OBJECT(current_object)->speed_y;
+		if (OBJECT(current_object)->floor_z_int <= OBJECT(current_object)->z_int)
+		{
 			PLAYER(current_player)->sequence_step++;
-			PLAYER(current_player)->escape_progress_low = 0;
-			OBJECT(current_object)->animation_frame = 0xFFu;
-			OBJECT(current_object)->flags &= ~0x80u;
-			OBJECT(current_object)->sprite_flags &= 0xFFBFu;
+			OBJECT(current_object)->z = OBJECT(current_object)->floor_z;
+		}
+		if ((int8_t)OBJECT(current_object)->animation_speed >= 0)
+		{
+			animate_with_flags(&ignored, &ignored);
+			if (OBJECT(current_object)->animation_frame == 3u)
+				OBJECT(current_object)->animation_speed = 0xFFu;
+		}
+		find_floor(&ignored, &ignored, &ignored, &ignored, &ignored);
+		project_object(&ignored, &ignored);
+		ignored = queue_sprite_at_floor();
+		return;
+	case 6:
+		PLAYER(current_player)->sequence_step++;
+		PLAYER(current_player)->drift_anim_step = 1u;
+		PLAYER(current_player)->previous_state = PLAYER(current_player)->state;
+		OBJECT(current_object)->sprite_flags &= 0xFF7Fu;
+		OBJECT(current_object)->sprite_flags |= 0x40u;
+		OBJECT(current_object)->animation_frame = 0u;
+		OBJECT(current_object)->animation_speed = 4u;
+		OBJECT(current_object)->animation_timer = 0;
+		PLAYER(current_player)->control_lock = 0x10u;
+		player_move_with_scroll(&r1, &cursor);
+		if (PLAYER(current_player)->state == 0x16u)
+		{
+			player_dispatch_state(r1, cursor);
+			return;
+		}
+		if (OBJECT(current_object)->handler != player_respawn_ADDRESS && OBJECT(current_object)->y_int >= 0x4F2)
+		{
+			PLAYER(current_player)->sequence_step++;
 			OBJECT(current_object)->speed_z = 0;
-			cursor = spawn_struggle_marker(cursor);
-			x_int = (uint16_t)OBJECT(current_object)->x_int;
-			y_int = (uint16_t)OBJECT(current_object)->y_int;
-			kind = 0xCu;
-			z = (uint16_t)(OBJECT(current_object)->z_int - 0x28u);
-			spawn_sign_2(x_int, y_int, kind, z, cursor);
-			sound_id = 0x38u;
-			if (OBJECT(current_object)->kind != 0u)
-			{
-				sound_id = 0x3Cu;
-				if (OBJECT(current_object)->kind != 1u)
-					sound_id = 0x44u;
-			}
-			play_sound(sound_id, &ignored, &ignored);
+		}
+		return;
+	case 7:
+		PLAYER(current_player)->control_lock = 0x10u;
+		player_move_with_scroll(&r1, &cursor);
+		if (PLAYER(current_player)->state == 0x16u)
+		{
+			player_dispatch_state(r1, cursor);
+			return;
+		}
+		if (OBJECT(current_object)->handler != player_respawn_ADDRESS && OBJECT(current_object)->y_int >= 0x4F2)
+		{
+			PLAYER(current_player)->sequence_step++;
+			OBJECT(current_object)->speed_z = 0;
+		}
+		return;
+	case 8:
+		OBJECT(current_object)->speed_z += 0x6000u;
+		PLAYER(current_player)->previous_z = OBJECT(current_object)->z;
+		OBJECT(current_object)->z += OBJECT(current_object)->speed_z;
+		floor_block_record = floor_blocks + 2u + OBJECT(current_object)->floor_block;
+		drift_byte = 0u;
+		compute_scroll_drift(floor_block_record, drift_byte);
+		drift_direction = scroll_drift_direction;
+		drift_speed = scroll_drift_speed >> 14;
+		drift_x = (int32_t)(sine_table[drift_direction] * drift_speed) >> 8;
+		PLAYER(current_player)->previous_x = OBJECT(current_object)->x;
+		OBJECT(current_object)->x += drift_x;
+		drift_y = (int32_t)(cosine_table[drift_direction] * drift_speed) >> 8;
+		PLAYER(current_player)->previous_y = OBJECT(current_object)->y;
+		OBJECT(current_object)->y -= drift_y;
+		find_floor(&ignored, &ignored, &ignored, &ignored, &ignored);
+		OBJECT(current_object)->floor_z_int += 0x20u;
+		if (OBJECT(current_object)->floor_z_int <= OBJECT(current_object)->z_int)
+			PLAYER(current_player)->sequence_step++;
+		animate(&ignored, &ignored, &ignored);
+		project_object(&ignored, &ignored);
+		ignored = queue_sprite_at_floor();
+		return;
+	case 9:
+		PLAYER(current_player)->sequence_step++;
+		PLAYER(current_player)->control_lock = 0u;
+		PLAYER(current_player)->previous_state = PLAYER(current_player)->state;
+		OBJECT(current_object)->sprite_flags &= 0xFFBFu;
+		PLAYER(current_player)->drift_anim_step = 1u;
+		OBJECT(current_object)->sprite_palette = (OBJECT(current_object)->sprite_palette & 0x1FFFu) | 0x2000u;
+		floor_8_ride_animation = sonic_floor_8_ride_animation_ADDRESS;
+		if (OBJECT(current_object)->kind != 0u)
+		{
+			floor_8_ride_animation = ray_floor_8_ride_animation_ADDRESS;
+			if (OBJECT(current_object)->kind != 1u)
+				floor_8_ride_animation = mighty_floor_8_ride_animation_ADDRESS;
+		}
+		OBJECT(current_object)->animation = floor_8_ride_animation;
+		OBJECT(current_object)->animation_frame = 0u;
+		OBJECT(current_object)->animation_speed = 4u;
+		OBJECT(current_object)->animation_timer = 0;
+		cursor = spawn_player_effect(cursor);
+	case 10:
+		player_move_with_scroll(&r1, &cursor);
+		animate(&r1, &ignored, &ignored);
+		if (PLAYER(current_player)->state == 0x16u)
+		{
+			player_dispatch_state(r1, cursor);
+			return;
+		}
+		if (OBJECT(current_object)->handler == player_respawn_ADDRESS)
+			return;
+		if (scroll_drift_speed == 0u)
+		{
+			PLAYER(current_player)->previous_y = OBJECT(current_object)->y;
+			OBJECT(current_object)->y += 0x40000u;
+		}
+		if (OBJECT(current_object)->y_int >= 0x800)
+		{
+			PLAYER(current_player)->control_lock = 0x7Fu;
+			OBJECT(current_object)->speed = 0;
+			PLAYER(current_player)->ground_speed = 0;
+		}
+		if (OBJECT(current_object)->y_int < 0x9B0)
+			return;
+		PLAYER(current_player)->sequence_step++;
+		PLAYER(current_player)->control_lock = 0u;
+		PLAYER(current_player)->state_timer = 0x258;
+		OBJECT(current_object)->speed_z = -0x20000;
+		OBJECT(current_object)->speed_x = 0;
+		OBJECT(current_object)->speed_y = 0x40000;
+		drift_animation = sonic_drift_animation_ADDRESS;
+		if (OBJECT(current_object)->kind != 0u)
+		{
+			drift_animation = ray_drift_animation_ADDRESS;
+			if (OBJECT(current_object)->kind != 1u)
+				drift_animation = mighty_drift_animation_ADDRESS;
+		}
+		OBJECT(current_object)->animation = drift_animation;
+		OBJECT(current_object)->sprite_flags |= 0x40u;
+		spawn_player_effect(cursor);
+		return;
+	case 11:
+		OBJECT(current_object)->speed_z += 0x2000u;
+		PLAYER(current_player)->previous_z = OBJECT(current_object)->z;
+		OBJECT(current_object)->z += OBJECT(current_object)->speed_z;
+		PLAYER(current_player)->previous_x = OBJECT(current_object)->x;
+		PLAYER(current_player)->previous_y = OBJECT(current_object)->y;
+		OBJECT(current_object)->x += OBJECT(current_object)->speed_x;
+		OBJECT(current_object)->y += OBJECT(current_object)->speed_y;
+		if (OBJECT(current_object)->y_int < 0xA1C)
+		{
 			animate(&ignored, &ignored, &ignored);
 			project_object(&ignored, &ignored);
 			ignored = queue_sprite_at_floor();
 			return;
-		case 12:
-			goto player_floor_8_sequence_struggle;
-		case 13:
-			OBJECT(current_object)->speed_z += 0x6000u;
-			PLAYER(current_player)->previous_z = OBJECT(current_object)->z;
-			OBJECT(current_object)->z += OBJECT(current_object)->speed_z;
-			PLAYER(current_player)->previous_x = OBJECT(current_object)->x;
-			PLAYER(current_player)->previous_y = OBJECT(current_object)->y;
-			OBJECT(current_object)->x += OBJECT(current_object)->speed_x;
-			OBJECT(current_object)->y += OBJECT(current_object)->speed_y;
-			running_animations = sonic_running_animations_ADDRESS;
-			if (OBJECT(current_object)->kind != 0u)
-			{
-				running_animations = ray_running_animations_ADDRESS;
-				if (OBJECT(current_object)->kind != 1u)
-					running_animations = mighty_running_animations_ADDRESS;
-			}
-			OBJECT(current_object)->animation = running_animations + ROM16(running_animations + PLAYER(current_player)->facing * 2u);
-			animate_with_flags(&ignored, &ignored);
-			if ((OBJECT(current_object)->sprite_palette & 0x8000u) == 0u && OBJECT(current_object)->speed_z_int >= 0)
-				OBJECT(current_object)->sprite_palette = (OBJECT(current_object)->sprite_palette & 0x1FFFu) | 0x8000u;
-			if (OBJECT(current_object)->speed_z_int >= 0 && OBJECT(current_object)->floor_z <= OBJECT(current_object)->z)
-			{
-				PLAYER(current_player)->sequence_step = 0xFu;
-				OBJECT(current_object)->z = OBJECT(current_object)->floor_z;
-				PLAYER(current_player)->sequence_bounced = 0xFFu;
-				OBJECT(current_object)->speed_z = 0u - OBJECT(current_object)->speed_z;
-				OBJECT(current_object)->speed_z = (int32_t)OBJECT(current_object)->speed_z >> 1;
-				OBJECT(current_object)->speed_x = (int32_t)OBJECT(current_object)->speed_x >> 1;
-				OBJECT(current_object)->speed_y = (int32_t)OBJECT(current_object)->speed_y >> 1;
-				PLAYER(current_player)->sequence_step = 0x10u;
-			}
-			project_object(&ignored, &ignored);
-			ignored = queue_sprite_at_floor();
-			return;
-		case 14:
-			OBJECT(current_object)->speed_z += 0x6000u;
-			OBJECT(current_object)->z += OBJECT(current_object)->speed_z;
-			update_screen_position(&ignored, &r1);
-			keep_player_on_screen(r1);
-			ignored = queue_sprite_at_floor();
-			return;
-		case 15:
-			animate(&ignored, &ignored, &ignored);
-			state_timer_2 = PLAYER(current_player)->state_timer;
-			PLAYER(current_player)->state_timer = state_timer_2 - 1u;
-			if ((int16_t)state_timer_2 <= 1)
-			{
-				PLAYER(current_player)->state = 1u;
-				PLAYER(current_player)->substate = 0u;
-				OBJECT(current_object)->speed = 0;
-			}
-			project_object(&ignored, &ignored);
-			ignored = queue_sprite_at_floor();
-			return;
-		case 16:
-			OBJECT(current_object)->speed_z += 0x6000u;
-			PLAYER(current_player)->previous_z = OBJECT(current_object)->z;
-			OBJECT(current_object)->z += OBJECT(current_object)->speed_z;
-			PLAYER(current_player)->previous_x = OBJECT(current_object)->x;
-			PLAYER(current_player)->previous_y = OBJECT(current_object)->y;
-			OBJECT(current_object)->x += OBJECT(current_object)->speed_x;
-			OBJECT(current_object)->y += OBJECT(current_object)->speed_y;
-			animate_with_flags(&ignored, &ignored);
-			if (OBJECT(current_object)->speed_z_int < 0 || OBJECT(current_object)->z < OBJECT(current_object)->floor_z)
-			{
-				project_object(&ignored, &ignored);
-				ignored = queue_sprite_at_floor();
-				return;
-			}
+		}
+		PLAYER(current_player)->sequence_step++;
+		PLAYER(current_player)->escape_progress_low = 0;
+		OBJECT(current_object)->animation_frame = 0xFFu;
+		OBJECT(current_object)->flags &= ~0x80u;
+		OBJECT(current_object)->sprite_flags &= 0xFFBFu;
+		OBJECT(current_object)->speed_z = 0;
+		cursor = spawn_struggle_marker(cursor);
+		x_int = (uint16_t)OBJECT(current_object)->x_int;
+		y_int = (uint16_t)OBJECT(current_object)->y_int;
+		kind = 0xCu;
+		z = (uint16_t)(OBJECT(current_object)->z_int - 0x28u);
+		spawn_sign_2(x_int, y_int, kind, z, cursor);
+		sound_id = 0x38u;
+		if (OBJECT(current_object)->kind != 0u)
+		{
+			sound_id = 0x3Cu;
+			if (OBJECT(current_object)->kind != 1u)
+				sound_id = 0x44u;
+		}
+		play_sound(sound_id, &ignored, &ignored);
+		animate(&ignored, &ignored, &ignored);
+		project_object(&ignored, &ignored);
+		ignored = queue_sprite_at_floor();
+		return;
+	case 12:
+		player_floor_8_sequence_struggle();
+		return;
+	case 13:
+		OBJECT(current_object)->speed_z += 0x6000u;
+		PLAYER(current_player)->previous_z = OBJECT(current_object)->z;
+		OBJECT(current_object)->z += OBJECT(current_object)->speed_z;
+		PLAYER(current_player)->previous_x = OBJECT(current_object)->x;
+		PLAYER(current_player)->previous_y = OBJECT(current_object)->y;
+		OBJECT(current_object)->x += OBJECT(current_object)->speed_x;
+		OBJECT(current_object)->y += OBJECT(current_object)->speed_y;
+		running_animations = sonic_running_animations_ADDRESS;
+		if (OBJECT(current_object)->kind != 0u)
+		{
+			running_animations = ray_running_animations_ADDRESS;
+			if (OBJECT(current_object)->kind != 1u)
+				running_animations = mighty_running_animations_ADDRESS;
+		}
+		OBJECT(current_object)->animation = running_animations + ROM16(running_animations + PLAYER(current_player)->facing * 2u);
+		animate_with_flags(&ignored, &ignored);
+		if ((OBJECT(current_object)->sprite_palette & 0x8000u) == 0u && OBJECT(current_object)->speed_z_int >= 0)
+			OBJECT(current_object)->sprite_palette = (OBJECT(current_object)->sprite_palette & 0x1FFFu) | 0x8000u;
+		if (OBJECT(current_object)->speed_z_int >= 0 && OBJECT(current_object)->floor_z <= OBJECT(current_object)->z)
+		{
 			PLAYER(current_player)->sequence_step = 0xFu;
 			OBJECT(current_object)->z = OBJECT(current_object)->floor_z;
-			OBJECT(current_object)->speed_x = 0;
-			OBJECT(current_object)->speed_y = 0;
-			OBJECT(current_object)->speed_z = 0;
-			floor_8_landing_animation = sonic_floor_8_landing_animation_ADDRESS;
-			if (OBJECT(current_object)->kind != 0u)
-			{
-				floor_8_landing_animation = ray_floor_8_landing_animation_ADDRESS;
-				if (OBJECT(current_object)->kind != 1u)
-					floor_8_landing_animation = mighty_floor_8_landing_animation_ADDRESS;
-			}
-			OBJECT(current_object)->animation = floor_8_landing_animation;
-			OBJECT(current_object)->animation_speed = 2u;
-			OBJECT(current_object)->animation_frame = 0xFFu;
-			OBJECT(current_object)->animation_timer = 0;
-			PLAYER(current_player)->state_timer = 0x3C;
-			OBJECT(current_object)->sprite_flags &= 0xFFBFu;
+			PLAYER(current_player)->sequence_bounced = 0xFFu;
+			OBJECT(current_object)->speed_z = 0u - OBJECT(current_object)->speed_z;
+			OBJECT(current_object)->speed_z = (int32_t)OBJECT(current_object)->speed_z >> 1;
+			OBJECT(current_object)->speed_x = (int32_t)OBJECT(current_object)->speed_x >> 1;
+			OBJECT(current_object)->speed_y = (int32_t)OBJECT(current_object)->speed_y >> 1;
+			PLAYER(current_player)->sequence_step = 0x10u;
+		}
+		project_object(&ignored, &ignored);
+		ignored = queue_sprite_at_floor();
+		return;
+	case 14:
+		OBJECT(current_object)->speed_z += 0x6000u;
+		OBJECT(current_object)->z += OBJECT(current_object)->speed_z;
+		update_screen_position(&ignored, &ignored);
+		keep_player_on_screen(ignored);
+		ignored = queue_sprite_at_floor();
+		return;
+	case 15:
+		animate(&ignored, &ignored, &ignored);
+		state_timer_2 = PLAYER(current_player)->state_timer;
+		PLAYER(current_player)->state_timer = state_timer_2 - 1u;
+		if ((int16_t)state_timer_2 <= 1)
+		{
+			PLAYER(current_player)->state = 1u;
+			PLAYER(current_player)->substate = 0u;
+			OBJECT(current_object)->speed = 0;
+		}
+		project_object(&ignored, &ignored);
+		ignored = queue_sprite_at_floor();
+		return;
+	case 16:
+		OBJECT(current_object)->speed_z += 0x6000u;
+		PLAYER(current_player)->previous_z = OBJECT(current_object)->z;
+		OBJECT(current_object)->z += OBJECT(current_object)->speed_z;
+		PLAYER(current_player)->previous_x = OBJECT(current_object)->x;
+		PLAYER(current_player)->previous_y = OBJECT(current_object)->y;
+		OBJECT(current_object)->x += OBJECT(current_object)->speed_x;
+		OBJECT(current_object)->y += OBJECT(current_object)->speed_y;
+		animate_with_flags(&ignored, &ignored);
+		if (OBJECT(current_object)->speed_z_int < 0 || OBJECT(current_object)->z < OBJECT(current_object)->floor_z)
+		{
 			project_object(&ignored, &ignored);
 			ignored = queue_sprite_at_floor();
 			return;
-		default:
-			invalid_jump(0x8F3Fu + PLAYER(current_player)->sequence_step * 3u);
 		}
+		PLAYER(current_player)->sequence_step = 0xFu;
+		OBJECT(current_object)->z = OBJECT(current_object)->floor_z;
+		OBJECT(current_object)->speed_x = 0;
+		OBJECT(current_object)->speed_y = 0;
+		OBJECT(current_object)->speed_z = 0;
+		floor_8_landing_animation = sonic_floor_8_landing_animation_ADDRESS;
+		if (OBJECT(current_object)->kind != 0u)
+		{
+			floor_8_landing_animation = ray_floor_8_landing_animation_ADDRESS;
+			if (OBJECT(current_object)->kind != 1u)
+				floor_8_landing_animation = mighty_floor_8_landing_animation_ADDRESS;
+		}
+		OBJECT(current_object)->animation = floor_8_landing_animation;
+		OBJECT(current_object)->animation_speed = 2u;
+		OBJECT(current_object)->animation_frame = 0xFFu;
+		OBJECT(current_object)->animation_timer = 0;
+		PLAYER(current_player)->state_timer = 0x3C;
+		OBJECT(current_object)->sprite_flags &= 0xFFBFu;
+		project_object(&ignored, &ignored);
+		ignored = queue_sprite_at_floor();
+		return;
+	default:
+		invalid_jump(0x8F3Fu + PLAYER(current_player)->sequence_step * 3u);
 	}
-player_floor_8_sequence_struggle:
+}
+
+void player_floor_8_sequence_struggle(void)
+{
+	uint16_t input_dy = 0;
+	uint32_t floor_8_escape_animation = 0, floor_8_idle_animation = 0, ignored = 0, trackball_angle = 0, trackball_speed = 0, trackball_y = 0;
+	uint16_t state_timer = 0;
+
 	read_player_trackball();
 	trackball_speed = PLAYER(current_player)->trackball_x;
 	trackball_y = PLAYER(current_player)->trackball_y;
@@ -2112,25 +1673,25 @@ player_floor_8_sequence_struggle:
 	if ((int32_t)trackball_speed > 0x5000000)
 		trackball_speed = 0x5000000u;
 	OBJECT(current_object)->speed = trackball_speed;
-	r0 = (uint16_t)PLAYER(current_player)->trackball_x;
+	trackball_angle = (uint16_t)PLAYER(current_player)->trackball_x;
 	input_dy = (uint16_t)PLAYER(current_player)->trackball_y;
-	angle_of_vector(input_dy, &r0, &ignored);
-	PLAYER(current_player)->target_heading = r0;
+	angle_of_vector(input_dy, &trackball_angle, &ignored);
+	PLAYER(current_player)->target_heading = trackball_angle;
 	if ((uint16_t)OBJECT(current_object)->speed_int == 0u)
-	{
-	player_floor_8_sequence_reset_escape:
 		PLAYER(current_player)->escape_progress_low = 0;
-	}
 	else
 	{
-		r0 = (r0 & ~0xFFFFu) | PLAYER(current_player)->target_heading;
-		r0 = (r0 & ~0xFFFFu) | (uint16_t)(r0 - 0x280u);
-		r0 = (r0 & ~0xFFFFu) | (r0 & 0x3FFu);
-		if ((uint16_t)r0 < 0x101u)
-			goto player_floor_8_sequence_reset_escape;
-		r0 = (r0 & ~0xFFFFu) | (uint16_t)OBJECT(current_object)->speed_int;
-		r0 = (r0 & ~0xFFFFu) | ((uint16_t)r0 >> 4);
-		PLAYER(current_player)->escape_progress_low += r0;
+		trackball_angle = (trackball_angle & ~0xFFFFu) | PLAYER(current_player)->target_heading;
+		trackball_angle = (trackball_angle & ~0xFFFFu) | (uint16_t)(trackball_angle - 0x280u);
+		trackball_angle = (trackball_angle & ~0xFFFFu) | (trackball_angle & 0x3FFu);
+		if ((uint16_t)trackball_angle < 0x101u)
+			PLAYER(current_player)->escape_progress_low = 0;
+		else
+		{
+			trackball_angle = (trackball_angle & ~0xFFFFu) | (uint16_t)OBJECT(current_object)->speed_int;
+			trackball_angle = (trackball_angle & ~0xFFFFu) | ((uint16_t)trackball_angle >> 4);
+			PLAYER(current_player)->escape_progress_low += trackball_angle;
+		}
 	}
 	if ((uint16_t)PLAYER(current_player)->escape_progress_low != 0u)
 	{
@@ -2142,11 +1703,11 @@ player_floor_8_sequence_struggle:
 				floor_8_escape_animation = floor_8_escape_animation_mighty_ADDRESS;
 		}
 		OBJECT(current_object)->animation = floor_8_escape_animation;
-		r0 = (r0 & ~0xFFFFu) | (uint16_t)PLAYER(current_player)->escape_progress_low;
-		r0 = (r0 & ~0xFFFFu) | ((uint16_t)r0 >> 8);
-		if ((int16_t)ROM16(floor_8_escape_animation) < (int16_t)r0)
-			r0 = (r0 & ~0xFFFFu) | ROM16(floor_8_escape_animation);
-		OBJECT(current_object)->sprite_frame = mem_read16(floor_8_escape_animation + 2u + r0 * 2u);
+		trackball_angle = (trackball_angle & ~0xFFFFu) | (uint16_t)PLAYER(current_player)->escape_progress_low;
+		trackball_angle = (trackball_angle & ~0xFFFFu) | ((uint16_t)trackball_angle >> 8);
+		if ((int16_t)ROM16(floor_8_escape_animation) < (int16_t)trackball_angle)
+			trackball_angle = (trackball_angle & ~0xFFFFu) | ROM16(floor_8_escape_animation);
+		OBJECT(current_object)->sprite_frame = mem_read16(floor_8_escape_animation + 2u + trackball_angle * 2u);
 	}
 	else
 	{
@@ -2160,9 +1721,9 @@ player_floor_8_sequence_struggle:
 		OBJECT(current_object)->animation = floor_8_idle_animation;
 		animate(&ignored, &ignored, &ignored);
 	}
-	state_timer_3 = PLAYER(current_player)->state_timer;
-	PLAYER(current_player)->state_timer = state_timer_3 - 1u;
-	if ((int16_t)state_timer_3 <= 1)
+	state_timer = PLAYER(current_player)->state_timer;
+	PLAYER(current_player)->state_timer = state_timer - 1u;
+	if ((int16_t)state_timer <= 1)
 		PLAYER(current_player)->sequence_step = 0xEu;
 	if (PLAYER(current_player)->escape_progress_low >= 0x400)
 	{
@@ -2174,7 +1735,7 @@ player_floor_8_sequence_struggle:
 		OBJECT(current_object)->animation_timer = 0;
 		OBJECT(current_object)->animation_frame = 0u;
 		OBJECT(current_object)->direction = 0x200u;
-		face_movement_direction(r0);
+		face_movement_direction(trackball_angle);
 	}
 	update_screen_position(&ignored, &ignored);
 	ignored = queue_sprite_at_floor();
@@ -2245,96 +1806,39 @@ void player_move_with_scroll(uint32_t *p_depth, uint32_t *p_cursor)
 		return;
 	}
 	add_player_to_lists();
-	if ((PLAYER(current_player)->state != 0x25u || PLAYER(current_player)->sequence_step != 0xAu) && PLAYER(current_player)->state != 0x26u)
+	if ((PLAYER(current_player)->state == 0x25u && PLAYER(current_player)->sequence_step == 0xAu) || PLAYER(current_player)->state == 0x26u)
 	{
-		switch (PLAYER(current_player)->drift_anim_step)
+		if (PLAYER(current_player)->state != 0x25u || PLAYER(current_player)->sequence_step != 0xAu)
 		{
-		case 0:
-		case 1:
-		case 7:
-			if (OBJECT(current_object)->speed_int <= 0x80)
+			r1 = queue_sprite(r1);
+			*p_depth = r1;
+			*p_cursor = cursor;
+			return;
+		}
+		depth = (r1 & ~0xFFFFu) | (uint16_t)OBJECT(current_object)->screen_y;
+		depth = (depth & ~0xFFFFu) | (uint16_t)(depth - 0x20u);
+		queue_sprite_at_depth(&ignored, &depth);
+		*p_depth = depth;
+		*p_cursor = cursor;
+		return;
+	}
+	switch (PLAYER(current_player)->drift_anim_step)
+	{
+	case 0:
+	case 1:
+	case 7:
+		if (OBJECT(current_object)->speed_int <= 0x80)
+		{
+			OBJECT(current_object)->flags &= ~0x80u;
+			animation = sonic_drift_animation_ADDRESS;
+			if (OBJECT(current_object)->kind != 0u)
 			{
-				OBJECT(current_object)->flags &= ~0x80u;
-				animation = sonic_drift_animation_ADDRESS;
-				if (OBJECT(current_object)->kind != 0u)
-				{
-					animation = ray_drift_animation_ADDRESS;
-					if (OBJECT(current_object)->kind != 1u)
-						animation = mighty_drift_animation_ADDRESS;
-				}
-				OBJECT(current_object)->animation = animation;
-				animate(&r1, &ignored, &ignored);
+				animation = ray_drift_animation_ADDRESS;
+				if (OBJECT(current_object)->kind != 1u)
+					animation = mighty_drift_animation_ADDRESS;
 			}
-			else
-			{
-				heading_16 = (uint16_t)((uint32_t)OBJECT(current_object)->direction << 6);
-				r1 = (r1 & ~0xFFFFu) | heading_16;
-				if ((uint16_t)(heading_16 + 0x7000u) >= 0x6040u)
-				{
-					r1 = (r1 & ~0xFFFFu) | (uint16_t)(r1 - 0x1000u);
-					if ((uint16_t)r1 >= 0x6040u)
-					{
-						OBJECT(current_object)->flags &= ~0x80u;
-						animation = sonic_drift_animation_ADDRESS;
-						if (OBJECT(current_object)->kind != 0u)
-						{
-							animation = ray_drift_animation_ADDRESS;
-							if (OBJECT(current_object)->kind != 1u)
-								animation = mighty_drift_animation_ADDRESS;
-						}
-						OBJECT(current_object)->animation = animation;
-						animate(&r1, &ignored, &ignored);
-						if (PLAYER(current_player)->state != 0x25u || PLAYER(current_player)->sequence_step != 0xAu)
-						{
-							r1 = queue_sprite(r1);
-							*p_depth = r1;
-							*p_cursor = cursor;
-							return;
-						}
-						depth = (r1 & ~0xFFFFu) | (uint16_t)OBJECT(current_object)->screen_y;
-						depth = (depth & ~0xFFFFu) | (uint16_t)(depth - 0x20u);
-						queue_sprite_at_depth(&ignored, &depth);
-						*p_depth = depth;
-						*p_cursor = cursor;
-						return;
-					}
-					PLAYER(current_player)->drift_anim_step = 2u;
-					OBJECT(current_object)->animation = drift_plus_x_start_animation_ADDRESS;
-					OBJECT(current_object)->animation_frame = 0xFFu;
-					OBJECT(current_object)->animation_timer = 0;
-					OBJECT(current_object)->flags &= ~0x80u;
-					animate(&r1, &ignored, &at_last_step);
-					if ((uint8_t)at_last_step != 0u)
-						PLAYER(current_player)->drift_anim_step++;
-					if (PLAYER(current_player)->state != 0x25u || PLAYER(current_player)->sequence_step != 0xAu)
-					{
-						r1 = queue_sprite(r1);
-						*p_depth = r1;
-						*p_cursor = cursor;
-						return;
-					}
-					depth = (r1 & ~0xFFFFu) | (uint16_t)OBJECT(current_object)->screen_y;
-					depth = (depth & ~0xFFFFu) | (uint16_t)(depth - 0x20u);
-					queue_sprite_at_depth(&ignored, &depth);
-					*p_depth = depth;
-					*p_cursor = cursor;
-					return;
-				}
-				PLAYER(current_player)->drift_anim_step = 4u;
-				OBJECT(current_object)->animation = drift_minus_x_start_animation_ADDRESS;
-				OBJECT(current_object)->animation_frame = 0xFFu;
-				OBJECT(current_object)->animation_timer = 0;
-				OBJECT(current_object)->flags &= ~0x80u;
-				animate(&r1, &ignored, &at_last_step);
-				if ((uint8_t)at_last_step != 0u)
-					PLAYER(current_player)->drift_anim_step++;
-			}
-			break;
-		case 2:
-		case 4:
-			animate(&r1, &ignored, &at_last_step);
-			if ((uint8_t)at_last_step != 0u)
-				PLAYER(current_player)->drift_anim_step++;
+			OBJECT(current_object)->animation = animation;
+			animate(&r1, &ignored, &ignored);
 			if (PLAYER(current_player)->state != 0x25u || PLAYER(current_player)->sequence_step != 0xAu)
 			{
 				r1 = queue_sprite(r1);
@@ -2348,42 +1852,19 @@ void player_move_with_scroll(uint32_t *p_depth, uint32_t *p_cursor)
 			*p_depth = depth;
 			*p_cursor = cursor;
 			return;
-		case 3:
-			if (OBJECT(current_object)->speed_int <= 0x80 || (uint16_t)(((uint32_t)OBJECT(current_object)->direction << 6) - 0x1000u) >= 0x6040u)
+		}
+		heading_16 = (uint16_t)((uint32_t)OBJECT(current_object)->direction << 6);
+		r1 = (r1 & ~0xFFFFu) | heading_16;
+		if ((uint16_t)(heading_16 + 0x7000u) < 0x6040u)
+		{
+			PLAYER(current_player)->drift_anim_step = 4u;
+			OBJECT(current_object)->animation = drift_minus_x_start_animation_ADDRESS;
+			OBJECT(current_object)->animation_frame = 0xFFu;
+			OBJECT(current_object)->animation_timer = 0;
+			OBJECT(current_object)->flags &= ~0x80u;
+			animate(&r1, &ignored, &at_last_step);
+			if ((uint8_t)at_last_step == 0u)
 			{
-				PLAYER(current_player)->drift_anim_step = 6u;
-				OBJECT(current_object)->animation = drift_plus_x_start_animation_ADDRESS;
-				OBJECT(current_object)->animation_frame = 3u;
-				OBJECT(current_object)->animation_timer = 0;
-				OBJECT(current_object)->flags |= 0x80u;
-				animate(&r1, &ignored, &at_last_step);
-				if ((uint8_t)at_last_step != 0u)
-				{
-					OBJECT(current_object)->animation_timer = 0;
-					PLAYER(current_player)->drift_anim_step = 1u;
-				}
-			}
-			else
-			{
-				OBJECT(current_object)->flags &= ~0x80u;
-				OBJECT(current_object)->animation = drift_plus_x_animation_ADDRESS;
-				animate(&r1, &ignored, &ignored);
-			}
-			break;
-		case 5:
-			if (OBJECT(current_object)->speed_int <= 0x80 || (uint16_t)(((uint32_t)OBJECT(current_object)->direction << 6) + 0x7000u) >= 0x6040u)
-			{
-				PLAYER(current_player)->drift_anim_step = 6u;
-				OBJECT(current_object)->animation = drift_minus_x_start_animation_ADDRESS;
-				OBJECT(current_object)->animation_frame = 3u;
-				OBJECT(current_object)->animation_timer = 0;
-				OBJECT(current_object)->flags |= 0x80u;
-				animate(&r1, &ignored, &at_last_step);
-				if ((uint8_t)at_last_step != 0u)
-				{
-					OBJECT(current_object)->animation_timer = 0;
-					PLAYER(current_player)->drift_anim_step = 1u;
-				}
 				if (PLAYER(current_player)->state != 0x25u || PLAYER(current_player)->sequence_step != 0xAu)
 				{
 					r1 = queue_sprite(r1);
@@ -2398,17 +1879,7 @@ void player_move_with_scroll(uint32_t *p_depth, uint32_t *p_cursor)
 				*p_cursor = cursor;
 				return;
 			}
-			OBJECT(current_object)->flags &= ~0x80u;
-			OBJECT(current_object)->animation = drift_minus_x_animation_ADDRESS;
-			animate(&r1, &ignored, &ignored);
-			break;
-		case 6:
-			animate(&r1, &ignored, &at_last_step);
-			if ((uint8_t)at_last_step != 0u)
-			{
-				OBJECT(current_object)->animation_timer = 0;
-				PLAYER(current_player)->drift_anim_step = 1u;
-			}
+			PLAYER(current_player)->drift_anim_step++;
 			if (PLAYER(current_player)->state != 0x25u || PLAYER(current_player)->sequence_step != 0xAu)
 			{
 				r1 = queue_sprite(r1);
@@ -2422,22 +1893,197 @@ void player_move_with_scroll(uint32_t *p_depth, uint32_t *p_cursor)
 			*p_depth = depth;
 			*p_cursor = cursor;
 			return;
-		default:
-			invalid_jump(0x984Du + PLAYER(current_player)->drift_anim_step * 3u);
 		}
-	}
-	if (PLAYER(current_player)->state != 0x25u || PLAYER(current_player)->sequence_step != 0xAu)
-	{
-		r1 = queue_sprite(r1);
-		*p_depth = r1;
+		r1 = (r1 & ~0xFFFFu) | (uint16_t)(r1 - 0x1000u);
+		if ((uint16_t)r1 >= 0x6040u)
+		{
+			OBJECT(current_object)->flags &= ~0x80u;
+			animation = sonic_drift_animation_ADDRESS;
+			if (OBJECT(current_object)->kind != 0u)
+			{
+				animation = ray_drift_animation_ADDRESS;
+				if (OBJECT(current_object)->kind != 1u)
+					animation = mighty_drift_animation_ADDRESS;
+			}
+			OBJECT(current_object)->animation = animation;
+			animate(&r1, &ignored, &ignored);
+			if (PLAYER(current_player)->state != 0x25u || PLAYER(current_player)->sequence_step != 0xAu)
+			{
+				r1 = queue_sprite(r1);
+				*p_depth = r1;
+				*p_cursor = cursor;
+				return;
+			}
+			depth = (r1 & ~0xFFFFu) | (uint16_t)OBJECT(current_object)->screen_y;
+			depth = (depth & ~0xFFFFu) | (uint16_t)(depth - 0x20u);
+			queue_sprite_at_depth(&ignored, &depth);
+			*p_depth = depth;
+			*p_cursor = cursor;
+			return;
+		}
+		PLAYER(current_player)->drift_anim_step = 2u;
+		OBJECT(current_object)->animation = drift_plus_x_start_animation_ADDRESS;
+		OBJECT(current_object)->animation_frame = 0xFFu;
+		OBJECT(current_object)->animation_timer = 0;
+		OBJECT(current_object)->flags &= ~0x80u;
+		animate(&r1, &ignored, &at_last_step);
+		if ((uint8_t)at_last_step != 0u)
+			PLAYER(current_player)->drift_anim_step++;
+		if (PLAYER(current_player)->state != 0x25u || PLAYER(current_player)->sequence_step != 0xAu)
+		{
+			r1 = queue_sprite(r1);
+			*p_depth = r1;
+			*p_cursor = cursor;
+			return;
+		}
+		depth = (r1 & ~0xFFFFu) | (uint16_t)OBJECT(current_object)->screen_y;
+		depth = (depth & ~0xFFFFu) | (uint16_t)(depth - 0x20u);
+		queue_sprite_at_depth(&ignored, &depth);
+		*p_depth = depth;
 		*p_cursor = cursor;
 		return;
+	case 2:
+	case 4:
+		animate(&r1, &ignored, &at_last_step);
+		if ((uint8_t)at_last_step != 0u)
+			PLAYER(current_player)->drift_anim_step++;
+		if (PLAYER(current_player)->state != 0x25u || PLAYER(current_player)->sequence_step != 0xAu)
+		{
+			r1 = queue_sprite(r1);
+			*p_depth = r1;
+			*p_cursor = cursor;
+			return;
+		}
+		depth = (r1 & ~0xFFFFu) | (uint16_t)OBJECT(current_object)->screen_y;
+		depth = (depth & ~0xFFFFu) | (uint16_t)(depth - 0x20u);
+		queue_sprite_at_depth(&ignored, &depth);
+		*p_depth = depth;
+		*p_cursor = cursor;
+		return;
+	case 3:
+		if (OBJECT(current_object)->speed_int > 0x80 && (uint16_t)(((uint32_t)OBJECT(current_object)->direction << 6) - 0x1000u) < 0x6040u)
+		{
+			OBJECT(current_object)->flags &= ~0x80u;
+			OBJECT(current_object)->animation = drift_plus_x_animation_ADDRESS;
+			animate(&r1, &ignored, &ignored);
+			if (PLAYER(current_player)->state != 0x25u || PLAYER(current_player)->sequence_step != 0xAu)
+			{
+				r1 = queue_sprite(r1);
+				*p_depth = r1;
+				*p_cursor = cursor;
+				return;
+			}
+			depth = (r1 & ~0xFFFFu) | (uint16_t)OBJECT(current_object)->screen_y;
+			depth = (depth & ~0xFFFFu) | (uint16_t)(depth - 0x20u);
+			queue_sprite_at_depth(&ignored, &depth);
+			*p_depth = depth;
+			*p_cursor = cursor;
+			return;
+		}
+		PLAYER(current_player)->drift_anim_step = 6u;
+		OBJECT(current_object)->animation = drift_plus_x_start_animation_ADDRESS;
+		OBJECT(current_object)->animation_frame = 3u;
+		OBJECT(current_object)->animation_timer = 0;
+		OBJECT(current_object)->flags |= 0x80u;
+		animate(&r1, &ignored, &at_last_step);
+		if ((uint8_t)at_last_step == 0u)
+		{
+			if (PLAYER(current_player)->state != 0x25u || PLAYER(current_player)->sequence_step != 0xAu)
+			{
+				r1 = queue_sprite(r1);
+				*p_depth = r1;
+				*p_cursor = cursor;
+				return;
+			}
+			depth = (r1 & ~0xFFFFu) | (uint16_t)OBJECT(current_object)->screen_y;
+			depth = (depth & ~0xFFFFu) | (uint16_t)(depth - 0x20u);
+			queue_sprite_at_depth(&ignored, &depth);
+			*p_depth = depth;
+			*p_cursor = cursor;
+			return;
+		}
+		OBJECT(current_object)->animation_timer = 0;
+		PLAYER(current_player)->drift_anim_step = 1u;
+		if (PLAYER(current_player)->state != 0x25u || PLAYER(current_player)->sequence_step != 0xAu)
+		{
+			r1 = queue_sprite(r1);
+			*p_depth = r1;
+			*p_cursor = cursor;
+			return;
+		}
+		depth = (r1 & ~0xFFFFu) | (uint16_t)OBJECT(current_object)->screen_y;
+		depth = (depth & ~0xFFFFu) | (uint16_t)(depth - 0x20u);
+		queue_sprite_at_depth(&ignored, &depth);
+		*p_depth = depth;
+		*p_cursor = cursor;
+		return;
+	case 5:
+		if (OBJECT(current_object)->speed_int > 0x80 && (uint16_t)(((uint32_t)OBJECT(current_object)->direction << 6) + 0x7000u) < 0x6040u)
+		{
+			OBJECT(current_object)->flags &= ~0x80u;
+			OBJECT(current_object)->animation = drift_minus_x_animation_ADDRESS;
+			animate(&r1, &ignored, &ignored);
+			if (PLAYER(current_player)->state != 0x25u || PLAYER(current_player)->sequence_step != 0xAu)
+			{
+				r1 = queue_sprite(r1);
+				*p_depth = r1;
+				*p_cursor = cursor;
+				return;
+			}
+			depth = (r1 & ~0xFFFFu) | (uint16_t)OBJECT(current_object)->screen_y;
+			depth = (depth & ~0xFFFFu) | (uint16_t)(depth - 0x20u);
+			queue_sprite_at_depth(&ignored, &depth);
+			*p_depth = depth;
+			*p_cursor = cursor;
+			return;
+		}
+		PLAYER(current_player)->drift_anim_step = 6u;
+		OBJECT(current_object)->animation = drift_minus_x_start_animation_ADDRESS;
+		OBJECT(current_object)->animation_frame = 3u;
+		OBJECT(current_object)->animation_timer = 0;
+		OBJECT(current_object)->flags |= 0x80u;
+		animate(&r1, &ignored, &at_last_step);
+		if ((uint8_t)at_last_step != 0u)
+		{
+			OBJECT(current_object)->animation_timer = 0;
+			PLAYER(current_player)->drift_anim_step = 1u;
+		}
+		if (PLAYER(current_player)->state != 0x25u || PLAYER(current_player)->sequence_step != 0xAu)
+		{
+			r1 = queue_sprite(r1);
+			*p_depth = r1;
+			*p_cursor = cursor;
+			return;
+		}
+		depth = (r1 & ~0xFFFFu) | (uint16_t)OBJECT(current_object)->screen_y;
+		depth = (depth & ~0xFFFFu) | (uint16_t)(depth - 0x20u);
+		queue_sprite_at_depth(&ignored, &depth);
+		*p_depth = depth;
+		*p_cursor = cursor;
+		return;
+	case 6:
+		animate(&r1, &ignored, &at_last_step);
+		if ((uint8_t)at_last_step != 0u)
+		{
+			OBJECT(current_object)->animation_timer = 0;
+			PLAYER(current_player)->drift_anim_step = 1u;
+		}
+		if (PLAYER(current_player)->state != 0x25u || PLAYER(current_player)->sequence_step != 0xAu)
+		{
+			r1 = queue_sprite(r1);
+			*p_depth = r1;
+			*p_cursor = cursor;
+			return;
+		}
+		depth = (r1 & ~0xFFFFu) | (uint16_t)OBJECT(current_object)->screen_y;
+		depth = (depth & ~0xFFFFu) | (uint16_t)(depth - 0x20u);
+		queue_sprite_at_depth(&ignored, &depth);
+		*p_depth = depth;
+		*p_cursor = cursor;
+		return;
+	default:
+		invalid_jump(0x984Du + PLAYER(current_player)->drift_anim_step * 3u);
 	}
-	depth = (r1 & ~0xFFFFu) | (uint16_t)OBJECT(current_object)->screen_y;
-	depth = (depth & ~0xFFFFu) | (uint16_t)(depth - 0x20u);
-	queue_sprite_at_depth(&ignored, &depth);
-	*p_depth = depth;
-	*p_cursor = cursor;
 }
 
 uint32_t spawn_player_effect(uint32_t effect)
@@ -2578,196 +2224,14 @@ void player_state_held_still(void)
 
 void player_state_stuck_on_object(uint32_t depth, uint32_t cursor)
 {
-	uint32_t ignored = 0, jump_offset = 0;
+	uint32_t ignored = 0;
 
-	for (;;)
+	check_zone_contact();
+	if ((OBJECT(current_object)->flags & 0x8000000u) != 0u)
 	{
-		check_zone_contact();
-		if ((OBJECT(current_object)->flags & 0x8000000u) == 0u)
-			break;
 		check_player_contacts(&depth, &cursor);
-		jump_offset = PLAYER(current_player)->state * 3u;
-		switch (PLAYER(current_player)->state)
-		{
-		case 0:
-			player_move(depth, cursor);
-			return;
-		case 1:
-			player_move(depth, cursor);
-			return;
-		case 2:
-			player_move(depth, cursor);
-			return;
-		case 3:
-			player_state_inactive();
-			return;
-		case 4:
-			player_move(depth, cursor);
-			return;
-		case 5:
-			player_state_teetering(cursor);
-			return;
-		case 6:
-			player_state_falling_off_edge();
-			return;
-		case 7:
-			player_state_over_edge(jump_offset, cursor);
-			return;
-		case 8:
-			player_state_dropping(cursor);
-			return;
-		case 9:
-			player_state_falling_into_pit();
-			return;
-		case 10:
-			player_state_climbing(depth, cursor);
-			return;
-		case 11:
-			player_state_not_playing();
-			return;
-		case 12:
-			player_move(depth, cursor);
-			return;
-		case 13:
-			player_state_hurt(depth, cursor);
-			return;
-		case 14:
-			player_state_bouncing();
-			return;
-		case 15:
-			player_state_launched();
-			return;
-		case 16:
-			player_state_launched();
-			return;
-		case 17:
-			player_state_launched();
-			return;
-		case 18:
-			player_state_launched();
-			return;
-		case 19:
-			player_move(depth, cursor);
-			return;
-		case 20:
-			player_move(depth, cursor);
-			return;
-		case 21:
-			player_state_held(depth, cursor);
-			return;
-		case 22:
-			player_state_dying();
-			return;
-		case 23:
-			player_move(depth, cursor);
-			return;
-		case 24:
-			player_state_stage_scene(depth, cursor);
-			return;
-		case 25:
-			player_state_scene_thrown(depth, cursor);
-			return;
-		case 26:
-			player_state_inactive_2();
-			return;
-		case 27:
-			player_state_short_animation();
-			return;
-		case 28:
-			player_state_opening_scene();
-			return;
-		case 29:
-			player_state_stuck(cursor);
-			return;
-		case 30:
-			player_state_intro_turn(depth, cursor);
-			return;
-		case 31:
-			player_state_blown_away(cursor);
-			return;
-		case 32:
-			player_state_tumbling(depth, cursor);
-			return;
-		case 33:
-			player_state_stage_exit(depth, cursor);
-			return;
-		case 34:
-			player_state_in_zone(depth, cursor);
-			return;
-		case 35:
-			player_state_continue();
-			return;
-		case 36:
-			player_state_out_of_game();
-			return;
-		case 37:
-			player_state_floor_8_sequence(cursor);
-			return;
-		case 38:
-			player_state_pulled(cursor);
-			return;
-		case 39:
-			player_state_climbing_object(cursor);
-			return;
-		case 40:
-			player_state_swept_away();
-			return;
-		case 41:
-			player_state_tripped(cursor);
-			return;
-		case 42:
-			player_state_entering_stage(depth, cursor);
-			return;
-		case 43:
-			player_state_final_stage();
-			return;
-		case 44:
-			continue;
-		case 45:
-			player_state_held_still();
-			return;
-		case 46:
-			player_state_game_over(jump_offset);
-			return;
-		case 47:
-			player_state_stunned(depth, cursor);
-			return;
-		case 48:
-			player_state_caught(cursor);
-			return;
-		case 49:
-			player_state_carried_off(depth, cursor);
-			return;
-		case 50:
-			player_state_trapped(depth, cursor);
-			return;
-		case 51:
-			player_state_sinking(cursor);
-			return;
-		case 52:
-			player_state_choosing_character(cursor);
-			return;
-		case 53:
-			player_state_riding();
-			return;
-		case 54:
-			player_state_knocked_off(depth, cursor);
-			return;
-		case 55:
-			player_state_not_playing();
-			return;
-		case 56:
-			player_state_stage_b_sequence(depth, cursor);
-			return;
-		case 57:
-			player_state_you_failed();
-			return;
-		case 58:
-			player_move(depth, cursor);
-			return;
-		default:
-			invalid_jump(0x2D3Eu + PLAYER(current_player)->state * 3u);
-		}
+		player_dispatch_state(depth, cursor);
+		return;
 	}
 	switch (PLAYER(current_player)->substate)
 	{
@@ -2884,47 +2348,47 @@ void player_stuck_on_object_shake(void)
 		PLAYER(current_player)->escape_progress = 0;
 	else if (PLAYER(current_player)->target_heading >= 0x180 && PLAYER(current_player)->target_heading <= 0x380)
 		PLAYER(current_player)->escape_progress += (uint16_t)OBJECT(current_object)->speed_int;
-	if ((uint32_t)PLAYER(current_player)->escape_progress != 0u)
+	if ((uint32_t)PLAYER(current_player)->escape_progress == 0u)
 	{
-		animation = sonic_stuck_struggle_animations_ADDRESS;
+		animation = sonic_stuck_animation_ADDRESS;
 		if (OBJECT(current_object)->kind != 0u)
 		{
-			animation = ray_stuck_struggle_animations_ADDRESS;
+			animation = ray_stuck_animation_ADDRESS;
 			if (OBJECT(current_object)->kind != 1u)
-				animation = mighty_stuck_struggle_animations_ADDRESS;
-		}
-		struggle_index = (int32_t)PLAYER(current_player)->escape_progress / 0x4000;
-		if ((int16_t)struggle_index > 2)
-			struggle_index = 2u;
-		OBJECT(current_object)->animation = mem_read32(animation + struggle_index * 4u);
-		animate(&ignored, &ignored, &ignored);
-		if (PLAYER(current_player)->escape_progress < 0xC000)
-			return;
-		PLAYER(current_player)->substate++;
-		animation = sonic_stuck_escape_animation_ADDRESS;
-		if (OBJECT(current_object)->kind != 0u)
-		{
-			animation = ray_stuck_escape_animation_ADDRESS;
-			if (OBJECT(current_object)->kind != 1u)
-				animation = mighty_stuck_escape_animation_ADDRESS;
+				animation = mighty_stuck_animation_ADDRESS;
 		}
 		OBJECT(current_object)->animation = animation;
-		OBJECT(current_object)->animation_frame = 0xFFu;
-		OBJECT(current_object)->animation_timer = 0;
-		OBJECT(current_object)->animation_speed = 3u;
-		sound_id = 0x2Bu;
-		play_sound(sound_id, &ignored, &ignored);
+		animate(&ignored, &ignored, &ignored);
 		return;
 	}
-	animation = sonic_stuck_animation_ADDRESS;
+	animation = sonic_stuck_struggle_animations_ADDRESS;
 	if (OBJECT(current_object)->kind != 0u)
 	{
-		animation = ray_stuck_animation_ADDRESS;
+		animation = ray_stuck_struggle_animations_ADDRESS;
 		if (OBJECT(current_object)->kind != 1u)
-			animation = mighty_stuck_animation_ADDRESS;
+			animation = mighty_stuck_struggle_animations_ADDRESS;
+	}
+	struggle_index = (int32_t)PLAYER(current_player)->escape_progress / 0x4000;
+	if ((int16_t)struggle_index > 2)
+		struggle_index = 2u;
+	OBJECT(current_object)->animation = mem_read32(animation + struggle_index * 4u);
+	animate(&ignored, &ignored, &ignored);
+	if (PLAYER(current_player)->escape_progress < 0xC000)
+		return;
+	PLAYER(current_player)->substate++;
+	animation = sonic_stuck_escape_animation_ADDRESS;
+	if (OBJECT(current_object)->kind != 0u)
+	{
+		animation = ray_stuck_escape_animation_ADDRESS;
+		if (OBJECT(current_object)->kind != 1u)
+			animation = mighty_stuck_escape_animation_ADDRESS;
 	}
 	OBJECT(current_object)->animation = animation;
-	animate(&ignored, &ignored, &ignored);
+	OBJECT(current_object)->animation_frame = 0xFFu;
+	OBJECT(current_object)->animation_timer = 0;
+	OBJECT(current_object)->animation_speed = 3u;
+	sound_id = 0x2Bu;
+	play_sound(sound_id, &ignored, &ignored);
 }
 
 void player_stuck_on_object_jump_out(void)
@@ -3167,35 +2631,35 @@ void player_state_sinking(uint32_t cursor)
 	}
 	OBJECT(current_object)->y += 0x18000u;
 	project_object(&ignored, &ignored);
-	if (OBJECT(current_object)->z_int < (int16_t)(OBJECT(current_object)->floor_z_int + 0x20u))
+	if ((int16_t)(OBJECT(current_object)->floor_z_int + 0x20u) <= OBJECT(current_object)->z_int)
 	{
-		floor_z = OBJECT(current_object)->floor_z;
-		point_x = OBJECT(current_object)->x;
-		point_y = OBJECT(current_object)->y;
-		project_point(floor_z, &ignored, &point_x, &point_y);
-		PLAYER(current_player)->ground_clip_bottom = point_y;
-		PLAYER(current_player)->draw_depth = ((int32_t)((uint32_t)OBJECT(current_object)->projected_y + OBJECT(current_object)->floor_z) >> 16) - view_y;
-		current_object = current_player + 0x102u;
-		depth = PLAYER(current_player)->draw_depth;
-		queue_sprite_at_depth(&ignored, &depth);
-		current_object = object_cursor;
-		depth = PLAYER(current_player)->draw_depth;
-		queue_sprite_at_depth(&ignored, &depth);
-		current_object = current_player + 0xF0u;
-		depth = PLAYER(current_player)->draw_depth;
-		queue_sprite_at_depth(&ignored, &depth);
+		health = OBJECT(current_object)->health;
+		OBJECT(current_object)->health = health - 8u;
+		if ((int8_t)health > 8)
+			OBJECT(current_object)->handler = player_respawn_ADDRESS;
+		else
+		{
+			OBJECT(current_object)->health = 0;
+			PLAYER(current_player)->state = 0x16u;
+			PLAYER(current_player)->substate = 0u;
+		}
 		return;
 	}
-	health = OBJECT(current_object)->health;
-	OBJECT(current_object)->health = health - 8u;
-	if ((int8_t)health > 8)
-		OBJECT(current_object)->handler = player_respawn_ADDRESS;
-	else
-	{
-		OBJECT(current_object)->health = 0;
-		PLAYER(current_player)->state = 0x16u;
-		PLAYER(current_player)->substate = 0u;
-	}
+	floor_z = OBJECT(current_object)->floor_z;
+	point_x = OBJECT(current_object)->x;
+	point_y = OBJECT(current_object)->y;
+	project_point(floor_z, &ignored, &point_x, &point_y);
+	PLAYER(current_player)->ground_clip_bottom = point_y;
+	PLAYER(current_player)->draw_depth = ((int32_t)((uint32_t)OBJECT(current_object)->projected_y + OBJECT(current_object)->floor_z) >> 16) - view_y;
+	current_object = current_player + 0x102u;
+	depth = PLAYER(current_player)->draw_depth;
+	queue_sprite_at_depth(&ignored, &depth);
+	current_object = object_cursor;
+	depth = PLAYER(current_player)->draw_depth;
+	queue_sprite_at_depth(&ignored, &depth);
+	current_object = current_player + 0xF0u;
+	depth = PLAYER(current_player)->draw_depth;
+	queue_sprite_at_depth(&ignored, &depth);
 }
 
 void sinking_effect_update(void)
@@ -3216,212 +2680,34 @@ void sinking_effect_update(void)
 
 void player_state_knocked_off(uint32_t depth, uint32_t cursor)
 {
+	switch (PLAYER(current_player)->substate)
+	{
+	case 0:
+	case 2:
+		PLAYER(current_player)->substate++;
+		if ((uint8_t)OBJECT(current_object)->health != 0u)
+		{
+			player_knocked_off_start();
+			return;
+		}
+		PLAYER(current_player)->state = 0x16u;
+		PLAYER(current_player)->substate = 0u;
+		player_dispatch_state(depth, cursor);
+		return;
+	case 1:
+		player_knocked_off_fly();
+		return;
+	default:
+		invalid_jump(0xA433u + PLAYER(current_player)->substate * 3u);
+	}
+}
+
+void player_knocked_off_start(void)
+{
 	uint8_t sound_id = 0;
-	uint32_t gravity = 0, hit_direction = 0, hurt_animations = 0, ignored = 0, jump_offset = 0, knock_speed_x = 0, knock_speed_y = 0, object = 0, step_record = 0;
-	uint8_t health = 0;
+	uint32_t hit_direction = 0, hurt_animations = 0, ignored = 0, knock_speed_x = 0, knock_speed_y = 0, object = 0, step_record = 0;
 	uint32_t push_speed_5 = 0, push_speed_6 = 0;
 
-	for (;;)
-	{
-		switch (PLAYER(current_player)->substate)
-		{
-		case 0:
-		case 2:
-			PLAYER(current_player)->substate++;
-			if ((uint8_t)OBJECT(current_object)->health != 0u)
-				goto player_knocked_off_start;
-			PLAYER(current_player)->state = 0x16u;
-			PLAYER(current_player)->substate = 0u;
-			jump_offset = PLAYER(current_player)->state * 3u;
-			switch (PLAYER(current_player)->state)
-			{
-			case 0:
-				player_move(depth, cursor);
-				return;
-			case 1:
-				player_move(depth, cursor);
-				return;
-			case 2:
-				player_move(depth, cursor);
-				return;
-			case 3:
-				player_state_inactive();
-				return;
-			case 4:
-				player_move(depth, cursor);
-				return;
-			case 5:
-				player_state_teetering(cursor);
-				return;
-			case 6:
-				player_state_falling_off_edge();
-				return;
-			case 7:
-				player_state_over_edge(jump_offset, cursor);
-				return;
-			case 8:
-				player_state_dropping(cursor);
-				return;
-			case 9:
-				player_state_falling_into_pit();
-				return;
-			case 10:
-				player_state_climbing(depth, cursor);
-				return;
-			case 11:
-				player_state_not_playing();
-				return;
-			case 12:
-				player_move(depth, cursor);
-				return;
-			case 13:
-				player_state_hurt(depth, cursor);
-				return;
-			case 14:
-				player_state_bouncing();
-				return;
-			case 15:
-				player_state_launched();
-				return;
-			case 16:
-				player_state_launched();
-				return;
-			case 17:
-				player_state_launched();
-				return;
-			case 18:
-				player_state_launched();
-				return;
-			case 19:
-				player_move(depth, cursor);
-				return;
-			case 20:
-				player_move(depth, cursor);
-				return;
-			case 21:
-				player_state_held(depth, cursor);
-				return;
-			case 22:
-				player_state_dying();
-				return;
-			case 23:
-				player_move(depth, cursor);
-				return;
-			case 24:
-				player_state_stage_scene(depth, cursor);
-				return;
-			case 25:
-				player_state_scene_thrown(depth, cursor);
-				return;
-			case 26:
-				player_state_inactive_2();
-				return;
-			case 27:
-				player_state_short_animation();
-				return;
-			case 28:
-				player_state_opening_scene();
-				return;
-			case 29:
-				player_state_stuck(cursor);
-				return;
-			case 30:
-				player_state_intro_turn(depth, cursor);
-				return;
-			case 31:
-				player_state_blown_away(cursor);
-				return;
-			case 32:
-				player_state_tumbling(depth, cursor);
-				return;
-			case 33:
-				player_state_stage_exit(depth, cursor);
-				return;
-			case 34:
-				player_state_in_zone(depth, cursor);
-				return;
-			case 35:
-				player_state_continue();
-				return;
-			case 36:
-				player_state_out_of_game();
-				return;
-			case 37:
-				player_state_floor_8_sequence(cursor);
-				return;
-			case 38:
-				player_state_pulled(cursor);
-				return;
-			case 39:
-				player_state_climbing_object(cursor);
-				return;
-			case 40:
-				player_state_swept_away();
-				return;
-			case 41:
-				player_state_tripped(cursor);
-				return;
-			case 42:
-				player_state_entering_stage(depth, cursor);
-				return;
-			case 43:
-				player_state_final_stage();
-				return;
-			case 44:
-				player_state_stuck_on_object(depth, cursor);
-				return;
-			case 45:
-				player_state_held_still();
-				return;
-			case 46:
-				player_state_game_over(jump_offset);
-				return;
-			case 47:
-				player_state_stunned(depth, cursor);
-				return;
-			case 48:
-				player_state_caught(cursor);
-				return;
-			case 49:
-				player_state_carried_off(depth, cursor);
-				return;
-			case 50:
-				player_state_trapped(depth, cursor);
-				return;
-			case 51:
-				player_state_sinking(cursor);
-				return;
-			case 52:
-				player_state_choosing_character(cursor);
-				return;
-			case 53:
-				player_state_riding();
-				return;
-			case 54:
-				continue;
-			case 55:
-				player_state_not_playing();
-				return;
-			case 56:
-				player_state_stage_b_sequence(depth, cursor);
-				return;
-			case 57:
-				player_state_you_failed();
-				return;
-			case 58:
-				player_move(depth, cursor);
-				return;
-			default:
-				invalid_jump(0x2D3Eu + PLAYER(current_player)->state * 3u);
-			}
-			break;
-		case 1:
-			goto player_knocked_off_fly;
-		default:
-			invalid_jump(0xA433u + PLAYER(current_player)->substate * 3u);
-		}
-	}
-player_knocked_off_start:
 	PLAYER(current_player)->invulnerable_timer = 0x258;
 	OBJECT(current_object)->flags &= ~0x2000u;
 	PLAYER(current_player)->control_lock = 0u;
@@ -3488,7 +2774,14 @@ player_knocked_off_start:
 	OBJECT(current_object)->player_view.hurt_flash_period = 3u;
 	OBJECT(current_object)->player_view.hurt_flash_timer = 3u;
 	OBJECT(current_object)->player_view.hurt_flash_on = 0u;
-player_knocked_off_fly:
+	player_knocked_off_fly();
+}
+
+void player_knocked_off_fly(void)
+{
+	uint32_t gravity = 0, ignored = 0, step_record = 0;
+	uint8_t health = 0;
+
 	gravity = 0x6000u;
 	if (OBJECT(current_object)->floor_type == 4u)
 		gravity = gravity >> 2;

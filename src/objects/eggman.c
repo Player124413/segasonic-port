@@ -222,27 +222,40 @@ void eggman_scene_talk(void)
 
 	step_timer = OBJECT(current_object)->eggman_scene.step_timer;
 	OBJECT(current_object)->eggman_scene.step_timer = step_timer - 1u;
-	if (step_timer == 0u)
+	if (step_timer != 0u)
 	{
-		if ((int16_t)OBJECT(current_object)->direction > 2)
+		talk_timer = OBJECT(current_object)->eggman_scene.talk_timer;
+		OBJECT(current_object)->eggman_scene.talk_timer = talk_timer - 1u;
+		if (talk_timer != 0u)
 		{
-			OBJECT(current_object)->eggman_scene.step = 0;
-			OBJECT(current_object)->eggman_scene.step_timer = 0u;
-			OBJECT(current_object)->handler = eggman_scene_press_button_ADDRESS;
-			eggman_scene_press_button();
+			eggman_scene_move();
 			return;
 		}
-		direction = OBJECT(current_object)->direction;
-		screen_x = 0xA0u;
-		screen_y = 0x80u;
-		kind = eggman_scene_texts[direction];
-		text_duration = eggman_scene_text_durations[direction];
-		OBJECT(current_object)->eggman_scene.step_timer = text_duration;
-		spawn_message_box(screen_x, screen_y, kind, text_duration, 0u);
-		sound_id = (uint8_t)eggman_scene_sounds[OBJECT(current_object)->direction];
-		play_sound(sound_id, &ignored, &ignored);
-		OBJECT(current_object)->direction++;
+		OBJECT(current_object)->eggman_scene.talk_timer = 6u;
+		OBJECT(current_object)->sprite_frame = eggman_talk_frames[eggman_talk_steps[(uint8_t)OBJECT(current_object)->eggman_scene.step]];
+		OBJECT(current_object)->eggman_scene.step++;
+		OBJECT(current_object)->eggman_scene.step = (uint8_t)OBJECT(current_object)->eggman_scene.step % 0xAu;
+		eggman_scene_move();
+		return;
 	}
+	if ((int16_t)OBJECT(current_object)->direction > 2)
+	{
+		OBJECT(current_object)->eggman_scene.step = 0;
+		OBJECT(current_object)->eggman_scene.step_timer = 0u;
+		OBJECT(current_object)->handler = eggman_scene_press_button_ADDRESS;
+		eggman_scene_press_button();
+		return;
+	}
+	direction = OBJECT(current_object)->direction;
+	screen_x = 0xA0u;
+	screen_y = 0x80u;
+	kind = eggman_scene_texts[direction];
+	text_duration = eggman_scene_text_durations[direction];
+	OBJECT(current_object)->eggman_scene.step_timer = text_duration;
+	spawn_message_box(screen_x, screen_y, kind, text_duration, 0u);
+	sound_id = (uint8_t)eggman_scene_sounds[OBJECT(current_object)->direction];
+	play_sound(sound_id, &ignored, &ignored);
+	OBJECT(current_object)->direction++;
 	talk_timer = OBJECT(current_object)->eggman_scene.talk_timer;
 	OBJECT(current_object)->eggman_scene.talk_timer = talk_timer - 1u;
 	if (talk_timer != 0u)
@@ -471,32 +484,27 @@ void sliding_door_wait(void)
 		status = mem_read8(status_cursor);
 		status_cursor++;
 		if ((int8_t)status >= 0)
-		{
-		sliding_door_wait_count_ready:
 			ready_players++;
-		}
 		else if (PLAYER(player_base)->stage_b_path_done != 0u)
 		{
 			done_players++;
-			goto sliding_door_wait_count_ready;
+			ready_players++;
 		}
 		player_base += 0x200u;
 		players_left--;
 	} while (players_left != 0u);
-	if (ready_players != 3u || done_players == 0u)
+	if (ready_players == 3u && done_players != 0u)
 	{
-		sliding_door_draw();
-		return;
+		open_delay = OBJECT(current_object)->sliding_door.open_delay;
+		OBJECT(current_object)->sliding_door.open_delay = open_delay - 1u;
+		if (open_delay == 0u)
+		{
+			OBJECT(current_object)->handler = sliding_door_open_ADDRESS;
+			sliding_door_open();
+			return;
+		}
 	}
-	open_delay = OBJECT(current_object)->sliding_door.open_delay;
-	OBJECT(current_object)->sliding_door.open_delay = open_delay - 1u;
-	if (open_delay != 0u)
-	{
-		sliding_door_draw();
-		return;
-	}
-	OBJECT(current_object)->handler = sliding_door_open_ADDRESS;
-	sliding_door_open();
+	sliding_door_draw();
 }
 
 void sliding_door_open(void)

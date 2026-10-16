@@ -58,7 +58,7 @@ void fill_triangle_sorted(uint32_t top_x, uint32_t top_y, uint32_t middle_x, uin
 {
 	uint8_t integer_shift = 0;
 	uint32_t bottom_x_fixed = 0, height = 0, ignored = 0, left_x = 0, length = 0, middle_on_right = 0, previous_left_x = 0, right_edge_x = 0, right_x = 0, row_left_x = 0, rows_left = 0, span_address = 0, span_color = 0, span_count = 0;
-	uint32_t saved_middle_y = 0, saved_bottom_y = 0, swap_x_12 = 0, swap_x_13 = 0, swap_top_x = 0, swap_slope = 0;
+	uint32_t saved_middle_y = 0, saved_bottom_y = 0, swap_top_x = 0, swap_x_12 = 0, swap_x_13 = 0, swap_slope = 0;
 
 	saved_middle_y = middle_y;
 	rows_left = saved_middle_y - top_y;
@@ -66,37 +66,37 @@ void fill_triangle_sorted(uint32_t top_x, uint32_t top_y, uint32_t middle_x, uin
 	{
 		saved_bottom_y = bottom_y;
 		height = saved_bottom_y - top_y;
-		if (saved_bottom_y == top_y)
+		if (saved_bottom_y != top_y)
 		{
-			if ((int32_t)middle_x < (int32_t)top_x)
+			if ((int32_t)top_x <= (int32_t)middle_x)
 			{
-				swap_x_12 = top_x;
-				top_x = middle_x;
-				middle_x = swap_x_12;
+				fill_flat_top_triangle(top_x, top_y, middle_x, bottom_x, height, color, span_cursor);
+				return;
 			}
-			if ((int32_t)bottom_x < (int32_t)top_x)
-			{
-				swap_x_13 = top_x;
-				top_x = bottom_x;
-				bottom_x = swap_x_13;
-			}
-			if ((int32_t)bottom_x < (int32_t)middle_x)
-				bottom_x = middle_x;
-			top_y = (top_y << 9) + top_x + current_player;
-			length = bottom_x - top_x;
-			span_color = (uint8_t)color;
-			fill_span_8bpp(length, &ignored, &top_y, &span_color);
+			swap_top_x = top_x;
+			left_x = middle_x;
+			right_x = swap_top_x;
+			fill_flat_top_triangle(left_x, top_y, right_x, bottom_x, height, color, span_cursor);
 			return;
 		}
-		if ((int32_t)top_x <= (int32_t)middle_x)
+		if ((int32_t)middle_x < (int32_t)top_x)
 		{
-			fill_flat_top_triangle(top_x, top_y, middle_x, bottom_x, height, color, span_cursor);
-			return;
+			swap_x_12 = top_x;
+			top_x = middle_x;
+			middle_x = swap_x_12;
 		}
-		swap_top_x = top_x;
-		left_x = middle_x;
-		right_x = swap_top_x;
-		fill_flat_top_triangle(left_x, top_y, right_x, bottom_x, height, color, span_cursor);
+		if ((int32_t)bottom_x < (int32_t)top_x)
+		{
+			swap_x_13 = top_x;
+			top_x = bottom_x;
+			bottom_x = swap_x_13;
+		}
+		if ((int32_t)bottom_x < (int32_t)middle_x)
+			bottom_x = middle_x;
+		top_y = (top_y << 9) + top_x + current_player;
+		length = bottom_x - top_x;
+		span_color = (uint8_t)color;
+		fill_span_8bpp(length, &ignored, &top_y, &span_color);
 		return;
 	}
 	bottom_y = bottom_y - top_y + 1u;
@@ -194,11 +194,12 @@ void fill_span_list_from_r8(uint32_t span_count, uint8_t polygon_color)
 
 void fill_span_list(uint32_t span_count, uint32_t color)
 {
+	bool aligned = false;
 	uint32_t zero = 0;
 	uint8_t last_bytes = 0, tail_bytes = 0;
 	uint32_t blocks_left = 0, length = 0, pixel_address = 0, span_record = 0;
 	uint16_t block_count = 0;
-	uint32_t odd_bytes = 0, length_after_odd = 0;
+	uint32_t length_after_odd = 0, odd_bytes = 0;
 
 	span_record = bitmap_draw_buffer_ADDRESS;
 	color = (uint8_t)color * 0x1010101u;
@@ -210,9 +211,17 @@ void fill_span_list(uint32_t span_count, uint32_t color)
 		span_record += 2u;
 		if ((int16_t)length >= 0)
 		{
-			if ((pixel_address & 1u) == 0u)
+			aligned = (pixel_address & 1u) == 0u;
+			if (!aligned)
 			{
-			fill_span_list_aligned:
+				mem_write8(pixel_address, color);
+				length_after_odd = length - 1u;
+				length = length_after_odd;
+				pixel_address++;
+				aligned = (int32_t)length_after_odd >= 0;
+			}
+			if (aligned)
+			{
 				length++;
 				tail_bytes = (uint8_t)length;
 				block_count = (uint16_t)length >> 4;
@@ -252,27 +261,15 @@ void fill_span_list(uint32_t span_count, uint32_t color)
 				{
 					zero = (uint8_t)(last_bytes - 2u) == 0u;
 					if (last_bytes < 2u)
-					{
-					fill_span_list_last_byte:
 						mem_write8(pixel_address, color);
-					}
 					else
 					{
 						mem_write16(pixel_address, color);
 						pixel_address += 2u;
 						if (zero == 0u)
-							goto fill_span_list_last_byte;
+							mem_write8(pixel_address, color);
 					}
 				}
-			}
-			else
-			{
-				mem_write8(pixel_address, color);
-				length_after_odd = length - 1u;
-				length = length_after_odd;
-				pixel_address++;
-				if ((int32_t)length_after_odd >= 0)
-					goto fill_span_list_aligned;
 			}
 		}
 		span_count--;
@@ -585,16 +582,20 @@ void fill_quad(uint32_t left_x, uint32_t top_y, uint32_t second_x, uint32_t seco
 				span_address += r14;
 				span_cursor += 2u;
 				second_y--;
-				if (second_y != 0u)
-					continue;
-				segments_left--;
-				if (segments_left == 0u)
+				if (second_y == 0u)
+				{
+					segments_left--;
+					if (segments_left != 0u)
+					{
+						second_x = divide_s32(bottom_x - left_x, rows_after_second);
+						rows_after_left_bend = rows_after_second;
+						second_y = rows_after_left_bend - bottom_y;
+						if (rows_after_left_bend == bottom_y)
+							break;
+						continue;
+					}
 					break;
-				second_x = divide_s32(bottom_x - left_x, rows_after_second);
-				rows_after_left_bend = rows_after_second;
-				second_y = rows_after_left_bend - bottom_y;
-				if (rows_after_left_bend == bottom_y)
-					break;
+				}
 			}
 			right_slope = divide_s32(bottom_x - right_x, bottom_y);
 		}
@@ -616,16 +617,20 @@ void fill_quad(uint32_t left_x, uint32_t top_y, uint32_t second_x, uint32_t seco
 				span_address += r14;
 				span_cursor += 2u;
 				second_y--;
-				if (second_y != 0u)
-					continue;
-				segments_left--;
-				if (segments_left == 0u)
+				if (second_y == 0u)
+				{
+					segments_left--;
+					if (segments_left != 0u)
+					{
+						right_slope = divide_s32(bottom_x - right_x, rows_after_second);
+						rows_after_right_bend = rows_after_second;
+						second_y = rows_after_right_bend - bottom_y;
+						if (rows_after_right_bend == bottom_y)
+							break;
+						continue;
+					}
 					break;
-				right_slope = divide_s32(bottom_x - right_x, rows_after_second);
-				rows_after_right_bend = rows_after_second;
-				second_y = rows_after_right_bend - bottom_y;
-				if (rows_after_right_bend == bottom_y)
-					break;
+				}
 			}
 			second_x = divide_s32(bottom_x - left_x, bottom_y);
 		}
@@ -1181,106 +1186,271 @@ void flood_fill_push_span(uint8_t border_color, uint32_t window_left, uint32_t w
 void flood_fill_span(uint8_t border_color, uint32_t window_left, uint32_t window_right, uint32_t fill_pattern, uint32_t *p_left_x, uint32_t *p_right_address, uint32_t *p_right_x)
 {
 	uint32_t left_x = *p_left_x;
-	uint32_t zero = 0;
-	uint8_t last_pixel = 0, pixel_count = 0, tail_bytes = 0;
-	uint16_t pixels = 0;
-	uint32_t blocks_left = 0, bytes_left = 0, fill_count = 0, right_address = 0, right_cursor = 0, right_x = 0, scan_count = 0, seed_address = 0;
-	uint16_t right_limit = 0;
-	uint32_t start_x = 0, count_after_first = 0, block_count = 0, tail_count = 0;
+	uint8_t pixel_count = 0, pixels = 0;
+	uint32_t right_address = 0, right_x = 0, scan_count = 0, seed_address = 0;
+	uint32_t start_x = 0;
 
 	seed_address = r14;
 	right_x = left_x;
 	start_x = left_x;
 	scan_count = start_x - window_left;
-	if ((int32_t)window_left < (int32_t)start_x)
+	if ((int32_t)start_x <= (int32_t)window_left)
 	{
-		pixel_count = (uint8_t)(uint16_t)scan_count;
-		scan_count = (scan_count & ~0xFFFFu) | ((uint16_t)scan_count >> 1);
-		if ((r14 & 1u) != 0u)
-		{
-			pixel_count--;
-			scan_count = (scan_count & ~0xFFFFu) | (uint16_t)(scan_count + 1u);
-			r14 = r14 - 1u;
-			pixels = mem_read8(r14);
-			goto flood_fill_span_left_pixel;
-		}
-	flood_fill_span_left_pair:
-		r14 = r14 - 2u;
-		pixels = mem_read16(r14);
-		pixels = (uint16_t)(((uint32_t)pixels << 8) | (pixels >> 8));
-		if ((uint8_t)pixels == (uint8_t)fill_pattern || (uint8_t)pixels == (uint8_t)border_color)
-		{
-			r14 = r14 + 1u;
-		flood_fill_span_left_edge:
-			r14 = r14 + 1u;
-		}
-		else
-		{
-			pixels = (uint16_t)(((uint32_t)pixels << 8) | (pixels >> 8));
-		flood_fill_span_left_pixel:
-			if ((uint8_t)pixels == (uint8_t)fill_pattern)
-				goto flood_fill_span_left_edge;
-			scan_count--;
-			if ((scan_count != 0u) & ((uint8_t)pixels != (uint8_t)border_color))
-				goto flood_fill_span_left_pair;
-			if ((uint8_t)pixels == (uint8_t)border_color)
-				goto flood_fill_span_left_edge;
-			if ((pixel_count & 1u) != 0u)
-			{
-				r14 = r14 - 1u;
-				last_pixel = mem_read8(r14);
-				if (last_pixel == (uint8_t)fill_pattern || last_pixel == (uint8_t)border_color)
-					goto flood_fill_span_left_edge;
-			}
-		}
-		left_x = (left_x & ~0xFFFFu) | (uint16_t)(left_x - (seed_address - r14));
+		flood_fill_span_scan_right(border_color, window_right, left_x, fill_pattern, seed_address, &right_address, &right_x);
+		*p_left_x = (*p_left_x & 0xFFFF0000u) | (left_x & 0xFFFFu);
+		*p_right_address = right_address;
+		*p_right_x = right_x;
+		return;
 	}
+	pixel_count = (uint8_t)(uint16_t)scan_count;
+	scan_count = (scan_count & ~0xFFFFu) | ((uint16_t)scan_count >> 1);
+	if ((r14 & 1u) == 0u)
+	{
+		flood_fill_span_left_pair(scan_count, pixel_count, border_color, window_right, fill_pattern, seed_address, &left_x, &right_address, &right_x);
+		*p_left_x = (*p_left_x & 0xFFFF0000u) | (left_x & 0xFFFFu);
+		*p_right_address = right_address;
+		*p_right_x = right_x;
+		return;
+	}
+	pixel_count--;
+	scan_count = (scan_count & ~0xFFFFu) | (uint16_t)(scan_count + 1u);
+	r14 = r14 - 1u;
+	pixels = mem_read8(r14);
+	flood_fill_span_left_pixel(pixels, scan_count, pixel_count, border_color, window_right, fill_pattern, seed_address, &left_x, &right_address, &right_x);
+	*p_left_x = (*p_left_x & 0xFFFF0000u) | (left_x & 0xFFFFu);
+	*p_right_address = right_address;
+	*p_right_x = right_x;
+}
+
+void flood_fill_span_left_pair(uint32_t scan_count, uint8_t pixel_count, uint8_t border_color, uint32_t window_right, uint32_t fill_pattern, uint32_t seed_address, uint32_t *p_left_x, uint32_t *p_right_address, uint32_t *p_right_x)
+{
+	uint32_t left_x = *p_left_x;
+	uint32_t right_x = *p_right_x;
+	uint16_t pixels = 0;
+	uint32_t right_address = 0;
+
+	r14 = r14 - 2u;
+	pixels = mem_read16(r14);
+	pixels = (uint16_t)(((uint32_t)pixels << 8) | (pixels >> 8));
+	if ((uint8_t)pixels == (uint8_t)fill_pattern || (uint8_t)pixels == (uint8_t)border_color)
+	{
+		r14 = r14 + 2u;
+		flood_fill_span_set_left_x(border_color, window_right, fill_pattern, seed_address, &left_x, &right_address, &right_x);
+		*p_left_x = (*p_left_x & 0xFFFF0000u) | (left_x & 0xFFFFu);
+		*p_right_address = right_address;
+		*p_right_x = (*p_right_x & 0xFFFF0000u) | (right_x & 0xFFFFu);
+		return;
+	}
+	pixels = (uint16_t)(((uint32_t)pixels << 8) | (pixels >> 8));
+	flood_fill_span_left_pixel((uint8_t)pixels, scan_count, pixel_count, border_color, window_right, fill_pattern, seed_address, &left_x, &right_address, &right_x);
+	*p_left_x = (*p_left_x & 0xFFFF0000u) | (left_x & 0xFFFFu);
+	*p_right_address = right_address;
+	*p_right_x = (*p_right_x & 0xFFFF0000u) | (right_x & 0xFFFFu);
+}
+
+void flood_fill_span_left_pixel(uint8_t pixel, uint32_t scan_count, uint8_t pixel_count, uint8_t border_color, uint32_t window_right, uint32_t fill_pattern, uint32_t seed_address, uint32_t *p_left_x, uint32_t *p_right_address, uint32_t *p_right_x)
+{
+	uint32_t left_x = *p_left_x;
+	uint32_t right_x = *p_right_x;
+	uint8_t last_pixel = 0;
+	uint32_t right_address = 0;
+
+	if ((uint8_t)pixel == (uint8_t)fill_pattern)
+	{
+		r14 = r14 + 1u;
+		flood_fill_span_set_left_x(border_color, window_right, fill_pattern, seed_address, &left_x, &right_address, &right_x);
+		*p_left_x = (*p_left_x & 0xFFFF0000u) | (left_x & 0xFFFFu);
+		*p_right_address = right_address;
+		*p_right_x = (*p_right_x & 0xFFFF0000u) | (right_x & 0xFFFFu);
+		return;
+	}
+	scan_count--;
+	if ((scan_count != 0u) & ((uint8_t)pixel != (uint8_t)border_color))
+	{
+		flood_fill_span_left_pair(scan_count, pixel_count, border_color, window_right, fill_pattern, seed_address, &left_x, &right_address, &right_x);
+		*p_left_x = (*p_left_x & 0xFFFF0000u) | (left_x & 0xFFFFu);
+		*p_right_address = right_address;
+		*p_right_x = (*p_right_x & 0xFFFF0000u) | (right_x & 0xFFFFu);
+		return;
+	}
+	if ((uint8_t)pixel == (uint8_t)border_color)
+	{
+		r14 = r14 + 1u;
+		flood_fill_span_set_left_x(border_color, window_right, fill_pattern, seed_address, &left_x, &right_address, &right_x);
+		*p_left_x = (*p_left_x & 0xFFFF0000u) | (left_x & 0xFFFFu);
+		*p_right_address = right_address;
+		*p_right_x = (*p_right_x & 0xFFFF0000u) | (right_x & 0xFFFFu);
+		return;
+	}
+	if ((pixel_count & 1u) == 0u)
+	{
+		flood_fill_span_set_left_x(border_color, window_right, fill_pattern, seed_address, &left_x, &right_address, &right_x);
+		*p_left_x = (*p_left_x & 0xFFFF0000u) | (left_x & 0xFFFFu);
+		*p_right_address = right_address;
+		*p_right_x = (*p_right_x & 0xFFFF0000u) | (right_x & 0xFFFFu);
+		return;
+	}
+	r14 = r14 - 1u;
+	last_pixel = mem_read8(r14);
+	if (last_pixel == (uint8_t)fill_pattern || last_pixel == (uint8_t)border_color)
+	{
+		r14 = r14 + 1u;
+		flood_fill_span_set_left_x(border_color, window_right, fill_pattern, seed_address, &left_x, &right_address, &right_x);
+		*p_left_x = (*p_left_x & 0xFFFF0000u) | (left_x & 0xFFFFu);
+		*p_right_address = right_address;
+		*p_right_x = (*p_right_x & 0xFFFF0000u) | (right_x & 0xFFFFu);
+		return;
+	}
+	flood_fill_span_set_left_x(border_color, window_right, fill_pattern, seed_address, &left_x, &right_address, &right_x);
+	*p_left_x = (*p_left_x & 0xFFFF0000u) | (left_x & 0xFFFFu);
+	*p_right_address = right_address;
+	*p_right_x = (*p_right_x & 0xFFFF0000u) | (right_x & 0xFFFFu);
+}
+
+void flood_fill_span_set_left_x(uint8_t border_color, uint32_t window_right, uint32_t fill_pattern, uint32_t seed_address, uint32_t *p_left_x, uint32_t *p_right_address, uint32_t *p_right_x)
+{
+	uint32_t left_x = *p_left_x;
+	uint32_t right_x = *p_right_x;
+	uint32_t right_address = 0;
+
+	left_x = (left_x & ~0xFFFFu) | (uint16_t)(left_x - (seed_address - r14));
+	flood_fill_span_scan_right(border_color, window_right, left_x, fill_pattern, seed_address, &right_address, &right_x);
+	*p_left_x = (*p_left_x & 0xFFFF0000u) | (left_x & 0xFFFFu);
+	*p_right_address = right_address;
+	*p_right_x = (*p_right_x & 0xFFFF0000u) | (right_x & 0xFFFFu);
+}
+
+void flood_fill_span_scan_right(uint8_t border_color, uint32_t window_right, uint32_t left_x, uint32_t fill_pattern, uint32_t seed_address, uint32_t *p_right_address, uint32_t *p_right_x)
+{
+	uint32_t right_x = *p_right_x;
+	uint8_t pixel_count = 0, pixels = 0;
+	uint32_t right_address = 0, right_cursor = 0, scan_count = 0;
+	uint16_t right_limit = 0;
+
 	scan_count = window_right;
 	right_limit = scan_count;
 	scan_count = (scan_count & ~0xFFFFu) | (uint16_t)(right_limit - right_x);
-	if ((int16_t)right_x < (int16_t)right_limit)
+	if ((int16_t)right_limit <= (int16_t)right_x)
 	{
-		right_cursor = seed_address + 1u;
-		pixel_count = (uint8_t)scan_count;
-		scan_count = (scan_count & ~0xFFFFu) | ((uint16_t)scan_count >> 1);
-		if ((right_cursor & 1u) != 0u)
-		{
-			pixel_count--;
-			scan_count = (scan_count & ~0xFFFFu) | (uint16_t)(scan_count + 1u);
-			pixels = mem_read8(right_cursor);
-			right_cursor++;
-			goto flood_fill_span_right_pixel;
-		}
-	flood_fill_span_right_pair:
-		pixels = mem_read16(right_cursor);
-		right_cursor += 2u;
-		if ((uint8_t)pixels == (uint8_t)fill_pattern || (uint8_t)pixels == (uint8_t)border_color)
-		{
-			right_cursor--;
-		flood_fill_span_right_edge:
-			right_cursor--;
-		flood_fill_span_right_end:
-			right_cursor--;
-		}
-		else
-		{
-			pixels = (uint16_t)(((uint32_t)pixels << 8) | (pixels >> 8));
-		flood_fill_span_right_pixel:
-			if ((uint8_t)pixels == (uint8_t)fill_pattern)
-				goto flood_fill_span_right_edge;
-			scan_count--;
-			if ((scan_count != 0u) & ((uint8_t)pixels != (uint8_t)border_color))
-				goto flood_fill_span_right_pair;
-			if ((uint8_t)pixels == (uint8_t)border_color)
-				goto flood_fill_span_right_edge;
-			if ((pixel_count & 1u) == 0u)
-				goto flood_fill_span_right_end;
-			last_pixel = mem_read8(right_cursor);
-			if (last_pixel == (uint8_t)fill_pattern || last_pixel == (uint8_t)border_color)
-				goto flood_fill_span_right_end;
-		}
-		right_x = (right_x & ~0xFFFFu) | (uint16_t)(right_x + (right_cursor - seed_address));
+		right_address = flood_fill_span_fill_run(left_x, fill_pattern, right_x);
+		*p_right_address = right_address;
+		*p_right_x = (*p_right_x & 0xFFFF0000u) | (right_x & 0xFFFFu);
+		return;
 	}
+	right_cursor = seed_address + 1u;
+	pixel_count = (uint8_t)scan_count;
+	scan_count = (scan_count & ~0xFFFFu) | ((uint16_t)scan_count >> 1);
+	if ((right_cursor & 1u) == 0u)
+	{
+		flood_fill_span_right_pair(scan_count, pixel_count, border_color, left_x, fill_pattern, (uint16_t)seed_address, &right_cursor, &right_x);
+		*p_right_address = right_cursor;
+		*p_right_x = (*p_right_x & 0xFFFF0000u) | (right_x & 0xFFFFu);
+		return;
+	}
+	pixel_count--;
+	scan_count = (scan_count & ~0xFFFFu) | (uint16_t)(scan_count + 1u);
+	pixels = mem_read8(right_cursor);
+	right_cursor++;
+	flood_fill_span_right_pixel(pixels, scan_count, pixel_count, border_color, left_x, fill_pattern, (uint16_t)seed_address, &right_cursor, &right_x);
+	*p_right_address = right_cursor;
+	*p_right_x = (*p_right_x & 0xFFFF0000u) | (right_x & 0xFFFFu);
+}
+
+void flood_fill_span_right_pair(uint32_t scan_count, uint8_t pixel_count, uint8_t border_color, uint32_t left_x, uint32_t fill_pattern, uint16_t seed_address, uint32_t *p_right_cursor, uint32_t *p_right_x)
+{
+	uint32_t right_cursor = *p_right_cursor;
+	uint32_t right_x = *p_right_x;
+	uint16_t pixels = 0;
+
+	pixels = mem_read16(right_cursor);
+	right_cursor += 2u;
+	if ((uint8_t)pixels == (uint8_t)fill_pattern || (uint8_t)pixels == (uint8_t)border_color)
+	{
+		right_cursor = right_cursor - 1u - 1u - 1u;
+		flood_fill_span_set_right_x(left_x, fill_pattern, seed_address, &right_cursor, &right_x);
+		*p_right_cursor = right_cursor;
+		*p_right_x = (*p_right_x & 0xFFFF0000u) | (right_x & 0xFFFFu);
+		return;
+	}
+	pixels = (uint16_t)(((uint32_t)pixels << 8) | (pixels >> 8));
+	flood_fill_span_right_pixel((uint8_t)pixels, scan_count, pixel_count, border_color, left_x, fill_pattern, seed_address, &right_cursor, &right_x);
+	*p_right_cursor = right_cursor;
+	*p_right_x = (*p_right_x & 0xFFFF0000u) | (right_x & 0xFFFFu);
+}
+
+void flood_fill_span_right_pixel(uint8_t pixel, uint32_t scan_count, uint8_t pixel_count, uint8_t border_color, uint32_t left_x, uint32_t fill_pattern, uint16_t seed_address, uint32_t *p_right_cursor, uint32_t *p_right_x)
+{
+	uint32_t right_cursor = *p_right_cursor;
+	uint32_t right_x = *p_right_x;
+	uint8_t last_pixel = 0;
+
+	if ((uint8_t)pixel == (uint8_t)fill_pattern)
+	{
+		right_cursor--;
+		right_cursor--;
+		flood_fill_span_set_right_x(left_x, fill_pattern, seed_address, &right_cursor, &right_x);
+		*p_right_cursor = right_cursor;
+		*p_right_x = (*p_right_x & 0xFFFF0000u) | (right_x & 0xFFFFu);
+		return;
+	}
+	scan_count--;
+	if ((scan_count != 0u) & ((uint8_t)pixel != (uint8_t)border_color))
+	{
+		flood_fill_span_right_pair(scan_count, pixel_count, border_color, left_x, fill_pattern, seed_address, &right_cursor, &right_x);
+		*p_right_cursor = right_cursor;
+		*p_right_x = (*p_right_x & 0xFFFF0000u) | (right_x & 0xFFFFu);
+		return;
+	}
+	if ((uint8_t)pixel == (uint8_t)border_color)
+	{
+		right_cursor--;
+		right_cursor--;
+		flood_fill_span_set_right_x(left_x, fill_pattern, seed_address, &right_cursor, &right_x);
+		*p_right_cursor = right_cursor;
+		*p_right_x = (*p_right_x & 0xFFFF0000u) | (right_x & 0xFFFFu);
+		return;
+	}
+	if ((pixel_count & 1u) == 0u)
+	{
+		right_cursor--;
+		flood_fill_span_set_right_x(left_x, fill_pattern, seed_address, &right_cursor, &right_x);
+		*p_right_cursor = right_cursor;
+		*p_right_x = (*p_right_x & 0xFFFF0000u) | (right_x & 0xFFFFu);
+		return;
+	}
+	last_pixel = mem_read8(right_cursor);
+	if (last_pixel == (uint8_t)fill_pattern || last_pixel == (uint8_t)border_color)
+	{
+		right_cursor--;
+		flood_fill_span_set_right_x(left_x, fill_pattern, seed_address, &right_cursor, &right_x);
+		*p_right_cursor = right_cursor;
+		*p_right_x = (*p_right_x & 0xFFFF0000u) | (right_x & 0xFFFFu);
+		return;
+	}
+	flood_fill_span_set_right_x(left_x, fill_pattern, seed_address, &right_cursor, &right_x);
+	*p_right_cursor = right_cursor;
+	*p_right_x = (*p_right_x & 0xFFFF0000u) | (right_x & 0xFFFFu);
+}
+
+void flood_fill_span_set_right_x(uint32_t left_x, uint32_t fill_pattern, uint16_t seed_address, uint32_t *p_right_cursor, uint32_t *p_right_x)
+{
+	uint16_t right_cursor = (uint16_t)*p_right_cursor;
+	uint32_t right_x = *p_right_x;
+	uint32_t right_address = 0;
+
+	right_x = (right_x & ~0xFFFFu) | (uint16_t)(right_x + ((uint32_t)right_cursor - seed_address));
+	right_address = flood_fill_span_fill_run(left_x, fill_pattern, right_x);
+	*p_right_cursor = right_address;
+	*p_right_x = (*p_right_x & 0xFFFF0000u) | (right_x & 0xFFFFu);
+}
+
+uint32_t flood_fill_span_fill_run(uint32_t left_x, uint32_t fill_pattern, uint32_t right_x)
+{
+	uint32_t zero = 0;
+	uint8_t tail_bytes = 0;
+	uint32_t blocks_left = 0, bytes_left = 0, fill_count = 0, right_address = 0;
+	uint32_t count_after_first = 0, block_count = 0, tail_count = 0;
+
 	right_address = r14;
 	fill_count = right_x - left_x;
 	if ((right_address & 1u) != 0u)
@@ -1292,10 +1462,7 @@ void flood_fill_span(uint8_t border_color, uint32_t window_left, uint32_t window
 		if ((int32_t)count_after_first < 0)
 		{
 			right_address--;
-			*p_left_x = (*p_left_x & 0xFFFF0000u) | (left_x & 0xFFFFu);
-			*p_right_address = right_address;
-			*p_right_x = right_x;
-			return;
+			return right_address;
 		}
 	}
 	fill_count++;
@@ -1336,31 +1503,25 @@ void flood_fill_span(uint8_t border_color, uint32_t window_left, uint32_t window
 	if (tail_count == 0u)
 	{
 		right_address--;
-		*p_left_x = (*p_left_x & 0xFFFF0000u) | (left_x & 0xFFFFu);
-		*p_right_address = right_address;
-		*p_right_x = right_x;
-		return;
+		return right_address;
 	}
 	zero = (uint8_t)(tail_bytes - 2u) == 0u;
 	if (tail_bytes >= 2u)
 	{
 		mem_write16(right_address, fill_pattern);
 		right_address += 2u;
-		if (zero)
+		if (zero == 0u)
 		{
-			right_address--;
-			*p_left_x = (*p_left_x & 0xFFFF0000u) | (left_x & 0xFFFFu);
-			*p_right_address = right_address;
-			*p_right_x = right_x;
-			return;
+			mem_write8(right_address, fill_pattern);
+			right_address++;
 		}
+		right_address--;
+		return right_address;
 	}
 	mem_write8(right_address, fill_pattern);
 	right_address++;
 	right_address--;
-	*p_left_x = (*p_left_x & 0xFFFF0000u) | (left_x & 0xFFFFu);
-	*p_right_address = right_address;
-	*p_right_x = right_x;
+	return right_address;
 }
 
 uint32_t flood_fill_scan_seed_rows(uint8_t border_color, uint32_t window_left, uint16_t window_top, uint32_t window_right, uint16_t window_bottom, uint32_t scan_x, uint16_t y, uint32_t fill_pattern)
@@ -1380,6 +1541,7 @@ uint32_t flood_fill_scan_seed_rows(uint8_t border_color, uint32_t window_left, u
 
 uint32_t flood_fill_scan_row(uint8_t border_color, uint32_t window_left, uint32_t window_right, uint32_t direction, uint8_t y, uint32_t fill_pattern)
 {
+	bool back_to_pixel = false, first_of_pair = false;
 	uint8_t pixel = 0, pixel_count = 0;
 	uint16_t pixels = 0;
 	uint32_t right_address = 0, right_x = 0, scan_count = 0, scan_start = 0, scan_x = 0;
@@ -1401,7 +1563,6 @@ uint32_t flood_fill_scan_row(uint8_t border_color, uint32_t window_left, uint32_
 			pixel = mem_read8(r14);
 			if (pixel != (uint8_t)fill_pattern && pixel != (uint8_t)border_color)
 			{
-			flood_fill_scan_row_push:
 				flood_fill_push_span(border_color, window_left, window_right, (uint8_t)direction, scan_x, y, fill_pattern, &right_address, &right_x);
 				scan_count = flood_fill_push_parent_right_x;
 				scan_count = (uint16_t)(scan_count - 1u);
@@ -1422,41 +1583,77 @@ uint32_t flood_fill_scan_row(uint8_t border_color, uint32_t window_left, uint32_
 		}
 		if (scan_count == 0u)
 		{
-		flood_fill_scan_row_odd_pixel:
 			pixel = mem_read8(r14);
 			if (pixel == (uint8_t)fill_pattern || pixel == (uint8_t)border_color)
 				break;
-		flood_fill_scan_row_found:
 			scan_x = scan_x + r14 - scan_start;
-			goto flood_fill_scan_row_push;
+			flood_fill_push_span(border_color, window_left, window_right, (uint8_t)direction, scan_x, y, fill_pattern, &right_address, &right_x);
+			scan_count = flood_fill_push_parent_right_x;
+			scan_count = (uint16_t)(scan_count - 1u);
+			if ((int16_t)scan_count <= (int16_t)right_x)
+				break;
+			scan_x = right_x + 2u;
+			r14 = right_address + 2u;
+			flood_fill_push_parent_left_x = scan_x;
+			flood_fill_push_parent_left_address = r14;
+			scan_count = flood_fill_push_parent_right_x;
+			continue;
 		}
 		scan_count = (uint16_t)(scan_count + 1u);
 		pixel_count = (uint8_t)scan_count;
 		scan_count = scan_count >> 1;
-		for (;;)
+		do
 		{
 			pixels = mem_read16(r14);
 			r14 = r14 + 2u;
-			if ((uint8_t)pixels != (uint8_t)fill_pattern && (uint8_t)pixels != (uint8_t)border_color)
+			first_of_pair = (uint8_t)pixels != (uint8_t)fill_pattern && (uint8_t)pixels != (uint8_t)border_color;
+			if (first_of_pair)
 				break;
 			pixels = (uint16_t)(((uint32_t)pixels << 8) | (pixels >> 8));
-			if ((uint8_t)pixels != (uint8_t)fill_pattern && (uint8_t)pixels != (uint8_t)border_color)
-				goto flood_fill_scan_row_back_to_pixel;
+			back_to_pixel = (uint8_t)pixels != (uint8_t)fill_pattern && (uint8_t)pixels != (uint8_t)border_color;
+			if (back_to_pixel)
+				break;
 			scan_count--;
-			if (scan_count != 0u)
+		} while (scan_count != 0u);
+		if (first_of_pair || !back_to_pixel)
+		{
+			if (!first_of_pair)
+			{
+				if ((pixel_count & 1u) == 0u)
+					break;
+				pixel = mem_read8(r14);
+				if (pixel == (uint8_t)fill_pattern || pixel == (uint8_t)border_color)
+					break;
+				scan_x = scan_x + r14 - scan_start;
+				flood_fill_push_span(border_color, window_left, window_right, (uint8_t)direction, scan_x, y, fill_pattern, &right_address, &right_x);
+				scan_count = flood_fill_push_parent_right_x;
+				scan_count = (uint16_t)(scan_count - 1u);
+				if ((int16_t)scan_count <= (int16_t)right_x)
+					break;
+				scan_x = right_x + 2u;
+				r14 = right_address + 2u;
+				flood_fill_push_parent_left_x = scan_x;
+				flood_fill_push_parent_left_address = r14;
+				scan_count = flood_fill_push_parent_right_x;
 				continue;
-			goto flood_fill_scan_row_pairs_done;
+			}
+			r14 = (r14 & ~0xFFFFu) | (uint16_t)(r14 - 1u);
 		}
+		back_to_pixel = false;
 		r14 = (r14 & ~0xFFFFu) | (uint16_t)(r14 - 1u);
-	flood_fill_scan_row_back_to_pixel:
-		r14 = (r14 & ~0xFFFFu) | (uint16_t)(r14 - 1u);
-		goto flood_fill_scan_row_found;
+		scan_x = scan_x + r14 - scan_start;
+		flood_fill_push_span(border_color, window_left, window_right, (uint8_t)direction, scan_x, y, fill_pattern, &right_address, &right_x);
+		scan_count = flood_fill_push_parent_right_x;
+		scan_count = (uint16_t)(scan_count - 1u);
+		if ((int16_t)scan_count <= (int16_t)right_x)
+			break;
+		scan_x = right_x + 2u;
+		r14 = right_address + 2u;
+		flood_fill_push_parent_left_x = scan_x;
+		flood_fill_push_parent_left_address = r14;
+		scan_count = flood_fill_push_parent_right_x;
 	}
 	return scan_x;
-flood_fill_scan_row_pairs_done:
-	if ((pixel_count & 1u) == 0u)
-		return scan_x;
-	goto flood_fill_scan_row_odd_pixel;
 }
 
 uint32_t flood_fill_scan_span_rows(uint8_t border_color, uint32_t window_left, uint16_t window_top, uint32_t window_right, uint16_t window_bottom, uint32_t scan_x, uint16_t y, uint32_t fill_pattern)
@@ -1476,10 +1673,11 @@ uint32_t flood_fill_scan_span_rows(uint8_t border_color, uint32_t window_left, u
 
 uint32_t flood_fill_scan_row_skip_parent(uint8_t border_color, uint32_t window_left, uint32_t window_right, uint32_t direction, uint32_t scan_x, uint8_t y, uint32_t fill_pattern)
 {
+	bool left_back_to_pixel = false, left_found = false, left_odd_pixel = false, left_pairs_2 = false, right_found = false;
 	uint8_t pixel = 0, pixel_count = 0;
 	uint16_t pixels = 0;
 	uint32_t right_address = 0, right_x = 0, scan_count = 0, scan_start = 0;
-	uint16_t left_pairs = 0, left_count_before = 0, span_right_x = 0, right_limit = 0, right_count_before = 0, right_pairs = 0;
+	uint16_t left_count_before = 0, left_pairs = 0, span_right_x = 0, right_limit = 0, right_count_before = 0, right_pairs = 0;
 
 	if ((uint8_t)direction == flood_fill_direction)
 		return flood_fill_scan_row(border_color, window_left, window_right, direction, y, fill_pattern);
@@ -1497,20 +1695,85 @@ uint32_t flood_fill_scan_row_skip_parent(uint8_t border_color, uint32_t window_l
 			scan_start = r14;
 			scan_count = (uint16_t)(scan_count - scan_x);
 			if ((r14 & 1u) == 0u)
+				left_pairs_2 = true;
+			else
 			{
-			flood_fill_skip_parent_left_pairs:
+				pixel = mem_read8(r14);
+				if (pixel == (uint8_t)fill_pattern || pixel == (uint8_t)border_color)
+				{
+					left_count_before = scan_count;
+					scan_count = (uint16_t)(left_count_before - 1u);
+					if ((int16_t)left_count_before <= 1)
+						break;
+					r14 = (r14 & ~0xFFFFu) | (uint16_t)(r14 + 1u);
+					left_pairs_2 = true;
+				}
+				if (!left_pairs_2)
+				{
+					flood_fill_push_span(border_color, window_left, window_right, (uint8_t)direction, scan_x, y, fill_pattern, &right_address, &right_x);
+					if ((int16_t)(flood_fill_parent_left_x - 2u) <= (int16_t)right_x)
+						break;
+					scan_x = right_x + 2u;
+					r14 = right_address + 2u;
+				}
+			}
+			if (left_pairs_2)
+			{
+				left_pairs_2 = false;
 				pixel_count = (uint8_t)scan_count;
 				left_pairs = scan_count >> 1;
 				scan_count = left_pairs;
 				if (left_pairs == 0u)
+					left_odd_pixel = true;
+				else
 				{
-				flood_fill_skip_parent_left_odd_pixel:
+					for (;;)
+					{
+						pixels = mem_read16(r14);
+						r14 = r14 + 2u;
+						if ((uint8_t)pixels == (uint8_t)fill_pattern || (uint8_t)pixels == (uint8_t)border_color)
+						{
+							pixels = (uint16_t)(((uint32_t)pixels << 8) | (pixels >> 8));
+							if ((uint8_t)pixels == (uint8_t)fill_pattern || (uint8_t)pixels == (uint8_t)border_color)
+							{
+								scan_count--;
+								if (scan_count != 0u)
+									continue;
+								left_odd_pixel = true;
+							}
+							if (!left_odd_pixel)
+								left_back_to_pixel = true;
+						}
+						else
+						{
+							r14 = (r14 & ~0xFFFFu) | (uint16_t)(r14 - 1u);
+							left_back_to_pixel = true;
+						}
+						if (left_odd_pixel)
+							break;
+						if (left_back_to_pixel)
+						{
+							left_back_to_pixel = false;
+							r14 = (r14 & ~0xFFFFu) | (uint16_t)(r14 - 1u);
+							left_found = true;
+						}
+						if (left_found)
+							break;
+					}
+				}
+				if (left_odd_pixel)
+				{
+					left_odd_pixel = false;
 					if ((pixel_count & 1u) == 0u)
 						break;
 					pixel = mem_read8(r14);
 					if (pixel == (uint8_t)fill_pattern || pixel == (uint8_t)border_color)
 						break;
-				flood_fill_skip_parent_left_found:
+					left_found = true;
+				}
+				if (left_found)
+				{
+					left_found = false;
 					scan_x = scan_x + r14 - scan_start;
 					flood_fill_push_span(border_color, window_left, window_right, (uint8_t)direction, scan_x, y, fill_pattern, &right_address, &right_x);
 					if ((int16_t)(flood_fill_parent_left_x - 2u) <= (int16_t)right_x)
@@ -1519,44 +1782,7 @@ uint32_t flood_fill_scan_row_skip_parent(uint8_t border_color, uint32_t window_l
 					r14 = right_address + 2u;
 					continue;
 				}
-				for (;;)
-				{
-					pixels = mem_read16(r14);
-					r14 = r14 + 2u;
-					if ((uint8_t)pixels == (uint8_t)fill_pattern || (uint8_t)pixels == (uint8_t)border_color)
-					{
-						pixels = (uint16_t)(((uint32_t)pixels << 8) | (pixels >> 8));
-						if ((uint8_t)pixels == (uint8_t)fill_pattern || (uint8_t)pixels == (uint8_t)border_color)
-						{
-							scan_count--;
-							if (scan_count != 0u)
-								continue;
-							goto flood_fill_skip_parent_left_odd_pixel;
-						}
-						goto flood_fill_skip_parent_left_back_to_pixel;
-					}
-					break;
-				}
-				r14 = (r14 & ~0xFFFFu) | (uint16_t)(r14 - 1u);
-			flood_fill_skip_parent_left_back_to_pixel:
-				r14 = (r14 & ~0xFFFFu) | (uint16_t)(r14 - 1u);
-				goto flood_fill_skip_parent_left_found;
 			}
-			pixel = mem_read8(r14);
-			if (pixel == (uint8_t)fill_pattern || pixel == (uint8_t)border_color)
-			{
-				left_count_before = scan_count;
-				scan_count = (uint16_t)(left_count_before - 1u);
-				if ((int16_t)left_count_before <= 1)
-					break;
-				r14 = (r14 & ~0xFFFFu) | (uint16_t)(r14 + 1u);
-				goto flood_fill_skip_parent_left_pairs;
-			}
-			flood_fill_push_span(border_color, window_left, window_right, (uint8_t)direction, scan_x, y, fill_pattern, &right_address, &right_x);
-			if ((int16_t)(flood_fill_parent_left_x - 2u) <= (int16_t)right_x)
-				break;
-			scan_x = right_x + 2u;
-			r14 = right_address + 2u;
 		}
 	}
 	scan_x = (scan_x & ~0xFFFFu) | flood_fill_parent_right_x;
@@ -1577,7 +1803,6 @@ uint32_t flood_fill_scan_row_skip_parent(uint8_t border_color, uint32_t window_l
 			pixel = mem_read8(r14);
 			if (pixel != (uint8_t)fill_pattern && pixel != (uint8_t)border_color)
 			{
-			flood_fill_skip_parent_right_push:
 				flood_fill_push_span(border_color, window_left, window_right, (uint8_t)direction, scan_x, y, fill_pattern, &right_address, &right_x);
 				scan_count = flood_fill_right_x;
 				scan_count = (uint16_t)(scan_count - 1u);
@@ -1610,206 +1835,279 @@ uint32_t flood_fill_scan_row_skip_parent(uint8_t border_color, uint32_t window_l
 					if ((uint8_t)pixels == (uint8_t)fill_pattern || (uint8_t)pixels == (uint8_t)border_color)
 					{
 						scan_count--;
-						if (scan_count != 0u)
-							continue;
-						goto flood_fill_skip_parent_right_odd_pixel;
+						if (scan_count == 0u)
+							break;
+						continue;
 					}
-					goto flood_fill_skip_parent_right_back_to_pixel;
 				}
+				else
+					r14 = (r14 & ~0xFFFFu) | (uint16_t)(r14 - 1u);
+				r14 = (r14 & ~0xFFFFu) | (uint16_t)(r14 - 1u);
+				right_found = true;
 				break;
 			}
-			r14 = (r14 & ~0xFFFFu) | (uint16_t)(r14 - 1u);
-		flood_fill_skip_parent_right_back_to_pixel:
-			r14 = (r14 & ~0xFFFFu) | (uint16_t)(r14 - 1u);
-		flood_fill_skip_parent_right_found:
-			scan_x = scan_x + r14 - scan_start;
-			goto flood_fill_skip_parent_right_push;
 		}
-	flood_fill_skip_parent_right_odd_pixel:
-		if ((pixel_count & 1u) == 0u)
+		if (!right_found)
+		{
+			if ((pixel_count & 1u) == 0u)
+				break;
+			pixel = mem_read8(r14);
+			if (pixel == (uint8_t)fill_pattern || pixel == (uint8_t)border_color)
+				break;
+		}
+		right_found = false;
+		scan_x = scan_x + r14 - scan_start;
+		flood_fill_push_span(border_color, window_left, window_right, (uint8_t)direction, scan_x, y, fill_pattern, &right_address, &right_x);
+		scan_count = flood_fill_right_x;
+		scan_count = (uint16_t)(scan_count - 1u);
+		right_limit = scan_count;
+		scan_count = (uint16_t)(right_limit - right_x);
+		if ((int16_t)right_limit <= (int16_t)right_x)
 			break;
-		pixel = mem_read8(r14);
-		if (pixel == (uint8_t)fill_pattern || pixel == (uint8_t)border_color)
-			break;
-		goto flood_fill_skip_parent_right_found;
+		scan_x = right_x + 2u;
+		r14 = right_address + 2u;
 	}
 	return scan_x;
 }
 
-void fill_span_at_point(uint32_t point_x, uint32_t point_y, uint32_t fill_color, uint8_t border_color, uint32_t right_cursor)
+void fill_span_at_point(uint32_t point_x, uint32_t point_y, uint8_t fill_color, uint8_t border_color, uint32_t right_cursor)
 {
-	uint8_t nibble = 0, pixel_byte = 0, point_pixel = 0;
-	uint32_t fill_count = 0, fill_cursor = 0, fill_pattern = 0, ignored = 0, left_x = 0, outcode = 0, right_x = 0, scan_count = 0, window_left = 0, window_right = 0, words_left = 0;
-	uint32_t start_x = 0, left_count_before = 0, right_limit = 0, right_count_before = 0, count_after_first = 0, bytes_after_words = 0, bytes_after_half = 0;
+	uint8_t pixel_byte = 0, point_pixel = 0;
+	uint32_t fill_pattern = 0, ignored = 0, left_x = 0, outcode = 0, right_x = 0, scan_count = 0, window_left = 0, window_right = 0;
+	uint32_t start_x = 0;
 
 	get_point_outcode(&point_x, &point_y, &outcode);
 	if ((uint8_t)outcode != 0u)
 		return;
-	if (bitmap_8bpp == 0u)
+	if (bitmap_8bpp != 0u)
 	{
-		r14 = (point_y << 8) + (point_x >> 1) + bitmap_address;
+		r14 = (point_y << 9) + point_x + bitmap_address;
 		point_pixel = mem_read8(r14);
-		if ((point_x & 1u) != 0u)
-			point_pixel = (uint8_t)(((uint32_t)point_pixel << 4) | (point_pixel >> 4));
-		point_pixel &= 0xFu;
 		if (point_pixel == (uint8_t)fill_color || point_pixel == (uint8_t)border_color)
 			return;
-		window_left = bitmap_window_left;
-		right_x = outcode;
-		start_x = outcode;
-		scan_count = start_x - window_left;
-		if ((int32_t)window_left < (int32_t)start_x)
-		{
-			if ((outcode & 1u) != 0u)
-			{
-				pixel_byte = mem_read8(r14);
-				outcode--;
-				goto fill_span_at_point_left_even_pixel;
-			}
-		fill_span_at_point_left_byte:
-			r14 = r14 - 1u;
-			pixel_byte = mem_read8(r14);
-			nibble = pixel_byte >> 4;
-			outcode -= 2u;
-			if (nibble == (uint8_t)fill_color || nibble == (uint8_t)border_color)
-			{
-				outcode++;
-				r14 = r14 + 1u;
-			fill_span_at_point_left_edge:
-				outcode++;
-			}
-			else
-			{
-				left_count_before = scan_count;
-				scan_count = left_count_before - 1u;
-				if (left_count_before == 1u)
-					goto fill_span_at_point_left_edge;
-			fill_span_at_point_left_even_pixel:
-				pixel_byte &= 0xFu;
-				if (pixel_byte == (uint8_t)fill_color)
-					goto fill_span_at_point_left_edge;
-				scan_count--;
-				if ((scan_count != 0u) & (pixel_byte != (uint8_t)border_color))
-					goto fill_span_at_point_left_byte;
-				if (pixel_byte == (uint8_t)border_color)
-					goto fill_span_at_point_left_edge;
-			}
-		}
-		right_limit = bitmap_window_right;
-		scan_count = right_limit - right_x;
-		if ((int32_t)right_x < (int32_t)right_limit)
-		{
-			right_x++;
-			if ((right_x & 1u) != 0u)
-			{
-				pixel_byte = mem_read8(right_cursor);
-				right_cursor++;
-				right_x++;
-				goto fill_span_at_point_right_odd_pixel;
-			}
-			right_cursor++;
-		fill_span_at_point_right_byte:
-			pixel_byte = mem_read8(right_cursor);
-			nibble = pixel_byte & 0xFu;
-			right_cursor++;
-			right_x += 2u;
-			if (nibble == (uint8_t)fill_color || nibble == (uint8_t)border_color)
-			{
-				right_x--;
-			fill_span_at_point_right_edge:
-				right_x--;
-			}
-			else
-			{
-				right_count_before = scan_count;
-				scan_count = right_count_before - 1u;
-				if (right_count_before == 1u)
-					goto fill_span_at_point_right_edge;
-			fill_span_at_point_right_odd_pixel:
-				pixel_byte = pixel_byte >> 4;
-				if (pixel_byte == (uint8_t)fill_color)
-					goto fill_span_at_point_right_edge;
-				scan_count--;
-				if ((scan_count != 0u) & (pixel_byte != (uint8_t)border_color))
-					goto fill_span_at_point_right_byte;
-				if (pixel_byte == (uint8_t)border_color)
-					goto fill_span_at_point_right_edge;
-			}
-		}
-		fill_count = right_x - outcode;
-		fill_cursor = r14;
-		if ((outcode & 1u) != 0u)
-		{
-			pixel_byte = mem_read8(fill_cursor) & 0xFu;
-			pixel_byte = (uint8_t)(((uint32_t)pixel_byte << 4) | (pixel_byte >> 4) | fill_color);
-			mem_write8(fill_cursor, ((uint32_t)pixel_byte << 4) | (pixel_byte >> 4));
-			count_after_first = fill_count - 1u;
-			fill_count = count_after_first;
-			fill_cursor++;
-			if ((int32_t)count_after_first < 0)
-				return;
-		}
-		if ((fill_cursor & 1u) != 0u)
-		{
-			if (fill_count == 0u)
-			{
-				mem_write8(fill_cursor, (0xF0u & mem_read8(fill_cursor)) | (fill_color & 0xFu));
-				return;
-			}
-			fill_color = (uint8_t)(fill_color * 0x11u);
-			mem_write8(fill_cursor, fill_color);
-			fill_cursor++;
-			fill_count -= 2u;
-		}
-		fill_color = (fill_color & 0xFu) * 0x11111111u;
-		fill_count++;
-		if (fill_count >= 8u)
-		{
-			words_left = fill_count >> 3;
-			do
-			{
-				mem_write32(fill_cursor, fill_color);
-				fill_cursor += 4u;
-				words_left--;
-			} while (words_left != 0u);
-			bytes_after_words = fill_count & 7u;
-			fill_count = bytes_after_words;
-			if (bytes_after_words == 0u)
-				return;
-		}
-		if (fill_count < 4u)
-		{
-			mem_write8(fill_cursor, fill_color);
-			fill_cursor++;
-			if ((fill_count & 1u) != 0u)
-				mem_write8(fill_cursor, (0xF0u & mem_read8(fill_cursor)) | (fill_color & 0xFu));
-		}
-		else
-		{
-			mem_write16(fill_cursor, fill_color);
-			bytes_after_half = fill_count & 3u;
-			fill_count = bytes_after_half;
-			fill_cursor += 2u;
-			if (bytes_after_half != 0u)
-			{
-				mem_write8(fill_cursor, fill_color);
-				fill_cursor++;
-				if ((fill_count & 1u) != 0u)
-					mem_write8(fill_cursor, (0xF0u & mem_read8(fill_cursor)) | (fill_color & 0xFu));
-				return;
-			}
-		}
+		left_x = point_x;
+		fill_pattern = (uint8_t)fill_color * 0x1010101u;
+		window_left = (uint16_t)bitmap_window_left;
+		window_right = (uint16_t)bitmap_window_right;
+		flood_fill_span(border_color, window_left, window_right, fill_pattern, &left_x, &ignored, &ignored);
 		return;
 	}
-	r14 = (point_y << 9) + point_x + bitmap_address;
+	r14 = (point_y << 8) + (point_x >> 1) + bitmap_address;
 	point_pixel = mem_read8(r14);
+	if ((point_x & 1u) != 0u)
+		point_pixel = (uint8_t)(((uint32_t)point_pixel << 4) | (point_pixel >> 4));
+	point_pixel &= 0xFu;
 	if (point_pixel == (uint8_t)fill_color || point_pixel == (uint8_t)border_color)
 		return;
-	left_x = point_x;
-	fill_pattern = (uint8_t)fill_color * 0x1010101u;
-	window_left = (uint16_t)bitmap_window_left;
-	window_right = (uint16_t)bitmap_window_right;
-	flood_fill_span(border_color, window_left, window_right, fill_pattern, &left_x, &ignored, &ignored);
+	window_left = bitmap_window_left;
+	right_x = outcode;
+	start_x = outcode;
+	scan_count = start_x - window_left;
+	if ((int32_t)start_x <= (int32_t)window_left)
+	{
+		fill_span_at_point_scan_right(fill_color, border_color, outcode, right_cursor, right_x);
+		return;
+	}
+	if ((outcode & 1u) == 0u)
+	{
+		fill_span_at_point_left_byte(scan_count, fill_color, border_color, outcode, right_cursor, right_x);
+		return;
+	}
+	outcode--;
+	pixel_byte = mem_read8(r14);
+	fill_span_at_point_left_even_pixel(pixel_byte, scan_count, fill_color, border_color, outcode, right_cursor, right_x);
+}
+
+void fill_span_at_point_left_byte(uint32_t scan_count, uint8_t fill_color, uint8_t border_color, uint32_t left_x, uint32_t right_cursor, uint32_t right_x)
+{
+	uint8_t nibble = 0, pixel_byte = 0;
+	uint32_t left_count_before = 0;
+
+	left_x -= 2u;
+	r14 = r14 - 1u;
+	pixel_byte = mem_read8(r14);
+	nibble = pixel_byte >> 4;
+	if (nibble == (uint8_t)fill_color || nibble == (uint8_t)border_color)
+	{
+		r14 = r14 + 1u;
+		left_x++;
+		left_x++;
+		fill_span_at_point_scan_right(fill_color, border_color, left_x, right_cursor, right_x);
+		return;
+	}
+	left_count_before = scan_count;
+	scan_count = left_count_before - 1u;
+	if (left_count_before == 1u)
+	{
+		left_x++;
+		fill_span_at_point_scan_right(fill_color, border_color, left_x, right_cursor, right_x);
+		return;
+	}
+	fill_span_at_point_left_even_pixel(pixel_byte, scan_count, fill_color, border_color, left_x, right_cursor, right_x);
+}
+
+void fill_span_at_point_left_even_pixel(uint8_t pixel_byte, uint32_t scan_count, uint8_t fill_color, uint8_t border_color, uint32_t left_x, uint32_t right_cursor, uint32_t right_x)
+{
+	pixel_byte &= 0xFu;
+	if (pixel_byte == (uint8_t)fill_color)
+	{
+		left_x++;
+		fill_span_at_point_scan_right(fill_color, border_color, left_x, right_cursor, right_x);
+		return;
+	}
+	scan_count--;
+	if ((scan_count != 0u) & (pixel_byte != (uint8_t)border_color))
+	{
+		fill_span_at_point_left_byte(scan_count, fill_color, border_color, left_x, right_cursor, right_x);
+		return;
+	}
+	if (pixel_byte == (uint8_t)border_color)
+	{
+		left_x++;
+		fill_span_at_point_scan_right(fill_color, border_color, left_x, right_cursor, right_x);
+		return;
+	}
+	fill_span_at_point_scan_right(fill_color, border_color, left_x, right_cursor, right_x);
+}
+
+void fill_span_at_point_scan_right(uint8_t fill_color, uint8_t border_color, uint32_t left_x, uint32_t right_cursor, uint32_t right_x)
+{
+	uint8_t pixel_byte = 0;
+	uint32_t scan_count = 0;
+	uint32_t right_limit = 0;
+
+	right_limit = bitmap_window_right;
+	scan_count = right_limit - right_x;
+	if ((int32_t)right_limit <= (int32_t)right_x)
+	{
+		fill_span_at_point_fill_run(fill_color, left_x, right_x);
+		return;
+	}
+	right_x++;
+	if ((right_x & 1u) == 0u)
+	{
+		right_cursor++;
+		fill_span_at_point_right_byte(scan_count, fill_color, border_color, left_x, right_cursor, right_x);
+		return;
+	}
+	pixel_byte = mem_read8(right_cursor);
+	right_x++;
+	right_cursor++;
+	fill_span_at_point_right_odd_pixel(pixel_byte, scan_count, fill_color, border_color, left_x, right_cursor, right_x);
+}
+
+void fill_span_at_point_right_byte(uint32_t scan_count, uint8_t fill_color, uint8_t border_color, uint32_t left_x, uint32_t right_cursor, uint32_t right_x)
+{
+	uint8_t nibble = 0, pixel_byte = 0;
+	uint32_t right_count_before = 0;
+
+	right_x += 2u;
+	pixel_byte = mem_read8(right_cursor);
+	nibble = pixel_byte & 0xFu;
+	right_cursor++;
+	if (nibble == (uint8_t)fill_color || nibble == (uint8_t)border_color)
+	{
+		right_x--;
+		right_x--;
+		fill_span_at_point_fill_run(fill_color, left_x, right_x);
+		return;
+	}
+	right_count_before = scan_count;
+	scan_count = right_count_before - 1u;
+	if (right_count_before == 1u)
+	{
+		right_x--;
+		fill_span_at_point_fill_run(fill_color, left_x, right_x);
+		return;
+	}
+	fill_span_at_point_right_odd_pixel(pixel_byte, scan_count, fill_color, border_color, left_x, right_cursor, right_x);
+}
+
+void fill_span_at_point_right_odd_pixel(uint8_t pixel_byte, uint32_t scan_count, uint8_t fill_color, uint8_t border_color, uint32_t left_x, uint32_t right_cursor, uint32_t right_x)
+{
+	pixel_byte = (uint8_t)pixel_byte >> 4;
+	if (pixel_byte == (uint8_t)fill_color)
+	{
+		right_x--;
+		fill_span_at_point_fill_run(fill_color, left_x, right_x);
+		return;
+	}
+	scan_count--;
+	if ((scan_count != 0u) & (pixel_byte != (uint8_t)border_color))
+	{
+		fill_span_at_point_right_byte(scan_count, fill_color, border_color, left_x, right_cursor, right_x);
+		return;
+	}
+	if (pixel_byte == (uint8_t)border_color)
+	{
+		right_x--;
+		fill_span_at_point_fill_run(fill_color, left_x, right_x);
+		return;
+	}
+	fill_span_at_point_fill_run(fill_color, left_x, right_x);
+}
+
+void fill_span_at_point_fill_run(uint32_t fill_color, uint32_t left_x, uint32_t right_x)
+{
+	uint8_t pixel_byte = 0;
+	uint32_t fill_count = 0, fill_cursor = 0, words_left = 0;
+	uint32_t count_after_first = 0, bytes_after_words = 0, bytes_after_half = 0;
+
+	fill_count = right_x - left_x;
+	fill_cursor = r14;
+	if ((left_x & 1u) != 0u)
+	{
+		pixel_byte = mem_read8(fill_cursor) & 0xFu;
+		pixel_byte = (uint8_t)(((uint32_t)pixel_byte << 4) | (pixel_byte >> 4) | fill_color);
+		mem_write8(fill_cursor, ((uint32_t)pixel_byte << 4) | (pixel_byte >> 4));
+		count_after_first = fill_count - 1u;
+		fill_count = count_after_first;
+		fill_cursor++;
+		if ((int32_t)count_after_first < 0)
+			return;
+	}
+	if ((fill_cursor & 1u) != 0u)
+	{
+		if (fill_count == 0u)
+		{
+			mem_write8(fill_cursor, (0xF0u & mem_read8(fill_cursor)) | (fill_color & 0xFu));
+			return;
+		}
+		fill_color = (uint8_t)(fill_color * 0x11u);
+		mem_write8(fill_cursor, fill_color);
+		fill_cursor++;
+		fill_count -= 2u;
+	}
+	fill_color = (fill_color & 0xFu) * 0x11111111u;
+	fill_count++;
+	if (fill_count >= 8u)
+	{
+		words_left = fill_count >> 3;
+		do
+		{
+			mem_write32(fill_cursor, fill_color);
+			fill_cursor += 4u;
+			words_left--;
+		} while (words_left != 0u);
+		bytes_after_words = fill_count & 7u;
+		fill_count = bytes_after_words;
+		if (bytes_after_words == 0u)
+			return;
+	}
+	if (fill_count >= 4u)
+	{
+		mem_write16(fill_cursor, fill_color);
+		bytes_after_half = fill_count & 3u;
+		fill_count = bytes_after_half;
+		fill_cursor += 2u;
+		if (bytes_after_half == 0u)
+			return;
+	}
+	mem_write8(fill_cursor, fill_color);
+	fill_cursor++;
+	if ((fill_count & 1u) == 0u)
+		return;
+	mem_write8(fill_cursor, (0xF0u & mem_read8(fill_cursor)) | (fill_color & 0xFu));
 }
 
 void save_bitmap_rect(uint16_t left, uint16_t top, uint32_t right, uint32_t bottom, uint32_t buffer)

@@ -3,7 +3,7 @@ Name:        cprint.py
 Description: prints IR expressions as plain C, with casts and parentheses only where the value needs them
 Version:     0.1.0
 Created:     11-10-2026
-Modified:    15-10-2026
+Modified:    16-10-2026
 Author:      Sebastian Toyos
 
 An IR value has a width; C has its integer types and promotions. Every printed value says whether it
@@ -181,6 +181,8 @@ class Printer:
             return Value(name, PRIMARY, True, "u32" if bits == 32 else "int")
         if isinstance(node, ir.Flag):
             return Value(self.names.flag(node.name), PRIMARY, True, "u32")
+        if isinstance(node, ir.Control):
+            return Value(self.names.control(node.name), PRIMARY, True, "int")
         if isinstance(node, ir.Temp):
             name, bits = self.names.temp(node)
             return Value(name, PRIMARY, True, "u64" if bits == 64 else ("u32" if bits == 32 else "int"))
@@ -248,6 +250,10 @@ class Printer:
         if name in ("shl", "shr", "sar"):
             return self.shift(node)
         if name in ("eq", "ne"):
+            if isinstance(args[0], ir.Control) and args[1] == ir.Const(0, 1):
+                # a control variable is true or false: "!found", "found"
+                value = self.emit(args[0])
+                return Value(f"!{value.text}", UNARY, True, "int") if name == "eq" else value
             left, right = self.exact(args[0]), self.exact(args[1])
             symbol = "==" if name == "eq" else "!="
             return Value(f"{self.wrap(left, RELATION)} {symbol} {self.wrap(right, RELATION)}", EQUALITY, True, "int")

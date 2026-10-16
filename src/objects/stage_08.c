@@ -121,17 +121,23 @@ void treadmill_update(void)
 		player_index--;
 	} while ((int32_t)player_index >= 0);
 	speed_level = total_speed;
-	if (speed_level != 0u)
+	if (speed_level == 0u)
 	{
-		speed_level = ((speed_level >> 24) & 0xFu) - OBJECT(current_object)->spawn_arg_1;
-		if ((int32_t)speed_level < 0)
-			speed_level = 0u;
-		OBJECT(current_object)->speed_z = treadmill_lift_forces[speed_level];
-		OBJECT(current_object)->treadmill_update.belt_phase += speed_level * 9u;
-		OBJECT(current_object)->treadmill_update.belt_phase &= 0x7Fu;
-		belt_phase = OBJECT(current_object)->treadmill_update.belt_phase;
-		OBJECT(current_object)->sprite_frame = treadmill_belt_sprites[belt_phase >> 4];
+		bucket = 0xFFu;
+		queue_sprite_in_bucket(bucket);
+		if ((OBJECT(current_object)->flags & 1u) == 0u)
+			add_to_zone_list(bucket);
+		OBJECT(current_object)->flags &= ~0x8000000u;
+		return;
 	}
+	speed_level = ((speed_level >> 24) & 0xFu) - OBJECT(current_object)->spawn_arg_1;
+	if ((int32_t)speed_level < 0)
+		speed_level = 0u;
+	OBJECT(current_object)->speed_z = treadmill_lift_forces[speed_level];
+	OBJECT(current_object)->treadmill_update.belt_phase += speed_level * 9u;
+	OBJECT(current_object)->treadmill_update.belt_phase &= 0x7Fu;
+	belt_phase = OBJECT(current_object)->treadmill_update.belt_phase;
+	OBJECT(current_object)->sprite_frame = treadmill_belt_sprites[belt_phase >> 4];
 	bucket = 0xFFu;
 	queue_sprite_in_bucket(bucket);
 	if ((OBJECT(current_object)->flags & 1u) == 0u)
@@ -381,15 +387,24 @@ void flame_jet_pilot(void)
 		flame_jet_ignite();
 		return;
 	}
-	if (OBJECT(current_object)->flame_jet.growth_rate >= 0)
+	if (OBJECT(current_object)->flame_jet.growth_rate < 0)
 	{
-		if (OBJECT(current_object)->speed <= 0x666)
+		if (OBJECT(current_object)->speed > 0)
 		{
 			flame_jet_burn();
 			return;
 		}
-		OBJECT(current_object)->flame_jet.growth_rate = -0x80;
+		OBJECT(current_object)->flame_jet.growth_rate = 0x80;
+		OBJECT(current_object)->speed = 0;
+		flame_jet_burn();
+		return;
 	}
+	if (OBJECT(current_object)->speed <= 0x666)
+	{
+		flame_jet_burn();
+		return;
+	}
+	OBJECT(current_object)->flame_jet.growth_rate = -0x80;
 	if (OBJECT(current_object)->speed > 0)
 	{
 		flame_jet_burn();
@@ -533,31 +548,52 @@ void rock_wall_update(void)
 	delete_if_off_screen(&deleted, &ignored, &r3);
 	if ((uint8_t)deleted == 1u)
 		return;
-	if (OBJECT(current_object)->rock_wall.breaking == 0u)
+	if (OBJECT(current_object)->rock_wall.breaking != 0u)
 	{
-		if ((OBJECT(current_object)->flags & 4u) == 0u || (OBJECT(LINKED(WORK_RAM, OBJECT(current_object)->touched_by))->flags & 0x40u) == 0u)
-			goto rock_wall_keep_touchable;
-		OBJECT(current_object)->rock_wall.breaking = 1u;
-	}
-	if (OBJECT(current_object)->rock_wall.break_frame < 0xD)
-	{
-		OBJECT(current_object)->rock_wall.frame_count++;
-		if (OBJECT(current_object)->rock_wall.frame_count > 2)
+		if (OBJECT(current_object)->rock_wall.break_frame < 0xD)
 		{
-			OBJECT(current_object)->rock_wall.break_frame++;
-			OBJECT(current_object)->sprite_frame = rock_wall_break_frames[(uint8_t)OBJECT(current_object)->rock_wall.break_frame];
-			OBJECT(current_object)->rock_wall.frame_count = 0;
-			if ((uint8_t)OBJECT(current_object)->rock_wall.break_frame == 5u && OBJECT(current_object)->spawn_arg_1 != 0u)
+			OBJECT(current_object)->rock_wall.frame_count++;
+			if (OBJECT(current_object)->rock_wall.frame_count > 2)
 			{
-				rings_to_release = OBJECT(current_object)->spawn_arg_1;
-				released_ring_angle = OBJECT(current_object)->spawn_arg_2;
-				released_ring_flip = 0u;
-				released_rings_random = 0u;
-				drop_rings(r3, &r11, &random_value, &ring);
+				OBJECT(current_object)->rock_wall.break_frame++;
+				OBJECT(current_object)->sprite_frame = rock_wall_break_frames[(uint8_t)OBJECT(current_object)->rock_wall.break_frame];
+				OBJECT(current_object)->rock_wall.frame_count = 0;
+				if ((uint8_t)OBJECT(current_object)->rock_wall.break_frame == 5u && OBJECT(current_object)->spawn_arg_1 != 0u)
+				{
+					rings_to_release = OBJECT(current_object)->spawn_arg_1;
+					released_ring_angle = OBJECT(current_object)->spawn_arg_2;
+					released_ring_flip = 0u;
+					released_rings_random = 0u;
+					drop_rings(r3, &r11, &random_value, &ring);
+				}
 			}
+			add_to_touchable_list(deleted);
 		}
-	rock_wall_keep_touchable:
+	}
+	else if ((OBJECT(current_object)->flags & 4u) == 0u || (OBJECT(LINKED(WORK_RAM, OBJECT(current_object)->touched_by))->flags & 0x40u) == 0u)
 		add_to_touchable_list(deleted);
+	else
+	{
+		OBJECT(current_object)->rock_wall.breaking = 1u;
+		if (OBJECT(current_object)->rock_wall.break_frame < 0xD)
+		{
+			OBJECT(current_object)->rock_wall.frame_count++;
+			if (OBJECT(current_object)->rock_wall.frame_count > 2)
+			{
+				OBJECT(current_object)->rock_wall.break_frame++;
+				OBJECT(current_object)->sprite_frame = rock_wall_break_frames[(uint8_t)OBJECT(current_object)->rock_wall.break_frame];
+				OBJECT(current_object)->rock_wall.frame_count = 0;
+				if ((uint8_t)OBJECT(current_object)->rock_wall.break_frame == 5u && OBJECT(current_object)->spawn_arg_1 != 0u)
+				{
+					rings_to_release = OBJECT(current_object)->spawn_arg_1;
+					released_ring_angle = OBJECT(current_object)->spawn_arg_2;
+					released_ring_flip = 0u;
+					released_rings_random = 0u;
+					drop_rings(r3, &r11, &random_value, &ring);
+				}
+			}
+			add_to_touchable_list(deleted);
+		}
 	}
 	bucket = 0xFFu;
 	queue_sprite_in_bucket(bucket);
@@ -866,16 +902,23 @@ void burning_boulder_update(void)
 		OBJECT(current_object)->speed_z += 0x6000u;
 		OBJECT(current_object)->z += OBJECT(current_object)->speed_z;
 		find_floor(&ignored, &ignored, &ignored, &ignored, &ignored);
-		if (OBJECT(current_object)->floor_z_int <= OBJECT(current_object)->z_int)
+		if (OBJECT(current_object)->z_int < OBJECT(current_object)->floor_z_int)
 		{
-			OBJECT(current_object)->z = OBJECT(current_object)->floor_z;
-			OBJECT(current_object)->burning_boulder.state++;
+			project_object(&ignored, &ignored);
+			add_to_zone_list(ignored);
+			depth = (uint16_t)(OBJECT(current_object)->screen_y - OBJECT(current_object)->burning_boulder.depth_offset);
 			if (OBJECT(current_object)->burning_boulder.path_high == 0xFFFFu)
-				OBJECT(current_object)->burning_boulder.state = 2u;
-			camera_shake_active = 1u;
-			sound_id = 7u;
-			play_sound(sound_id, &ignored, &ignored);
+				depth = (uint16_t)(depth - 0x20u);
+			queue_sprite_at_depth(&ignored, &depth);
+			return;
 		}
+		OBJECT(current_object)->z = OBJECT(current_object)->floor_z;
+		OBJECT(current_object)->burning_boulder.state++;
+		if (OBJECT(current_object)->burning_boulder.path_high == 0xFFFFu)
+			OBJECT(current_object)->burning_boulder.state = 2u;
+		camera_shake_active = 1u;
+		sound_id = 7u;
+		play_sound(sound_id, &ignored, &ignored);
 		project_object(&ignored, &ignored);
 		add_to_zone_list(ignored);
 		depth = (uint16_t)(OBJECT(current_object)->screen_y - OBJECT(current_object)->burning_boulder.depth_offset);
@@ -906,16 +949,25 @@ void burning_boulder_update(void)
 					path_cursor = OBJECT(current_object)->burning_boulder.path;
 					record_scroll = ROM16(path_cursor);
 					path_cursor += 2u;
-					if (record_scroll <= scroll_position)
+					if (scroll_position < record_scroll)
+					{
+						record_y = ROM16(path_cursor);
+						path_cursor += 2u;
+						if ((int16_t)record_y <= OBJECT(current_object)->y_int)
+						{
+							OBJECT(current_object)->burning_boulder.screen_threshold = ROM16(path_cursor);
+							path_cursor += 2u;
+							OBJECT(current_object)->burning_boulder.catch_up_factor = ROM16(path_cursor);
+							path_cursor += 2u;
+							OBJECT(current_object)->burning_boulder.base_speed = ROM16(path_cursor);
+							path_cursor += 2u;
+							OBJECT(current_object)->burning_boulder.wait_timer = ROM16(path_cursor);
+							OBJECT(current_object)->burning_boulder.path = path_cursor + 2u;
+						}
+					}
+					else
 					{
 						path_cursor += 2u;
-						goto burning_boulder_load_record;
-					}
-					record_y = ROM16(path_cursor);
-					path_cursor += 2u;
-					if ((int16_t)record_y <= OBJECT(current_object)->y_int)
-					{
-					burning_boulder_load_record:
 						OBJECT(current_object)->burning_boulder.screen_threshold = ROM16(path_cursor);
 						path_cursor += 2u;
 						OBJECT(current_object)->burning_boulder.catch_up_factor = ROM16(path_cursor);
@@ -933,7 +985,6 @@ void burning_boulder_update(void)
 			OBJECT(current_object)->burning_boulder.rumble_timer = 0x3Cu;
 			if ((int16_t)(scroll_position - OBJECT(current_object)->burning_boulder.hold_start_position) >= 0x300)
 			{
-			burning_boulder_stop_holding_back:
 				OBJECT(current_object)->burning_boulder.holding_back = 0u;
 				OBJECT(current_object)->burning_boulder.screen_threshold = OBJECT(current_object)->burning_boulder.saved_threshold;
 				OBJECT(current_object)->burning_boulder.base_speed = OBJECT(current_object)->burning_boulder.saved_base_speed;
@@ -947,7 +998,13 @@ void burning_boulder_update(void)
 				hold_timer = OBJECT(current_object)->burning_boulder.hold_timer;
 				OBJECT(current_object)->burning_boulder.hold_timer = hold_timer - 1u;
 				if (hold_timer == 0u)
-					goto burning_boulder_stop_holding_back;
+				{
+					OBJECT(current_object)->burning_boulder.holding_back = 0u;
+					OBJECT(current_object)->burning_boulder.screen_threshold = OBJECT(current_object)->burning_boulder.saved_threshold;
+					OBJECT(current_object)->burning_boulder.base_speed = OBJECT(current_object)->burning_boulder.saved_base_speed;
+					OBJECT(current_object)->burning_boulder.slow_timer = 0x78;
+					OBJECT(current_object)->burning_boulder.rumble_timer = 0u;
+				}
 			}
 		}
 		next_slow_timer = OBJECT(current_object)->burning_boulder.slow_timer - 1u;
@@ -958,7 +1015,6 @@ void burning_boulder_update(void)
 		{
 			if (OBJECT(current_object)->burning_boulder.screen_threshold <= OBJECT(current_object)->screen_y)
 			{
-			burning_boulder_use_base_speed:
 				roll_speed = (uint16_t)OBJECT(current_object)->burning_boulder.base_speed;
 				if ((uint16_t)OBJECT(current_object)->burning_boulder.slow_timer != 0u)
 					roll_speed = 0x10u;
@@ -974,7 +1030,11 @@ void burning_boulder_update(void)
 				compute_camera_slope_speed(0u, slope_factor);
 				roll_speed = (uint16_t)((uint32_t)camera_slope_speed_int * OBJECT(current_object)->burning_boulder.catch_up_factor) >> 8;
 				if ((int16_t)roll_speed <= OBJECT(current_object)->burning_boulder.base_speed)
-					goto burning_boulder_use_base_speed;
+				{
+					roll_speed = (uint16_t)OBJECT(current_object)->burning_boulder.base_speed;
+					if ((uint16_t)OBJECT(current_object)->burning_boulder.slow_timer != 0u)
+						roll_speed = 0x10u;
+				}
 			}
 			OBJECT(current_object)->speed_fraction = roll_speed;
 			step_y = (uint32_t)(int16_t)OBJECT(current_object)->speed_fraction << 12;
@@ -1105,18 +1165,23 @@ void burning_boulder_update(void)
 			delete_current_object();
 			return;
 		}
-		if ((OBJECT(current_object)->flags & 1u) == 0u)
+		if ((OBJECT(current_object)->flags & 1u) != 0u)
 		{
-			if (OBJECT(current_object)->z_int >= 0xA28)
-			{
-				OBJECT(current_object)->flags |= 1u;
-				camera_shake_active = 1u;
-				sound_id = 0xAu;
-				play_sound(sound_id, &ignored, &ignored);
-			}
-			OBJECT(current_object)->speed_z += 0x6000u;
-			OBJECT(current_object)->z += OBJECT(current_object)->speed_z;
+			if (OBJECT(current_object)->z_int >= 0x9E0)
+				seesaw_launched = 0xFFu;
+			project_object(&ignored, &ignored);
+			ignored = queue_sprite(ignored);
+			return;
 		}
+		if (OBJECT(current_object)->z_int >= 0xA28)
+		{
+			OBJECT(current_object)->flags |= 1u;
+			camera_shake_active = 1u;
+			sound_id = 0xAu;
+			play_sound(sound_id, &ignored, &ignored);
+		}
+		OBJECT(current_object)->speed_z += 0x6000u;
+		OBJECT(current_object)->z += OBJECT(current_object)->speed_z;
 		if (OBJECT(current_object)->z_int >= 0x9E0)
 			seesaw_launched = 0xFFu;
 		project_object(&ignored, &ignored);
@@ -1155,26 +1220,25 @@ void burning_boulder_flame_flicker(void)
 	}
 	pause_timer = OBJECT(current_object)->burning_boulder_flame.pause_timer;
 	OBJECT(current_object)->burning_boulder_flame.pause_timer = pause_timer - 1u;
-	if ((int16_t)pause_timer <= 1)
+	if ((int16_t)pause_timer > 1)
+		return;
+	OBJECT(current_object)->burning_boulder_flame.pause_timer = 0;
+	if ((int16_t)OBJECT(LINKED(current_object, OBJECT(current_object)->burning_boulder_flame.boulder))->speed_fraction <= 0)
+		return;
+	object = LINKED(current_object, OBJECT(current_object)->burning_boulder_flame.boulder);
+	OBJECT(current_object)->screen_x = OBJECT(object)->screen_x;
+	OBJECT(current_object)->screen_y = OBJECT(object)->screen_y;
+	OBJECT(current_object)->screen_x += OBJECT(current_object)->burning_boulder_flame.offset_x;
+	OBJECT(current_object)->screen_y += OBJECT(current_object)->burning_boulder_flame.offset_y;
+	animate(&ignored, &wrapped, &ignored);
+	if ((uint8_t)wrapped == 0u)
 	{
-		OBJECT(current_object)->burning_boulder_flame.pause_timer = 0;
-		if ((int16_t)OBJECT(LINKED(current_object, OBJECT(current_object)->burning_boulder_flame.boulder))->speed_fraction <= 0)
-			return;
-		object = LINKED(current_object, OBJECT(current_object)->burning_boulder_flame.boulder);
-		OBJECT(current_object)->screen_x = OBJECT(object)->screen_x;
-		OBJECT(current_object)->screen_y = OBJECT(object)->screen_y;
-		OBJECT(current_object)->screen_x += OBJECT(current_object)->burning_boulder_flame.offset_x;
-		OBJECT(current_object)->screen_y += OBJECT(current_object)->burning_boulder_flame.offset_y;
-		animate(&ignored, &wrapped, &ignored);
-		if ((uint8_t)wrapped == 0u)
-		{
-			depth = (uint16_t)(OBJECT(LINKED(current_object, OBJECT(current_object)->burning_boulder_flame.boulder))->burning_boulder.draw_depth + 1u);
-			queue_sprite_at_depth(&ignored, &depth);
-			return;
-		}
-		next_random(&random_bits, &ignored, &ignored);
-		OBJECT(current_object)->burning_boulder_flame.pause_timer = random_bits & 0x3Fu;
+		depth = (uint16_t)(OBJECT(LINKED(current_object, OBJECT(current_object)->burning_boulder_flame.boulder))->burning_boulder.draw_depth + 1u);
+		queue_sprite_at_depth(&ignored, &depth);
+		return;
 	}
+	next_random(&random_bits, &ignored, &ignored);
+	OBJECT(current_object)->burning_boulder_flame.pause_timer = random_bits & 0x3Fu;
 }
 
 void ember_emitter_start(void)
@@ -1210,7 +1274,6 @@ void ember_emitter_move(void)
 	case 3:
 		if (OBJECT(current_object)->screen_x >= 0x40)
 		{
-		ember_emitter_keep_up:
 			slope_factor = 0u;
 			if (OBJECT(current_object)->floor_slope != 0u)
 			{
@@ -1243,7 +1306,34 @@ void ember_emitter_move(void)
 	case 2:
 	case 4:
 		if (OBJECT(current_object)->screen_x <= 0x40)
-			goto ember_emitter_keep_up;
+		{
+			slope_factor = 0u;
+			if (OBJECT(current_object)->floor_slope != 0u)
+			{
+				floor_slope = OBJECT(current_object)->floor_slope;
+				slope_factor = floor_slope_factors[(uint16_t)(floor_slope * 2u)];
+			}
+			random_bits = compute_camera_slope_speed(0u, slope_factor);
+			move_step = camera_slope_speed >> 7;
+			switch (OBJECT(current_object)->ember_emitter.travel_direction)
+			{
+			case 0:
+			case 4:
+				OBJECT(current_object)->y -= move_step;
+				break;
+			case 1:
+				OBJECT(current_object)->x += move_step;
+				break;
+			case 2:
+				OBJECT(current_object)->y += move_step;
+				break;
+			case 3:
+				OBJECT(current_object)->x -= move_step;
+				break;
+			default:
+				invalid_jump(0x869ABu + OBJECT(current_object)->ember_emitter.travel_direction * 2u);
+			}
+		}
 		break;
 	default:
 		invalid_jump(0x86958u + travel_direction * 2u);
@@ -1307,54 +1397,52 @@ void falling_ember_update(void)
 		} while (OBJECT(current_object)->screen_y > 0);
 		return;
 	case 1:
-		off_screen = check_left_screen();
-		if (off_screen != 0u)
-		{
-			delete_current_object();
-			return;
-		}
-		OBJECT(current_object)->y += OBJECT(current_object)->speed_y;
-		OBJECT(current_object)->z += OBJECT(current_object)->speed_z;
-		animate(&ignored, &ignored, &ignored);
-		find_floor(&ignored, &ignored, &ignored, &ignored, &ignored);
-		if (OBJECT(current_object)->falling_ember.floor_block_high < 0)
-			OBJECT(current_object)->floor_z = 0x5300000;
-		project_object(&ignored, &ignored);
-		if (OBJECT(current_object)->z_int < OBJECT(current_object)->floor_z_int)
-		{
-			ignored = queue_sprite(ignored);
-			return;
-		}
-		OBJECT(current_object)->falling_ember.state++;
-		burst_animation = falling_ember_burst_animation_ADDRESS;
-		if (OBJECT(current_object)->falling_ember.floor_block_high >= 0 && (OBJECT(current_object)->floor_slope | OBJECT(current_object)->floor_type) != 0u)
-			burst_animation = falling_ember_slope_burst_animation_ADDRESS;
-		OBJECT(current_object)->animation = burst_animation;
-		OBJECT(current_object)->animation_frame = 0xFFu;
-		OBJECT(current_object)->animation_speed = 2u;
-		OBJECT(current_object)->animation_timer = 0;
-		OBJECT(current_object)->z = OBJECT(current_object)->floor_z;
-		ignored = queue_sprite(ignored);
-		return;
+		break;
 	case 2:
 		off_screen = check_left_screen();
-		if ((uint8_t)off_screen != 0u)
+		if ((uint8_t)off_screen == 0u)
 		{
-			delete_current_object();
-			return;
-		}
-		animate(&ignored, &wrapped, &ignored);
-		if ((uint8_t)wrapped == 0u)
-		{
-			update_screen_position(&ignored, &ignored);
-			ignored = queue_sprite(ignored);
-			return;
+			animate(&ignored, &wrapped, &ignored);
+			if ((uint8_t)wrapped == 0u)
+			{
+				update_screen_position(&ignored, &ignored);
+				ignored = queue_sprite(ignored);
+				return;
+			}
 		}
 		delete_current_object();
 		return;
 	default:
 		invalid_jump(0x86AA8u + OBJECT(current_object)->falling_ember.state * 3u);
 	}
+	off_screen = check_left_screen();
+	if (off_screen != 0u)
+	{
+		delete_current_object();
+		return;
+	}
+	OBJECT(current_object)->y += OBJECT(current_object)->speed_y;
+	OBJECT(current_object)->z += OBJECT(current_object)->speed_z;
+	animate(&ignored, &ignored, &ignored);
+	find_floor(&ignored, &ignored, &ignored, &ignored, &ignored);
+	if (OBJECT(current_object)->falling_ember.floor_block_high < 0)
+		OBJECT(current_object)->floor_z = 0x5300000;
+	project_object(&ignored, &ignored);
+	if (OBJECT(current_object)->z_int < OBJECT(current_object)->floor_z_int)
+	{
+		ignored = queue_sprite(ignored);
+		return;
+	}
+	OBJECT(current_object)->falling_ember.state++;
+	burst_animation = falling_ember_burst_animation_ADDRESS;
+	if (OBJECT(current_object)->falling_ember.floor_block_high >= 0 && (OBJECT(current_object)->floor_slope | OBJECT(current_object)->floor_type) != 0u)
+		burst_animation = falling_ember_slope_burst_animation_ADDRESS;
+	OBJECT(current_object)->animation = burst_animation;
+	OBJECT(current_object)->animation_frame = 0xFFu;
+	OBJECT(current_object)->animation_speed = 2u;
+	OBJECT(current_object)->animation_timer = 0;
+	OBJECT(current_object)->z = OBJECT(current_object)->floor_z;
+	ignored = queue_sprite(ignored);
 }
 
 void scene_carrier_start(void)
@@ -1446,23 +1534,19 @@ void seesaw_tilt(void)
 	{
 		animation_timer = OBJECT(current_object)->animation_timer;
 		OBJECT(current_object)->animation_timer = animation_timer - 1u;
-		if ((int8_t)animation_timer > 1)
+		if ((int8_t)animation_timer <= 1)
 		{
-			update_screen_position(&ignored, &ignored);
-			depth = 0u;
-			queue_sprite_at_depth(&ignored, &depth);
-			return;
+			OBJECT(current_object)->animation_timer = OBJECT(current_object)->animation_speed;
+			next_step = OBJECT(current_object)->animation_frame;
+			next_step = (uint8_t)(next_step + 1u);
+			step_list = OBJECT(current_object)->animation;
+			last_step = ROM16(step_list);
+			step_list += 2u;
+			if (next_step == last_step)
+				OBJECT(current_object)->animation_speed = 0xFFu;
+			OBJECT(current_object)->animation_frame = next_step;
+			mem_write16(OBJECT(current_object)->part_list + 0xAu, ROM16(step_list + next_step * 2u));
 		}
-		OBJECT(current_object)->animation_timer = OBJECT(current_object)->animation_speed;
-		next_step = OBJECT(current_object)->animation_frame;
-		next_step = (uint8_t)(next_step + 1u);
-		step_list = OBJECT(current_object)->animation;
-		last_step = ROM16(step_list);
-		step_list += 2u;
-		if (next_step == last_step)
-			OBJECT(current_object)->animation_speed = 0xFFu;
-		OBJECT(current_object)->animation_frame = next_step;
-		mem_write16(OBJECT(current_object)->part_list + 0xAu, ROM16(step_list + next_step * 2u));
 	}
 	update_screen_position(&ignored, &ignored);
 	depth = 0u;
@@ -1565,45 +1649,9 @@ void metal_platform_update(void)
 		OBJECT(current_object)->metal_platform.timer = 0xA;
 		OBJECT(current_object)->floor_z = OBJECT(current_object)->z;
 		OBJECT(current_object)->sprite_offset_y = 0xC;
-		timer_2 = OBJECT(current_object)->metal_platform.timer;
-		OBJECT(current_object)->metal_platform.timer = timer_2 - 1u;
-		if ((int16_t)timer_2 <= 1)
-		{
-			OBJECT(current_object)->metal_platform.timer = 0;
-			OBJECT(current_object)->speed_z += 0x6000u;
-			OBJECT(current_object)->z -= OBJECT(current_object)->speed_z;
-		}
-		if (OBJECT(current_object)->screen_y <= -0x58)
-		{
-			delete_current_object();
-			return;
-		}
-		if (OBJECT(current_object)->screen_y <= 0x28)
-			OBJECT(current_object)->sprite_frame = OBJECT(current_object)->metal_platform.frame;
-		project_object(&ignored, &ignored);
-		depth = (uint16_t)(((int32_t)((uint32_t)OBJECT(current_object)->projected_y + OBJECT(current_object)->floor_z) >> 16) - view_y);
-		queue_sprite_at_depth(&ignored, &depth);
-		return;
+		break;
 	case 2:
-		timer_2 = OBJECT(current_object)->metal_platform.timer;
-		OBJECT(current_object)->metal_platform.timer = timer_2 - 1u;
-		if ((int16_t)timer_2 <= 1)
-		{
-			OBJECT(current_object)->metal_platform.timer = 0;
-			OBJECT(current_object)->speed_z += 0x6000u;
-			OBJECT(current_object)->z -= OBJECT(current_object)->speed_z;
-		}
-		if (OBJECT(current_object)->screen_y <= -0x58)
-		{
-			delete_current_object();
-			return;
-		}
-		if (OBJECT(current_object)->screen_y <= 0x28)
-			OBJECT(current_object)->sprite_frame = OBJECT(current_object)->metal_platform.frame;
-		project_object(&ignored, &ignored);
-		depth = (uint16_t)(((int32_t)((uint32_t)OBJECT(current_object)->projected_y + OBJECT(current_object)->floor_z) >> 16) - view_y);
-		queue_sprite_at_depth(&ignored, &depth);
-		return;
+		break;
 	case 3:
 		object = LINKED(current_object, OBJECT(current_object)->parent);
 		if ((int8_t)OBJECT(object)->metal_platform.state >= 1)
@@ -1628,6 +1676,24 @@ void metal_platform_update(void)
 	default:
 		invalid_jump(0x86DF9u + OBJECT(current_object)->metal_platform.state * 3u);
 	}
+	timer_2 = OBJECT(current_object)->metal_platform.timer;
+	OBJECT(current_object)->metal_platform.timer = timer_2 - 1u;
+	if ((int16_t)timer_2 <= 1)
+	{
+		OBJECT(current_object)->metal_platform.timer = 0;
+		OBJECT(current_object)->speed_z += 0x6000u;
+		OBJECT(current_object)->z -= OBJECT(current_object)->speed_z;
+	}
+	if (OBJECT(current_object)->screen_y <= -0x58)
+	{
+		delete_current_object();
+		return;
+	}
+	if (OBJECT(current_object)->screen_y <= 0x28)
+		OBJECT(current_object)->sprite_frame = OBJECT(current_object)->metal_platform.frame;
+	project_object(&ignored, &ignored);
+	depth = (uint16_t)(((int32_t)((uint32_t)OBJECT(current_object)->projected_y + OBJECT(current_object)->floor_z) >> 16) - view_y);
+	queue_sprite_at_depth(&ignored, &depth);
 }
 
 void fire_wall_start(void)
@@ -1875,81 +1941,133 @@ void bridge_fire_start(void)
 
 void bridge_fire_rise(void)
 {
-	uint16_t climb_speed = 0;
-	uint32_t ignored = 0, path_cursor = 0, point_x = 0, point_y = 0, projected_dx = 0, sound_id = 0;
-	uint8_t hold_timer = 0, sound_timer = 0;
-	uint16_t record_height = 0, wait_timer = 0;
 	uint32_t flags = 0;
 
 	flags = OBJECT(current_object)->flags;
 	OBJECT(current_object)->flags = flags | 0x80000000u;
 	if ((flags & 0x80000000u) == 0u)
 	{
-	bridge_fire_read_script:
-		path_cursor = OBJECT(current_object)->bridge_fire.path;
-		record_height = ROM16(path_cursor);
-		path_cursor += 2u;
-		if ((int16_t)(OBJECT(current_object)->z_int - OBJECT(current_object)->hitbox_height) <= (int16_t)record_height || (ROM16(path_cursor) != 0u && (uint16_t)(ROM16(path_cursor) - OBJECT(current_object)->hitbox_height) <= scroll_position))
-		{
-			path_cursor += 2u;
-			if ((int16_t)ROM16(path_cursor + 2u) < 0)
-			{
-				delete_current_object();
-				return;
-			}
-			if ((int16_t)ROM16(path_cursor) < 0)
-				OBJECT(current_object)->bridge_fire.state = 7u;
-			OBJECT(current_object)->bridge_fire.screen_threshold = ROM16(path_cursor);
-			path_cursor += 2u;
-			OBJECT(current_object)->bridge_fire.catch_up_factor = ROM16(path_cursor);
-			path_cursor += 2u;
-			OBJECT(current_object)->bridge_fire.base_speed = ROM16(path_cursor);
-			path_cursor += 2u;
-			OBJECT(current_object)->bridge_fire.wait_timer = ROM16(path_cursor);
-			OBJECT(current_object)->bridge_fire.path = path_cursor + 2u;
-		}
-	}
-	else if (OBJECT(current_object)->bridge_fire.holding_back == 0u)
-	{
-		if (no_player_in_play == 0u && player_mishap == 0u && player_dropping_in == 0u)
-			goto bridge_fire_read_script;
-		OBJECT(current_object)->bridge_fire.holding_back = 0xFFu;
-		OBJECT(current_object)->bridge_fire.saved_base_speed = OBJECT(current_object)->bridge_fire.base_speed;
-		OBJECT(current_object)->bridge_fire.base_speed = 0;
-		OBJECT(current_object)->bridge_fire.hold_start_position = scroll_position;
-		OBJECT(current_object)->bridge_fire.hold_timer = 0xFFu;
-		OBJECT(current_object)->bridge_fire.saved_threshold = OBJECT(current_object)->bridge_fire.screen_threshold;
-		OBJECT(current_object)->bridge_fire.screen_threshold = 0xE0;
+		bridge_fire_read_script();
+		return;
 	}
 	if (OBJECT(current_object)->bridge_fire.holding_back != 0u)
 	{
-		if ((int16_t)(scroll_position - OBJECT(current_object)->bridge_fire.hold_start_position) >= 0x300)
-			goto bridge_fire_stop_holding_back;
+		bridge_fire_climb_step();
+		return;
+	}
+	if (no_player_in_play == 0u && player_mishap == 0u && player_dropping_in == 0u)
+	{
+		bridge_fire_read_script();
+		return;
+	}
+	OBJECT(current_object)->bridge_fire.holding_back = 0xFFu;
+	OBJECT(current_object)->bridge_fire.saved_base_speed = OBJECT(current_object)->bridge_fire.base_speed;
+	OBJECT(current_object)->bridge_fire.base_speed = 0;
+	OBJECT(current_object)->bridge_fire.hold_start_position = scroll_position;
+	OBJECT(current_object)->bridge_fire.hold_timer = 0xFFu;
+	OBJECT(current_object)->bridge_fire.saved_threshold = OBJECT(current_object)->bridge_fire.screen_threshold;
+	OBJECT(current_object)->bridge_fire.screen_threshold = 0xE0;
+	bridge_fire_climb_step();
+}
+
+void bridge_fire_read_script(void)
+{
+	uint32_t path_cursor = 0;
+	uint16_t record_height = 0;
+
+	path_cursor = OBJECT(current_object)->bridge_fire.path;
+	record_height = ROM16(path_cursor);
+	path_cursor += 2u;
+	if ((int16_t)record_height < (int16_t)(OBJECT(current_object)->z_int - OBJECT(current_object)->hitbox_height) && (ROM16(path_cursor) == 0u || scroll_position < (uint16_t)(ROM16(path_cursor) - OBJECT(current_object)->hitbox_height)))
+	{
+		bridge_fire_climb_step();
+		return;
+	}
+	path_cursor += 2u;
+	if ((int16_t)ROM16(path_cursor + 2u) < 0)
+	{
+		delete_current_object();
+		return;
+	}
+	if ((int16_t)ROM16(path_cursor) < 0)
+		OBJECT(current_object)->bridge_fire.state = 7u;
+	OBJECT(current_object)->bridge_fire.screen_threshold = ROM16(path_cursor);
+	path_cursor += 2u;
+	OBJECT(current_object)->bridge_fire.catch_up_factor = ROM16(path_cursor);
+	path_cursor += 2u;
+	OBJECT(current_object)->bridge_fire.base_speed = ROM16(path_cursor);
+	path_cursor += 2u;
+	OBJECT(current_object)->bridge_fire.wait_timer = ROM16(path_cursor);
+	OBJECT(current_object)->bridge_fire.path = path_cursor + 2u;
+	bridge_fire_climb_step();
+}
+
+void bridge_fire_climb_step(void)
+{
+	uint16_t climb_speed = 0;
+	uint32_t ignored = 0, point_x = 0, point_y = 0, projected_dx = 0, sound_id = 0;
+	uint8_t hold_timer = 0, sound_timer = 0;
+	uint16_t wait_timer = 0;
+
+	if (OBJECT(current_object)->bridge_fire.holding_back == 0u)
+	{
+		if ((int16_t)(OBJECT(current_object)->screen_y - OBJECT(current_object)->hitbox_height) <= OBJECT(current_object)->bridge_fire.screen_threshold)
+			climb_speed = (uint16_t)OBJECT(current_object)->bridge_fire.base_speed;
+		else
+		{
+			if (OBJECT(current_object)->bridge_fire.holding_back != 0u)
+			{
+				OBJECT(current_object)->bridge_fire.holding_back = 0u;
+				OBJECT(current_object)->bridge_fire.screen_threshold = OBJECT(current_object)->bridge_fire.saved_threshold;
+				OBJECT(current_object)->bridge_fire.base_speed = OBJECT(current_object)->bridge_fire.saved_base_speed;
+			}
+			compute_camera_ground_speed(0u);
+			climb_speed = (uint16_t)((uint32_t)camera_ground_speed_int * OBJECT(current_object)->bridge_fire.catch_up_factor) >> 8;
+			if ((int16_t)climb_speed <= OBJECT(current_object)->bridge_fire.base_speed)
+				climb_speed = (uint16_t)OBJECT(current_object)->bridge_fire.base_speed;
+		}
+	}
+	else if ((int16_t)(scroll_position - OBJECT(current_object)->bridge_fire.hold_start_position) >= 0x300)
+	{
+		OBJECT(current_object)->bridge_fire.holding_back = 0u;
+		OBJECT(current_object)->bridge_fire.screen_threshold = OBJECT(current_object)->bridge_fire.saved_threshold;
+		OBJECT(current_object)->bridge_fire.base_speed = OBJECT(current_object)->bridge_fire.saved_base_speed;
+		compute_camera_ground_speed(0u);
+		climb_speed = (uint16_t)((uint32_t)camera_ground_speed_int * OBJECT(current_object)->bridge_fire.catch_up_factor) >> 8;
+		if ((int16_t)climb_speed <= OBJECT(current_object)->bridge_fire.base_speed)
+			climb_speed = (uint16_t)OBJECT(current_object)->bridge_fire.base_speed;
+	}
+	else
+	{
 		if (no_player_in_play != 0u)
 			OBJECT(current_object)->bridge_fire.hold_timer = 0xFFu;
 		hold_timer = OBJECT(current_object)->bridge_fire.hold_timer;
 		OBJECT(current_object)->bridge_fire.hold_timer = hold_timer - 1u;
 		if (hold_timer == 0u)
-			goto bridge_fire_stop_holding_back;
-	}
-	if ((int16_t)(OBJECT(current_object)->screen_y - OBJECT(current_object)->hitbox_height) <= OBJECT(current_object)->bridge_fire.screen_threshold)
-	{
-	bridge_fire_use_base_speed:
-		climb_speed = (uint16_t)OBJECT(current_object)->bridge_fire.base_speed;
-	}
-	else
-	{
-		if (OBJECT(current_object)->bridge_fire.holding_back != 0u)
 		{
-		bridge_fire_stop_holding_back:
 			OBJECT(current_object)->bridge_fire.holding_back = 0u;
 			OBJECT(current_object)->bridge_fire.screen_threshold = OBJECT(current_object)->bridge_fire.saved_threshold;
 			OBJECT(current_object)->bridge_fire.base_speed = OBJECT(current_object)->bridge_fire.saved_base_speed;
+			compute_camera_ground_speed(0u);
+			climb_speed = (uint16_t)((uint32_t)camera_ground_speed_int * OBJECT(current_object)->bridge_fire.catch_up_factor) >> 8;
+			if ((int16_t)climb_speed <= OBJECT(current_object)->bridge_fire.base_speed)
+				climb_speed = (uint16_t)OBJECT(current_object)->bridge_fire.base_speed;
 		}
-		compute_camera_ground_speed(0u);
-		climb_speed = (uint16_t)((uint32_t)camera_ground_speed_int * OBJECT(current_object)->bridge_fire.catch_up_factor) >> 8;
-		if ((int16_t)climb_speed <= OBJECT(current_object)->bridge_fire.base_speed)
-			goto bridge_fire_use_base_speed;
+		else if ((int16_t)(OBJECT(current_object)->screen_y - OBJECT(current_object)->hitbox_height) <= OBJECT(current_object)->bridge_fire.screen_threshold)
+			climb_speed = (uint16_t)OBJECT(current_object)->bridge_fire.base_speed;
+		else
+		{
+			if (OBJECT(current_object)->bridge_fire.holding_back != 0u)
+			{
+				OBJECT(current_object)->bridge_fire.holding_back = 0u;
+				OBJECT(current_object)->bridge_fire.screen_threshold = OBJECT(current_object)->bridge_fire.saved_threshold;
+				OBJECT(current_object)->bridge_fire.base_speed = OBJECT(current_object)->bridge_fire.saved_base_speed;
+			}
+			compute_camera_ground_speed(0u);
+			climb_speed = (uint16_t)((uint32_t)camera_ground_speed_int * OBJECT(current_object)->bridge_fire.catch_up_factor) >> 8;
+			if ((int16_t)climb_speed <= OBJECT(current_object)->bridge_fire.base_speed)
+				climb_speed = (uint16_t)OBJECT(current_object)->bridge_fire.base_speed;
+		}
 	}
 	OBJECT(current_object)->speed_fraction = climb_speed;
 	wait_timer = OBJECT(current_object)->bridge_fire.wait_timer;
@@ -1965,26 +2083,61 @@ void bridge_fire_rise(void)
 	OBJECT(current_object)->projected_y -= (int32_t)projected_dx >> 1;
 	update_screen_position(&sound_id, &ignored);
 	if (OBJECT(current_object)->screen_y > 0x160)
-		OBJECT(current_object)->bridge_fire.off_screen = 0xFFu;
-	else
 	{
-		if (OBJECT(current_object)->bridge_fire.off_screen != 0u)
+		OBJECT(current_object)->bridge_fire.off_screen = 0xFFu;
+		point_x = OBJECT(current_object)->bridge_fire.fixed_projected_x;
+		point_y = OBJECT(current_object)->projected_y * 2u;
+		unproject_point(&point_x, &point_y);
+		OBJECT(current_object)->x = point_x;
+		OBJECT(current_object)->y = point_y;
+		if (OBJECT(current_object)->player == 0u && (int16_t)(OBJECT(current_object)->z_int - OBJECT(current_object)->hitbox_height) <= 0x534)
 		{
-			OBJECT(current_object)->bridge_fire.off_screen = 0u;
-			OBJECT(current_object)->bridge_fire.sound_timer = 0u;
+			stage_trigger_bits = 0xFFFFFFFFu;
+			OBJECT(current_object)->player = 0xFFu;
 		}
-		if (current_game_mode != 7u)
-		{
-			sound_timer = OBJECT(current_object)->bridge_fire.sound_timer;
-			OBJECT(current_object)->bridge_fire.sound_timer = sound_timer - 1u;
-			if ((int8_t)sound_timer <= 1)
-			{
-				OBJECT(current_object)->bridge_fire.sound_timer = 0x3Cu;
-				sound_id = 9u;
-				play_sound((uint8_t)sound_id, &ignored, &ignored);
-			}
-		}
+		sound_id = add_to_touchable_list(sound_id);
+		return;
 	}
+	if (OBJECT(current_object)->bridge_fire.off_screen != 0u)
+	{
+		OBJECT(current_object)->bridge_fire.off_screen = 0u;
+		OBJECT(current_object)->bridge_fire.sound_timer = 0u;
+	}
+	if (current_game_mode == 7u)
+	{
+		point_x = OBJECT(current_object)->bridge_fire.fixed_projected_x;
+		point_y = OBJECT(current_object)->projected_y * 2u;
+		unproject_point(&point_x, &point_y);
+		OBJECT(current_object)->x = point_x;
+		OBJECT(current_object)->y = point_y;
+		if (OBJECT(current_object)->player == 0u && (int16_t)(OBJECT(current_object)->z_int - OBJECT(current_object)->hitbox_height) <= 0x534)
+		{
+			stage_trigger_bits = 0xFFFFFFFFu;
+			OBJECT(current_object)->player = 0xFFu;
+		}
+		sound_id = add_to_touchable_list(sound_id);
+		return;
+	}
+	sound_timer = OBJECT(current_object)->bridge_fire.sound_timer;
+	OBJECT(current_object)->bridge_fire.sound_timer = sound_timer - 1u;
+	if ((int8_t)sound_timer > 1)
+	{
+		point_x = OBJECT(current_object)->bridge_fire.fixed_projected_x;
+		point_y = OBJECT(current_object)->projected_y * 2u;
+		unproject_point(&point_x, &point_y);
+		OBJECT(current_object)->x = point_x;
+		OBJECT(current_object)->y = point_y;
+		if (OBJECT(current_object)->player == 0u && (int16_t)(OBJECT(current_object)->z_int - OBJECT(current_object)->hitbox_height) <= 0x534)
+		{
+			stage_trigger_bits = 0xFFFFFFFFu;
+			OBJECT(current_object)->player = 0xFFu;
+		}
+		sound_id = add_to_touchable_list(sound_id);
+		return;
+	}
+	OBJECT(current_object)->bridge_fire.sound_timer = 0x3Cu;
+	sound_id = 9u;
+	play_sound((uint8_t)sound_id, &ignored, &ignored);
 	point_x = OBJECT(current_object)->bridge_fire.fixed_projected_x;
 	point_y = OBJECT(current_object)->projected_y * 2u;
 	unproject_point(&point_x, &point_y);
@@ -2054,82 +2207,135 @@ void lava_flow_wait(void)
 
 void lava_flow_advance(void)
 {
-	uint16_t flow_speed = 0, part_list = 0;
-	uint32_t r3 = 0, r11 = 0, depth = 0, ignored = 0, path_cursor = 0, x_step_or_sound = 0;
-	uint8_t hold_timer = 0, sound_timer = 0;
-	uint16_t record_scroll = 0, wait_timer = 0;
 	uint32_t flags = 0;
 
 	flags = OBJECT(current_object)->flags;
 	OBJECT(current_object)->flags = flags | 0x80000000u;
 	if ((flags & 0x80000000u) == 0u)
 	{
-	lava_flow_read_script:
-		path_cursor = OBJECT(current_object)->lava_flow.path;
-		record_scroll = ROM16(path_cursor);
-		path_cursor += 2u;
-		if (record_scroll <= scroll_position || (ROM16(path_cursor) != 0u && (int16_t)ROM16(path_cursor) <= OBJECT(current_object)->x_int))
-		{
-			path_cursor += 2u;
-			if ((int16_t)ROM16(path_cursor + 2u) < 0)
-			{
-				part_list = (uint16_t)OBJECT(current_object)->part_list;
-				free_object_2(part_list);
-				delete_current_object();
-				return;
-			}
-			OBJECT(current_object)->lava_flow.screen_threshold = ROM16(path_cursor);
-			path_cursor += 2u;
-			OBJECT(current_object)->lava_flow.catch_up_factor = ROM16(path_cursor);
-			path_cursor += 2u;
-			OBJECT(current_object)->lava_flow.base_speed = ROM16(path_cursor);
-			path_cursor += 2u;
-			OBJECT(current_object)->lava_flow.wait_timer = ROM16(path_cursor);
-			OBJECT(current_object)->lava_flow.path = path_cursor + 2u;
-		}
+		lava_flow_read_script();
+		return;
 	}
-	else if (OBJECT(current_object)->lava_flow.holding_back == 0u)
-	{
-		if (no_player_in_play == 0u && player_mishap == 0u && player_dropping_in == 0u)
-			goto lava_flow_read_script;
-		OBJECT(current_object)->lava_flow.holding_back = 0xFFu;
-		OBJECT(current_object)->lava_flow.saved_base_speed = OBJECT(current_object)->lava_flow.base_speed;
-		OBJECT(current_object)->lava_flow.base_speed = 0;
-		OBJECT(current_object)->lava_flow.hold_start_position = scroll_position;
-		OBJECT(current_object)->lava_flow.hold_timer = 0xFFu;
-		OBJECT(current_object)->lava_flow.saved_threshold = OBJECT(current_object)->lava_flow.screen_threshold;
-		OBJECT(current_object)->lava_flow.screen_threshold = -0x50;
-	}
-	project_object(&x_step_or_sound, &ignored);
 	if (OBJECT(current_object)->lava_flow.holding_back != 0u)
 	{
-		if ((int16_t)(scroll_position - OBJECT(current_object)->lava_flow.hold_start_position) >= 0x300)
-			goto lava_flow_stop_holding_back;
+		lava_flow_move_step();
+		return;
+	}
+	if (no_player_in_play == 0u && player_mishap == 0u && player_dropping_in == 0u)
+	{
+		lava_flow_read_script();
+		return;
+	}
+	OBJECT(current_object)->lava_flow.holding_back = 0xFFu;
+	OBJECT(current_object)->lava_flow.saved_base_speed = OBJECT(current_object)->lava_flow.base_speed;
+	OBJECT(current_object)->lava_flow.base_speed = 0;
+	OBJECT(current_object)->lava_flow.hold_start_position = scroll_position;
+	OBJECT(current_object)->lava_flow.hold_timer = 0xFFu;
+	OBJECT(current_object)->lava_flow.saved_threshold = OBJECT(current_object)->lava_flow.screen_threshold;
+	OBJECT(current_object)->lava_flow.screen_threshold = -0x50;
+	lava_flow_move_step();
+}
+
+void lava_flow_read_script(void)
+{
+	uint16_t part_list = 0;
+	uint32_t path_cursor = 0;
+	uint16_t record_scroll = 0;
+
+	path_cursor = OBJECT(current_object)->lava_flow.path;
+	record_scroll = ROM16(path_cursor);
+	path_cursor += 2u;
+	if (scroll_position < record_scroll && (ROM16(path_cursor) == 0u || OBJECT(current_object)->x_int < (int16_t)ROM16(path_cursor)))
+	{
+		lava_flow_move_step();
+		return;
+	}
+	path_cursor += 2u;
+	if ((int16_t)ROM16(path_cursor + 2u) < 0)
+	{
+		part_list = (uint16_t)OBJECT(current_object)->part_list;
+		free_object_2(part_list);
+		delete_current_object();
+		return;
+	}
+	OBJECT(current_object)->lava_flow.screen_threshold = ROM16(path_cursor);
+	path_cursor += 2u;
+	OBJECT(current_object)->lava_flow.catch_up_factor = ROM16(path_cursor);
+	path_cursor += 2u;
+	OBJECT(current_object)->lava_flow.base_speed = ROM16(path_cursor);
+	path_cursor += 2u;
+	OBJECT(current_object)->lava_flow.wait_timer = ROM16(path_cursor);
+	OBJECT(current_object)->lava_flow.path = path_cursor + 2u;
+	lava_flow_move_step();
+}
+
+void lava_flow_move_step(void)
+{
+	uint16_t flow_speed = 0;
+	uint32_t depth = 0, flame = 0, ignored = 0, octant = 0, x_step_or_sound = 0;
+	uint8_t hold_timer = 0, sound_timer = 0;
+	uint16_t wait_timer = 0;
+
+	project_object(&x_step_or_sound, &ignored);
+	if (OBJECT(current_object)->lava_flow.holding_back == 0u)
+	{
+		if (OBJECT(current_object)->lava_flow.screen_threshold <= OBJECT(current_object)->screen_x)
+			flow_speed = (uint16_t)OBJECT(current_object)->lava_flow.base_speed;
+		else
+		{
+			if (OBJECT(current_object)->lava_flow.holding_back != 0u)
+			{
+				OBJECT(current_object)->lava_flow.holding_back = 0u;
+				OBJECT(current_object)->lava_flow.screen_threshold = OBJECT(current_object)->lava_flow.saved_threshold;
+				OBJECT(current_object)->lava_flow.base_speed = OBJECT(current_object)->lava_flow.saved_base_speed;
+			}
+			octant = compute_camera_ground_speed(0u);
+			flow_speed = (uint16_t)((uint32_t)camera_ground_speed_int * OBJECT(current_object)->lava_flow.catch_up_factor) >> 8;
+			if ((int16_t)flow_speed <= OBJECT(current_object)->lava_flow.base_speed)
+				flow_speed = (uint16_t)OBJECT(current_object)->lava_flow.base_speed;
+		}
+	}
+	else if ((int16_t)(scroll_position - OBJECT(current_object)->lava_flow.hold_start_position) >= 0x300)
+	{
+		OBJECT(current_object)->lava_flow.holding_back = 0u;
+		OBJECT(current_object)->lava_flow.screen_threshold = OBJECT(current_object)->lava_flow.saved_threshold;
+		OBJECT(current_object)->lava_flow.base_speed = OBJECT(current_object)->lava_flow.saved_base_speed;
+		octant = compute_camera_ground_speed(0u);
+		flow_speed = (uint16_t)((uint32_t)camera_ground_speed_int * OBJECT(current_object)->lava_flow.catch_up_factor) >> 8;
+		if ((int16_t)flow_speed <= OBJECT(current_object)->lava_flow.base_speed)
+			flow_speed = (uint16_t)OBJECT(current_object)->lava_flow.base_speed;
+	}
+	else
+	{
 		if (no_player_in_play != 0u)
 			OBJECT(current_object)->lava_flow.hold_timer = 0xFFu;
 		hold_timer = OBJECT(current_object)->lava_flow.hold_timer;
 		OBJECT(current_object)->lava_flow.hold_timer = hold_timer - 1u;
 		if (hold_timer == 0u)
-			goto lava_flow_stop_holding_back;
-	}
-	if (OBJECT(current_object)->lava_flow.screen_threshold <= OBJECT(current_object)->screen_x)
-	{
-	lava_flow_use_base_speed:
-		flow_speed = (uint16_t)OBJECT(current_object)->lava_flow.base_speed;
-	}
-	else
-	{
-		if (OBJECT(current_object)->lava_flow.holding_back != 0u)
 		{
-		lava_flow_stop_holding_back:
 			OBJECT(current_object)->lava_flow.holding_back = 0u;
 			OBJECT(current_object)->lava_flow.screen_threshold = OBJECT(current_object)->lava_flow.saved_threshold;
 			OBJECT(current_object)->lava_flow.base_speed = OBJECT(current_object)->lava_flow.saved_base_speed;
+			octant = compute_camera_ground_speed(0u);
+			flow_speed = (uint16_t)((uint32_t)camera_ground_speed_int * OBJECT(current_object)->lava_flow.catch_up_factor) >> 8;
+			if ((int16_t)flow_speed <= OBJECT(current_object)->lava_flow.base_speed)
+				flow_speed = (uint16_t)OBJECT(current_object)->lava_flow.base_speed;
 		}
-		r3 = compute_camera_ground_speed(0u);
-		flow_speed = (uint16_t)((uint32_t)camera_ground_speed_int * OBJECT(current_object)->lava_flow.catch_up_factor) >> 8;
-		if ((int16_t)flow_speed <= OBJECT(current_object)->lava_flow.base_speed)
-			goto lava_flow_use_base_speed;
+		else if (OBJECT(current_object)->lava_flow.screen_threshold <= OBJECT(current_object)->screen_x)
+			flow_speed = (uint16_t)OBJECT(current_object)->lava_flow.base_speed;
+		else
+		{
+			if (OBJECT(current_object)->lava_flow.holding_back != 0u)
+			{
+				OBJECT(current_object)->lava_flow.holding_back = 0u;
+				OBJECT(current_object)->lava_flow.screen_threshold = OBJECT(current_object)->lava_flow.saved_threshold;
+				OBJECT(current_object)->lava_flow.base_speed = OBJECT(current_object)->lava_flow.saved_base_speed;
+			}
+			octant = compute_camera_ground_speed(0u);
+			flow_speed = (uint16_t)((uint32_t)camera_ground_speed_int * OBJECT(current_object)->lava_flow.catch_up_factor) >> 8;
+			if ((int16_t)flow_speed <= OBJECT(current_object)->lava_flow.base_speed)
+				flow_speed = (uint16_t)OBJECT(current_object)->lava_flow.base_speed;
+		}
 	}
 	chaser_speed = flow_speed;
 	wait_timer = OBJECT(current_object)->lava_flow.wait_timer;
@@ -2142,30 +2348,47 @@ void lava_flow_advance(void)
 		OBJECT(current_object)->speed_x = x_step_or_sound;
 		OBJECT(current_object)->speed_y = 0;
 	}
-	animate_all_parts(&ignored, &r11);
+	animate_all_parts(&ignored, &flame);
 	if (OBJECT(current_object)->screen_x < -0x40)
-		OBJECT(current_object)->lava_flow.sound_timer = 0xFFu;
-	else
 	{
-		if (OBJECT(current_object)->lava_flow.sound_timer != 0u)
-		{
-			OBJECT(current_object)->lava_flow.sound_timer = 0u;
-			OBJECT(current_object)->lava_flow.sound_timer = 0u;
-		}
-		if (current_game_mode != 7u)
-		{
-			sound_timer = OBJECT(current_object)->lava_flow.sound_timer;
-			OBJECT(current_object)->lava_flow.sound_timer = sound_timer - 1u;
-			if (sound_timer == 0u)
-			{
-				OBJECT(current_object)->lava_flow.sound_timer = 0x40u;
-				x_step_or_sound = 0x10u;
-				play_sound((uint8_t)x_step_or_sound, &ignored, &ignored);
-			}
-		}
+		OBJECT(current_object)->lava_flow.sound_timer = 0xFFu;
+		flame = spawn_lava_flame(octant, flame);
+		extend_lava_flow(flame);
+		add_to_touchable_list(x_step_or_sound);
+		depth = (uint16_t)(OBJECT(current_object)->screen_y + 0x50u);
+		queue_sprite_at_depth(&ignored, &depth);
+		return;
 	}
-	r11 = spawn_lava_flame(r3, r11);
-	extend_lava_flow(r11);
+	if (OBJECT(current_object)->lava_flow.sound_timer != 0u)
+	{
+		OBJECT(current_object)->lava_flow.sound_timer = 0u;
+		OBJECT(current_object)->lava_flow.sound_timer = 0u;
+	}
+	if (current_game_mode == 7u)
+	{
+		flame = spawn_lava_flame(octant, flame);
+		extend_lava_flow(flame);
+		add_to_touchable_list(x_step_or_sound);
+		depth = (uint16_t)(OBJECT(current_object)->screen_y + 0x50u);
+		queue_sprite_at_depth(&ignored, &depth);
+		return;
+	}
+	sound_timer = OBJECT(current_object)->lava_flow.sound_timer;
+	OBJECT(current_object)->lava_flow.sound_timer = sound_timer - 1u;
+	if (sound_timer != 0u)
+	{
+		flame = spawn_lava_flame(octant, flame);
+		extend_lava_flow(flame);
+		add_to_touchable_list(x_step_or_sound);
+		depth = (uint16_t)(OBJECT(current_object)->screen_y + 0x50u);
+		queue_sprite_at_depth(&ignored, &depth);
+		return;
+	}
+	OBJECT(current_object)->lava_flow.sound_timer = 0x40u;
+	x_step_or_sound = 0x10u;
+	play_sound((uint8_t)x_step_or_sound, &ignored, &ignored);
+	flame = spawn_lava_flame(octant, flame);
+	extend_lava_flow(flame);
 	add_to_touchable_list(x_step_or_sound);
 	depth = (uint16_t)(OBJECT(current_object)->screen_y + 0x50u);
 	queue_sprite_at_depth(&ignored, &depth);
@@ -2213,26 +2436,26 @@ void lava_flow_segment_follow(void)
 	OBJECT(current_object)->projected_y = OBJECT(object)->projected_y;
 	OBJECT(current_object)->projected_y_int += 0x20u;
 	update_screen_position(&ignored, &ignored);
-	if (OBJECT(current_object)->screen_x > -0xA0)
+	if (OBJECT(current_object)->screen_x <= -0xA0)
 	{
-		object = LINKED(current_object, OBJECT(current_object)->parent);
-		OBJECT(current_object)->x = OBJECT(object)->x;
-		OBJECT(current_object)->x_int -= 0x50u;
-		OBJECT(current_object)->y = OBJECT(object)->y;
-		part_list_2 = OBJECT(LINKED(current_object, OBJECT(current_object)->parent))->part_list;
-		part_list_3 = OBJECT(current_object)->part_list;
-		SPRITE_PART_LIST(part_list_3)->part_0_frame = SPRITE_PART_LIST(part_list_2)->part_0_frame;
-		SPRITE_PART_LIST(part_list_3)->part_1_frame = SPRITE_PART_LIST(part_list_2)->part_0_frame;
-		r11 = spawn_lava_flame(0u, 0u);
-		extend_lava_flow(r11);
-		depth = (uint16_t)(OBJECT(LINKED(current_object, OBJECT(current_object)->parent))->screen_y + 0x48u);
-		queue_sprite_at_depth(&ignored, &depth);
+		OBJECT(LINKED(current_object, OBJECT(current_object)->parent))->child = 0xFFFFu;
+		part_list = (uint16_t)OBJECT(current_object)->part_list;
+		free_object_2(part_list);
+		delete_current_object();
 		return;
 	}
-	OBJECT(LINKED(current_object, OBJECT(current_object)->parent))->child = 0xFFFFu;
-	part_list = (uint16_t)OBJECT(current_object)->part_list;
-	free_object_2(part_list);
-	delete_current_object();
+	object = LINKED(current_object, OBJECT(current_object)->parent);
+	OBJECT(current_object)->x = OBJECT(object)->x;
+	OBJECT(current_object)->x_int -= 0x50u;
+	OBJECT(current_object)->y = OBJECT(object)->y;
+	part_list_2 = OBJECT(LINKED(current_object, OBJECT(current_object)->parent))->part_list;
+	part_list_3 = OBJECT(current_object)->part_list;
+	SPRITE_PART_LIST(part_list_3)->part_0_frame = SPRITE_PART_LIST(part_list_2)->part_0_frame;
+	SPRITE_PART_LIST(part_list_3)->part_1_frame = SPRITE_PART_LIST(part_list_2)->part_0_frame;
+	r11 = spawn_lava_flame(0u, 0u);
+	extend_lava_flow(r11);
+	depth = (uint16_t)(OBJECT(LINKED(current_object, OBJECT(current_object)->parent))->screen_y + 0x48u);
+	queue_sprite_at_depth(&ignored, &depth);
 }
 
 uint32_t spawn_lava_flame(uint32_t random_value, uint32_t flame)
@@ -2338,22 +2561,31 @@ void lava_steam_puff_update(void)
 		return;
 	}
 	if ((int8_t)OBJECT(current_object)->animation_frame >= 0)
-		update_screen_position(&ignored, &ignored);
-	else
 	{
-		spawn_arg_2 = OBJECT(current_object)->spawn_arg_2;
-		OBJECT(current_object)->spawn_arg_2 = spawn_arg_2 - 1u;
-		if ((int16_t)spawn_arg_2 > 1)
-			return;
-		OBJECT(current_object)->animation_frame = 0u;
-		object = LINKED(current_object, OBJECT(current_object)->parent);
-		OBJECT(current_object)->x = OBJECT(object)->x;
-		OBJECT(current_object)->x_int += OBJECT(current_object)->anchor_x;
-		OBJECT(current_object)->y = OBJECT(object)->y;
-		OBJECT(current_object)->y_int += OBJECT(current_object)->anchor_y;
-		OBJECT(current_object)->z = OBJECT(object)->z;
-		project_object(&ignored, &ignored);
+		update_screen_position(&ignored, &ignored);
+		animate(&ignored, &wrapped, &ignored);
+		if ((uint8_t)wrapped != 0u)
+		{
+			next_random(&random_bits, &ignored, &ignored);
+			OBJECT(current_object)->spawn_arg_2 = random_bits & 0x3Fu;
+			OBJECT(current_object)->animation_frame = 0xFFu;
+		}
+		depth = (uint16_t)(OBJECT(current_object)->screen_y + 0x50u);
+		queue_sprite_at_depth(&ignored, &depth);
+		return;
 	}
+	spawn_arg_2 = OBJECT(current_object)->spawn_arg_2;
+	OBJECT(current_object)->spawn_arg_2 = spawn_arg_2 - 1u;
+	if ((int16_t)spawn_arg_2 > 1)
+		return;
+	OBJECT(current_object)->animation_frame = 0u;
+	object = LINKED(current_object, OBJECT(current_object)->parent);
+	OBJECT(current_object)->x = OBJECT(object)->x;
+	OBJECT(current_object)->x_int += OBJECT(current_object)->anchor_x;
+	OBJECT(current_object)->y = OBJECT(object)->y;
+	OBJECT(current_object)->y_int += OBJECT(current_object)->anchor_y;
+	OBJECT(current_object)->z = OBJECT(object)->z;
+	project_object(&ignored, &ignored);
 	animate(&ignored, &wrapped, &ignored);
 	if ((uint8_t)wrapped != 0u)
 	{
@@ -2367,9 +2599,8 @@ void lava_steam_puff_update(void)
 
 void lava_rock_update(void)
 {
-	uint8_t sound_id = 0;
 	uint16_t part_list = 0;
-	uint32_t at_last_step = 0, block_or_slot_entry = 0, depth = 0, free_count = 0, height = 0, ignored = 0, random_value = 0, slot_entry = 0, sprite_depth = 0;
+	uint32_t at_last_step = 0, block_or_slot_entry = 0, depth = 0, free_count = 0, height = 0, ignored = 0, parts = 0, random_value = 0, slot_entry = 0, sprite_depth = 0;
 	uint16_t erupt_delay = 0;
 
 	if (map_screen_active != 0u)
@@ -2394,14 +2625,14 @@ void lava_rock_update(void)
 		OBJECT(current_object)->lava_rock.palette_delay = (random_value & 0xFu) + 4u;
 		if ((OBJECT(current_object)->sprite_flags & 0xD000u) == 0xD000u)
 		{
-			allocate_object_2(&free_count, &ignored, &block_or_slot_entry);
+			allocate_object_2(&free_count, &ignored, &parts);
 			if ((uint8_t)free_count == 0u)
 			{
 				delete_current_object();
 				return;
 			}
-			move_halfwords_backward(block_or_slot_entry, lava_rock_parts_ADDRESS, 0x10u);
-			OBJECT(current_object)->part_list = block_or_slot_entry;
+			move_halfwords_backward(parts, lava_rock_parts_ADDRESS, 0x10u);
+			OBJECT(current_object)->part_list = parts;
 		}
 		project_object(&ignored, &ignored);
 		OBJECT(current_object)->previous_floor_z = OBJECT(current_object)->floor_z;
@@ -2617,115 +2848,153 @@ void lava_rock_update(void)
 		current_player = LINKED(current_player, OBJECT(current_object)->parent);
 		if (OBJECT(current_object)->y_int <= OBJECT(current_player)->y_int)
 		{
-		lava_rock_erupt:
-			OBJECT(current_object)->lava_rock.state++;
-			OBJECT(current_object)->speed_z = 0;
-			OBJECT(current_object)->animation_speed = 4u;
-			OBJECT(current_object)->animation_timer = 0;
-			OBJECT(current_object)->animation_frame = 0u;
-			if (OBJECT(current_object)->lava_rock.takes_slot != 1u || OBJECT(current_object)->lava_rock.member == 0u)
-			{
-				if (OBJECT(current_object)->screen_x >= -0x90)
-				{
-					sound_id = 7u;
-					play_sound(sound_id, &ignored, &ignored);
-				}
-				block_or_slot_entry = spawn_lava_column(block_or_slot_entry);
-				if ((OBJECT(current_object)->sprite_flags & 0xD000u) == 0xD000u)
-				{
-					OBJECT(current_object)->x_int += 0x71u;
-					spawn_lava_column(block_or_slot_entry);
-					OBJECT(current_object)->x_int -= 0x71u;
-				}
-			}
-			else if (OBJECT(current_object)->lava_rock.member == 2u)
-			{
-				block_or_slot_entry = spawn_lava_column(block_or_slot_entry);
-				if ((OBJECT(current_object)->sprite_flags & 0xD000u) == 0xD000u)
-				{
-					OBJECT(current_object)->x_int += 0x71u;
-					spawn_lava_column(block_or_slot_entry);
-					OBJECT(current_object)->x_int -= 0x71u;
-				}
-				if ((uint16_t)(OBJECT(current_object)->screen_x + 0xA0u) >= 0x281u)
-					return;
-				add_to_platform_list();
-				sprite_depth = (uint16_t)(((int32_t)((uint32_t)OBJECT(current_object)->projected_y + OBJECT(current_object)->previous_floor_z) >> 16) - view_y + OBJECT(current_object)->lava_rock.depth_offset);
-				OBJECT(current_object)->draw_depth = sprite_depth;
-				queue_sprite_at_depth(&ignored, &sprite_depth);
-				return;
-			}
-		}
-		else
-		{
-			if (OBJECT(current_object)->y_int <= (int16_t)(OBJECT(current_player)->y_int + 0x30u))
-				OBJECT(current_object)->lava_rock.rise_limit = 0x20u;
-			if (OBJECT(current_object)->lava_rock.takes_slot != 0u)
-			{
-				block_or_slot_entry = group_slots_ADDRESS + OBJECT(current_object)->lava_rock.group_slot * 2u;
-				if ((int16_t)mem_read16(block_or_slot_entry) < 0)
-				{
-					erupt_delay = OBJECT(current_object)->lava_rock.erupt_delay;
-					OBJECT(current_object)->lava_rock.erupt_delay = erupt_delay - 1u;
-					if ((int16_t)erupt_delay <= 1)
-					{
-						OBJECT(current_object)->lava_rock.takes_slot = 1u;
-						goto lava_rock_erupt;
-					}
-				}
-			}
-		}
-		if ((uint16_t)(OBJECT(current_object)->screen_x + 0xA0u) >= 0x281u)
+			lava_rock_erupt(0u);
 			return;
-		add_to_platform_list();
-		sprite_depth = (uint16_t)(((int32_t)((uint32_t)OBJECT(current_object)->projected_y + OBJECT(current_object)->previous_floor_z) >> 16) - view_y + OBJECT(current_object)->lava_rock.depth_offset);
-		OBJECT(current_object)->draw_depth = sprite_depth;
-		queue_sprite_at_depth(&ignored, &sprite_depth);
+		}
+		if (OBJECT(current_object)->y_int <= (int16_t)(OBJECT(current_player)->y_int + 0x30u))
+			OBJECT(current_object)->lava_rock.rise_limit = 0x20u;
+		if (OBJECT(current_object)->lava_rock.takes_slot != 0u)
+		{
+			block_or_slot_entry = group_slots_ADDRESS + OBJECT(current_object)->lava_rock.group_slot * 2u;
+			if ((int16_t)mem_read16(block_or_slot_entry) < 0)
+			{
+				erupt_delay = OBJECT(current_object)->lava_rock.erupt_delay;
+				OBJECT(current_object)->lava_rock.erupt_delay = erupt_delay - 1u;
+				if ((int16_t)erupt_delay <= 1)
+				{
+					OBJECT(current_object)->lava_rock.takes_slot = 1u;
+					lava_rock_erupt(block_or_slot_entry);
+					return;
+				}
+			}
+		}
+		lava_rock_draw_at_previous_floor();
 		return;
 	case 3:
 		OBJECT(current_object)->speed_z -= 0x6000u;
 		OBJECT(current_object)->z += OBJECT(current_object)->speed_z;
 		update_screen_position(&ignored, &ignored);
-		if (OBJECT(current_object)->screen_y > -0x28)
+		if (OBJECT(current_object)->screen_y <= -0x28)
 		{
-			if ((int8_t)OBJECT(current_object)->animation_frame >= 0)
+			if ((OBJECT(current_object)->sprite_flags & 0xD000u) == 0xD000u)
 			{
-				if ((OBJECT(current_object)->sprite_flags & 0xD000u) != 0xD000u)
-				{
-					animate(&ignored, &ignored, &at_last_step);
-					if ((uint8_t)at_last_step != 0u)
-						OBJECT(current_object)->animation_frame = 0xFFu;
-				}
-				else
-				{
-					animate_all_parts(&at_last_step, &ignored);
-					if ((uint8_t)at_last_step != 0u)
-					{
-						OBJECT(current_object)->animation_frame = 0xFFu;
-						if ((int8_t)OBJECT(current_object)->animation_frame <= 2)
-							add_to_platform_list();
-						depth = (uint16_t)(((int32_t)((uint32_t)OBJECT(current_object)->projected_y + OBJECT(current_object)->floor_z) >> 16) - view_y + OBJECT(current_object)->lava_rock.depth_offset);
-						queue_sprite_at_depth(&ignored, &depth);
-						return;
-					}
-				}
+				part_list = (uint16_t)OBJECT(current_object)->part_list;
+				free_object_2(part_list);
 			}
+			delete_current_object();
+			return;
+		}
+		if ((int8_t)OBJECT(current_object)->animation_frame < 0)
+		{
 			if ((int8_t)OBJECT(current_object)->animation_frame <= 2)
 				add_to_platform_list();
 			depth = (uint16_t)(((int32_t)((uint32_t)OBJECT(current_object)->projected_y + OBJECT(current_object)->floor_z) >> 16) - view_y + OBJECT(current_object)->lava_rock.depth_offset);
 			queue_sprite_at_depth(&ignored, &depth);
 			return;
 		}
-		if ((OBJECT(current_object)->sprite_flags & 0xD000u) == 0xD000u)
+		if ((OBJECT(current_object)->sprite_flags & 0xD000u) != 0xD000u)
 		{
-			part_list = (uint16_t)OBJECT(current_object)->part_list;
-			free_object_2(part_list);
+			animate(&ignored, &ignored, &at_last_step);
+			if ((uint8_t)at_last_step == 0u)
+			{
+				if ((int8_t)OBJECT(current_object)->animation_frame <= 2)
+					add_to_platform_list();
+				depth = (uint16_t)(((int32_t)((uint32_t)OBJECT(current_object)->projected_y + OBJECT(current_object)->floor_z) >> 16) - view_y + OBJECT(current_object)->lava_rock.depth_offset);
+				queue_sprite_at_depth(&ignored, &depth);
+				return;
+			}
+			OBJECT(current_object)->animation_frame = 0xFFu;
+			if ((int8_t)OBJECT(current_object)->animation_frame <= 2)
+				add_to_platform_list();
+			depth = (uint16_t)(((int32_t)((uint32_t)OBJECT(current_object)->projected_y + OBJECT(current_object)->floor_z) >> 16) - view_y + OBJECT(current_object)->lava_rock.depth_offset);
+			queue_sprite_at_depth(&ignored, &depth);
+			return;
 		}
-		delete_current_object();
+		animate_all_parts(&at_last_step, &ignored);
+		if ((uint8_t)at_last_step != 0u)
+		{
+			OBJECT(current_object)->animation_frame = 0xFFu;
+			if ((int8_t)OBJECT(current_object)->animation_frame <= 2)
+				add_to_platform_list();
+			depth = (uint16_t)(((int32_t)((uint32_t)OBJECT(current_object)->projected_y + OBJECT(current_object)->floor_z) >> 16) - view_y + OBJECT(current_object)->lava_rock.depth_offset);
+			queue_sprite_at_depth(&ignored, &depth);
+			return;
+		}
+		if ((int8_t)OBJECT(current_object)->animation_frame <= 2)
+			add_to_platform_list();
+		depth = (uint16_t)(((int32_t)((uint32_t)OBJECT(current_object)->projected_y + OBJECT(current_object)->floor_z) >> 16) - view_y + OBJECT(current_object)->lava_rock.depth_offset);
+		queue_sprite_at_depth(&ignored, &depth);
 		return;
 	default:
 		invalid_jump(0x9194Du + OBJECT(current_object)->lava_rock.state * 3u);
 	}
+}
+
+void lava_rock_erupt(uint32_t block)
+{
+	uint8_t sound_id = 0;
+	uint32_t ignored = 0;
+
+	OBJECT(current_object)->lava_rock.state++;
+	OBJECT(current_object)->speed_z = 0;
+	OBJECT(current_object)->animation_speed = 4u;
+	OBJECT(current_object)->animation_timer = 0;
+	OBJECT(current_object)->animation_frame = 0u;
+	if (OBJECT(current_object)->lava_rock.takes_slot == 1u && OBJECT(current_object)->lava_rock.member != 0u)
+	{
+		if (OBJECT(current_object)->lava_rock.member == 2u)
+		{
+			block = spawn_lava_column(block);
+			if ((OBJECT(current_object)->sprite_flags & 0xD000u) == 0xD000u)
+			{
+				OBJECT(current_object)->x_int += 0x71u;
+				spawn_lava_column(block);
+				OBJECT(current_object)->x_int -= 0x71u;
+				lava_rock_draw_at_previous_floor();
+				return;
+			}
+		}
+		lava_rock_draw_at_previous_floor();
+		return;
+	}
+	if (OBJECT(current_object)->screen_x < -0x90)
+	{
+		block = spawn_lava_column(block);
+		if ((OBJECT(current_object)->sprite_flags & 0xD000u) != 0xD000u)
+		{
+			lava_rock_draw_at_previous_floor();
+			return;
+		}
+		OBJECT(current_object)->x_int += 0x71u;
+		spawn_lava_column(block);
+		OBJECT(current_object)->x_int -= 0x71u;
+		lava_rock_draw_at_previous_floor();
+		return;
+	}
+	sound_id = 7u;
+	play_sound(sound_id, &ignored, &ignored);
+	block = spawn_lava_column(block);
+	if ((OBJECT(current_object)->sprite_flags & 0xD000u) != 0xD000u)
+	{
+		lava_rock_draw_at_previous_floor();
+		return;
+	}
+	OBJECT(current_object)->x_int += 0x71u;
+	spawn_lava_column(block);
+	OBJECT(current_object)->x_int -= 0x71u;
+	lava_rock_draw_at_previous_floor();
+}
+
+void lava_rock_draw_at_previous_floor(void)
+{
+	uint32_t ignored = 0, sprite_depth = 0;
+
+	if ((uint16_t)(OBJECT(current_object)->screen_x + 0xA0u) >= 0x281u)
+		return;
+	add_to_platform_list();
+	sprite_depth = (uint16_t)(((int32_t)((uint32_t)OBJECT(current_object)->projected_y + OBJECT(current_object)->previous_floor_z) >> 16) - view_y + OBJECT(current_object)->lava_rock.depth_offset);
+	OBJECT(current_object)->draw_depth = sprite_depth;
+	queue_sprite_at_depth(&ignored, &sprite_depth);
 }
 
 uint32_t spawn_lava_column(uint32_t block)

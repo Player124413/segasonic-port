@@ -163,24 +163,29 @@ void update_stage_06_background(uint32_t random_value, uint32_t dest, uint32_t *
 			*p_source = source;
 			return;
 		}
-		if (palette_cycle_set_1_frame == 0u)
+		if (palette_cycle_set_1_frame != 0u)
 		{
-			rolls_left = 2u;
-			do
-			{
-				next_random(&random_value, &words_left, &source);
-				random_value &= 0xFu;
-				if ((int8_t)random_value > 2)
-				{
-					*p_rolls_left = rolls_left;
-					*p_words_left = words_left;
-					*p_source = source;
-					return;
-				}
-				rolls_left--;
-			} while (rolls_left != 0u);
-			source = cycle_palette_set_0(source);
+			source = cycle_palette_set_1(source);
+			*p_rolls_left = rolls_left;
+			*p_words_left = words_left;
+			*p_source = source;
+			return;
 		}
+		rolls_left = 2u;
+		do
+		{
+			next_random(&random_value, &words_left, &source);
+			random_value &= 0xFu;
+			if ((int8_t)random_value > 2)
+			{
+				*p_rolls_left = rolls_left;
+				*p_words_left = words_left;
+				*p_source = source;
+				return;
+			}
+			rolls_left--;
+		} while (rolls_left != 0u);
+		source = cycle_palette_set_0(source);
 		source = cycle_palette_set_1(source);
 		*p_rolls_left = rolls_left;
 		*p_words_left = words_left;
@@ -534,22 +539,26 @@ uint32_t cycle_palette_set(uint32_t source)
 	uint32_t cycle_set = 0, dest = 0, ignored = 0;
 
 	cycle_set = palette_cycle_set;
-	if (PALETTE_SET_CYCLE(cycle_set)->timer == 0u)
+	if (PALETTE_SET_CYCLE(cycle_set)->timer != 0u)
 	{
-		PALETTE_SET_CYCLE(cycle_set)->timer = PALETTE_SET_CYCLE(cycle_set)->delay;
-		PALETTE_SET_CYCLE(cycle_set)->rows_left = PALETTE_SET_CYCLE(cycle_set)->rows;
-		do
-		{
-			halfwords = 0x10u;
-			dest = PALETTE_SET_CYCLE(cycle_set)->dest + ((uint32_t)(uint8_t)(PALETTE_SET_CYCLE(cycle_set)->rows - PALETTE_SET_CYCLE(cycle_set)->rows_left) << 5);
-			source = PALETTE_SET_CYCLE(cycle_set)->frames + ((uint32_t)(uint8_t)PALETTE_SET_CYCLE(cycle_set)->frame << 5);
-			queue_vblank_copy(source, dest, halfwords, &ignored, &ignored);
-			if (PALETTE_SET_CYCLE(cycle_set)->rows_left == 0u)
-				break;
-			PALETTE_SET_CYCLE(cycle_set)->rows_left--;
-		} while (PALETTE_SET_CYCLE(cycle_set)->rows_left != 0u);
-		PALETTE_SET_CYCLE(cycle_set)->frame++;
+		PALETTE_SET_CYCLE(cycle_set)->timer--;
+		if (PALETTE_SET_CYCLE(cycle_set)->frame_count <= PALETTE_SET_CYCLE(cycle_set)->frame)
+			PALETTE_SET_CYCLE(cycle_set)->frame = 0;
+		return source;
 	}
+	PALETTE_SET_CYCLE(cycle_set)->timer = PALETTE_SET_CYCLE(cycle_set)->delay;
+	PALETTE_SET_CYCLE(cycle_set)->rows_left = PALETTE_SET_CYCLE(cycle_set)->rows;
+	do
+	{
+		halfwords = 0x10u;
+		dest = PALETTE_SET_CYCLE(cycle_set)->dest + ((uint32_t)(uint8_t)(PALETTE_SET_CYCLE(cycle_set)->rows - PALETTE_SET_CYCLE(cycle_set)->rows_left) << 5);
+		source = PALETTE_SET_CYCLE(cycle_set)->frames + ((uint32_t)(uint8_t)PALETTE_SET_CYCLE(cycle_set)->frame << 5);
+		queue_vblank_copy(source, dest, halfwords, &ignored, &ignored);
+		if (PALETTE_SET_CYCLE(cycle_set)->rows_left == 0u)
+			break;
+		PALETTE_SET_CYCLE(cycle_set)->rows_left--;
+	} while (PALETTE_SET_CYCLE(cycle_set)->rows_left != 0u);
+	PALETTE_SET_CYCLE(cycle_set)->frame++;
 	PALETTE_SET_CYCLE(cycle_set)->timer--;
 	if (PALETTE_SET_CYCLE(cycle_set)->frame_count <= PALETTE_SET_CYCLE(cycle_set)->frame)
 		PALETTE_SET_CYCLE(cycle_set)->frame = 0;
@@ -871,7 +880,30 @@ uint32_t init_nbg2_layer(uint32_t dest)
 		return dest;
 	case 1:
 	case 2:
-		break;
+		row_scroll_wave_step = 0u;
+		entries_left = 0x100u;
+		table_entry = VIDEO_RAM + 0xA800u;
+		tables_left = 2u;
+		for (;;)
+		{
+			row_scroll_wave_step &= 0x7Fu;
+			wave_index = row_scroll_wave_step;
+			mem_write16(table_entry, (int32_t)(((uint32_t)(int16_t)ROM16(sine_table_ADDRESS + (uint16_t)(wave_index << 4)) << 3) & ~0xFFFFu) >> 16);
+			row_scroll_wave_step++;
+			table_entry += 2u;
+			entries_left--;
+			if (entries_left != 0u)
+				continue;
+			entries_left = 0x100u;
+			table_entry = VIDEO_RAM + 0xA000u;
+			tables_left--;
+			if (tables_left == 0u)
+				break;
+		}
+		mixer_nbg2_blend |= 0x80u;
+		mixer_blend &= 0xFFu;
+		mixer_blend |= 0xB00u;
+		return dest;
 	case 3:
 	case 5:
 	case 6:
@@ -898,30 +930,6 @@ uint32_t init_nbg2_layer(uint32_t dest)
 	default:
 		invalid_jump(0x1B44Fu + stage * 3u);
 	}
-	row_scroll_wave_step = 0u;
-	entries_left = 0x100u;
-	table_entry = VIDEO_RAM + 0xA800u;
-	tables_left = 2u;
-	for (;;)
-	{
-		row_scroll_wave_step &= 0x7Fu;
-		wave_index = row_scroll_wave_step;
-		mem_write16(table_entry, (int32_t)(((uint32_t)(int16_t)ROM16(sine_table_ADDRESS + (uint16_t)(wave_index << 4)) << 3) & ~0xFFFFu) >> 16);
-		row_scroll_wave_step++;
-		table_entry += 2u;
-		entries_left--;
-		if (entries_left != 0u)
-			continue;
-		entries_left = 0x100u;
-		table_entry = VIDEO_RAM + 0xA000u;
-		tables_left--;
-		if (tables_left == 0u)
-			break;
-	}
-	mixer_nbg2_blend |= 0x80u;
-	mixer_blend &= 0xFFu;
-	mixer_blend |= 0xB00u;
-	return dest;
 }
 
 uint32_t update_nbg2_scroll(uint32_t position)
@@ -1205,27 +1213,17 @@ void update_nbg3_scroll(uint32_t *p_scroll_y, uint32_t *p_quadrants, uint32_t *p
 	switch (stage)
 	{
 	case 0:
-		if ((uint8_t)scroll_ended == 0u)
+		if ((uint8_t)scroll_ended != 0u)
 		{
-			half_view_y = (uint16_t)((int16_t)view_y >> 1);
-			nbg3_scroll_x = (int16_t)view_x >> 1;
-			nbg3_scroll_y = half_view_y;
+			scroll_y = (scroll_y & ~0xFFFFu) | (uint16_t)view_y;
+			scroll_y = (scroll_y & ~0xFFFFu) | (uint16_t)((int16_t)scroll_y >> 2);
+			nbg3_scroll_x = (int16_t)view_x >> 2;
+			nbg3_scroll_y = scroll_y;
 			nbg3_scroll_y += 0x80u;
-			select_nbg3_pages(&block_pages, &quadrants, &byte_mask, &shift, &quadrant_cursor);
-			*p_scroll_y = block_pages;
-			*p_quadrants = quadrants;
-			*p_speed_value = byte_mask;
-			*p_next_scroll_position = shift;
-			*p_quadrant_cursor = quadrant_cursor;
+			*p_scroll_y = scroll_y;
 			return;
 		}
-		scroll_y = (scroll_y & ~0xFFFFu) | (uint16_t)view_y;
-		scroll_y = (scroll_y & ~0xFFFFu) | (uint16_t)((int16_t)scroll_y >> 2);
-		nbg3_scroll_x = (int16_t)view_x >> 2;
-		nbg3_scroll_y = scroll_y;
-		nbg3_scroll_y += 0x80u;
-		*p_scroll_y = scroll_y;
-		return;
+		break;
 	case 1:
 	case 2:
 	case 4:
@@ -1242,17 +1240,7 @@ void update_nbg3_scroll(uint32_t *p_scroll_y, uint32_t *p_quadrants, uint32_t *p
 	case 6:
 	case 7:
 	case 10:
-		half_view_y = (uint16_t)((int16_t)view_y >> 1);
-		nbg3_scroll_x = (int16_t)view_x >> 1;
-		nbg3_scroll_y = half_view_y;
-		nbg3_scroll_y += 0x80u;
-		select_nbg3_pages(&block_pages, &quadrants, &byte_mask, &shift, &quadrant_cursor);
-		*p_scroll_y = block_pages;
-		*p_quadrants = quadrants;
-		*p_speed_value = byte_mask;
-		*p_next_scroll_position = shift;
-		*p_quadrant_cursor = quadrant_cursor;
-		return;
+		break;
 	case 9:
 	case 20:
 		layer_scroll_y = camera_y_pixels;
@@ -1277,6 +1265,16 @@ void update_nbg3_scroll(uint32_t *p_scroll_y, uint32_t *p_quadrants, uint32_t *p
 	default:
 		invalid_jump(0x1B89Eu + stage * 3u);
 	}
+	half_view_y = (uint16_t)((int16_t)view_y >> 1);
+	nbg3_scroll_x = (int16_t)view_x >> 1;
+	nbg3_scroll_y = half_view_y;
+	nbg3_scroll_y += 0x80u;
+	select_nbg3_pages(&block_pages, &quadrants, &byte_mask, &shift, &quadrant_cursor);
+	*p_scroll_y = block_pages;
+	*p_quadrants = quadrants;
+	*p_speed_value = byte_mask;
+	*p_next_scroll_position = shift;
+	*p_quadrant_cursor = quadrant_cursor;
 }
 
 void select_nbg3_pages(uint32_t *p_block_pages, uint32_t *p_quadrants, uint32_t *p_byte_mask, uint32_t *p_shift, uint32_t *p_quadrant_cursor)

@@ -6,7 +6,7 @@ Description: intermediate representation of V60 code: expressions over registers
              temporaries, and the statements that change them
 Version:     0.1.0
 Created:     11-10-2026
-Modified:    12-10-2026
+Modified:    16-10-2026
 Author:      Sebastian Toyos
 
 Every value is an unsigned integer of a known width in bits (1 for flags and conditions, 8, 16, 32,
@@ -55,6 +55,14 @@ class Temp:
     """A value bound by a SetTemp statement of the same instruction or function."""
     name: str
     bits: int
+
+
+@dataclass(frozen=True)
+class Control:
+    """A variable only the C has, true or false, that steers its flow where the jumps of the code cross
+    (decompiler/gotos.py): no register or flag of the CPU."""
+    name: str
+    bits: int = 1
 
 
 @dataclass(frozen=True)

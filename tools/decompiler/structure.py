@@ -3,19 +3,20 @@ Name:        structure.py
 Description: turns a function's blocks and jumps into if / else, loops, switch, break and continue
 Version:     0.1.0
 Created:     11-10-2026
-Modified:    13-10-2026
+Modified:    16-10-2026
 Author:      Sebastian Toyos
 
 The control flow graph is read with dominators. A block a back edge jumps to heads a loop: its body is
 every block that gets back to it without passing through it. A loop is left by break, to the block
-the loop goes on at (the exit most of its exits share), or by return. A two-way branch is an if whose
-two sides meet again at the block that follows it on every path (its immediate post-dominator). A small
-block that only ends the function (a few statements and a return) is copied into every place that
-jumps to it, the way C reads: "if (x) { ...; return; }". So is a small piece of code a jump leads into
-when everything from there on is small and never comes back to it (TAIL_COPY): it is written again
-where the jump is. What still does not fit (a jump into the middle of something already written, an
-irreducible loop) stays a goto to a label; a goto that ends a branch, to the label the code reaches
-anyway when the branch ends, goes.
+the loop goes on at (where all its ways out meet, or the exit most of them share), or by return. A
+two-way branch is an if whose two sides meet again at the block that follows it on every path (its
+immediate post-dominator; inside a loop, where the ways that stay in it meet). A small block that only
+ends the function (a few statements and a return) is copied into every place that jumps to it, the way
+C reads: "if (x) { ...; return; }". So is a small piece of code a jump leads into when everything from
+there on is small and never comes back to it (TAIL_COPY), or everything up to where the code the jump
+comes from goes on (REGION_COPY): it is written again where the jump is. What still does not fit (a
+jump into the middle of something already written, an irreducible loop) is a goto to a label here, and
+gotos.py takes it out of the tree with a control variable.
 
 The result is a tree of the node classes below; emit.py prints it.
 """
@@ -28,6 +29,8 @@ SMALL_EXIT = 4    # statements of an ending block that is copied rather than jum
 COPY_LATCHES = True    # a jump to the few statements a loop goes round again after is written as a copy of
                         # them ending in continue or break (copied_latch): a walk over objects or voices
 TAIL_COPY = 20    # statements (and block ends) of all the code a jump leads to, at most, to write it again
+REGION_COPY = 16  # statements (and block ends), at most, of the code a jump leads to up to where the code the
+                  # jump comes from goes on anyway, to write it again there
 
 
 # ---- the tree ----
@@ -82,9 +85,17 @@ class Continue:
     pass
 
 
+@dataclass
+class Mark:
+    """A control variable of the C set (gotos.py): 'name' = 'value', ir.Const 0 or 1 or a condition."""
+    name: str
+    value: object
+
+
 # ---- graph facts ----
 
 EXIT = "exit"
+LOOP_EXIT = "loop exit"
 
 
 def successors(block):
@@ -141,6 +152,28 @@ def dominators(order, predecessors, entry):
     return idom
 
 
+def post_dominator_tree(succ, root):
+    """Immediate post-dominators of the graph 'succ' (label -> the labels after it) whose every way ends
+    at 'root'."""
+    rsucc = {root: []}
+    for label, targets in succ.items():
+        rsucc.setdefault(label, [])
+        for target in targets:
+            rsucc.setdefault(target, []).append(label)
+    order, seen, stack = [], {root}, [(root, iter(rsucc[root]))]
+    while stack:
+        label, children = stack[-1]
+        child = next((child for child in children if child not in seen), None)
+        if child is None:
+            order.append(label)
+            stack.pop()
+            continue
+        seen.add(child)
+        stack.append((child, iter(rsucc[child])))
+    order.reverse()
+    return dominators(order, {label: list(succ.get(label, ())) for label in order}, root)
+
+
 def dominates(idom, a, b):
     """True if a dominates b."""
     while True:
@@ -195,8 +228,16 @@ class Graph:
         count: what the other ways meet at is where the code goes on."""
         def written_in_place(label):
             block = self.blocks[label]
-            return isinstance(block.end, (ir.Return, ir.TailCall, ir.InterruptReturn)) \
-                and len(block.statements) <= SMALL_EXIT
+            if isinstance(block.end, (ir.Return, ir.TailCall, ir.InterruptReturn)):
+                return len(block.statements) <= SMALL_EXIT
+            # a short way out: code that only ends the function, small enough to be written where it is
+            # jumped to ("if (hit) { ...; return; }")
+            reach = self.reachable_from(label)
+            return len(reach) <= 4 and all(not successors(self.blocks[inner]) or
+                                           all(after in reach for after in successors(self.blocks[inner]))
+                                           for inner in reach) \
+                and all(label not in successors(self.blocks[inner]) for inner in reach) \
+                and sum(len(self.blocks[inner].statements) + 1 for inner in reach) <= TAIL_COPY
         def kept(label):
             targets = list(successors(self.blocks[label]))
             # an ending one of the other ways also runs into is where they meet ("if (x) { ... }" and then it)
@@ -211,10 +252,19 @@ class Graph:
             if not succ[label]:
                 succ[label].append(EXIT)
         reaches = self.reaching_exit(succ)
-        for header in sorted(self.loops, key=lambda label: self.position[label]):
-            if header not in reaches:
-                succ[header].append(EXIT)
-                reaches = self.reaching_exit(succ)
+        # a loop nothing leaves (its ways out are all written in place) is taken to leave where it goes round
+        # again: its header keeps the block its branches meet at. Of such loops, one no other one comes after
+        # (a loop that runs into another leaves through that one), the outermost first
+        while True:
+            stuck = sorted((header for header in self.loops if header not in reaches),
+                           key=lambda label: self.position[label])
+            if not stuck:
+                break
+            header = next((header for header in stuck
+                           if self.reach_in(succ, header) <= self.reach_back(succ, header)), stuck[0])
+            for latch in self.loops[header][1]:
+                succ[latch].append(EXIT)
+            reaches = self.reaching_exit(succ)
         for label in self.order:
             if label not in reaches:
                 succ[label].append(EXIT)
@@ -247,6 +297,38 @@ class Graph:
                 stack.pop()
         order.reverse()
         return dominators(order, rpred, EXIT)
+
+    def reachable_from(self, start):
+        found = {start}
+        stack = [start]
+        while stack:
+            label = stack.pop()
+            for successor in successors(self.blocks[label]):
+                if successor not in found:
+                    found.add(successor)
+                    stack.append(successor)
+        return found
+
+    @staticmethod
+    def reach_in(succ, start):
+        """The labels 'succ' (label -> the labels after it) leads to from 'start', with it."""
+        found = {start}
+        stack = [start]
+        while stack:
+            for target in succ.get(stack.pop(), ()):
+                if target not in found:
+                    found.add(target)
+                    stack.append(target)
+        return found
+
+    @staticmethod
+    def reach_back(succ, end):
+        """The labels from which 'succ' leads to 'end', with it."""
+        reverse = {}
+        for label, targets in succ.items():
+            for target in targets:
+                reverse.setdefault(target, []).append(label)
+        return Graph.reach_in(reverse, end)
 
     def reaching_exit(self, succ):
         reverse = {}
@@ -527,6 +609,8 @@ class Structurer:
         self.emitted = set()
         self.labels = set()        # blocks something jumps to with goto
         self.pending = []          # of those, the ones not written yet
+        self.meeting_ends = set()  # loop headers whose loop ends where all its ways out meet (loop_follow)
+        self.loop_ipdoms = {}      # loop header -> the post-dominators inside its loop (loop_ipdom)
 
     def small_exit(self, label):
         block = self.blocks[label]
@@ -534,7 +618,43 @@ class Structurer:
                 and len(block.statements) <= SMALL_EXIT)
 
     def loop_follow(self, header):
+        chosen = self.natural_follow(header)
         body, _ = self.graph.loops[header]
+        meet = self.graph.ipdom.get(header)
+        if meet in (None, EXIT) or meet in body:
+            return chosen
+        if meet != chosen:
+            ways = {successor for label in body for successor in successors(self.blocks[label])
+                    if successor not in body and not self.small_exit(successor)}
+            # a way out that does not run into the chosen end would need a goto there: the loop then ends
+            # where all its ways out meet (its header's immediate post-dominator)
+            if chosen is not None and all(self.post_dominates(chosen, way) for way in ways if way != chosen):
+                return chosen
+        # (each way out is then written in the loop up to there, ending in break)
+        self.meeting_ends.add(header)
+        return meet
+
+    def post_dominates(self, later, label):
+        """True if every way from 'label' to the end of the function passes through 'later'."""
+        seen = set()
+        while label not in (None, EXIT) and label not in seen:
+            if label == later:
+                return True
+            seen.add(label)
+            label = self.graph.ipdom.get(label)
+        return False
+
+    def natural_follow(self, header):
+        body, latches = self.graph.loops[header]
+        # where the step that goes round again leaves the loop ("blocks_left--; if (blocks_left != 0) go
+        # round; else go on"): the loop's natural end, so that the jumps to that step read as a copy of it
+        # ending in continue, and break
+        ends = {target for latch in latches if isinstance(self.blocks[latch].end, ir.Branch)
+                for target in successors(self.blocks[latch]) if target not in body}
+        if len(ends) == 1:
+            end = next(iter(ends))
+            if not self.small_exit(end):
+                return end
         exits = {}
         for label in body:
             for successor in successors(self.blocks[label]):
@@ -547,12 +667,16 @@ class Structurer:
         return max(candidates, key=lambda label: (len(self.reachable(label)), exits[label], -self.graph.position[label]))
 
     def reachable(self, start):
+        return self.graph.reachable_from(start)
+
+    def reachable_avoiding(self, start, avoided):
+        """The blocks 'start' leads to without passing through 'avoided'."""
         found = {start}
         stack = [start]
         while stack:
             label = stack.pop()
             for successor in successors(self.blocks[label]):
-                if successor not in found:
+                if successor not in found and successor != avoided:
                     found.add(successor)
                     stack.append(successor)
         return found
@@ -578,13 +702,48 @@ class Structurer:
         copy = Structurer.__new__(Structurer)
         copy.function, copy.blocks, copy.graph = self.function, self.blocks, self.graph
         copy.emitted, copy.labels, copy.pending = set(), set(), []
+        copy.meeting_ends, copy.loop_ipdoms = self.meeting_ends, self.loop_ipdoms
         nodes = copy.region(target, None, None)
         if copy.labels:
             return None
         return without_labels(nodes)
 
-    def goto(self, target):
+    def copy_until(self, target, stop, loop):
+        """The code from 'target' up to 'stop' (where the code the jump comes from goes on), written again:
+        when all of it is small, comes back neither to 'target' nor to code before it, and needs no goto of
+        its own (a jump into a branch already written, whose code then joins this one's). None otherwise."""
+        if stop is None and loop is None:
+            return None    # (a tail: copy_tail's)
+        reach = {target}
+        stack = [target]
+        while stack:
+            label = stack.pop()
+            for successor in successors(self.blocks[label]):
+                if successor == stop or successor in reach:
+                    continue
+                if loop is not None and (successor == loop.header or successor == loop.follow
+                                         or successor not in loop.region):
+                    continue    # inside a loop: continue, break, or a way out written as such in the copy
+                reach.add(successor)
+                stack.append(successor)
+        if any(target in successors(self.blocks[label]) for label in reach):
+            return None
+        if sum(len(self.blocks[label].statements) + 1 for label in reach) > REGION_COPY:
+            return None
+        copy = Structurer.__new__(Structurer)
+        copy.function, copy.blocks, copy.graph = self.function, self.blocks, self.graph
+        copy.emitted, copy.labels, copy.pending = set(), set(), []
+        copy.meeting_ends, copy.loop_ipdoms = self.meeting_ends, self.loop_ipdoms
+        nodes = copy.region(target, stop, loop)
+        if copy.labels:
+            return None
+        return without_labels(nodes)
+
+    def goto(self, target, stop=None, loop=None):
         copied = self.copy_tail(target)
+        if copied is not None:
+            return copied
+        copied = self.copy_until(target, stop, loop)
         if copied is not None:
             return copied
         self.labels.add(target)
@@ -619,7 +778,7 @@ class Structurer:
         if target in self.emitted:
             if self.small_exit(target):
                 return self.copy_exit(target), None
-            return self.goto(target), None
+            return self.goto(target, stop, loop), None
         return [], target
 
     def copied_latch(self, label, loop):
@@ -676,18 +835,35 @@ class Structurer:
     def loop(self, header, out, stop, outer):
         body, _ = self.graph.loops[header]
         follow = self.loop_follow(header)
-        after = self.reachable(follow) if follow is not None else set()
         region = set(body)
-        for label in self.graph.order:
-            if label in body or label in after or (outer is not None and label in outer.body):
-                continue
-            if dominates(self.graph.idom, header, label):
-                region.add(label)
+        if header in self.meeting_ends:
+            # where the ways out meet: the code on each way up to there (not what follows that, even when it
+            # comes back round an outer loop) is the loop's
+            after = self.reachable_avoiding(follow, header)
+            region |= {label for label in self.graph.order
+                       if label not in after and dominates(self.graph.idom, header, label)}
+        else:
+            after = self.reachable(follow) if follow is not None else set()
+            for label in self.graph.order:
+                if label in body or label in after or (outer is not None and label in outer.body):
+                    continue
+                if dominates(self.graph.idom, header, label):
+                    region.add(label)
         inner = LoopContext(header, body, region, follow)
         nodes = []
         current = self.block(header, nodes, None, inner)
         if current is not None:
             nodes += self.region(current, None, inner)
+        # code of the loop only gotos reach (a way out of an inner loop that comes back into this one) goes at
+        # the end of its body, after the round's end, rather than after the whole function
+        while True:
+            label = next((label for label in self.pending if label in body and label not in self.emitted), None)
+            if label is None:
+                break
+            self.pending.remove(label)
+            if not ends_flow(nodes):
+                nodes.append(Continue())
+            nodes += self.region(label, None, inner)
         out.append(Loop(nodes))
         if follow is None or not breaks_out(nodes):
             # (a loop nothing leaves with a break: what follows it comes only from elsewhere, which writes it
@@ -721,13 +897,64 @@ class Structurer:
     def follow_of(self, label, stop, loop):
         """Where the two or more ways out of 'label' meet again inside the current region, or None."""
         follow = self.graph.ipdom.get(label)
-        if follow == EXIT or follow is None or follow == label:
-            return None
-        if loop is not None and (follow not in loop.region or follow == loop.header):
-            return None
+        if follow in (EXIT, None, label) or (loop is not None and (follow not in loop.region
+                                                                   or follow == loop.header)):
+            if loop is None:
+                return None
+            # inside a loop, the ways that leave it (continue, break) do not meet the others: where those meet
+            follow = self.loop_ipdom(loop).get(label)
+            if follow in (LOOP_EXIT, None, label) or follow not in loop.region or follow == loop.header:
+                return None
         if follow != stop and follow in self.emitted:
             return None
         return follow
+
+    def loop_ipdom(self, loop):
+        """Immediate post-dominators inside 'loop': its ways out (continue, break, a jump out of its region, a
+        small exit) all end at LOOP_EXIT, and a block every way from which ends so (it is written where it is
+        reached) is no place for the other ways to meet."""
+        found = self.loop_ipdoms.get(loop.header)
+        if found is not None:
+            return found
+        region = loop.region
+
+        def out(target):
+            return target == loop.header or target not in region or self.small_exit(target)
+        after = {label: [LOOP_EXIT if out(target) else target for target in successors(self.blocks[label])]
+                 or [LOOP_EXIT] for label in region}
+
+        entries = {}
+        for label, targets in after.items():
+            for target in targets:
+                entries.setdefault(target, set()).add(label)
+
+        def leaving(label):
+            """A short way out only one block leads to: a few blocks every way from which leaves the loop
+            without meeting other code ("if (count == 0) break; continue;"), written where it is reached. (The
+            step the ways of the body meet at before going round again is no such thing.)"""
+            if len(entries.get(label, ())) != 1:
+                return False
+            reach, stack = {label}, [label]
+            while stack:
+                for target in after[stack.pop()]:
+                    if target == LOOP_EXIT or target in reach:
+                        continue
+                    if target == label or len(reach) >= 4:
+                        return False
+                    reach.add(target)
+                    stack.append(target)
+            return all(all(target == LOOP_EXIT or target in reach for target in after[inner]) for inner in reach) \
+                and all(label not in after[inner] for inner in reach) \
+                and sum(len(self.blocks[inner].statements) + 1 for inner in reach) <= TAIL_COPY
+        succ = {label: [target for target in targets if target != LOOP_EXIT and not leaving(target)]
+                or [LOOP_EXIT] for label, targets in after.items()}
+        reaching = Graph.reach_back(succ, LOOP_EXIT)
+        for label in region:
+            if label not in reaching:
+                succ[label].append(LOOP_EXIT)    # (a loop inside whose ways out all end: it ends there)
+        found = post_dominator_tree(succ, LOOP_EXIT)
+        self.loop_ipdoms[loop.header] = found
+        return found
 
     def branch(self, label, end, out, stop, loop):
         then_label, else_label = end.target, end.otherwise
@@ -905,6 +1132,17 @@ def loop_shape(loop):
     # the body ends "if (c) continue; break;" or "if (c) continue;" followed by nothing: do { } while (c)
     while body and isinstance(body[-1], Continue):
         body.pop()
+    # the body ends "if (c) continue; a few statements; break;": the round goes on anyway, "if (!c) { ...;
+    # break; }"
+    if len(body) >= 3 and isinstance(body[-1], Break):
+        for position in range(len(body) - 3, -1, -1):
+            node = body[position]
+            if isinstance(node, If) and not node.otherwise and len(node.then) == 1 \
+                    and isinstance(node.then[0], Continue):
+                return loop_shape(Loop(body[:position] + [If(negate(node.condition), body[position + 1:])],
+                                       "forever"))
+            if not isinstance(node, Code):
+                break
     # "if (c) continue; else break;" at the end: do { } while (c)
     if body and isinstance(body[-1], If) and len(body[-1].then) == 1 and len(body[-1].otherwise) == 1 \
             and not uses_continue(body[:-1]):
@@ -944,14 +1182,51 @@ def uses_continue(nodes):
     return False
 
 
-def structure(function):
-    """The tree for 'function', and the labels gotos still need."""
+def structure(function, control_name=None):
+    """The tree for 'function', and the labels gotos still need: none when 'control_name' (label -> the name
+    of a control variable for it) is given, as gotos.py then takes the gotos out."""
     structurer = Structurer(function)
     tree = tidy(structurer.build(), structurer.labels)
     fallthrough_cases(tree)
     drop_fallthrough_gotos(tree)
+    group_cases(tree)
+    if control_name is not None and goto_targets(tree):
+        from . import gotos    # (it rewrites this module's tree)
+        tree = gotos.eliminate(tree, control_name)
     labels = goto_targets(tree)
     return drop_labels(tree, labels), labels
+
+
+def group_cases(nodes):
+    """Cases that only go on in the same function (a table of jumps to the state code: "case 0: case 1:
+    player_move(); return;") are one case with all their values."""
+    for node in nodes:
+        if isinstance(node, If):
+            group_cases(node.then)
+            group_cases(node.otherwise)
+        elif isinstance(node, Loop):
+            group_cases(node.body)
+        elif isinstance(node, Switch):
+            for _, body in node.cases:
+                group_cases(body)
+            grouped = []
+            for values, body in node.cases:
+                key = tail_target(body)
+                same = next((index for index, (_, other) in enumerate(grouped)
+                             if key is not None and tail_target(other) == key), None)
+                if same is None:
+                    grouped.append((list(values), body))
+                else:
+                    grouped[same] = (sorted(grouped[same][0] + list(values)), grouped[same][1])
+            node.cases = grouped
+
+
+def tail_target(body):
+    """(target, entry) of a case body that is only a tail call, or None."""
+    nodes = [node for node in body if not isinstance(node, Label)]
+    if len(nodes) == 1 and isinstance(nodes[0], End) and isinstance(nodes[0].end, ir.TailCall):
+        return nodes[0].end.target, nodes[0].end.entry
+    return None
 
 
 def fallthrough_cases(nodes):

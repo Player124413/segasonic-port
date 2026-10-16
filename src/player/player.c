@@ -98,9 +98,6 @@ void player_join(void)
 		player_select_character(player);
 		if (PLAYER(current_player)->substate != 0u)
 			return;
-		OBJECT(current_object)->handler = player_reset_joined_ADDRESS;
-		player_reset_joined();
-		return;
 	}
 	OBJECT(current_object)->handler = player_reset_joined_ADDRESS;
 	player_reset_joined();
@@ -276,22 +273,26 @@ void player_place(void)
 	start_climb_at_spawn(r0);
 	if (OBJECT(current_object)->floor_z_int >= 0x7FF)
 	{
-	player_place_drop_in:
 		entry_status = 0x81u;
-	player_place_retry:
 		OBJECT(current_object)->handler = player_place_ADDRESS;
+	}
+	else if ((uint16_t)PLAYER(current_player)->previous_z_int != 0x800u)
+	{
+		if ((OBJECT(current_object)->flags & 4u) != 0u || (OBJECT(current_object)->flags & 0x8000000u) != 0u)
+		{
+			entry_status = 0x81u;
+			OBJECT(current_object)->handler = player_place_ADDRESS;
+		}
+		else
+		{
+			OBJECT(current_object)->handler = player_update_ADDRESS;
+			entry_status = 0xFFu;
+		}
 	}
 	else
 	{
-		if ((uint16_t)PLAYER(current_player)->previous_z_int == 0x800u)
-		{
-			entry_status = 0xFFu;
-			goto player_place_retry;
-		}
-		if ((OBJECT(current_object)->flags & 4u) != 0u || (OBJECT(current_object)->flags & 0x8000000u) != 0u)
-			goto player_place_drop_in;
-		OBJECT(current_object)->handler = player_update_ADDRESS;
 		entry_status = 0xFFu;
+		OBJECT(current_object)->handler = player_place_ADDRESS;
 	}
 	PLAYER(current_player)->entry_status = entry_status;
 	set_player_entry_by_scene();
@@ -337,7 +338,7 @@ void player_place(void)
 
 void player_update(void)
 {
-	uint32_t r1 = 0, r11 = 0, jump_offset = 0;
+	uint32_t r1 = 0, r11 = 0;
 	uint16_t invulnerable_left = 0;
 
 	current_player = PLAYER_BLOCK(1) + ((uint32_t)OBJECT(current_object)->player << 7) * 4u;
@@ -352,86 +353,75 @@ void player_update(void)
 	check_stage_entry_path();
 	check_player_reached_goal();
 	r11 = check_scene_states(r11);
+	player_dispatch_state(r1, r11);
+}
+
+void player_dispatch_state(uint32_t depth, uint32_t cursor)
+{
+	uint32_t jump_offset = 0;
+
 	jump_offset = PLAYER(current_player)->state * 3u;
 	switch (PLAYER(current_player)->state)
 	{
 	case 0:
-		player_move(r1, r11);
-		return;
 	case 1:
-		player_move(r1, r11);
-		return;
 	case 2:
-		player_move(r1, r11);
+	case 4:
+	case 12:
+	case 19:
+	case 20:
+	case 23:
+	case 58:
+		player_move(depth, cursor);
 		return;
 	case 3:
 		player_state_inactive();
 		return;
-	case 4:
-		player_move(r1, r11);
-		return;
 	case 5:
-		player_state_teetering(r11);
+		player_state_teetering(cursor);
 		return;
 	case 6:
 		player_state_falling_off_edge();
 		return;
 	case 7:
-		player_state_over_edge(jump_offset, r11);
+		player_state_over_edge(jump_offset, cursor);
 		return;
 	case 8:
-		player_state_dropping(r11);
+		player_state_dropping(cursor);
 		return;
 	case 9:
 		player_state_falling_into_pit();
 		return;
 	case 10:
-		player_state_climbing(r1, r11);
+		player_state_climbing(depth, cursor);
 		return;
 	case 11:
+	case 55:
 		player_state_not_playing();
 		return;
-	case 12:
-		player_move(r1, r11);
-		return;
 	case 13:
-		player_state_hurt(r1, r11);
+		player_state_hurt(depth, cursor);
 		return;
 	case 14:
 		player_state_bouncing();
 		return;
 	case 15:
-		player_state_launched();
-		return;
 	case 16:
-		player_state_launched();
-		return;
 	case 17:
-		player_state_launched();
-		return;
 	case 18:
 		player_state_launched();
 		return;
-	case 19:
-		player_move(r1, r11);
-		return;
-	case 20:
-		player_move(r1, r11);
-		return;
 	case 21:
-		player_state_held(r1, r11);
+		player_state_held(depth, cursor);
 		return;
 	case 22:
 		player_state_dying();
 		return;
-	case 23:
-		player_move(r1, r11);
-		return;
 	case 24:
-		player_state_stage_scene(r1, r11);
+		player_state_stage_scene(depth, cursor);
 		return;
 	case 25:
-		player_state_scene_thrown(r1, r11);
+		player_state_scene_thrown(depth, cursor);
 		return;
 	case 26:
 		player_state_inactive_2();
@@ -443,22 +433,22 @@ void player_update(void)
 		player_state_opening_scene();
 		return;
 	case 29:
-		player_state_stuck(r11);
+		player_state_stuck(cursor);
 		return;
 	case 30:
-		player_state_intro_turn(r1, r11);
+		player_state_intro_turn(depth, cursor);
 		return;
 	case 31:
-		player_state_blown_away(r11);
+		player_state_blown_away(cursor);
 		return;
 	case 32:
-		player_state_tumbling(r1, r11);
+		player_state_tumbling(depth, cursor);
 		return;
 	case 33:
-		player_state_stage_exit(r1, r11);
+		player_state_stage_exit(depth, cursor);
 		return;
 	case 34:
-		player_state_in_zone(r1, r11);
+		player_state_in_zone(depth, cursor);
 		return;
 	case 35:
 		player_state_continue();
@@ -467,28 +457,28 @@ void player_update(void)
 		player_state_out_of_game();
 		return;
 	case 37:
-		player_state_floor_8_sequence(r11);
+		player_state_floor_8_sequence(cursor);
 		return;
 	case 38:
-		player_state_pulled(r11);
+		player_state_pulled(cursor);
 		return;
 	case 39:
-		player_state_climbing_object(r11);
+		player_state_climbing_object(cursor);
 		return;
 	case 40:
 		player_state_swept_away();
 		return;
 	case 41:
-		player_state_tripped(r11);
+		player_state_tripped(cursor);
 		return;
 	case 42:
-		player_state_entering_stage(r1, r11);
+		player_state_entering_stage(depth, cursor);
 		return;
 	case 43:
 		player_state_final_stage();
 		return;
 	case 44:
-		player_state_stuck_on_object(r1, r11);
+		player_state_stuck_on_object(depth, cursor);
 		return;
 	case 45:
 		player_state_held_still();
@@ -497,40 +487,34 @@ void player_update(void)
 		player_state_game_over(jump_offset);
 		return;
 	case 47:
-		player_state_stunned(r1, r11);
+		player_state_stunned(depth, cursor);
 		return;
 	case 48:
-		player_state_caught(r11);
+		player_state_caught(cursor);
 		return;
 	case 49:
-		player_state_carried_off(r1, r11);
+		player_state_carried_off(depth, cursor);
 		return;
 	case 50:
-		player_state_trapped(r1, r11);
+		player_state_trapped(depth, cursor);
 		return;
 	case 51:
-		player_state_sinking(r11);
+		player_state_sinking(cursor);
 		return;
 	case 52:
-		player_state_choosing_character(r11);
+		player_state_choosing_character(cursor);
 		return;
 	case 53:
 		player_state_riding();
 		return;
 	case 54:
-		player_state_knocked_off(r1, r11);
-		return;
-	case 55:
-		player_state_not_playing();
+		player_state_knocked_off(depth, cursor);
 		return;
 	case 56:
-		player_state_stage_b_sequence(r1, r11);
+		player_state_stage_b_sequence(depth, cursor);
 		return;
 	case 57:
 		player_state_you_failed();
-		return;
-	case 58:
-		player_move(r1, r11);
 		return;
 	default:
 		invalid_jump(0x2D3Eu + PLAYER(current_player)->state * 3u);
@@ -552,89 +536,87 @@ uint32_t keep_player_on_screen(uint32_t depth)
 	base_y = (uint16_t)(OBJECT(current_object)->screen_y - depth);
 	if ((stage != 8u || scroll_position >= 0x4000u) && ((uint16_t)(base_x + 0x10u) >= 0x160u || (uint16_t)(base_y + 0xE0u) >= 0x1E0u))
 	{
-		if (stage == 5u)
-			OBJECT(current_object)->handler = player_respawn_ADDRESS;
-		else
+		if (stage != 5u)
 		{
 			health = OBJECT(current_object)->health;
 			OBJECT(current_object)->health = health - 8u;
 			if ((int8_t)health > 8)
-			{
 				OBJECT(current_object)->handler = player_respawn_ADDRESS;
-				return depth;
-			}
-			OBJECT(current_object)->health = 0;
-			PLAYER(current_player)->state = 0x16u;
-			PLAYER(current_player)->substate = 0u;
-		}
-	}
-	else
-	{
-		if ((OBJECT(current_object)->flags & 0x1000u) != 0u || PLAYER(current_player)->ignore_screen_edges != 0u || OBJECT(current_object)->floor_z_int >= 0x7FF)
-			return depth;
-		if ((int16_t)base_x > 0x10)
-		{
-			if ((int16_t)base_x < 0x128)
+			else
 			{
-				if (PLAYER(current_player)->state == 4u)
-					base_y -= 9u;
-				base_y += OBJECT(current_object)->floor_z_int - OBJECT(current_object)->z_int;
-				if ((int16_t)base_y > 0x20)
-				{
-					if ((int16_t)base_y < 0xD0)
-						return depth;
-					edge = 2u;
-				}
-				else
-					edge = 0u;
+				OBJECT(current_object)->health = 0;
+				PLAYER(current_player)->state = 0x16u;
+				PLAYER(current_player)->substate = 0u;
+			}
+			return depth;
+		}
+		OBJECT(current_object)->handler = player_respawn_ADDRESS;
+		return depth;
+	}
+	if ((OBJECT(current_object)->flags & 0x1000u) != 0u || PLAYER(current_player)->ignore_screen_edges != 0u || OBJECT(current_object)->floor_z_int >= 0x7FF)
+		return depth;
+	if ((int16_t)base_x > 0x10)
+	{
+		if ((int16_t)base_x < 0x128)
+		{
+			if (PLAYER(current_player)->state == 4u)
+				base_y -= 9u;
+			base_y += OBJECT(current_object)->floor_z_int - OBJECT(current_object)->z_int;
+			if ((int16_t)base_y > 0x20)
+			{
+				if ((int16_t)base_y < 0xD0)
+					return depth;
+				edge = 2u;
 			}
 			else
-				edge = 1u;
+				edge = 0u;
 		}
 		else
-			edge = 3u;
-		PLAYER(current_player)->screen_edge = edge;
-		if ((PLAYER(current_player)->flags & 0x20u) == 0u)
-		{
-			voice_range = edge_voice_scroll_ranges_ADDRESS + stage * 4u;
-			if ((uint16_t)(scroll_position - ROM16(voice_range)) < ROM16(voice_range + 2u) && players_in_play >= 2)
-			{
-				sound_id = 0x39u;
-				if (OBJECT(current_object)->kind != 0u)
-				{
-					sound_id = 0x43u;
-					if (OBJECT(current_object)->kind != 1u)
-						sound_id = 0x4Cu;
-				}
-				play_sound(sound_id, &ignored, &ignored);
-				PLAYER(current_player)->flags |= 0x20u;
-			}
-		}
-		slope_factor = 0u;
-		if ((OBJECT(current_object)->floor_slope | OBJECT(current_object)->floor_type) != 0u)
-		{
-			floor_slope = OBJECT(current_object)->floor_slope;
-			slope_factor = floor_slope_factors[(uint16_t)(floor_slope * 2u)];
-		}
-		compute_camera_slope_speed(0u, slope_factor);
-		if (camera_slope_speed == 0u)
-			return push_player_from_screen_edge();
-		scroll_direction = camera_scroll_direction;
-		direction_row = 0u;
-		if ((uint8_t)scroll_direction != 0u)
-			direction_row = (uint16_t)(direction_row + 4u);
-		direction_row = (uint16_t)(direction_row + (scroll_direction >> 8));
-		if ((int8_t)ROM8((uint16_t)(direction_row << 2) + screen_edge_scroll_carry_flags_ADDRESS + PLAYER(current_player)->screen_edge) >= 0)
-			return push_player_from_screen_edge();
-		push_player_from_screen_edge();
-		slope_direction = (int16_t)camera_slope_direction;
-		slope_speed = camera_slope_speed >> 14;
-		OBJECT(current_object)->x += (int32_t)(sine_table[slope_direction] * slope_speed) >> 8;
-		PLAYER(current_player)->previous_x = OBJECT(current_object)->x;
-		depth = (int32_t)(cosine_table[slope_direction] * slope_speed) >> 8;
-		OBJECT(current_object)->y -= depth;
-		PLAYER(current_player)->previous_y = OBJECT(current_object)->y;
+			edge = 1u;
 	}
+	else
+		edge = 3u;
+	PLAYER(current_player)->screen_edge = edge;
+	if ((PLAYER(current_player)->flags & 0x20u) == 0u)
+	{
+		voice_range = edge_voice_scroll_ranges_ADDRESS + stage * 4u;
+		if ((uint16_t)(scroll_position - ROM16(voice_range)) < ROM16(voice_range + 2u) && players_in_play >= 2)
+		{
+			sound_id = 0x39u;
+			if (OBJECT(current_object)->kind != 0u)
+			{
+				sound_id = 0x43u;
+				if (OBJECT(current_object)->kind != 1u)
+					sound_id = 0x4Cu;
+			}
+			play_sound(sound_id, &ignored, &ignored);
+			PLAYER(current_player)->flags |= 0x20u;
+		}
+	}
+	slope_factor = 0u;
+	if ((OBJECT(current_object)->floor_slope | OBJECT(current_object)->floor_type) != 0u)
+	{
+		floor_slope = OBJECT(current_object)->floor_slope;
+		slope_factor = floor_slope_factors[(uint16_t)(floor_slope * 2u)];
+	}
+	compute_camera_slope_speed(0u, slope_factor);
+	if (camera_slope_speed == 0u)
+		return push_player_from_screen_edge();
+	scroll_direction = camera_scroll_direction;
+	direction_row = 0u;
+	if ((uint8_t)scroll_direction != 0u)
+		direction_row = (uint16_t)(direction_row + 4u);
+	direction_row = (uint16_t)(direction_row + (scroll_direction >> 8));
+	if ((int8_t)ROM8((uint16_t)(direction_row << 2) + screen_edge_scroll_carry_flags_ADDRESS + PLAYER(current_player)->screen_edge) >= 0)
+		return push_player_from_screen_edge();
+	push_player_from_screen_edge();
+	slope_direction = (int16_t)camera_slope_direction;
+	slope_speed = camera_slope_speed >> 14;
+	OBJECT(current_object)->x += (int32_t)(sine_table[slope_direction] * slope_speed) >> 8;
+	PLAYER(current_player)->previous_x = OBJECT(current_object)->x;
+	depth = (int32_t)(cosine_table[slope_direction] * slope_speed) >> 8;
+	OBJECT(current_object)->y -= depth;
+	PLAYER(current_player)->previous_y = OBJECT(current_object)->y;
 	return depth;
 }
 
@@ -683,23 +665,27 @@ void compute_scroll_drift(uint32_t block, uint8_t drift_byte)
 		dy = (uint16_t)((int32_t)camera_velocity_y >> 8);
 		angle_of_vector(dy, &drift_angle, &ignored);
 		scroll_drift_direction = (drift_angle + 0x80u) & 0x3FFu;
+		scroll_angle = (int32_t)camera_velocity_x >> 5;
+		dy = (uint16_t)((int32_t)camera_velocity_y >> 5);
+		angle_of_vector(dy, &scroll_angle, &ignored);
+		camera_scroll_direction = scroll_angle;
+		scroll_drift_vx = camera_velocity_x;
+		scroll_drift_vy = camera_velocity_y;
+		return;
 	}
-	else
-	{
-		slope = FLOOR_BLOCK(block)->slope;
-		divisor = floor_slope_factors[(uint16_t)(slope * 2u)];
-		if ((int32_t)divisor < 0)
-			divisor = 0u - divisor;
-		vy = camera_velocity_y;
-		divisor += 0x10000u;
-		unused_drift_divisor = divisor;
-		vy = divide_s32(vy << 11, divisor);
-		vx = (int32_t)camera_velocity_x >> 5;
-		vx = vx * vx + vy * vy;
-		square_root(&vx, &ignored);
-		scroll_drift_speed = (vx & 0xFFFFu) << 13;
-		scroll_drift_direction = (uint32_t)ROM8(scroll_drift_block + 0x15u) << 8;
-	}
+	slope = FLOOR_BLOCK(block)->slope;
+	divisor = floor_slope_factors[(uint16_t)(slope * 2u)];
+	if ((int32_t)divisor < 0)
+		divisor = 0u - divisor;
+	vy = camera_velocity_y;
+	divisor += 0x10000u;
+	unused_drift_divisor = divisor;
+	vy = divide_s32(vy << 11, divisor);
+	vx = (int32_t)camera_velocity_x >> 5;
+	vx = vx * vx + vy * vy;
+	square_root(&vx, &ignored);
+	scroll_drift_speed = (vx & 0xFFFFu) << 13;
+	scroll_drift_direction = (uint32_t)ROM8(scroll_drift_block + 0x15u) << 8;
 	scroll_angle = (int32_t)camera_velocity_x >> 5;
 	dy = (uint16_t)((int32_t)camera_velocity_y >> 5);
 	angle_of_vector(dy, &scroll_angle, &ignored);
@@ -891,13 +877,11 @@ void check_player_floor_edge(uint32_t *p_depth, uint32_t *p_block)
 				draw_depth = (draw_depth & ~0xFFFFu) | (uint16_t)(draw_depth - 1u);
 				PLAYER(current_player)->fall_draw_depth = draw_depth;
 			}
-			PLAYER(current_player)->fall_draw_depth -= 0x10u;
 		}
-		else if (PLAYER(current_player)->ledge_side < 2)
+		else
 		{
-			if (stage != 0xAu)
+			if (PLAYER(current_player)->ledge_side >= 2)
 			{
-				PLAYER(current_player)->fall_draw_depth -= 0x10u;
 				OBJECT(current_object)->flags &= ~0x100u;
 				if (mem_read8(floor_blocks + 2u + OBJECT(current_object)->previous_floor_block + 0x12u) == 0x10u || OBJECT(current_object)->floor_type == 1u)
 				{
@@ -917,27 +901,10 @@ void check_player_floor_edge(uint32_t *p_depth, uint32_t *p_block)
 				*p_block = block;
 				return;
 			}
-			PLAYER(current_player)->fall_draw_depth -= 0x20u;
-			PLAYER(current_player)->fall_draw_depth -= 0x10u;
-			OBJECT(current_object)->flags &= ~0x100u;
-			if (mem_read8(floor_blocks + 2u + OBJECT(current_object)->previous_floor_block + 0x12u) == 0x10u || OBJECT(current_object)->floor_type == 1u)
-			{
-				OBJECT(current_object)->flags |= 0x100u;
-				PLAYER(current_player)->edge_object = OBJECT(LINKED(current_object, OBJECT(current_object)->platform))->parent;
-			}
-			PLAYER(current_player)->heading = OBJECT(current_object)->direction;
-			PLAYER(current_player)->ledge_pullback = 0;
-			PLAYER(current_player)->slip_distance = 0;
-			PLAYER(current_player)->control_lock = 0u;
-			OBJECT(current_object)->sprite_palette = ROM16(OBJECT(current_object)->check_player.palette_list + 2u);
-			OBJECT(current_object)->flags &= ~0x40u;
-			OBJECT(current_object)->flags &= ~0x20000u;
-			PLAYER(current_player)->flags |= 0x80u;
-			OBJECT(current_object)->flags &= ~0x2000u;
-			*p_depth = draw_depth;
-			*p_block = block;
-			return;
+			if (stage == 0xAu)
+				PLAYER(current_player)->fall_draw_depth -= 0x20u;
 		}
+		PLAYER(current_player)->fall_draw_depth -= 0x10u;
 		OBJECT(current_object)->flags &= ~0x100u;
 		if (mem_read8(floor_blocks + 2u + OBJECT(current_object)->previous_floor_block + 0x12u) == 0x10u || OBJECT(current_object)->floor_type == 1u)
 		{
@@ -1044,12 +1011,15 @@ void check_player_jump(void)
 	}
 	jump_delay = PLAYER(current_player)->jump_delay;
 	PLAYER(current_player)->jump_delay = jump_delay - 1u;
-	if ((int8_t)jump_delay >= 1)
-		return;
-	PLAYER(current_player)->jump_delay = 0;
-	if (PLAYER(current_player)->state == 2u || PLAYER(current_player)->control_lock != 0u)
-		return;
-	start_jump_if_pressed();
+	if ((int8_t)jump_delay < 1)
+	{
+		PLAYER(current_player)->jump_delay = 0;
+		if (PLAYER(current_player)->state != 2u && PLAYER(current_player)->control_lock == 0u)
+		{
+			start_jump_if_pressed();
+			return;
+		}
+	}
 }
 
 void start_jump_if_pressed(void)
@@ -1091,19 +1061,35 @@ void push_player_out_of_wall(uint32_t *p_angle, uint32_t *p_push_direction, uint
 	uint32_t angle = *p_angle;
 	uint16_t push_direction = (uint16_t)*p_push_direction;
 	uint32_t record_index = *p_record_index;
-	uint16_t drift_bounce_direction = 0, new_direction = 0;
-	uint32_t rebound_direction = 0;
+	uint16_t drift_bounce_direction = 0;
+	uint32_t drift_angle = 0, rebound_direction = 0, wall_push_direction = 0, wall_record_index = 0;
 	uint8_t wall_timer = 0;
 
 	if (PLAYER(current_player)->path_request != 0u || PLAYER(current_player)->path != 0u || all_players_path_request != 0u)
 		return;
-	if ((OBJECT(current_object)->flags & 0x20u) != 0u)
+	if ((OBJECT(current_object)->flags & 0x20u) == 0u)
 	{
-		if (OBJECT(current_object)->wall != PLAYER(current_player)->last_wall)
+		PLAYER(current_player)->last_wall = 0xFFFFu;
+		return;
+	}
+	if (OBJECT(current_object)->wall != PLAYER(current_player)->last_wall)
+	{
+		PLAYER(current_player)->wall_timer = 0x1E;
+		PLAYER(current_player)->last_wall = OBJECT(current_object)->wall;
+		if ((stage != 8u || scroll_position >= 0x4000u) && PLAYER(current_player)->state != 0x25u && PLAYER(current_player)->state != 0x26u)
+			OBJECT(current_object)->flags |= 0x1000u;
+		OBJECT(current_object)->x = PLAYER(current_player)->previous_x;
+		OBJECT(current_object)->y = PLAYER(current_player)->previous_y;
+		OBJECT(current_object)->floor_block = OBJECT(current_object)->previous_floor_block;
+		OBJECT(current_object)->floor_z = OBJECT(current_object)->previous_floor_z;
+		PLAYER(current_player)->control_lock = 0u;
+	}
+	else
+	{
+		wall_timer = PLAYER(current_player)->wall_timer;
+		PLAYER(current_player)->wall_timer = wall_timer - 1u;
+		if ((int8_t)wall_timer > 1)
 		{
-			PLAYER(current_player)->wall_timer = 0x1E;
-			PLAYER(current_player)->last_wall = OBJECT(current_object)->wall;
-		push_player_out_of_wall_push_back:
 			if ((stage != 8u || scroll_position >= 0x4000u) && PLAYER(current_player)->state != 0x25u && PLAYER(current_player)->state != 0x26u)
 				OBJECT(current_object)->flags |= 0x1000u;
 			OBJECT(current_object)->x = PLAYER(current_player)->previous_x;
@@ -1113,89 +1099,26 @@ void push_player_out_of_wall(uint32_t *p_angle, uint32_t *p_push_direction, uint
 			PLAYER(current_player)->control_lock = 0u;
 		}
 		else
-		{
-			wall_timer = PLAYER(current_player)->wall_timer;
-			PLAYER(current_player)->wall_timer = wall_timer - 1u;
-			if ((int8_t)wall_timer > 1)
-				goto push_player_out_of_wall_push_back;
 			PLAYER(current_player)->wall_timer = 0;
-		}
-		if (PLAYER(current_player)->state == 4u || PLAYER(current_player)->state == 0x17u)
-		{
-			rebound_direction = (angle & ~0xFFFFu) | OBJECT(LINKED(current_object, OBJECT(current_object)->wall))->direction;
-			rebound_direction = (rebound_direction & ~0xFFFFu) | (uint16_t)(rebound_direction << 8);
-			rebound_direction = (rebound_direction & ~0xFFFFu) | (uint16_t)(rebound_direction + 0x200u);
-			rebound_direction = (rebound_direction & ~0xFFFFu) | (rebound_direction & 0x3FFu);
-			OBJECT(current_object)->direction = rebound_direction;
-			rebound_direction = face_movement_direction(rebound_direction);
-			OBJECT(current_object)->speed = 0x4000000;
-			OBJECT(current_object)->speed_z = -0x18000;
-			PLAYER(current_player)->state_timer = 6;
-			OBJECT(current_object)->flags |= 0x2000u;
-			PLAYER(current_player)->control_lock = 0xAu;
-			*p_angle = rebound_direction;
-			return;
-		}
-		if (current_game_mode == 0xAu || PLAYER(current_player)->state == 0xDu || PLAYER(current_player)->state == 0x20u)
-		{
-			angle = 0u;
-			OBJECT(current_object)->speed = 0;
-			OBJECT(current_object)->speed_x = 0;
-			OBJECT(current_object)->speed_y = 0;
-			PLAYER(current_player)->free_turn_timer = 3u;
-			OBJECT(current_object)->flags |= 0x800000u;
-			PLAYER(current_player)->previous_state = PLAYER(current_player)->state;
-			PLAYER(current_player)->state = 0u;
-			*p_angle = angle;
-			return;
-		}
-		if (PLAYER(current_player)->state == 0x25u || PLAYER(current_player)->state == 0x26u)
-		{
-			angle = (angle & ~0xFFFFu) | scroll_drift_direction;
-			angle = (angle & ~0xFFFFu) | (uint16_t)(angle + 0x200u);
-			angle = (angle & ~0xFFFFu) | (angle & 0x3FFu);
-			drift_bounce_direction = sonic_bounce_records[OBJECT(LINKED(current_object, OBJECT(current_object)->wall))->direction_low * 3u];
-			angle = (angle & ~0xFFFFu) | (uint16_t)(angle - drift_bounce_direction);
-			angle = (angle & ~0xFFFFu) | (angle & 0x3FFu);
-			if ((int16_t)angle < 0x200)
-				drift_bounce_direction -= 0x80u;
-			else
-				drift_bounce_direction += 0x80u;
-			scroll_drift_direction = drift_bounce_direction & 0x3FFu;
-		push_player_out_of_wall_deflect:
-			angle = (angle & ~0xFFFFu) | OBJECT(current_object)->direction;
-			angle = (angle & ~0xFFFFu) | (uint16_t)(angle + 0x200u);
-			angle = (angle & ~0xFFFFu) | (angle & 0x3FFu);
-			record_index = OBJECT(LINKED(current_object, OBJECT(current_object)->wall))->direction_low * 3u;
-			push_direction = sonic_bounce_records[record_index];
-			new_direction = (uint16_t)push_direction;
-			angle = (angle & ~0xFFFFu) | (uint16_t)(angle - push_direction);
-			angle = (angle & ~0xFFFFu) | (angle & 0x3FFu);
-			if ((int16_t)angle < 0x200)
-				new_direction -= 0x80u;
-			else
-				new_direction += 0x80u;
-			OBJECT(current_object)->direction = new_direction & 0x3FFu;
-			PLAYER(current_player)->control_lock = 4u;
-			if (stage != 8u || scroll_position >= 0x4000u)
-			{
-				*p_angle = angle;
-				*p_push_direction = (*p_push_direction & 0xFFFF0000u) | push_direction;
-				*p_record_index = record_index;
-				return;
-			}
-			angle = (angle & ~0xFFFFu) | OBJECT(LINKED(current_object, OBJECT(current_object)->wall))->direction;
-			angle = (angle & ~0xFFFFu) | (uint16_t)(angle << 8);
-			angle = (angle & ~0xFFFFu) | (uint16_t)(angle + 0x200u);
-			angle = (angle & ~0xFFFFu) | (angle & 0x3FFu);
-			OBJECT(current_object)->direction = angle;
-			*p_angle = angle;
-			*p_push_direction = (*p_push_direction & 0xFFFF0000u) | push_direction;
-			*p_record_index = record_index;
-			return;
-		}
-		if (OBJECT(current_object)->floor_type == 4u || OBJECT(current_object)->speed_int >= 0x200)
-			goto push_player_out_of_wall_deflect;
+	}
+	if (PLAYER(current_player)->state == 4u || PLAYER(current_player)->state == 0x17u)
+	{
+		rebound_direction = (angle & ~0xFFFFu) | OBJECT(LINKED(current_object, OBJECT(current_object)->wall))->direction;
+		rebound_direction = (rebound_direction & ~0xFFFFu) | (uint16_t)(rebound_direction << 8);
+		rebound_direction = (rebound_direction & ~0xFFFFu) | (uint16_t)(rebound_direction + 0x200u);
+		rebound_direction = (rebound_direction & ~0xFFFFu) | (rebound_direction & 0x3FFu);
+		OBJECT(current_object)->direction = rebound_direction;
+		rebound_direction = face_movement_direction(rebound_direction);
+		OBJECT(current_object)->speed = 0x4000000;
+		OBJECT(current_object)->speed_z = -0x18000;
+		PLAYER(current_player)->state_timer = 6;
+		OBJECT(current_object)->flags |= 0x2000u;
+		PLAYER(current_player)->control_lock = 0xAu;
+		*p_angle = rebound_direction;
+		return;
+	}
+	if (current_game_mode == 0xAu || PLAYER(current_player)->state == 0xDu || PLAYER(current_player)->state == 0x20u)
+	{
 		angle = 0u;
 		OBJECT(current_object)->speed = 0;
 		OBJECT(current_object)->speed_x = 0;
@@ -1207,7 +1130,78 @@ void push_player_out_of_wall(uint32_t *p_angle, uint32_t *p_push_direction, uint
 		*p_angle = angle;
 		return;
 	}
-	PLAYER(current_player)->last_wall = 0xFFFFu;
+	if (PLAYER(current_player)->state != 0x25u && PLAYER(current_player)->state != 0x26u)
+	{
+		if (OBJECT(current_object)->floor_type == 4u || OBJECT(current_object)->speed_int >= 0x200)
+		{
+			push_player_out_of_wall_deflect(&angle, &wall_push_direction, &wall_record_index);
+			*p_angle = angle;
+			*p_push_direction = (*p_push_direction & 0xFFFF0000u) | (wall_push_direction & 0xFFFFu);
+			*p_record_index = wall_record_index;
+			return;
+		}
+		angle = 0u;
+		OBJECT(current_object)->speed = 0;
+		OBJECT(current_object)->speed_x = 0;
+		OBJECT(current_object)->speed_y = 0;
+		PLAYER(current_player)->free_turn_timer = 3u;
+		OBJECT(current_object)->flags |= 0x800000u;
+		PLAYER(current_player)->previous_state = PLAYER(current_player)->state;
+		PLAYER(current_player)->state = 0u;
+		*p_angle = angle;
+		return;
+	}
+	drift_angle = (angle & ~0xFFFFu) | scroll_drift_direction;
+	drift_angle = (drift_angle & ~0xFFFFu) | (uint16_t)(drift_angle + 0x200u);
+	drift_angle = (drift_angle & ~0xFFFFu) | (drift_angle & 0x3FFu);
+	drift_bounce_direction = sonic_bounce_records[OBJECT(LINKED(current_object, OBJECT(current_object)->wall))->direction_low * 3u];
+	drift_angle = (drift_angle & ~0xFFFFu) | (uint16_t)(drift_angle - drift_bounce_direction);
+	drift_angle = (drift_angle & ~0xFFFFu) | (drift_angle & 0x3FFu);
+	if ((int16_t)drift_angle < 0x200)
+	{
+		drift_bounce_direction -= 0x80u;
+		scroll_drift_direction = drift_bounce_direction & 0x3FFu;
+		push_player_out_of_wall_deflect(&drift_angle, &wall_push_direction, &wall_record_index);
+		*p_angle = drift_angle;
+		*p_push_direction = (*p_push_direction & 0xFFFF0000u) | (wall_push_direction & 0xFFFFu);
+		*p_record_index = wall_record_index;
+		return;
+	}
+	drift_bounce_direction += 0x80u;
+	scroll_drift_direction = drift_bounce_direction & 0x3FFu;
+	push_player_out_of_wall_deflect(&drift_angle, &wall_push_direction, &wall_record_index);
+	*p_angle = drift_angle;
+	*p_push_direction = (*p_push_direction & 0xFFFF0000u) | (wall_push_direction & 0xFFFFu);
+	*p_record_index = wall_record_index;
+}
+
+void push_player_out_of_wall_deflect(uint32_t *p_angle, uint32_t *p_push_direction, uint32_t *p_record_index)
+{
+	uint16_t angle = 0, new_direction = 0, push_direction = 0;
+	uint32_t record_index = 0;
+
+	record_index = OBJECT(LINKED(current_object, OBJECT(current_object)->wall))->direction_low * 3u;
+	push_direction = sonic_bounce_records[record_index];
+	new_direction = (uint16_t)push_direction;
+	angle = (((OBJECT(current_object)->direction + 0x200u) & 0x3FFu) - push_direction) & 0x3FFu;
+	if ((int16_t)angle < 0x200)
+		new_direction -= 0x80u;
+	else
+		new_direction += 0x80u;
+	OBJECT(current_object)->direction = new_direction & 0x3FFu;
+	PLAYER(current_player)->control_lock = 4u;
+	if (stage != 8u || scroll_position >= 0x4000u)
+	{
+		*p_angle = (*p_angle & 0xFFFF0000u) | angle;
+		*p_push_direction = (*p_push_direction & 0xFFFF0000u) | push_direction;
+		*p_record_index = record_index;
+		return;
+	}
+	angle = (((uint32_t)OBJECT(LINKED(current_object, OBJECT(current_object)->wall))->direction << 8) + 0x200u) & 0x3FFu;
+	OBJECT(current_object)->direction = angle;
+	*p_angle = (*p_angle & 0xFFFF0000u) | angle;
+	*p_push_direction = (*p_push_direction & 0xFFFF0000u) | push_direction;
+	*p_record_index = record_index;
 }
 
 void player_steer_in_air(void)
@@ -1238,131 +1232,164 @@ void player_steer_in_air(void)
 
 void player_steer(uint32_t wanted_speed)
 {
-	uint32_t carry = 0;
-	uint8_t next_state = 0;
-	uint16_t animation_speed_int = 0;
-	uint32_t animation_speed_diff = 0, direction = 0, floor_slope = 0, ignored = 0, input_animation_speed = 0, input_y = 0, rounded_heading = 0, rounded_speed = 0, run_threshold = 0, slope_pair = 0, speed_diff = 0, speed_factor = 0, trackball_y = 0;
-	uint32_t speed = 0, target_speed = 0, speed_2 = 0, target_speed_2 = 0, animation_speed = 0, target_animation_speed = 0;
-
 	wanted_speed = follow_player_path(wanted_speed);
 	if (PLAYER(current_player)->path != 0u)
 	{
-	player_steer_approach_speed:
-		wanted_speed = apply_speed_scale(wanted_speed);
-		if (OBJECT(current_object)->floor_type == 7u && PLAYER(current_player)->path == 0u)
+		player_steer_approach_speed(wanted_speed);
+		return;
+	}
+	read_player_trackball();
+	if (players_frozen != 0u)
+	{
+		PLAYER(current_player)->trackball_x = 0;
+		PLAYER(current_player)->trackball_y = 0;
+	}
+	if (PLAYER(current_player)->state == 4u || PLAYER(current_player)->state == 0x17u || PLAYER(current_player)->state == 0x25u || PLAYER(current_player)->state == 0x26u || PLAYER(current_player)->state == 0x2Du || (PLAYER(current_player)->trackball_x | PLAYER(current_player)->trackball_y) != 0u || PLAYER(current_player)->push_xy != 0u)
+	{
+		if ((OBJECT(current_object)->flags & 0x2000u) != 0u)
 		{
-			speed = OBJECT(current_object)->speed;
-			target_speed = wanted_speed;
-			speed_diff = target_speed - speed;
-			if ((int32_t)target_speed <= (int32_t)speed)
-				OBJECT(current_object)->speed += (int32_t)speed_diff >> 6;
-			else
-				OBJECT(current_object)->speed += (int32_t)speed_diff >> 5;
+			player_steer_speed_from_trackball();
+			return;
 		}
+		set_target_heading_from_trackball();
+		player_steer_speed_from_trackball();
+		return;
+	}
+	if (OBJECT(current_object)->speed_int >= 0x20)
+	{
+		player_steer_speed_from_trackball();
+		return;
+	}
+	OBJECT(current_object)->speed = 0;
+	PLAYER(current_player)->previous_state = PLAYER(current_player)->state;
+	PLAYER(current_player)->state = 0u;
+	player_steer_turn_and_ground_speed();
+}
+
+void player_steer_speed_from_trackball(void)
+{
+	uint32_t ignored = 0, input_y = 0, wanted_speed = 0;
+
+	wanted_speed = (uint32_t)PLAYER(current_player)->trackball_x + PLAYER(current_player)->push_x;
+	input_y = (uint32_t)PLAYER(current_player)->trackball_y + PLAYER(current_player)->push_y;
+	wanted_speed = wanted_speed * wanted_speed + input_y * input_y;
+	square_root(&wanted_speed, &ignored);
+	wanted_speed &= 0xFFFFu;
+	wanted_speed = wanted_speed * wanted_speed;
+	wanted_speed += wanted_speed >> 1;
+	if ((int32_t)wanted_speed > 0x5000000)
+		wanted_speed = 0x5000000u;
+	if ((OBJECT(current_object)->flags & 0x80000000u) != 0u)
+	{
+		wanted_speed = wanted_speed >> 2;
+		if ((PLAYER(current_player)->flags & 4u) != 0u)
+		{
+			wanted_speed = 0u;
+			OBJECT(current_object)->speed = 0;
+		}
+	}
+	if (OBJECT(current_object)->floor_block >= 0 && OBJECT(current_object)->floor_type == 0xAu)
+	{
+		PLAYER(current_player)->struggle_speed = wanted_speed >> 16;
+		wanted_speed = (wanted_speed >> 10) * (uint16_t)(0x100u - ((uint16_t)PLAYER(current_player)->sink_depth >> 8) * 6u);
+	}
+	if (OBJECT(current_object)->floor_type != 4u)
+	{
+		player_steer_approach_speed(wanted_speed);
+		return;
+	}
+	wanted_speed = (wanted_speed >> 8) * 0x60u;
+	player_steer_approach_speed(wanted_speed);
+}
+
+void player_steer_approach_speed(uint32_t wanted_speed)
+{
+	uint8_t next_state = 0;
+	uint16_t animation_speed_int = 0;
+	uint32_t animation_speed_diff = 0, ignored = 0, input_animation_speed = 0, run_threshold = 0, speed_diff = 0, trackball_y = 0;
+	uint32_t speed = 0, target_speed = 0, speed_2 = 0, target_speed_2 = 0, animation_speed = 0, target_animation_speed = 0;
+
+	wanted_speed = apply_speed_scale(wanted_speed);
+	if (OBJECT(current_object)->floor_type == 7u && PLAYER(current_player)->path == 0u)
+	{
+		speed = OBJECT(current_object)->speed;
+		target_speed = wanted_speed;
+		speed_diff = target_speed - speed;
+		if ((int32_t)target_speed <= (int32_t)speed)
+			OBJECT(current_object)->speed += (int32_t)speed_diff >> 6;
 		else
-		{
-			speed_2 = OBJECT(current_object)->speed;
-			target_speed_2 = wanted_speed;
-			speed_diff = target_speed_2 - speed_2;
-			if ((int32_t)target_speed_2 <= (int32_t)speed_2)
-				OBJECT(current_object)->speed += (int32_t)speed_diff >> 5;
-			else
-				OBJECT(current_object)->speed += speed_diff;
-		}
-		if (OBJECT(current_object)->floor_type == 7u || PLAYER(current_player)->push_xy != 0u || PLAYER(current_player)->speed_scale != 0u)
-		{
-			if ((PLAYER(current_player)->trackball_x | PLAYER(current_player)->trackball_y) != 0u || (OBJECT(current_object)->floor_type != 7u && PLAYER(current_player)->animation_speed_int >= 0x20))
-			{
-				input_animation_speed = PLAYER(current_player)->trackball_x;
-				trackball_y = PLAYER(current_player)->trackball_y;
-				input_animation_speed = input_animation_speed * input_animation_speed + trackball_y * trackball_y;
-				square_root(&input_animation_speed, &ignored);
-				input_animation_speed &= 0xFFFFu;
-				input_animation_speed = input_animation_speed * input_animation_speed;
-				input_animation_speed += input_animation_speed >> 1;
-				if ((int32_t)input_animation_speed > 0x5000000)
-					input_animation_speed = 0x5000000u;
-				animation_speed = PLAYER(current_player)->animation_speed;
-				target_animation_speed = input_animation_speed;
-				animation_speed_diff = target_animation_speed - animation_speed;
-				if ((int32_t)target_animation_speed <= (int32_t)animation_speed)
-					PLAYER(current_player)->animation_speed += (int32_t)animation_speed_diff >> 5;
-				else
-					PLAYER(current_player)->animation_speed += animation_speed_diff;
-			}
-			else
-				PLAYER(current_player)->animation_speed = 0;
-		}
-		else
-			PLAYER(current_player)->animation_speed = OBJECT(current_object)->speed;
-		if (PLAYER(current_player)->state != 4u && PLAYER(current_player)->state != 0x17u && PLAYER(current_player)->state != 0x25u && PLAYER(current_player)->state != 0x26u && PLAYER(current_player)->state != 0x2Du)
-		{
-			next_state = 0u;
-			animation_speed_int = (uint16_t)PLAYER(current_player)->animation_speed_int;
-			if (animation_speed_int != 0u)
-			{
-				next_state = 1u;
-				run_threshold = 0x200u;
-				if (OBJECT(current_object)->floor_type == 4u)
-					run_threshold = (run_threshold * 0x60u) >> 8;
-				if ((int16_t)run_threshold < (int16_t)animation_speed_int)
-				{
-					next_state = 0x13u;
-					if (OBJECT(current_object)->floor_type != 4u && (int16_t)animation_speed_int > 0x4F0)
-						next_state = 0x14u;
-				}
-			}
-			PLAYER(current_player)->previous_state = PLAYER(current_player)->state;
-			PLAYER(current_player)->state = next_state;
-		}
+			OBJECT(current_object)->speed += (int32_t)speed_diff >> 5;
 	}
 	else
 	{
-		read_player_trackball();
-		if (players_frozen != 0u)
-		{
-			PLAYER(current_player)->trackball_x = 0;
-			PLAYER(current_player)->trackball_y = 0;
-		}
-		if (PLAYER(current_player)->state == 4u || PLAYER(current_player)->state == 0x17u || PLAYER(current_player)->state == 0x25u || PLAYER(current_player)->state == 0x26u || PLAYER(current_player)->state == 0x2Du || (PLAYER(current_player)->trackball_x | PLAYER(current_player)->trackball_y) != 0u || PLAYER(current_player)->push_xy != 0u)
-		{
-			if ((OBJECT(current_object)->flags & 0x2000u) == 0u)
-				set_target_heading_from_trackball();
-		player_steer_speed_from_trackball:
-			wanted_speed = (uint32_t)PLAYER(current_player)->trackball_x + PLAYER(current_player)->push_x;
-			input_y = (uint32_t)PLAYER(current_player)->trackball_y + PLAYER(current_player)->push_y;
-			wanted_speed = wanted_speed * wanted_speed + input_y * input_y;
-			square_root(&wanted_speed, &ignored);
-			wanted_speed &= 0xFFFFu;
-			wanted_speed = wanted_speed * wanted_speed;
-			wanted_speed += wanted_speed >> 1;
-			if ((int32_t)wanted_speed > 0x5000000)
-				wanted_speed = 0x5000000u;
-			if ((OBJECT(current_object)->flags & 0x80000000u) != 0u)
-			{
-				wanted_speed = wanted_speed >> 2;
-				if ((PLAYER(current_player)->flags & 4u) != 0u)
-				{
-					wanted_speed = 0u;
-					OBJECT(current_object)->speed = 0;
-				}
-			}
-			if (OBJECT(current_object)->floor_block >= 0 && OBJECT(current_object)->floor_type == 0xAu)
-			{
-				PLAYER(current_player)->struggle_speed = wanted_speed >> 16;
-				wanted_speed = (wanted_speed >> 10) * (uint16_t)(0x100u - ((uint16_t)PLAYER(current_player)->sink_depth >> 8) * 6u);
-			}
-			if (OBJECT(current_object)->floor_type != 4u)
-				goto player_steer_approach_speed;
-			wanted_speed = (wanted_speed >> 8) * 0x60u;
-			goto player_steer_approach_speed;
-		}
-		if (OBJECT(current_object)->speed_int >= 0x20)
-			goto player_steer_speed_from_trackball;
-		OBJECT(current_object)->speed = 0;
-		PLAYER(current_player)->previous_state = PLAYER(current_player)->state;
-		PLAYER(current_player)->state = 0u;
+		speed_2 = OBJECT(current_object)->speed;
+		target_speed_2 = wanted_speed;
+		speed_diff = target_speed_2 - speed_2;
+		if ((int32_t)target_speed_2 <= (int32_t)speed_2)
+			OBJECT(current_object)->speed += (int32_t)speed_diff >> 5;
+		else
+			OBJECT(current_object)->speed += speed_diff;
 	}
+	if (OBJECT(current_object)->floor_type == 7u || PLAYER(current_player)->push_xy != 0u || PLAYER(current_player)->speed_scale != 0u)
+	{
+		if ((PLAYER(current_player)->trackball_x | PLAYER(current_player)->trackball_y) != 0u || (OBJECT(current_object)->floor_type != 7u && PLAYER(current_player)->animation_speed_int >= 0x20))
+		{
+			input_animation_speed = PLAYER(current_player)->trackball_x;
+			trackball_y = PLAYER(current_player)->trackball_y;
+			input_animation_speed = input_animation_speed * input_animation_speed + trackball_y * trackball_y;
+			square_root(&input_animation_speed, &ignored);
+			input_animation_speed &= 0xFFFFu;
+			input_animation_speed = input_animation_speed * input_animation_speed;
+			input_animation_speed += input_animation_speed >> 1;
+			if ((int32_t)input_animation_speed > 0x5000000)
+				input_animation_speed = 0x5000000u;
+			animation_speed = PLAYER(current_player)->animation_speed;
+			target_animation_speed = input_animation_speed;
+			animation_speed_diff = target_animation_speed - animation_speed;
+			if ((int32_t)target_animation_speed <= (int32_t)animation_speed)
+				PLAYER(current_player)->animation_speed += (int32_t)animation_speed_diff >> 5;
+			else
+				PLAYER(current_player)->animation_speed += animation_speed_diff;
+		}
+		else
+			PLAYER(current_player)->animation_speed = 0;
+	}
+	else
+		PLAYER(current_player)->animation_speed = OBJECT(current_object)->speed;
+	if (PLAYER(current_player)->state == 4u || PLAYER(current_player)->state == 0x17u || PLAYER(current_player)->state == 0x25u || PLAYER(current_player)->state == 0x26u || PLAYER(current_player)->state == 0x2Du)
+	{
+		player_steer_turn_and_ground_speed();
+		return;
+	}
+	next_state = 0u;
+	animation_speed_int = (uint16_t)PLAYER(current_player)->animation_speed_int;
+	if (animation_speed_int == 0u)
+	{
+		PLAYER(current_player)->previous_state = PLAYER(current_player)->state;
+		PLAYER(current_player)->state = next_state;
+		player_steer_turn_and_ground_speed();
+		return;
+	}
+	next_state = 1u;
+	run_threshold = 0x200u;
+	if (OBJECT(current_object)->floor_type == 4u)
+		run_threshold = (run_threshold * 0x60u) >> 8;
+	if ((int16_t)run_threshold < (int16_t)animation_speed_int)
+	{
+		next_state = 0x13u;
+		if (OBJECT(current_object)->floor_type != 4u && (int16_t)animation_speed_int > 0x4F0)
+			next_state = 0x14u;
+	}
+	PLAYER(current_player)->previous_state = PLAYER(current_player)->state;
+	PLAYER(current_player)->state = next_state;
+	player_steer_turn_and_ground_speed();
+}
+
+void player_steer_turn_and_ground_speed(void)
+{
+	uint32_t carry = 0;
+	uint32_t direction = 0, floor_slope = 0, rounded_heading = 0, rounded_speed = 0, slope_pair = 0, speed_factor = 0;
+
 	turn_player();
 	if ((OBJECT(current_object)->flags & 0x80000000u) == 0u)
 	{
@@ -1420,50 +1447,52 @@ void turn_player(void)
 	uint16_t heading_delta = 0;
 
 	if (PLAYER(current_player)->free_turn_timer != 0u || PLAYER(current_player)->state == 2u || PLAYER(current_player)->state == 4u || PLAYER(current_player)->state == 0x17u || PLAYER(current_player)->state == 0x25u || PLAYER(current_player)->state == 0x26u || (OBJECT(current_object)->flags & 0x80000000u) != 0u)
-		PLAYER(current_player)->heading = PLAYER(current_player)->target_heading;
-	else
 	{
-		speed_int = (uint16_t)OBJECT(current_object)->speed_int;
-		if ((int16_t)speed_int <= 0x200)
+		PLAYER(current_player)->heading = PLAYER(current_player)->target_heading;
+		PLAYER(current_player)->heading &= 0x3FFu;
+		set_heading_direction();
+		return;
+	}
+	speed_int = (uint16_t)OBJECT(current_object)->speed_int;
+	if ((int16_t)speed_int <= 0x200)
+	{
+		PLAYER(current_player)->heading = PLAYER(current_player)->target_heading;
+		PLAYER(current_player)->heading &= 0x3FFu;
+		set_heading_direction();
+		return;
+	}
+	max_turn = (uint16_t)divide_s32(0x180000u, speed_int);
+	heading_delta = ((uint32_t)PLAYER(current_player)->target_heading << 6) - ((uint32_t)PLAYER(current_player)->heading << 6);
+	turn = heading_delta;
+	if ((int16_t)heading_delta < 0)
+	{
+		turn = (uint16_t)(0u - turn);
+		if (turn >= 0x4000u)
 		{
-			PLAYER(current_player)->heading = PLAYER(current_player)->target_heading;
-			PLAYER(current_player)->heading &= 0x3FFu;
+			PLAYER(current_player)->substate = 0u;
+			PLAYER(current_player)->previous_state = PLAYER(current_player)->state;
+			PLAYER(current_player)->state = 0xCu;
 			set_heading_direction();
 			return;
 		}
-		max_turn = (uint16_t)divide_s32(0x180000u, speed_int);
-		heading_delta = ((uint32_t)PLAYER(current_player)->target_heading << 6) - ((uint32_t)PLAYER(current_player)->heading << 6);
-		turn = heading_delta;
-		if ((int16_t)heading_delta < 0)
-		{
-			turn = (uint16_t)(0u - turn);
-			if (turn >= 0x4000u)
-			{
-				PLAYER(current_player)->substate = 0u;
-				PLAYER(current_player)->previous_state = PLAYER(current_player)->state;
-				PLAYER(current_player)->state = 0xCu;
-				set_heading_direction();
-				return;
-			}
-			if ((int16_t)max_turn < (int16_t)turn)
-				turn = (uint16_t)max_turn;
-			PLAYER(current_player)->heading -= turn >> 6;
-		}
-		else
-		{
-			if (turn >= 0x4000u)
-			{
-				PLAYER(current_player)->substate = 0u;
-				PLAYER(current_player)->previous_state = PLAYER(current_player)->state;
-				PLAYER(current_player)->state = 0xCu;
-				set_heading_direction();
-				return;
-			}
-			if ((int16_t)max_turn < (int16_t)turn)
-				turn = (uint16_t)max_turn;
-			PLAYER(current_player)->heading += turn >> 6;
-		}
+		if ((int16_t)max_turn < (int16_t)turn)
+			turn = (uint16_t)max_turn;
+		PLAYER(current_player)->heading -= turn >> 6;
+		PLAYER(current_player)->heading &= 0x3FFu;
+		set_heading_direction();
+		return;
 	}
+	if (turn >= 0x4000u)
+	{
+		PLAYER(current_player)->substate = 0u;
+		PLAYER(current_player)->previous_state = PLAYER(current_player)->state;
+		PLAYER(current_player)->state = 0xCu;
+		set_heading_direction();
+		return;
+	}
+	if ((int16_t)max_turn < (int16_t)turn)
+		turn = (uint16_t)max_turn;
+	PLAYER(current_player)->heading += turn >> 6;
 	PLAYER(current_player)->heading &= 0x3FFu;
 	set_heading_direction();
 }
@@ -1628,49 +1657,105 @@ void shadow_update(void)
 		return;
 	if (current_game_mode != 0x10u)
 	{
-		if (stage != 9u || (OBJECT(current_player)->floor_type != 8u && (OBJECT(current_player)->floor_type != 7u || (OBJECT(current_player)->flags & 0x10u) != 0u)))
+		if (stage == 9u && (OBJECT(current_player)->floor_type == 8u || (OBJECT(current_player)->floor_type == 7u && (OBJECT(current_player)->flags & 0x10u) == 0u)))
 		{
-			if (PLAYER(player)->state == 0x28u || (OBJECT(current_player)->floor_type != 0xAu && (OBJECT(current_player)->flags & 0x80000000u) == 0u && OBJECT(current_player)->floor_type != 0xBu))
+			if (OBJECT(current_player)->floor_block >= 0)
 			{
-				if (PLAYER(player)->state == 0x33u)
+				OBJECT(current_object)->projected_x = OBJECT(current_player)->projected_x;
+				OBJECT(current_object)->projected_y = OBJECT(current_player)->projected_y;
+				OBJECT(current_object)->z = (uint32_t)OBJECT(current_player)->floor_z - OBJECT(current_player)->z + OBJECT(current_player)->floor_z;
+				OBJECT(current_object)->sprite_frame = OBJECT(current_player)->sprite_frame;
+				OBJECT(current_object)->sprite_palette = OBJECT(current_player)->sprite_palette;
+				OBJECT(current_object)->sprite_palette &= 0x1FFFu;
+				OBJECT(current_object)->sprite_palette |= 0x2000u;
+				OBJECT(current_object)->sprite_flags = 0x1188u;
+				OBJECT(current_object)->sprite_flags |= OBJECT(current_player)->sprite_flags & 0x40u;
+				update_screen_position(&ignored, &ignored);
+				depth = (uint16_t)(OBJECT(current_object)->screen_y - 0x18u);
+				queue_sprite_at_depth(&ignored, &depth);
+			}
+			draw_attack_effect(player);
+			return;
+		}
+		if (PLAYER(player)->state == 0x28u || (OBJECT(current_player)->floor_type != 0xAu && (OBJECT(current_player)->flags & 0x80000000u) == 0u && OBJECT(current_player)->floor_type != 0xBu))
+		{
+			if (PLAYER(player)->state == 0x33u)
+			{
+				OBJECT(current_object)->projected_x = OBJECT(current_player)->projected_x;
+				OBJECT(current_object)->projected_y = OBJECT(current_player)->projected_y;
+				OBJECT(current_object)->z = OBJECT(current_player)->floor_z;
+				if (OBJECT(current_player)->floor_block < 0)
+					OBJECT(current_object)->z = OBJECT(current_player)->previous_floor_z;
+				OBJECT(current_object)->z_int += 8u;
+				OBJECT(current_object)->sprite_flags = 0x1004u;
+				OBJECT(current_object)->flags &= ~0x80000u;
+				OBJECT(current_object)->sprite_palette = 0x2D50u;
+				priority_bits = OBJECT(current_player)->sprite_palette & 0x6000u;
+				OBJECT(current_object)->sprite_palette &= 0x9FFFu;
+				OBJECT(current_object)->sprite_palette |= priority_bits;
+				OBJECT(current_object)->animation = pit_sinking_shadow_animation_ADDRESS;
+				animate(&ignored, &ignored, &ignored);
+				update_screen_position(&ignored, &ignored);
+				depth = (uint16_t)(OBJECT(current_object)->screen_y + 0x10u);
+				queue_sprite_at_depth(&ignored, &depth);
+				draw_attack_effect(player);
+				return;
+			}
+			if (player_status[OBJECT(current_object)->player] == 0x82u)
+				return;
+			if (OBJECT(current_player)->floor_block < 0)
+			{
+				draw_attack_effect(player);
+				return;
+			}
+			OBJECT(current_object)->projected_x = OBJECT(current_player)->projected_x;
+			OBJECT(current_object)->projected_y = OBJECT(current_player)->projected_y;
+			OBJECT(current_object)->projected_y_int -= 3u;
+			OBJECT(current_object)->z = OBJECT(current_player)->floor_z;
+			OBJECT(current_object)->sprite_flags = 0x1008u;
+			OBJECT(current_object)->sprite_frame = 0x5D90u;
+			OBJECT(current_object)->flags &= ~0x80000u;
+			if (OBJECT(current_player)->floor_type == 9u)
+			{
+				OBJECT(current_object)->sprite_palette = 0x87A0u;
+				flicker_timer = OBJECT(current_object)->shadow.flicker_timer;
+				OBJECT(current_object)->shadow.flicker_timer = flicker_timer - 1u;
+				if ((int8_t)flicker_timer <= 1)
 				{
-					OBJECT(current_object)->projected_x = OBJECT(current_player)->projected_x;
-					OBJECT(current_object)->projected_y = OBJECT(current_player)->projected_y;
-					OBJECT(current_object)->z = OBJECT(current_player)->floor_z;
-					if (OBJECT(current_player)->floor_block < 0)
-						OBJECT(current_object)->z = OBJECT(current_player)->previous_floor_z;
-					OBJECT(current_object)->z_int += 8u;
-					OBJECT(current_object)->sprite_flags = 0x1004u;
-					OBJECT(current_object)->flags &= ~0x80000u;
-					OBJECT(current_object)->sprite_palette = 0x2D50u;
+					OBJECT(current_object)->shadow.flicker_timer = 2;
+					OBJECT(current_object)->flags |= 0x80000u;
+				}
+			}
+			else
+			{
+				if (OBJECT(current_player)->floor_type == 4u || (stage == 0x10u && mem_read8(floor_blocks + 2u + OBJECT(current_player)->floor_block + 0x12u) == 0x20u))
+				{
+					OBJECT(current_object)->sprite_palette = 0x7A0u;
+					flicker_timer = OBJECT(current_object)->shadow.flicker_timer;
+					OBJECT(current_object)->shadow.flicker_timer = flicker_timer - 1u;
+					if ((int8_t)flicker_timer <= 1)
+					{
+						OBJECT(current_object)->shadow.flicker_timer = 2;
+						OBJECT(current_object)->flags |= 0x80000u;
+					}
 					priority_bits = OBJECT(current_player)->sprite_palette & 0x6000u;
 					OBJECT(current_object)->sprite_palette &= 0x9FFFu;
 					OBJECT(current_object)->sprite_palette |= priority_bits;
-					OBJECT(current_object)->animation = pit_sinking_shadow_animation_ADDRESS;
-					animate(&ignored, &ignored, &ignored);
-					update_screen_position(&ignored, &ignored);
-					depth = (uint16_t)(OBJECT(current_object)->screen_y + 0x10u);
-					queue_sprite_at_depth(&ignored, &depth);
+					update_screen_position(&ignored, &offset_y);
+					if (per_player_view_mode != 0u && scroll_position >= 0xA5F0u)
+					{
+						offset_y = (offset_y & ~0xFFFFu) | (uint16_t)OBJECT(current_object)->sprite_offset_y;
+						OBJECT(current_object)->screen_y = ((int32_t)((uint32_t)OBJECT(current_object)->projected_y + OBJECT(current_object)->z) >> 16) - PLAYER(player)->own_view_y + offset_y;
+					}
+					if ((OBJECT(current_object)->flags & 0x80000u) == 0u)
+						queue_sprite(offset_y);
 					draw_attack_effect(player);
 					return;
 				}
-				if (player_status[OBJECT(current_object)->player] == 0x82u)
-					return;
-				if (OBJECT(current_player)->floor_block < 0)
+				if ((current_game_mode_word != 0x1Au || (int8_t)PLAYER(player)->sequence_step < 2) && (OBJECT(current_player)->flags & 0x10u) == 0u)
+					OBJECT(current_object)->sprite_palette = 0x1FFEu;
+				else
 				{
-					draw_attack_effect(player);
-					return;
-				}
-				OBJECT(current_object)->projected_x = OBJECT(current_player)->projected_x;
-				OBJECT(current_object)->projected_y = OBJECT(current_player)->projected_y;
-				OBJECT(current_object)->projected_y_int -= 3u;
-				OBJECT(current_object)->z = OBJECT(current_player)->floor_z;
-				OBJECT(current_object)->sprite_flags = 0x1008u;
-				OBJECT(current_object)->sprite_frame = 0x5D90u;
-				OBJECT(current_object)->flags &= ~0x80000u;
-				if (OBJECT(current_player)->floor_type == 9u)
-				{
-				shadow_update_flicker:
 					OBJECT(current_object)->sprite_palette = 0x87A0u;
 					flicker_timer = OBJECT(current_object)->shadow.flicker_timer;
 					OBJECT(current_object)->shadow.flicker_timer = flicker_timer - 1u;
@@ -1680,103 +1765,56 @@ void shadow_update(void)
 						OBJECT(current_object)->flags |= 0x80000u;
 					}
 				}
-				else
-				{
-					if (OBJECT(current_player)->floor_type == 4u || (stage == 0x10u && mem_read8(floor_blocks + 2u + OBJECT(current_player)->floor_block + 0x12u) == 0x20u))
-					{
-						OBJECT(current_object)->sprite_palette = 0x7A0u;
-						flicker_timer = OBJECT(current_object)->shadow.flicker_timer;
-						OBJECT(current_object)->shadow.flicker_timer = flicker_timer - 1u;
-						if ((int8_t)flicker_timer <= 1)
-						{
-							OBJECT(current_object)->shadow.flicker_timer = 2;
-							OBJECT(current_object)->flags |= 0x80000u;
-						}
-						priority_bits = OBJECT(current_player)->sprite_palette & 0x6000u;
-						OBJECT(current_object)->sprite_palette &= 0x9FFFu;
-						OBJECT(current_object)->sprite_palette |= priority_bits;
-						update_screen_position(&ignored, &offset_y);
-						if (per_player_view_mode != 0u && scroll_position >= 0xA5F0u)
-						{
-							offset_y = (offset_y & ~0xFFFFu) | (uint16_t)OBJECT(current_object)->sprite_offset_y;
-							OBJECT(current_object)->screen_y = ((int32_t)((uint32_t)OBJECT(current_object)->projected_y + OBJECT(current_object)->z) >> 16) - PLAYER(player)->own_view_y + offset_y;
-						}
-						if ((OBJECT(current_object)->flags & 0x80000u) == 0u)
-							queue_sprite(offset_y);
-						draw_attack_effect(player);
-						return;
-					}
-					if ((current_game_mode_word == 0x1Au && (int8_t)PLAYER(player)->sequence_step >= 2) || (OBJECT(current_player)->flags & 0x10u) != 0u)
-						goto shadow_update_flicker;
-					OBJECT(current_object)->sprite_palette = 0x1FFEu;
-				}
-				priority_bits = OBJECT(current_player)->sprite_palette & 0x6000u;
-				OBJECT(current_object)->sprite_palette &= 0x9FFFu;
-				OBJECT(current_object)->sprite_palette |= priority_bits;
-				update_screen_position(&ignored, &offset_y);
-				if (per_player_view_mode != 0u && scroll_position >= 0xA5F0u)
-				{
-					offset_y = (offset_y & ~0xFFFFu) | (uint16_t)OBJECT(current_object)->sprite_offset_y;
-					OBJECT(current_object)->screen_y = ((int32_t)((uint32_t)OBJECT(current_object)->projected_y + OBJECT(current_object)->z) >> 16) - PLAYER(player)->own_view_y + offset_y;
-				}
-				if ((OBJECT(current_object)->flags & 0x80000u) != 0u)
-				{
-					draw_attack_effect(player);
-					return;
-				}
-				queue_sprite(offset_y);
-				draw_attack_effect(player);
-				return;
 			}
-			if (PLAYER(player)->state == 6u || PLAYER(player)->state == 8u || PLAYER(player)->state == 7u || PLAYER(player)->state == 9u)
+			priority_bits = OBJECT(current_player)->sprite_palette & 0x6000u;
+			OBJECT(current_object)->sprite_palette &= 0x9FFFu;
+			OBJECT(current_object)->sprite_palette |= priority_bits;
+			update_screen_position(&ignored, &offset_y);
+			if (per_player_view_mode != 0u && scroll_position >= 0xA5F0u)
+			{
+				offset_y = (offset_y & ~0xFFFFu) | (uint16_t)OBJECT(current_object)->sprite_offset_y;
+				OBJECT(current_object)->screen_y = ((int32_t)((uint32_t)OBJECT(current_object)->projected_y + OBJECT(current_object)->z) >> 16) - PLAYER(player)->own_view_y + offset_y;
+			}
+			if ((OBJECT(current_object)->flags & 0x80000u) != 0u)
 			{
 				draw_attack_effect(player);
 				return;
 			}
-			PLAYER(player)->flags |= 1u;
-			OBJECT(current_object)->projected_x = OBJECT(current_player)->projected_x;
-			OBJECT(current_object)->projected_y = OBJECT(current_player)->projected_y;
-			OBJECT(current_object)->z = OBJECT(current_player)->floor_z;
-			if (OBJECT(current_player)->floor_block < 0)
-				OBJECT(current_object)->z = OBJECT(current_player)->previous_floor_z;
-			if (OBJECT(current_player)->floor_block < 0)
-				z = OBJECT(current_player)->previous_floor_z;
-			else
-				z = OBJECT(current_player)->floor_z;
-			point_x = OBJECT(current_player)->x;
-			point_y = OBJECT(current_player)->y;
-			project_point(z, &ignored, &point_x, &point_y);
-			PLAYER(player)->ground_clip_bottom = point_y;
-			OBJECT(current_object)->sprite_flags = 0u;
-			OBJECT(current_object)->flags &= ~0x80000u;
-			OBJECT(current_object)->sprite_palette = 0x1020u;
-			OBJECT(current_object)->sprite_scale = 0x120u;
-			priority_bits = OBJECT(current_player)->sprite_palette & 0x6000u;
-			OBJECT(current_object)->sprite_palette &= 0x9FFFu;
-			OBJECT(current_object)->sprite_palette |= priority_bits;
-			OBJECT(current_object)->animation = sinking_shadow_animation_ADDRESS;
-			animate(&ignored, &ignored, &ignored);
-			update_screen_position(&ignored, &ignored);
-			depth = (uint16_t)(OBJECT(current_object)->screen_y + 0x10u);
-			queue_sprite_at_depth(&ignored, &depth);
+			queue_sprite(offset_y);
 			draw_attack_effect(player);
 			return;
 		}
-		if (OBJECT(current_player)->floor_block >= 0)
+		if (PLAYER(player)->state == 6u || PLAYER(player)->state == 8u || PLAYER(player)->state == 7u || PLAYER(player)->state == 9u)
 		{
-			OBJECT(current_object)->projected_x = OBJECT(current_player)->projected_x;
-			OBJECT(current_object)->projected_y = OBJECT(current_player)->projected_y;
-			OBJECT(current_object)->z = (uint32_t)OBJECT(current_player)->floor_z - OBJECT(current_player)->z + OBJECT(current_player)->floor_z;
-			OBJECT(current_object)->sprite_frame = OBJECT(current_player)->sprite_frame;
-			OBJECT(current_object)->sprite_palette = OBJECT(current_player)->sprite_palette;
-			OBJECT(current_object)->sprite_palette &= 0x1FFFu;
-			OBJECT(current_object)->sprite_palette |= 0x2000u;
-			OBJECT(current_object)->sprite_flags = 0x1188u;
-			OBJECT(current_object)->sprite_flags |= OBJECT(current_player)->sprite_flags & 0x40u;
-			update_screen_position(&ignored, &ignored);
-			depth = (uint16_t)(OBJECT(current_object)->screen_y - 0x18u);
-			queue_sprite_at_depth(&ignored, &depth);
+			draw_attack_effect(player);
+			return;
 		}
+		PLAYER(player)->flags |= 1u;
+		OBJECT(current_object)->projected_x = OBJECT(current_player)->projected_x;
+		OBJECT(current_object)->projected_y = OBJECT(current_player)->projected_y;
+		OBJECT(current_object)->z = OBJECT(current_player)->floor_z;
+		if (OBJECT(current_player)->floor_block < 0)
+			OBJECT(current_object)->z = OBJECT(current_player)->previous_floor_z;
+		if (OBJECT(current_player)->floor_block < 0)
+			z = OBJECT(current_player)->previous_floor_z;
+		else
+			z = OBJECT(current_player)->floor_z;
+		point_x = OBJECT(current_player)->x;
+		point_y = OBJECT(current_player)->y;
+		project_point(z, &ignored, &point_x, &point_y);
+		PLAYER(player)->ground_clip_bottom = point_y;
+		OBJECT(current_object)->sprite_flags = 0u;
+		OBJECT(current_object)->flags &= ~0x80000u;
+		OBJECT(current_object)->sprite_palette = 0x1020u;
+		OBJECT(current_object)->sprite_scale = 0x120u;
+		priority_bits = OBJECT(current_player)->sprite_palette & 0x6000u;
+		OBJECT(current_object)->sprite_palette &= 0x9FFFu;
+		OBJECT(current_object)->sprite_palette |= priority_bits;
+		OBJECT(current_object)->animation = sinking_shadow_animation_ADDRESS;
+		animate(&ignored, &ignored, &ignored);
+		update_screen_position(&ignored, &ignored);
+		depth = (uint16_t)(OBJECT(current_object)->screen_y + 0x10u);
+		queue_sprite_at_depth(&ignored, &depth);
 		draw_attack_effect(player);
 		return;
 	}
@@ -1876,120 +1914,136 @@ void check_player_step(uint32_t *p_height_diff, uint32_t *p_cursor)
 {
 	uint32_t height_diff = *p_height_diff;
 	uint32_t cursor = *p_cursor;
-	uint32_t floor_block = 0, object = 0, object_z = 0, opposite_side = 0, x = 0, y = 0;
-	uint16_t floor_z_int = 0, z_int = 0, height_diff_2 = 0;
+	uint32_t object = 0;
 
 	step_floor_z = OBJECT(current_object)->floor_z;
-	if (stage != 8u || scroll_position >= 0x4000u)
+	if (stage == 8u && scroll_position < 0x4000u)
 	{
-		if ((OBJECT(current_object)->flags & 8u) == 0u)
-		{
-		check_player_step_against_floor:
-			if (PLAYER(current_player)->path != 0u)
-			{
-				PLAYER(current_player)->previous_z = OBJECT(current_object)->z;
-				OBJECT(current_object)->z = step_floor_z;
-				*p_height_diff = height_diff;
-				return;
-			}
-			object_z = (height_diff & ~0xFFFFu) | (uint16_t)OBJECT(current_object)->z_int;
-			floor_z_int = step_floor_z_int;
-			z_int = object_z;
-			height_diff = (object_z & ~0xFFFFu) | (uint16_t)(z_int - floor_z_int);
-			if (z_int == floor_z_int)
-			{
-				PLAYER(current_player)->previous_z = OBJECT(current_object)->z;
-				OBJECT(current_object)->z = step_floor_z;
-				*p_height_diff = height_diff;
-				return;
-			}
-			height_diff = (height_diff & ~0xFFFFu) | (uint16_t)(height_diff + 8u);
-			if ((uint16_t)height_diff >= 0x11u)
-			{
-				height_diff_2 = height_diff - 8u;
-				height_diff = (height_diff & ~0xFFFFu) | height_diff_2;
-				if ((int16_t)height_diff_2 < 0)
-				{
-					if (PLAYER(current_player)->state == 2u)
-					{
-						*p_height_diff = height_diff;
-						return;
-					}
-					PLAYER(current_player)->state = 2u;
-					PLAYER(current_player)->substate = 0u;
-					*p_height_diff = height_diff;
-					return;
-				}
-				if (OBJECT(current_object)->floor_slope != 0u)
-				{
-					PLAYER(current_player)->previous_z = OBJECT(current_object)->z;
-					OBJECT(current_object)->z = step_floor_z;
-					*p_height_diff = height_diff;
-					return;
-				}
-				OBJECT(current_object)->x = PLAYER(current_player)->previous_x;
-				OBJECT(current_object)->y = PLAYER(current_player)->previous_y;
-				step_blocking_floor_block = OBJECT(current_object)->floor_block;
-				OBJECT(current_object)->floor_block = OBJECT(current_object)->previous_floor_block;
-				OBJECT(current_object)->floor_z = OBJECT(current_object)->previous_floor_z;
-				PLAYER(current_player)->control_lock = 0u;
-				if (OBJECT(current_object)->speed_int >= 0x500)
-				{
-					floor_block = step_blocking_floor_block;
-					x = OBJECT(current_object)->x;
-					y = OBJECT(current_object)->y;
-					opposite_side = get_floor_block_side(floor_block, x, y);
-					opposite_side = (opposite_side & ~0xFFu) | (uint8_t)(opposite_side + 2u);
-					AS16(PLAYER(current_player)->bounce_direction) = (opposite_side & ~0xFFu) | (opposite_side & 3u);
-					PLAYER(current_player)->state = 0xEu;
-					PLAYER(current_player)->substate = 0u;
-					*p_height_diff = height_diff;
-					*p_cursor = x;
-					return;
-				}
-				height_diff = 0u;
-				OBJECT(current_object)->speed = 0;
-				OBJECT(current_object)->speed_x = 0;
-				OBJECT(current_object)->speed_y = 0;
-				PLAYER(current_player)->control_lock = 0u;
-				PLAYER(current_player)->free_turn_timer = 3u;
-				OBJECT(current_object)->flags |= 0x800000u;
-				PLAYER(current_player)->state = 0u;
-				if (step_floor_z <= OBJECT(current_object)->z)
-				{
-					*p_height_diff = height_diff;
-					return;
-				}
-				if (PLAYER(current_player)->state == 2u)
-				{
-					*p_height_diff = height_diff;
-					return;
-				}
-				PLAYER(current_player)->state = 2u;
-				PLAYER(current_player)->substate = 0u;
-				*p_height_diff = height_diff;
-				return;
-			}
-			PLAYER(current_player)->previous_z = OBJECT(current_object)->z;
-			OBJECT(current_object)->z = step_floor_z;
-			*p_height_diff = height_diff;
-			return;
-		}
-		object = LINKED(current_object, OBJECT(current_object)->platform);
-		if (OBJECT(object)->floor_slope != 0u)
-			goto check_player_step_against_floor;
-		step_floor_z = OBJECT(object)->z;
-		if (mem_read8(floor_blocks + 2u + OBJECT(current_object)->previous_floor_block + 0x12u) == 0x24u)
-		{
-			PLAYER(current_player)->previous_z = OBJECT(current_object)->z;
-			OBJECT(current_object)->z = step_floor_z;
-			*p_height_diff = height_diff;
-			return;
-		}
-		goto check_player_step_against_floor;
+		PLAYER(current_player)->previous_z = OBJECT(current_object)->z;
+		OBJECT(current_object)->z = step_floor_z;
+		return;
+	}
+	if ((OBJECT(current_object)->flags & 8u) == 0u)
+	{
+		check_player_step_against_floor(&height_diff, &cursor);
+		*p_height_diff = height_diff;
+		*p_cursor = cursor;
+		return;
+	}
+	object = LINKED(current_object, OBJECT(current_object)->platform);
+	if (OBJECT(object)->floor_slope != 0u)
+	{
+		check_player_step_against_floor(&height_diff, &cursor);
+		*p_height_diff = height_diff;
+		*p_cursor = cursor;
+		return;
+	}
+	step_floor_z = OBJECT(object)->z;
+	if (mem_read8(floor_blocks + 2u + OBJECT(current_object)->previous_floor_block + 0x12u) != 0x24u)
+	{
+		check_player_step_against_floor(&height_diff, &cursor);
+		*p_height_diff = height_diff;
+		*p_cursor = cursor;
+		return;
 	}
 	PLAYER(current_player)->previous_z = OBJECT(current_object)->z;
 	OBJECT(current_object)->z = step_floor_z;
+}
+
+void check_player_step_against_floor(uint32_t *p_height_diff, uint32_t *p_cursor)
+{
+	uint32_t height_diff = *p_height_diff;
+	uint32_t cursor = *p_cursor;
+	uint32_t floor_block = 0, object_z = 0, opposite_side = 0, x = 0, y = 0;
+	uint16_t floor_z_int = 0, z_int = 0, height_diff_2 = 0;
+
+	if (PLAYER(current_player)->path != 0u)
+	{
+		PLAYER(current_player)->previous_z = OBJECT(current_object)->z;
+		OBJECT(current_object)->z = step_floor_z;
+		*p_height_diff = height_diff;
+		return;
+	}
+	object_z = (height_diff & ~0xFFFFu) | (uint16_t)OBJECT(current_object)->z_int;
+	floor_z_int = step_floor_z_int;
+	z_int = object_z;
+	height_diff = (object_z & ~0xFFFFu) | (uint16_t)(z_int - floor_z_int);
+	if (z_int == floor_z_int)
+	{
+		PLAYER(current_player)->previous_z = OBJECT(current_object)->z;
+		OBJECT(current_object)->z = step_floor_z;
+		*p_height_diff = height_diff;
+		return;
+	}
+	height_diff = (height_diff & ~0xFFFFu) | (uint16_t)(height_diff + 8u);
+	if ((uint16_t)height_diff < 0x11u)
+	{
+		PLAYER(current_player)->previous_z = OBJECT(current_object)->z;
+		OBJECT(current_object)->z = step_floor_z;
+		*p_height_diff = height_diff;
+		return;
+	}
+	height_diff_2 = height_diff - 8u;
+	height_diff = (height_diff & ~0xFFFFu) | height_diff_2;
+	if ((int16_t)height_diff_2 < 0)
+	{
+		if (PLAYER(current_player)->state == 2u)
+		{
+			*p_height_diff = height_diff;
+			return;
+		}
+		PLAYER(current_player)->state = 2u;
+		PLAYER(current_player)->substate = 0u;
+		*p_height_diff = height_diff;
+		return;
+	}
+	if (OBJECT(current_object)->floor_slope != 0u)
+	{
+		PLAYER(current_player)->previous_z = OBJECT(current_object)->z;
+		OBJECT(current_object)->z = step_floor_z;
+		*p_height_diff = height_diff;
+		return;
+	}
+	OBJECT(current_object)->x = PLAYER(current_player)->previous_x;
+	OBJECT(current_object)->y = PLAYER(current_player)->previous_y;
+	step_blocking_floor_block = OBJECT(current_object)->floor_block;
+	OBJECT(current_object)->floor_block = OBJECT(current_object)->previous_floor_block;
+	OBJECT(current_object)->floor_z = OBJECT(current_object)->previous_floor_z;
+	PLAYER(current_player)->control_lock = 0u;
+	if (OBJECT(current_object)->speed_int >= 0x500)
+	{
+		floor_block = step_blocking_floor_block;
+		x = OBJECT(current_object)->x;
+		y = OBJECT(current_object)->y;
+		opposite_side = get_floor_block_side(floor_block, x, y);
+		opposite_side = (opposite_side & ~0xFFu) | (uint8_t)(opposite_side + 2u);
+		AS16(PLAYER(current_player)->bounce_direction) = (opposite_side & ~0xFFu) | (opposite_side & 3u);
+		PLAYER(current_player)->state = 0xEu;
+		PLAYER(current_player)->substate = 0u;
+		*p_height_diff = height_diff;
+		*p_cursor = x;
+		return;
+	}
+	height_diff = 0u;
+	OBJECT(current_object)->speed = 0;
+	OBJECT(current_object)->speed_x = 0;
+	OBJECT(current_object)->speed_y = 0;
+	PLAYER(current_player)->control_lock = 0u;
+	PLAYER(current_player)->free_turn_timer = 3u;
+	OBJECT(current_object)->flags |= 0x800000u;
+	PLAYER(current_player)->state = 0u;
+	if (step_floor_z <= OBJECT(current_object)->z)
+	{
+		*p_height_diff = height_diff;
+		return;
+	}
+	if (PLAYER(current_player)->state == 2u)
+	{
+		*p_height_diff = height_diff;
+		return;
+	}
+	PLAYER(current_player)->state = 2u;
+	PLAYER(current_player)->substate = 0u;
 	*p_height_diff = height_diff;
 }
 
@@ -2026,22 +2080,24 @@ uint32_t get_floor_block_side(uint32_t floor_block, uint32_t x, uint32_t y)
 	floor_block = floor_block + floor_blocks + 2u;
 	x_min = FLOOR_BLOCK(floor_block)->x_min;
 	floor_block += 4u;
-	if ((int32_t)x_min <= (int32_t)x)
+	if ((int32_t)x < (int32_t)x_min)
 	{
-		x_max = FLOOR_BLOCK(floor_block - 0x4u)->x_max;
-		floor_block += 4u;
-		if ((int32_t)x <= (int32_t)x_max)
-		{
-			if (FLOOR_BLOCK(floor_block - 0x8u)->y_min <= (int32_t)y)
-				side = 2u;
-			else
-				side = 0u;
-		}
-		else
-			side = 1u;
-	}
-	else
 		side = 3u;
+		return side;
+	}
+	x_max = FLOOR_BLOCK(floor_block - 0x4u)->x_max;
+	floor_block += 4u;
+	if ((int32_t)x <= (int32_t)x_max)
+	{
+		if (FLOOR_BLOCK(floor_block - 0x8u)->y_min <= (int32_t)y)
+		{
+			side = 2u;
+			return side;
+		}
+		side = 0u;
+		return side;
+	}
+	side = 1u;
 	return side;
 }
 
@@ -2202,17 +2258,18 @@ uint32_t update_quicksand_object(uint32_t sink_offset)
 		{
 			PLAYER(current_player)->sink_depth += 0x33u;
 			OBJECT(current_object)->z += (uint32_t)(uint16_t)PLAYER(current_player)->sink_depth << 8;
-			if (PLAYER(current_player)->sink_depth < 0x2000)
-				return sink_offset;
-			health = OBJECT(current_object)->health;
-			OBJECT(current_object)->health = health - 8u;
-			if ((int8_t)health > 8)
-				OBJECT(current_object)->handler = player_respawn_ADDRESS;
-			else
+			if (PLAYER(current_player)->sink_depth >= 0x2000)
 			{
-				OBJECT(current_object)->health = 0;
-				PLAYER(current_player)->state = 0x16u;
-				PLAYER(current_player)->substate = 0u;
+				health = OBJECT(current_object)->health;
+				OBJECT(current_object)->health = health - 8u;
+				if ((int8_t)health > 8)
+					OBJECT(current_object)->handler = player_respawn_ADDRESS;
+				else
+				{
+					OBJECT(current_object)->health = 0;
+					PLAYER(current_player)->state = 0x16u;
+					PLAYER(current_player)->substate = 0u;
+				}
 			}
 		}
 	}
@@ -2616,7 +2673,6 @@ uint32_t pay_and_join(uint8_t cost, uint32_t joined)
 			return joined;
 		break;
 	case 2:
-	pay_and_join_own_credits:
 		if (OBJECT(current_object)->player != 1u)
 		{
 			if (OBJECT(current_object)->player != 0u || p1_credits < (uint8_t)cost)
@@ -2642,15 +2698,41 @@ uint32_t pay_and_join(uint8_t cost, uint32_t joined)
 		break;
 	case 3:
 		if (OBJECT(current_object)->player != 2u)
-			goto pay_and_join_own_credits;
-		if (p3_credits < (uint8_t)cost)
-			return joined;
-		credit_block = p3_coins_ADDRESS;
-		bit = 0x12u;
-		if (setting_no_start_buttons == 0u)
-			bit = 7u;
-		if ((inputs_pressed & shl32(1u, (int)(bit))) == 0u)
-			return joined;
+		{
+			if (OBJECT(current_object)->player != 1u)
+			{
+				if (OBJECT(current_object)->player != 0u || p1_credits < (uint8_t)cost)
+					return joined;
+				credit_block = p1_coins_ADDRESS;
+				bit = 0x10u;
+				if (setting_no_start_buttons == 0u)
+					bit = 4u;
+				if ((inputs_pressed & shl32(1u, (int)(bit))) == 0u)
+					return joined;
+			}
+			else
+			{
+				if (p2_credits < (uint8_t)cost)
+					return joined;
+				credit_block = p2_coins_ADDRESS;
+				bit = 0x18u;
+				if (setting_no_start_buttons == 0u)
+					bit = 5u;
+				if ((inputs_pressed & shl32(1u, (int)(bit))) == 0u)
+					return joined;
+			}
+		}
+		else
+		{
+			if (p3_credits < (uint8_t)cost)
+				return joined;
+			credit_block = p3_coins_ADDRESS;
+			bit = 0x12u;
+			if (setting_no_start_buttons == 0u)
+				bit = 7u;
+			if ((inputs_pressed & shl32(1u, (int)(bit))) == 0u)
+				return joined;
+		}
 		break;
 	default:
 		invalid_jump(0xD4E6u + cabinet_config * 3u);
@@ -2667,14 +2749,17 @@ uint32_t pay_and_join(uint8_t cost, uint32_t joined)
 	mem_write8(cabinet_events, cabinet_event);
 	if (PLAYER(current_player)->state == 0x23u)
 		mem_write8(cabinet_events, cabinet_event);
-	if ((cabinet_config & 1u) == 0u)
+	if ((cabinet_config & 1u) != 0u)
 	{
-		bit = 2u;
-		if (OBJECT(current_object)->player != 0u)
-			bit = 3u;
-		port_d = mem_read32(io_port_d);
-		mem_write32(io_port_d, port_d & ~shl32(1u, (int)(bit)));
+		save_credits();
+		joined = 0xFFFFFFFFu;
+		return joined;
 	}
+	bit = 2u;
+	if (OBJECT(current_object)->player != 0u)
+		bit = 3u;
+	port_d = mem_read32(io_port_d);
+	mem_write32(io_port_d, port_d & ~shl32(1u, (int)(bit)));
 	save_credits();
 	joined = 0xFFFFFFFFu;
 	return joined;
@@ -3054,119 +3139,134 @@ void slip_pieces_update(void)
 
 uint32_t follow_player_path(uint32_t target_speed)
 {
-	uint16_t dy = 0, x_offset = 0;
-	uint32_t ignored = 0, path = 0, path_heading = 0, point = 0;
+	if (PLAYER(current_player)->path_request != 0u)
+	{
+		PLAYER(current_player)->path = PLAYER(current_player)->path_request;
+		PLAYER(current_player)->path_request = 0u;
+		return follow_player_path_start();
+	}
+	if (all_players_path_request == 0u)
+	{
+		if (PLAYER(current_player)->path != 0u)
+			return follow_player_path_run();
+		return target_speed;
+	}
+	if (PLAYER(current_player)->path == all_players_path_request)
+		return follow_player_path_run();
+	PLAYER(current_player)->path = all_players_path_request;
+	return follow_player_path_start();
+}
+
+uint32_t follow_player_path_start(void)
+{
+	uint32_t path = 0;
+
+	path = PLAYER(current_player)->path;
+	PLAYER(current_player)->path_pointer = player_path_offsets_ADDRESS + player_path_offsets[(uint8_t)(path + OBJECT(current_object)->player)];
+	OBJECT(current_object)->speed = 0;
+	OBJECT(current_object)->z = OBJECT(current_object)->floor_z;
+	OBJECT(current_object)->speed_z = 0;
+	PLAYER(current_player)->state_timer = 0;
+	OBJECT(current_object)->sprite_palette = ROM16(OBJECT(current_object)->follow_player_path.palette_list + 2u);
+	OBJECT(current_object)->flags &= ~0x40u;
+	OBJECT(current_object)->flags &= ~0x2000u;
+	PLAYER(current_player)->control_lock = 0u;
+	PLAYER(current_player)->state = 1u;
+	OBJECT(current_object)->flags |= 1u;
+	return follow_player_path_load_record();
+}
+
+uint32_t follow_player_path_run(void)
+{
+	uint16_t x_offset = 0;
+	uint32_t point = 0, target_speed = 0;
 	uint16_t path_wait = 0;
+
+	all_players_path_request = 0u;
+	if ((uint16_t)PLAYER(current_player)->path_wait == 0u)
+	{
+		point = PLAYER(current_player)->path_pointer;
+		if ((ROM32(point + 6u) & 2u) == 0u)
+		{
+			point += 2u;
+			x_offset = (uint16_t)(OBJECT(current_object)->x_int - ROM16(point) + 8u);
+			point += 2u;
+			if (x_offset >= 0x11u || (uint16_t)(OBJECT(current_object)->y_int - ROM16(point) + 8u) >= 0x11u)
+				return follow_player_path_aim_at_point();
+		}
+		return follow_player_path_next_record();
+	}
+	path_wait = PLAYER(current_player)->path_wait;
+	PLAYER(current_player)->path_wait = path_wait - 1u;
+	if ((int16_t)path_wait <= 1)
+		return follow_player_path_next_record();
+	target_speed = 0u;
+	if (OBJECT(current_object)->speed_int < 0x20)
+		OBJECT(current_object)->speed = 0;
+	return target_speed;
+}
+
+uint32_t follow_player_path_next_record(void)
+{
+	if ((int16_t)ROM16(PLAYER(current_player)->path_pointer + 8u) >= 0)
+	{
+		PLAYER(current_player)->path_pointer += 8u;
+		return follow_player_path_load_record();
+	}
+	PLAYER(current_player)->path = 0u;
+	return follow_player_path_target_speed();
+}
+
+uint32_t follow_player_path_load_record(void)
+{
+	PLAYER(current_player)->path_speed = ROM16(PLAYER(current_player)->path_pointer);
+	if ((ROM32(PLAYER(current_player)->path_pointer + 6u) & 1u) != 0u)
+	{
+		PLAYER(current_player)->state = 4u;
+		PLAYER(current_player)->substate = 0u;
+		PLAYER(current_player)->ledge_side = -1;
+	}
+	if (PLAYER(current_player)->path_speed != 0u)
+	{
+		PLAYER(current_player)->path_wait = 0;
+		return follow_player_path_aim_at_point();
+	}
+	PLAYER(current_player)->path_wait = ROM16(PLAYER(current_player)->path_pointer + 2u);
+	return follow_player_path_target_speed();
+}
+
+uint32_t follow_player_path_aim_at_point(void)
+{
+	uint16_t dy = 0;
+	uint32_t ignored = 0, path_heading = 0, point = 0;
 	uint32_t flags = 0;
 
-	if (PLAYER(current_player)->path_request == 0u)
+	point = PLAYER(current_player)->path_pointer + 2u;
+	path_heading = (uint16_t)(ROM16(point) - OBJECT(current_object)->x_int);
+	dy = (uint16_t)(ROM16(point + 2u) - OBJECT(current_object)->y_int);
+	angle_of_vector(dy, &path_heading, &ignored);
+	path_heading = (path_heading - 0x80u) & 0x3FFu;
+	PLAYER(current_player)->target_heading = path_heading;
+	PLAYER(current_player)->facing_angle = path_heading;
+	flags = OBJECT(current_object)->flags;
+	OBJECT(current_object)->flags = flags & ~1u;
+	if ((flags & 1u) == 0u)
+		return follow_player_path_target_speed();
+	PLAYER(current_player)->heading = path_heading;
+	return follow_player_path_target_speed();
+}
+
+uint32_t follow_player_path_target_speed(void)
+{
+	uint32_t target_speed = 0;
+
+	target_speed = (uint32_t)PLAYER(current_player)->path_speed << 16;
+	if ((int32_t)target_speed <= 0x200000 && OBJECT(current_object)->speed_int < 0x20)
 	{
-		if (all_players_path_request == 0u)
-		{
-			if (PLAYER(current_player)->path == 0u)
-				return target_speed;
-		follow_player_path_run:
-			all_players_path_request = 0u;
-			if ((uint16_t)PLAYER(current_player)->path_wait == 0u)
-			{
-				point = PLAYER(current_player)->path_pointer;
-				if ((ROM32(point + 6u) & 2u) == 0u)
-				{
-					point += 2u;
-					x_offset = (uint16_t)(OBJECT(current_object)->x_int - ROM16(point) + 8u);
-					point += 2u;
-					if (x_offset >= 0x11u || (uint16_t)(OBJECT(current_object)->y_int - ROM16(point) + 8u) >= 0x11u)
-					{
-						point = PLAYER(current_player)->path_pointer + 2u;
-						path_heading = (uint16_t)(ROM16(point) - OBJECT(current_object)->x_int);
-						dy = (uint16_t)(ROM16(point + 2u) - OBJECT(current_object)->y_int);
-						angle_of_vector(dy, &path_heading, &ignored);
-						path_heading = (path_heading - 0x80u) & 0x3FFu;
-						PLAYER(current_player)->target_heading = path_heading;
-						PLAYER(current_player)->facing_angle = path_heading;
-						flags = OBJECT(current_object)->flags;
-						OBJECT(current_object)->flags = flags & ~1u;
-						if ((flags & 1u) != 0u)
-							PLAYER(current_player)->heading = path_heading;
-						target_speed = (uint32_t)PLAYER(current_player)->path_speed << 16;
-						if ((int32_t)target_speed <= 0x200000 && OBJECT(current_object)->speed_int < 0x20)
-						{
-							target_speed = 0u;
-							OBJECT(current_object)->speed = 0;
-						}
-						return target_speed;
-					}
-				}
-			follow_player_path_next_record:
-				if ((int16_t)ROM16(PLAYER(current_player)->path_pointer + 8u) >= 0)
-				{
-					PLAYER(current_player)->path_pointer += 8u;
-				follow_player_path_load_record:
-					PLAYER(current_player)->path_speed = ROM16(PLAYER(current_player)->path_pointer);
-					if ((ROM32(PLAYER(current_player)->path_pointer + 6u) & 1u) != 0u)
-					{
-						PLAYER(current_player)->state = 4u;
-						PLAYER(current_player)->substate = 0u;
-						PLAYER(current_player)->ledge_side = -1;
-					}
-					if (PLAYER(current_player)->path_speed != 0u)
-					{
-						PLAYER(current_player)->path_wait = 0;
-						point = PLAYER(current_player)->path_pointer + 2u;
-						path_heading = (uint16_t)(ROM16(point) - OBJECT(current_object)->x_int);
-						dy = (uint16_t)(ROM16(point + 2u) - OBJECT(current_object)->y_int);
-						angle_of_vector(dy, &path_heading, &ignored);
-						path_heading = (path_heading - 0x80u) & 0x3FFu;
-						PLAYER(current_player)->target_heading = path_heading;
-						PLAYER(current_player)->facing_angle = path_heading;
-						flags = OBJECT(current_object)->flags;
-						OBJECT(current_object)->flags = flags & ~1u;
-						if ((flags & 1u) != 0u)
-							PLAYER(current_player)->heading = path_heading;
-					}
-					else
-						PLAYER(current_player)->path_wait = ROM16(PLAYER(current_player)->path_pointer + 2u);
-				}
-				else
-					PLAYER(current_player)->path = 0u;
-				target_speed = (uint32_t)PLAYER(current_player)->path_speed << 16;
-				if ((int32_t)target_speed <= 0x200000 && OBJECT(current_object)->speed_int < 0x20)
-				{
-					target_speed = 0u;
-					OBJECT(current_object)->speed = 0;
-				}
-				return target_speed;
-			}
-			path_wait = PLAYER(current_player)->path_wait;
-			PLAYER(current_player)->path_wait = path_wait - 1u;
-			if ((int16_t)path_wait <= 1)
-				goto follow_player_path_next_record;
-			target_speed = 0u;
-			if (OBJECT(current_object)->speed_int < 0x20)
-				OBJECT(current_object)->speed = 0;
-			return target_speed;
-		}
-		if (PLAYER(current_player)->path == all_players_path_request)
-			goto follow_player_path_run;
-		PLAYER(current_player)->path = all_players_path_request;
-	follow_player_path_start:
-		path = PLAYER(current_player)->path;
-		PLAYER(current_player)->path_pointer = player_path_offsets_ADDRESS + player_path_offsets[(uint8_t)(path + OBJECT(current_object)->player)];
+		target_speed = 0u;
 		OBJECT(current_object)->speed = 0;
-		OBJECT(current_object)->z = OBJECT(current_object)->floor_z;
-		OBJECT(current_object)->speed_z = 0;
-		PLAYER(current_player)->state_timer = 0;
-		OBJECT(current_object)->sprite_palette = ROM16(OBJECT(current_object)->follow_player_path.palette_list + 2u);
-		OBJECT(current_object)->flags &= ~0x40u;
-		OBJECT(current_object)->flags &= ~0x2000u;
-		PLAYER(current_player)->control_lock = 0u;
-		PLAYER(current_player)->state = 1u;
-		OBJECT(current_object)->flags |= 1u;
-		goto follow_player_path_load_record;
 	}
-	PLAYER(current_player)->path = PLAYER(current_player)->path_request;
-	PLAYER(current_player)->path_request = 0u;
-	goto follow_player_path_start;
+	return target_speed;
 }
 
 void check_player_contacts(uint32_t *p_health_limit, uint32_t *p_cursor)
@@ -3175,33 +3275,22 @@ void check_player_contacts(uint32_t *p_health_limit, uint32_t *p_cursor)
 	uint32_t cursor = *p_cursor;
 	uint8_t new_substate = 0, sound_id = 0;
 	uint16_t dy = 0, held_frame = 0, saved_sides = 0;
-	uint32_t carried_x = 0, carried_y = 0, catapult = 0, distance = 0, draw_depth = 0, dx = 0, dy_2 = 0, ignored = 0, joined_health_setting = 0, move_angle = 0, object = 0, object_2 = 0, push_cos = 0, sides = 0;
-	uint8_t attack_power = 0, health = 0, push_out_delay = 0, push_out_delay_2 = 0;
+	uint32_t carried_x = 0, carried_y = 0, catapult = 0, distance = 0, draw_depth = 0, ignored = 0, joined_health_setting = 0, max_health = 0, move_angle = 0, object = 0, object_2 = 0, push_cos = 0, sides = 0;
 	uint32_t flags = 0, flags_2 = 0;
 
 	if (PLAYER(current_player)->path_request != 0u || all_players_path_request != 0u || (PLAYER(current_player)->path != 0u && (PLAYER(current_player)->path < 0x14 || PLAYER(current_player)->path > 0x16)) || (OBJECT(current_object)->flags & 4u) == 0u)
 	{
-		PLAYER(current_player)->pushed_out = 0;
-		PLAYER(current_player)->last_hazard = 0xFFFFu;
-		PLAYER(current_player)->last_damaged = 0xFFFFu;
-		OBJECT(current_object)->flags &= ~0x40000u;
-		OBJECT(current_object)->flags &= ~0x800000u;
-		OBJECT(current_object)->flags &= 0x7FFFFFFFu;
-		PLAYER(current_player)->flags &= ~2u;
+		check_player_contacts_clear_state();
 		*p_health_limit = health_limit;
+		*p_cursor = cursor;
 		return;
 	}
 	object = LINKED(WORK_RAM, OBJECT(current_object)->touched_by);
 	if ((OBJECT(object)->flags & 0x200u) != 0u)
 	{
-		PLAYER(current_player)->pushed_out = 0;
-		PLAYER(current_player)->last_hazard = 0xFFFFu;
-		PLAYER(current_player)->last_damaged = 0xFFFFu;
-		OBJECT(current_object)->flags &= ~0x40000u;
-		OBJECT(current_object)->flags &= ~0x800000u;
-		OBJECT(current_object)->flags &= 0x7FFFFFFFu;
-		PLAYER(current_player)->flags &= ~2u;
+		check_player_contacts_clear_state();
 		*p_health_limit = health_limit;
+		*p_cursor = cursor;
 		return;
 	}
 	if (OBJECT(object)->kind != 8u)
@@ -3222,265 +3311,85 @@ void check_player_contacts(uint32_t *p_health_limit, uint32_t *p_cursor)
 		case 0:
 		case 4:
 			OBJECT(current_object)->health++;
-			break;
+			joined_health_setting = PLAYER(current_player)->joined_health_setting;
+			max_health = (health_limit & ~0xFFu) | (uint8_t)max_health_by_setting[(uint16_t)(joined_health_setting * 2u)];
+			if (OBJECT(current_object)->health <= (int8_t)max_health)
+			{
+				check_player_contacts_clear_state();
+				*p_health_limit = max_health;
+				*p_cursor = cursor;
+				return;
+			}
+			OBJECT(current_object)->health = max_health;
+			check_player_contacts_clear_state();
+			*p_health_limit = max_health;
+			*p_cursor = cursor;
+			return;
 		case 1:
 		case 2:
 			health_limit = (health_limit & ~0xFFu) | 4u;
-		check_player_contacts_ring_health:
-			if (players_in_play >= 2)
-				health_limit = (health_limit & ~0xFFFFu) | ((uint16_t)health_limit >> 1);
-			PLAYER(current_player)->rings_to_health++;
-			if ((int8_t)health_limit <= PLAYER(current_player)->rings_to_health)
-			{
-				OBJECT(current_object)->health++;
-				PLAYER(current_player)->rings_to_health = 0;
-			}
 			break;
 		case 3:
 			health_limit = (health_limit & ~0xFFu) | 8u;
-			goto check_player_contacts_ring_health;
+			break;
 		default:
 			invalid_jump(0xE578u + health_setting * 2u);
 		}
-		joined_health_setting = PLAYER(current_player)->joined_health_setting;
-		health_limit = (health_limit & ~0xFFu) | (uint8_t)max_health_by_setting[(uint16_t)(joined_health_setting * 2u)];
-		if (OBJECT(current_object)->health <= (int8_t)health_limit)
+		if (players_in_play >= 2)
+			health_limit = (health_limit & ~0xFFFFu) | ((uint16_t)health_limit >> 1);
+		PLAYER(current_player)->rings_to_health++;
+		if (PLAYER(current_player)->rings_to_health < (int8_t)health_limit)
 		{
-			PLAYER(current_player)->pushed_out = 0;
-			PLAYER(current_player)->last_hazard = 0xFFFFu;
-			PLAYER(current_player)->last_damaged = 0xFFFFu;
-			OBJECT(current_object)->flags &= ~0x40000u;
-			OBJECT(current_object)->flags &= ~0x800000u;
-			OBJECT(current_object)->flags &= 0x7FFFFFFFu;
-			PLAYER(current_player)->flags &= ~2u;
-			*p_health_limit = health_limit;
+			joined_health_setting = PLAYER(current_player)->joined_health_setting;
+			max_health = (health_limit & ~0xFFu) | (uint8_t)max_health_by_setting[(uint16_t)(joined_health_setting * 2u)];
+			if (OBJECT(current_object)->health <= (int8_t)max_health)
+			{
+				check_player_contacts_clear_state();
+				*p_health_limit = max_health;
+				*p_cursor = cursor;
+				return;
+			}
+			OBJECT(current_object)->health = max_health;
+			check_player_contacts_clear_state();
+			*p_health_limit = max_health;
+			*p_cursor = cursor;
 			return;
 		}
-		OBJECT(current_object)->health = health_limit;
-		PLAYER(current_player)->pushed_out = 0;
-		PLAYER(current_player)->last_hazard = 0xFFFFu;
-		PLAYER(current_player)->last_damaged = 0xFFFFu;
-		OBJECT(current_object)->flags &= ~0x40000u;
-		OBJECT(current_object)->flags &= ~0x800000u;
-		OBJECT(current_object)->flags &= 0x7FFFFFFFu;
-		PLAYER(current_player)->flags &= ~2u;
-		*p_health_limit = health_limit;
+		OBJECT(current_object)->health++;
+		PLAYER(current_player)->rings_to_health = 0;
+		joined_health_setting = PLAYER(current_player)->joined_health_setting;
+		max_health = (health_limit & ~0xFFu) | (uint8_t)max_health_by_setting[(uint16_t)(joined_health_setting * 2u)];
+		if (OBJECT(current_object)->health <= (int8_t)max_health)
+		{
+			check_player_contacts_clear_state();
+			*p_health_limit = max_health;
+			*p_cursor = cursor;
+			return;
+		}
+		OBJECT(current_object)->health = max_health;
+		check_player_contacts_clear_state();
+		*p_health_limit = max_health;
+		*p_cursor = cursor;
 		return;
 	case 4:
 	case 15:
 	case 16:
 	case 22:
-	check_player_contacts_hurt_unless_invulnerable:
-		if (PLAYER(current_player)->invulnerable_timer >= 0)
-		{
-			PLAYER(current_player)->pushed_out = 0;
-			PLAYER(current_player)->last_hazard = 0xFFFFu;
-			PLAYER(current_player)->last_damaged = 0xFFFFu;
-			OBJECT(current_object)->flags &= ~0x40000u;
-			OBJECT(current_object)->flags &= ~0x800000u;
-			OBJECT(current_object)->flags &= 0x7FFFFFFFu;
-			PLAYER(current_player)->flags &= ~2u;
-			*p_health_limit = health_limit;
-			return;
-		}
-	case 9:
-	case 13:
-	case 24:
-	case 40:
-	check_player_contacts_hurt:
-		new_substate = 0u;
-	check_player_contacts_attack_or_hurt:
-		if (PLAYER(current_player)->state == 4u)
-		{
-		check_player_contacts_attack:
-			if (PLAYER(current_player)->last_damaged == (uint16_t)object)
-			{
-				*p_health_limit = health_limit;
-				return;
-			}
-			PLAYER(current_player)->last_damaged = object;
-			OBJECT(object)->flags |= 0x40u;
-			attack_power = PLAYER(current_player)->attack_power;
-			health = OBJECT(object)->health;
-			OBJECT(object)->health = health - attack_power;
-			if ((int8_t)attack_power < (int8_t)health || OBJECT(object)->kind == 0xCu || OBJECT(object)->kind == 9u || OBJECT(object)->kind == 0xBu || OBJECT(object)->kind == 0xDu || OBJECT(object)->kind == 0xEu || OBJECT(object)->kind == 0x11u || OBJECT(object)->kind == 0x18u || OBJECT(object)->kind == 0x19u)
-			{
-				OBJECT(current_object)->flags |= 0x2000u;
-				if ((OBJECT(object)->flags & 0x40000000u) == 0u)
-				{
-					if ((uint16_t)OBJECT(current_object)->speed_int != 0u)
-						move_angle = (uint16_t)(OBJECT(current_object)->direction + 0x200u);
-					else
-						move_angle = OBJECT(object)->direction;
-					OBJECT(current_object)->direction = move_angle & 0x3FFu;
-				}
-				else
-					OBJECT(current_object)->direction = OBJECT(object)->direction;
-				face_movement_direction(move_angle);
-				OBJECT(current_object)->speed = 0x4000000;
-				OBJECT(current_object)->speed_z = -0x18000;
-				PLAYER(current_player)->state_timer = 6;
-				OBJECT(current_object)->x = PLAYER(current_player)->previous_x;
-				OBJECT(current_object)->y = PLAYER(current_player)->previous_y;
-				*p_health_limit = health_limit;
-				return;
-			}
-			PLAYER(current_player)->hit_stop = 3u;
-			*p_health_limit = health_limit;
-			return;
-		}
-		if ((uint16_t)object != PLAYER(current_player)->last_hazard)
-		{
-			PLAYER(current_player)->substate = new_substate;
-			PLAYER(current_player)->last_hazard = object;
-			PLAYER(current_player)->hurt_contact_delay = 2;
-		}
-		PLAYER(current_player)->state = 0xDu;
+		check_player_contacts_hurt_unless_invulnerable(object);
+		*p_health_limit = health_limit;
+		*p_cursor = cursor;
 		return;
 	case 5:
 		if (PLAYER(current_player)->invulnerable_timer >= 0)
 		{
-			PLAYER(current_player)->pushed_out = 0;
-			PLAYER(current_player)->last_hazard = 0xFFFFu;
-			PLAYER(current_player)->last_damaged = 0xFFFFu;
-			OBJECT(current_object)->flags &= ~0x40000u;
-			OBJECT(current_object)->flags &= ~0x800000u;
-			OBJECT(current_object)->flags &= 0x7FFFFFFFu;
-			PLAYER(current_player)->flags &= ~2u;
+			check_player_contacts_clear_state();
 			*p_health_limit = health_limit;
+			*p_cursor = cursor;
 			return;
 		}
-	case 12:
-	case 32:
-	case 33:
-	check_player_contacts_solid:
-		if (PLAYER(current_player)->state == 4u)
-			goto check_player_contacts_attack;
-		if (PLAYER(current_player)->state == 0xAu)
-		{
-			if (PLAYER(current_player)->invulnerable_timer >= 0)
-			{
-				PLAYER(current_player)->pushed_out = 0;
-				PLAYER(current_player)->last_hazard = 0xFFFFu;
-				PLAYER(current_player)->last_damaged = 0xFFFFu;
-				OBJECT(current_object)->flags &= ~0x40000u;
-				OBJECT(current_object)->flags &= ~0x800000u;
-				OBJECT(current_object)->flags &= 0x7FFFFFFFu;
-				PLAYER(current_player)->flags &= ~2u;
-				*p_health_limit = health_limit;
-				return;
-			}
-			if ((uint8_t)PLAYER(current_player)->pushed_out != 0u)
-				return;
-			if (PLAYER(current_player)->last_hazard != (uint16_t)object)
-			{
-				PLAYER(current_player)->push_out_delay = 0x1E;
-				PLAYER(current_player)->last_hazard = object;
-			}
-			push_out_delay = PLAYER(current_player)->push_out_delay;
-			PLAYER(current_player)->push_out_delay = push_out_delay - 1u;
-			if ((int8_t)push_out_delay <= 1)
-				PLAYER(current_player)->pushed_out = -1;
-			PLAYER(current_player)->screen_x = PLAYER(current_player)->saved_screen_x;
-			OBJECT(current_object)->projected_y = PLAYER(current_player)->saved_screen_y;
-			OBJECT(current_object)->z = PLAYER(current_player)->previous_z;
-			PLAYER(current_player)->climb_remaining = PLAYER(current_player)->saved_climb_remaining;
-			OBJECT(current_object)->animation_speed = 0xFFu;
-			OBJECT(current_object)->animation_frame = 0u;
-			PLAYER(current_player)->step_accumulator = 0;
-			PLAYER(current_player)->side_step_accumulator = 0;
-			return;
-		}
-		if (PLAYER(current_player)->state == 0x2Fu)
-			return;
-		if (PLAYER(current_player)->pushed_out < 0)
-		{
-			if ((uint8_t)PLAYER(current_player)->pushed_out == 0u)
-			{
-				aim_at_screen_centre(&health_limit, &dx, &dy_2);
-				PLAYER(current_player)->push_out_x = dx;
-				PLAYER(current_player)->push_out_y = dy_2;
-				OBJECT(current_object)->speed = 0;
-				PLAYER(current_player)->ground_speed = 0;
-			}
-			PLAYER(current_player)->pushed_out = -1;
-			PLAYER(current_player)->previous_x = OBJECT(current_object)->x;
-			PLAYER(current_player)->previous_y = OBJECT(current_object)->y;
-			OBJECT(current_object)->x += PLAYER(current_player)->push_out_x;
-			OBJECT(current_object)->y += PLAYER(current_player)->push_out_y;
-			PLAYER(current_player)->jump_delay = 2;
-			PLAYER(current_player)->state = 0u;
-			*p_health_limit = health_limit;
-			return;
-		}
-		if (PLAYER(current_player)->last_hazard != (uint16_t)object)
-		{
-			PLAYER(current_player)->push_out_delay = 0x1E;
-			PLAYER(current_player)->last_hazard = object;
-			OBJECT(current_object)->flags |= 0x1000u;
-			OBJECT(current_object)->x = PLAYER(current_player)->previous_x;
-			OBJECT(current_object)->y = PLAYER(current_player)->previous_y;
-			OBJECT(current_object)->z = PLAYER(current_player)->previous_z;
-			OBJECT(current_object)->floor_block = OBJECT(current_object)->previous_floor_block;
-			OBJECT(current_object)->floor_z = OBJECT(current_object)->previous_floor_z;
-			if (OBJECT(object)->kind != 0x20u && OBJECT(current_object)->speed_int >= 0x500)
-			{
-				AS16(PLAYER(current_player)->bounce_direction) = ((OBJECT(current_object)->direction + 0x80u) & 0x3FFu) >> 8;
-				PLAYER(current_player)->state = 0xEu;
-				PLAYER(current_player)->substate = 0u;
-				return;
-			}
-			OBJECT(current_object)->speed = 0;
-			OBJECT(current_object)->speed_x = 0;
-			OBJECT(current_object)->speed_y = 0;
-			PLAYER(current_player)->control_lock = 0u;
-			OBJECT(current_object)->flags |= 0x800000u;
-			PLAYER(current_player)->free_turn_timer = 3u;
-			PLAYER(current_player)->state = 0u;
-			return;
-		}
-		push_out_delay_2 = PLAYER(current_player)->push_out_delay;
-		PLAYER(current_player)->push_out_delay = push_out_delay_2 - 1u;
-		if ((int8_t)push_out_delay_2 <= 1)
-		{
-			if ((uint8_t)PLAYER(current_player)->pushed_out == 0u)
-			{
-				aim_at_screen_centre(&health_limit, &dx, &dy_2);
-				PLAYER(current_player)->push_out_x = dx;
-				PLAYER(current_player)->push_out_y = dy_2;
-				OBJECT(current_object)->speed = 0;
-				PLAYER(current_player)->ground_speed = 0;
-			}
-			PLAYER(current_player)->pushed_out = -1;
-			PLAYER(current_player)->previous_x = OBJECT(current_object)->x;
-			PLAYER(current_player)->previous_y = OBJECT(current_object)->y;
-			OBJECT(current_object)->x += PLAYER(current_player)->push_out_x;
-			OBJECT(current_object)->y += PLAYER(current_player)->push_out_y;
-			PLAYER(current_player)->jump_delay = 2;
-			PLAYER(current_player)->state = 0u;
-			*p_health_limit = health_limit;
-			return;
-		}
-		OBJECT(current_object)->flags |= 0x1000u;
-		OBJECT(current_object)->x = PLAYER(current_player)->previous_x;
-		OBJECT(current_object)->y = PLAYER(current_player)->previous_y;
-		OBJECT(current_object)->z = PLAYER(current_player)->previous_z;
-		OBJECT(current_object)->floor_block = OBJECT(current_object)->previous_floor_block;
-		OBJECT(current_object)->floor_z = OBJECT(current_object)->previous_floor_z;
-		if (OBJECT(object)->kind != 0x20u && OBJECT(current_object)->speed_int >= 0x500)
-		{
-			AS16(PLAYER(current_player)->bounce_direction) = ((OBJECT(current_object)->direction + 0x80u) & 0x3FFu) >> 8;
-			PLAYER(current_player)->state = 0xEu;
-			PLAYER(current_player)->substate = 0u;
-			return;
-		}
-		OBJECT(current_object)->speed = 0;
-		OBJECT(current_object)->speed_x = 0;
-		OBJECT(current_object)->speed_y = 0;
-		PLAYER(current_player)->control_lock = 0u;
-		OBJECT(current_object)->flags |= 0x800000u;
-		PLAYER(current_player)->free_turn_timer = 3u;
-		PLAYER(current_player)->state = 0u;
+		health_limit = check_player_contacts_solid(health_limit, object);
+		*p_health_limit = health_limit;
+		*p_cursor = cursor;
 		return;
 	case 6:
 		new_substate = 0u;
@@ -3526,9 +3435,27 @@ void check_player_contacts(uint32_t *p_health_limit, uint32_t *p_cursor)
 		OBJECT(current_object)->flags &= ~0x40u;
 		OBJECT(current_object)->flags &= ~0x2000u;
 		return;
+	case 9:
+	case 13:
+	case 24:
+	case 40:
+		check_player_contacts_hurt(object);
+		*p_health_limit = health_limit;
+		*p_cursor = cursor;
+		return;
 	case 11:
 		new_substate = 1u;
-		goto check_player_contacts_attack_or_hurt;
+		check_player_contacts_attack_or_hurt(new_substate, object);
+		*p_health_limit = health_limit;
+		*p_cursor = cursor;
+		return;
+	case 12:
+	case 32:
+	case 33:
+		health_limit = check_player_contacts_solid(health_limit, object);
+		*p_health_limit = health_limit;
+		*p_cursor = cursor;
+		return;
 	case 14:
 		new_substate = 7u;
 		if ((uint16_t)object != PLAYER(current_player)->last_hazard)
@@ -3541,14 +3468,22 @@ void check_player_contacts(uint32_t *p_health_limit, uint32_t *p_cursor)
 		return;
 	case 17:
 		if (PLAYER(current_player)->state == 4u)
-			goto check_player_contacts_attack;
-		if (OBJECT(current_object)->speed_int >= 0x200)
 		{
-			PLAYER(current_player)->state = 0x1Du;
-			PLAYER(current_player)->substate = 0u;
+			check_player_contacts_attack(object);
+			*p_health_limit = health_limit;
+			*p_cursor = cursor;
 			return;
 		}
-		goto check_player_contacts_solid;
+		if (OBJECT(current_object)->speed_int < 0x200)
+		{
+			health_limit = check_player_contacts_solid(health_limit, object);
+			*p_health_limit = health_limit;
+			*p_cursor = cursor;
+			return;
+		}
+		PLAYER(current_player)->state = 0x1Du;
+		PLAYER(current_player)->substate = 0u;
+		return;
 	case 18:
 		if (PLAYER(current_player)->state == 0x2Fu)
 			return;
@@ -3574,14 +3509,9 @@ void check_player_contacts(uint32_t *p_health_limit, uint32_t *p_cursor)
 		new_substate = 7u;
 		if (PLAYER(current_player)->invulnerable_timer >= 0)
 		{
-			PLAYER(current_player)->pushed_out = 0;
-			PLAYER(current_player)->last_hazard = 0xFFFFu;
-			PLAYER(current_player)->last_damaged = 0xFFFFu;
-			OBJECT(current_object)->flags &= ~0x40000u;
-			OBJECT(current_object)->flags &= ~0x800000u;
-			OBJECT(current_object)->flags &= 0x7FFFFFFFu;
-			PLAYER(current_player)->flags &= ~2u;
+			check_player_contacts_clear_state();
 			*p_health_limit = health_limit;
+			*p_cursor = cursor;
 			return;
 		}
 		if ((uint16_t)object != PLAYER(current_player)->last_hazard)
@@ -3595,14 +3525,9 @@ void check_player_contacts(uint32_t *p_health_limit, uint32_t *p_cursor)
 	case 23:
 		if (PLAYER(current_player)->invulnerable_timer >= 0)
 		{
-			PLAYER(current_player)->pushed_out = 0;
-			PLAYER(current_player)->last_hazard = 0xFFFFu;
-			PLAYER(current_player)->last_damaged = 0xFFFFu;
-			OBJECT(current_object)->flags &= ~0x40000u;
-			OBJECT(current_object)->flags &= ~0x800000u;
-			OBJECT(current_object)->flags &= 0x7FFFFFFFu;
-			PLAYER(current_player)->flags &= ~2u;
+			check_player_contacts_clear_state();
 			*p_health_limit = health_limit;
+			*p_cursor = cursor;
 			return;
 		}
 		if ((uint16_t)object == PLAYER(current_player)->last_hazard)
@@ -3618,14 +3543,9 @@ void check_player_contacts(uint32_t *p_health_limit, uint32_t *p_cursor)
 	case 25:
 		if (PLAYER(current_player)->invulnerable_timer >= 0)
 		{
-			PLAYER(current_player)->pushed_out = 0;
-			PLAYER(current_player)->last_hazard = 0xFFFFu;
-			PLAYER(current_player)->last_damaged = 0xFFFFu;
-			OBJECT(current_object)->flags &= ~0x40000u;
-			OBJECT(current_object)->flags &= ~0x800000u;
-			OBJECT(current_object)->flags &= 0x7FFFFFFFu;
-			PLAYER(current_player)->flags &= ~2u;
+			check_player_contacts_clear_state();
 			*p_health_limit = health_limit;
+			*p_cursor = cursor;
 			return;
 		}
 		contact_saved_x = OBJECT(current_object)->x;
@@ -3637,30 +3557,19 @@ void check_player_contacts(uint32_t *p_health_limit, uint32_t *p_cursor)
 		OBJECT(current_object)->floor_z = OBJECT(current_object)->previous_floor_z;
 		side_of_box(object, &health_limit, &sides);
 		contact_box_side = sides;
-		if ((uint16_t)sides == 8u || (uint16_t)sides == 0u || PLAYER(current_player)->state != 4u)
+		if ((uint16_t)sides != 8u && (uint16_t)sides != 0u && PLAYER(current_player)->state == 4u)
 		{
-			OBJECT(current_object)->flags |= 0x1000u;
-			saved_sides = contact_box_side;
-			if (saved_sides == 0u)
+			check_player_contacts_attack(object);
+			*p_health_limit = health_limit;
+			*p_cursor = cursor;
+			return;
+		}
+		OBJECT(current_object)->flags |= 0x1000u;
+		saved_sides = contact_box_side;
+		if (saved_sides != 0u)
+		{
+			if (saved_sides != 8u)
 			{
-			check_player_contacts_move_with_object:
-				carried_x = OBJECT(object)->speed_x;
-				carried_y = OBJECT(object)->speed_y * 2u;
-				unproject_point(&carried_x, &carried_y);
-				OBJECT(current_object)->x += carried_x;
-				OBJECT(current_object)->x += carried_x;
-				PLAYER(current_player)->previous_x = OBJECT(current_object)->x;
-				OBJECT(current_object)->y += carried_y;
-				PLAYER(current_player)->previous_y = OBJECT(current_object)->y;
-			}
-			else
-			{
-				if (saved_sides == 8u)
-				{
-					OBJECT(current_object)->x = contact_saved_x;
-					OBJECT(current_object)->y = contact_saved_y;
-					goto check_player_contacts_move_with_object;
-				}
 				if (OBJECT(current_object)->speed_int >= 0x500)
 				{
 					AS16(PLAYER(current_player)->bounce_direction) = ((OBJECT(current_object)->direction + 0x80u) & 0x3FFu) >> 8;
@@ -3669,24 +3578,48 @@ void check_player_contacts(uint32_t *p_health_limit, uint32_t *p_cursor)
 					*p_health_limit = health_limit;
 					return;
 				}
+				OBJECT(current_object)->speed = 0;
+				OBJECT(current_object)->speed_x = 0;
+				OBJECT(current_object)->speed_y = 0;
+				PLAYER(current_player)->control_lock = 0u;
+				OBJECT(current_object)->flags |= 0x800000u;
+				PLAYER(current_player)->free_turn_timer = 3u;
+				PLAYER(current_player)->state = 0u;
+				PLAYER(current_player)->state_timer = -1;
+				OBJECT(current_object)->flags &= ~0x2000u;
+				OBJECT(current_object)->sprite_palette = ROM16(OBJECT(current_object)->check_player.palette_list + 2u);
+				OBJECT(current_object)->flags &= ~0x40u;
+				OBJECT(current_object)->flags &= ~0x100000u;
+				OBJECT(current_object)->flags &= ~0x200000u;
+				*p_health_limit = health_limit;
+				return;
 			}
-			OBJECT(current_object)->speed = 0;
-			OBJECT(current_object)->speed_x = 0;
-			OBJECT(current_object)->speed_y = 0;
-			PLAYER(current_player)->control_lock = 0u;
-			OBJECT(current_object)->flags |= 0x800000u;
-			PLAYER(current_player)->free_turn_timer = 3u;
-			PLAYER(current_player)->state = 0u;
-			PLAYER(current_player)->state_timer = -1;
-			OBJECT(current_object)->flags &= ~0x2000u;
-			OBJECT(current_object)->sprite_palette = ROM16(OBJECT(current_object)->check_player.palette_list + 2u);
-			OBJECT(current_object)->flags &= ~0x40u;
-			OBJECT(current_object)->flags &= ~0x100000u;
-			OBJECT(current_object)->flags &= ~0x200000u;
-			*p_health_limit = health_limit;
-			return;
+			OBJECT(current_object)->x = contact_saved_x;
+			OBJECT(current_object)->y = contact_saved_y;
 		}
-		goto check_player_contacts_attack;
+		carried_x = OBJECT(object)->speed_x;
+		carried_y = OBJECT(object)->speed_y * 2u;
+		unproject_point(&carried_x, &carried_y);
+		OBJECT(current_object)->x += carried_x;
+		OBJECT(current_object)->x += carried_x;
+		PLAYER(current_player)->previous_x = OBJECT(current_object)->x;
+		OBJECT(current_object)->y += carried_y;
+		PLAYER(current_player)->previous_y = OBJECT(current_object)->y;
+		OBJECT(current_object)->speed = 0;
+		OBJECT(current_object)->speed_x = 0;
+		OBJECT(current_object)->speed_y = 0;
+		PLAYER(current_player)->control_lock = 0u;
+		OBJECT(current_object)->flags |= 0x800000u;
+		PLAYER(current_player)->free_turn_timer = 3u;
+		PLAYER(current_player)->state = 0u;
+		PLAYER(current_player)->state_timer = -1;
+		OBJECT(current_object)->flags &= ~0x2000u;
+		OBJECT(current_object)->sprite_palette = ROM16(OBJECT(current_object)->check_player.palette_list + 2u);
+		OBJECT(current_object)->flags &= ~0x40u;
+		OBJECT(current_object)->flags &= ~0x100000u;
+		OBJECT(current_object)->flags &= ~0x200000u;
+		*p_health_limit = health_limit;
+		return;
 	case 26:
 		object_2 = LINKED(current_object, OBJECT(object)->parent);
 		if (OBJECT(object_2)->var_82 != 0x300u)
@@ -3739,14 +3672,9 @@ void check_player_contacts(uint32_t *p_health_limit, uint32_t *p_cursor)
 	case 28:
 		if (PLAYER(current_player)->invulnerable_timer >= 0)
 		{
-			PLAYER(current_player)->pushed_out = 0;
-			PLAYER(current_player)->last_hazard = 0xFFFFu;
-			PLAYER(current_player)->last_damaged = 0xFFFFu;
-			OBJECT(current_object)->flags &= ~0x40000u;
-			OBJECT(current_object)->flags &= ~0x800000u;
-			OBJECT(current_object)->flags &= 0x7FFFFFFFu;
-			PLAYER(current_player)->flags &= ~2u;
+			check_player_contacts_clear_state();
 			*p_health_limit = health_limit;
+			*p_cursor = cursor;
 			return;
 		}
 		flags = OBJECT(current_object)->flags;
@@ -3808,14 +3736,9 @@ void check_player_contacts(uint32_t *p_health_limit, uint32_t *p_cursor)
 	case 31:
 		if (PLAYER(current_player)->invulnerable_timer >= 0)
 		{
-			PLAYER(current_player)->pushed_out = 0;
-			PLAYER(current_player)->last_hazard = 0xFFFFu;
-			PLAYER(current_player)->last_damaged = 0xFFFFu;
-			OBJECT(current_object)->flags &= ~0x40000u;
-			OBJECT(current_object)->flags &= ~0x800000u;
-			OBJECT(current_object)->flags &= 0x7FFFFFFFu;
-			PLAYER(current_player)->flags &= ~2u;
+			check_player_contacts_clear_state();
 			*p_health_limit = health_limit;
+			*p_cursor = cursor;
 			return;
 		}
 		if (PLAYER(current_player)->state == 0x29u || PLAYER(current_player)->state == 5u || PLAYER(current_player)->state == 7u || PLAYER(current_player)->state == 0xDu || OBJECT(current_object)->floor_type == 0xAu || OBJECT(current_object)->floor_type == 0xBu)
@@ -3824,20 +3747,15 @@ void check_player_contacts(uint32_t *p_health_limit, uint32_t *p_cursor)
 		PLAYER(current_player)->substate = 0u;
 		return;
 	case 34:
-		if (PLAYER(current_player)->invulnerable_timer < 0)
+		if (PLAYER(current_player)->invulnerable_timer >= 0)
 		{
-			PLAYER(current_player)->state = 0x1Fu;
-			PLAYER(current_player)->substate = 0u;
+			check_player_contacts_clear_state();
+			*p_health_limit = health_limit;
+			*p_cursor = cursor;
 			return;
 		}
-		PLAYER(current_player)->pushed_out = 0;
-		PLAYER(current_player)->last_hazard = 0xFFFFu;
-		PLAYER(current_player)->last_damaged = 0xFFFFu;
-		OBJECT(current_object)->flags &= ~0x40000u;
-		OBJECT(current_object)->flags &= ~0x800000u;
-		OBJECT(current_object)->flags &= 0x7FFFFFFFu;
-		PLAYER(current_player)->flags &= ~2u;
-		*p_health_limit = health_limit;
+		PLAYER(current_player)->state = 0x1Fu;
+		PLAYER(current_player)->substate = 0u;
 		return;
 	case 35:
 		PLAYER(current_player)->state = 0x2Cu;
@@ -3847,14 +3765,9 @@ void check_player_contacts(uint32_t *p_health_limit, uint32_t *p_cursor)
 		new_substate = 0u;
 		if (PLAYER(current_player)->invulnerable_timer >= 0)
 		{
-			PLAYER(current_player)->pushed_out = 0;
-			PLAYER(current_player)->last_hazard = 0xFFFFu;
-			PLAYER(current_player)->last_damaged = 0xFFFFu;
-			OBJECT(current_object)->flags &= ~0x40000u;
-			OBJECT(current_object)->flags &= ~0x800000u;
-			OBJECT(current_object)->flags &= 0x7FFFFFFFu;
-			PLAYER(current_player)->flags &= ~2u;
+			check_player_contacts_clear_state();
 			*p_health_limit = health_limit;
+			*p_cursor = cursor;
 			return;
 		}
 		if ((uint16_t)object != PLAYER(current_player)->last_hazard)
@@ -3875,11 +3788,233 @@ void check_player_contacts(uint32_t *p_health_limit, uint32_t *p_cursor)
 		return;
 	case 39:
 		OBJECT(current_object)->flags |= 0x1000u;
-		goto check_player_contacts_hurt_unless_invulnerable;
+		check_player_contacts_hurt_unless_invulnerable(object);
+		*p_health_limit = health_limit;
+		*p_cursor = cursor;
+		return;
 	case 41:
 		OBJECT(current_object)->flags |= 0x1000u;
-		goto check_player_contacts_hurt;
+		check_player_contacts_hurt(object);
+		*p_health_limit = health_limit;
+		*p_cursor = cursor;
+		return;
 	default:
 		invalid_jump(0xE4DFu + OBJECT(object)->kind * 3u);
 	}
+}
+
+void check_player_contacts_clear_state(void)
+{
+	PLAYER(current_player)->pushed_out = 0;
+	PLAYER(current_player)->last_hazard = 0xFFFFu;
+	PLAYER(current_player)->last_damaged = 0xFFFFu;
+	OBJECT(current_object)->flags &= ~0x40000u;
+	OBJECT(current_object)->flags &= ~0x800000u;
+	OBJECT(current_object)->flags &= 0x7FFFFFFFu;
+	PLAYER(current_player)->flags &= ~2u;
+}
+
+void check_player_contacts_hurt_unless_invulnerable(uint32_t toucher)
+{
+	if (PLAYER(current_player)->invulnerable_timer >= 0)
+	{
+		check_player_contacts_clear_state();
+		return;
+	}
+	check_player_contacts_hurt(toucher);
+}
+
+void check_player_contacts_hurt(uint32_t toucher)
+{
+	uint8_t new_substate = 0;
+
+	new_substate = 0u;
+	check_player_contacts_attack_or_hurt(new_substate, toucher);
+}
+
+void check_player_contacts_attack_or_hurt(uint8_t new_substate, uint32_t toucher)
+{
+	if (PLAYER(current_player)->state == 4u)
+	{
+		check_player_contacts_attack(toucher);
+		return;
+	}
+	if ((uint16_t)toucher != PLAYER(current_player)->last_hazard)
+	{
+		PLAYER(current_player)->substate = new_substate;
+		PLAYER(current_player)->last_hazard = toucher;
+		PLAYER(current_player)->hurt_contact_delay = 2;
+	}
+	PLAYER(current_player)->state = 0xDu;
+}
+
+uint32_t check_player_contacts_solid(uint32_t health_limit, uint32_t toucher)
+{
+	uint32_t dx = 0, dy = 0;
+	uint8_t push_out_delay = 0, push_out_delay_2 = 0;
+
+	if (PLAYER(current_player)->state == 4u)
+	{
+		check_player_contacts_attack(toucher);
+		return health_limit;
+	}
+	if (PLAYER(current_player)->state == 0xAu)
+	{
+		if (PLAYER(current_player)->invulnerable_timer >= 0)
+		{
+			check_player_contacts_clear_state();
+			return health_limit;
+		}
+		if ((uint8_t)PLAYER(current_player)->pushed_out != 0u)
+			return health_limit;
+		if (PLAYER(current_player)->last_hazard != (uint16_t)toucher)
+		{
+			PLAYER(current_player)->push_out_delay = 0x1E;
+			PLAYER(current_player)->last_hazard = toucher;
+		}
+		push_out_delay = PLAYER(current_player)->push_out_delay;
+		PLAYER(current_player)->push_out_delay = push_out_delay - 1u;
+		if ((int8_t)push_out_delay <= 1)
+			PLAYER(current_player)->pushed_out = -1;
+		PLAYER(current_player)->screen_x = PLAYER(current_player)->saved_screen_x;
+		OBJECT(current_object)->projected_y = PLAYER(current_player)->saved_screen_y;
+		OBJECT(current_object)->z = PLAYER(current_player)->previous_z;
+		PLAYER(current_player)->climb_remaining = PLAYER(current_player)->saved_climb_remaining;
+		OBJECT(current_object)->animation_speed = 0xFFu;
+		OBJECT(current_object)->animation_frame = 0u;
+		PLAYER(current_player)->step_accumulator = 0;
+		PLAYER(current_player)->side_step_accumulator = 0;
+		return health_limit;
+	}
+	if (PLAYER(current_player)->state == 0x2Fu)
+		return health_limit;
+	if (PLAYER(current_player)->pushed_out < 0)
+	{
+		if ((uint8_t)PLAYER(current_player)->pushed_out == 0u)
+		{
+			aim_at_screen_centre(&health_limit, &dx, &dy);
+			PLAYER(current_player)->push_out_x = dx;
+			PLAYER(current_player)->push_out_y = dy;
+			OBJECT(current_object)->speed = 0;
+			PLAYER(current_player)->ground_speed = 0;
+		}
+		PLAYER(current_player)->pushed_out = -1;
+		PLAYER(current_player)->previous_x = OBJECT(current_object)->x;
+		PLAYER(current_player)->previous_y = OBJECT(current_object)->y;
+		OBJECT(current_object)->x += PLAYER(current_player)->push_out_x;
+		OBJECT(current_object)->y += PLAYER(current_player)->push_out_y;
+		PLAYER(current_player)->jump_delay = 2;
+		PLAYER(current_player)->state = 0u;
+		return health_limit;
+	}
+	if (PLAYER(current_player)->last_hazard != (uint16_t)toucher)
+	{
+		PLAYER(current_player)->push_out_delay = 0x1E;
+		PLAYER(current_player)->last_hazard = toucher;
+		OBJECT(current_object)->flags |= 0x1000u;
+		OBJECT(current_object)->x = PLAYER(current_player)->previous_x;
+		OBJECT(current_object)->y = PLAYER(current_player)->previous_y;
+		OBJECT(current_object)->z = PLAYER(current_player)->previous_z;
+		OBJECT(current_object)->floor_block = OBJECT(current_object)->previous_floor_block;
+		OBJECT(current_object)->floor_z = OBJECT(current_object)->previous_floor_z;
+		if (OBJECT(toucher)->kind != 0x20u && OBJECT(current_object)->speed_int >= 0x500)
+		{
+			AS16(PLAYER(current_player)->bounce_direction) = ((OBJECT(current_object)->direction + 0x80u) & 0x3FFu) >> 8;
+			PLAYER(current_player)->state = 0xEu;
+			PLAYER(current_player)->substate = 0u;
+			return health_limit;
+		}
+		OBJECT(current_object)->speed = 0;
+		OBJECT(current_object)->speed_x = 0;
+		OBJECT(current_object)->speed_y = 0;
+		PLAYER(current_player)->control_lock = 0u;
+		OBJECT(current_object)->flags |= 0x800000u;
+		PLAYER(current_player)->free_turn_timer = 3u;
+		PLAYER(current_player)->state = 0u;
+		return health_limit;
+	}
+	push_out_delay_2 = PLAYER(current_player)->push_out_delay;
+	PLAYER(current_player)->push_out_delay = push_out_delay_2 - 1u;
+	if ((int8_t)push_out_delay_2 <= 1)
+	{
+		if ((uint8_t)PLAYER(current_player)->pushed_out == 0u)
+		{
+			aim_at_screen_centre(&health_limit, &dx, &dy);
+			PLAYER(current_player)->push_out_x = dx;
+			PLAYER(current_player)->push_out_y = dy;
+			OBJECT(current_object)->speed = 0;
+			PLAYER(current_player)->ground_speed = 0;
+		}
+		PLAYER(current_player)->pushed_out = -1;
+		PLAYER(current_player)->previous_x = OBJECT(current_object)->x;
+		PLAYER(current_player)->previous_y = OBJECT(current_object)->y;
+		OBJECT(current_object)->x += PLAYER(current_player)->push_out_x;
+		OBJECT(current_object)->y += PLAYER(current_player)->push_out_y;
+		PLAYER(current_player)->jump_delay = 2;
+		PLAYER(current_player)->state = 0u;
+		return health_limit;
+	}
+	OBJECT(current_object)->flags |= 0x1000u;
+	OBJECT(current_object)->x = PLAYER(current_player)->previous_x;
+	OBJECT(current_object)->y = PLAYER(current_player)->previous_y;
+	OBJECT(current_object)->z = PLAYER(current_player)->previous_z;
+	OBJECT(current_object)->floor_block = OBJECT(current_object)->previous_floor_block;
+	OBJECT(current_object)->floor_z = OBJECT(current_object)->previous_floor_z;
+	if (OBJECT(toucher)->kind != 0x20u && OBJECT(current_object)->speed_int >= 0x500)
+	{
+		AS16(PLAYER(current_player)->bounce_direction) = ((OBJECT(current_object)->direction + 0x80u) & 0x3FFu) >> 8;
+		PLAYER(current_player)->state = 0xEu;
+		PLAYER(current_player)->substate = 0u;
+		return health_limit;
+	}
+	OBJECT(current_object)->speed = 0;
+	OBJECT(current_object)->speed_x = 0;
+	OBJECT(current_object)->speed_y = 0;
+	PLAYER(current_player)->control_lock = 0u;
+	OBJECT(current_object)->flags |= 0x800000u;
+	PLAYER(current_player)->free_turn_timer = 3u;
+	PLAYER(current_player)->state = 0u;
+	return health_limit;
+}
+
+void check_player_contacts_attack(uint32_t toucher)
+{
+	uint32_t move_angle = 0;
+	uint8_t attack_power = 0, health = 0;
+
+	if (PLAYER(current_player)->last_damaged == (uint16_t)toucher)
+		return;
+	PLAYER(current_player)->last_damaged = toucher;
+	OBJECT(toucher)->flags |= 0x40u;
+	attack_power = PLAYER(current_player)->attack_power;
+	health = OBJECT(toucher)->health;
+	OBJECT(toucher)->health = health - attack_power;
+	if ((int8_t)health <= (int8_t)attack_power && OBJECT(toucher)->kind != 0xCu && OBJECT(toucher)->kind != 9u && OBJECT(toucher)->kind != 0xBu && OBJECT(toucher)->kind != 0xDu && OBJECT(toucher)->kind != 0xEu && OBJECT(toucher)->kind != 0x11u && OBJECT(toucher)->kind != 0x18u && OBJECT(toucher)->kind != 0x19u)
+	{
+		PLAYER(current_player)->hit_stop = 3u;
+		return;
+	}
+	OBJECT(current_object)->flags |= 0x2000u;
+	if ((OBJECT(toucher)->flags & 0x40000000u) != 0u)
+	{
+		OBJECT(current_object)->direction = OBJECT(toucher)->direction;
+		face_movement_direction(move_angle);
+		OBJECT(current_object)->speed = 0x4000000;
+		OBJECT(current_object)->speed_z = -0x18000;
+		PLAYER(current_player)->state_timer = 6;
+		OBJECT(current_object)->x = PLAYER(current_player)->previous_x;
+		OBJECT(current_object)->y = PLAYER(current_player)->previous_y;
+		return;
+	}
+	if ((uint16_t)OBJECT(current_object)->speed_int != 0u)
+		move_angle = (uint16_t)(OBJECT(current_object)->direction + 0x200u);
+	else
+		move_angle = OBJECT(toucher)->direction;
+	OBJECT(current_object)->direction = move_angle & 0x3FFu;
+	face_movement_direction(move_angle);
+	OBJECT(current_object)->speed = 0x4000000;
+	OBJECT(current_object)->speed_z = -0x18000;
+	PLAYER(current_player)->state_timer = 6;
+	OBJECT(current_object)->x = PLAYER(current_player)->previous_x;
+	OBJECT(current_object)->y = PLAYER(current_player)->previous_y;
 }

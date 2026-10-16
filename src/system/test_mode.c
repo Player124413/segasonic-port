@@ -346,7 +346,6 @@ void check_rom_checksums(void)
 void test_work_ram(void)
 {
 	uint32_t bytes_left = 0, passes_left = 0, pattern = 0, pattern_index = 0, ram_cursor = 0;
-	uint8_t expected = 0, actual = 0;
 
 	move_bytes(VIDEO_RAM, WORK_RAM, 0x10000u);
 	ram_cursor = 0x200000u;
@@ -364,14 +363,24 @@ void test_work_ram(void)
 				pattern++;
 				ram_cursor++;
 				if ((int32_t)ram_cursor >= 0x210000)
-					goto test_work_ram_verify;
+				{
+					test_work_ram_verify();
+					return;
+				}
 				bytes_left--;
 			} while (bytes_left != 0u);
 			pattern_index--;
 		} while (pattern_index != 0u);
 		passes_left--;
 	} while (passes_left != 0u);
-test_work_ram_verify:
+	test_work_ram_verify();
+}
+
+void test_work_ram_verify(void)
+{
+	uint32_t bytes_left = 0, passes_left = 0, pattern = 0, pattern_index = 0, ram_cursor = 0;
+	uint8_t expected = 0, actual = 0;
+
 	ram_cursor = 0x200000u;
 	passes_left = 0x42u;
 	do
@@ -411,7 +420,6 @@ test_work_ram_verify:
 void test_video_ram(void)
 {
 	uint32_t bytes_left = 0, passes_left = 0, pattern = 0, pattern_index = 0, ram_cursor = 0;
-	uint8_t expected = 0, actual = 0;
 
 	ram_cursor = 0x300000u;
 	passes_left = 0x84u;
@@ -428,14 +436,24 @@ void test_video_ram(void)
 				ram_cursor++;
 				pattern++;
 				if ((int32_t)ram_cursor >= 0x320000)
-					goto test_video_ram_verify;
+				{
+					test_video_ram_verify();
+					return;
+				}
 				bytes_left--;
 			} while (bytes_left != 0u);
 			pattern_index--;
 		} while (pattern_index != 0u);
 		passes_left--;
 	} while (passes_left != 0u);
-test_video_ram_verify:
+	test_video_ram_verify();
+}
+
+void test_video_ram_verify(void)
+{
+	uint32_t bytes_left = 0, passes_left = 0, pattern = 0, pattern_index = 0, ram_cursor = 0;
+	uint8_t expected = 0, actual = 0;
+
 	ram_cursor = 0x300000u;
 	passes_left = 0x84u;
 	do
@@ -478,7 +496,6 @@ test_video_ram_verify:
 void test_sprite_ram(void)
 {
 	uint32_t bytes_left = 0, passes_left = 0, pattern = 0, pattern_index = 0, ram_cursor = 0;
-	uint8_t expected = 0, actual = 0;
 
 	ram_cursor = 0x400000u;
 	passes_left = 0x84u;
@@ -495,14 +512,24 @@ void test_sprite_ram(void)
 				ram_cursor++;
 				pattern++;
 				if ((int32_t)ram_cursor >= 0x420000)
-					goto test_sprite_ram_verify;
+				{
+					test_sprite_ram_verify();
+					return;
+				}
 				bytes_left--;
 			} while (bytes_left != 0u);
 			pattern_index--;
 		} while (pattern_index != 0u);
 		passes_left--;
 	} while (passes_left != 0u);
-test_sprite_ram_verify:
+	test_sprite_ram_verify();
+}
+
+void test_sprite_ram_verify(void)
+{
+	uint32_t bytes_left = 0, passes_left = 0, pattern = 0, pattern_index = 0, ram_cursor = 0;
+	uint8_t expected = 0, actual = 0;
+
 	ram_cursor = 0x400000u;
 	passes_left = 0x84u;
 	do
@@ -545,7 +572,6 @@ test_sprite_ram_verify:
 void test_palette_ram(void)
 {
 	uint32_t halfwords_left = 0, passes_left = 0, pattern = 0, pattern_index = 0, ram_cursor = 0;
-	uint16_t expected_first = 0, actual_first = 0, expected_second = 0, actual_second = 0;
 
 	ram_cursor = 0x600000u;
 	passes_left = 8u;
@@ -562,14 +588,24 @@ void test_palette_ram(void)
 				ram_cursor += 2u;
 				pattern += 2u;
 				if ((int32_t)ram_cursor >= 0x604000)
-					goto test_palette_ram_verify_first_half;
+				{
+					test_palette_ram_verify_first_half();
+					return;
+				}
 				halfwords_left--;
 			} while (halfwords_left != 0u);
 			pattern_index--;
 		} while (pattern_index != 0u);
 		passes_left--;
 	} while (passes_left != 0u);
-test_palette_ram_verify_first_half:
+	test_palette_ram_verify_first_half();
+}
+
+void test_palette_ram_verify_first_half(void)
+{
+	uint32_t halfwords_left = 0, passes_left = 0, pattern = 0, pattern_index = 0, ram_cursor = 0;
+	uint16_t expected_first = 0, actual_first = 0;
+
 	ram_cursor = 0x600000u;
 	passes_left = 8u;
 	do
@@ -593,14 +629,23 @@ test_palette_ram_verify_first_half:
 						memory_test_errors |= 0x80u;
 				}
 				if ((int32_t)ram_cursor >= 0x604000)
-					goto test_palette_ram_fill_second_half;
+				{
+					test_palette_ram_fill_second_half();
+					return;
+				}
 				halfwords_left--;
 			} while (halfwords_left != 0u);
 			pattern_index--;
 		} while (pattern_index != 0u);
 		passes_left--;
 	} while (passes_left != 0u);
-test_palette_ram_fill_second_half:
+	test_palette_ram_fill_second_half();
+}
+
+void test_palette_ram_fill_second_half(void)
+{
+	uint32_t halfwords_left = 0, passes_left = 0, pattern = 0, pattern_index = 0, ram_cursor = 0;
+
 	ram_cursor = PALETTE_RAM + 0x4000u;
 	passes_left = 8u;
 	do
@@ -616,14 +661,24 @@ test_palette_ram_fill_second_half:
 				ram_cursor += 2u;
 				pattern += 2u;
 				if ((int32_t)ram_cursor >= 0x608000)
-					goto test_palette_ram_verify_second_half;
+				{
+					test_palette_ram_verify_second_half();
+					return;
+				}
 				halfwords_left--;
 			} while (halfwords_left != 0u);
 			pattern_index--;
 		} while (pattern_index != 0u);
 		passes_left--;
 	} while (passes_left != 0u);
-test_palette_ram_verify_second_half:
+	test_palette_ram_verify_second_half();
+}
+
+void test_palette_ram_verify_second_half(void)
+{
+	uint32_t halfwords_left = 0, passes_left = 0, pattern = 0, pattern_index = 0, ram_cursor = 0;
+	uint16_t expected_second = 0, actual_second = 0;
+
 	ram_cursor = PALETTE_RAM + 0x4000u;
 	passes_left = 8u;
 	do
@@ -659,7 +714,6 @@ test_palette_ram_verify_second_half:
 void test_sound_ram(void)
 {
 	uint32_t bytes_left = 0, passes_left = 0, pattern = 0, pattern_index = 0, ram_cursor = 0;
-	uint8_t expected = 0, actual = 0;
 
 	move_halfwords(VIDEO_RAM, SOUND_RAM, 0x1000u);
 	ram_cursor = 0x700000u;
@@ -677,14 +731,24 @@ void test_sound_ram(void)
 				pattern++;
 				ram_cursor++;
 				if ((int32_t)ram_cursor >= 0x702000)
-					goto test_sound_ram_verify;
+				{
+					test_sound_ram_verify();
+					return;
+				}
 				bytes_left--;
 			} while (bytes_left != 0u);
 			pattern_index--;
 		} while (pattern_index != 0u);
 		passes_left--;
 	} while (passes_left != 0u);
-test_sound_ram_verify:
+	test_sound_ram_verify();
+}
+
+void test_sound_ram_verify(void)
+{
+	uint32_t bytes_left = 0, passes_left = 0, pattern = 0, pattern_index = 0, ram_cursor = 0;
+	uint8_t expected = 0, actual = 0;
+
 	ram_cursor = 0x700000u;
 	passes_left = 9u;
 	do
@@ -787,37 +851,37 @@ void test_inputs(uint16_t count, uint32_t *p_panel_color, uint32_t *p_blocks_per
 			return;
 		}
 		input_test_switch_released = 1u;
-		if ((input_ports_active & 0x2002u) == 0u)
+		if ((input_ports_active & 0x2002u) != 0u)
 		{
-			if (input_test_switch_pressed == 0u)
-			{
-				*p_panel_color = cursors_left;
-				*p_blocks_per_row = blocks_per_row;
-				return;
-			}
-			sprite_block = screen_sprite_block;
-			free_object_2(sprite_block);
-			init_sprites(&ignored, &ignored);
-			mem_write32(video_control, mem_read32(video_control) | 0x800u);
-			fill_value = (fill_value & ~0xFFFFu) | 0x909u;
-			set_halfwords(VIDEO_RAM, 0xE000u, fill_value);
-			if (test_continue_mode != 0u)
-			{
-				test_screen++;
-				test_screen_ready = 0u;
-				*p_panel_color = cursors_left;
-				*p_blocks_per_row = blocks_per_row;
-				return;
-			}
-			test_cursor = test_menu_item;
-			test_screen = 0u;
-			test_screen_ready = 1u;
-			draw_test_menu();
+			input_test_switch_pressed = 1u;
 			*p_panel_color = cursors_left;
 			*p_blocks_per_row = blocks_per_row;
 			return;
 		}
-		input_test_switch_pressed = 1u;
+		if (input_test_switch_pressed == 0u)
+		{
+			*p_panel_color = cursors_left;
+			*p_blocks_per_row = blocks_per_row;
+			return;
+		}
+		sprite_block = screen_sprite_block;
+		free_object_2(sprite_block);
+		init_sprites(&ignored, &ignored);
+		mem_write32(video_control, mem_read32(video_control) | 0x800u);
+		fill_value = (fill_value & ~0xFFFFu) | 0x909u;
+		set_halfwords(VIDEO_RAM, 0xE000u, fill_value);
+		if (test_continue_mode != 0u)
+		{
+			test_screen++;
+			test_screen_ready = 0u;
+			*p_panel_color = cursors_left;
+			*p_blocks_per_row = blocks_per_row;
+			return;
+		}
+		test_cursor = test_menu_item;
+		test_screen = 0u;
+		test_screen_ready = 1u;
+		draw_test_menu();
 		*p_panel_color = cursors_left;
 		*p_blocks_per_row = blocks_per_row;
 		return;
@@ -1018,39 +1082,14 @@ void test_sound(void)
 	uint8_t sound_id = 0;
 	uint32_t attribute = 0, ignored = 0, print_position = 0, text = 0, text_position = 0, value = 0;
 
-	if (test_screen_ready != 0u)
+	if (test_screen_ready == 0u)
 	{
-		if ((0x2002u & inputs_pressed) != 0u)
-		{
-			sound_id = 0x94u;
-			queue_sound(sound_id, &ignored, &ignored);
-			if (test_continue_mode != 0u)
-			{
-				test_screen++;
-				test_screen_ready = 0u;
-				return;
-			}
-			test_cursor = test_menu_item;
-			test_screen = 0u;
-			test_screen_ready = 1u;
-			draw_test_menu();
-			return;
-		}
-		if ((0x1001u & inputs_pressed) == 0u)
-			return;
-		sound_test_number++;
+		clear_text_layer(&ignored, &ignored, &print_position);
+		sound_test_number = 0u;
+		text = sound_test_text_ADDRESS;
+		print_text_list(&text, &ignored);
+		test_screen_ready++;
 		sound_id = 0x94u;
-		queue_sound(sound_id, &ignored, &ignored);
-		sound_id = 0x95u;
-		queue_sound(sound_id, &ignored, &ignored);
-		wrap_sound_test_number();
-		sound_id = sound_test_number;
-		if (sound_test_number == 0u)
-		{
-			sound_id = 0x94u;
-			queue_sound(sound_id, &ignored, &ignored);
-			sound_id = 0x95u;
-		}
 		queue_sound(sound_id, &ignored, &ignored);
 		value = sound_test_number;
 		convert_to_bcd(&value, &ignored);
@@ -1059,12 +1098,37 @@ void test_sound(void)
 		draw_hex_4(&value, &attribute, &text_position);
 		return;
 	}
-	clear_text_layer(&ignored, &ignored, &print_position);
-	sound_test_number = 0u;
-	text = sound_test_text_ADDRESS;
-	print_text_list(&text, &ignored);
-	test_screen_ready++;
+	if ((0x2002u & inputs_pressed) != 0u)
+	{
+		sound_id = 0x94u;
+		queue_sound(sound_id, &ignored, &ignored);
+		if (test_continue_mode != 0u)
+		{
+			test_screen++;
+			test_screen_ready = 0u;
+			return;
+		}
+		test_cursor = test_menu_item;
+		test_screen = 0u;
+		test_screen_ready = 1u;
+		draw_test_menu();
+		return;
+	}
+	if ((0x1001u & inputs_pressed) == 0u)
+		return;
+	sound_test_number++;
 	sound_id = 0x94u;
+	queue_sound(sound_id, &ignored, &ignored);
+	sound_id = 0x95u;
+	queue_sound(sound_id, &ignored, &ignored);
+	wrap_sound_test_number();
+	sound_id = sound_test_number;
+	if (sound_test_number == 0u)
+	{
+		sound_id = 0x94u;
+		queue_sound(sound_id, &ignored, &ignored);
+		sound_id = 0x95u;
+	}
 	queue_sound(sound_id, &ignored, &ignored);
 	value = sound_test_number;
 	convert_to_bcd(&value, &ignored);
@@ -1521,302 +1585,193 @@ uint32_t test_coin_assignments(uint32_t color)
 {
 	uint8_t mode = 0;
 	uint16_t attribute = 0;
-	uint32_t adder_setting = 0, coins_left = 0, credits_to_start = 0, cursor_positions = 0, ignored = 0, manual_print_position = 0, print_position = 0, setting = 0, setting_number = 0, text = 0, text_position = 0, value = 0;
+	uint32_t credits_to_start = 0, cursor_positions = 0, ignored = 0, text = 0, text_position = 0, value = 0;
 
 	if (test_screen_ready == 0u)
 	{
 		test_screen_ready++;
 		test_settings_changed = 0u;
 		test_cursor = 4u;
-		goto test_coin_assignments_draw_main_page;
+		test_coin_assignments_draw_main_page();
+		return color;
 	}
 	if (coin_manual_page != 0u)
+		return test_coin_assignments_manual_page(color);
+	cursor_positions = coin_assignments_cursor_positions_ADDRESS;
+	erase_test_cursor(cursor_positions);
+	if ((0x1001u & inputs_pressed) != 0u)
 	{
-	test_coin_assignments_manual_page:
-		if (test_screen_ready == 0u)
-		{
-			test_screen_ready++;
-			clear_text_layer(&ignored, &ignored, &manual_print_position);
-			test_cursor_positions = coin_manual_cursor_positions_ADDRESS;
-			test_cursor = 4u;
-			text = coin_manual_page_common_text_ADDRESS;
-			if (setting_coin_chute_type != 0u)
-				text = coin_manual_page_text_ADDRESS;
-			print_text_list(&text, &ignored);
-			text = coins_per_credit_texts[setting_coins_per_credit];
-			print_text_list(&text, &ignored);
-			text = bonus_adder_texts[setting_bonus_adder];
-			print_text_list(&text, &ignored);
-			value = setting_chute_1_multiplier;
-			text_position = TEXT_CELL(30, 12);
-			attribute = 0x1200u;
-			draw_hex_2(value, attribute, text_position);
-			text = chute_1_coin_text_ADDRESS;
-			if (setting_chute_1_multiplier != 1u)
-				text = chute_1_coins_text_ADDRESS;
-			print_text_list(&text, &ignored);
-			coins_left = draw_coin_credit_table();
-			if (setting_coin_chute_type != 0u)
-				return coins_left;
-			value = setting_chute_2_multiplier;
-			text_position = TEXT_CELL(30, 18);
-			attribute = 0x1200u;
-			draw_hex_2(value, attribute, text_position);
-			text = chute_2_coin_text_ADDRESS;
-			if (setting_chute_2_multiplier != 1u)
-				text = chute_2_coins_text_ADDRESS;
-			print_text_list(&text, &ignored);
-			return coins_left;
-		}
-		cursor_positions = coin_manual_cursor_positions_ADDRESS;
-		erase_test_cursor(cursor_positions);
-		if ((0x1001u & inputs_pressed) != 0u)
-		{
-			test_cursor++;
-			if (setting_coin_chute_type != 0u && test_cursor == 3u)
-				test_cursor++;
-			set_test_cursor();
-		}
-		blink_test_cursor();
-		if ((0x2002u & inputs_pressed) == 0u)
-			return color;
-		switch (test_cursor)
-		{
-		case 0:
-		case 5:
-			setting_coin_number = -1;
-			setting_coins_per_credit++;
-			if ((int8_t)setting_coins_per_credit > 9)
-				setting_coins_per_credit = 1u;
-			text = coins_per_credit_texts[setting_coins_per_credit];
-			print_text_list(&text, &ignored);
-			text = coin_credit_rows_erase_text_ADDRESS;
-			print_text_list(&text, &ignored);
-			coins_left = draw_coin_credit_table();
-			return coins_left;
-		case 1:
-			setting_coin_number = -1;
-			setting_bonus_adder++;
-			if ((int8_t)setting_bonus_adder > 9)
-				setting_bonus_adder = 0u;
-			if (setting_bonus_adder == 1u)
-				setting_bonus_adder = 2u;
-			text = bonus_adder_texts[setting_bonus_adder];
-			print_text_list(&text, &ignored);
-			text = coin_credit_rows_erase_text_ADDRESS;
-			print_text_list(&text, &ignored);
-			coins_left = draw_coin_credit_table();
-			return coins_left;
-		case 2:
-			setting_coin_number = -1;
-			setting_chute_1_multiplier++;
-			if ((int8_t)setting_chute_1_multiplier > 9)
-				setting_chute_1_multiplier = 1u;
-			value = setting_chute_1_multiplier;
-			text_position = TEXT_CELL(30, 12);
-			attribute = 0x1200u;
-			draw_hex_2(value, attribute, text_position);
-			text = chute_1_coin_text_ADDRESS;
-			if (setting_chute_1_multiplier != 1u)
-				text = chute_1_coins_text_ADDRESS;
-			print_text_list(&text, &ignored);
-			text = coin_credit_rows_erase_text_ADDRESS;
-			print_text_list(&text, &ignored);
-			coins_left = draw_coin_credit_table();
-			return coins_left;
-		case 3:
-			setting_coin_number = -1;
-			setting_chute_2_multiplier++;
-			if ((int8_t)setting_chute_2_multiplier > 9)
-				setting_chute_2_multiplier = 1u;
-			value = setting_chute_2_multiplier;
-			text_position = TEXT_CELL(30, 18);
-			attribute = 0x1200u;
-			draw_hex_2(value, attribute, text_position);
-			text = chute_2_coin_text_ADDRESS;
-			if (setting_chute_2_multiplier != 1u)
-				text = chute_2_coins_text_ADDRESS;
-			print_text_list(&text, &ignored);
-			text = coin_credit_rows_erase_text_ADDRESS;
-			print_text_list(&text, &ignored);
-			coins_left = draw_coin_credit_table();
-			return coins_left;
-		case 4:
-			test_cursor = 3u;
-			mode = 0u;
-			set_screen_mode(mode);
-		test_coin_assignments_draw_main_page:
-			clear_text_layer(&ignored, &ignored, &ignored);
-			coin_manual_page = 0u;
-			test_cursor_positions = coin_assignments_cursor_positions_ADDRESS;
-			if (setting_coin_number < 0)
-				setting_coin_number_individual = 0;
-			setting = setting_coins_per_credit_ADDRESS;
-			clamp_coin_setting(setting);
-			adder_setting = setting_bonus_adder_ADDRESS;
-			clamp_coin_setting(adder_setting);
-			if (setting_bonus_adder == 1u)
-				setting_bonus_adder = 0u;
-			setting = setting_chute_1_multiplier_ADDRESS;
-			clamp_coin_setting(setting);
-			setting = setting_chute_2_multiplier_ADDRESS;
-			clamp_coin_setting(setting);
-			if (setting_coin_chute_type != 0u)
-			{
-				text = coin_chute_type_individual_text_ADDRESS;
-				print_text_list(&text, &ignored);
-				text = coin_setting_texts_individual[(uint8_t)setting_coin_number_individual];
-				print_text_list(&text, &ignored);
-				text = coin_assignments_text_ADDRESS;
-				print_text_list(&text, &ignored);
-				setting_number = individual_coin_setting_numbers[(uint8_t)setting_coin_number_individual];
-				goto test_coin_assignments_draw_setting_number;
-			}
-			text = coin_chute_type_common_text_ADDRESS;
-			print_text_list(&text, &ignored);
-			text = coin_assignments_common_text_ADDRESS;
-			print_text_list(&text, &ignored);
-			if (setting_coin_number >= 0)
-			{
-				text = coin_setting_texts[(uint8_t)setting_coin_number];
-				print_text_list(&text, &ignored);
-				setting_number = (uint8_t)setting_coin_number;
-				setting_number = (uint8_t)(setting_number + 1u);
-			test_coin_assignments_draw_setting_number:
-				convert_to_bcd(&setting_number, &ignored);
-				print_position = TEXT_CELL(31, 9);
-				attribute = 0x1200u;
-				draw_hex_2(setting_number, attribute, print_position);
-			}
-			credits_to_start = setting_credits_to_start;
-			text = credits_to_start_texts[credits_to_start >> 1];
-			print_text_list(&text, &ignored);
-			if (setting_coin_number >= 0)
-				return color;
-			setting_coin_number_individual = -1;
-			text = coin_setting_erase_text_ADDRESS;
-			print_text_list(&text, &ignored);
-			text = coin_setting_number_manual_text_ADDRESS;
-			print_text_list(&text, &ignored);
-			text = coin_setting_text_manual_ADDRESS;
-			if (setting_coin_chute_type != 0u)
-				text = coin_setting_text_manual_individual_ADDRESS;
-			print_text_list(&text, &ignored);
-			return color;
-		default:
-			invalid_jump(0x9E479u + test_cursor * 3u);
-		}
+		test_cursor++;
+		set_test_cursor();
 	}
-	else
+	blink_test_cursor();
+	if ((0x2002u & inputs_pressed) == 0u)
+		return color;
+	switch (test_cursor)
 	{
-		cursor_positions = coin_assignments_cursor_positions_ADDRESS;
-		erase_test_cursor(cursor_positions);
-		if ((0x1001u & inputs_pressed) != 0u)
+	case 0:
+	case 5:
+		test_settings_changed = 1u;
+		setting_coin_chute_type++;
+		setting_coin_chute_type &= 1u;
+		text = coin_chute_type_individual_text_ADDRESS;
+		if (setting_coin_chute_type == 0u)
+			text = coin_chute_type_common_text_ADDRESS;
+		print_text_list(&text, &ignored);
+		if (setting_coin_number < 0)
 		{
-			test_cursor++;
-			set_test_cursor();
-		}
-		blink_test_cursor();
-		if ((0x2002u & inputs_pressed) == 0u)
-			return color;
-		switch (test_cursor)
-		{
-		case 0:
-		case 5:
-			test_settings_changed = 1u;
-			setting_coin_chute_type++;
-			setting_coin_chute_type &= 1u;
-			text = coin_chute_type_individual_text_ADDRESS;
-			if (setting_coin_chute_type == 0u)
-				text = coin_chute_type_common_text_ADDRESS;
-			print_text_list(&text, &ignored);
-			if (setting_coin_number < 0)
-			{
-				text = coin_setting_erase_text_ADDRESS;
-				print_text_list(&text, &ignored);
-				text = coin_chute_2_label_erase_text_ADDRESS;
-				print_text_list(&text, &ignored);
-				text = coin_setting_number_manual_text_ADDRESS;
-				print_text_list(&text, &ignored);
-				if (setting_coin_chute_type == 0u)
-				{
-					text = coin_setting_text_manual_ADDRESS;
-					print_text_list(&text, &ignored);
-					text = coin_chute_labels_text_ADDRESS;
-					print_text_list(&text, &ignored);
-				}
-				else
-				{
-					text = coin_setting_text_manual_individual_ADDRESS;
-					print_text_list(&text, &ignored);
-				}
-				return color;
-			}
 			text = coin_setting_erase_text_ADDRESS;
 			print_text_list(&text, &ignored);
 			text = coin_chute_2_label_erase_text_ADDRESS;
 			print_text_list(&text, &ignored);
-			value = 1u;
-			text_position = TEXT_CELL(31, 9);
-			attribute = 0x1200u;
-			draw_hex_2(value, attribute, text_position);
+			text = coin_setting_number_manual_text_ADDRESS;
+			print_text_list(&text, &ignored);
 			if (setting_coin_chute_type == 0u)
 			{
+				text = coin_setting_text_manual_ADDRESS;
+				print_text_list(&text, &ignored);
 				text = coin_chute_labels_text_ADDRESS;
 				print_text_list(&text, &ignored);
-				text = coin_setting_text_1_ADDRESS;
-				print_text_list(&text, &ignored);
-				setting_coin_number = 0;
 			}
 			else
 			{
-				text = coin_setting_text_1_individual_ADDRESS;
+				text = coin_setting_text_manual_individual_ADDRESS;
 				print_text_list(&text, &ignored);
-				setting_coin_number_individual = 0;
 			}
-			apply_coin_setting();
 			return color;
-		case 1:
-			test_settings_changed = 1u;
-			setting_credits_to_start++;
-			if (setting_credits_to_start == 3u)
-				setting_credits_to_start = 1u;
-			credits_to_start = setting_credits_to_start;
-			text = credits_to_start_texts[credits_to_start >> 1];
+		}
+		text = coin_setting_erase_text_ADDRESS;
+		print_text_list(&text, &ignored);
+		text = coin_chute_2_label_erase_text_ADDRESS;
+		print_text_list(&text, &ignored);
+		value = 1u;
+		text_position = TEXT_CELL(31, 9);
+		attribute = 0x1200u;
+		draw_hex_2(value, attribute, text_position);
+		if (setting_coin_chute_type == 0u)
+		{
+			text = coin_chute_labels_text_ADDRESS;
 			print_text_list(&text, &ignored);
-			return color;
-		case 2:
-			setting_coin_number++;
-			setting_coin_number_individual++;
-			apply_coin_setting();
-			return color;
-		case 3:
-			test_settings_changed = 1u;
-			coin_manual_page++;
+			text = coin_setting_text_1_ADDRESS;
+			print_text_list(&text, &ignored);
+			setting_coin_number = 0;
+		}
+		else
+		{
+			text = coin_setting_text_1_individual_ADDRESS;
+			print_text_list(&text, &ignored);
+			setting_coin_number_individual = 0;
+		}
+		apply_coin_setting();
+		return color;
+	case 1:
+		test_settings_changed = 1u;
+		setting_credits_to_start++;
+		if (setting_credits_to_start == 3u)
+			setting_credits_to_start = 1u;
+		credits_to_start = setting_credits_to_start;
+		text = credits_to_start_texts[credits_to_start >> 1];
+		print_text_list(&text, &ignored);
+		return color;
+	case 2:
+		setting_coin_number++;
+		setting_coin_number_individual++;
+		apply_coin_setting();
+		return color;
+	case 3:
+		test_settings_changed = 1u;
+		coin_manual_page++;
+		test_screen_ready = 0u;
+		mode = 1u;
+		set_screen_mode(mode);
+		mem_write16(video_control, mem_read16(video_control) | 0x8000u);
+		return test_coin_assignments_manual_page(color);
+	case 4:
+		setting_cabinet_config = setting_cabinet_type | ((uint32_t)setting_coin_chute_type << 1);
+		if (test_settings_changed != 0u)
+			eeprom_save_and_lock(&color, &ignored);
+		if (test_continue_mode != 0u)
+		{
+			test_screen++;
 			test_screen_ready = 0u;
-			mode = 1u;
-			set_screen_mode(mode);
-			mem_write16(video_control, mem_read16(video_control) | 0x8000u);
-			goto test_coin_assignments_manual_page;
-		case 4:
-			setting_cabinet_config = setting_cabinet_type | ((uint32_t)setting_coin_chute_type << 1);
-			if (test_settings_changed != 0u)
-				eeprom_save_and_lock(&color, &ignored);
-			if (test_continue_mode != 0u)
-			{
-				test_screen++;
-				test_screen_ready = 0u;
-				return color;
-			}
-			test_cursor = test_menu_item;
-			test_screen = 0u;
-			test_screen_ready = 1u;
-			draw_test_menu();
 			return color;
-		default:
-			invalid_jump(0x9E0A9u + test_cursor * 3u);
+		}
+		test_cursor = test_menu_item;
+		test_screen = 0u;
+		test_screen_ready = 1u;
+		draw_test_menu();
+		return color;
+	default:
+		invalid_jump(0x9E0A9u + test_cursor * 3u);
+	}
+}
+
+void test_coin_assignments_draw_main_page(void)
+{
+	uint16_t attribute = 0;
+	uint32_t adder_setting = 0, credits_to_start = 0, ignored = 0, print_position = 0, setting = 0, setting_number = 0, text = 0;
+
+	clear_text_layer(&ignored, &ignored, &ignored);
+	coin_manual_page = 0u;
+	test_cursor_positions = coin_assignments_cursor_positions_ADDRESS;
+	if (setting_coin_number < 0)
+		setting_coin_number_individual = 0;
+	setting = setting_coins_per_credit_ADDRESS;
+	clamp_coin_setting(setting);
+	adder_setting = setting_bonus_adder_ADDRESS;
+	clamp_coin_setting(adder_setting);
+	if (setting_bonus_adder == 1u)
+		setting_bonus_adder = 0u;
+	setting = setting_chute_1_multiplier_ADDRESS;
+	clamp_coin_setting(setting);
+	setting = setting_chute_2_multiplier_ADDRESS;
+	clamp_coin_setting(setting);
+	if (setting_coin_chute_type == 0u)
+	{
+		text = coin_chute_type_common_text_ADDRESS;
+		print_text_list(&text, &ignored);
+		text = coin_assignments_common_text_ADDRESS;
+		print_text_list(&text, &ignored);
+		if (setting_coin_number >= 0)
+		{
+			text = coin_setting_texts[(uint8_t)setting_coin_number];
+			print_text_list(&text, &ignored);
+			setting_number = (uint8_t)setting_coin_number;
+			setting_number = (uint8_t)(setting_number + 1u);
+			convert_to_bcd(&setting_number, &ignored);
+			print_position = TEXT_CELL(31, 9);
+			attribute = 0x1200u;
+			draw_hex_2(setting_number, attribute, print_position);
 		}
 	}
+	else
+	{
+		text = coin_chute_type_individual_text_ADDRESS;
+		print_text_list(&text, &ignored);
+		text = coin_setting_texts_individual[(uint8_t)setting_coin_number_individual];
+		print_text_list(&text, &ignored);
+		text = coin_assignments_text_ADDRESS;
+		print_text_list(&text, &ignored);
+		setting_number = individual_coin_setting_numbers[(uint8_t)setting_coin_number_individual];
+		convert_to_bcd(&setting_number, &ignored);
+		print_position = TEXT_CELL(31, 9);
+		attribute = 0x1200u;
+		draw_hex_2(setting_number, attribute, print_position);
+	}
+	credits_to_start = setting_credits_to_start;
+	text = credits_to_start_texts[credits_to_start >> 1];
+	print_text_list(&text, &ignored);
+	if (setting_coin_number >= 0)
+		return;
+	setting_coin_number_individual = -1;
+	text = coin_setting_erase_text_ADDRESS;
+	print_text_list(&text, &ignored);
+	text = coin_setting_number_manual_text_ADDRESS;
+	print_text_list(&text, &ignored);
+	text = coin_setting_text_manual_ADDRESS;
+	if (setting_coin_chute_type != 0u)
+		text = coin_setting_text_manual_individual_ADDRESS;
+	print_text_list(&text, &ignored);
 }
 
 void test_coin_assignments_spare_return(void)
@@ -1872,6 +1827,131 @@ void draw_coin_setting_number(uint32_t setting_number)
 	text_position = TEXT_CELL(31, 9);
 	attribute = 0x1200u;
 	draw_hex_2(setting_number, attribute, text_position);
+}
+
+uint32_t test_coin_assignments_manual_page(uint32_t color)
+{
+	uint8_t mode = 0;
+	uint16_t attribute = 0;
+	uint32_t coins_left = 0, cursor_positions = 0, ignored = 0, manual_print_position = 0, text = 0, text_position = 0, value = 0;
+
+	if (test_screen_ready == 0u)
+	{
+		test_screen_ready++;
+		clear_text_layer(&ignored, &ignored, &manual_print_position);
+		test_cursor_positions = coin_manual_cursor_positions_ADDRESS;
+		test_cursor = 4u;
+		text = coin_manual_page_common_text_ADDRESS;
+		if (setting_coin_chute_type != 0u)
+			text = coin_manual_page_text_ADDRESS;
+		print_text_list(&text, &ignored);
+		text = coins_per_credit_texts[setting_coins_per_credit];
+		print_text_list(&text, &ignored);
+		text = bonus_adder_texts[setting_bonus_adder];
+		print_text_list(&text, &ignored);
+		value = setting_chute_1_multiplier;
+		text_position = TEXT_CELL(30, 12);
+		attribute = 0x1200u;
+		draw_hex_2(value, attribute, text_position);
+		text = chute_1_coin_text_ADDRESS;
+		if (setting_chute_1_multiplier != 1u)
+			text = chute_1_coins_text_ADDRESS;
+		print_text_list(&text, &ignored);
+		coins_left = draw_coin_credit_table();
+		if (setting_coin_chute_type != 0u)
+			return coins_left;
+		value = setting_chute_2_multiplier;
+		text_position = TEXT_CELL(30, 18);
+		attribute = 0x1200u;
+		draw_hex_2(value, attribute, text_position);
+		text = chute_2_coin_text_ADDRESS;
+		if (setting_chute_2_multiplier != 1u)
+			text = chute_2_coins_text_ADDRESS;
+		print_text_list(&text, &ignored);
+		return coins_left;
+	}
+	cursor_positions = coin_manual_cursor_positions_ADDRESS;
+	erase_test_cursor(cursor_positions);
+	if ((0x1001u & inputs_pressed) != 0u)
+	{
+		test_cursor++;
+		if (setting_coin_chute_type != 0u && test_cursor == 3u)
+			test_cursor++;
+		set_test_cursor();
+	}
+	blink_test_cursor();
+	if ((0x2002u & inputs_pressed) == 0u)
+		return color;
+	switch (test_cursor)
+	{
+	case 0:
+	case 5:
+		setting_coin_number = -1;
+		setting_coins_per_credit++;
+		if ((int8_t)setting_coins_per_credit > 9)
+			setting_coins_per_credit = 1u;
+		text = coins_per_credit_texts[setting_coins_per_credit];
+		print_text_list(&text, &ignored);
+		text = coin_credit_rows_erase_text_ADDRESS;
+		print_text_list(&text, &ignored);
+		coins_left = draw_coin_credit_table();
+		return coins_left;
+	case 1:
+		setting_coin_number = -1;
+		setting_bonus_adder++;
+		if ((int8_t)setting_bonus_adder > 9)
+			setting_bonus_adder = 0u;
+		if (setting_bonus_adder == 1u)
+			setting_bonus_adder = 2u;
+		text = bonus_adder_texts[setting_bonus_adder];
+		print_text_list(&text, &ignored);
+		text = coin_credit_rows_erase_text_ADDRESS;
+		print_text_list(&text, &ignored);
+		coins_left = draw_coin_credit_table();
+		return coins_left;
+	case 2:
+		setting_coin_number = -1;
+		setting_chute_1_multiplier++;
+		if ((int8_t)setting_chute_1_multiplier > 9)
+			setting_chute_1_multiplier = 1u;
+		value = setting_chute_1_multiplier;
+		text_position = TEXT_CELL(30, 12);
+		attribute = 0x1200u;
+		draw_hex_2(value, attribute, text_position);
+		text = chute_1_coin_text_ADDRESS;
+		if (setting_chute_1_multiplier != 1u)
+			text = chute_1_coins_text_ADDRESS;
+		print_text_list(&text, &ignored);
+		text = coin_credit_rows_erase_text_ADDRESS;
+		print_text_list(&text, &ignored);
+		coins_left = draw_coin_credit_table();
+		return coins_left;
+	case 3:
+		setting_coin_number = -1;
+		setting_chute_2_multiplier++;
+		if ((int8_t)setting_chute_2_multiplier > 9)
+			setting_chute_2_multiplier = 1u;
+		value = setting_chute_2_multiplier;
+		text_position = TEXT_CELL(30, 18);
+		attribute = 0x1200u;
+		draw_hex_2(value, attribute, text_position);
+		text = chute_2_coin_text_ADDRESS;
+		if (setting_chute_2_multiplier != 1u)
+			text = chute_2_coins_text_ADDRESS;
+		print_text_list(&text, &ignored);
+		text = coin_credit_rows_erase_text_ADDRESS;
+		print_text_list(&text, &ignored);
+		coins_left = draw_coin_credit_table();
+		return coins_left;
+	case 4:
+		test_cursor = 3u;
+		mode = 0u;
+		set_screen_mode(mode);
+		test_coin_assignments_draw_main_page();
+		return color;
+	default:
+		invalid_jump(0x9E479u + test_cursor * 3u);
+	}
 }
 
 void test_coin_assignments_spare_return_2(void)
@@ -2232,59 +2312,59 @@ void test_outputs(void)
 	uint32_t ignored = 0, setup_print_position = 0, text = 0;
 	uint8_t port_d_bits = 0, port_d_bits_1p = 0, port_d_bits_2p = 0;
 
-	if (test_screen_ready != 0u)
+	if (test_screen_ready == 0u)
 	{
-		port_d_bits = mem_read8(io_port_d);
-		mem_write8(io_port_d, port_d_bits & ~0xCu);
-		if ((0x2002u & inputs_pressed) != 0u)
+		test_screen_ready++;
+		clear_text_layer(&ignored, &ignored, &setup_print_position);
+		text = output_test_text_ADDRESS;
+		print_text_list(&text, &ignored);
+		if (setting_moving_seat != 0u)
 		{
-			if (test_continue_mode == 0u)
-			{
-				test_cursor = test_menu_item;
-				test_screen = 0u;
-				test_screen_ready = 1u;
-				draw_test_menu();
-				return;
-			}
-			test_cursor = 0xAu;
-			test_screen = 0u;
-			test_screen_ready = 1u;
-			draw_test_menu();
-			text = continue_mode_text_ADDRESS;
+			text = output_test_seat_text_ADDRESS;
 			print_text_list(&text, &ignored);
 			return;
 		}
-		if (setting_moving_seat == 0u)
-			return;
-		text = output_test_1p_off_text_ADDRESS;
-		if ((input_ports_active & 0x10000u) != 0u)
-		{
-			port_d_bits_1p = mem_read8(io_port_d);
-			mem_write8(io_port_d, port_d_bits_1p | 4u);
-			text = output_test_1p_on_text_ADDRESS;
-		}
-		print_text_list(&text, &ignored);
-		text = output_test_2p_off_text_ADDRESS;
-		if ((input_ports_active & 0x1000000u) != 0u)
-		{
-			port_d_bits_2p = mem_read8(io_port_d);
-			mem_write8(io_port_d, port_d_bits_2p | 8u);
-			text = output_test_2p_on_text_ADDRESS;
-		}
+		text = output_test_no_use_text_ADDRESS;
 		print_text_list(&text, &ignored);
 		return;
 	}
-	test_screen_ready++;
-	clear_text_layer(&ignored, &ignored, &setup_print_position);
-	text = output_test_text_ADDRESS;
-	print_text_list(&text, &ignored);
-	if (setting_moving_seat != 0u)
+	port_d_bits = mem_read8(io_port_d);
+	mem_write8(io_port_d, port_d_bits & ~0xCu);
+	if ((0x2002u & inputs_pressed) != 0u)
 	{
-		text = output_test_seat_text_ADDRESS;
+		if (test_continue_mode == 0u)
+		{
+			test_cursor = test_menu_item;
+			test_screen = 0u;
+			test_screen_ready = 1u;
+			draw_test_menu();
+			return;
+		}
+		test_cursor = 0xAu;
+		test_screen = 0u;
+		test_screen_ready = 1u;
+		draw_test_menu();
+		text = continue_mode_text_ADDRESS;
 		print_text_list(&text, &ignored);
 		return;
 	}
-	text = output_test_no_use_text_ADDRESS;
+	if (setting_moving_seat == 0u)
+		return;
+	text = output_test_1p_off_text_ADDRESS;
+	if ((input_ports_active & 0x10000u) != 0u)
+	{
+		port_d_bits_1p = mem_read8(io_port_d);
+		mem_write8(io_port_d, port_d_bits_1p | 4u);
+		text = output_test_1p_on_text_ADDRESS;
+	}
+	print_text_list(&text, &ignored);
+	text = output_test_2p_off_text_ADDRESS;
+	if ((input_ports_active & 0x1000000u) != 0u)
+	{
+		port_d_bits_2p = mem_read8(io_port_d);
+		mem_write8(io_port_d, port_d_bits_2p | 8u);
+		text = output_test_2p_on_text_ADDRESS;
+	}
 	print_text_list(&text, &ignored);
 }
 
@@ -2296,15 +2376,6 @@ void exit_test_mode(void)
 	{
 		if ((0x2002u & inputs_pressed) == 0u)
 			return;
-	}
-	else if ((int16_t)(uint16_t)eeprom_write_count >= 0x2710)
-	{
-		clear_text_layer(&ignored, &ignored, &print_position);
-		text = eeprom_caution_text_ADDRESS;
-		print_text_list(&text, &ignored);
-		test_screen_ready++;
-		if ((0x2002u & inputs_pressed) == 0u)
-			return;
 		p1_bonus_coins = 0u;
 		p1_credits = 0u;
 		p2_bonus_coins = 0u;
@@ -2314,6 +2385,23 @@ void exit_test_mode(void)
 		test_mode = 0u;
 		return;
 	}
+	if ((int16_t)(uint16_t)eeprom_write_count < 0x2710)
+	{
+		p1_bonus_coins = 0u;
+		p1_credits = 0u;
+		p2_bonus_coins = 0u;
+		p2_credits = 0u;
+		p3_bonus_coins = 0u;
+		p3_credits = 0u;
+		test_mode = 0u;
+		return;
+	}
+	clear_text_layer(&ignored, &ignored, &print_position);
+	text = eeprom_caution_text_ADDRESS;
+	print_text_list(&text, &ignored);
+	test_screen_ready++;
+	if ((0x2002u & inputs_pressed) == 0u)
+		return;
 	p1_bonus_coins = 0u;
 	p1_credits = 0u;
 	p2_bonus_coins = 0u;

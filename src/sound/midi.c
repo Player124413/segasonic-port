@@ -46,29 +46,22 @@ void handle_midi_message(void)
 	for (;;)
 	{
 		z80_block(30);
-		if (MIDI_PART(part)->flags >> 7 == 0u)
+		if (MIDI_PART(part)->flags >> 7)
 		{
 			z80_block(33);
-			part += 9u;
-			parts_left--;
-			if (parts_left == 0u)
-				break;
-			z80_cycles(5);
-			continue;
-		}
-		z80_block(33);
-		if (channel_and_index >> 8 == MIDI_PART(part)->midi_channel)
-		{
-			z80_block(39);
-			saved_parts_left = parts_left;
-			saved_parts_left_and_byte = (uint8_t)parts_left_and_byte;
-			saved_channel_and_index = channel_and_index;
-			play_midi_message((uint8_t)parts_left_and_byte, part);
-			z80_block(37);
-			channel_and_index = saved_channel_and_index;
-			parts_left_and_byte = saved_parts_left_and_byte;
-			parts_left = saved_parts_left;
-			midi_queue_read = (uint8_t)channel_and_index;
+			if (channel_and_index >> 8 == MIDI_PART(part)->midi_channel)
+			{
+				z80_block(39);
+				saved_parts_left = parts_left;
+				saved_parts_left_and_byte = (uint8_t)parts_left_and_byte;
+				saved_channel_and_index = channel_and_index;
+				play_midi_message((uint8_t)parts_left_and_byte, part);
+				z80_block(37);
+				channel_and_index = saved_channel_and_index;
+				parts_left_and_byte = saved_parts_left_and_byte;
+				parts_left = saved_parts_left;
+				midi_queue_read = (uint8_t)channel_and_index;
+			}
 		}
 		z80_block(33);
 		part += 9u;
@@ -116,6 +109,7 @@ void skip_midi_data(uint8_t first_byte)
 
 void play_midi_message(uint8_t message_byte, uint16_t part)
 {
+	bool note_off = false, vibrato_preset_check_channel = false, vibrato_preset_check_voice = false, vibrato_preset_next_voice = false;
 	uint32_t carry = 0;
 	uint8_t bend = 0, bend_high = 0, bend_low = 0, bend_sign = 0, bend_steps = 0, channel = 0, channel_index = 0, channels_left = 0, chip_channel = 0, control_value = 0, controller = 0, controller_number = 0, controls = 0, depth = 0, detune_low = 0, detune_sign = 0, effective_volume = 0, event = 0, first_byte = 0, first_data_byte = 0, flags = 0, fm_detune = 0, fm_register = 0, ignored8 = 0, level = 0, level_register = 0, modulation_depth = 0, note = 0, note_number = 0, note_to_mark = 0, note_velocity = 0, old_controls = 0, operators_left = 0, part_channel = 0, parts_left = 0, pcm_register = 0, pitch_bend_high = 0, pitch_bend_low = 0, preset = 0, program = 0, register_number = 0, register_value = 0, rounded_volume = 0, sample = 0, scale = 0, setup = 0, total_level = 0, velocity = 0, velocity_then_steal_low = 0, vibrato_preset = 0, voice_channel = 0, voice_chip_channel = 0, voice_note = 0, voices_left = 0, voices_or_bytes_left = 0, voices_unchecked = 0, volume = 0, volume_curve = 0, volume_scale = 0;
 	uint16_t bend_entry = 0, bend_index = 0, byte_copy = 0, channel_in_part = 0, channel_offset = 0, controls_entry = 0, each_part = 0, fnum = 0, fnum_entry = 0, fnum_table_entry = 0, free_fm_voice = 0, ignored16 = 0, instrument = 0, kept_channel = 0, kit_note = 0, level_product = 0, new_voice = 0, new_voice_field = 0, note_index = 0, patch_levels = 0, preset_address = 0, preset_data = 0, preset_target = 0, register_channel = 0, register_list = 0, scaled_part_volume = 0, setup_data = 0, velocity_index = 0, voice = 0, voice_field = 0, voice_size = 0, voices_left_pair = 0, voices_to_end_at = 0;
@@ -126,51 +120,70 @@ void play_midi_message(uint8_t message_byte, uint16_t part)
 	first_data_byte = (uint8_t)message_byte;
 	z80_block(37);
 	event = midi_status & ~0xFu;
-	if (event == 0x90u)
+	do
 	{
-		z80_block(18);
-		if (first_data_byte >> 7)
+		if (note_off || event == 0x90u)
 		{
-			z80_block(17);
-			read_midi_byte(&byte_copy, &ignored16, &ignored8);
-			first_data_byte = (uint8_t)byte_copy;
-		}
-		z80_block(96);
-		note_number = first_data_byte;
-		note_code = note_codes[(uint8_t)(MIDI_PART(part)->transpose + first_data_byte)];
-		read_midi_byte(&byte_copy, &ignored16, &velocity);
-		velocity_then_steal_low = (uint8_t)byte_copy;
-		z80_block(14);
-		if (velocity == 0u)
-		{
-		note_off:
-			z80_block(31);
-			program = MIDI_PART(part)->program;
-			if (program >= 0xF0u)
+			if (!note_off)
 			{
-				z80_cycles(6);
-				return;
-			}
-			z80_block(27);
-			instrument = instruments_ADDRESS;
-			instrument = read_table_word(instrument, program);
-			z80_block(22);
-			if (((INSTRUMENT(instrument)->flags >> 1) & 1u) != 0u)
-			{
-				fm_note_off(&ignored16, &ignored16, &ignored8);
-				return;
-			}
-			z80_block(51);
-			voice = SAMPLE_VOICE_ADDRESS(0);
-			voice_size = 0x12u;
-			voices_left = 8u;
-			channel = midi_status & 0xFu;
-			for (;;)
-			{
-				z80_block(29);
-				if (channel != SAMPLE_VOICE(voice)->midi_channel)
+				z80_block(18);
+				if (first_data_byte >> 7)
 				{
-				note_off_next_voice:
+					z80_block(17);
+					read_midi_byte(&byte_copy, &ignored16, &ignored8);
+					first_data_byte = (uint8_t)byte_copy;
+				}
+				z80_block(96);
+				note_number = first_data_byte;
+				note_code = note_codes[(uint8_t)(MIDI_PART(part)->transpose + first_data_byte)];
+				read_midi_byte(&byte_copy, &ignored16, &velocity);
+				velocity_then_steal_low = (uint8_t)byte_copy;
+				z80_block(14);
+			}
+			if (note_off || velocity == 0u)
+			{
+				z80_block(31);
+				program = MIDI_PART(part)->program;
+				if (program >= 0xF0u)
+				{
+					z80_cycles(6);
+					return;
+				}
+				z80_block(27);
+				instrument = instruments_ADDRESS;
+				instrument = read_table_word(instrument, program);
+				z80_block(22);
+				if (((INSTRUMENT(instrument)->flags >> 1) & 1u) != 0u)
+				{
+					fm_note_off(&ignored16, &ignored16, &ignored8);
+					return;
+				}
+				z80_block(51);
+				voice = SAMPLE_VOICE_ADDRESS(0);
+				voice_size = 0x12u;
+				voices_left = 8u;
+				channel = midi_status & 0xFu;
+				for (;;)
+				{
+					z80_block(29);
+					if (channel == SAMPLE_VOICE(voice)->midi_channel)
+					{
+						z80_block(46);
+						channel_index = channel;
+						if (note_code == SAMPLE_VOICE(voice)->note)
+						{
+							z80_block(37);
+							flags = SAMPLE_VOICE(voice)->flags;
+							if (((flags >> 1) & 1u) == 0u)
+							{
+								z80_block(17);
+								if ((flags & 0x7Fu) != 0u)
+									break;
+							}
+						}
+						z80_block(4);
+						channel = (uint8_t)channel_index;
+					}
 					z80_block(23);
 					voice += voice_size;
 					voices_left--;
@@ -180,287 +193,271 @@ void play_midi_message(uint8_t message_byte, uint16_t part)
 						return;
 					}
 					z80_cycles(5);
-					continue;
 				}
-				z80_block(46);
-				channel_index = channel;
-				if (note_code != SAMPLE_VOICE(voice)->note)
+				z80_block(65);
+				if (channel_controls[channel_index] >> 7 == 0u)
 				{
-				note_off_not_this:
-					z80_block(4);
-					channel = (uint8_t)channel_index;
-					goto note_off_next_voice;
-				}
-				z80_block(37);
-				flags = SAMPLE_VOICE(voice)->flags;
-				if (((flags >> 1) & 1u) != 0u)
-					goto note_off_not_this;
-				z80_block(17);
-				if ((flags & 0x7Fu) != 0u)
-					break;
-				goto note_off_not_this;
-			}
-			z80_block(65);
-			if (channel_controls[channel_index] >> 7 == 0u)
-			{
-				stop_pcm_voice(voice);
-				return;
-			}
-			z80_block(33);
-			SAMPLE_VOICE(voice)->flags |= 2u;
-			return;
-		}
-		z80_block(88);
-		velocity_index = velocity;
-		note_level = SOUND_ROM8(velocity_levels_ADDRESS + velocity_index);
-		program = MIDI_PART(part)->program;
-		if (program < 0xF0u)
-		{
-			z80_block(27);
-			instrument = instruments_ADDRESS;
-			instrument = read_table_word(instrument, program);
-			z80_block(22);
-			if (((INSTRUMENT(instrument)->flags >> 1) & 1u) != 0u)
-			{
-				z80_block(76);
-				sample_or_patch = INSTRUMENT(instrument)->sample_or_fm_patch;
-				free_fm_voice = next_fm_voice;
-				voice_size = 0x12u;
-				voices_left = fm_voices_to_end;
-				voices_unchecked = 0xCu;
-				for (;;)
-				{
-					z80_block(21);
-					if (FM_VOICE(free_fm_voice)->flags == 0u)
-						goto fm_voice_found;
-					z80_block(23);
-					voices_unchecked--;
-					free_fm_voice += voice_size;
-					voices_left--;
-					if (voices_left == 0u)
-						break;
-					z80_cycles(5);
-				}
-				z80_block(18);
-				if (voices_unchecked == 0u)
-				{
-					z80_block(14);
+					stop_pcm_voice(voice);
 					return;
 				}
-				z80_block(24);
-				free_fm_voice = FM_VOICE_ADDRESS(0);
-				voice_size = 0x12u;
-				voices_left = voices_unchecked;
-				for (;;)
-				{
-					z80_block(21);
-					if (FM_VOICE(free_fm_voice)->flags == 0u)
-						break;
-					z80_block(23);
-					free_fm_voice += voice_size;
-					voices_left--;
-					if (voices_left == 0u)
-					{
-						z80_block(14);
-						return;
-					}
-					z80_cycles(5);
-				}
-			fm_voice_found:
-				z80_block(89);
-				new_fm_voice = free_fm_voice;
-				vibrato_preset = channel_vibrato_presets[midi_status & 0xFu];
-				if (vibrato_preset != 0u)
-				{
-					z80_block(27);
-					preset_address = vibrato_presets_ADDRESS;
-					preset_address = read_table_word(preset_address, vibrato_preset);
-					z80_block(353);
-					preset_data = preset_address;
-					preset_target = new_fm_voice + 7u;
-					FM_VOICE(preset_target - 0x7u)->vibrato_delay = VIBRATO_PRESET(preset_data)->delay;
-					preset_data++;
-					preset_target++;
-					FM_VOICE(preset_target - 0x8u)->vibrato_wait = VIBRATO_PRESET(preset_data - 0x1u)->wait;
-					preset_data++;
-					preset_target++;
-					FM_VOICE(preset_target - 0x9u)->vibrato_range = VIBRATO_PRESET(preset_data - 0x2u)->range;
-					preset_data++;
-					preset_target++;
-					FM_VOICE(preset_target - 0xAu)->vibrato_depth = VIBRATO_PRESET(preset_data - 0x3u)->depth;
-					preset_data++;
-					preset_target++;
-					FM_VOICE(preset_target - 0xBu)->vibrato_rise = VIBRATO_PRESET(preset_data - 0x4u)->rise;
-					preset_data++;
-					preset_target++;
-					FM_VOICE(preset_target - 0xCu)->vibrato_fall = VIBRATO_PRESET(preset_data - 0x5u)->fall;
-					FM_VOICE(preset_target - 0xCu)->vibrato_phase = VIBRATO_PRESET(preset_data - 0x5u)->phase;
-					new_voice = new_fm_voice;
-					FM_VOICE(new_voice)->vibrato_phase += FM_VOICE(new_voice)->vibrato_range & ~0xFu;
-					FM_VOICE(new_voice)->vibrato_rate = FM_VOICE(new_voice)->vibrato_wait;
-				}
-				z80_block(31);
-				voices_to_end_at = fm_voices_to_end_ADDRESS;
-				old_voices_to_end = fm_voices_to_end;
-				fm_voices_to_end = old_voices_to_end - 1u;
-				if (old_voices_to_end != 1u)
-				{
-					z80_block(53);
-					next_fm_voice += 0x12u;
-				}
-				else
-				{
-					z80_block(46);
-					fm_voices_to_end = 0xCu;
-					next_fm_voice = FM_VOICE_ADDRESS(0);
-				}
-				z80_block(218);
-				new_voice_field = new_fm_voice;
-				FM_VOICE(new_voice_field)->flags = 0x40u;
-				new_voice_field++;
-				fm_channel = FM_VOICE(new_voice_field - 0x1u)->chip_channel;
-				new_voice_field++;
-				note = note_code;
-				FM_VOICE(new_voice_field - 0x2u)->note = note;
-				voice_note = note;
-				new_voice_field++;
-				channel = midi_status & 0xFu;
-				FM_VOICE(new_voice_field - 0x3u)->midi_channel = channel;
-				voice_channel = channel;
-				new_voice_field += 2u;
-				note_level_byte = note_level;
-				carry = note_level_byte & 1u;
-				level_rotated = note_level_byte >> 1;
-				level = (level_rotated >> 1) | (carry << 7);
-				carry = level_rotated & 1u;
-				level = (((level >> 1) | (carry << 7)) & 0x1Fu) - 0x20u;
-				FM_VOICE(new_voice_field - 0x5u)->level = level;
-				level_product = (new_voice_field & 0xFFu) | ((uint32_t)level << 8);
-				effective_volume = MIDI_PART(part)->effective_volume;
-				volume_curve = effective_volume;
-				if (effective_volume != 0u)
-				{
-					z80_block(20);
-					volume_curve += (uint8_t)~effective_volume >> 1;
-				}
-				z80_block(17);
-				level_product = multiply_bytes(volume_curve, level_product);
-				z80_block(425);
-				note_level = 0x7Fu - ((uint16_t)((uint32_t)((level_product >> 8) >> 1) << 8) >> 8);
-				channel_offset = voice_channel;
-				fm_pan_modulation = (z80_read8((uint16_t)(channel_controls_ADDRESS + channel_offset)) & 7u) | 0xC0u;
-				bend_entry = channel_pitch_bends_ADDRESS + channel_offset + channel_offset;
-				fm_detune = MIDI_PART(part)->fm_detune;
-				detune_low = fm_detune;
-				fm_detune_byte = fm_detune;
-				detune_sign = ((uint32_t)fm_detune_byte << 1) | (fm_detune_byte >> 7);
-				carry = fm_detune_byte >> 7;
-				saved_outer = z80_read16(bend_entry) + (detune_low | ((uint32_t)(uint8_t)(0u - carry) << 8));
-				fnum_table_entry = fm_fnum_tables_ADDRESS + (uint8_t)((voice_note & 0xFu) * 2u);
-				bend_index = saved_outer;
-				fnum_entry = SOUND_ROM16(fnum_table_entry) + bend_index;
-				carry = (uint16_t)(fnum_entry + bend_index) < fnum_entry;
-				fnum_entry += bend_index;
-				fnum = SOUND_ROM16(fnum_entry);
-				fnum = (fnum & 0xFFu) | ((uint32_t)(uint8_t)((((voice_note >> 1) | (carry << 7)) & 0x38u) + (fnum >> 8)) << 8);
-				register_channel = (fm_channel & 3u) << 8;
-				register_value = (uint8_t)(fnum >> 8);
-				fm_register = 0xA4u | (register_channel >> 8);
-				write_fm_channel(fm_register, register_value);
-				z80_block(36);
-				register_value = (uint8_t)fnum;
-				fm_register = 0xA0u | (register_channel >> 8);
-				write_fm_channel(fm_register, register_value);
-				z80_block(17);
-				load_fm_patch(&channel_in_part, &register_list, &patch_levels);
-				part_channel = (uint8_t)channel_in_part;
-				z80_block(7);
-				operators_left = 4u;
-				for (;;)
-				{
-					z80_block(63);
-					saved_count = operators_left;
-					saved_value = part_channel;
-					register_number = SOUND_ROM8(register_list) + part_channel;
-					register_list++;
-					level_register = register_number;
-					total_level = SOUND_ROM8(patch_levels);
-					patch_levels++;
-					if (total_level >> 7 == 0u)
-					{
-						z80_block(21);
-						total_level += note_level;
-					}
-					z80_block(24);
-					total_level &= 0x7Fu;
-					fm_register = level_register;
-					write_fm_channel(fm_register, total_level);
-					z80_block(18);
-					part_channel = saved_value;
-					operators_left = saved_count - 1u;
-					if (operators_left == 0u)
-						break;
-					z80_cycles(5);
-				}
-				z80_block(45);
-				register_value = fm_pan_modulation;
-				fm_register = (uint8_t)(0xB4u + part_channel);
-				write_fm_channel(fm_register, register_value);
-				z80_block(44);
-				register_value = (fm_channel & 7u) | 0xF0u;
-				fm_register = 0x28u;
-				register_value = write_fm_global(fm_register, register_value);
+				z80_block(33);
+				SAMPLE_VOICE(voice)->flags |= 2u;
 				return;
 			}
-			z80_block(84);
-			instrument++;
-			sample_or_patch = INSTRUMENT(instrument - 0x1u)->sample_or_fm_patch;
-			instrument += 2u;
-			note_pan = INSTRUMENT(instrument - 0x3u)->pan;
-			sample_detune = INSTRUMENT(instrument - 0x3u)->detune;
+			z80_block(88);
+			velocity_index = velocity;
+			note_level = SOUND_ROM8(velocity_levels_ADDRESS + velocity_index);
+			program = MIDI_PART(part)->program;
+			if (program < 0xF0u)
+			{
+				z80_block(27);
+				instrument = instruments_ADDRESS;
+				instrument = read_table_word(instrument, program);
+				z80_block(22);
+				if (((INSTRUMENT(instrument)->flags >> 1) & 1u) != 0u)
+				{
+					z80_block(76);
+					sample_or_patch = INSTRUMENT(instrument)->sample_or_fm_patch;
+					free_fm_voice = next_fm_voice;
+					voice_size = 0x12u;
+					voices_left = fm_voices_to_end;
+					voices_unchecked = 0xCu;
+					for (;;)
+					{
+						z80_block(21);
+						if (FM_VOICE(free_fm_voice)->flags == 0u)
+							break;
+						z80_block(23);
+						voices_unchecked--;
+						free_fm_voice += voice_size;
+						voices_left--;
+						if (voices_left != 0u)
+						{
+							z80_cycles(5);
+							continue;
+						}
+						z80_block(18);
+						if (voices_unchecked == 0u)
+						{
+							z80_block(14);
+							return;
+						}
+						z80_block(24);
+						free_fm_voice = FM_VOICE_ADDRESS(0);
+						voice_size = 0x12u;
+						voices_left = voices_unchecked;
+						for (;;)
+						{
+							z80_block(21);
+							if (FM_VOICE(free_fm_voice)->flags == 0u)
+								break;
+							z80_block(23);
+							free_fm_voice += voice_size;
+							voices_left--;
+							if (voices_left == 0u)
+							{
+								z80_block(14);
+								return;
+							}
+							z80_cycles(5);
+						}
+						break;
+					}
+					z80_block(89);
+					new_fm_voice = free_fm_voice;
+					vibrato_preset = channel_vibrato_presets[midi_status & 0xFu];
+					if (vibrato_preset != 0u)
+					{
+						z80_block(27);
+						preset_address = vibrato_presets_ADDRESS;
+						preset_address = read_table_word(preset_address, vibrato_preset);
+						z80_block(353);
+						preset_data = preset_address;
+						preset_target = new_fm_voice + 7u;
+						FM_VOICE(preset_target - 0x7u)->vibrato_delay = VIBRATO_PRESET(preset_data)->delay;
+						preset_data++;
+						preset_target++;
+						FM_VOICE(preset_target - 0x8u)->vibrato_wait = VIBRATO_PRESET(preset_data - 0x1u)->wait;
+						preset_data++;
+						preset_target++;
+						FM_VOICE(preset_target - 0x9u)->vibrato_range = VIBRATO_PRESET(preset_data - 0x2u)->range;
+						preset_data++;
+						preset_target++;
+						FM_VOICE(preset_target - 0xAu)->vibrato_depth = VIBRATO_PRESET(preset_data - 0x3u)->depth;
+						preset_data++;
+						preset_target++;
+						FM_VOICE(preset_target - 0xBu)->vibrato_rise = VIBRATO_PRESET(preset_data - 0x4u)->rise;
+						preset_data++;
+						preset_target++;
+						FM_VOICE(preset_target - 0xCu)->vibrato_fall = VIBRATO_PRESET(preset_data - 0x5u)->fall;
+						FM_VOICE(preset_target - 0xCu)->vibrato_phase = VIBRATO_PRESET(preset_data - 0x5u)->phase;
+						new_voice = new_fm_voice;
+						FM_VOICE(new_voice)->vibrato_phase += FM_VOICE(new_voice)->vibrato_range & ~0xFu;
+						FM_VOICE(new_voice)->vibrato_rate = FM_VOICE(new_voice)->vibrato_wait;
+					}
+					z80_block(31);
+					voices_to_end_at = fm_voices_to_end_ADDRESS;
+					old_voices_to_end = fm_voices_to_end;
+					fm_voices_to_end = old_voices_to_end - 1u;
+					if (old_voices_to_end != 1u)
+					{
+						z80_block(53);
+						next_fm_voice += 0x12u;
+					}
+					else
+					{
+						z80_block(46);
+						fm_voices_to_end = 0xCu;
+						next_fm_voice = FM_VOICE_ADDRESS(0);
+					}
+					z80_block(218);
+					new_voice_field = new_fm_voice;
+					FM_VOICE(new_voice_field)->flags = 0x40u;
+					new_voice_field++;
+					fm_channel = FM_VOICE(new_voice_field - 0x1u)->chip_channel;
+					new_voice_field++;
+					note = note_code;
+					FM_VOICE(new_voice_field - 0x2u)->note = note;
+					voice_note = note;
+					new_voice_field++;
+					channel = midi_status & 0xFu;
+					FM_VOICE(new_voice_field - 0x3u)->midi_channel = channel;
+					voice_channel = channel;
+					new_voice_field += 2u;
+					note_level_byte = note_level;
+					carry = note_level_byte & 1u;
+					level_rotated = note_level_byte >> 1;
+					level = (level_rotated >> 1) | (carry << 7);
+					carry = level_rotated & 1u;
+					level = (((level >> 1) | (carry << 7)) & 0x1Fu) - 0x20u;
+					FM_VOICE(new_voice_field - 0x5u)->level = level;
+					level_product = (new_voice_field & 0xFFu) | ((uint32_t)level << 8);
+					effective_volume = MIDI_PART(part)->effective_volume;
+					volume_curve = effective_volume;
+					if (effective_volume != 0u)
+					{
+						z80_block(20);
+						volume_curve += (uint8_t)~effective_volume >> 1;
+					}
+					z80_block(17);
+					level_product = multiply_bytes(volume_curve, level_product);
+					z80_block(425);
+					note_level = 0x7Fu - ((uint16_t)((uint32_t)((level_product >> 8) >> 1) << 8) >> 8);
+					channel_offset = voice_channel;
+					fm_pan_modulation = (z80_read8((uint16_t)(channel_controls_ADDRESS + channel_offset)) & 7u) | 0xC0u;
+					bend_entry = channel_pitch_bends_ADDRESS + channel_offset + channel_offset;
+					fm_detune = MIDI_PART(part)->fm_detune;
+					detune_low = fm_detune;
+					fm_detune_byte = fm_detune;
+					detune_sign = ((uint32_t)fm_detune_byte << 1) | (fm_detune_byte >> 7);
+					carry = fm_detune_byte >> 7;
+					saved_outer = z80_read16(bend_entry) + (detune_low | ((uint32_t)(uint8_t)(0u - carry) << 8));
+					fnum_table_entry = fm_fnum_tables_ADDRESS + (uint8_t)((voice_note & 0xFu) * 2u);
+					bend_index = saved_outer;
+					fnum_entry = SOUND_ROM16(fnum_table_entry) + bend_index;
+					carry = (uint16_t)(fnum_entry + bend_index) < fnum_entry;
+					fnum_entry += bend_index;
+					fnum = SOUND_ROM16(fnum_entry);
+					fnum = (fnum & 0xFFu) | ((uint32_t)(uint8_t)((((voice_note >> 1) | (carry << 7)) & 0x38u) + (fnum >> 8)) << 8);
+					register_channel = (fm_channel & 3u) << 8;
+					register_value = (uint8_t)(fnum >> 8);
+					fm_register = 0xA4u | (register_channel >> 8);
+					write_fm_channel(fm_register, register_value);
+					z80_block(36);
+					register_value = (uint8_t)fnum;
+					fm_register = 0xA0u | (register_channel >> 8);
+					write_fm_channel(fm_register, register_value);
+					z80_block(17);
+					load_fm_patch(&channel_in_part, &register_list, &patch_levels);
+					part_channel = (uint8_t)channel_in_part;
+					z80_block(7);
+					operators_left = 4u;
+					for (;;)
+					{
+						z80_block(63);
+						saved_count = operators_left;
+						saved_value = part_channel;
+						register_number = SOUND_ROM8(register_list) + part_channel;
+						register_list++;
+						level_register = register_number;
+						total_level = SOUND_ROM8(patch_levels);
+						patch_levels++;
+						if (total_level >> 7 == 0u)
+						{
+							z80_block(21);
+							total_level += note_level;
+						}
+						z80_block(24);
+						total_level &= 0x7Fu;
+						fm_register = level_register;
+						write_fm_channel(fm_register, total_level);
+						z80_block(18);
+						part_channel = saved_value;
+						operators_left = saved_count - 1u;
+						if (operators_left == 0u)
+							break;
+						z80_cycles(5);
+					}
+					z80_block(45);
+					register_value = fm_pan_modulation;
+					fm_register = (uint8_t)(0xB4u + part_channel);
+					write_fm_channel(fm_register, register_value);
+					z80_block(44);
+					register_value = (fm_channel & 7u) | 0xF0u;
+					fm_register = 0x28u;
+					register_value = write_fm_global(fm_register, register_value);
+					return;
+				}
+				z80_block(84);
+				instrument++;
+				sample_or_patch = INSTRUMENT(instrument - 0x1u)->sample_or_fm_patch;
+				instrument += 2u;
+				note_pan = INSTRUMENT(instrument - 0x3u)->pan;
+				sample_detune = INSTRUMENT(instrument - 0x3u)->detune;
+				note_velocity = velocity_then_steal_low;
+				allocate_sample_voice(note_velocity, part);
+				return;
+			}
+			z80_block(34);
+			program += 0x10u;
+			kit_note = drum_kits_ADDRESS;
+			kit_note = read_table_word(kit_note, program);
+			z80_block(158);
+			note_index = note_number;
+			kit_note = kit_note + note_index + note_index + note_index + note_index;
+			kit_pitch_low = DRUM_NOTE(kit_note)->pitch_low;
+			kit_note++;
+			kit_pitch_high = DRUM_NOTE(kit_note - 0x1u)->pitch_high;
+			kit_note++;
+			note_pan = DRUM_NOTE(kit_note - 0x2u)->pan;
+			sample = DRUM_NOTE(kit_note - 0x2u)->sample;
+			sample_or_patch = sample;
+			if (sample == 0xFFu)
+			{
+				z80_cycles(6);
+				return;
+			}
+			z80_block(10);
 			note_velocity = velocity_then_steal_low;
 			allocate_sample_voice(note_velocity, part);
 			return;
 		}
-		z80_block(34);
-		program += 0x10u;
-		kit_note = drum_kits_ADDRESS;
-		kit_note = read_table_word(kit_note, program);
-		z80_block(158);
-		note_index = note_number;
-		kit_note = kit_note + note_index + note_index + note_index + note_index;
-		kit_pitch_low = DRUM_NOTE(kit_note)->pitch_low;
-		kit_note++;
-		kit_pitch_high = DRUM_NOTE(kit_note - 0x1u)->pitch_high;
-		kit_note++;
-		note_pan = DRUM_NOTE(kit_note - 0x2u)->pan;
-		sample = DRUM_NOTE(kit_note - 0x2u)->sample;
-		sample_or_patch = sample;
-		if (sample == 0xFFu)
+		z80_block(17);
+		if (event == 0x80u)
 		{
-			z80_cycles(6);
-			return;
+			z80_block(18);
+			if (first_data_byte >> 7)
+			{
+				z80_block(17);
+				read_midi_byte(&byte_copy, &ignored16, &ignored8);
+				first_data_byte = (uint8_t)byte_copy;
+			}
+			z80_block(96);
+			note_code = note_codes[(uint8_t)(MIDI_PART(part)->transpose + first_data_byte)];
+			midi_queue_read++;
+			note_off = true;
 		}
-		z80_block(10);
-		note_velocity = velocity_then_steal_low;
-		allocate_sample_voice(note_velocity, part);
-		return;
-	}
-	z80_block(17);
-	if (event == 0x80u)
-	{
-		z80_block(18);
-		if (first_data_byte >> 7)
-		{
-			z80_block(17);
-			read_midi_byte(&byte_copy, &ignored16, &ignored8);
-			first_data_byte = (uint8_t)byte_copy;
-		}
-		z80_block(96);
-		note_code = note_codes[(uint8_t)(MIDI_PART(part)->transpose + first_data_byte)];
-		midi_queue_read++;
-		goto note_off;
-	}
+	} while (note_off);
 	z80_block(17);
 	if (event == 0xE0u)
 	{
@@ -539,28 +536,21 @@ void play_midi_message(uint8_t message_byte, uint16_t part)
 		for (;;)
 		{
 			z80_block(29);
-			if (channel != SAMPLE_VOICE(voice)->midi_channel)
+			if (channel == SAMPLE_VOICE(voice)->midi_channel)
 			{
-				z80_block(33);
-				voice += 0x12u;
-				voices_left--;
-				if (voices_left == 0u)
-					break;
-				z80_cycles(5);
-				continue;
+				z80_block(47);
+				saved_channel = channel;
+				if ((SAMPLE_VOICE(voice)->flags & 0x7Fu) != 0u)
+				{
+					z80_cycles(7);
+					voices_left_pair = ((uint32_t)voices_left << 8) | pitch_bend_low;
+					voices_left_pair = retune_voice(voices_left_pair, part, voice);
+					voices_left = (uint8_t)(voices_left_pair >> 8);
+					pitch_bend_low = (uint8_t)voices_left_pair;
+				}
+				z80_block(10);
+				channel = saved_channel;
 			}
-			z80_block(47);
-			saved_channel = channel;
-			if ((SAMPLE_VOICE(voice)->flags & 0x7Fu) != 0u)
-			{
-				z80_cycles(7);
-				voices_left_pair = ((uint32_t)voices_left << 8) | pitch_bend_low;
-				voices_left_pair = retune_voice(voices_left_pair, part, voice);
-				voices_left = (uint8_t)(voices_left_pair >> 8);
-				pitch_bend_low = (uint8_t)voices_left_pair;
-			}
-			z80_block(10);
-			channel = saved_channel;
 			z80_block(33);
 			voice += 0x12u;
 			voices_left--;
@@ -619,29 +609,22 @@ void play_midi_message(uint8_t message_byte, uint16_t part)
 			for (;;)
 			{
 				z80_block(17);
-				if (channel != z80_read8(voice_field))
+				if (channel == z80_read8(voice_field))
 				{
-					z80_block(29);
-					voice_field += 0x12u;
-					voices_left--;
-					if (voices_left == 0u)
-						break;
-					z80_cycles(5);
-					continue;
+					z80_block(46);
+					kept_channel = (uint32_t)channel << 8;
+					voice_field = voice_field - 1u - 1u - 1u;
+					if ((z80_read8(voice_field) & 0x7Fu) != 0u)
+					{
+						z80_cycles(7);
+						voices_left_pair = (uint32_t)voices_left << 8;
+						update_fm_modulation(&voices_left_pair, &voice_field);
+						voices_left = (uint8_t)(voices_left_pair >> 8);
+					}
+					z80_block(22);
+					voice_field += 3u;
+					channel = (uint8_t)(kept_channel >> 8);
 				}
-				z80_block(46);
-				kept_channel = (uint32_t)channel << 8;
-				voice_field = voice_field - 1u - 1u - 1u;
-				if ((z80_read8(voice_field) & 0x7Fu) != 0u)
-				{
-					z80_cycles(7);
-					voices_left_pair = (uint32_t)voices_left << 8;
-					update_fm_modulation(&voices_left_pair, &voice_field);
-					voices_left = (uint8_t)(voices_left_pair >> 8);
-				}
-				z80_block(22);
-				voice_field += 3u;
-				channel = (uint8_t)(kept_channel >> 8);
 				z80_block(29);
 				voice_field += 0x12u;
 				voices_left--;
@@ -690,44 +673,37 @@ void play_midi_message(uint8_t message_byte, uint16_t part)
 			{
 				z80_block(33);
 				saved_outer = voice_field;
-				if (((SAMPLE_VOICE(voice_field)->flags >> 6) & 1u) == 0u)
+				if ((SAMPLE_VOICE(voice_field)->flags >> 6) & 1u)
 				{
-					z80_block(39);
-					voice_field = saved_outer + 0x12u;
-					voices_left--;
-					if (voices_left == 0u)
-						break;
-					z80_cycles(5);
-					continue;
-				}
-				z80_block(55);
-				voice_field += 3u;
-				if ((midi_status & 0xFu) == SAMPLE_VOICE(voice_field - 0x3u)->midi_channel)
-				{
-					z80_block(37);
-					voice_field = voice_field - 1u - 1u;
-					voice_chip_channel = SAMPLE_VOICE(voice_field - 0x1u)->chip_channel;
-					if (voice_chip_channel >> 7 == 0u)
+					z80_block(55);
+					voice_field += 3u;
+					if ((midi_status & 0xFu) == SAMPLE_VOICE(voice_field - 0x3u)->midi_channel)
 					{
-						z80_block(35);
-						register_value = voice_chip_channel | 0xC0u;
-						pcm_register = 7u;
-						write_pcm_register(pcm_register, register_value);
-						z80_block(64);
-						voice_field = ((voice_field + 4u) & 0xFFu) | ((uint32_t)SAMPLE_VOICE(voice_field - 0x1u)->level << 8);
-						scale = MIDI_PART(part)->effective_volume;
-						voice_field = multiply_bytes(scale, voice_field);
-						z80_block(28);
-						register_value = (uint8_t)(voice_field >> 8);
-						pcm_register = 0u;
-						write_pcm_register(pcm_register, register_value);
-					}
-					else
-					{
-						z80_block(17);
-						chip_channel = voice_chip_channel;
-						apply_fm_channel_volume(chip_channel, voice_field, part);
-						z80_block(10);
+						z80_block(37);
+						voice_field = voice_field - 1u - 1u;
+						voice_chip_channel = SAMPLE_VOICE(voice_field - 0x1u)->chip_channel;
+						if (voice_chip_channel >> 7 == 0u)
+						{
+							z80_block(35);
+							register_value = voice_chip_channel | 0xC0u;
+							pcm_register = 7u;
+							write_pcm_register(pcm_register, register_value);
+							z80_block(64);
+							voice_field = ((voice_field + 4u) & 0xFFu) | ((uint32_t)SAMPLE_VOICE(voice_field - 0x1u)->level << 8);
+							scale = MIDI_PART(part)->effective_volume;
+							voice_field = multiply_bytes(scale, voice_field);
+							z80_block(28);
+							register_value = (uint8_t)(voice_field >> 8);
+							pcm_register = 0u;
+							write_pcm_register(pcm_register, register_value);
+						}
+						else
+						{
+							z80_block(17);
+							chip_channel = voice_chip_channel;
+							apply_fm_channel_volume(chip_channel, voice_field, part);
+							z80_block(10);
+						}
 					}
 				}
 				z80_block(39);
@@ -761,78 +737,75 @@ void play_midi_message(uint8_t message_byte, uint16_t part)
 				saved_count = parts_left;
 				scaled_part_volume = (voice_field & 0xFFu) | ((uint32_t)MIDI_PART(each_part)->volume << 8);
 				volume_scale = 0xFFu;
-				if ((MIDI_PART(each_part)->flags & 1u) != 0u)
+				if ((MIDI_PART(each_part)->flags & 1u) == 0u)
 				{
-				music_volume_scale_part:
-					z80_block(21);
-					scale = volume_scale;
-					scaled_part_volume = multiply_bytes(scale, scaled_part_volume);
-					z80_block(18);
-					rounded_volume = (uint8_t)(scaled_part_volume >> 8);
-					if (rounded_volume != 0u)
+					z80_block(13);
+					volume_scale = music_volume;
+				}
+				z80_block(21);
+				scale = volume_scale;
+				scaled_part_volume = multiply_bytes(scale, scaled_part_volume);
+				z80_block(18);
+				rounded_volume = (uint8_t)(scaled_part_volume >> 8);
+				if (rounded_volume != 0u)
+				{
+					z80_block(4);
+					rounded_volume++;
+				}
+				z80_block(36);
+				MIDI_PART(each_part)->effective_volume = rounded_volume;
+				voice_field = 0xE403u;
+				voices_left = 0x14u;
+				for (;;)
+				{
+					z80_block(51);
+					saved_inner = voice_field;
+					if (MIDI_PART(each_part)->midi_channel == z80_read8(voice_field))
 					{
-						z80_block(4);
-						rounded_volume++;
-					}
-					z80_block(36);
-					MIDI_PART(each_part)->effective_volume = rounded_volume;
-					voice_field = 0xE403u;
-					voices_left = 0x14u;
-					for (;;)
-					{
-						z80_block(51);
-						saved_inner = voice_field;
-						if (MIDI_PART(each_part)->midi_channel == z80_read8(voice_field))
+						z80_block(40);
+						voice_field = voice_field - 1u - 1u - 1u;
+						if ((z80_read8(voice_field) >> 6) & 1u)
 						{
-							z80_block(40);
-							voice_field = voice_field - 1u - 1u - 1u;
-							if ((z80_read8(voice_field) >> 6) & 1u)
+							z80_block(31);
+							voice_field++;
+							voice_chip_channel = z80_read8(voice_field);
+							if (voice_chip_channel >> 7 == 0u)
 							{
-								z80_block(31);
-								voice_field++;
-								voice_chip_channel = z80_read8(voice_field);
-								if (voice_chip_channel >> 7 == 0u)
-								{
-									z80_block(35);
-									register_value = voice_chip_channel | 0xC0u;
-									pcm_register = 7u;
-									write_pcm_register(pcm_register, register_value);
-									z80_block(64);
-									voice_field = ((voice_field + 4u) & 0xFFu) | ((uint32_t)z80_read8((uint16_t)(voice_field + 4u)) << 8);
-									scale = MIDI_PART(each_part)->effective_volume;
-									voice_field = multiply_bytes(scale, voice_field);
-									z80_block(28);
-									register_value = (uint8_t)(voice_field >> 8);
-									pcm_register = 0u;
-									write_pcm_register(pcm_register, register_value);
-								}
-								else
-								{
-									z80_block(17);
-									chip_channel = voice_chip_channel;
-									apply_fm_music_volume(chip_channel, voice_field, each_part);
-									z80_block(10);
-								}
+								z80_block(35);
+								register_value = voice_chip_channel | 0xC0u;
+								pcm_register = 7u;
+								write_pcm_register(pcm_register, register_value);
+								z80_block(64);
+								voice_field = ((voice_field + 4u) & 0xFFu) | ((uint32_t)z80_read8((uint16_t)(voice_field + 4u)) << 8);
+								scale = MIDI_PART(each_part)->effective_volume;
+								voice_field = multiply_bytes(scale, voice_field);
+								z80_block(28);
+								register_value = (uint8_t)(voice_field >> 8);
+								pcm_register = 0u;
+								write_pcm_register(pcm_register, register_value);
+							}
+							else
+							{
+								z80_block(17);
+								chip_channel = voice_chip_channel;
+								apply_fm_music_volume(chip_channel, voice_field, each_part);
+								z80_block(10);
 							}
 						}
-						z80_block(39);
-						voice_field = saved_inner + 0x12u;
-						voices_left--;
-						if (voices_left == 0u)
-							break;
-						z80_cycles(5);
 					}
-					z80_block(43);
-					each_part += 9u;
-					parts_left = saved_count - 1u;
-					if (parts_left == 0u)
+					z80_block(39);
+					voice_field = saved_inner + 0x12u;
+					voices_left--;
+					if (voices_left == 0u)
 						break;
 					z80_cycles(5);
-					continue;
 				}
-				z80_block(13);
-				volume_scale = music_volume;
-				goto music_volume_scale_part;
+				z80_block(43);
+				each_part += 9u;
+				parts_left = saved_count - 1u;
+				if (parts_left == 0u)
+					break;
+				z80_cycles(5);
 			}
 			z80_block(10);
 			return;
@@ -856,41 +829,34 @@ void play_midi_message(uint8_t message_byte, uint16_t part)
 			for (;;)
 			{
 				z80_block(29);
-				if (channel != SAMPLE_VOICE(voice)->midi_channel)
+				if (channel == SAMPLE_VOICE(voice)->midi_channel)
 				{
-					z80_block(23);
-					voice += voice_size;
-					voices_left--;
-					if (voices_left == 0u)
-						break;
-					z80_cycles(5);
-					continue;
-				}
-				z80_block(41);
-				voice_field = (voice_field & ~0xFFu) | channel;
-				if ((SAMPLE_VOICE(voice)->flags >> 1) & 1u)
-				{
-					z80_block(37);
-					if (SAMPLE_VOICE(voice)->chip_channel >> 7 == 0u)
+					z80_block(41);
+					voice_field = (voice_field & ~0xFFu) | channel;
+					if ((SAMPLE_VOICE(voice)->flags >> 1) & 1u)
 					{
-						z80_block(39);
-						saved_outer = voice_field;
-						saved_voices_left = voices_left;
-						stop_pcm_voice(voice);
-						z80_block(30);
-						voices_left = saved_voices_left;
-						voice_field = saved_outer;
-						voice_size = 0x12u;
+						z80_block(37);
+						if (SAMPLE_VOICE(voice)->chip_channel >> 7 == 0u)
+						{
+							z80_block(39);
+							saved_outer = voice_field;
+							saved_voices_left = voices_left;
+							stop_pcm_voice(voice);
+							z80_block(30);
+							voices_left = saved_voices_left;
+							voice_field = saved_outer;
+							voice_size = 0x12u;
+						}
+						else
+						{
+							z80_block(17);
+							release_held_fm_voice(voice);
+							z80_block(10);
+						}
 					}
-					else
-					{
-						z80_block(17);
-						release_held_fm_voice(voice);
-						z80_block(10);
-					}
+					z80_block(4);
+					channel = (uint8_t)voice_field;
 				}
-				z80_block(4);
-				channel = (uint8_t)voice_field;
 				z80_block(23);
 				voice += voice_size;
 				voices_left--;
@@ -933,96 +899,79 @@ void play_midi_message(uint8_t message_byte, uint16_t part)
 					break;
 				z80_cycles(5);
 			}
-		fm_notes_off:
-			z80_block(47);
-			channel = midi_status & 0xFu;
-			voice_field = FM_VOICE_ADDRESS(0);
-			voice_size = 0x12u;
-			voices_left = 0xCu;
-			for (;;)
-			{
-				z80_block(22);
-				if ((z80_read8(voice_field) >> 6) & 1u)
-				{
-					z80_block(35);
-					voice_field += 3u;
-					if (channel != z80_read8(voice_field))
-					{
-						z80_block(18);
-						voice_field = voice_field - 1u - 1u - 1u;
-					}
-					else
-					{
-						z80_block(46);
-						voice_field = voice_field - 1u - 1u - 1u;
-						saved_count = voices_left;
-						saved_value = control_value;
-						fm_note_off(&voice_size, &voice_field, &channel);
-						z80_block(35);
-						voices_left = saved_count;
-						control_value = saved_value;
-						z80_write8(voice_field, z80_read8(voice_field) & 0xBFu);
-					}
-				}
-				z80_block(19);
-				voice_field += voice_size;
-				voices_left--;
-				if (voices_left == 0u)
-					break;
-				z80_cycles(5);
-			}
-			z80_block(118);
-			channel_controls[control_value] = 0u;
-			bend_entry = channel_pitch_bends_ADDRESS + (uint8_t)(control_value * 2u);
-			z80_write8(bend_entry, 0u);
-			z80_write8((uint16_t)(bend_entry + 1u), 0u);
-			return;
 		}
-		z80_block(17);
-		if (controller == 0x50u)
+		else
 		{
-			z80_block(21);
-			if (control_value == 0x7Eu)
+			z80_block(17);
+			if (controller == 0x50u)
 			{
-				z80_block(31);
-				voice = SAMPLE_VOICE_ADDRESS(0);
-				voices_left = 8u;
-				for (;;)
+				z80_block(21);
+				if (control_value == 0x7Eu)
 				{
-					z80_block(30);
-					if (((SAMPLE_VOICE(voice)->flags >> 6) & 1u) == 0u)
+					z80_block(31);
+					voice = SAMPLE_VOICE_ADDRESS(0);
+					voices_left = 8u;
+					for (;;)
 					{
+						z80_block(30);
+						if ((SAMPLE_VOICE(voice)->flags >> 6) & 1u)
+						{
+							z80_block(30);
+							if (((SAMPLE_VOICE(voice)->flags >> 4) & 1u) == 0u)
+							{
+								z80_block(28);
+								saved_count = voices_left;
+								stop_pcm_voice(voice);
+								z80_block(20);
+								voices_left = saved_count;
+							}
+							else
+							{
+								z80_block(36);
+								if (SAMPLE_VOICE(voice)->midi_channel == 0xFu)
+								{
+									z80_block(28);
+									saved_count = voices_left;
+									stop_pcm_voice(voice);
+									z80_block(20);
+									voices_left = saved_count;
+								}
+							}
+						}
 						z80_block(19);
 						voices_left--;
 						if (voices_left == 0u)
 							break;
 						z80_cycles(5);
-						continue;
 					}
-					z80_block(30);
-					if (((SAMPLE_VOICE(voice)->flags >> 4) & 1u) == 0u)
-					{
-					stop_music_sample_voice:
-						z80_block(28);
-						saved_count = voices_left;
-						stop_pcm_voice(voice);
-						z80_block(20);
-						voices_left = saved_count;
-					}
-					else
-					{
-						z80_block(36);
-						if (SAMPLE_VOICE(voice)->midi_channel == 0xFu)
-							goto stop_music_sample_voice;
-					}
-					z80_block(19);
-					voices_left--;
-					if (voices_left == 0u)
-						break;
-					z80_cycles(5);
+					z80_block(10);
 				}
-				z80_block(10);
-			stop_all_fm_voices:
+				else
+				{
+					z80_block(31);
+					voice = SAMPLE_VOICE_ADDRESS(0);
+					voice_size = 0x12u;
+					voices_left = 8u;
+					for (;;)
+					{
+						z80_block(30);
+						if ((SAMPLE_VOICE(voice)->flags >> 6) & 1u)
+						{
+							z80_block(28);
+							saved_count = voices_left;
+							stop_pcm_voice(voice);
+							z80_block(20);
+							voices_left = saved_count;
+							voice_size = 0x12u;
+						}
+						z80_block(23);
+						voice += voice_size;
+						voices_left--;
+						if (voices_left == 0u)
+							break;
+						z80_cycles(5);
+					}
+				}
 				z80_block(31);
 				voice = FM_VOICE_ADDRESS(0);
 				voice_size = 0x12u;
@@ -1030,22 +979,15 @@ void play_midi_message(uint8_t message_byte, uint16_t part)
 				for (;;)
 				{
 					z80_block(30);
-					if (((FM_VOICE(voice)->flags >> 6) & 1u) == 0u)
+					if ((FM_VOICE(voice)->flags >> 6) & 1u)
 					{
-						z80_block(23);
-						voice += voice_size;
-						voices_left--;
-						if (voices_left == 0u)
-							break;
-						z80_cycles(5);
-						continue;
+						z80_block(28);
+						saved_count = voices_left;
+						stop_fm_voice(voice);
+						z80_block(20);
+						voices_left = saved_count;
+						voice_size = 0x12u;
 					}
-					z80_block(28);
-					saved_count = voices_left;
-					stop_fm_voice(voice);
-					z80_block(20);
-					voices_left = saved_count;
-					voice_size = 0x12u;
 					z80_block(23);
 					voice += voice_size;
 					voices_left--;
@@ -1082,58 +1024,28 @@ void play_midi_message(uint8_t message_byte, uint16_t part)
 				z80_block(10);
 				return;
 			}
-			z80_block(31);
-			voice = SAMPLE_VOICE_ADDRESS(0);
-			voice_size = 0x12u;
-			voices_left = 8u;
-			for (;;)
+			z80_block(17);
+			if (controller == 0x20u)
 			{
-				z80_block(30);
-				if (((SAMPLE_VOICE(voice)->flags >> 6) & 1u) == 0u)
+				z80_block(31);
+				setup = control_value;
+				setup_data = part_templates_ADDRESS;
+				setup_data = read_table_word(setup_data, setup);
+				z80_block(57);
+				move_block(setup_data, MIDI_PART_ADDRESS(0), 0x48u, 1u);
+				setup_data += 0x48u;
+				each_part = MIDI_PART_ADDRESS(0);
+				parts_left = 8u;
+				for (;;)
 				{
-					z80_block(23);
-					voice += voice_size;
-					voices_left--;
-					if (voices_left == 0u)
-						break;
-					z80_cycles(5);
-					continue;
-				}
-				z80_block(28);
-				saved_count = voices_left;
-				stop_pcm_voice(voice);
-				z80_block(20);
-				voices_left = saved_count;
-				voice_size = 0x12u;
-				z80_block(23);
-				voice += voice_size;
-				voices_left--;
-				if (voices_left == 0u)
-					break;
-				z80_cycles(5);
-			}
-			goto stop_all_fm_voices;
-		}
-		z80_block(17);
-		if (controller == 0x20u)
-		{
-			z80_block(31);
-			setup = control_value;
-			setup_data = part_templates_ADDRESS;
-			setup_data = read_table_word(setup_data, setup);
-			z80_block(57);
-			move_block(setup_data, MIDI_PART_ADDRESS(0), 0x48u, 1u);
-			setup_data += 0x48u;
-			each_part = MIDI_PART_ADDRESS(0);
-			parts_left = 8u;
-			for (;;)
-			{
-				z80_block(56);
-				setup_data = (setup_data & 0xFFu) | ((uint32_t)MIDI_PART(each_part)->volume << 8);
-				volume_scale = 0xFFu;
-				if ((MIDI_PART(each_part)->flags & 1u) != 0u)
-				{
-				part_template_scale_volume:
+					z80_block(56);
+					setup_data = (setup_data & 0xFFu) | ((uint32_t)MIDI_PART(each_part)->volume << 8);
+					volume_scale = 0xFFu;
+					if ((MIDI_PART(each_part)->flags & 1u) == 0u)
+					{
+						z80_block(13);
+						volume_scale = music_volume;
+					}
 					z80_block(21);
 					scale = volume_scale;
 					setup_data = multiply_bytes(scale, setup_data);
@@ -1151,164 +1063,225 @@ void play_midi_message(uint8_t message_byte, uint16_t part)
 					if (parts_left == 0u)
 						break;
 					z80_cycles(5);
-					continue;
 				}
-				z80_block(13);
-				volume_scale = music_volume;
-				goto part_template_scale_volume;
+				z80_block(10);
+				return;
 			}
-			z80_block(10);
-			return;
-		}
-		z80_block(17);
-		if (controller == 0x51u)
-		{
-			z80_block(60);
-			note_to_mark = note_codes[control_value];
-			voice_field = SAMPLE_VOICE_ADDRESS(0);
-			voices_left = 8u;
-			for (;;)
+			z80_block(17);
+			if (controller == 0x51u)
 			{
-				z80_block(22);
-				if (((SAMPLE_VOICE(voice_field)->flags >> 6) & 1u) == 0u)
+				z80_block(60);
+				note_to_mark = note_codes[control_value];
+				voice_field = SAMPLE_VOICE_ADDRESS(0);
+				voices_left = 8u;
+				for (;;)
 				{
+					z80_block(22);
+					if ((SAMPLE_VOICE(voice_field)->flags >> 6) & 1u)
+					{
+						z80_block(33);
+						voice_field += 2u;
+						if (note_to_mark != SAMPLE_VOICE(voice_field - 0x2u)->note)
+						{
+							z80_block(12);
+							voice_field = voice_field - 1u - 1u;
+						}
+						else
+						{
+							z80_block(43);
+							voice_field++;
+							if ((midi_status & 0xFu) != SAMPLE_VOICE(voice_field - 0x3u)->midi_channel)
+							{
+								z80_block(6);
+								voice_field--;
+								z80_block(12);
+								voice_field = voice_field - 1u - 1u;
+							}
+							else
+							{
+								z80_block(43);
+								voice_field = voice_field - 1u - 1u - 1u;
+								SAMPLE_VOICE(voice_field)->flags |= 1u;
+							}
+						}
+					}
 					z80_block(29);
 					voice_field += 0x12u;
 					voices_left--;
 					if (voices_left == 0u)
 						break;
 					z80_cycles(5);
-					continue;
 				}
-				z80_block(33);
-				voice_field += 2u;
-				if (note_to_mark != SAMPLE_VOICE(voice_field - 0x2u)->note)
+				z80_block(10);
+				return;
+			}
+			z80_block(17);
+			if (controller == 0x11u)
+			{
+				z80_block(18);
+				for (;;)
 				{
-				mark_note_not_this:
-					z80_block(12);
-					voice_field = voice_field - 1u - 1u;
+					if (vibrato_preset_check_voice || control_value == 0u)
+					{
+						do
+						{
+							if (vibrato_preset_check_channel || !vibrato_preset_check_voice)
+							{
+								if (!vibrato_preset_check_channel)
+								{
+									z80_block(87);
+									control_value = 0u;
+									channel = midi_status & 0xFu;
+									channel_vibrato_presets[channel] = 0u;
+									voices_left = 0xCu;
+									voice = FM_VOICE_ADDRESS(0);
+									for (;;)
+									{
+										z80_block(29);
+										if (channel == FM_VOICE(voice)->midi_channel)
+											break;
+										z80_block(33);
+										voice += 0x12u;
+										voices_left--;
+										if (voices_left == 0u)
+										{
+											z80_block(10);
+											return;
+										}
+										z80_cycles(5);
+									}
+									z80_block(36);
+									voice += 4u;
+									voices_or_bytes_left = 6u;
+									for (;;)
+									{
+										z80_block(37);
+										z80_write8(voice, control_value);
+										voice++;
+										voices_or_bytes_left--;
+										if (voices_or_bytes_left == 0u)
+											break;
+										z80_cycles(5);
+									}
+									z80_block(39);
+									voice += 8u;
+								}
+								vibrato_preset_check_channel = false;
+								z80_block(49);
+							}
+							for (;;)
+							{
+								if (vibrato_preset_next_voice || vibrato_preset_check_voice || (midi_status & 0xFu) == FM_VOICE(voice)->midi_channel)
+								{
+									do
+									{
+										if (vibrato_preset_next_voice || vibrato_preset_next_voice || !vibrato_preset_check_voice)
+										{
+											if (!vibrato_preset_next_voice)
+											{
+												if (!vibrato_preset_next_voice)
+												{
+													z80_block(31);
+													preset_address = vibrato_presets_ADDRESS;
+													preset = control_value;
+													preset_address = read_table_word(preset_address, preset);
+													z80_block(344);
+													preset_data = preset_address;
+													FM_VOICE(voice)->vibrato_delay = VIBRATO_PRESET(preset_data)->delay;
+													preset_data++;
+													FM_VOICE(voice)->vibrato_wait = VIBRATO_PRESET(preset_data - 0x1u)->wait;
+													preset_data++;
+													FM_VOICE(voice)->vibrato_range = VIBRATO_PRESET(preset_data - 0x2u)->range;
+													preset_data++;
+													FM_VOICE(voice)->vibrato_depth = VIBRATO_PRESET(preset_data - 0x3u)->depth;
+													preset_data++;
+													FM_VOICE(voice)->vibrato_rise = VIBRATO_PRESET(preset_data - 0x4u)->rise;
+													preset_data++;
+													FM_VOICE(voice)->vibrato_fall = VIBRATO_PRESET(preset_data - 0x5u)->fall;
+													FM_VOICE(voice)->vibrato_phase = VIBRATO_PRESET(preset_data - 0x5u)->phase;
+													FM_VOICE(voice)->vibrato_rate = FM_VOICE(voice)->vibrato_wait;
+													FM_VOICE(voice)->vibrato_phase = (FM_VOICE(voice)->vibrato_phase & 1u) + FM_VOICE(voice)->vibrato_range;
+												}
+											}
+											z80_block(33);
+											voice += 0x12u;
+											voices_or_bytes_left--;
+											if (voices_or_bytes_left == 0u)
+											{
+												z80_block(10);
+												return;
+											}
+											z80_cycles(5);
+										}
+										vibrato_preset_check_voice = false;
+										z80_block(36);
+										vibrato_preset_next_voice = (FM_VOICE(voice)->flags & 0x40u) == 0u;
+									} while (vibrato_preset_next_voice);
+									vibrato_preset_check_channel = true;
+								}
+								if (vibrato_preset_check_channel)
+									break;
+								vibrato_preset_next_voice = true;
+							}
+						} while (vibrato_preset_check_channel);
+					}
+					z80_block(80);
+					channel_vibrato_presets[midi_status & 0xFu] = control_value;
+					voices_or_bytes_left = 0xCu;
+					voice = FM_VOICE_ADDRESS(0);
+					vibrato_preset_check_voice = true;
+				}
+			}
+			z80_block(17);
+			if (controller != 0x80u)
+			{
+				z80_block(10);
+				return;
+			}
+		}
+		z80_block(47);
+		channel = midi_status & 0xFu;
+		voice_field = FM_VOICE_ADDRESS(0);
+		voice_size = 0x12u;
+		voices_left = 0xCu;
+		for (;;)
+		{
+			z80_block(22);
+			if ((z80_read8(voice_field) >> 6) & 1u)
+			{
+				z80_block(35);
+				voice_field += 3u;
+				if (channel != z80_read8(voice_field))
+				{
+					z80_block(18);
+					voice_field = voice_field - 1u - 1u - 1u;
 				}
 				else
 				{
-					z80_block(43);
-					voice_field++;
-					if ((midi_status & 0xFu) != SAMPLE_VOICE(voice_field - 0x3u)->midi_channel)
-					{
-						z80_block(6);
-						voice_field--;
-						goto mark_note_not_this;
-					}
-					z80_block(43);
+					z80_block(46);
 					voice_field = voice_field - 1u - 1u - 1u;
-					SAMPLE_VOICE(voice_field)->flags |= 1u;
+					saved_count = voices_left;
+					saved_value = control_value;
+					fm_note_off(&voice_size, &voice_field, &channel);
+					z80_block(35);
+					voices_left = saved_count;
+					control_value = saved_value;
+					z80_write8(voice_field, z80_read8(voice_field) & 0xBFu);
 				}
-				z80_block(29);
-				voice_field += 0x12u;
-				voices_left--;
-				if (voices_left == 0u)
-					break;
-				z80_cycles(5);
 			}
-			z80_block(10);
-			return;
+			z80_block(19);
+			voice_field += voice_size;
+			voices_left--;
+			if (voices_left == 0u)
+				break;
+			z80_cycles(5);
 		}
-		z80_block(17);
-		if (controller == 0x11u)
-		{
-			z80_block(18);
-			if (control_value == 0u)
-			{
-				z80_block(87);
-				control_value = 0u;
-				channel = midi_status & 0xFu;
-				channel_vibrato_presets[channel] = 0u;
-				voices_left = 0xCu;
-				voice = FM_VOICE_ADDRESS(0);
-				for (;;)
-				{
-					z80_block(29);
-					if (channel == FM_VOICE(voice)->midi_channel)
-						break;
-					z80_block(33);
-					voice += 0x12u;
-					voices_left--;
-					if (voices_left == 0u)
-					{
-						z80_block(10);
-						return;
-					}
-					z80_cycles(5);
-				}
-				z80_block(36);
-				voice += 4u;
-				voices_or_bytes_left = 6u;
-				for (;;)
-				{
-					z80_block(37);
-					z80_write8(voice, control_value);
-					voice++;
-					voices_or_bytes_left--;
-					if (voices_or_bytes_left == 0u)
-						break;
-					z80_cycles(5);
-				}
-				z80_block(39);
-				voice += 8u;
-			vibrato_preset_check_channel:
-				z80_block(49);
-				if ((midi_status & 0xFu) == FM_VOICE(voice)->midi_channel)
-				{
-					z80_block(31);
-					preset_address = vibrato_presets_ADDRESS;
-					preset = control_value;
-					preset_address = read_table_word(preset_address, preset);
-					z80_block(344);
-					preset_data = preset_address;
-					FM_VOICE(voice)->vibrato_delay = VIBRATO_PRESET(preset_data)->delay;
-					preset_data++;
-					FM_VOICE(voice)->vibrato_wait = VIBRATO_PRESET(preset_data - 0x1u)->wait;
-					preset_data++;
-					FM_VOICE(voice)->vibrato_range = VIBRATO_PRESET(preset_data - 0x2u)->range;
-					preset_data++;
-					FM_VOICE(voice)->vibrato_depth = VIBRATO_PRESET(preset_data - 0x3u)->depth;
-					preset_data++;
-					FM_VOICE(voice)->vibrato_rise = VIBRATO_PRESET(preset_data - 0x4u)->rise;
-					preset_data++;
-					FM_VOICE(voice)->vibrato_fall = VIBRATO_PRESET(preset_data - 0x5u)->fall;
-					FM_VOICE(voice)->vibrato_phase = VIBRATO_PRESET(preset_data - 0x5u)->phase;
-					FM_VOICE(voice)->vibrato_rate = FM_VOICE(voice)->vibrato_wait;
-					FM_VOICE(voice)->vibrato_phase = (FM_VOICE(voice)->vibrato_phase & 1u) + FM_VOICE(voice)->vibrato_range;
-				vibrato_preset_next_voice:
-					z80_block(33);
-					voice += 0x12u;
-					voices_or_bytes_left--;
-					if (voices_or_bytes_left == 0u)
-					{
-						z80_block(10);
-						return;
-					}
-					z80_cycles(5);
-				vibrato_preset_check_voice:
-					z80_block(36);
-					if ((FM_VOICE(voice)->flags & 0x40u) == 0u)
-						goto vibrato_preset_next_voice;
-					goto vibrato_preset_check_channel;
-				}
-				goto vibrato_preset_next_voice;
-			}
-			z80_block(80);
-			channel_vibrato_presets[midi_status & 0xFu] = control_value;
-			voices_or_bytes_left = 0xCu;
-			voice = FM_VOICE_ADDRESS(0);
-			goto vibrato_preset_check_voice;
-		}
-		z80_block(17);
-		if (controller != 0x80u)
-		{
-			z80_block(10);
-			return;
-		}
-		goto fm_notes_off;
+		z80_block(118);
+		channel_controls[control_value] = 0u;
+		bend_entry = channel_pitch_bends_ADDRESS + (uint8_t)(control_value * 2u);
+		z80_write8(bend_entry, 0u);
+		z80_write8((uint16_t)(bend_entry + 1u), 0u);
+		return;
 	}
 	z80_block(17);
 	if (event == 0xC0u)
@@ -1325,20 +1298,17 @@ void play_midi_message(uint8_t message_byte, uint16_t part)
 		return;
 	}
 	z80_block(17);
-	if (event == 0xD0u)
+	if (event != 0xD0u)
 	{
-		first_byte = first_data_byte;
-		skip_midi_data(first_byte);
-		return;
+		z80_block(17);
+		if (event != 0xA0u)
+		{
+			z80_block(10);
+			return;
+		}
 	}
-	z80_block(17);
-	if (event == 0xA0u)
-	{
-		first_byte = first_data_byte;
-		skip_midi_data(first_byte);
-		return;
-	}
-	z80_block(10);
+	first_byte = first_data_byte;
+	skip_midi_data(first_byte);
 }
 
 void scan_drum_note_voices(uint16_t note_and_velocity, uint16_t part)
@@ -1359,20 +1329,13 @@ void scan_drum_note_voices(uint16_t note_and_velocity, uint16_t part)
 	for (;;)
 	{
 		z80_block(24);
-		if (SAMPLE_VOICE(voice_field - 0x2u)->note != 0xCAu)
+		if (SAMPLE_VOICE(voice_field - 0x2u)->note == 0xCAu)
 		{
-			z80_block(19);
-			voice_field += voice_step;
-			voices_left--;
-			if (voices_left == 0u)
-				break;
-			z80_cycles(5);
-			continue;
+			z80_block(34);
+			voice_field = voice_field - 1u - 1u;
+			z80_block(12);
+			voice_field += 2u;
 		}
-		z80_block(34);
-		voice_field = voice_field - 1u - 1u;
-		z80_block(12);
-		voice_field += 2u;
 		z80_block(19);
 		voice_field += voice_step;
 		voices_left--;
@@ -1406,56 +1369,58 @@ void allocate_sample_voice(uint8_t note_velocity, uint16_t part)
 			z80_block(25);
 			saved_outer = free_voice;
 			new_voice = saved_outer;
-			goto start_sample_voice;
+			break;
 		}
 		z80_block(19);
 		free_voice += voice_size;
 		count_or_channel--;
-		if (count_or_channel == 0u)
-			break;
-		z80_cycles(5);
-	}
-	z80_block(21);
-	order_entry = voice_0_allocation_order_ADDRESS;
-	count_or_channel = 8u;
-	lowest_order--;
-	for (;;)
-	{
-		z80_block(17);
-		if (SAMPLE_VOICE(order_entry - 0x6u)->allocation_order <= lowest_order)
+		if (count_or_channel != 0u)
 		{
-			z80_block(11);
-			lowest_order = SAMPLE_VOICE(order_entry - 0x6u)->allocation_order;
-			velocity_then_steal_low = (uint8_t)order_entry;
+			z80_cycles(5);
+			continue;
 		}
-		z80_block(19);
-		order_entry += voice_size;
-		count_or_channel--;
-		if (count_or_channel == 0u)
-			break;
-		z80_cycles(5);
+		z80_block(21);
+		order_entry = voice_0_allocation_order_ADDRESS;
+		count_or_channel = 8u;
+		lowest_order--;
+		for (;;)
+		{
+			z80_block(17);
+			if (SAMPLE_VOICE(order_entry - 0x6u)->allocation_order <= lowest_order)
+			{
+				z80_block(11);
+				lowest_order = SAMPLE_VOICE(order_entry - 0x6u)->allocation_order;
+				velocity_then_steal_low = (uint8_t)order_entry;
+			}
+			z80_block(19);
+			order_entry += voice_size;
+			count_or_channel--;
+			if (count_or_channel == 0u)
+				break;
+			z80_cycles(5);
+		}
+		z80_block(333);
+		new_voice = 0xFFFAu + ((order_entry & ~0xFFu) | velocity_then_steal_low);
+		voice_0_allocation_order--;
+		voice_1_allocation_order--;
+		voice_2_allocation_order--;
+		voice_3_allocation_order--;
+		voice_4_allocation_order--;
+		voice_5_allocation_order--;
+		voice_6_allocation_order--;
+		voice_7_allocation_order--;
+		pcm_voices_used = 7u;
+		keys_on = pcm_channels_on ^ pcm_channel_bits[SAMPLE_VOICE(new_voice)->chip_channel];
+		pcm_channels_on = keys_on;
+		keys_on = ~keys_on;
+		pcm_register = 8u;
+		write_pcm_register(pcm_register, keys_on);
+		z80_block(67);
+		SAMPLE_VOICE(new_voice)->wave_page = 0xD0u;
+		SAMPLE_VOICE(new_voice)->stream_position_low = 0xFFu;
+		SAMPLE_VOICE(new_voice)->stream_position_high = 7u;
+		break;
 	}
-	z80_block(333);
-	new_voice = 0xFFFAu + ((order_entry & ~0xFFu) | velocity_then_steal_low);
-	voice_0_allocation_order--;
-	voice_1_allocation_order--;
-	voice_2_allocation_order--;
-	voice_3_allocation_order--;
-	voice_4_allocation_order--;
-	voice_5_allocation_order--;
-	voice_6_allocation_order--;
-	voice_7_allocation_order--;
-	pcm_voices_used = 7u;
-	keys_on = pcm_channels_on ^ pcm_channel_bits[SAMPLE_VOICE(new_voice)->chip_channel];
-	pcm_channels_on = keys_on;
-	keys_on = ~keys_on;
-	pcm_register = 8u;
-	write_pcm_register(pcm_register, keys_on);
-	z80_block(67);
-	SAMPLE_VOICE(new_voice)->wave_page = 0xD0u;
-	SAMPLE_VOICE(new_voice)->stream_position_low = 0xFFu;
-	SAMPLE_VOICE(new_voice)->stream_position_high = 7u;
-start_sample_voice:
 	z80_block(36);
 	if (MIDI_PART(part)->program < 0xF0u)
 	{
@@ -1678,47 +1643,76 @@ uint16_t retune_voice(uint16_t loop_count, uint16_t part, uint16_t voice)
 	pitch = SOUND_ROM16(pitch_entry);
 	octave_bits = note & ~0xFu;
 	octave = octave_bits;
-	if (octave_bits != 0u)
+	if (octave_bits == 0u)
 	{
-		z80_block(33);
-		octave = (octave >> 1) | ((uint32_t)octave << 7);
-		octave = (octave >> 1) | ((uint32_t)octave << 7);
-		octave = (octave >> 1) | ((uint32_t)octave << 7);
-		octave = (octave >> 1) | ((uint32_t)octave << 7);
-		if (octave < 8u)
-		{
-			z80_block(4);
-			count_or_shifts = octave;
-			for (;;)
-			{
-				z80_block(24);
-				carry = (uint8_t)pitch >> 7;
-				pitch = (pitch & ~0xFFu) | (uint8_t)((uint32_t)pitch << 1);
-				pitch = (pitch & 0xFFu) | ((uint32_t)(uint8_t)(((uint32_t)(pitch >> 8) << 1) | carry) << 8);
-				count_or_shifts--;
-				if (count_or_shifts == 0u)
-					break;
-				z80_cycles(5);
-			}
-		}
-		else
-		{
-			z80_block(19);
-			count_or_shifts = (~octave + 1u) & 0xFu;
-			for (;;)
-			{
-				z80_block(24);
-				carry = (pitch >> 8) & 1u;
-				pitch = (pitch & 0xFFu) | ((uint32_t)((pitch >> 8) >> 1) << 8);
-				pitch = (pitch & ~0xFFu) | (uint8_t)(((uint8_t)pitch >> 1) | (carry << 7));
-				count_or_shifts--;
-				if (count_or_shifts == 0u)
-					break;
-				z80_cycles(5);
-			}
-			z80_block(10);
-		}
+		z80_block(28);
+		register_value = (uint8_t)(pitch >> 8);
+		pcm_register = 3u;
+		write_pcm_register(pcm_register, register_value);
+		z80_block(28);
+		pitch_low_register = 2u;
+		register_value = (uint8_t)pitch;
+		pcm_register = 2u;
+		write_pcm_register(pcm_register, register_value);
+		z80_block(196);
+		old_pitch = SAMPLE_VOICE(voice)->pitch_step;
+		SAMPLE_VOICE(voice)->pitch_step = pitch;
+		pitch = pitch - old_pitch + SAMPLE_VOICE(voice)->stream_position;
+		SAMPLE_VOICE(voice)->stream_position = pitch;
+		loop_count = ((uint32_t)count_or_shifts << 8) | pitch_low_register;
+		return loop_count;
 	}
+	z80_block(33);
+	octave = (octave >> 1) | ((uint32_t)octave << 7);
+	octave = (octave >> 1) | ((uint32_t)octave << 7);
+	octave = (octave >> 1) | ((uint32_t)octave << 7);
+	octave = (octave >> 1) | ((uint32_t)octave << 7);
+	if (octave < 8u)
+	{
+		z80_block(4);
+		count_or_shifts = octave;
+		for (;;)
+		{
+			z80_block(24);
+			carry = (uint8_t)pitch >> 7;
+			pitch = (pitch & ~0xFFu) | (uint8_t)((uint32_t)pitch << 1);
+			pitch = (pitch & 0xFFu) | ((uint32_t)(uint8_t)(((uint32_t)(pitch >> 8) << 1) | carry) << 8);
+			count_or_shifts--;
+			if (count_or_shifts == 0u)
+				break;
+			z80_cycles(5);
+		}
+		z80_block(28);
+		register_value = (uint8_t)(pitch >> 8);
+		pcm_register = 3u;
+		write_pcm_register(pcm_register, register_value);
+		z80_block(28);
+		pitch_low_register = 2u;
+		register_value = (uint8_t)pitch;
+		pcm_register = 2u;
+		write_pcm_register(pcm_register, register_value);
+		z80_block(196);
+		old_pitch = SAMPLE_VOICE(voice)->pitch_step;
+		SAMPLE_VOICE(voice)->pitch_step = pitch;
+		pitch = pitch - old_pitch + SAMPLE_VOICE(voice)->stream_position;
+		SAMPLE_VOICE(voice)->stream_position = pitch;
+		loop_count = ((uint32_t)count_or_shifts << 8) | pitch_low_register;
+		return loop_count;
+	}
+	z80_block(19);
+	count_or_shifts = (~octave + 1u) & 0xFu;
+	for (;;)
+	{
+		z80_block(24);
+		carry = (pitch >> 8) & 1u;
+		pitch = (pitch & 0xFFu) | ((uint32_t)((pitch >> 8) >> 1) << 8);
+		pitch = (pitch & ~0xFFu) | (uint8_t)(((uint8_t)pitch >> 1) | (carry << 7));
+		count_or_shifts--;
+		if (count_or_shifts == 0u)
+			break;
+		z80_cycles(5);
+	}
+	z80_block(10);
 	z80_block(28);
 	register_value = (uint8_t)(pitch >> 8);
 	pcm_register = 3u;
@@ -1819,55 +1813,80 @@ void receive_midi_byte(void)
 	z80_block(35);
 	midi_byte = received;
 	bytes_left_address = midi_in_bytes_left_ADDRESS;
-	if (midi_in_bytes_left == 0u)
+	if (midi_in_bytes_left != 0u)
 	{
-		z80_block(18);
-		if (midi_byte >> 7 != 0u)
+		z80_block(72);
+		write_index = midi_queue_write;
+		z80_write8(0xE100u | write_index, midi_byte);
+		midi_queue_write = write_index + 1u;
+		old_bytes_left = midi_in_bytes_left;
+		midi_in_bytes_left = old_bytes_left - 1u;
+		if (old_bytes_left != 1u)
 		{
-			z80_block(28);
-			message_length = 2u;
-			received = midi_byte;
-			if (received < 0xC0u)
-			{
-				z80_block(4);
-				message_length++;
-			}
-			else
-			{
-				z80_block(17);
-				if (received >= 0xE0u)
-				{
-					z80_block(4);
-					message_length++;
-					z80_block(24);
-					midi_in_bytes_left = message_length;
-					midi_in_message_length = message_length;
-					z80_block(72);
-					write_index = midi_queue_write;
-					z80_write8(0xE100u | write_index, midi_byte);
-					midi_queue_write = write_index + 1u;
-					old_bytes_left = midi_in_bytes_left;
-					midi_in_bytes_left = old_bytes_left - 1u;
-					if (old_bytes_left != 1u)
-					{
-						z80_cycles(6);
-						return;
-					}
-					z80_block(31);
-					midi_queue_count++;
-					return;
-				}
-			}
+			z80_cycles(6);
+			return;
+		}
+		z80_block(31);
+		midi_queue_count++;
+		return;
+	}
+	z80_block(18);
+	if (midi_byte >> 7 == 0u)
+	{
+		z80_block(34);
+		midi_in_bytes_left = midi_in_message_length - 1u;
+		z80_block(72);
+		write_index = midi_queue_write;
+		z80_write8(0xE100u | write_index, midi_byte);
+		midi_queue_write = write_index + 1u;
+		old_bytes_left = midi_in_bytes_left;
+		midi_in_bytes_left = old_bytes_left - 1u;
+		if (old_bytes_left != 1u)
+		{
+			z80_cycles(6);
+			return;
+		}
+		z80_block(31);
+		midi_queue_count++;
+		return;
+	}
+	z80_block(28);
+	message_length = 2u;
+	received = midi_byte;
+	if (received < 0xC0u)
+	{
+		z80_block(4);
+		message_length++;
+	}
+	else
+	{
+		z80_block(17);
+		if (received >= 0xE0u)
+		{
+			z80_block(4);
+			message_length++;
 			z80_block(24);
 			midi_in_bytes_left = message_length;
 			midi_in_message_length = message_length;
-		}
-		else
-		{
-			z80_block(34);
-			midi_in_bytes_left = midi_in_message_length - 1u;
+			z80_block(72);
+			write_index = midi_queue_write;
+			z80_write8(0xE100u | write_index, midi_byte);
+			midi_queue_write = write_index + 1u;
+			old_bytes_left = midi_in_bytes_left;
+			midi_in_bytes_left = old_bytes_left - 1u;
+			if (old_bytes_left != 1u)
+			{
+				z80_cycles(6);
+				return;
+			}
+			z80_block(31);
+			midi_queue_count++;
+			return;
 		}
 	}
+	z80_block(24);
+	midi_in_bytes_left = message_length;
+	midi_in_message_length = message_length;
 	z80_block(72);
 	write_index = midi_queue_write;
 	z80_write8(0xE100u | write_index, midi_byte);

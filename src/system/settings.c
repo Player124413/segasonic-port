@@ -93,38 +93,26 @@ void load_settings(uint32_t crc)
 	uint8_t port_f_bits = 0;
 
 	eeprom_read_all(crc);
-	if (eeprom_magic == 0x53333241u)
+	if (eeprom_magic != 0x53333241u)
 	{
-		if (eeprom_rom_stamp != (uint16_t)(rom_checksums + rom_checksum_ic8))
+		if (eeprom_magic != 0x41474553u)
+			move_halfwords(eeprom_magic_ADDRESS, eeprom_defaults_ADDRESS, 0x20u);
+		else
 		{
-			move_halfwords(setting_advertise_sound_ADDRESS, default_settings_ADDRESS, 0x19u);
-			port_f_bits = mem_read8(io_port_f);
-			mem_write8(moving_seat_dip, port_f_bits & 1u);
-			mem_write16(bookkeeping_rom_stamp, 0u);
-			eeprom_rom_stamp = rom_checksums + rom_checksum_ic8;
-			compute_eeprom_checksum(&crc, &ignored);
-			eeprom_checksum = crc;
-			eeprom_save(&ignored, &ignored);
-			return;
+			move_halfwords(eeprom_magic_ADDRESS, eeprom_defaults_ADDRESS, 0x20u);
+			eeprom_write_count = 0x64u;
 		}
+		port_f_bits = mem_read8(io_port_f);
+		mem_write8(moving_seat_dip, port_f_bits & 1u);
+		mem_write16(bookkeeping_rom_stamp, 0u);
+		eeprom_rom_stamp = rom_checksums + rom_checksum_ic8;
 		compute_eeprom_checksum(&crc, &ignored);
-		if ((uint16_t)crc == eeprom_checksum)
-		{
-			crc = compute_eeprom_backup_checksum();
-			if ((uint16_t)crc != eeprom_backup_checksum || (uint16_t)crc != eeprom_checksum)
-			{
-				eeprom_save(&ignored, &ignored);
-				return;
-			}
-			return;
-		}
-		crc = compute_eeprom_backup_checksum();
-		if ((uint16_t)crc == eeprom_backup_checksum)
-		{
-			move_halfwords(eeprom_magic_ADDRESS, eeprom_backup_ADDRESS, 0x20u);
-			eeprom_save(&ignored, &ignored);
-			return;
-		}
+		eeprom_checksum = crc;
+		eeprom_save(&ignored, &ignored);
+		return;
+	}
+	if (eeprom_rom_stamp != (uint16_t)(rom_checksums + rom_checksum_ic8))
+	{
 		move_halfwords(setting_advertise_sound_ADDRESS, default_settings_ADDRESS, 0x19u);
 		port_f_bits = mem_read8(io_port_f);
 		mem_write8(moving_seat_dip, port_f_bits & 1u);
@@ -135,20 +123,25 @@ void load_settings(uint32_t crc)
 		eeprom_save(&ignored, &ignored);
 		return;
 	}
-	if (eeprom_magic != 0x41474553u)
+	compute_eeprom_checksum(&crc, &ignored);
+	if ((uint16_t)crc == eeprom_checksum)
 	{
-		move_halfwords(eeprom_magic_ADDRESS, eeprom_defaults_ADDRESS, 0x20u);
-		port_f_bits = mem_read8(io_port_f);
-		mem_write8(moving_seat_dip, port_f_bits & 1u);
-		mem_write16(bookkeeping_rom_stamp, 0u);
-		eeprom_rom_stamp = rom_checksums + rom_checksum_ic8;
-		compute_eeprom_checksum(&crc, &ignored);
-		eeprom_checksum = crc;
+		crc = compute_eeprom_backup_checksum();
+		if ((uint16_t)crc != eeprom_backup_checksum || (uint16_t)crc != eeprom_checksum)
+		{
+			eeprom_save(&ignored, &ignored);
+			return;
+		}
+		return;
+	}
+	crc = compute_eeprom_backup_checksum();
+	if ((uint16_t)crc == eeprom_backup_checksum)
+	{
+		move_halfwords(eeprom_magic_ADDRESS, eeprom_backup_ADDRESS, 0x20u);
 		eeprom_save(&ignored, &ignored);
 		return;
 	}
-	move_halfwords(eeprom_magic_ADDRESS, eeprom_defaults_ADDRESS, 0x20u);
-	eeprom_write_count = 0x64u;
+	move_halfwords(setting_advertise_sound_ADDRESS, default_settings_ADDRESS, 0x19u);
 	port_f_bits = mem_read8(io_port_f);
 	mem_write8(moving_seat_dip, port_f_bits & 1u);
 	mem_write16(bookkeeping_rom_stamp, 0u);
@@ -420,34 +413,38 @@ void load_bookkeeping(void)
 {
 	uint32_t copy_dest = 0, copy_source = 0, crc = 0, data = 0;
 
-	if ((uint16_t)(rom_checksums + rom_checksum_ic8) == mem_read16(bookkeeping_rom_stamp))
+	if ((uint16_t)(rom_checksums + rom_checksum_ic8) != mem_read16(bookkeeping_rom_stamp))
 	{
-		copy_source = bookkeeping_coin_credits;
-		compute_bookkeeping_crc(&crc, &copy_source);
-		if ((uint16_t)crc == mem_read16(bookkeeping_checksum))
-		{
-			copy_dest = copy_source;
-			copy_source -= 0x40u;
-			move_halfwords(copy_dest, copy_source, 0x20u);
-			update_bookkeeping_checksum();
-			power_on_time = mem_read32(bookkeeping_power_on_time);
-			power_on_frames_top = mem_read16(bookkeeping_power_on_time_high);
-			return;
-		}
-		data = bookkeeping_backup;
-		compute_bookkeeping_crc(&crc, &data);
-		if ((uint16_t)crc == mem_read16(bookkeeping_checksum))
-		{
-			copy_dest = bookkeeping_coin_credits;
-			copy_source = bookkeeping_backup;
-			move_halfwords(copy_dest, copy_source, 0x20u);
-			update_bookkeeping_checksum();
-		}
-		else
-			reset_bookkeeping();
-	}
-	else
 		reset_bookkeeping();
+		power_on_time = mem_read32(bookkeeping_power_on_time);
+		power_on_frames_top = mem_read16(bookkeeping_power_on_time_high);
+		return;
+	}
+	copy_source = bookkeeping_coin_credits;
+	compute_bookkeeping_crc(&crc, &copy_source);
+	if ((uint16_t)crc == mem_read16(bookkeeping_checksum))
+	{
+		copy_dest = copy_source;
+		copy_source -= 0x40u;
+		move_halfwords(copy_dest, copy_source, 0x20u);
+		update_bookkeeping_checksum();
+		power_on_time = mem_read32(bookkeeping_power_on_time);
+		power_on_frames_top = mem_read16(bookkeeping_power_on_time_high);
+		return;
+	}
+	data = bookkeeping_backup;
+	compute_bookkeeping_crc(&crc, &data);
+	if ((uint16_t)crc == mem_read16(bookkeeping_checksum))
+	{
+		copy_dest = bookkeeping_coin_credits;
+		copy_source = bookkeeping_backup;
+		move_halfwords(copy_dest, copy_source, 0x20u);
+		update_bookkeeping_checksum();
+		power_on_time = mem_read32(bookkeeping_power_on_time);
+		power_on_frames_top = mem_read16(bookkeeping_power_on_time_high);
+		return;
+	}
+	reset_bookkeeping();
 	power_on_time = mem_read32(bookkeeping_power_on_time);
 	power_on_frames_top = mem_read16(bookkeeping_power_on_time_high);
 }
@@ -582,30 +579,16 @@ void record_player_game(void)
 
 	status_cursor = player_status_ADDRESS;
 	players_left = 3u;
-	do
+	while ((int8_t)mem_read8(status_cursor) >= 0 && mem_read8(status_cursor) != 1u && mem_read8(status_cursor) != 4u)
 	{
-		if ((int8_t)mem_read8(status_cursor) < 0 || mem_read8(status_cursor) == 1u || mem_read8(status_cursor) == 4u)
-		{
-			bookkeeping_block = bookkeeping_coin_credits;
-			mem_write16(bookkeeping_games, mem_read16(bookkeeping_games) + 1u);
-			player_time = game_frames - PLAYER(current_player)->join_time;
-			total_time = mem_read32(bookkeeping_player_time);
-			carry = total_time + player_time < total_time;
-			mem_write32(bookkeeping_player_time, total_time + player_time);
-			if (carry)
-				mem_write16(bookkeeping_block + 0x20u, mem_read16(bookkeeping_block + 0x20u) + 1u);
-			if (mem_read32(bookkeeping_block + 0xCu) <= player_time)
-				mem_write32(bookkeeping_block + 0xCu, player_time);
-			if (player_time < mem_read32(bookkeeping_block + 0x22u))
-				mem_write32(bookkeeping_block + 0x22u, player_time);
-			update_bookkeeping_checksum();
-			move_halfwords(bookkeeping_block + 0x40u, bookkeeping_block, 0x20u);
-			return;
-		}
 		players_left--;
 		status_cursor++;
-	} while (players_left != 0u);
-	add_play_time();
+		if (players_left == 0u)
+		{
+			add_play_time();
+			break;
+		}
+	}
 	bookkeeping_block = bookkeeping_coin_credits;
 	mem_write16(bookkeeping_games, mem_read16(bookkeeping_games) + 1u);
 	player_time = game_frames - PLAYER(current_player)->join_time;

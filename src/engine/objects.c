@@ -110,13 +110,7 @@ void draw_child_shadow(void)
 	OBJECT(current_object)->screen_x = OBJECT(object_cursor)->projected_x - view_x + OBJECT(object_cursor)->sprite_offset_x;
 	OBJECT(current_object)->screen_y = ((int32_t)((uint32_t)OBJECT(object_cursor)->projected_y + OBJECT(object_cursor)->floor_z) >> 16) - view_y + OBJECT(object_cursor)->sprite_offset_y;
 	OBJECT(current_object)->sprite_palette = 0x9FFEu;
-	if ((OBJECT(object_cursor)->flags & 0x10u) == 0u)
-	{
-		depth = (uint16_t)(OBJECT(current_object)->screen_y - 0x10u);
-		queue_sprite_at_depth(&ignored, &depth);
-		current_object = (current_object & ~0xFFFFu) | (uint16_t)object_cursor;
-	}
-	else
+	if ((OBJECT(object_cursor)->flags & 0x10u) != 0u)
 	{
 		OBJECT(current_object)->sprite_palette = 0x87A0u;
 		shadow_blink = ~OBJECT(current_object)->shadow_blink;
@@ -126,9 +120,12 @@ void draw_child_shadow(void)
 			depth = (uint16_t)(OBJECT(current_object)->screen_y - 0x10u);
 			queue_sprite_at_depth(&ignored, &depth);
 			current_object = (current_object & ~0xFFFFu) | (uint16_t)object_cursor;
-			return;
 		}
+		return;
 	}
+	depth = (uint16_t)(OBJECT(current_object)->screen_y - 0x10u);
+	queue_sprite_at_depth(&ignored, &depth);
+	current_object = (current_object & ~0xFFFFu) | (uint16_t)object_cursor;
 }
 
 uint32_t is_floor_block_off_screen(void)
@@ -142,23 +139,21 @@ uint32_t is_floor_block_off_screen(void)
 	blocks_left = nearby_floor_block_count;
 	cursor = nearby_floor_blocks_ADDRESS;
 	if (blocks_left == 0u)
-		off_screen = 0xFFFFFFFFu;
-	else
 	{
-		floor_block = (uint16_t)OBJECT(current_object)->floor_block;
-		do
-		{
-			listed_block = mem_read16(cursor);
-			zero = (uint16_t)(floor_block - listed_block) == 0u;
-			cursor += 2u;
-			blocks_left--;
-		} while ((blocks_left != 0u) & (floor_block != listed_block));
-		if (zero == 0u)
-		{
-			off_screen = 0xFFFFFFFFu;
-			return off_screen;
-		}
+		off_screen = 0xFFFFFFFFu;
+		return off_screen;
 	}
+	floor_block = (uint16_t)OBJECT(current_object)->floor_block;
+	do
+	{
+		listed_block = mem_read16(cursor);
+		zero = (uint16_t)(floor_block - listed_block) == 0u;
+		cursor += 2u;
+		blocks_left--;
+	} while ((blocks_left != 0u) & (floor_block != listed_block));
+	if (zero)
+		return off_screen;
+	off_screen = 0xFFFFFFFFu;
 	return off_screen;
 }
 
@@ -283,28 +278,33 @@ void spawn_objects_by_handler(uint32_t *p_list_offset, uint32_t *p_record, uint3
 		*p_record = record;
 		return;
 	}
-	if ((uint16_t)(scroll_position - ROM16(record)) < 0x100u)
+	if ((uint16_t)(scroll_position - ROM16(record)) >= 0x100u)
 	{
-		allocate_object_outside_loop(&free_count, &object);
-		if (free_count == 0u)
-		{
-			*p_list_offset = list_offset;
-			*p_record = record;
-			*p_object = object;
-			return;
-		}
-		record = handler_spawn_cursor + 2u;
-		OBJECT(object)->x_int = ROM16(record);
-		OBJECT(object)->x_fraction = 0u;
-		record += 2u;
-		OBJECT(object)->y_int = ROM16(record);
-		OBJECT(object)->y_fraction = 0u;
-		record += 2u;
-		OBJECT(object)->sprite_frame = ROM16(record);
-		record += 2u;
-		OBJECT(object)->handler = ROM32(record);
-		record += 4u;
+		handler_spawn_cursor += 0xCu;
+		*p_list_offset = list_offset;
+		*p_record = record;
+		*p_object = object;
+		return;
 	}
+	allocate_object_outside_loop(&free_count, &object);
+	if (free_count == 0u)
+	{
+		*p_list_offset = list_offset;
+		*p_record = record;
+		*p_object = object;
+		return;
+	}
+	record = handler_spawn_cursor + 2u;
+	OBJECT(object)->x_int = ROM16(record);
+	OBJECT(object)->x_fraction = 0u;
+	record += 2u;
+	OBJECT(object)->y_int = ROM16(record);
+	OBJECT(object)->y_fraction = 0u;
+	record += 2u;
+	OBJECT(object)->sprite_frame = ROM16(record);
+	record += 2u;
+	OBJECT(object)->handler = ROM32(record);
+	record += 4u;
 	handler_spawn_cursor += 0xCu;
 	*p_list_offset = list_offset;
 	*p_record = record;
@@ -450,7 +450,7 @@ void spawn_object_with_pieces(uint32_t return_address, uint32_t *p_spawned, uint
 	uint32_t first = *p_first;
 	uint32_t block = *p_block;
 	uint32_t free_stack = 0, ignored = 0, pieces_to_add = 0, pool_2_free = 0;
-	uint16_t free_blocks = 0, spawn_total = 0;
+	uint16_t spawn_total = 0, free_blocks = 0;
 
 	if ((int16_t)spawn_count <= 0)
 	{
@@ -470,19 +470,45 @@ void spawn_object_with_pieces(uint32_t return_address, uint32_t *p_spawned, uint
 		return;
 	}
 	piece_count = (uint16_t)(spawn_count - 1u);
-	if (piece_count != 0u)
+	if (piece_count == 0u)
 	{
-		pool_2_free = LINKED(WORK_RAM, free_object_stack_2[0]);
-		free_blocks = pool_2_free;
-		free_count = (pool_2_free & ~0xFFFFu) | (uint16_t)(free_blocks - piece_count);
-		if (free_blocks < piece_count)
+		allocate_object(&ignored, &block);
+		init_object(block);
+		OBJECT(block)->next_handler = return_address;
+		OBJECT(block)->parent = object_cursor;
+		OBJECT(block)->child = 0xFFFFu;
+		first = block;
+		spawned = 1u;
+		spawn_total = spawn_count;
+		pieces_to_add = (uint16_t)(spawn_total - 1u);
+		if (spawn_total == 1u)
 		{
 			current_object = object_cursor;
 			*p_spawned = spawned;
-			*p_piece_count = (*p_piece_count & 0xFFFF0000u) | piece_count;
+			*p_piece_count = (*p_piece_count & 0xFFFF0000u) | (pieces_to_add & 0xFFFFu);
 			*p_free_count = free_count;
+			*p_first = first;
+			*p_block = block;
 			return;
 		}
+		add_object_pieces(&spawned, &pieces_to_add, &free_stack, &first, &block);
+		*p_spawned = spawned;
+		*p_piece_count = (*p_piece_count & 0xFFFF0000u) | (pieces_to_add & 0xFFFFu);
+		*p_free_count = free_stack;
+		*p_first = first;
+		*p_block = block;
+		return;
+	}
+	pool_2_free = LINKED(WORK_RAM, free_object_stack_2[0]);
+	free_blocks = pool_2_free;
+	free_count = (pool_2_free & ~0xFFFFu) | (uint16_t)(free_blocks - piece_count);
+	if (free_blocks < piece_count)
+	{
+		current_object = object_cursor;
+		*p_spawned = spawned;
+		*p_piece_count = (*p_piece_count & 0xFFFF0000u) | piece_count;
+		*p_free_count = free_count;
+		return;
 	}
 	allocate_object(&ignored, &block);
 	init_object(block);
@@ -857,27 +883,25 @@ void delete_object_and_children(uint32_t *p_deleted, uint32_t *p_block_offset, u
 	for (;;)
 	{
 		if ((int16_t)child < 0x5000)
-		{
 			delete_object(child, &ignored, &r2);
-		delete_object_and_children_next_child:
-			object = LINKED(WORK_RAM, deleted_child);
-			child = LINKED(object, OBJECT(object)->child);
-			if ((uint16_t)child == 0xFFFFu)
-			{
-				delete_current_object();
-				deleted = 1u;
-				*p_deleted = deleted;
-				*p_block_offset = r2;
-				return;
-			}
-			deleted_child = child;
-			continue;
+		else
+		{
+			r2 = free_object_2((uint16_t)child);
+			free_blocks = LINKED(WORK_RAM, free_object_stack_2[0]);
+			if ((int16_t)free_blocks > 0x100)
+				break;
 		}
-		r2 = free_object_2((uint16_t)child);
-		free_blocks = LINKED(WORK_RAM, free_object_stack_2[0]);
-		if ((int16_t)free_blocks <= 0x100)
-			goto delete_object_and_children_next_child;
-		break;
+		object = LINKED(WORK_RAM, deleted_child);
+		child = LINKED(object, OBJECT(object)->child);
+		if ((uint16_t)child == 0xFFFFu)
+		{
+			delete_current_object();
+			deleted = 1u;
+			*p_deleted = deleted;
+			*p_block_offset = r2;
+			return;
+		}
+		deleted_child = child;
 	}
 	int_default(&free_blocks, &r2, &copies_left, &ignored);
 	*p_deleted = free_blocks;
@@ -944,38 +968,38 @@ uint32_t face_nearest_player(uint32_t direction, uint32_t octant)
 			break;
 		player_object = GAME_VARIABLES + player_block_offsets[player_index];
 		player_object = LINKED(player_object, PLAYER(player_object)->object);
-		if ((OBJECT(player_object)->flags & 0x400u) == 0u)
+		if ((OBJECT(player_object)->flags & 0x400u) != 0u)
 		{
-			diff_x = OBJECT(player_object)->projected_x - OBJECT(current_object)->projected_x;
-			distance = diff_x;
-			player_dx = (uint16_t)distance;
-			if ((int16_t)diff_x < 0)
-				distance = (uint16_t)(0u - distance);
-			diff_y = OBJECT(player_object)->projected_y_int - OBJECT(current_object)->projected_y_int;
-			abs_dy = diff_y;
-			player_dy = (uint16_t)abs_dy;
-			if ((int16_t)diff_y < 0)
-				abs_dy = (uint16_t)(0u - abs_dy);
-			distance = (int16_t)distance;
-			abs_dy = (int16_t)abs_dy;
-			distance = distance * distance + abs_dy * abs_dy;
-			square_root(&distance, &ignored);
-			if ((int16_t)distance <= nearest_player_distance)
-			{
-				nearest_player = player_index;
-				nearest_player_distance = distance;
-				nearest_player_dx = player_dx;
-				nearest_player_dy = player_dy;
-			}
-			RAM16(GAME_VARIABLES + distance_to_player_offsets[player_index]) = distance;
-			direction = player_dx;
-			dy = (uint16_t)player_dy;
-			angle_of_vector(dy, &direction, &octant);
-			RAM16(GAME_VARIABLES + direction_to_player_offsets[player_index]) = direction;
+			RAM16(GAME_VARIABLES + distance_to_player_offsets[player_index]) = 0x7FFFu;
+			RAM16(GAME_VARIABLES + direction_to_player_offsets[player_index]) = 0x7FFFu;
 			continue;
 		}
-		RAM16(GAME_VARIABLES + distance_to_player_offsets[player_index]) = 0x7FFFu;
-		RAM16(GAME_VARIABLES + direction_to_player_offsets[player_index]) = 0x7FFFu;
+		diff_x = OBJECT(player_object)->projected_x - OBJECT(current_object)->projected_x;
+		distance = diff_x;
+		player_dx = (uint16_t)distance;
+		if ((int16_t)diff_x < 0)
+			distance = (uint16_t)(0u - distance);
+		diff_y = OBJECT(player_object)->projected_y_int - OBJECT(current_object)->projected_y_int;
+		abs_dy = diff_y;
+		player_dy = (uint16_t)abs_dy;
+		if ((int16_t)diff_y < 0)
+			abs_dy = (uint16_t)(0u - abs_dy);
+		distance = (int16_t)distance;
+		abs_dy = (int16_t)abs_dy;
+		distance = distance * distance + abs_dy * abs_dy;
+		square_root(&distance, &ignored);
+		if ((int16_t)distance <= nearest_player_distance)
+		{
+			nearest_player = player_index;
+			nearest_player_distance = distance;
+			nearest_player_dx = player_dx;
+			nearest_player_dy = player_dy;
+		}
+		RAM16(GAME_VARIABLES + distance_to_player_offsets[player_index]) = distance;
+		direction = player_dx;
+		dy = (uint16_t)player_dy;
+		angle_of_vector(dy, &direction, &octant);
+		RAM16(GAME_VARIABLES + direction_to_player_offsets[player_index]) = direction;
 	}
 	player_index = nearest_player;
 	player_object = GAME_VARIABLES + player_block_offsets[player_index];
@@ -1088,25 +1112,25 @@ void fall_to_floor(uint32_t *p_height, uint32_t *p_over_pit, uint32_t *p_z)
 	over_pit = 1u;
 	if (OBJECT(current_object)->floor_z_int < 0x800)
 		over_pit = 0u;
-	if ((uint32_t)OBJECT(current_object)->z != (uint32_t)OBJECT(current_object)->floor_z)
+	if ((uint32_t)OBJECT(current_object)->z == (uint32_t)OBJECT(current_object)->floor_z)
 	{
-		OBJECT(current_object)->speed_z += 0x6000u;
-		if ((int32_t)((uint32_t)OBJECT(current_object)->z + OBJECT(current_object)->speed_z) < OBJECT(current_object)->floor_z)
-		{
-			z = OBJECT(current_object)->z;
-			height = OBJECT(current_object)->floor_z - z;
-			*p_height = height;
-			*p_over_pit = (*p_over_pit & 0xFFFFFF00u) | over_pit;
-			*p_z = z;
-			return;
-		}
-		OBJECT(current_object)->z = OBJECT(current_object)->floor_z;
 		OBJECT(current_object)->speed_z = 0;
 		height = 0u;
 		*p_height = height;
 		*p_over_pit = (*p_over_pit & 0xFFFFFF00u) | over_pit;
 		return;
 	}
+	OBJECT(current_object)->speed_z += 0x6000u;
+	if ((int32_t)((uint32_t)OBJECT(current_object)->z + OBJECT(current_object)->speed_z) < OBJECT(current_object)->floor_z)
+	{
+		z = OBJECT(current_object)->z;
+		height = OBJECT(current_object)->floor_z - z;
+		*p_height = height;
+		*p_over_pit = (*p_over_pit & 0xFFFFFF00u) | over_pit;
+		*p_z = z;
+		return;
+	}
+	OBJECT(current_object)->z = OBJECT(current_object)->floor_z;
 	OBJECT(current_object)->speed_z = 0;
 	height = 0u;
 	*p_height = height;
@@ -1177,20 +1201,17 @@ void explosion_animate(void)
 	OBJECT(current_object)->explosion.frame_toggle++;
 	toggle = OBJECT(current_object)->explosion.frame_toggle & 1u;
 	OBJECT(current_object)->explosion.frame_toggle = toggle;
-	if (toggle != 0u)
+	if (toggle == 0u)
 	{
-		OBJECT(current_object)->sprite_frame = explosion_frames[(uint8_t)OBJECT(current_object)->explosion.frame_index];
-		queue_sprite(0u);
-		return;
+		OBJECT(current_object)->explosion.frame_index++;
+		if (OBJECT(current_object)->explosion.last_frame < OBJECT(current_object)->explosion.frame_index)
+		{
+			delete_object_and_children(&ignored, &ignored, &ignored);
+			return;
+		}
 	}
-	OBJECT(current_object)->explosion.frame_index++;
-	if (OBJECT(current_object)->explosion.frame_index <= OBJECT(current_object)->explosion.last_frame)
-	{
-		OBJECT(current_object)->sprite_frame = explosion_frames[(uint8_t)OBJECT(current_object)->explosion.frame_index];
-		queue_sprite(0u);
-		return;
-	}
-	delete_object_and_children(&ignored, &ignored, &ignored);
+	OBJECT(current_object)->sprite_frame = explosion_frames[(uint8_t)OBJECT(current_object)->explosion.frame_index];
+	queue_sprite(0u);
 }
 
 void drop_rings(uint32_t shadow, uint32_t *p_allocated, uint32_t *p_random_value, uint32_t *p_ring)
@@ -1312,18 +1333,14 @@ void released_ring_bounce(void)
 			return;
 		}
 		object = LINKED(current_object, OBJECT(current_object)->touched_by);
-		if ((int8_t)OBJECT(object)->kind > 2)
+		if ((int8_t)OBJECT(object)->kind <= 2)
 		{
-			sound_id = 0x13u;
-			play_sound(sound_id, &ignored, &ignored);
-			delete_object_and_children(&ignored, &ignored, &ignored);
-			return;
-		}
-		player = PLAYER_BLOCK(1) + ((uint32_t)OBJECT(object)->player << 9);
-		if ((PLAYER(player)->state == 0xDu || PLAYER(player)->state == 0x20u) && (uint8_t)PLAYER(player)->hurt_contact_delay != 0u)
-		{
-			released_ring_move(player);
-			return;
+			player = PLAYER_BLOCK(1) + ((uint32_t)OBJECT(object)->player << 9);
+			if ((PLAYER(player)->state == 0xDu || PLAYER(player)->state == 0x20u) && (uint8_t)PLAYER(player)->hurt_contact_delay != 0u)
+			{
+				released_ring_move(player);
+				return;
+			}
 		}
 		sound_id = 0x13u;
 		play_sound(sound_id, &ignored, &ignored);
@@ -1433,48 +1450,49 @@ void debris_fly(void)
 		OBJECT(current_object)->debris.frame_timer++;
 		phase = OBJECT(current_object)->debris.frame_timer & 3u;
 		OBJECT(current_object)->debris.frame_timer = phase;
-		if (phase == 0u)
+		if (phase != 0u)
 		{
-			OBJECT(current_object)->debris.frame_index++;
-			if (OBJECT(current_object)->debris.last_frame < OBJECT(current_object)->debris.frame_index)
-				OBJECT(current_object)->debris.frame_index -= 9u;
-			OBJECT(current_object)->sprite_frame = debris_frames[(uint8_t)OBJECT(current_object)->debris.frame_index];
+			queue_sprite_at_floor();
+			return;
 		}
+		OBJECT(current_object)->debris.frame_index++;
+		if (OBJECT(current_object)->debris.last_frame < OBJECT(current_object)->debris.frame_index)
+			OBJECT(current_object)->debris.frame_index -= 9u;
+		OBJECT(current_object)->sprite_frame = debris_frames[(uint8_t)OBJECT(current_object)->debris.frame_index];
+		queue_sprite_at_floor();
+		return;
 	}
-	else
+	OBJECT(current_object)->speed_x = 0;
+	OBJECT(current_object)->speed_y = 0;
+	lifetime = OBJECT(current_object)->debris.lifetime;
+	OBJECT(current_object)->debris.lifetime = lifetime - 1u;
+	if (lifetime == 0u)
 	{
-		OBJECT(current_object)->speed_x = 0;
-		OBJECT(current_object)->speed_y = 0;
-		lifetime = OBJECT(current_object)->debris.lifetime;
-		OBJECT(current_object)->debris.lifetime = lifetime - 1u;
-		if (lifetime == 0u)
-		{
-			delete_current_object();
-			return;
-		}
-		if ((OBJECT(current_object)->debris.lifetime & 1u) != 0u)
-			return;
+		delete_current_object();
+		return;
 	}
+	if ((OBJECT(current_object)->debris.lifetime & 1u) != 0u)
+		return;
 	queue_sprite_at_floor();
 }
 
-void spawn_object_groups(uint32_t *p_r1, uint32_t *p_free_stack, uint32_t *p_slope_z, uint32_t *p_count, uint32_t *p_object)
+void spawn_object_groups(uint32_t *p_list_offset, uint32_t *p_free_stack, uint32_t *p_slope_z, uint32_t *p_count, uint32_t *p_object)
 {
-	uint32_t r1 = *p_r1;
+	uint32_t list_offset = *p_list_offset;
 	uint32_t free_stack = *p_free_stack;
 	uint32_t slope_z = *p_slope_z;
 	uint32_t count = *p_count;
 	uint32_t object = *p_object;
-	uint32_t floor_block_record = 0, free_count = 0, kind_index = 0, member_record = 0, record = 0, slope_number = 0, slope_record = 0, slot_cursor = 0, spawned = 0;
-	uint16_t spawn_position = 0, slot_taken = 0, members_left = 0;
+	uint32_t kind_index = 0, record = 0, spawned = 0;
+	uint16_t spawn_position = 0;
 	uint32_t init_flags = 0;
 
 	init_flags = stage_init_flags;
 	stage_init_flags = init_flags | 0x200u;
 	if ((init_flags & 0x200u) == 0u)
 	{
-		r1 = object_group_spawns[stage];
-		group_spawn_cursor = object_group_spawns_ADDRESS + r1;
+		list_offset = object_group_spawns[stage];
+		group_spawn_cursor = object_group_spawns_ADDRESS + list_offset;
 	}
 	for (;;)
 	{
@@ -1483,7 +1501,7 @@ void spawn_object_groups(uint32_t *p_r1, uint32_t *p_free_stack, uint32_t *p_slo
 		record += 2u;
 		if (scroll_position < spawn_position)
 		{
-			*p_r1 = r1;
+			*p_list_offset = list_offset;
 			*p_free_stack = free_stack;
 			*p_count = count;
 			*p_object = object;
@@ -1495,13 +1513,19 @@ void spawn_object_groups(uint32_t *p_r1, uint32_t *p_free_stack, uint32_t *p_slo
 		switch (kind_index)
 		{
 		case 0x0u:
-			goto spawn_object_groups_no_depth_step;
+			spawn_object_groups_no_depth_step(record, &list_offset, &slope_z, &count, &object);
+			*p_list_offset = list_offset;
+			*p_free_stack = free_stack;
+			*p_slope_z = slope_z;
+			*p_count = count;
+			*p_object = object;
+			return;
 		case 0x2u:
 		case 0x10u:
 			spawn_group_leader(record, &spawned, &object);
 			if (spawned == 0u)
 			{
-				*p_r1 = r1;
+				*p_list_offset = list_offset;
 				*p_free_stack = free_stack;
 				*p_count = count;
 				*p_object = object;
@@ -1511,12 +1535,18 @@ void spawn_object_groups(uint32_t *p_r1, uint32_t *p_free_stack, uint32_t *p_slo
 			continue;
 		case 0x4u:
 			group_depth_step = -8;
-			goto spawn_object_groups_build_group;
+			spawn_object_groups_build_group(record, &list_offset, &slope_z, &count, &object);
+			*p_list_offset = list_offset;
+			*p_free_stack = free_stack;
+			*p_slope_z = slope_z;
+			*p_count = count;
+			*p_object = object;
+			return;
 		case 0x6u:
 			spawn_group_slot_trigger(record, &spawned, &count, &object);
 			if (spawned == 0u)
 			{
-				*p_r1 = r1;
+				*p_list_offset = list_offset;
 				*p_free_stack = free_stack;
 				*p_count = count;
 				*p_object = object;
@@ -1525,10 +1555,10 @@ void spawn_object_groups(uint32_t *p_r1, uint32_t *p_free_stack, uint32_t *p_slo
 			group_spawn_cursor += 0xEu;
 			continue;
 		case 0x8u:
-			spawn_ice_platform_leader(record, &spawned, &r1, &object);
+			spawn_ice_platform_leader(record, &spawned, &list_offset, &object);
 			if (spawned == 0u)
 			{
-				*p_r1 = r1;
+				*p_list_offset = list_offset;
 				*p_free_stack = free_stack;
 				*p_count = count;
 				*p_object = object;
@@ -1540,7 +1570,7 @@ void spawn_object_groups(uint32_t *p_r1, uint32_t *p_free_stack, uint32_t *p_slo
 			spawn_sand_block_leader(record, &spawned, &object);
 			if (spawned == 0u)
 			{
-				*p_r1 = r1;
+				*p_list_offset = list_offset;
 				*p_free_stack = free_stack;
 				*p_count = count;
 				*p_object = object;
@@ -1549,12 +1579,18 @@ void spawn_object_groups(uint32_t *p_r1, uint32_t *p_free_stack, uint32_t *p_slo
 			group_spawn_cursor += 0xEu;
 			continue;
 		case 0xCu:
-			goto spawn_object_groups_mark_silent;
+			spawn_object_groups_mark_silent(record, &list_offset, &slope_z, &count, &object);
+			*p_list_offset = list_offset;
+			*p_free_stack = free_stack;
+			*p_slope_z = slope_z;
+			*p_count = count;
+			*p_object = object;
+			return;
 		case 0xEu:
 			spawn_waterfall(record, &spawned, &free_stack, &object);
 			if (spawned == 0u)
 			{
-				*p_r1 = r1;
+				*p_list_offset = list_offset;
 				*p_free_stack = free_stack;
 				*p_count = count;
 				*p_object = object;
@@ -1566,147 +1602,177 @@ void spawn_object_groups(uint32_t *p_r1, uint32_t *p_free_stack, uint32_t *p_slo
 			invalid_jump(0x9125Eu + kind_index);
 		}
 	}
-spawn_object_groups_no_depth_step:
+}
+
+void spawn_object_groups_mark_silent(uint32_t record, uint32_t *p_list_offset, uint32_t *p_slope_z, uint32_t *p_count, uint32_t *p_object)
+{
+	uint32_t list_offset = *p_list_offset;
+	uint32_t slope_z = *p_slope_z;
+	uint32_t count = *p_count;
+	uint32_t object = *p_object;
+
+	group_silent = 0xFFu;
+	spawn_object_groups_no_depth_step(record, &list_offset, &slope_z, &count, &object);
+	*p_list_offset = (*p_list_offset & 0xFFFF0000u) | (list_offset & 0xFFFFu);
+	*p_slope_z = slope_z;
+	*p_count = count;
+	*p_object = object;
+}
+
+void spawn_object_groups_no_depth_step(uint32_t record, uint32_t *p_list_offset, uint32_t *p_slope_z, uint32_t *p_count, uint32_t *p_object)
+{
+	uint32_t list_offset = *p_list_offset;
+	uint32_t slope_z = *p_slope_z;
+	uint32_t count = *p_count;
+	uint32_t object = *p_object;
+
 	group_depth_step = 0;
-spawn_object_groups_build_group:
-	if ((uint16_t)(scroll_position - ROM16(record - 3u)) < 0x100u)
+	spawn_object_groups_build_group(record, &list_offset, &slope_z, &count, &object);
+	*p_list_offset = (*p_list_offset & 0xFFFF0000u) | (list_offset & 0xFFFFu);
+	*p_slope_z = slope_z;
+	*p_count = count;
+	*p_object = object;
+}
+
+void spawn_object_groups_build_group(uint32_t record, uint32_t *p_list_offset, uint32_t *p_slope_z, uint32_t *p_count, uint32_t *p_object)
+{
+	uint16_t list_offset = (uint16_t)*p_list_offset;
+	uint32_t slope_z = *p_slope_z;
+	uint32_t count = *p_count;
+	uint32_t object = *p_object;
+	uint32_t floor_block_record = 0, free_count = 0, member_record = 0, slope_number = 0, slope_record = 0, slot_cursor = 0;
+	uint16_t slot_taken = 0, members_left = 0;
+
+	if ((uint16_t)(scroll_position - ROM16(record - 3u)) >= 0x100u)
 	{
-		group_leader = group_leaders[ROM8(record)];
-		record++;
-		group_takes_slot = ROM8(record);
-		record += 2u;
-		group_floor_block = ROM32(record);
-		record += 4u;
-		group_member_count = ROM16(record);
-		record += 2u;
-		if (free_object_stack < group_member_count)
+		group_spawn_cursor += 0x18u;
+		*p_list_offset = (*p_list_offset & 0xFFFF0000u) | list_offset;
+		*p_slope_z = slope_z;
+		*p_count = count;
+		*p_object = object;
+		return;
+	}
+	group_leader = group_leaders[ROM8(record)];
+	record++;
+	group_takes_slot = ROM8(record);
+	record += 2u;
+	group_floor_block = ROM32(record);
+	record += 4u;
+	group_member_count = ROM16(record);
+	record += 2u;
+	if (free_object_stack < group_member_count)
+		return;
+	group_step_x = ROM16(record);
+	record += 2u;
+	group_step_y = ROM16(record);
+	record += 2u;
+	group_direction = ROM16(record);
+	record += 2u;
+	group_member_x = ROM16(record);
+	record += 2u;
+	group_member_y = ROM16(record);
+	object = ROM16(record + 2u) + stage_object_records_ADDRESS;
+	group_record = object;
+	group_member_number = 0u;
+	if (group_takes_slot != 0u)
+	{
+		slot_cursor = group_slots_ADDRESS;
+		count = 0x40u;
+		do
 		{
-			*p_r1 = r1;
-			*p_free_stack = free_stack;
+			slot_taken = mem_read16(slot_cursor);
+			slot_cursor += 2u;
+			count--;
+		} while ((count != 0u) & (slot_taken != 0u));
+		mem_write16(slot_cursor - 2u, 1u);
+		count = (count & ~0xFFFFu) | (uint16_t)(count + 1u);
+		list_offset = (uint16_t)(0x40u - count);
+		group_slot_index = list_offset;
+	}
+	do
+	{
+		allocate_object_outside_loop(&free_count, &object);
+		if (free_count == 0u)
+		{
+			*p_list_offset = (*p_list_offset & 0xFFFF0000u) | list_offset;
+			*p_slope_z = slope_z;
 			*p_count = count;
 			*p_object = object;
 			return;
 		}
-		group_step_x = ROM16(record);
-		record += 2u;
-		group_step_y = ROM16(record);
-		record += 2u;
-		group_direction = ROM16(record);
-		record += 2u;
-		group_member_x = ROM16(record);
-		record += 2u;
-		group_member_y = ROM16(record);
-		object = ROM16(record + 2u) + stage_object_records_ADDRESS;
-		group_record = object;
-		group_member_number = 0u;
-		if (group_takes_slot != 0u)
+		OBJECT(object)->x_int = group_member_x;
+		OBJECT(object)->x_fraction = 0u;
+		group_member_x += group_step_x;
+		OBJECT(object)->y_int = group_member_y;
+		OBJECT(object)->y_fraction = 0u;
+		group_member_y += group_step_y;
+		member_record = group_record;
+		OBJECT(object)->sprite_flags = STAGE_OBJECT_RECORD(member_record)->sprite_flags;
+		member_record += 2u;
+		OBJECT(object)->sprite_frame = STAGE_OBJECT_RECORD(member_record - 0x2u)->sprite_frame;
+		member_record += 2u;
+		OBJECT(object)->sprite_palette = STAGE_OBJECT_RECORD(member_record - 0x4u)->sprite_palette;
+		member_record += 2u;
+		OBJECT(object)->handler = STAGE_OBJECT_RECORD(member_record - 0x6u)->handler;
+		member_record += 4u;
+		OBJECT(object)->animation = STAGE_OBJECT_RECORD(member_record - 0xAu)->animation;
+		member_record += 4u;
+		OBJECT(object)->hitbox_size_x = STAGE_OBJECT_RECORD(member_record - 0xEu)->hitbox_size_x;
+		member_record += 2u;
+		OBJECT(object)->hitbox_size_y = STAGE_OBJECT_RECORD(member_record - 0x10u)->hitbox_size_y;
+		member_record += 2u;
+		OBJECT(object)->sprite_offset_x = STAGE_OBJECT_RECORD(member_record - 0x12u)->sprite_offset_x;
+		member_record++;
+		OBJECT(object)->sprite_offset_y = STAGE_OBJECT_RECORD(member_record - 0x13u)->sprite_offset_y;
+		OBJECT(object)->var_96 = STAGE_OBJECT_RECORD(member_record - 0x13u)->depth_offset;
+		OBJECT(object)->floor_block = group_floor_block;
+		OBJECT(object)->direction = group_direction;
+		OBJECT(object)->parent = group_leader;
+		OBJECT(object)->var_98 = OBJECT(object)->sprite_palette;
+		OBJECT(object)->var_91 = group_silent;
+		OBJECT(object)->member_number = group_member_number;
+		group_member_number++;
+		OBJECT(object)->var_8A = group_slot_index;
+		OBJECT(object)->spawn_arg_1_low = group_takes_slot;
+		OBJECT(object)->animation_frame = 0u;
+		OBJECT(object)->animation_timer = 0;
+		OBJECT(object)->animation_speed = 6u;
+		OBJECT(object)->floor_slope = mem_read8(floor_blocks + 2u + OBJECT(object)->floor_block + 0x13u);
+		OBJECT(object)->flags = 0u;
+		OBJECT(object)->member_state = 0u;
+		if ((uint8_t)group_depth_step != 0u)
 		{
-			slot_cursor = group_slots_ADDRESS;
-			count = 0x40u;
-			do
-			{
-				slot_taken = mem_read16(slot_cursor);
-				slot_cursor += 2u;
-				count--;
-			} while ((count != 0u) & (slot_taken != 0u));
-			mem_write16(slot_cursor - 2u, 1u);
-			count = (count & ~0xFFFFu) | (uint16_t)(count + 1u);
-			r1 = (r1 & ~0xFFFFu) | 0x40u;
-			r1 = (r1 & ~0xFFFFu) | (uint16_t)(r1 - count);
-			group_slot_index = r1;
+			list_offset = (uint16_t)group_depth_step;
+			OBJECT(object)->var_96 += (uint32_t)group_member_count * list_offset;
 		}
-		do
+		floor_block_record = floor_blocks + 2u + OBJECT(object)->floor_block;
+		OBJECT(object)->floor_z_int = FLOOR_BLOCK(floor_block_record)->height;
+		OBJECT(object)->floor_z_fraction = 0u;
+		if (FLOOR_BLOCK(floor_block_record)->slope != 0u)
 		{
-			allocate_object_outside_loop(&free_count, &object);
-			if (free_count == 0u)
-			{
-				*p_r1 = r1;
-				*p_free_stack = free_stack;
-				*p_slope_z = slope_z;
-				*p_count = count;
-				*p_object = object;
-				return;
-			}
-			OBJECT(object)->x_int = group_member_x;
-			OBJECT(object)->x_fraction = 0u;
-			group_member_x += group_step_x;
-			OBJECT(object)->y_int = group_member_y;
-			OBJECT(object)->y_fraction = 0u;
-			group_member_y += group_step_y;
-			member_record = group_record;
-			OBJECT(object)->sprite_flags = STAGE_OBJECT_RECORD(member_record)->sprite_flags;
-			member_record += 2u;
-			OBJECT(object)->sprite_frame = STAGE_OBJECT_RECORD(member_record - 0x2u)->sprite_frame;
-			member_record += 2u;
-			OBJECT(object)->sprite_palette = STAGE_OBJECT_RECORD(member_record - 0x4u)->sprite_palette;
-			member_record += 2u;
-			OBJECT(object)->handler = STAGE_OBJECT_RECORD(member_record - 0x6u)->handler;
-			member_record += 4u;
-			OBJECT(object)->animation = STAGE_OBJECT_RECORD(member_record - 0xAu)->animation;
-			member_record += 4u;
-			OBJECT(object)->hitbox_size_x = STAGE_OBJECT_RECORD(member_record - 0xEu)->hitbox_size_x;
-			member_record += 2u;
-			OBJECT(object)->hitbox_size_y = STAGE_OBJECT_RECORD(member_record - 0x10u)->hitbox_size_y;
-			member_record += 2u;
-			OBJECT(object)->sprite_offset_x = STAGE_OBJECT_RECORD(member_record - 0x12u)->sprite_offset_x;
-			member_record++;
-			OBJECT(object)->sprite_offset_y = STAGE_OBJECT_RECORD(member_record - 0x13u)->sprite_offset_y;
-			OBJECT(object)->var_96 = STAGE_OBJECT_RECORD(member_record - 0x13u)->depth_offset;
-			OBJECT(object)->floor_block = group_floor_block;
-			OBJECT(object)->direction = group_direction;
-			OBJECT(object)->parent = group_leader;
-			OBJECT(object)->var_98 = OBJECT(object)->sprite_palette;
-			OBJECT(object)->var_91 = group_silent;
-			OBJECT(object)->member_number = group_member_number;
-			group_member_number++;
-			OBJECT(object)->var_8A = group_slot_index;
-			OBJECT(object)->spawn_arg_1_low = group_takes_slot;
-			OBJECT(object)->animation_frame = 0u;
-			OBJECT(object)->animation_timer = 0;
-			OBJECT(object)->animation_speed = 6u;
-			OBJECT(object)->floor_slope = mem_read8(floor_blocks + 2u + OBJECT(object)->floor_block + 0x13u);
-			OBJECT(object)->flags = 0u;
-			OBJECT(object)->member_state = 0u;
-			if ((uint8_t)group_depth_step != 0u)
-			{
-				r1 = (r1 & ~0xFFFFu) | (uint16_t)group_depth_step;
-				OBJECT(object)->var_96 += group_member_count * r1;
-			}
-			floor_block_record = floor_blocks + 2u + OBJECT(object)->floor_block;
-			OBJECT(object)->floor_z_int = FLOOR_BLOCK(floor_block_record)->height;
-			OBJECT(object)->floor_z_fraction = 0u;
-			if (FLOOR_BLOCK(floor_block_record)->slope != 0u)
-			{
-				slope_number = FLOOR_BLOCK(floor_block_record)->slope;
-				slope_record = floor_slopes_ADDRESS + (uint16_t)(slope_number * 2u) * 4u;
-				if ((ROM32(slope_record) & 2u) == 0u)
-					slope_z = (uint32_t)OBJECT(object)->y - FLOOR_BLOCK(floor_block_record)->y_min;
-				else
-					slope_z = (uint32_t)OBJECT(object)->x - FLOOR_BLOCK(floor_block_record)->x_min;
-				slope_z = ((int32_t)slope_z >> 16) * ROM32(slope_record + 2u);
-				OBJECT(object)->floor_z += slope_z;
-			}
-			OBJECT(object)->z = OBJECT(object)->floor_z;
-			members_left = group_member_count;
-			group_member_count = members_left - 1u;
-		} while ((int16_t)members_left > 1);
-	}
+			slope_number = FLOOR_BLOCK(floor_block_record)->slope;
+			slope_record = floor_slopes_ADDRESS + (uint16_t)(slope_number * 2u) * 4u;
+			if ((ROM32(slope_record) & 2u) == 0u)
+				slope_z = (uint32_t)OBJECT(object)->y - FLOOR_BLOCK(floor_block_record)->y_min;
+			else
+				slope_z = (uint32_t)OBJECT(object)->x - FLOOR_BLOCK(floor_block_record)->x_min;
+			slope_z = ((int32_t)slope_z >> 16) * ROM32(slope_record + 2u);
+			OBJECT(object)->floor_z += slope_z;
+		}
+		OBJECT(object)->z = OBJECT(object)->floor_z;
+		members_left = group_member_count;
+		group_member_count = members_left - 1u;
+	} while ((int16_t)members_left > 1);
 	group_spawn_cursor += 0x18u;
-	*p_r1 = r1;
-	*p_free_stack = free_stack;
+	*p_list_offset = (*p_list_offset & 0xFFFF0000u) | list_offset;
 	*p_slope_z = slope_z;
 	*p_count = count;
 	*p_object = object;
-	return;
-spawn_object_groups_mark_silent:
-	group_silent = 0xFFu;
-	goto spawn_object_groups_no_depth_step;
 }
 
 void crumbling_floor_update(void)
 {
-	uint8_t sound_id = 0;
-	uint32_t at_last_step = 0, depth = 0, ignored = 0, sprite_depth = 0;
+	uint32_t at_last_step = 0, depth = 0, ignored = 0;
 
 	switch (OBJECT(current_object)->crumbling_floor.state)
 	{
@@ -1716,421 +1782,82 @@ void crumbling_floor_update(void)
 		OBJECT(current_object)->crumbling_floor.state++;
 	case 1:
 		update_screen_position(&ignored, &ignored);
-		if (grey_screen_active == 0u)
+		if (grey_screen_active != 0u)
 		{
-			if (grey_screen_ended != 0u)
-				OBJECT(current_object)->sprite_palette = OBJECT(current_object)->crumbling_floor.normal_palette;
-			if ((OBJECT(current_object)->flags & 8u) != 0u && (OBJECT(LINKED(current_object, OBJECT(current_object)->platform))->flags & 0x400000u) != 0u)
-				OBJECT(current_object)->flags |= 0x400000u;
-			if ((OBJECT(current_object)->flags & 0x400000u) != 0u)
-			{
-			crumbling_floor_play_crack_steps:
-				animate_with_screen_offset(0u);
-				if ((int8_t)OBJECT(current_object)->animation_frame >= 4)
-				{
-					OBJECT(current_object)->animation_timer = -1;
-					if ((OBJECT(current_object)->flags & 0x400000u) != 0u)
-					{
-						OBJECT(current_object)->crumbling_floor.state++;
-						OBJECT(current_object)->speed_z = 0;
-						OBJECT(current_object)->animation_speed = 6u;
-						OBJECT(current_object)->animation_timer = 0;
-						OBJECT(current_object)->animation_frame = 4u;
-						if (OBJECT(current_object)->crumbling_floor.silent_row == 0u)
-						{
-							switch (OBJECT(current_object)->direction)
-							{
-							case 0:
-							case 4:
-								if (OBJECT(current_object)->screen_x >= 0)
-								{
-									sound_id = 0xDu;
-									play_sound(sound_id, &ignored, &ignored);
-								}
-								break;
-							case 1:
-								if (OBJECT(current_object)->screen_x <= 0x180)
-								{
-									sound_id = 0xDu;
-									play_sound(sound_id, &ignored, &ignored);
-									add_to_platform_list();
-									if ((uint16_t)(OBJECT(current_object)->screen_x + 0xA0u) >= 0x281u)
-										return;
-									sprite_depth = (uint16_t)(OBJECT(current_object)->screen_y + OBJECT(current_object)->crumbling_floor.depth_offset - OBJECT(current_object)->sprite_offset_y);
-									OBJECT(current_object)->draw_depth = sprite_depth;
-									queue_sprite_at_depth(&ignored, &sprite_depth);
-									return;
-								}
-								break;
-							case 2:
-								if (OBJECT(current_object)->screen_x >= -8)
-								{
-									sound_id = 0xDu;
-									play_sound(sound_id, &ignored, &ignored);
-									add_to_platform_list();
-									if ((uint16_t)(OBJECT(current_object)->screen_x + 0xA0u) >= 0x281u)
-										return;
-									sprite_depth = (uint16_t)(OBJECT(current_object)->screen_y + OBJECT(current_object)->crumbling_floor.depth_offset - OBJECT(current_object)->sprite_offset_y);
-									OBJECT(current_object)->draw_depth = sprite_depth;
-									queue_sprite_at_depth(&ignored, &sprite_depth);
-									return;
-								}
-								break;
-							case 3:
-								if (OBJECT(current_object)->screen_x <= 0x1A0)
-								{
-									sound_id = 0xDu;
-									play_sound(sound_id, &ignored, &ignored);
-									add_to_platform_list();
-									if ((uint16_t)(OBJECT(current_object)->screen_x + 0xA0u) >= 0x281u)
-										return;
-									sprite_depth = (uint16_t)(OBJECT(current_object)->screen_y + OBJECT(current_object)->crumbling_floor.depth_offset - OBJECT(current_object)->sprite_offset_y);
-									OBJECT(current_object)->draw_depth = sprite_depth;
-									queue_sprite_at_depth(&ignored, &sprite_depth);
-									return;
-								}
-								break;
-							default:
-								invalid_jump(0x9161Cu + OBJECT(current_object)->direction * 2u);
-							}
-						}
-					}
-				}
-			}
-			else
-			{
-				current_player = current_object;
-				current_player = LINKED(current_player, OBJECT(current_object)->parent);
-				switch (OBJECT(current_object)->direction)
-				{
-				case 0:
-				case 4:
-					if (OBJECT(current_object)->y_int <= OBJECT(current_player)->y_int)
-					{
-						OBJECT(current_object)->crumbling_floor.state++;
-						OBJECT(current_object)->speed_z = 0;
-						OBJECT(current_object)->animation_speed = 6u;
-						OBJECT(current_object)->animation_timer = 0;
-						OBJECT(current_object)->animation_frame = 4u;
-						if (OBJECT(current_object)->crumbling_floor.silent_row == 0u)
-						{
-							switch (OBJECT(current_object)->direction)
-							{
-							case 0:
-							case 4:
-								if (OBJECT(current_object)->screen_x >= 0)
-								{
-									sound_id = 0xDu;
-									play_sound(sound_id, &ignored, &ignored);
-								}
-								break;
-							case 1:
-								if (OBJECT(current_object)->screen_x <= 0x180)
-								{
-									sound_id = 0xDu;
-									play_sound(sound_id, &ignored, &ignored);
-									add_to_platform_list();
-									if ((uint16_t)(OBJECT(current_object)->screen_x + 0xA0u) >= 0x281u)
-										return;
-									sprite_depth = (uint16_t)(OBJECT(current_object)->screen_y + OBJECT(current_object)->crumbling_floor.depth_offset - OBJECT(current_object)->sprite_offset_y);
-									OBJECT(current_object)->draw_depth = sprite_depth;
-									queue_sprite_at_depth(&ignored, &sprite_depth);
-									return;
-								}
-								break;
-							case 2:
-								if (OBJECT(current_object)->screen_x >= -8)
-								{
-									sound_id = 0xDu;
-									play_sound(sound_id, &ignored, &ignored);
-									add_to_platform_list();
-									if ((uint16_t)(OBJECT(current_object)->screen_x + 0xA0u) >= 0x281u)
-										return;
-									sprite_depth = (uint16_t)(OBJECT(current_object)->screen_y + OBJECT(current_object)->crumbling_floor.depth_offset - OBJECT(current_object)->sprite_offset_y);
-									OBJECT(current_object)->draw_depth = sprite_depth;
-									queue_sprite_at_depth(&ignored, &sprite_depth);
-									return;
-								}
-								break;
-							case 3:
-								if (OBJECT(current_object)->screen_x <= 0x1A0)
-								{
-									sound_id = 0xDu;
-									play_sound(sound_id, &ignored, &ignored);
-									add_to_platform_list();
-									if ((uint16_t)(OBJECT(current_object)->screen_x + 0xA0u) >= 0x281u)
-										return;
-									sprite_depth = (uint16_t)(OBJECT(current_object)->screen_y + OBJECT(current_object)->crumbling_floor.depth_offset - OBJECT(current_object)->sprite_offset_y);
-									OBJECT(current_object)->draw_depth = sprite_depth;
-									queue_sprite_at_depth(&ignored, &sprite_depth);
-									return;
-								}
-								break;
-							default:
-								invalid_jump(0x9161Cu + OBJECT(current_object)->direction * 2u);
-							}
-						}
-						add_to_platform_list();
-						if ((uint16_t)(OBJECT(current_object)->screen_x + 0xA0u) >= 0x281u)
-							return;
-						sprite_depth = (uint16_t)(OBJECT(current_object)->screen_y + OBJECT(current_object)->crumbling_floor.depth_offset - OBJECT(current_object)->sprite_offset_y);
-						OBJECT(current_object)->draw_depth = sprite_depth;
-						queue_sprite_at_depth(&ignored, &sprite_depth);
-						return;
-					}
-					if (OBJECT(current_object)->y_int <= (int16_t)(OBJECT(current_player)->y_int + 0x60u))
-					{
-					crumbling_floor_crack:
-						if (OBJECT(current_object)->animation_timer >= 0)
-							goto crumbling_floor_play_crack_steps;
-						apply_step_screen_offset();
-					}
-					break;
-				case 1:
-					if (OBJECT(current_player)->y_int <= OBJECT(current_object)->y_int)
-					{
-						OBJECT(current_object)->crumbling_floor.state++;
-						OBJECT(current_object)->speed_z = 0;
-						OBJECT(current_object)->animation_speed = 6u;
-						OBJECT(current_object)->animation_timer = 0;
-						OBJECT(current_object)->animation_frame = 4u;
-						if (OBJECT(current_object)->crumbling_floor.silent_row == 0u)
-						{
-							switch (OBJECT(current_object)->direction)
-							{
-							case 0:
-							case 4:
-								if (OBJECT(current_object)->screen_x >= 0)
-								{
-									sound_id = 0xDu;
-									play_sound(sound_id, &ignored, &ignored);
-								}
-								break;
-							case 1:
-								if (OBJECT(current_object)->screen_x <= 0x180)
-								{
-									sound_id = 0xDu;
-									play_sound(sound_id, &ignored, &ignored);
-									add_to_platform_list();
-									if ((uint16_t)(OBJECT(current_object)->screen_x + 0xA0u) >= 0x281u)
-										return;
-									sprite_depth = (uint16_t)(OBJECT(current_object)->screen_y + OBJECT(current_object)->crumbling_floor.depth_offset - OBJECT(current_object)->sprite_offset_y);
-									OBJECT(current_object)->draw_depth = sprite_depth;
-									queue_sprite_at_depth(&ignored, &sprite_depth);
-									return;
-								}
-								break;
-							case 2:
-								if (OBJECT(current_object)->screen_x >= -8)
-								{
-									sound_id = 0xDu;
-									play_sound(sound_id, &ignored, &ignored);
-									add_to_platform_list();
-									if ((uint16_t)(OBJECT(current_object)->screen_x + 0xA0u) >= 0x281u)
-										return;
-									sprite_depth = (uint16_t)(OBJECT(current_object)->screen_y + OBJECT(current_object)->crumbling_floor.depth_offset - OBJECT(current_object)->sprite_offset_y);
-									OBJECT(current_object)->draw_depth = sprite_depth;
-									queue_sprite_at_depth(&ignored, &sprite_depth);
-									return;
-								}
-								break;
-							case 3:
-								if (OBJECT(current_object)->screen_x <= 0x1A0)
-								{
-									sound_id = 0xDu;
-									play_sound(sound_id, &ignored, &ignored);
-									add_to_platform_list();
-									if ((uint16_t)(OBJECT(current_object)->screen_x + 0xA0u) >= 0x281u)
-										return;
-									sprite_depth = (uint16_t)(OBJECT(current_object)->screen_y + OBJECT(current_object)->crumbling_floor.depth_offset - OBJECT(current_object)->sprite_offset_y);
-									OBJECT(current_object)->draw_depth = sprite_depth;
-									queue_sprite_at_depth(&ignored, &sprite_depth);
-									return;
-								}
-								break;
-							default:
-								invalid_jump(0x9161Cu + OBJECT(current_object)->direction * 2u);
-							}
-						}
-						add_to_platform_list();
-						if ((uint16_t)(OBJECT(current_object)->screen_x + 0xA0u) >= 0x281u)
-							return;
-						sprite_depth = (uint16_t)(OBJECT(current_object)->screen_y + OBJECT(current_object)->crumbling_floor.depth_offset - OBJECT(current_object)->sprite_offset_y);
-						OBJECT(current_object)->draw_depth = sprite_depth;
-						queue_sprite_at_depth(&ignored, &sprite_depth);
-						return;
-					}
-					if ((int16_t)(OBJECT(current_player)->y_int - 0x60u) <= OBJECT(current_object)->y_int)
-						goto crumbling_floor_crack;
-					break;
-				case 2:
-					if (OBJECT(current_object)->x_int <= OBJECT(current_player)->x_int)
-					{
-						OBJECT(current_object)->crumbling_floor.state++;
-						OBJECT(current_object)->speed_z = 0;
-						OBJECT(current_object)->animation_speed = 6u;
-						OBJECT(current_object)->animation_timer = 0;
-						OBJECT(current_object)->animation_frame = 4u;
-						if (OBJECT(current_object)->crumbling_floor.silent_row == 0u)
-						{
-							switch (OBJECT(current_object)->direction)
-							{
-							case 0:
-							case 4:
-								if (OBJECT(current_object)->screen_x >= 0)
-								{
-									sound_id = 0xDu;
-									play_sound(sound_id, &ignored, &ignored);
-								}
-								break;
-							case 1:
-								if (OBJECT(current_object)->screen_x <= 0x180)
-								{
-									sound_id = 0xDu;
-									play_sound(sound_id, &ignored, &ignored);
-									add_to_platform_list();
-									if ((uint16_t)(OBJECT(current_object)->screen_x + 0xA0u) >= 0x281u)
-										return;
-									sprite_depth = (uint16_t)(OBJECT(current_object)->screen_y + OBJECT(current_object)->crumbling_floor.depth_offset - OBJECT(current_object)->sprite_offset_y);
-									OBJECT(current_object)->draw_depth = sprite_depth;
-									queue_sprite_at_depth(&ignored, &sprite_depth);
-									return;
-								}
-								break;
-							case 2:
-								if (OBJECT(current_object)->screen_x >= -8)
-								{
-									sound_id = 0xDu;
-									play_sound(sound_id, &ignored, &ignored);
-									add_to_platform_list();
-									if ((uint16_t)(OBJECT(current_object)->screen_x + 0xA0u) >= 0x281u)
-										return;
-									sprite_depth = (uint16_t)(OBJECT(current_object)->screen_y + OBJECT(current_object)->crumbling_floor.depth_offset - OBJECT(current_object)->sprite_offset_y);
-									OBJECT(current_object)->draw_depth = sprite_depth;
-									queue_sprite_at_depth(&ignored, &sprite_depth);
-									return;
-								}
-								break;
-							case 3:
-								if (OBJECT(current_object)->screen_x <= 0x1A0)
-								{
-									sound_id = 0xDu;
-									play_sound(sound_id, &ignored, &ignored);
-									add_to_platform_list();
-									if ((uint16_t)(OBJECT(current_object)->screen_x + 0xA0u) >= 0x281u)
-										return;
-									sprite_depth = (uint16_t)(OBJECT(current_object)->screen_y + OBJECT(current_object)->crumbling_floor.depth_offset - OBJECT(current_object)->sprite_offset_y);
-									OBJECT(current_object)->draw_depth = sprite_depth;
-									queue_sprite_at_depth(&ignored, &sprite_depth);
-									return;
-								}
-								break;
-							default:
-								invalid_jump(0x9161Cu + OBJECT(current_object)->direction * 2u);
-							}
-						}
-						add_to_platform_list();
-						if ((uint16_t)(OBJECT(current_object)->screen_x + 0xA0u) >= 0x281u)
-							return;
-						sprite_depth = (uint16_t)(OBJECT(current_object)->screen_y + OBJECT(current_object)->crumbling_floor.depth_offset - OBJECT(current_object)->sprite_offset_y);
-						OBJECT(current_object)->draw_depth = sprite_depth;
-						queue_sprite_at_depth(&ignored, &sprite_depth);
-						return;
-					}
-					if (OBJECT(current_object)->x_int <= (int16_t)(OBJECT(current_player)->x_int + 0x60u))
-						goto crumbling_floor_crack;
-					break;
-				case 3:
-					if (OBJECT(current_player)->x_int <= OBJECT(current_object)->x_int)
-					{
-						OBJECT(current_object)->crumbling_floor.state++;
-						OBJECT(current_object)->speed_z = 0;
-						OBJECT(current_object)->animation_speed = 6u;
-						OBJECT(current_object)->animation_timer = 0;
-						OBJECT(current_object)->animation_frame = 4u;
-						if (OBJECT(current_object)->crumbling_floor.silent_row == 0u)
-						{
-							switch (OBJECT(current_object)->direction)
-							{
-							case 0:
-							case 4:
-								if (OBJECT(current_object)->screen_x >= 0)
-								{
-									sound_id = 0xDu;
-									play_sound(sound_id, &ignored, &ignored);
-								}
-								break;
-							case 1:
-								if (OBJECT(current_object)->screen_x <= 0x180)
-								{
-									sound_id = 0xDu;
-									play_sound(sound_id, &ignored, &ignored);
-									add_to_platform_list();
-									if ((uint16_t)(OBJECT(current_object)->screen_x + 0xA0u) >= 0x281u)
-										return;
-									sprite_depth = (uint16_t)(OBJECT(current_object)->screen_y + OBJECT(current_object)->crumbling_floor.depth_offset - OBJECT(current_object)->sprite_offset_y);
-									OBJECT(current_object)->draw_depth = sprite_depth;
-									queue_sprite_at_depth(&ignored, &sprite_depth);
-									return;
-								}
-								break;
-							case 2:
-								if (OBJECT(current_object)->screen_x >= -8)
-								{
-									sound_id = 0xDu;
-									play_sound(sound_id, &ignored, &ignored);
-									add_to_platform_list();
-									if ((uint16_t)(OBJECT(current_object)->screen_x + 0xA0u) >= 0x281u)
-										return;
-									sprite_depth = (uint16_t)(OBJECT(current_object)->screen_y + OBJECT(current_object)->crumbling_floor.depth_offset - OBJECT(current_object)->sprite_offset_y);
-									OBJECT(current_object)->draw_depth = sprite_depth;
-									queue_sprite_at_depth(&ignored, &sprite_depth);
-									return;
-								}
-								break;
-							case 3:
-								if (OBJECT(current_object)->screen_x <= 0x1A0)
-								{
-									sound_id = 0xDu;
-									play_sound(sound_id, &ignored, &ignored);
-									add_to_platform_list();
-									if ((uint16_t)(OBJECT(current_object)->screen_x + 0xA0u) >= 0x281u)
-										return;
-									sprite_depth = (uint16_t)(OBJECT(current_object)->screen_y + OBJECT(current_object)->crumbling_floor.depth_offset - OBJECT(current_object)->sprite_offset_y);
-									OBJECT(current_object)->draw_depth = sprite_depth;
-									queue_sprite_at_depth(&ignored, &sprite_depth);
-									return;
-								}
-								break;
-							default:
-								invalid_jump(0x9161Cu + OBJECT(current_object)->direction * 2u);
-							}
-						}
-						add_to_platform_list();
-						if ((uint16_t)(OBJECT(current_object)->screen_x + 0xA0u) >= 0x281u)
-							return;
-						sprite_depth = (uint16_t)(OBJECT(current_object)->screen_y + OBJECT(current_object)->crumbling_floor.depth_offset - OBJECT(current_object)->sprite_offset_y);
-						OBJECT(current_object)->draw_depth = sprite_depth;
-						queue_sprite_at_depth(&ignored, &sprite_depth);
-						return;
-					}
-					if ((int16_t)(OBJECT(current_player)->x_int - 0x60u) <= OBJECT(current_object)->x_int)
-						goto crumbling_floor_crack;
-					break;
-				default:
-					invalid_jump(0x91555u + OBJECT(current_object)->direction * 2u);
-				}
-			}
-		}
-		else
 			OBJECT(current_object)->sprite_palette = 0x83A0u;
-		add_to_platform_list();
-		if ((uint16_t)(OBJECT(current_object)->screen_x + 0xA0u) >= 0x281u)
+			crumbling_floor_draw();
 			return;
-		sprite_depth = (uint16_t)(OBJECT(current_object)->screen_y + OBJECT(current_object)->crumbling_floor.depth_offset - OBJECT(current_object)->sprite_offset_y);
-		OBJECT(current_object)->draw_depth = sprite_depth;
-		queue_sprite_at_depth(&ignored, &sprite_depth);
-		return;
+		}
+		if (grey_screen_ended != 0u)
+			OBJECT(current_object)->sprite_palette = OBJECT(current_object)->crumbling_floor.normal_palette;
+		if ((OBJECT(current_object)->flags & 8u) != 0u && (OBJECT(LINKED(current_object, OBJECT(current_object)->platform))->flags & 0x400000u) != 0u)
+			OBJECT(current_object)->flags |= 0x400000u;
+		if ((OBJECT(current_object)->flags & 0x400000u) != 0u)
+		{
+			crumbling_floor_play_crack_steps();
+			return;
+		}
+		current_player = current_object;
+		current_player = LINKED(current_player, OBJECT(current_object)->parent);
+		switch (OBJECT(current_object)->direction)
+		{
+		case 0:
+		case 4:
+			if (OBJECT(current_object)->y_int <= OBJECT(current_player)->y_int)
+			{
+				crumbling_floor_start_falling();
+				return;
+			}
+			if (OBJECT(current_object)->y_int <= (int16_t)(OBJECT(current_player)->y_int + 0x60u))
+			{
+				crumbling_floor_crack();
+				return;
+			}
+			crumbling_floor_draw();
+			return;
+		case 1:
+			if (OBJECT(current_player)->y_int <= OBJECT(current_object)->y_int)
+			{
+				crumbling_floor_start_falling();
+				return;
+			}
+			if ((int16_t)(OBJECT(current_player)->y_int - 0x60u) <= OBJECT(current_object)->y_int)
+			{
+				crumbling_floor_crack();
+				return;
+			}
+			crumbling_floor_draw();
+			return;
+		case 2:
+			if (OBJECT(current_object)->x_int <= OBJECT(current_player)->x_int)
+			{
+				crumbling_floor_start_falling();
+				return;
+			}
+			if (OBJECT(current_object)->x_int <= (int16_t)(OBJECT(current_player)->x_int + 0x60u))
+			{
+				crumbling_floor_crack();
+				return;
+			}
+			crumbling_floor_draw();
+			return;
+		case 3:
+			if (OBJECT(current_player)->x_int <= OBJECT(current_object)->x_int)
+			{
+				crumbling_floor_start_falling();
+				return;
+			}
+			if ((int16_t)(OBJECT(current_player)->x_int - 0x60u) <= OBJECT(current_object)->x_int)
+			{
+				crumbling_floor_crack();
+				return;
+			}
+			crumbling_floor_draw();
+			return;
+		default:
+			invalid_jump(0x91555u + OBJECT(current_object)->direction * 2u);
+		}
+		break;
 	case 2:
 		OBJECT(current_object)->speed_z += 0x2000u;
 		OBJECT(current_object)->z += OBJECT(current_object)->speed_z;
@@ -2156,6 +1883,109 @@ void crumbling_floor_update(void)
 	default:
 		invalid_jump(0x914DFu + OBJECT(current_object)->crumbling_floor.state * 3u);
 	}
+}
+
+void crumbling_floor_crack(void)
+{
+	if (OBJECT(current_object)->animation_timer < 0)
+	{
+		apply_step_screen_offset();
+		crumbling_floor_draw();
+		return;
+	}
+	crumbling_floor_play_crack_steps();
+}
+
+void crumbling_floor_play_crack_steps(void)
+{
+	animate_with_screen_offset(0u);
+	if ((int8_t)OBJECT(current_object)->animation_frame < 4)
+	{
+		crumbling_floor_draw();
+		return;
+	}
+	OBJECT(current_object)->animation_timer = -1;
+	if ((OBJECT(current_object)->flags & 0x400000u) != 0u)
+	{
+		crumbling_floor_start_falling();
+		return;
+	}
+	crumbling_floor_draw();
+}
+
+void crumbling_floor_start_falling(void)
+{
+	uint8_t sound_id = 0;
+	uint32_t ignored = 0;
+
+	OBJECT(current_object)->crumbling_floor.state++;
+	OBJECT(current_object)->speed_z = 0;
+	OBJECT(current_object)->animation_speed = 6u;
+	OBJECT(current_object)->animation_timer = 0;
+	OBJECT(current_object)->animation_frame = 4u;
+	if (OBJECT(current_object)->crumbling_floor.silent_row != 0u)
+	{
+		crumbling_floor_draw();
+		return;
+	}
+	switch (OBJECT(current_object)->direction)
+	{
+	case 0:
+	case 4:
+		if (OBJECT(current_object)->screen_x < 0)
+		{
+			crumbling_floor_draw();
+			return;
+		}
+		sound_id = 0xDu;
+		play_sound(sound_id, &ignored, &ignored);
+		crumbling_floor_draw();
+		return;
+	case 1:
+		if (OBJECT(current_object)->screen_x > 0x180)
+		{
+			crumbling_floor_draw();
+			return;
+		}
+		sound_id = 0xDu;
+		play_sound(sound_id, &ignored, &ignored);
+		crumbling_floor_draw();
+		return;
+	case 2:
+		if (OBJECT(current_object)->screen_x < -8)
+		{
+			crumbling_floor_draw();
+			return;
+		}
+		sound_id = 0xDu;
+		play_sound(sound_id, &ignored, &ignored);
+		crumbling_floor_draw();
+		return;
+	case 3:
+		if (OBJECT(current_object)->screen_x > 0x1A0)
+		{
+			crumbling_floor_draw();
+			return;
+		}
+		sound_id = 0xDu;
+		play_sound(sound_id, &ignored, &ignored);
+		crumbling_floor_draw();
+		return;
+	default:
+		invalid_jump(0x9161Cu + OBJECT(current_object)->direction * 2u);
+	}
+}
+
+void crumbling_floor_draw(void)
+{
+	uint32_t ignored = 0, sprite_depth = 0;
+
+	add_to_platform_list();
+	if ((uint16_t)(OBJECT(current_object)->screen_x + 0xA0u) >= 0x281u)
+		return;
+	sprite_depth = (uint16_t)(OBJECT(current_object)->screen_y + OBJECT(current_object)->crumbling_floor.depth_offset - OBJECT(current_object)->sprite_offset_y);
+	OBJECT(current_object)->draw_depth = sprite_depth;
+	queue_sprite_at_depth(&ignored, &sprite_depth);
 }
 
 void spawn_group_leader(uint32_t record, uint32_t *p_spawned, uint32_t *p_leader)
@@ -2215,91 +2045,134 @@ void group_leader_wait(void)
 
 void group_leader_move(void)
 {
-	uint16_t hold_threshold = 0, speed = 0;
-	uint32_t cursor = 0, ignored = 0;
-	uint8_t hold_timer = 0;
-	uint16_t wait_timer = 0, trigger_scroll = 0;
+	uint16_t hold_threshold = 0;
 	uint32_t flags = 0;
 
 	flags = OBJECT(current_object)->flags;
 	OBJECT(current_object)->flags = flags | 1u;
 	if ((flags & 1u) == 0u)
 	{
-	group_leader_read_script:
-		wait_timer = OBJECT(current_object)->group_leader_move.wait_timer;
-		OBJECT(current_object)->group_leader_move.wait_timer = wait_timer - 1u;
-		if ((int16_t)wait_timer <= 1)
-		{
-			OBJECT(current_object)->group_leader_move.wait_timer = 0;
-			cursor = OBJECT(current_object)->group_leader_move.path;
-			trigger_scroll = ROM16(cursor);
-			cursor += 2u;
-			if (trigger_scroll <= scroll_position)
-			{
-				if ((int16_t)ROM16(cursor + 2u) < 0)
-				{
-					delete_current_object();
-					return;
-				}
-				OBJECT(current_object)->group_leader_move.screen_threshold = ROM16(cursor);
-				cursor += 2u;
-				OBJECT(current_object)->group_leader_move.catch_up_factor = ROM16(cursor);
-				cursor += 2u;
-				OBJECT(current_object)->group_leader_move.base_speed = ROM16(cursor);
-				cursor += 2u;
-				OBJECT(current_object)->group_leader_move.wait_timer = ROM16(cursor);
-				OBJECT(current_object)->group_leader_move.path = cursor + 2u;
-			}
-		}
+		group_leader_read_script();
+		return;
 	}
-	else if (OBJECT(current_object)->group_leader_move.holding_back == 0u)
-	{
-		if ((stage != 8u || (current_game_mode != 0x17u && current_game_mode != 0x1Du)) && no_player_in_play == 0u && player_mishap == 0u && player_dropping_in == 0u)
-			goto group_leader_read_script;
-		OBJECT(current_object)->group_leader_move.holding_back = 0xFFu;
-		OBJECT(current_object)->group_leader_move.saved_base_speed = OBJECT(current_object)->group_leader_move.base_speed;
-		OBJECT(current_object)->group_leader_move.base_speed = 0;
-		OBJECT(current_object)->group_leader_move.hold_start_position = scroll_position;
-		OBJECT(current_object)->group_leader_move.hold_timer = 0xFFu;
-		OBJECT(current_object)->group_leader_move.saved_threshold = OBJECT(current_object)->group_leader_move.screen_threshold;
-		hold_threshold = 0xFF90u;
-		if ((OBJECT(current_object)->direction_low & 1u) != 0u)
-			hold_threshold = 0x1B0u;
-		OBJECT(current_object)->group_leader_move.screen_threshold = hold_threshold;
-	}
-	project_object(&ignored, &ignored);
 	if (OBJECT(current_object)->group_leader_move.holding_back != 0u)
 	{
-		if ((int16_t)(scroll_position - OBJECT(current_object)->group_leader_move.hold_start_position) >= 0x300)
-			goto group_leader_stop_holding_back;
-		if (no_player_in_play != 0u)
-			OBJECT(current_object)->group_leader_move.hold_timer = 0xFFu;
-		hold_timer = OBJECT(current_object)->group_leader_move.hold_timer;
-		OBJECT(current_object)->group_leader_move.hold_timer = hold_timer - 1u;
-		if (hold_timer == 0u)
-			goto group_leader_stop_holding_back;
+		group_leader_move_step();
+		return;
 	}
-	switch (OBJECT(current_object)->direction)
+	if ((stage != 8u || (current_game_mode != 0x17u && current_game_mode != 0x1Du)) && no_player_in_play == 0u && player_mishap == 0u && player_dropping_in == 0u)
 	{
-	case 0:
-	case 2:
-	case 4:
-		if (OBJECT(current_object)->group_leader_move.screen_threshold <= OBJECT(current_object)->screen_x)
-			speed = (uint16_t)OBJECT(current_object)->group_leader_move.base_speed;
-		else
+		group_leader_read_script();
+		return;
+	}
+	OBJECT(current_object)->group_leader_move.holding_back = 0xFFu;
+	OBJECT(current_object)->group_leader_move.saved_base_speed = OBJECT(current_object)->group_leader_move.base_speed;
+	OBJECT(current_object)->group_leader_move.base_speed = 0;
+	OBJECT(current_object)->group_leader_move.hold_start_position = scroll_position;
+	OBJECT(current_object)->group_leader_move.hold_timer = 0xFFu;
+	OBJECT(current_object)->group_leader_move.saved_threshold = OBJECT(current_object)->group_leader_move.screen_threshold;
+	hold_threshold = 0xFF90u;
+	if ((OBJECT(current_object)->direction_low & 1u) != 0u)
+		hold_threshold = 0x1B0u;
+	OBJECT(current_object)->group_leader_move.screen_threshold = hold_threshold;
+	group_leader_move_step();
+}
+
+void group_leader_read_script(void)
+{
+	uint32_t cursor = 0;
+	uint16_t wait_timer = 0, trigger_scroll = 0;
+
+	wait_timer = OBJECT(current_object)->group_leader_move.wait_timer;
+	OBJECT(current_object)->group_leader_move.wait_timer = wait_timer - 1u;
+	if ((int16_t)wait_timer > 1)
+	{
+		group_leader_move_step();
+		return;
+	}
+	OBJECT(current_object)->group_leader_move.wait_timer = 0;
+	cursor = OBJECT(current_object)->group_leader_move.path;
+	trigger_scroll = ROM16(cursor);
+	cursor += 2u;
+	if (scroll_position < trigger_scroll)
+	{
+		group_leader_move_step();
+		return;
+	}
+	if ((int16_t)ROM16(cursor + 2u) < 0)
+	{
+		delete_current_object();
+		return;
+	}
+	OBJECT(current_object)->group_leader_move.screen_threshold = ROM16(cursor);
+	cursor += 2u;
+	OBJECT(current_object)->group_leader_move.catch_up_factor = ROM16(cursor);
+	cursor += 2u;
+	OBJECT(current_object)->group_leader_move.base_speed = ROM16(cursor);
+	cursor += 2u;
+	OBJECT(current_object)->group_leader_move.wait_timer = ROM16(cursor);
+	OBJECT(current_object)->group_leader_move.path = cursor + 2u;
+	group_leader_move_step();
+}
+
+void group_leader_move_step(void)
+{
+	uint16_t speed = 0;
+	uint32_t ignored = 0;
+	uint8_t hold_timer = 0;
+
+	project_object(&ignored, &ignored);
+	if (OBJECT(current_object)->group_leader_move.holding_back == 0u)
+	{
+		switch (OBJECT(current_object)->direction)
 		{
-		group_leader_catch_up:
-			OBJECT(current_object)->group_leader_move.wait_timer = 0;
-			if (OBJECT(current_object)->group_leader_move.holding_back != 0u)
+		case 0:
+		case 2:
+		case 4:
+			if (OBJECT(current_object)->group_leader_move.screen_threshold <= OBJECT(current_object)->screen_x)
+				speed = (uint16_t)OBJECT(current_object)->group_leader_move.base_speed;
+			else
 			{
-			group_leader_stop_holding_back:
-				OBJECT(current_object)->group_leader_move.holding_back = 0u;
-				OBJECT(current_object)->group_leader_move.screen_threshold = OBJECT(current_object)->group_leader_move.saved_threshold;
-				OBJECT(current_object)->group_leader_move.base_speed = OBJECT(current_object)->group_leader_move.saved_base_speed;
+				OBJECT(current_object)->group_leader_move.wait_timer = 0;
+				if (OBJECT(current_object)->group_leader_move.holding_back != 0u)
+				{
+					OBJECT(current_object)->group_leader_move.holding_back = 0u;
+					OBJECT(current_object)->group_leader_move.screen_threshold = OBJECT(current_object)->group_leader_move.saved_threshold;
+					OBJECT(current_object)->group_leader_move.base_speed = OBJECT(current_object)->group_leader_move.saved_base_speed;
+				}
+				compute_camera_ground_speed(0u);
+				speed = (uint16_t)((uint32_t)camera_ground_speed_int * OBJECT(current_object)->group_leader_move.catch_up_factor) >> 8;
+				if ((int16_t)speed <= OBJECT(current_object)->group_leader_move.base_speed)
+				{
+					speed = (uint16_t)OBJECT(current_object)->group_leader_move.base_speed;
+					chaser_speed = speed;
+					if (OBJECT(current_object)->group_leader_move.wait_timer > 0 || grey_screen_active != 0u)
+						return;
+					switch (OBJECT(current_object)->direction)
+					{
+					case 0:
+					case 4:
+						OBJECT(current_object)->y += (uint32_t)chaser_speed << 12;
+						break;
+					case 1:
+						OBJECT(current_object)->y -= (uint32_t)chaser_speed << 12;
+						break;
+					case 2:
+						OBJECT(current_object)->x += (uint32_t)chaser_speed << 12;
+						break;
+					case 3:
+						OBJECT(current_object)->x -= (uint32_t)chaser_speed << 12;
+						break;
+					default:
+						invalid_jump(0x918FAu + OBJECT(current_object)->direction * 2u);
+					}
+					return;
+				}
 			}
-			compute_camera_ground_speed(0u);
-			speed = (uint16_t)((uint32_t)camera_ground_speed_int * OBJECT(current_object)->group_leader_move.catch_up_factor) >> 8;
-			if ((int16_t)speed <= OBJECT(current_object)->group_leader_move.base_speed)
+			break;
+		case 1:
+		case 3:
+			if (OBJECT(current_object)->screen_x <= OBJECT(current_object)->group_leader_move.screen_threshold)
 			{
 				speed = (uint16_t)OBJECT(current_object)->group_leader_move.base_speed;
 				chaser_speed = speed;
@@ -2325,39 +2198,140 @@ void group_leader_move(void)
 				}
 				return;
 			}
+			OBJECT(current_object)->group_leader_move.wait_timer = 0;
+			if (OBJECT(current_object)->group_leader_move.holding_back != 0u)
+			{
+				OBJECT(current_object)->group_leader_move.holding_back = 0u;
+				OBJECT(current_object)->group_leader_move.screen_threshold = OBJECT(current_object)->group_leader_move.saved_threshold;
+				OBJECT(current_object)->group_leader_move.base_speed = OBJECT(current_object)->group_leader_move.saved_base_speed;
+			}
+			compute_camera_ground_speed(0u);
+			speed = (uint16_t)((uint32_t)camera_ground_speed_int * OBJECT(current_object)->group_leader_move.catch_up_factor) >> 8;
+			if ((int16_t)speed <= OBJECT(current_object)->group_leader_move.base_speed)
+				speed = (uint16_t)OBJECT(current_object)->group_leader_move.base_speed;
+			break;
+		default:
+			invalid_jump(0x91887u + OBJECT(current_object)->direction * 2u);
 		}
-		break;
-	case 1:
-	case 3:
-		if (OBJECT(current_object)->screen_x <= OBJECT(current_object)->group_leader_move.screen_threshold)
-		{
+	}
+	else if ((int16_t)(scroll_position - OBJECT(current_object)->group_leader_move.hold_start_position) >= 0x300)
+	{
+		OBJECT(current_object)->group_leader_move.holding_back = 0u;
+		OBJECT(current_object)->group_leader_move.screen_threshold = OBJECT(current_object)->group_leader_move.saved_threshold;
+		OBJECT(current_object)->group_leader_move.base_speed = OBJECT(current_object)->group_leader_move.saved_base_speed;
+		compute_camera_ground_speed(0u);
+		speed = (uint16_t)((uint32_t)camera_ground_speed_int * OBJECT(current_object)->group_leader_move.catch_up_factor) >> 8;
+		if ((int16_t)speed <= OBJECT(current_object)->group_leader_move.base_speed)
 			speed = (uint16_t)OBJECT(current_object)->group_leader_move.base_speed;
-			chaser_speed = speed;
-			if (OBJECT(current_object)->group_leader_move.wait_timer > 0 || grey_screen_active != 0u)
-				return;
+	}
+	else
+	{
+		if (no_player_in_play != 0u)
+			OBJECT(current_object)->group_leader_move.hold_timer = 0xFFu;
+		hold_timer = OBJECT(current_object)->group_leader_move.hold_timer;
+		OBJECT(current_object)->group_leader_move.hold_timer = hold_timer - 1u;
+		if (hold_timer == 0u)
+		{
+			OBJECT(current_object)->group_leader_move.holding_back = 0u;
+			OBJECT(current_object)->group_leader_move.screen_threshold = OBJECT(current_object)->group_leader_move.saved_threshold;
+			OBJECT(current_object)->group_leader_move.base_speed = OBJECT(current_object)->group_leader_move.saved_base_speed;
+			compute_camera_ground_speed(0u);
+			speed = (uint16_t)((uint32_t)camera_ground_speed_int * OBJECT(current_object)->group_leader_move.catch_up_factor) >> 8;
+			if ((int16_t)speed <= OBJECT(current_object)->group_leader_move.base_speed)
+				speed = (uint16_t)OBJECT(current_object)->group_leader_move.base_speed;
+		}
+		else
+		{
 			switch (OBJECT(current_object)->direction)
 			{
 			case 0:
+			case 2:
 			case 4:
-				OBJECT(current_object)->y += (uint32_t)chaser_speed << 12;
+				if (OBJECT(current_object)->group_leader_move.screen_threshold <= OBJECT(current_object)->screen_x)
+					speed = (uint16_t)OBJECT(current_object)->group_leader_move.base_speed;
+				else
+				{
+					OBJECT(current_object)->group_leader_move.wait_timer = 0;
+					if (OBJECT(current_object)->group_leader_move.holding_back != 0u)
+					{
+						OBJECT(current_object)->group_leader_move.holding_back = 0u;
+						OBJECT(current_object)->group_leader_move.screen_threshold = OBJECT(current_object)->group_leader_move.saved_threshold;
+						OBJECT(current_object)->group_leader_move.base_speed = OBJECT(current_object)->group_leader_move.saved_base_speed;
+					}
+					compute_camera_ground_speed(0u);
+					speed = (uint16_t)((uint32_t)camera_ground_speed_int * OBJECT(current_object)->group_leader_move.catch_up_factor) >> 8;
+					if ((int16_t)speed <= OBJECT(current_object)->group_leader_move.base_speed)
+					{
+						speed = (uint16_t)OBJECT(current_object)->group_leader_move.base_speed;
+						chaser_speed = speed;
+						if (OBJECT(current_object)->group_leader_move.wait_timer > 0 || grey_screen_active != 0u)
+							return;
+						switch (OBJECT(current_object)->direction)
+						{
+						case 0:
+						case 4:
+							OBJECT(current_object)->y += (uint32_t)chaser_speed << 12;
+							break;
+						case 1:
+							OBJECT(current_object)->y -= (uint32_t)chaser_speed << 12;
+							break;
+						case 2:
+							OBJECT(current_object)->x += (uint32_t)chaser_speed << 12;
+							break;
+						case 3:
+							OBJECT(current_object)->x -= (uint32_t)chaser_speed << 12;
+							break;
+						default:
+							invalid_jump(0x918FAu + OBJECT(current_object)->direction * 2u);
+						}
+						return;
+					}
+				}
 				break;
 			case 1:
-				OBJECT(current_object)->y -= (uint32_t)chaser_speed << 12;
-				break;
-			case 2:
-				OBJECT(current_object)->x += (uint32_t)chaser_speed << 12;
-				break;
 			case 3:
-				OBJECT(current_object)->x -= (uint32_t)chaser_speed << 12;
+				if (OBJECT(current_object)->screen_x <= OBJECT(current_object)->group_leader_move.screen_threshold)
+				{
+					speed = (uint16_t)OBJECT(current_object)->group_leader_move.base_speed;
+					chaser_speed = speed;
+					if (OBJECT(current_object)->group_leader_move.wait_timer > 0 || grey_screen_active != 0u)
+						return;
+					switch (OBJECT(current_object)->direction)
+					{
+					case 0:
+					case 4:
+						OBJECT(current_object)->y += (uint32_t)chaser_speed << 12;
+						break;
+					case 1:
+						OBJECT(current_object)->y -= (uint32_t)chaser_speed << 12;
+						break;
+					case 2:
+						OBJECT(current_object)->x += (uint32_t)chaser_speed << 12;
+						break;
+					case 3:
+						OBJECT(current_object)->x -= (uint32_t)chaser_speed << 12;
+						break;
+					default:
+						invalid_jump(0x918FAu + OBJECT(current_object)->direction * 2u);
+					}
+					return;
+				}
+				OBJECT(current_object)->group_leader_move.wait_timer = 0;
+				if (OBJECT(current_object)->group_leader_move.holding_back != 0u)
+				{
+					OBJECT(current_object)->group_leader_move.holding_back = 0u;
+					OBJECT(current_object)->group_leader_move.screen_threshold = OBJECT(current_object)->group_leader_move.saved_threshold;
+					OBJECT(current_object)->group_leader_move.base_speed = OBJECT(current_object)->group_leader_move.saved_base_speed;
+				}
+				compute_camera_ground_speed(0u);
+				speed = (uint16_t)((uint32_t)camera_ground_speed_int * OBJECT(current_object)->group_leader_move.catch_up_factor) >> 8;
+				if ((int16_t)speed <= OBJECT(current_object)->group_leader_move.base_speed)
+					speed = (uint16_t)OBJECT(current_object)->group_leader_move.base_speed;
 				break;
 			default:
-				invalid_jump(0x918FAu + OBJECT(current_object)->direction * 2u);
+				invalid_jump(0x91887u + OBJECT(current_object)->direction * 2u);
 			}
-			return;
 		}
-		goto group_leader_catch_up;
-	default:
-		invalid_jump(0x91887u + OBJECT(current_object)->direction * 2u);
 	}
 	chaser_speed = speed;
 	if (OBJECT(current_object)->group_leader_move.wait_timer > 0 || grey_screen_active != 0u)
@@ -2387,10 +2361,8 @@ void spawn_object_groups_2(uint32_t *p_list_offset, uint32_t *p_count, uint32_t 
 	uint32_t list_offset = *p_list_offset;
 	uint32_t count = *p_count;
 	uint32_t object = *p_object;
-	uint8_t bridge_number = 0;
-	uint32_t fill_word = 0, floor_block_record = 0, floor_type_record = 0, ignored = 0, kind_index = 0, last_plank_var = 0, member_record = 0, plank_count_var = 0, record = 0, slot_cursor = 0, spawned = 0;
-	uint8_t slot_taken = 0;
-	uint16_t spawn_position = 0, members_left = 0;
+	uint32_t fill_word = 0, kind_index = 0, plank_count_var = 0, record = 0, slot_cursor = 0, spawned = 0;
+	uint16_t spawn_position = 0;
 	uint32_t init_flags = 0;
 
 	init_flags = stage_init_flags;
@@ -2431,158 +2403,193 @@ void spawn_object_groups_2(uint32_t *p_list_offset, uint32_t *p_count, uint32_t 
 		switch (kind_index)
 		{
 		case 0x0u:
-			goto spawn_object_groups_2_pick_bridge;
+			spawn_object_groups_2_pick_bridge(record, &list_offset, &count, &object);
+			*p_list_offset = list_offset;
+			*p_count = count;
+			*p_object = object;
+			return;
 		case 0x2u:
 		case 0x8u:
-			spawn_group_leader(record, &spawned, &object);
-			if (spawned == 0u)
-			{
-				*p_list_offset = list_offset;
-				*p_count = count;
-				*p_object = object;
-				return;
-			}
-			group_spawn_cursor_2 += 0xEu;
-			continue;
+			break;
 		case 0x4u:
 			group_bridge_number = 0u;
 			plank_count_var = bridge_0_plank_count_ADDRESS;
-			goto spawn_object_groups_2_build_group;
+			spawn_object_groups_2_build_group(record, plank_count_var, &list_offset, &count, &object);
+			*p_list_offset = list_offset;
+			*p_count = count;
+			*p_object = object;
+			return;
 		case 0x6u:
 			group_bridge_number = 1u;
 			plank_count_var = bridge_1_plank_count_ADDRESS;
-			goto spawn_object_groups_2_build_group;
+			spawn_object_groups_2_build_group(record, plank_count_var, &list_offset, &count, &object);
+			*p_list_offset = list_offset;
+			*p_count = count;
+			*p_object = object;
+			return;
 		default:
 			invalid_jump(0x938A6u + kind_index);
 		}
-	}
-spawn_object_groups_2_pick_bridge:
-	if (free_object_stack < (int16_t)ROM16(record + 5u))
-	{
-		*p_list_offset = list_offset;
-		*p_count = count;
-		*p_object = object;
-		return;
-	}
-	bridge_number = 0u;
-	plank_count_var = bridge_0_plank_count_ADDRESS;
-	if (bridge_0_plank_count != 0u)
-	{
-		bridge_number = 1u;
-		plank_count_var = bridge_1_plank_count_ADDRESS;
-		if (bridge_1_plank_count != 0u)
+		spawn_group_leader(record, &spawned, &object);
+		if (spawned == 0u)
 		{
 			*p_list_offset = list_offset;
 			*p_count = count;
 			*p_object = object;
 			return;
 		}
+		group_spawn_cursor_2 += 0xEu;
 	}
+}
+
+void spawn_object_groups_2_pick_bridge(uint32_t record, uint32_t *p_list_offset, uint32_t *p_count, uint32_t *p_object)
+{
+	uint32_t list_offset = *p_list_offset;
+	uint32_t count = *p_count;
+	uint32_t object = *p_object;
+	uint8_t bridge_number = 0;
+	uint32_t plank_count_var = 0;
+
+	if (free_object_stack < (int16_t)ROM16(record + 5u))
+		return;
+	bridge_number = 0u;
+	plank_count_var = bridge_0_plank_count_ADDRESS;
+	if (bridge_0_plank_count == 0u)
+	{
+		group_bridge_number = bridge_number;
+		mem_write16(plank_count_var, mem_read16(plank_count_var) + 1u);
+		group_member_number = 0u;
+		spawn_object_groups_2_build_group(record, plank_count_var, &list_offset, &count, &object);
+		*p_list_offset = list_offset;
+		*p_count = count;
+		*p_object = object;
+		return;
+	}
+	bridge_number = 1u;
+	plank_count_var = bridge_1_plank_count_ADDRESS;
+	if (bridge_1_plank_count != 0u)
+		return;
 	group_bridge_number = bridge_number;
 	mem_write16(plank_count_var, mem_read16(plank_count_var) + 1u);
 	group_member_number = 0u;
-spawn_object_groups_2_build_group:
-	if ((uint16_t)(scroll_position - ROM16(record - 3u)) < 0x100u)
+	spawn_object_groups_2_build_group(record, plank_count_var, &list_offset, &count, &object);
+	*p_list_offset = list_offset;
+	*p_count = count;
+	*p_object = object;
+}
+
+void spawn_object_groups_2_build_group(uint32_t record, uint32_t plank_count_var, uint32_t *p_list_offset, uint32_t *p_count, uint32_t *p_object)
+{
+	uint32_t list_offset = *p_list_offset;
+	uint32_t count = *p_count;
+	uint32_t object = *p_object;
+	uint32_t floor_block_record = 0, floor_type_record = 0, ignored = 0, last_plank_var = 0, member_record = 0, odd_member_animation = 0, slot_cursor = 0;
+	uint8_t slot_taken = 0;
+	uint16_t members_left = 0;
+
+	if ((uint16_t)(scroll_position - ROM16(record - 3u)) >= 0x100u)
 	{
-		group_leader = group_leaders[ROM8(record)];
-		record++;
-		group_takes_slot = ROM8(record);
-		record += 2u;
-		group_floor_block = ROM32(record);
-		record += 4u;
-		group_member_count = ROM16(record);
-		group_previous_member = 0xFFFFu;
-		mem_write16(plank_count_var, mem_read16(plank_count_var) + group_member_count);
-		record += 2u;
-		group_step_x = ROM16(record);
-		record += 2u;
-		group_step_y = ROM16(record);
-		record += 2u;
-		group_direction = ROM16(record);
-		record += 2u;
-		group_member_x = ROM16(record);
-		record += 2u;
-		group_member_y = ROM16(record);
-		group_record = ROM16(record + 2u);
-		if (group_takes_slot != 0u)
-		{
-			slot_cursor = group_slots_ADDRESS;
-			count = 0x40u;
-			do
-			{
-				slot_taken = mem_read8(slot_cursor);
-				slot_cursor++;
-				count--;
-			} while ((count != 0u) & (slot_taken != 0u));
-			mem_write8(slot_cursor - 1u, 1u);
-			count = (count & ~0xFFFFu) | (uint16_t)(count + 1u);
-			group_slot_index = 0x40u - count;
-		}
+		group_spawn_cursor_2 += 0x18u;
+		return;
+	}
+	group_leader = group_leaders[ROM8(record)];
+	record++;
+	group_takes_slot = ROM8(record);
+	record += 2u;
+	group_floor_block = ROM32(record);
+	record += 4u;
+	group_member_count = ROM16(record);
+	group_previous_member = 0xFFFFu;
+	mem_write16(plank_count_var, mem_read16(plank_count_var) + group_member_count);
+	record += 2u;
+	group_step_x = ROM16(record);
+	record += 2u;
+	group_step_y = ROM16(record);
+	record += 2u;
+	group_direction = ROM16(record);
+	record += 2u;
+	group_member_x = ROM16(record);
+	record += 2u;
+	group_member_y = ROM16(record);
+	group_record = ROM16(record + 2u);
+	if (group_takes_slot != 0u)
+	{
+		slot_cursor = group_slots_ADDRESS;
+		count = 0x40u;
 		do
 		{
-			allocate_object_outside_loop(&ignored, &object);
-			OBJECT(object)->x_int = group_member_x;
-			OBJECT(object)->x_fraction = 0u;
-			group_member_x += group_step_x;
-			OBJECT(object)->y_int = group_member_y;
-			OBJECT(object)->y_fraction = 0u;
-			group_member_y += group_step_y;
-			member_record = group_record;
-			OBJECT(object)->kind = member_record;
-			member_record += 0x93F59u;
-			OBJECT(object)->sprite_flags = STAGE_OBJECT_RECORD_2(member_record)->sprite_flags;
-			member_record += 2u;
-			OBJECT(object)->sprite_frame = STAGE_OBJECT_RECORD_2(member_record - 0x2u)->sprite_frame;
-			member_record += 2u;
-			OBJECT(object)->sprite_palette = STAGE_OBJECT_RECORD_2(member_record - 0x4u)->sprite_palette;
-			member_record += 2u;
-			OBJECT(object)->handler = STAGE_OBJECT_RECORD_2(member_record - 0x6u)->handler;
-			member_record += 4u;
-			OBJECT(object)->animation = STAGE_OBJECT_RECORD_2(member_record - 0xAu)->animation;
-			member_record += 4u;
-			list_offset = STAGE_OBJECT_RECORD_2(member_record - 0xEu)->odd_member_animation;
-			member_record += 4u;
-			if ((group_member_number & 1u) != 0u)
-				OBJECT(object)->animation = list_offset;
-			OBJECT(object)->hitbox_size_x = STAGE_OBJECT_RECORD_2(member_record - 0x12u)->hitbox_size_x;
-			member_record += 2u;
-			OBJECT(object)->hitbox_size_y = STAGE_OBJECT_RECORD_2(member_record - 0x14u)->hitbox_size_y;
-			OBJECT(object)->var_96 = STAGE_OBJECT_RECORD_2(member_record - 0x14u)->depth_offset;
-			OBJECT(object)->sprite_offset_x = 0x2E;
-			OBJECT(object)->sprite_offset_y = 0x11;
-			OBJECT(object)->member_state = 0u;
-			group_member_number++;
-			OBJECT(object)->member_number = group_member_number;
-			OBJECT(object)->floor_block = group_floor_block;
-			OBJECT(object)->spawn_arg_2_high = group_bridge_number;
-			OBJECT(object)->direction = group_direction;
-			OBJECT(object)->parent = group_leader;
-			OBJECT(object)->var_9A = group_previous_member;
-			group_previous_member = object;
-			floor_block_record = floor_blocks + 2u + OBJECT(object)->floor_block;
-			OBJECT(object)->z_int = FLOOR_BLOCK(floor_block_record)->height;
-			OBJECT(object)->z_fraction = 0u;
-			OBJECT(object)->floor_z = OBJECT(object)->z;
-			OBJECT(object)->speed_x = OBJECT(object)->z;
-			OBJECT(object)->floor_slope = FLOOR_BLOCK(floor_block_record)->slope;
-			floor_type_record = floor_types_ADDRESS + FLOOR_BLOCK(floor_block_record)->type_index * 4u;
-			OBJECT(object)->floor_type = ROM8(floor_type_record);
-			OBJECT(object)->floor_attribute = ROM16(floor_type_record + 2u);
-			OBJECT(object)->flags = 0u;
-			OBJECT(object)->spawn_arg_2_low = 0u;
-			OBJECT(object)->var_8A = group_slot_index;
-			OBJECT(object)->spawn_arg_1_low = group_takes_slot;
-			members_left = group_member_count;
-			group_member_count = members_left - 1u;
-		} while ((int16_t)members_left > 1);
-		OBJECT(object)->spawn_arg_2_low = 0xFFu;
-		last_plank_var = bridge_0_last_plank_ADDRESS;
-		if (group_bridge_number != 0u)
-			last_plank_var = bridge_1_last_plank_ADDRESS;
-		mem_write16(last_plank_var, object);
+			slot_taken = mem_read8(slot_cursor);
+			slot_cursor++;
+			count--;
+		} while ((count != 0u) & (slot_taken != 0u));
+		mem_write8(slot_cursor - 1u, 1u);
+		count = (count & ~0xFFFFu) | (uint16_t)(count + 1u);
+		group_slot_index = 0x40u - count;
 	}
+	do
+	{
+		allocate_object_outside_loop(&ignored, &object);
+		OBJECT(object)->x_int = group_member_x;
+		OBJECT(object)->x_fraction = 0u;
+		group_member_x += group_step_x;
+		OBJECT(object)->y_int = group_member_y;
+		OBJECT(object)->y_fraction = 0u;
+		group_member_y += group_step_y;
+		member_record = group_record;
+		OBJECT(object)->kind = member_record;
+		member_record += 0x93F59u;
+		OBJECT(object)->sprite_flags = STAGE_OBJECT_RECORD_2(member_record)->sprite_flags;
+		member_record += 2u;
+		OBJECT(object)->sprite_frame = STAGE_OBJECT_RECORD_2(member_record - 0x2u)->sprite_frame;
+		member_record += 2u;
+		OBJECT(object)->sprite_palette = STAGE_OBJECT_RECORD_2(member_record - 0x4u)->sprite_palette;
+		member_record += 2u;
+		OBJECT(object)->handler = STAGE_OBJECT_RECORD_2(member_record - 0x6u)->handler;
+		member_record += 4u;
+		OBJECT(object)->animation = STAGE_OBJECT_RECORD_2(member_record - 0xAu)->animation;
+		member_record += 4u;
+		odd_member_animation = STAGE_OBJECT_RECORD_2(member_record - 0xEu)->odd_member_animation;
+		member_record += 4u;
+		if ((group_member_number & 1u) != 0u)
+			OBJECT(object)->animation = odd_member_animation;
+		OBJECT(object)->hitbox_size_x = STAGE_OBJECT_RECORD_2(member_record - 0x12u)->hitbox_size_x;
+		member_record += 2u;
+		OBJECT(object)->hitbox_size_y = STAGE_OBJECT_RECORD_2(member_record - 0x14u)->hitbox_size_y;
+		OBJECT(object)->var_96 = STAGE_OBJECT_RECORD_2(member_record - 0x14u)->depth_offset;
+		OBJECT(object)->sprite_offset_x = 0x2E;
+		OBJECT(object)->sprite_offset_y = 0x11;
+		OBJECT(object)->member_state = 0u;
+		group_member_number++;
+		OBJECT(object)->member_number = group_member_number;
+		OBJECT(object)->floor_block = group_floor_block;
+		OBJECT(object)->spawn_arg_2_high = group_bridge_number;
+		OBJECT(object)->direction = group_direction;
+		OBJECT(object)->parent = group_leader;
+		OBJECT(object)->var_9A = group_previous_member;
+		group_previous_member = object;
+		floor_block_record = floor_blocks + 2u + OBJECT(object)->floor_block;
+		OBJECT(object)->z_int = FLOOR_BLOCK(floor_block_record)->height;
+		OBJECT(object)->z_fraction = 0u;
+		OBJECT(object)->floor_z = OBJECT(object)->z;
+		OBJECT(object)->speed_x = OBJECT(object)->z;
+		OBJECT(object)->floor_slope = FLOOR_BLOCK(floor_block_record)->slope;
+		floor_type_record = floor_types_ADDRESS + FLOOR_BLOCK(floor_block_record)->type_index * 4u;
+		OBJECT(object)->floor_type = ROM8(floor_type_record);
+		OBJECT(object)->floor_attribute = ROM16(floor_type_record + 2u);
+		OBJECT(object)->flags = 0u;
+		OBJECT(object)->spawn_arg_2_low = 0u;
+		OBJECT(object)->var_8A = group_slot_index;
+		OBJECT(object)->spawn_arg_1_low = group_takes_slot;
+		members_left = group_member_count;
+		group_member_count = members_left - 1u;
+	} while ((int16_t)members_left > 1);
+	OBJECT(object)->spawn_arg_2_low = 0xFFu;
+	last_plank_var = bridge_0_last_plank_ADDRESS;
+	if (group_bridge_number != 0u)
+		last_plank_var = bridge_1_last_plank_ADDRESS;
+	mem_write16(last_plank_var, object);
 	group_spawn_cursor_2 += 0x18u;
-	*p_list_offset = list_offset;
+	*p_list_offset = odd_member_animation;
 	*p_count = count;
 	*p_object = object;
 }

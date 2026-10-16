@@ -29,92 +29,92 @@ void start_ranking_entry(void)
 		r14 = r14 - 1u;
 		record += 8u;
 	} while (r14 != 0u);
-	if ((int8_t)r14 < (int8_t)ranking_size)
+	if ((int8_t)ranking_size <= (int8_t)r14)
 	{
 		player = OBJECT(object_cursor)->player;
 		ranking_entry_players |= shl32(1u, (int)(player));
 		block = ranking_entry_blocks[player];
-		next_block = (block & ~0xFFFFu) | (uint16_t)(block + 0xA0u);
-		OBJECT(block)->child = next_block;
-		object = block;
-		init_object(object);
-		pieces_left = 4u;
-		do
-		{
-			piece = next_block;
-			next_block = (next_block & ~0xFFFFu) | (uint16_t)(next_block + 0x30u);
-			OBJECT(piece)->child = next_block;
-			piece_copy = piece;
-			init_object_2(piece_copy);
-			pieces_left--;
-		} while (pieces_left != 0u);
-		OBJECT(piece)->child = 0xFFFFu;
-		OBJECT(block)->ranking_entry.player_block = current_player;
-		OBJECT(block)->kind = player;
-		entry_x_index = player;
+		x_index = OBJECT(object_cursor)->player;
 		if ((cabinet_config & 1u) == 0u)
-			entry_x_index += 3u;
-		OBJECT(block)->screen_x = ranking_entry_x[entry_x_index];
-		OBJECT(block)->screen_y = 0xD0;
-		OBJECT(block)->ranking_entry.trackball = ranking_entry_trackballs[player];
-		OBJECT(block)->ranking_entry.button_bit = ranking_entry_buttons[player];
-		OBJECT(block)->ranking_entry.time_left = 0x4B0u;
-		OBJECT(block)->ranking_entry.rank = r14;
-		OBJECT(block)->ranking_entry.character = OBJECT(current_object)->kind;
-		OBJECT(block)->ranking_entry.rings = PLAYER(current_player)->rings;
-		OBJECT(block)->ranking_entry.stages_reached = PLAYER(current_player)->stages_reached;
-		OBJECT(block)->handler = 0u;
-		previous_block = (piece_copy & ~0xFFFFu) | (uint16_t)block;
-		block = LINKED(block, OBJECT(block)->child);
-		OBJECT(block)->sprite_frame = 0xA238u;
-		OBJECT(block)->screen_x = OBJECT(previous_block)->screen_x;
-		OBJECT(block)->screen_y = OBJECT(previous_block)->screen_y;
-		OBJECT(block)->screen_x += 0xDu;
-		OBJECT(block)->sprite_palette = 0x8AD0u;
-		AS8(OBJECT(block)->projected_x) = 0x80u;
-		previous_block = (previous_block & ~0xFFFFu) | (uint16_t)block;
-		block = LINKED(block, OBJECT(block)->child);
-		OBJECT(block)->sprite_frame = 0xA238u;
-		OBJECT(block)->screen_x = OBJECT(previous_block)->screen_x;
-		OBJECT(block)->screen_y = OBJECT(previous_block)->screen_y;
-		OBJECT(block)->screen_x += 0xDu;
-		OBJECT(block)->sprite_palette = 0x8AD0u;
-		AS8(OBJECT(block)->projected_x) = 0x80u;
-		previous_block = (previous_block & ~0xFFFFu) | (uint16_t)block;
-		block = LINKED(block, OBJECT(block)->child);
-		OBJECT(block)->sprite_frame = 0xA238u;
-		OBJECT(block)->screen_x = OBJECT(previous_block)->screen_x;
-		OBJECT(block)->screen_y = OBJECT(previous_block)->screen_y;
-		OBJECT(block)->screen_x += 0xDu;
-		OBJECT(block)->sprite_palette = 0x8AD0u;
-		AS8(OBJECT(block)->projected_x) = 0x80u;
-		previous_block = (previous_block & ~0xFFFFu) | (uint16_t)block;
-		block = LINKED(block, OBJECT(block)->child);
-		OBJECT(block)->screen_x = OBJECT(previous_block)->screen_x;
-		OBJECT(block)->screen_y = OBJECT(previous_block)->screen_y;
-		OBJECT(block)->screen_x += 0xDu;
-		OBJECT(block)->piece_frame = 0x22;
-		OBJECT(block)->sprite_frame = 0xA230u;
-		OBJECT(block)->sprite_palette = 0x8AD0u;
+			x_index += 3u;
+		OBJECT(block)->screen_x = ranking_entry_x[x_index];
+		OBJECT(block)->ranking_entry.out_of_rank_timer = 0x78u;
+		OBJECT(block)->ranking_entry.player_block = current_player;
+		OBJECT(block)->handler = 1u;
 		return;
 	}
 	player = OBJECT(object_cursor)->player;
 	ranking_entry_players |= shl32(1u, (int)(player));
 	block = ranking_entry_blocks[player];
-	x_index = OBJECT(object_cursor)->player;
-	if ((cabinet_config & 1u) == 0u)
-		x_index += 3u;
-	OBJECT(block)->screen_x = ranking_entry_x[x_index];
-	OBJECT(block)->ranking_entry.out_of_rank_timer = 0x78u;
+	next_block = (block & ~0xFFFFu) | (uint16_t)(block + 0xA0u);
+	OBJECT(block)->child = next_block;
+	object = block;
+	init_object(object);
+	pieces_left = 4u;
+	do
+	{
+		piece = next_block;
+		next_block = (next_block & ~0xFFFFu) | (uint16_t)(next_block + 0x30u);
+		OBJECT(piece)->child = next_block;
+		piece_copy = piece;
+		init_object_2(piece_copy);
+		pieces_left--;
+	} while (pieces_left != 0u);
+	OBJECT(piece)->child = 0xFFFFu;
 	OBJECT(block)->ranking_entry.player_block = current_player;
-	OBJECT(block)->handler = 1u;
+	OBJECT(block)->kind = player;
+	entry_x_index = player;
+	if ((cabinet_config & 1u) == 0u)
+		entry_x_index += 3u;
+	OBJECT(block)->screen_x = ranking_entry_x[entry_x_index];
+	OBJECT(block)->screen_y = 0xD0;
+	OBJECT(block)->ranking_entry.trackball = ranking_entry_trackballs[player];
+	OBJECT(block)->ranking_entry.button_bit = ranking_entry_buttons[player];
+	OBJECT(block)->ranking_entry.time_left = 0x4B0u;
+	OBJECT(block)->ranking_entry.rank = r14;
+	OBJECT(block)->ranking_entry.character = OBJECT(current_object)->kind;
+	OBJECT(block)->ranking_entry.rings = PLAYER(current_player)->rings;
+	OBJECT(block)->ranking_entry.stages_reached = PLAYER(current_player)->stages_reached;
+	OBJECT(block)->handler = 0u;
+	previous_block = (piece_copy & ~0xFFFFu) | (uint16_t)block;
+	block = LINKED(block, OBJECT(block)->child);
+	OBJECT(block)->sprite_frame = 0xA238u;
+	OBJECT(block)->screen_x = OBJECT(previous_block)->screen_x;
+	OBJECT(block)->screen_y = OBJECT(previous_block)->screen_y;
+	OBJECT(block)->screen_x += 0xDu;
+	OBJECT(block)->sprite_palette = 0x8AD0u;
+	AS8(OBJECT(block)->projected_x) = 0x80u;
+	previous_block = (previous_block & ~0xFFFFu) | (uint16_t)block;
+	block = LINKED(block, OBJECT(block)->child);
+	OBJECT(block)->sprite_frame = 0xA238u;
+	OBJECT(block)->screen_x = OBJECT(previous_block)->screen_x;
+	OBJECT(block)->screen_y = OBJECT(previous_block)->screen_y;
+	OBJECT(block)->screen_x += 0xDu;
+	OBJECT(block)->sprite_palette = 0x8AD0u;
+	AS8(OBJECT(block)->projected_x) = 0x80u;
+	previous_block = (previous_block & ~0xFFFFu) | (uint16_t)block;
+	block = LINKED(block, OBJECT(block)->child);
+	OBJECT(block)->sprite_frame = 0xA238u;
+	OBJECT(block)->screen_x = OBJECT(previous_block)->screen_x;
+	OBJECT(block)->screen_y = OBJECT(previous_block)->screen_y;
+	OBJECT(block)->screen_x += 0xDu;
+	OBJECT(block)->sprite_palette = 0x8AD0u;
+	AS8(OBJECT(block)->projected_x) = 0x80u;
+	previous_block = (previous_block & ~0xFFFFu) | (uint16_t)block;
+	block = LINKED(block, OBJECT(block)->child);
+	OBJECT(block)->screen_x = OBJECT(previous_block)->screen_x;
+	OBJECT(block)->screen_y = OBJECT(previous_block)->screen_y;
+	OBJECT(block)->screen_x += 0xDu;
+	OBJECT(block)->piece_frame = 0x22;
+	OBJECT(block)->sprite_frame = 0xA230u;
+	OBJECT(block)->sprite_palette = 0x8AD0u;
 }
 
 void enter_ranking_initials(uint32_t jump_offset)
 {
-	uint16_t abs_dx = 0, abs_dy = 0, dx = 0, dy = 0, rings = 0, y = 0;
-	uint32_t blink_timer = 0, button_bit = 0, copy_dest = 0, copy_source = 0, count = 0, crc = 0, data = 0, dest = 0, ignored = 0, initials = 0, letters_left = 0, links_left = 0, object = 0, palette = 0, player = 0, read_cursor = 0, record_initials = 0, record_rings = 0, records_left = 0, scale = 0, screen_x = 0, slot = 0, text = 0, text_x = 0, trackball = 0, x = 0;
-	uint16_t out_of_rank_timer = 0, time_left = 0, slot_position = 0, letter_position = 0, direction = 0;
+	uint16_t y = 0;
+	uint32_t blink_timer = 0, button_bit = 0, palette = 0, player = 0, scale = 0, text = 0, x = 0;
+	uint16_t out_of_rank_timer = 0;
 
 	player = OBJECT(object_cursor)->player;
 	if ((ranking_entry_players & shl32(1u, (int)(player))) == 0u)
@@ -146,192 +146,208 @@ void enter_ranking_initials(uint32_t jump_offset)
 	button_bit = OBJECT(current_object)->ranking_entry.button_bit;
 	if ((inputs_pressed & shl32(1u, (int)(button_bit))) == 0u)
 	{
-	enter_ranking_initials_count_down:
-		time_left = OBJECT(current_object)->ranking_entry.time_left;
-		OBJECT(current_object)->ranking_entry.time_left = time_left - 1u;
-		if (time_left != 0u)
+		enter_ranking_initials_count_down(button_bit);
+		return;
+	}
+	if (OBJECT(current_object)->spawn_arg_1_high == 3u)
+	{
+		enter_ranking_initials_save_record();
+		return;
+	}
+	OBJECT(current_object)->spawn_arg_1_high++;
+	if ((int8_t)OBJECT(current_object)->spawn_arg_1_high <= 3)
+	{
+		enter_ranking_initials_count_down(button_bit);
+		return;
+	}
+	OBJECT(current_object)->spawn_arg_1_high = 3u;
+	enter_ranking_initials_count_down(button_bit);
+}
+
+void enter_ranking_initials_count_down(uint32_t button_bit)
+{
+	uint16_t abs_dx = 0, abs_dy = 0, dx = 0, dy = 0, y = 0;
+	uint32_t countdown_x = 0, letters_left = 0, links_left = 0, object = 0, palette = 0, scale = 0, slot = 0, text = 0, text_x = 0, trackball = 0;
+	uint16_t time_left = 0, slot_position = 0, letter_position = 0, direction = 0;
+
+	time_left = OBJECT(current_object)->ranking_entry.time_left;
+	OBJECT(current_object)->ranking_entry.time_left = time_left - 1u;
+	if (time_left == 0u)
+	{
+		enter_ranking_initials_save_record();
+		return;
+	}
+	countdown_x = (button_bit & ~0xFFFFu) | (uint16_t)OBJECT(current_object)->screen_x;
+	y = (uint16_t)(OBJECT(current_object)->screen_y - 0x20u);
+	palette = 0x8AD0u;
+	scale = 0x100u;
+	text = countdown_second_texts_ADDRESS + (int32_t)OBJECT(current_object)->ranking_entry.time_left / 0x3C * 3u;
+	queue_string_at(countdown_x, y, &palette, &scale, &text);
+	text_x = (countdown_x & ~0xFFFFu) | (uint16_t)OBJECT(current_object)->screen_x;
+	text_x = (text_x & ~0xFFFFu) | (uint16_t)(text_x + 0x20u);
+	y = (uint16_t)(OBJECT(current_object)->screen_y - 0x20u);
+	palette = 0x8AD0u;
+	scale = 0x100u;
+	text = ranking_rank_texts_ADDRESS + OBJECT(current_object)->ranking_entry.rank * 0xAu;
+	queue_string_at(text_x, y, &palette, &scale, &text);
+	trackball = OBJECT(current_object)->ranking_entry.trackball;
+	abs_dx = (uint16_t)TRACKBALL_MOTION(trackball)->x;
+	dx = (uint16_t)abs_dx;
+	trackball += 2u;
+	if ((int16_t)abs_dx < 0)
+		abs_dx = (uint16_t)(0u - abs_dx);
+	abs_dy = (uint16_t)TRACKBALL_MOTION(trackball - 0x2u)->y;
+	dy = (uint16_t)abs_dy;
+	if ((int16_t)abs_dy < 0)
+		abs_dy = (uint16_t)(0u - abs_dy);
+	if ((int16_t)abs_dy < (int16_t)abs_dx)
+	{
+		slot_position = OBJECT(current_object)->spawn_arg_1 + dx;
+		OBJECT(current_object)->spawn_arg_1 = slot_position;
+		if ((int16_t)slot_position < 0)
+			OBJECT(current_object)->spawn_arg_1 = 0u;
+		if (OBJECT(current_object)->spawn_arg_2_high != OBJECT(current_object)->spawn_arg_1_high)
 		{
-			screen_x = (uint16_t)OBJECT(current_object)->screen_x;
-			y = (uint16_t)(OBJECT(current_object)->screen_y - 0x20u);
-			palette = 0x8AD0u;
-			scale = 0x100u;
-			text = countdown_second_texts_ADDRESS + (int32_t)OBJECT(current_object)->ranking_entry.time_left / 0x3C * 3u;
-			queue_string_at(screen_x, y, &palette, &scale, &text);
-			text_x = (uint16_t)OBJECT(current_object)->screen_x;
-			text_x = (uint16_t)(text_x + 0x20u);
-			y = (uint16_t)(OBJECT(current_object)->screen_y - 0x20u);
-			palette = 0x8AD0u;
-			scale = 0x100u;
-			text = ranking_rank_texts_ADDRESS + OBJECT(current_object)->ranking_entry.rank * 0xAu;
-			queue_string_at(text_x, y, &palette, &scale, &text);
-			trackball = OBJECT(current_object)->ranking_entry.trackball;
-			abs_dx = (uint16_t)TRACKBALL_MOTION(trackball)->x;
-			dx = (uint16_t)abs_dx;
-			trackball += 2u;
-			if ((int16_t)abs_dx < 0)
-				abs_dx = (uint16_t)(0u - abs_dx);
-			abs_dy = (uint16_t)TRACKBALL_MOTION(trackball - 0x2u)->y;
-			dy = (uint16_t)abs_dy;
-			if ((int16_t)abs_dy < 0)
-				abs_dy = (uint16_t)(0u - abs_dy);
-			if ((int16_t)abs_dy < (int16_t)abs_dx)
-			{
-				slot_position = OBJECT(current_object)->spawn_arg_1 + dx;
-				OBJECT(current_object)->spawn_arg_1 = slot_position;
-				if ((int16_t)slot_position < 0)
-					OBJECT(current_object)->spawn_arg_1 = 0u;
-				if (OBJECT(current_object)->spawn_arg_2_high != OBJECT(current_object)->spawn_arg_1_high)
-				{
-					OBJECT(current_object)->spawn_arg_1_low = 0x80u;
-					OBJECT(current_object)->spawn_arg_2 = OBJECT(current_object)->spawn_arg_1;
-				}
-			}
-			links_left = OBJECT(current_object)->spawn_arg_1_high;
-			slot = links_left;
-			links_left = (uint8_t)(links_left + 1u);
-			if ((int8_t)links_left > 4)
-			{
-				OBJECT(current_object)->spawn_arg_1_high = 3u;
-				links_left = 4u;
-				slot = 3u;
-			}
-			do
-			{
-				current_object = LINKED(current_object, OBJECT(current_object)->child);
-				links_left--;
-			} while (links_left != 0u);
-			OBJECT(current_object)->piece_value = 1u;
-			if (slot != 3u && dy != 0u)
-			{
-				letter_position = OBJECT(current_object)->projected_x + dy;
-				OBJECT(current_object)->projected_x = letter_position;
-				if ((int16_t)letter_position < 0)
-					AT16(OBJECT(current_object)->projected_x, 1) = 0x2Bu;
-				if ((int8_t)(uint8_t)(OBJECT(current_object)->projected_x >> 8u) > 0x2B)
-					AT8(OBJECT(current_object)->projected_x, 1) = 0u;
-				if ((uint8_t)OBJECT(current_object)->piece_frame != (uint8_t)(OBJECT(current_object)->projected_x >> 8u))
-					AS8(OBJECT(current_object)->projected_x) = 0x80u;
-				OBJECT(current_object)->projected_y_fraction = OBJECT(current_object)->projected_x;
-				mem_write8(ranking_initial_fields[slot] + r14, (uint8_t)(OBJECT(current_object)->projected_x >> 8u));
-			}
-			current_object = ranking_entry_blocks[OBJECT(object_cursor)->player];
-			letters_left = 3u;
-			do
-			{
-				current_object = LINKED(current_object, OBJECT(current_object)->child);
-				if (OBJECT(current_object)->piece_value == 0u)
-				{
-				enter_ranking_initials_draw_letter:
-					queue_sprite_on_top();
-				}
-				else
-				{
-					OBJECT(current_object)->piece_value = 0u;
-					OBJECT(current_object)->sprite_frame = ranking_letter_sprites[(uint8_t)(OBJECT(current_object)->projected_x >> 8u)];
-					OBJECT(current_object)->direction++;
-					if ((OBJECT(current_object)->direction & 3u) != 0u)
-						goto enter_ranking_initials_draw_letter;
-				}
-				object = current_object;
-				letters_left--;
-			} while (letters_left != 0u);
-			current_object = LINKED(current_object, OBJECT(current_object)->child);
-			if (OBJECT(current_object)->piece_value == 0u)
-			{
-				OBJECT(current_object)->screen_x = OBJECT(object)->screen_x;
-				OBJECT(current_object)->screen_y = OBJECT(object)->screen_y;
-				OBJECT(current_object)->screen_x += 0x18u;
+			OBJECT(current_object)->spawn_arg_1_low = 0x80u;
+			OBJECT(current_object)->spawn_arg_2 = OBJECT(current_object)->spawn_arg_1;
+		}
+	}
+	links_left = OBJECT(current_object)->spawn_arg_1_high;
+	slot = links_left;
+	links_left = (uint8_t)(links_left + 1u);
+	if ((int8_t)links_left > 4)
+	{
+		OBJECT(current_object)->spawn_arg_1_high = 3u;
+		links_left = 4u;
+		slot = 3u;
+	}
+	do
+	{
+		current_object = LINKED(current_object, OBJECT(current_object)->child);
+		links_left--;
+	} while (links_left != 0u);
+	OBJECT(current_object)->piece_value = 1u;
+	if (slot != 3u && dy != 0u)
+	{
+		letter_position = OBJECT(current_object)->projected_x + dy;
+		OBJECT(current_object)->projected_x = letter_position;
+		if ((int16_t)letter_position < 0)
+			AT16(OBJECT(current_object)->projected_x, 1) = 0x2Bu;
+		if ((int8_t)(uint8_t)(OBJECT(current_object)->projected_x >> 8u) > 0x2B)
+			AT8(OBJECT(current_object)->projected_x, 1) = 0u;
+		if ((uint8_t)OBJECT(current_object)->piece_frame != (uint8_t)(OBJECT(current_object)->projected_x >> 8u))
+			AS8(OBJECT(current_object)->projected_x) = 0x80u;
+		OBJECT(current_object)->projected_y_fraction = OBJECT(current_object)->projected_x;
+		mem_write8(ranking_initial_fields[slot] + r14, (uint8_t)(OBJECT(current_object)->projected_x >> 8u));
+	}
+	current_object = ranking_entry_blocks[OBJECT(object_cursor)->player];
+	letters_left = 3u;
+	do
+	{
+		current_object = LINKED(current_object, OBJECT(current_object)->child);
+		if (OBJECT(current_object)->piece_value == 0u)
+			queue_sprite_on_top();
+		else
+		{
+			OBJECT(current_object)->piece_value = 0u;
+			OBJECT(current_object)->sprite_frame = ranking_letter_sprites[(uint8_t)(OBJECT(current_object)->projected_x >> 8u)];
+			OBJECT(current_object)->direction++;
+			if ((OBJECT(current_object)->direction & 3u) != 0u)
 				queue_sprite_on_top();
-			}
-			else
-			{
-				OBJECT(current_object)->piece_value = 0u;
-				direction = OBJECT(current_object)->direction;
-				OBJECT(current_object)->direction = direction - 1u;
-				if (direction != 0u)
-				{
-					OBJECT(current_object)->screen_x = OBJECT(object)->screen_x;
-					OBJECT(current_object)->screen_y = OBJECT(object)->screen_y;
-					OBJECT(current_object)->screen_x += 0x18u;
-					queue_sprite_on_top();
-					current_object = object_cursor;
-					return;
-				}
-				OBJECT(current_object)->direction = 3u;
-			}
-			current_object = object_cursor;
-			return;
 		}
-	enter_ranking_initials_save_record:
-		PLAYER(OBJECT(current_object)->ranking_entry.player_block)->game_over_done = 1u;
-		rings = (uint16_t)OBJECT(current_object)->ranking_entry.rings;
-		read_cursor = ranking_ADDRESS;
-		if ((int16_t)rings < (int16_t)ranking)
+		object = current_object;
+		letters_left--;
+	} while (letters_left != 0u);
+	current_object = LINKED(current_object, OBJECT(current_object)->child);
+	if (OBJECT(current_object)->piece_value != 0u)
+	{
+		OBJECT(current_object)->piece_value = 0u;
+		direction = OBJECT(current_object)->direction;
+		OBJECT(current_object)->direction = direction - 1u;
+		if (direction != 0u)
 		{
-			current_object = object_cursor;
-			ranking_entry_players &= ~shl32(1u, (int)(OBJECT(object_cursor)->player));
-			return;
+			OBJECT(current_object)->screen_x = OBJECT(object)->screen_x;
+			OBJECT(current_object)->screen_y = OBJECT(object)->screen_y;
+			OBJECT(current_object)->screen_x += 0x18u;
+			queue_sprite_on_top();
 		}
-		dest = read_cursor;
-		r14 = 0xEu;
-		read_cursor += 8u;
-		do
-		{
-			record_rings = AS32(RANKING_RECORD(read_cursor)->rings);
-			read_cursor += 4u;
-			if ((int16_t)rings < (int16_t)record_rings)
-				break;
-			record_initials = RANKING_RECORD(read_cursor - 0x4u)->initials;
-			AS32(RANKING_RECORD(dest)->rings) = record_rings;
-			dest += 4u;
-			RANKING_RECORD(dest - 0x4u)->initials = record_initials;
-			r14 = r14 - 1u;
-			read_cursor += 4u;
-			dest += 4u;
-		} while (r14 != 0u);
-		initials = OBJECT(current_object)->ranking_entry.initials;
-		if (initials == 0x170412u || initials == 0x171717u || initials == 0x172B17u || initials == 0x2B1717u)
-			OBJECT(current_object)->ranking_entry.initials = 0xA0013u;
-		RANKING_RECORD(dest)->rings = OBJECT(current_object)->ranking_entry.rings;
-		dest += 2u;
-		RANKING_RECORD(dest - 0x2u)->character = OBJECT(current_object)->ranking_entry.character;
-		dest++;
-		RANKING_RECORD(dest - 0x3u)->stages_reached = OBJECT(current_object)->ranking_entry.stages_reached;
-		dest++;
-		RANKING_RECORD(dest - 0x4u)->first_initial = OBJECT(current_object)->ranking_entry.first_initial;
-		dest++;
-		RANKING_RECORD(dest - 0x5u)->second_initial = OBJECT(current_object)->ranking_entry.second_initial;
-		dest++;
-		RANKING_RECORD(dest - 0x6u)->third_initial = OBJECT(current_object)->ranking_entry.third_initial;
-		RANKING_RECORD(dest - 0x6u)->initials_pad = OBJECT(current_object)->ranking_entry.initials_pad;
-		copy_source = ranking_ADDRESS;
-		copy_dest = saved_ranking;
-		records_left = 0xFu;
-		do
-		{
-			mem_write32(copy_dest, AS32(RANKING_RECORD(copy_source)->rings));
-			copy_source += 4u;
-			copy_dest += 4u;
-			mem_write32(copy_dest, RANKING_RECORD(copy_source - 0x4u)->initials);
-			records_left--;
-			copy_source += 4u;
-			copy_dest += 4u;
-		} while (records_left != 0u);
-		data = ranking_ADDRESS;
-		count = 0x78u;
-		compute_crc16(count, &crc, &data, &ignored);
-		mem_write16(ranking_checksum, crc);
+		else
+			OBJECT(current_object)->direction = 3u;
+		current_object = object_cursor;
+		return;
+	}
+	OBJECT(current_object)->screen_x = OBJECT(object)->screen_x;
+	OBJECT(current_object)->screen_y = OBJECT(object)->screen_y;
+	OBJECT(current_object)->screen_x += 0x18u;
+	queue_sprite_on_top();
+	current_object = object_cursor;
+}
+
+void enter_ranking_initials_save_record(void)
+{
+	uint16_t rings = 0;
+	uint32_t copy_dest = 0, copy_source = 0, count = 0, crc = 0, data = 0, dest = 0, ignored = 0, initials = 0, read_cursor = 0, record_initials = 0, record_rings = 0, records_left = 0;
+
+	PLAYER(OBJECT(current_object)->ranking_entry.player_block)->game_over_done = 1u;
+	rings = (uint16_t)OBJECT(current_object)->ranking_entry.rings;
+	read_cursor = ranking_ADDRESS;
+	if ((int16_t)rings < (int16_t)ranking)
+	{
 		current_object = object_cursor;
 		ranking_entry_players &= ~shl32(1u, (int)(OBJECT(object_cursor)->player));
 		return;
 	}
-	if (OBJECT(current_object)->spawn_arg_1_high == 3u)
-		goto enter_ranking_initials_save_record;
-	OBJECT(current_object)->spawn_arg_1_high++;
-	if ((int8_t)OBJECT(current_object)->spawn_arg_1_high <= 3)
-		goto enter_ranking_initials_count_down;
-	OBJECT(current_object)->spawn_arg_1_high = 3u;
-	goto enter_ranking_initials_count_down;
+	dest = read_cursor;
+	r14 = 0xEu;
+	read_cursor += 8u;
+	do
+	{
+		record_rings = AS32(RANKING_RECORD(read_cursor)->rings);
+		read_cursor += 4u;
+		if ((int16_t)rings < (int16_t)record_rings)
+			break;
+		record_initials = RANKING_RECORD(read_cursor - 0x4u)->initials;
+		AS32(RANKING_RECORD(dest)->rings) = record_rings;
+		dest += 4u;
+		RANKING_RECORD(dest - 0x4u)->initials = record_initials;
+		r14 = r14 - 1u;
+		read_cursor += 4u;
+		dest += 4u;
+	} while (r14 != 0u);
+	initials = OBJECT(current_object)->ranking_entry.initials;
+	if (initials == 0x170412u || initials == 0x171717u || initials == 0x172B17u || initials == 0x2B1717u)
+		OBJECT(current_object)->ranking_entry.initials = 0xA0013u;
+	RANKING_RECORD(dest)->rings = OBJECT(current_object)->ranking_entry.rings;
+	dest += 2u;
+	RANKING_RECORD(dest - 0x2u)->character = OBJECT(current_object)->ranking_entry.character;
+	dest++;
+	RANKING_RECORD(dest - 0x3u)->stages_reached = OBJECT(current_object)->ranking_entry.stages_reached;
+	dest++;
+	RANKING_RECORD(dest - 0x4u)->first_initial = OBJECT(current_object)->ranking_entry.first_initial;
+	dest++;
+	RANKING_RECORD(dest - 0x5u)->second_initial = OBJECT(current_object)->ranking_entry.second_initial;
+	dest++;
+	RANKING_RECORD(dest - 0x6u)->third_initial = OBJECT(current_object)->ranking_entry.third_initial;
+	RANKING_RECORD(dest - 0x6u)->initials_pad = OBJECT(current_object)->ranking_entry.initials_pad;
+	copy_source = ranking_ADDRESS;
+	copy_dest = saved_ranking;
+	records_left = 0xFu;
+	do
+	{
+		mem_write32(copy_dest, AS32(RANKING_RECORD(copy_source)->rings));
+		copy_source += 4u;
+		copy_dest += 4u;
+		mem_write32(copy_dest, RANKING_RECORD(copy_source - 0x4u)->initials);
+		records_left--;
+		copy_source += 4u;
+		copy_dest += 4u;
+	} while (records_left != 0u);
+	data = ranking_ADDRESS;
+	count = 0x78u;
+	compute_crc16(count, &crc, &data, &ignored);
+	mem_write16(ranking_checksum, crc);
+	current_object = object_cursor;
+	ranking_entry_players &= ~shl32(1u, (int)(OBJECT(object_cursor)->player));
 }
 
 uint32_t load_ranking(void)
@@ -700,7 +716,6 @@ void drift_ranking_background(void)
 
 	if ((uint16_t)OBJECT(current_object)->speed_z_int != 0u)
 	{
-	drift_ranking_background_swing_down:
 		OBJECT(current_object)->speed_z_fraction -= 2u;
 		if ((int16_t)OBJECT(current_object)->speed_z_fraction < 0x180)
 			OBJECT(current_object)->speed_z_int = 0;
@@ -711,7 +726,9 @@ void drift_ranking_background(void)
 		if ((int16_t)OBJECT(current_object)->speed_z_fraction > 0x280)
 		{
 			OBJECT(current_object)->speed_z_int = 1;
-			goto drift_ranking_background_swing_down;
+			OBJECT(current_object)->speed_z_fraction -= 2u;
+			if ((int16_t)OBJECT(current_object)->speed_z_fraction < 0x180)
+				OBJECT(current_object)->speed_z_int = 0;
 		}
 	}
 	if ((uint16_t)OBJECT(current_object)->speed_int != 0u)
@@ -720,27 +737,32 @@ void drift_ranking_background(void)
 		OBJECT(current_object)->speed_fraction = speed_fraction - 8u;
 		if (speed_fraction < 8u)
 			OBJECT(current_object)->speed = 0;
+		direction = OBJECT(current_object)->speed_z_fraction;
+		speed = 0x100u;
+		direction_to_speed(speed, &direction, &speed_x, &speed_y);
+		OBJECT(current_object)->speed_x += speed_x;
+		OBJECT(current_object)->speed_y += speed_y;
+		nbg0_scroll_x_int = OBJECT(current_object)->speed_x_int;
+		nbg0_scroll_y_int = OBJECT(current_object)->speed_y_int;
+		return;
 	}
-	else
+	OBJECT(current_object)->speed_fraction += 8u;
+	if ((int16_t)OBJECT(current_object)->speed_fraction <= 0x300)
 	{
-		OBJECT(current_object)->speed_fraction += 8u;
-		if ((int16_t)OBJECT(current_object)->speed_fraction > 0x300)
-		{
-			OBJECT(current_object)->speed_int = 1;
-			speed_fraction = OBJECT(current_object)->speed_fraction;
-			OBJECT(current_object)->speed_fraction = speed_fraction - 8u;
-			if (speed_fraction < 8u)
-				OBJECT(current_object)->speed = 0;
-			direction = OBJECT(current_object)->speed_z_fraction;
-			speed = 0x100u;
-			direction_to_speed(speed, &direction, &speed_x, &speed_y);
-			OBJECT(current_object)->speed_x += speed_x;
-			OBJECT(current_object)->speed_y += speed_y;
-			nbg0_scroll_x_int = OBJECT(current_object)->speed_x_int;
-			nbg0_scroll_y_int = OBJECT(current_object)->speed_y_int;
-			return;
-		}
+		direction = OBJECT(current_object)->speed_z_fraction;
+		speed = 0x100u;
+		direction_to_speed(speed, &direction, &speed_x, &speed_y);
+		OBJECT(current_object)->speed_x += speed_x;
+		OBJECT(current_object)->speed_y += speed_y;
+		nbg0_scroll_x_int = OBJECT(current_object)->speed_x_int;
+		nbg0_scroll_y_int = OBJECT(current_object)->speed_y_int;
+		return;
 	}
+	OBJECT(current_object)->speed_int = 1;
+	speed_fraction = OBJECT(current_object)->speed_fraction;
+	OBJECT(current_object)->speed_fraction = speed_fraction - 8u;
+	if (speed_fraction < 8u)
+		OBJECT(current_object)->speed = 0;
 	direction = OBJECT(current_object)->speed_z_fraction;
 	speed = 0x100u;
 	direction_to_speed(speed, &direction, &speed_x, &speed_y);
@@ -800,7 +822,6 @@ void ranking_row_update(void)
 	OBJECT(current_object)->screen_y = OBJECT(object_cursor)->screen_y;
 	if (OBJECT(object_cursor)->ranking_row.animate == 0u)
 	{
-	ranking_row_set_portrait_frame:
 		portrait_frames = ranking_portrait_frames[OBJECT(current_object)->piece_value];
 		frame_index = (uint8_t)OBJECT(current_object)->piece_frame;
 		if (OBJECT(object_cursor)->ranking_row.row == 1u)
@@ -816,7 +837,13 @@ void ranking_row_update(void)
 		if (direction == 0u)
 		{
 			OBJECT(current_object)->direction = 1u;
-			goto ranking_row_set_portrait_frame;
+			portrait_frames = ranking_portrait_frames[OBJECT(current_object)->piece_value];
+			frame_index = (uint8_t)OBJECT(current_object)->piece_frame;
+			if (OBJECT(object_cursor)->ranking_row.row == 1u)
+				frame_index += 0x14u;
+			OBJECT(current_object)->sprite_frame = ROM16(portrait_frames + frame_index * 2u);
+			if (OBJECT(object_cursor)->ranking_row.animate != 0u && OBJECT(current_object)->piece_frame < 0x13)
+				OBJECT(current_object)->piece_frame++;
 		}
 	}
 	bucket = 0u;

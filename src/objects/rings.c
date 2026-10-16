@@ -37,82 +37,88 @@ void spawn_ring_rows(uint32_t *p_stage_list_offset, uint32_t *p_free_stack, uint
 	}
 	scroll_past_row = (uint16_t)(scroll_position - ROM16(row_cursor));
 	row_cursor += 2u;
-	if ((int16_t)scroll_past_row < 0x100)
+	if ((int16_t)scroll_past_row >= 0x100)
 	{
-		if (free_object_stack < (int16_t)ROM16(row_cursor + 2u) || free_object_stack_2[0] < (int16_t)ROM16(row_cursor + 2u))
-		{
-			*p_stage_list_offset = stage_list_offset;
-			return;
-		}
-		ring_row_template = ROM16(row_cursor);
-		row_cursor += 2u;
-		ring_row_rings_left = ROM16(row_cursor);
-		row_cursor += 2u;
-		ring_row_x = ROM16(row_cursor);
-		row_cursor += 2u;
-		ring_row_y = ROM16(row_cursor);
-		row_cursor += 2u;
-		ring_row_dx = (int8_t)ROM8(row_cursor);
-		ring_row_dy = (int8_t)ROM8(row_cursor + 1u);
-		ring_row_next_80 = 0u;
-		do
-		{
-			allocate_object_outside_loop(&ignored, &object);
-			template_cursor = stage_object_templates_ADDRESS + ring_row_template;
-			OBJECT(object)->sprite_flags = STAGE_OBJECT_TEMPLATE(template_cursor)->sprite_flags;
-			template_cursor += 2u;
-			OBJECT(object)->sprite_frame = STAGE_OBJECT_TEMPLATE(template_cursor - 0x2u)->sprite_frame;
-			template_cursor += 2u;
-			OBJECT(object)->sprite_palette = STAGE_OBJECT_TEMPLATE(template_cursor - 0x4u)->sprite_palette;
-			template_cursor += 2u;
-			OBJECT(object)->hitbox_size_x = STAGE_OBJECT_TEMPLATE(template_cursor - 0x6u)->hitbox_size_x;
-			OBJECT(object)->hitbox_size_y = 0u;
-			template_cursor += 2u;
-			OBJECT(object)->var_82 = STAGE_OBJECT_TEMPLATE(template_cursor - 0x8u)->hover_height;
-			template_cursor += 2u;
-			OBJECT(object)->animation_speed = STAGE_OBJECT_TEMPLATE(template_cursor - 0xAu)->animation_speed;
-			template_cursor++;
-			OBJECT(object)->animation_timer = STAGE_OBJECT_TEMPLATE(template_cursor - 0xBu)->animation_timer;
-			template_cursor++;
-			OBJECT(object)->animation_frame = STAGE_OBJECT_TEMPLATE(template_cursor - 0xCu)->animation_frame;
-			template_cursor++;
-			OBJECT(object)->kind = STAGE_OBJECT_TEMPLATE(template_cursor - 0xDu)->kind;
-			template_cursor++;
-			OBJECT(object)->animation = STAGE_OBJECT_TEMPLATE(template_cursor - 0xEu)->animation;
-			template_cursor += 4u;
-			OBJECT(object)->handler = STAGE_OBJECT_TEMPLATE(template_cursor - 0x12u)->handler;
-			template_cursor += 4u;
-			OBJECT(object)->sprite_offset_x = STAGE_OBJECT_TEMPLATE(template_cursor - 0x16u)->sprite_offset_x;
-			template_cursor++;
-			OBJECT(object)->sprite_offset_y = STAGE_OBJECT_TEMPLATE(template_cursor - 0x17u)->sprite_offset_y;
-			OBJECT(object)->hitbox_height = STAGE_OBJECT_TEMPLATE(template_cursor - 0x17u)->hitbox_height;
-			AS16(OBJECT(object)->health) = scroll_position;
-			AS16(OBJECT(object)->var_80) = ring_row_next_80;
-			ring_row_next_80 += 0x20u;
-			OBJECT(object)->flags = 0u;
-			OBJECT(object)->x_int = ring_row_x;
-			OBJECT(object)->x_fraction = 0u;
-			OBJECT(object)->y_int = ring_row_y;
-			OBJECT(object)->y_fraction = 0u;
-			ring_row_x += ring_row_dx;
-			ring_row_y += ring_row_dy;
-			current_object = object;
-			find_floor(&ignored, &ignored, &ignored, &slope_height, &object);
-			OBJECT(current_object)->z = OBJECT(current_object)->floor_z;
-			OBJECT(current_object)->z_int -= OBJECT(current_object)->var_82;
-			project_object(&ignored, &stage_list_offset);
-			object_cursor = current_object;
-			allocate_object_2(&ignored, &free_stack, &object);
-			OBJECT(object)->sprite_flags = 0x1000u;
-			OBJECT(object)->sprite_palette = 0x9FFEu;
-			OBJECT(object)->sprite_frame = 0x5D90u;
-			OBJECT(object)->shadow_blink = 0u;
-			OBJECT(object_cursor)->child = object;
-			OBJECT(object)->parent = current_object;
-			rings_left = ring_row_rings_left;
-			ring_row_rings_left = rings_left - 1u;
-		} while ((int16_t)rings_left > 1);
+		ring_spawn_cursor += 0xCu;
+		*p_stage_list_offset = stage_list_offset;
+		*p_free_stack = free_stack;
+		*p_slope_height = slope_height;
+		*p_object = object;
+		return;
 	}
+	if (free_object_stack < (int16_t)ROM16(row_cursor + 2u) || free_object_stack_2[0] < (int16_t)ROM16(row_cursor + 2u))
+	{
+		*p_stage_list_offset = stage_list_offset;
+		return;
+	}
+	ring_row_template = ROM16(row_cursor);
+	row_cursor += 2u;
+	ring_row_rings_left = ROM16(row_cursor);
+	row_cursor += 2u;
+	ring_row_x = ROM16(row_cursor);
+	row_cursor += 2u;
+	ring_row_y = ROM16(row_cursor);
+	row_cursor += 2u;
+	ring_row_dx = (int8_t)ROM8(row_cursor);
+	ring_row_dy = (int8_t)ROM8(row_cursor + 1u);
+	ring_row_next_80 = 0u;
+	do
+	{
+		allocate_object_outside_loop(&ignored, &object);
+		template_cursor = stage_object_templates_ADDRESS + ring_row_template;
+		OBJECT(object)->sprite_flags = STAGE_OBJECT_TEMPLATE(template_cursor)->sprite_flags;
+		template_cursor += 2u;
+		OBJECT(object)->sprite_frame = STAGE_OBJECT_TEMPLATE(template_cursor - 0x2u)->sprite_frame;
+		template_cursor += 2u;
+		OBJECT(object)->sprite_palette = STAGE_OBJECT_TEMPLATE(template_cursor - 0x4u)->sprite_palette;
+		template_cursor += 2u;
+		OBJECT(object)->hitbox_size_x = STAGE_OBJECT_TEMPLATE(template_cursor - 0x6u)->hitbox_size_x;
+		OBJECT(object)->hitbox_size_y = 0u;
+		template_cursor += 2u;
+		OBJECT(object)->var_82 = STAGE_OBJECT_TEMPLATE(template_cursor - 0x8u)->hover_height;
+		template_cursor += 2u;
+		OBJECT(object)->animation_speed = STAGE_OBJECT_TEMPLATE(template_cursor - 0xAu)->animation_speed;
+		template_cursor++;
+		OBJECT(object)->animation_timer = STAGE_OBJECT_TEMPLATE(template_cursor - 0xBu)->animation_timer;
+		template_cursor++;
+		OBJECT(object)->animation_frame = STAGE_OBJECT_TEMPLATE(template_cursor - 0xCu)->animation_frame;
+		template_cursor++;
+		OBJECT(object)->kind = STAGE_OBJECT_TEMPLATE(template_cursor - 0xDu)->kind;
+		template_cursor++;
+		OBJECT(object)->animation = STAGE_OBJECT_TEMPLATE(template_cursor - 0xEu)->animation;
+		template_cursor += 4u;
+		OBJECT(object)->handler = STAGE_OBJECT_TEMPLATE(template_cursor - 0x12u)->handler;
+		template_cursor += 4u;
+		OBJECT(object)->sprite_offset_x = STAGE_OBJECT_TEMPLATE(template_cursor - 0x16u)->sprite_offset_x;
+		template_cursor++;
+		OBJECT(object)->sprite_offset_y = STAGE_OBJECT_TEMPLATE(template_cursor - 0x17u)->sprite_offset_y;
+		OBJECT(object)->hitbox_height = STAGE_OBJECT_TEMPLATE(template_cursor - 0x17u)->hitbox_height;
+		AS16(OBJECT(object)->health) = scroll_position;
+		AS16(OBJECT(object)->var_80) = ring_row_next_80;
+		ring_row_next_80 += 0x20u;
+		OBJECT(object)->flags = 0u;
+		OBJECT(object)->x_int = ring_row_x;
+		OBJECT(object)->x_fraction = 0u;
+		OBJECT(object)->y_int = ring_row_y;
+		OBJECT(object)->y_fraction = 0u;
+		ring_row_x += ring_row_dx;
+		ring_row_y += ring_row_dy;
+		current_object = object;
+		find_floor(&ignored, &ignored, &ignored, &slope_height, &object);
+		OBJECT(current_object)->z = OBJECT(current_object)->floor_z;
+		OBJECT(current_object)->z_int -= OBJECT(current_object)->var_82;
+		project_object(&ignored, &stage_list_offset);
+		object_cursor = current_object;
+		allocate_object_2(&ignored, &free_stack, &object);
+		OBJECT(object)->sprite_flags = 0x1000u;
+		OBJECT(object)->sprite_palette = 0x9FFEu;
+		OBJECT(object)->sprite_frame = 0x5D90u;
+		OBJECT(object)->shadow_blink = 0u;
+		OBJECT(object_cursor)->child = object;
+		OBJECT(object)->parent = current_object;
+		rings_left = ring_row_rings_left;
+		ring_row_rings_left = rings_left - 1u;
+	} while ((int16_t)rings_left > 1);
 	ring_spawn_cursor += 0xCu;
 	*p_stage_list_offset = stage_list_offset;
 	*p_free_stack = free_stack;
@@ -124,7 +130,7 @@ void ring_spin(void)
 {
 	uint8_t sound_id = 0;
 	uint16_t child = 0;
-	uint32_t depth = 0, ignored = 0, object = 0, off_screen = 0, player = 0;
+	uint32_t ignored = 0, object = 0, player = 0;
 
 	if (map_screen_active != 0u || current_game_mode == 0x20u)
 	{
@@ -135,64 +141,67 @@ void ring_spin(void)
 	}
 	if ((OBJECT(current_object)->flags & 4u) == 0u)
 	{
-	ring_spin_keep_spinning:
-		animate(&ignored, &ignored, &ignored);
-		if (OBJECT(current_object)->animation_speed == (uint8_t)OBJECT(current_object)->animation_timer && OBJECT(current_object)->animation_frame == 0x15u)
-		{
-			OBJECT(current_object)->ring_spin.unused_glint_timer = 0x78u;
-			spawn_ring_glint(player);
-		}
-		update_screen_position(&ignored, &ignored);
-		off_screen = check_left_screen();
-		if (off_screen != 0u)
-		{
-			child = OBJECT(current_object)->child;
-			free_object_2(child);
-			delete_current_object();
-			return;
-		}
-		add_to_touchable_list(ignored);
-		queue_sprite_at_floor();
-		if (OBJECT(current_object)->floor_type != 7u || (PLAYER(current_player)->step_accumulator & 0x10u) != 0u)
-		{
-			draw_child_shadow();
-			return;
-		}
-		if (OBJECT(current_object)->floor_block >= 0 && (int16_t)OBJECT(current_object)->child >= 0)
-		{
-			current_object = LINKED(current_object, OBJECT(object_cursor)->child);
-			OBJECT(current_object)->sprite_frame = OBJECT(object_cursor)->sprite_frame;
-			OBJECT(current_object)->sprite_palette = OBJECT(object_cursor)->sprite_palette;
-			OBJECT(current_object)->sprite_palette &= 0x1FFFu;
-			OBJECT(current_object)->sprite_palette |= 0x2000u;
-			OBJECT(current_object)->sprite_flags = 0x1004u;
-			OBJECT(current_object)->screen_x = OBJECT(object_cursor)->projected_x - view_x + OBJECT(object_cursor)->sprite_offset_x;
-			OBJECT(current_object)->screen_y = ((int32_t)(OBJECT(object_cursor)->projected_y + ((uint32_t)OBJECT(object_cursor)->floor_z - OBJECT(object_cursor)->z + OBJECT(object_cursor)->floor_z + 0x180000u)) >> 16) - view_y - OBJECT(object_cursor)->sprite_offset_y;
-			depth = (uint16_t)(OBJECT(current_object)->screen_y - 0x18u);
-			queue_sprite_at_depth(&ignored, &depth);
-		}
+		ring_spin_keep_spinning(player);
 		return;
 	}
 	object = LINKED(current_object, OBJECT(current_object)->touched_by);
-	if ((int8_t)OBJECT(object)->kind > 2)
+	if ((int8_t)OBJECT(object)->kind <= 2)
 	{
-		sound_id = 0x13u;
-		play_sound(sound_id, &ignored, &ignored);
-		spawn_ring_sparkle(player);
-		child = OBJECT(current_object)->child;
-		free_object_2(child);
-		delete_current_object();
-		return;
+		player = PLAYER_BLOCK(1) + ((uint32_t)OBJECT(object)->player << 9);
+		if ((PLAYER(player)->state == 0xDu || PLAYER(player)->state == 0x20u) && (uint8_t)PLAYER(player)->hurt_contact_delay != 0u)
+		{
+			ring_spin_keep_spinning(player);
+			return;
+		}
 	}
-	player = PLAYER_BLOCK(1) + ((uint32_t)OBJECT(object)->player << 9);
-	if ((PLAYER(player)->state == 0xDu || PLAYER(player)->state == 0x20u) && (uint8_t)PLAYER(player)->hurt_contact_delay != 0u)
-		goto ring_spin_keep_spinning;
 	sound_id = 0x13u;
 	play_sound(sound_id, &ignored, &ignored);
 	spawn_ring_sparkle(player);
 	child = OBJECT(current_object)->child;
 	free_object_2(child);
 	delete_current_object();
+}
+
+void ring_spin_keep_spinning(uint32_t sparkle)
+{
+	uint16_t child = 0;
+	uint32_t depth = 0, ignored = 0, off_screen = 0;
+
+	animate(&ignored, &ignored, &ignored);
+	if (OBJECT(current_object)->animation_speed == (uint8_t)OBJECT(current_object)->animation_timer && OBJECT(current_object)->animation_frame == 0x15u)
+	{
+		OBJECT(current_object)->ring_spin.unused_glint_timer = 0x78u;
+		spawn_ring_glint(sparkle);
+	}
+	update_screen_position(&ignored, &ignored);
+	off_screen = check_left_screen();
+	if (off_screen != 0u)
+	{
+		child = OBJECT(current_object)->child;
+		free_object_2(child);
+		delete_current_object();
+		return;
+	}
+	add_to_touchable_list(ignored);
+	queue_sprite_at_floor();
+	if (OBJECT(current_object)->floor_type != 7u || (PLAYER(current_player)->step_accumulator & 0x10u) != 0u)
+	{
+		draw_child_shadow();
+		return;
+	}
+	if (OBJECT(current_object)->floor_block >= 0 && (int16_t)OBJECT(current_object)->child >= 0)
+	{
+		current_object = LINKED(current_object, OBJECT(object_cursor)->child);
+		OBJECT(current_object)->sprite_frame = OBJECT(object_cursor)->sprite_frame;
+		OBJECT(current_object)->sprite_palette = OBJECT(object_cursor)->sprite_palette;
+		OBJECT(current_object)->sprite_palette &= 0x1FFFu;
+		OBJECT(current_object)->sprite_palette |= 0x2000u;
+		OBJECT(current_object)->sprite_flags = 0x1004u;
+		OBJECT(current_object)->screen_x = OBJECT(object_cursor)->projected_x - view_x + OBJECT(object_cursor)->sprite_offset_x;
+		OBJECT(current_object)->screen_y = ((int32_t)(OBJECT(object_cursor)->projected_y + ((uint32_t)OBJECT(object_cursor)->floor_z - OBJECT(object_cursor)->z + OBJECT(object_cursor)->floor_z + 0x180000u)) >> 16) - view_y - OBJECT(object_cursor)->sprite_offset_y;
+		depth = (uint16_t)(OBJECT(current_object)->screen_y - 0x18u);
+		queue_sprite_at_depth(&ignored, &depth);
+	}
 }
 
 void still_ring_wait(void)
@@ -236,7 +245,7 @@ void carried_ring_spin(void)
 {
 	uint8_t sound_id = 0;
 	uint16_t child = 0;
-	uint32_t ignored = 0, object = 0, off_screen = 0, platform_z = 0, player = 0;
+	uint32_t ignored = 0, object = 0, player = 0;
 
 	if (map_screen_active != 0u)
 	{
@@ -247,54 +256,57 @@ void carried_ring_spin(void)
 	}
 	if ((OBJECT(current_object)->flags & 4u) == 0u)
 	{
-	carried_ring_keep_spinning:
-		OBJECT(current_object)->flags &= ~0x10u;
-		if ((OBJECT(current_object)->flags & 8u) != 0u)
-			OBJECT(current_object)->flags |= 0x10u;
-		object = LINKED(current_object, OBJECT(current_object)->platform);
-		platform_z = OBJECT(object)->z;
-		OBJECT(current_object)->floor_z = platform_z;
-		OBJECT(current_object)->z = platform_z;
-		OBJECT(current_object)->z_int -= OBJECT(current_object)->carried_ring.hover_height;
-		OBJECT(current_object)->floor_block = OBJECT(object)->floor_block;
-		animate(&ignored, &ignored, &ignored);
-		if (OBJECT(current_object)->animation_speed == (uint8_t)OBJECT(current_object)->animation_timer && OBJECT(current_object)->animation_frame == 0x15u)
-		{
-			OBJECT(current_object)->carried_ring.glint_timer = 0x78u;
-			OBJECT(current_object)->carried_ring.glint_timer_high = 0u;
-			spawn_ring_glint(player);
-		}
-		update_screen_position(&ignored, &ignored);
-		off_screen = check_left_screen();
-		if (off_screen == 0u)
-		{
-			add_to_touchable_list(ignored);
-			queue_sprite_at_floor();
-			draw_child_shadow();
-			return;
-		}
-		child = OBJECT(current_object)->child;
-		free_object_2(child);
-		delete_current_object();
+		carried_ring_keep_spinning(player);
 		return;
 	}
 	object = LINKED(current_object, OBJECT(current_object)->touched_by);
-	if ((int8_t)OBJECT(object)->kind > 2)
+	if ((int8_t)OBJECT(object)->kind <= 2)
 	{
-		sound_id = 0x13u;
-		play_sound(sound_id, &ignored, &ignored);
-		spawn_ring_sparkle(player);
-		child = OBJECT(current_object)->child;
-		free_object_2(child);
-		delete_current_object();
-		return;
+		player = PLAYER_BLOCK(1) + ((uint32_t)OBJECT(object)->player << 9);
+		if ((PLAYER(player)->state == 0xDu || PLAYER(player)->state == 0x20u) && (uint8_t)PLAYER(player)->hurt_contact_delay != 0u)
+		{
+			carried_ring_keep_spinning(player);
+			return;
+		}
 	}
-	player = PLAYER_BLOCK(1) + ((uint32_t)OBJECT(object)->player << 9);
-	if ((PLAYER(player)->state == 0xDu || PLAYER(player)->state == 0x20u) && (uint8_t)PLAYER(player)->hurt_contact_delay != 0u)
-		goto carried_ring_keep_spinning;
 	sound_id = 0x13u;
 	play_sound(sound_id, &ignored, &ignored);
 	spawn_ring_sparkle(player);
+	child = OBJECT(current_object)->child;
+	free_object_2(child);
+	delete_current_object();
+}
+
+void carried_ring_keep_spinning(uint32_t sparkle)
+{
+	uint16_t child = 0;
+	uint32_t ignored = 0, object = 0, off_screen = 0, platform_z = 0;
+
+	OBJECT(current_object)->flags &= ~0x10u;
+	if ((OBJECT(current_object)->flags & 8u) != 0u)
+		OBJECT(current_object)->flags |= 0x10u;
+	object = LINKED(current_object, OBJECT(current_object)->platform);
+	platform_z = OBJECT(object)->z;
+	OBJECT(current_object)->floor_z = platform_z;
+	OBJECT(current_object)->z = platform_z;
+	OBJECT(current_object)->z_int -= OBJECT(current_object)->carried_ring.hover_height;
+	OBJECT(current_object)->floor_block = OBJECT(object)->floor_block;
+	animate(&ignored, &ignored, &ignored);
+	if (OBJECT(current_object)->animation_speed == (uint8_t)OBJECT(current_object)->animation_timer && OBJECT(current_object)->animation_frame == 0x15u)
+	{
+		OBJECT(current_object)->carried_ring.glint_timer = 0x78u;
+		OBJECT(current_object)->carried_ring.glint_timer_high = 0u;
+		spawn_ring_glint(sparkle);
+	}
+	update_screen_position(&ignored, &ignored);
+	off_screen = check_left_screen();
+	if (off_screen == 0u)
+	{
+		add_to_touchable_list(ignored);
+		queue_sprite_at_floor();
+		draw_child_shadow();
+		return;
+	}
 	child = OBJECT(current_object)->child;
 	free_object_2(child);
 	delete_current_object();

@@ -63,6 +63,7 @@ void start_pcm_sample(uint16_t voice)
 
 void refill_pcm_voice(void)
 {
+	bool copy_pages = false;
 	uint8_t bank_high = 0, bank_low = 0, four_pages = 0, wave_offset = 0, wave_page = 0;
 	uint16_t progress = 0, sample_address = 0, voice = 0, voices_left_at = 0, wave_address = 0;
 	uint8_t old_voices_left = 0;
@@ -90,29 +91,92 @@ void refill_pcm_voice(void)
 	}
 	z80_block(105);
 	progress = SAMPLE_VOICE(voice)->stream_position + SAMPLE_VOICE(voice)->pitch_step;
-	if ((((progress >> 8) >> 4) & 1u) == 0u)
+	for (;;)
 	{
-		z80_block(25);
-		four_pages = 0u;
-		if ((((progress >> 8) >> 3) & 1u) != 0u)
+		if (copy_pages || (((progress >> 8) >> 4) & 1u) == 0u)
 		{
-		refill_copy_pages:
-			z80_block(252);
-			progress = (progress & 0xFFu) | (((progress >> 8) & ~8u) << 8);
-			SAMPLE_VOICE(voice)->stream_position = progress;
-			z80_write8(PCM_CONTROL, (SAMPLE_VOICE(voice)->chip_channel * 2u) | 0x80u);
-			bank_high = SAMPLE_VOICE(voice)->sample_bank_high & 7u;
-			rom_bank_high = bank_high;
-			port_out(ROM_BANK_HIGH, bank_high);
-			bank_low = SAMPLE_VOICE(voice)->sample_bank_low;
-			rom_bank_low = bank_low;
-			port_out(ROM_BANK_LOW, bank_low);
-			wave_page = SAMPLE_VOICE(voice)->wave_page;
-			wave_offset = 0u;
-			sample_address = (uint32_t)SAMPLE_VOICE(voice)->source_page << 8;
-			if (four_pages == 0u)
+			if (!copy_pages)
 			{
-			refill_copy_two_pages:
+				z80_block(25);
+				four_pages = 0u;
+			}
+			if (copy_pages || (((progress >> 8) >> 3) & 1u) != 0u)
+			{
+				z80_block(252);
+				progress = (progress & 0xFFu) | (((progress >> 8) & ~8u) << 8);
+				SAMPLE_VOICE(voice)->stream_position = progress;
+				z80_write8(PCM_CONTROL, (SAMPLE_VOICE(voice)->chip_channel * 2u) | 0x80u);
+				bank_high = SAMPLE_VOICE(voice)->sample_bank_high & 7u;
+				rom_bank_high = bank_high;
+				port_out(ROM_BANK_HIGH, bank_high);
+				bank_low = SAMPLE_VOICE(voice)->sample_bank_low;
+				rom_bank_low = bank_low;
+				port_out(ROM_BANK_LOW, bank_low);
+				wave_page = SAMPLE_VOICE(voice)->wave_page;
+				wave_offset = 0u;
+				sample_address = (uint32_t)SAMPLE_VOICE(voice)->source_page << 8;
+				if (four_pages)
+				{
+					z80_block(17);
+					wave_address = ((uint32_t)wave_page << 8) | wave_offset;
+					copy_sample_page(&wave_address, &sample_address);
+					wave_page = (uint8_t)(wave_address >> 8);
+					wave_offset = (uint8_t)wave_address;
+					z80_block(30);
+					sample_address--;
+					if (z80_read8(sample_address) == 0xFFu)
+					{
+						stop_pcm_voice(voice);
+						return;
+					}
+					z80_block(27);
+					sample_address++;
+					if (0xC0u == sample_address >> 8)
+					{
+						z80_block(73);
+						sample_address = (sample_address & 0xFFu) | 0xA000u;
+						SAMPLE_VOICE(voice)->sample_bank_low++;
+						bank_low = SAMPLE_VOICE(voice)->sample_bank_low;
+						rom_bank_low = bank_low;
+						port_out(ROM_BANK_LOW, bank_low);
+					}
+					z80_block(21);
+					if (0xE0u == wave_page)
+					{
+						z80_block(7);
+						wave_page = 0xD0u;
+					}
+					z80_block(17);
+					wave_address = ((uint32_t)wave_page << 8) | wave_offset;
+					copy_sample_page(&wave_address, &sample_address);
+					wave_page = (uint8_t)(wave_address >> 8);
+					wave_offset = (uint8_t)wave_address;
+					z80_block(27);
+					sample_address--;
+					if (z80_read8(sample_address) == 0xFFu)
+					{
+						z80_cycles(5);
+						stop_pcm_voice(voice);
+						return;
+					}
+					z80_block(27);
+					sample_address++;
+					if (0xC0u == sample_address >> 8)
+					{
+						z80_block(73);
+						sample_address = (sample_address & 0xFFu) | 0xA000u;
+						SAMPLE_VOICE(voice)->sample_bank_low++;
+						bank_low = SAMPLE_VOICE(voice)->sample_bank_low;
+						rom_bank_low = bank_low;
+						port_out(ROM_BANK_LOW, bank_low);
+					}
+					z80_block(21);
+					if (0xE0u == wave_page)
+					{
+						z80_block(7);
+						wave_page = 0xD0u;
+					}
+				}
 				z80_block(17);
 				wave_address = ((uint32_t)wave_page << 8) | wave_offset;
 				copy_sample_page(&wave_address, &sample_address);
@@ -189,89 +253,30 @@ void refill_pcm_voice(void)
 				refill_voice = SAMPLE_VOICE_ADDRESS(0);
 				return;
 			}
-			z80_block(17);
-			wave_address = ((uint32_t)wave_page << 8) | wave_offset;
-			copy_sample_page(&wave_address, &sample_address);
-			wave_page = (uint8_t)(wave_address >> 8);
-			wave_offset = (uint8_t)wave_address;
-			z80_block(30);
-			sample_address--;
-			if (z80_read8(sample_address) == 0xFFu)
+			z80_block(48);
+			SAMPLE_VOICE(voice)->stream_position = progress;
+			z80_block(53);
+			voice += 0x12u;
+			voices_left_at = refill_voices_left_ADDRESS;
+			old_voices_left = refill_voices_left;
+			refill_voices_left = old_voices_left - 1u;
+			if (old_voices_left != 1u)
 			{
-				stop_pcm_voice(voice);
+				z80_block(30);
+				refill_voice = voice;
 				return;
 			}
-			z80_block(27);
-			sample_address++;
-			if (0xC0u == sample_address >> 8)
-			{
-				z80_block(73);
-				sample_address = (sample_address & 0xFFu) | 0xA000u;
-				SAMPLE_VOICE(voice)->sample_bank_low++;
-				bank_low = SAMPLE_VOICE(voice)->sample_bank_low;
-				rom_bank_low = bank_low;
-				port_out(ROM_BANK_LOW, bank_low);
-			}
-			z80_block(21);
-			if (0xE0u == wave_page)
-			{
-				z80_block(7);
-				wave_page = 0xD0u;
-			}
-			z80_block(17);
-			wave_address = ((uint32_t)wave_page << 8) | wave_offset;
-			copy_sample_page(&wave_address, &sample_address);
-			wave_page = (uint8_t)(wave_address >> 8);
-			wave_offset = (uint8_t)wave_address;
-			z80_block(27);
-			sample_address--;
-			if (z80_read8(sample_address) == 0xFFu)
-			{
-				z80_cycles(5);
-				stop_pcm_voice(voice);
-				return;
-			}
-			z80_block(27);
-			sample_address++;
-			if (0xC0u == sample_address >> 8)
-			{
-				z80_block(73);
-				sample_address = (sample_address & 0xFFu) | 0xA000u;
-				SAMPLE_VOICE(voice)->sample_bank_low++;
-				bank_low = SAMPLE_VOICE(voice)->sample_bank_low;
-				rom_bank_low = bank_low;
-				port_out(ROM_BANK_LOW, bank_low);
-			}
-			z80_block(21);
-			if (0xE0u != wave_page)
-				goto refill_copy_two_pages;
-			z80_block(7);
-			wave_page = 0xD0u;
-			goto refill_copy_two_pages;
-		}
-		z80_block(48);
-		SAMPLE_VOICE(voice)->stream_position = progress;
-		z80_block(53);
-		voice += 0x12u;
-		voices_left_at = refill_voices_left_ADDRESS;
-		old_voices_left = refill_voices_left;
-		refill_voices_left = old_voices_left - 1u;
-		if (old_voices_left != 1u)
-		{
-			z80_block(30);
-			refill_voice = voice;
+			z80_cycles(5);
+			z80_block(46);
+			refill_voices_left = 8u;
+			refill_voice = SAMPLE_VOICE_ADDRESS(0);
 			return;
 		}
-		z80_cycles(5);
-		z80_block(46);
-		refill_voices_left = 8u;
-		refill_voice = SAMPLE_VOICE_ADDRESS(0);
-		return;
+		z80_block(25);
+		progress = (progress & 0xFFu) | (((progress >> 8) & 0xEFu) << 8);
+		four_pages = 1u;
+		copy_pages = true;
 	}
-	z80_block(25);
-	progress = (progress & 0xFFu) | (((progress >> 8) & 0xEFu) << 8);
-	four_pages = 1u;
-	goto refill_copy_pages;
 }
 
 void stop_pcm_voice(uint16_t voice)
@@ -312,18 +317,11 @@ void stop_pcm_voice(uint16_t voice)
 	for (;;)
 	{
 		z80_block(17);
-		if (SAMPLE_VOICE(other_order - 0x6u)->allocation_order <= own_order)
+		if (own_order < SAMPLE_VOICE(other_order - 0x6u)->allocation_order)
 		{
-			z80_block(19);
-			other_order += voice_size;
-			voices_left--;
-			if (voices_left == 0u)
-				break;
-			z80_cycles(5);
-			continue;
+			z80_block(11);
+			SAMPLE_VOICE(other_order - 0x6u)->allocation_order--;
 		}
-		z80_block(11);
-		SAMPLE_VOICE(other_order - 0x6u)->allocation_order--;
 		z80_block(19);
 		other_order += voice_size;
 		voices_left--;
@@ -348,40 +346,36 @@ void fm_note_off(uint16_t *p_de, uint16_t *p_saved_channel, uint8_t *p_a)
 	for (;;)
 	{
 		z80_block(29);
-		if (channel != FM_VOICE(voice)->midi_channel)
+		if (channel == FM_VOICE(voice)->midi_channel)
 		{
-		fm_note_off_next_voice:
-			z80_block(23);
-			voice += voice_size;
-			voices_left--;
-			if (voices_left == 0u)
+			z80_block(46);
+			saved_channel = (saved_channel & ~0xFFu) | channel;
+			if (note_code == FM_VOICE(voice)->note)
 			{
-				z80_block(10);
-				*p_de = voice_size;
-				*p_saved_channel = saved_channel;
-				*p_a = channel;
-				return;
+				z80_block(37);
+				flags = FM_VOICE(voice)->flags;
+				if (((flags >> 1) & 1u) == 0u)
+				{
+					z80_block(17);
+					if ((flags & 0x7Fu) != 0u)
+						break;
+				}
 			}
-			z80_cycles(5);
-			continue;
-		}
-		z80_block(46);
-		saved_channel = (saved_channel & ~0xFFu) | channel;
-		if (note_code != FM_VOICE(voice)->note)
-		{
-		fm_note_off_not_this:
 			z80_block(4);
 			channel = (uint8_t)saved_channel;
-			goto fm_note_off_next_voice;
 		}
-		z80_block(37);
-		flags = FM_VOICE(voice)->flags;
-		if (((flags >> 1) & 1u) != 0u)
-			goto fm_note_off_not_this;
-		z80_block(17);
-		if ((flags & 0x7Fu) != 0u)
-			break;
-		goto fm_note_off_not_this;
+		z80_block(23);
+		voice += voice_size;
+		voices_left--;
+		if (voices_left == 0u)
+		{
+			z80_block(10);
+			*p_de = voice_size;
+			*p_saved_channel = saved_channel;
+			*p_a = channel;
+			return;
+		}
+		z80_cycles(5);
 	}
 	z80_block(65);
 	channel = (uint8_t)saved_channel;
@@ -489,20 +483,13 @@ void apply_fm_music_volume(uint8_t chip_channel, uint16_t level, uint16_t part)
 		level_register = register_number;
 		operator_level = SOUND_ROM8(patch_levels);
 		patch_levels++;
-		if (operator_level >> 7 != 0u)
+		if (operator_level >> 7 == 0u)
 		{
-			z80_block(18);
-			part_channel = saved_part_channel;
-			operators_left = saved_operators_left - 1u;
-			if (operators_left == 0u)
-				break;
-			z80_cycles(5);
-			continue;
+			z80_block(38);
+			operator_level += note_level;
+			fm_register = level_register;
+			write_fm_channel(fm_register, operator_level);
 		}
-		z80_block(38);
-		operator_level += note_level;
-		fm_register = level_register;
-		write_fm_channel(fm_register, operator_level);
 		z80_block(18);
 		part_channel = saved_part_channel;
 		operators_left = saved_operators_left - 1u;
@@ -556,20 +543,13 @@ void apply_fm_channel_volume(uint8_t chip_channel, uint16_t level, uint16_t part
 		level_register = register_number;
 		operator_level = SOUND_ROM8(patch_levels);
 		patch_levels++;
-		if (operator_level >> 7 != 0u)
+		if (operator_level >> 7 == 0u)
 		{
-			z80_block(18);
-			part_channel = saved_part_channel;
-			operators_left = saved_operators_left - 1u;
-			if (operators_left == 0u)
-				break;
-			z80_cycles(5);
-			continue;
+			z80_block(38);
+			operator_level += note_level;
+			fm_register = level_register;
+			write_fm_channel(fm_register, operator_level);
 		}
-		z80_block(38);
-		operator_level += note_level;
-		fm_register = level_register;
-		write_fm_channel(fm_register, operator_level);
 		z80_block(18);
 		part_channel = saved_part_channel;
 		operators_left = saved_operators_left - 1u;
@@ -622,12 +602,13 @@ void load_fm_patch(uint16_t *p_channel_in_part, uint16_t *p_register_list, uint1
 
 void step_fm_vibrato(uint16_t voice)
 {
+	bool fall_block_check = false, fall_into_last_octave = false, rise_into_last_octave = false;
 	uint8_t center_high = 0, center_low = 0, fall_block = 0, fall_limit = 0, fm_register = 0, rise_block = 0, rise_limit = 0, value = 0;
 	uint16_t fnumber = 0, frequency = 0;
 	uint8_t saved_center_high = 0, saved_center_low = 0;
 	uint16_t word_copy = 0;
 	uint8_t fall_limit_bits = 0;
-	uint16_t fall_floor = 0, fall_fnumber = 0, center_for_fall = 0, rise_ceiling = 0, rise_fnumber = 0, center_for_rise = 0;
+	uint16_t fall_fnumber = 0, center_for_fall = 0, fall_floor = 0, rise_fnumber = 0, center_for_rise = 0, rise_ceiling = 0;
 
 	z80_block(33);
 	if (FM_VOICE(voice)->vibrato_delay != 0u)
@@ -661,87 +642,78 @@ void step_fm_vibrato(uint16_t voice)
 		FM_VOICE(voice)->vibrato_offset = fnumber;
 		fnumber += (frequency & 0xFFu) | (((frequency >> 8) & 7u) << 8);
 		fnumber = (fnumber & 0xFFu) | ((uint32_t)(uint8_t)(((frequency >> 8) & ~7u) + (fnumber >> 8)) << 8);
-		if ((FM_VOICE(voice)->vibrato_range & 0x70u) == 0u)
-		{
-		vibrato_fall_last_octave:
-			z80_block(167);
-			FM_VOICE(voice)->vibrato_range &= 0xFu;
-			word_copy = fnumber;
-			frequency = word_copy;
-			fnumber = vibrato_center - (((FM_VOICE(voice)->vibrato_range & 7u) << 8) | FM_VOICE(voice)->vibrato_depth);
-			if (((fnumber >> 8) & 0xC0u) != 0u)
-			{
-				z80_block(83);
-				word_copy = frequency;
-				fnumber = frequency;
-				if (word_copy > 0u)
-				{
-					z80_block(97);
-					FM_VOICE(voice)->vibrato_range += FM_VOICE(voice)->vibrato_phase & 0x70u;
-					FM_VOICE(voice)->vibrato_phase--;
-				}
-			}
-			else
-			{
-				z80_block(69);
-				word_copy = frequency;
-				fall_floor = fnumber;
-				fnumber = frequency;
-				if ((uint16_t)((((word_copy >> 8) & 7u) << 8) | (uint8_t)word_copy) <= fall_floor)
-				{
-					z80_block(10);
-					z80_block(97);
-					FM_VOICE(voice)->vibrato_range += FM_VOICE(voice)->vibrato_phase & 0x70u;
-					FM_VOICE(voice)->vibrato_phase--;
-					z80_block(94);
-					fnumber = (fnumber & 0xFFu) | ((uint32_t)(uint8_t)((FM_VOICE(voice)->vibrato_block & ~7u) + (fnumber >> 8)) << 8);
-					frequency = (fm_channel & 3u) << 8;
-					value = (uint8_t)(fnumber >> 8);
-					fm_register = 0xA4u | (frequency >> 8);
-					write_fm_channel(fm_register, value);
-					z80_block(36);
-					value = (uint8_t)fnumber;
-					fm_register = 0xA0u | (frequency >> 8);
-					write_fm_channel(fm_register, value);
-					z80_block(10);
-					return;
-				}
-			}
-		}
-		else
+		if ((FM_VOICE(voice)->vibrato_range & 0x70u) != 0u)
 		{
 			z80_block(83);
 			word_copy = fnumber;
 			fall_fnumber = (fnumber & 0xFFu) | (((fnumber >> 8) & 7u) << 8);
 			fnumber = word_copy;
-			if (fall_fnumber < 0x269u)
+			if (fall_fnumber >= 0x269u)
 			{
-				z80_block(304);
-				frequency = fnumber;
-				center_for_fall = vibrato_center;
-				center_high = (uint8_t)(center_for_fall >> 8);
-				center_low = (uint8_t)center_for_fall;
-				fnumber = 0x4CFu - (((uint32_t)center_high << 8) | center_low);
-				FM_VOICE(voice)->vibrato_offset = fnumber;
-				saved_center_high = center_high;
-				saved_center_low = center_low;
-				fnumber = (((uint32_t)saved_center_high << 8) | saved_center_low) + FM_VOICE(voice)->vibrato_offset;
-				fnumber = (fnumber & 0xFFu) | ((uint32_t)(uint8_t)(((frequency >> 8) & 0x38u) + (fnumber >> 8)) << 8);
-				frequency = ((fnumber >> 8) & 0x38u) << 8;
-				fall_block = (FM_VOICE(voice)->vibrato_block & ~7u) + (frequency >> 8);
-				value = 0u - ((FM_VOICE(voice)->vibrato_range & 0x70u) >> 1) + (frequency >> 8);
-				fall_limit = value;
-				fall_limit_bits = value & ~7u;
-				value = fall_limit_bits;
-				if (fall_limit_bits != 0u)
+				z80_block(94);
+				fnumber = (fnumber & 0xFFu) | ((uint32_t)(uint8_t)((FM_VOICE(voice)->vibrato_block & ~7u) + (fnumber >> 8)) << 8);
+				frequency = (fm_channel & 3u) << 8;
+				value = (uint8_t)(fnumber >> 8);
+				fm_register = 0xA4u | (frequency >> 8);
+				write_fm_channel(fm_register, value);
+				z80_block(36);
+				value = (uint8_t)fnumber;
+				fm_register = 0xA0u | (frequency >> 8);
+				write_fm_channel(fm_register, value);
+				z80_block(10);
+				return;
+			}
+			z80_block(304);
+			frequency = fnumber;
+			center_for_fall = vibrato_center;
+			center_high = (uint8_t)(center_for_fall >> 8);
+			center_low = (uint8_t)center_for_fall;
+			fnumber = 0x4CFu - (((uint32_t)center_high << 8) | center_low);
+			FM_VOICE(voice)->vibrato_offset = fnumber;
+			saved_center_high = center_high;
+			saved_center_low = center_low;
+			fnumber = (((uint32_t)saved_center_high << 8) | saved_center_low) + FM_VOICE(voice)->vibrato_offset;
+			fnumber = (fnumber & 0xFFu) | ((uint32_t)(uint8_t)(((frequency >> 8) & 0x38u) + (fnumber >> 8)) << 8);
+			frequency = ((fnumber >> 8) & 0x38u) << 8;
+			fall_block = (FM_VOICE(voice)->vibrato_block & ~7u) + (frequency >> 8);
+			value = 0u - ((FM_VOICE(voice)->vibrato_range & 0x70u) >> 1) + (frequency >> 8);
+			fall_limit = value;
+			fall_limit_bits = value & ~7u;
+			value = fall_limit_bits;
+			fall_block_check = fall_limit_bits == 0u;
+			if (!fall_block_check)
+			{
+				z80_block(17);
+				fall_block_check = (value & 0xC0u) != 0u;
+				if (!fall_block_check)
 				{
-					z80_block(17);
-					if ((value & 0xC0u) != 0u)
-						goto vibrato_fall_block_check;
 					z80_block(18);
-					if (fall_block <= fall_limit)
-						goto vibrato_fall_into_last_octave;
-					z80_block(10);
+					fall_into_last_octave = fall_block <= fall_limit;
+					if (!fall_into_last_octave)
+					{
+						z80_block(10);
+						z80_block(59);
+						FM_VOICE(voice)->vibrato_block -= 8u;
+						z80_block(94);
+						fnumber = (fnumber & 0xFFu) | ((uint32_t)(uint8_t)((FM_VOICE(voice)->vibrato_block & ~7u) + (fnumber >> 8)) << 8);
+						frequency = (fm_channel & 3u) << 8;
+						value = (uint8_t)(fnumber >> 8);
+						fm_register = 0xA4u | (frequency >> 8);
+						write_fm_channel(fm_register, value);
+						z80_block(36);
+						value = (uint8_t)fnumber;
+						fm_register = 0xA0u | (frequency >> 8);
+						write_fm_channel(fm_register, value);
+						z80_block(10);
+						return;
+					}
+				}
+			}
+			if (fall_block_check)
+			{
+				z80_block(21);
+				if (fall_block > 8u)
+				{
 					z80_block(59);
 					FM_VOICE(voice)->vibrato_block -= 8u;
 					z80_block(94);
@@ -757,18 +729,65 @@ void step_fm_vibrato(uint16_t voice)
 					z80_block(10);
 					return;
 				}
-			vibrato_fall_block_check:
-				z80_block(21);
-				if (fall_block <= 8u)
-				{
-				vibrato_fall_into_last_octave:
-					z80_block(49);
-					FM_VOICE(voice)->vibrato_block -= 8u;
-					goto vibrato_fall_last_octave;
-				}
-				z80_block(59);
+				fall_into_last_octave = true;
+			}
+			if (fall_into_last_octave)
+			{
+				z80_block(49);
 				FM_VOICE(voice)->vibrato_block -= 8u;
 			}
+		}
+		z80_block(167);
+		FM_VOICE(voice)->vibrato_range &= 0xFu;
+		word_copy = fnumber;
+		frequency = word_copy;
+		fnumber = vibrato_center - (((FM_VOICE(voice)->vibrato_range & 7u) << 8) | FM_VOICE(voice)->vibrato_depth);
+		if (((fnumber >> 8) & 0xC0u) == 0u)
+		{
+			z80_block(69);
+			word_copy = frequency;
+			fall_floor = fnumber;
+			fnumber = frequency;
+			if (fall_floor < (uint16_t)((((word_copy >> 8) & 7u) << 8) | (uint8_t)word_copy))
+			{
+				z80_block(94);
+				fnumber = (fnumber & 0xFFu) | ((uint32_t)(uint8_t)((FM_VOICE(voice)->vibrato_block & ~7u) + (fnumber >> 8)) << 8);
+				frequency = (fm_channel & 3u) << 8;
+				value = (uint8_t)(fnumber >> 8);
+				fm_register = 0xA4u | (frequency >> 8);
+				write_fm_channel(fm_register, value);
+				z80_block(36);
+				value = (uint8_t)fnumber;
+				fm_register = 0xA0u | (frequency >> 8);
+				write_fm_channel(fm_register, value);
+				z80_block(10);
+				return;
+			}
+			z80_block(10);
+			z80_block(97);
+			FM_VOICE(voice)->vibrato_range += FM_VOICE(voice)->vibrato_phase & 0x70u;
+			FM_VOICE(voice)->vibrato_phase--;
+			z80_block(94);
+			fnumber = (fnumber & 0xFFu) | ((uint32_t)(uint8_t)((FM_VOICE(voice)->vibrato_block & ~7u) + (fnumber >> 8)) << 8);
+			frequency = (fm_channel & 3u) << 8;
+			value = (uint8_t)(fnumber >> 8);
+			fm_register = 0xA4u | (frequency >> 8);
+			write_fm_channel(fm_register, value);
+			z80_block(36);
+			value = (uint8_t)fnumber;
+			fm_register = 0xA0u | (frequency >> 8);
+			write_fm_channel(fm_register, value);
+			z80_block(10);
+			return;
+		}
+		z80_block(83);
+		word_copy = frequency;
+		fnumber = frequency;
+		if (word_copy > 0u)
+		{
+			z80_block(97);
+			FM_VOICE(voice)->vibrato_range += FM_VOICE(voice)->vibrato_phase & 0x70u;
+			FM_VOICE(voice)->vibrato_phase--;
 		}
 	}
 	else
@@ -778,66 +797,76 @@ void step_fm_vibrato(uint16_t voice)
 		fnumber = FM_VOICE(voice)->vibrato_offset + FM_VOICE(voice)->vibrato_rise;
 		FM_VOICE(voice)->vibrato_offset = fnumber;
 		fnumber += frequency;
-		if ((FM_VOICE(voice)->vibrato_range & 0x70u) == 0u)
-		{
-		vibrato_rise_last_octave:
-			z80_block(170);
-			FM_VOICE(voice)->vibrato_range &= 0xFu;
-			word_copy = fnumber;
-			frequency = word_copy;
-			fnumber = vibrato_center + (((FM_VOICE(voice)->vibrato_range & 7u) << 8) | FM_VOICE(voice)->vibrato_depth);
-			if (((fnumber >> 8) & 0xFu) >= 4u)
-			{
-				z80_block(7);
-				fnumber = (fnumber & 0xFFu) | 0x500u;
-			}
-			else
-				z80_block(10);
-			z80_block(84);
-			word_copy = frequency;
-			rise_ceiling = (fnumber & 0xFFu) | (((fnumber >> 8) & 7u) << 8);
-			fnumber = frequency;
-			if (rise_ceiling < (uint16_t)((((word_copy >> 8) & 7u) << 8) | (uint8_t)word_copy))
-			{
-				z80_block(97);
-				FM_VOICE(voice)->vibrato_range += FM_VOICE(voice)->vibrato_phase & 0x70u;
-				FM_VOICE(voice)->vibrato_phase++;
-			}
-		}
-		else
+		if ((FM_VOICE(voice)->vibrato_range & 0x70u) != 0u)
 		{
 			z80_block(83);
 			word_copy = fnumber;
 			rise_fnumber = (fnumber & 0xFFu) | (((fnumber >> 8) & 7u) << 8);
 			fnumber = word_copy;
-			if (rise_fnumber >= 0x4CEu)
+			if (rise_fnumber < 0x4CEu)
 			{
-				z80_block(314);
-				frequency = fnumber;
-				center_for_rise = vibrato_center;
-				center_high = (uint8_t)(center_for_rise >> 8);
-				center_low = (uint8_t)center_for_rise;
-				fnumber = 0x269u - (((uint32_t)center_high << 8) | center_low);
-				FM_VOICE(voice)->vibrato_offset = fnumber;
-				saved_center_high = center_high;
-				saved_center_low = center_low;
-				fnumber = (((uint32_t)saved_center_high << 8) | saved_center_low) + FM_VOICE(voice)->vibrato_offset;
-				fnumber = (fnumber & 0xFFu) | ((uint32_t)(uint8_t)(((frequency >> 8) & 0x38u) + (fnumber >> 8)) << 8);
-				frequency = ((fnumber >> 8) & 0x38u) << 8;
-				rise_block = ((FM_VOICE(voice)->vibrato_block & ~7u) + (frequency >> 8)) & 0xF8u;
-				value = ((FM_VOICE(voice)->vibrato_range & 0x70u) >> 1) + (frequency >> 8) - 8u;
-				rise_limit = value;
-				if (value >= 0x30u)
+				z80_block(94);
+				fnumber = (fnumber & 0xFFu) | ((uint32_t)(uint8_t)((FM_VOICE(voice)->vibrato_block & ~7u) + (fnumber >> 8)) << 8);
+				frequency = (fm_channel & 3u) << 8;
+				value = (uint8_t)(fnumber >> 8);
+				fm_register = 0xA4u | (frequency >> 8);
+				write_fm_channel(fm_register, value);
+				z80_block(36);
+				value = (uint8_t)fnumber;
+				fm_register = 0xA0u | (frequency >> 8);
+				write_fm_channel(fm_register, value);
+				z80_block(10);
+				return;
+			}
+			z80_block(314);
+			frequency = fnumber;
+			center_for_rise = vibrato_center;
+			center_high = (uint8_t)(center_for_rise >> 8);
+			center_low = (uint8_t)center_for_rise;
+			fnumber = 0x269u - (((uint32_t)center_high << 8) | center_low);
+			FM_VOICE(voice)->vibrato_offset = fnumber;
+			saved_center_high = center_high;
+			saved_center_low = center_low;
+			fnumber = (((uint32_t)saved_center_high << 8) | saved_center_low) + FM_VOICE(voice)->vibrato_offset;
+			fnumber = (fnumber & 0xFFu) | ((uint32_t)(uint8_t)(((frequency >> 8) & 0x38u) + (fnumber >> 8)) << 8);
+			frequency = ((fnumber >> 8) & 0x38u) << 8;
+			rise_block = ((FM_VOICE(voice)->vibrato_block & ~7u) + (frequency >> 8)) & 0xF8u;
+			value = ((FM_VOICE(voice)->vibrato_range & 0x70u) >> 1) + (frequency >> 8) - 8u;
+			rise_limit = value;
+			if (value >= 0x30u)
+			{
+				z80_block(7);
+				rise_limit = 0x28u;
+			}
+			z80_block(21);
+			if ((rise_limit & 0xC0u) != 0u)
+			{
+				z80_block(25);
+				if (rise_block <= (uint8_t)(rise_limit + 8u))
 				{
-					z80_block(7);
-					rise_limit = 0x28u;
+					z80_block(45);
+					FM_VOICE(voice)->vibrato_block += 8u;
+					z80_block(94);
+					fnumber = (fnumber & 0xFFu) | ((uint32_t)(uint8_t)((FM_VOICE(voice)->vibrato_block & ~7u) + (fnumber >> 8)) << 8);
+					frequency = (fm_channel & 3u) << 8;
+					value = (uint8_t)(fnumber >> 8);
+					fm_register = 0xA4u | (frequency >> 8);
+					write_fm_channel(fm_register, value);
+					z80_block(36);
+					value = (uint8_t)fnumber;
+					fm_register = 0xA0u | (frequency >> 8);
+					write_fm_channel(fm_register, value);
+					z80_block(10);
+					return;
 				}
-				z80_block(21);
-				if ((rise_limit & 0xC0u) == 0u)
+				rise_into_last_octave = true;
+			}
+			else
+			{
+				z80_block(18);
+				rise_into_last_octave = rise_limit < rise_block;
+				if (!rise_into_last_octave)
 				{
-					z80_block(18);
-					if (rise_limit < rise_block)
-						goto vibrato_rise_into_last_octave;
 					z80_block(10);
 					z80_block(45);
 					FM_VOICE(voice)->vibrato_block += 8u;
@@ -854,17 +883,34 @@ void step_fm_vibrato(uint16_t voice)
 					z80_block(10);
 					return;
 				}
-				z80_block(25);
-				if ((uint8_t)(rise_limit + 8u) < rise_block)
-				{
-				vibrato_rise_into_last_octave:
-					z80_block(45);
-					FM_VOICE(voice)->vibrato_block += 8u;
-					goto vibrato_rise_last_octave;
-				}
+			}
+			if (rise_into_last_octave)
+			{
 				z80_block(45);
 				FM_VOICE(voice)->vibrato_block += 8u;
 			}
+		}
+		z80_block(170);
+		FM_VOICE(voice)->vibrato_range &= 0xFu;
+		word_copy = fnumber;
+		frequency = word_copy;
+		fnumber = vibrato_center + (((FM_VOICE(voice)->vibrato_range & 7u) << 8) | FM_VOICE(voice)->vibrato_depth);
+		if (((fnumber >> 8) & 0xFu) >= 4u)
+		{
+			z80_block(7);
+			fnumber = (fnumber & 0xFFu) | 0x500u;
+		}
+		else
+			z80_block(10);
+		z80_block(84);
+		word_copy = frequency;
+		rise_ceiling = (fnumber & 0xFFu) | (((fnumber >> 8) & 7u) << 8);
+		fnumber = frequency;
+		if (rise_ceiling < (uint16_t)((((word_copy >> 8) & 7u) << 8) | (uint8_t)word_copy))
+		{
+			z80_block(97);
+			FM_VOICE(voice)->vibrato_range += FM_VOICE(voice)->vibrato_phase & 0x70u;
+			FM_VOICE(voice)->vibrato_phase++;
 		}
 	}
 	z80_block(94);

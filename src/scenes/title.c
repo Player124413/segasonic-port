@@ -220,23 +220,23 @@ void title_emblem_animate(void)
 		if (title_step_timer < 0)
 			return;
 		title_sonic_step++;
-		if (title_sonic_step > 4)
+		if (title_sonic_step <= 4)
 		{
-			if (title_sonic_step >= 0x13)
-			{
-				if (title_sonic_step >= 0x14)
-					title_step_timer = -3;
-				else
-				{
-					title_step_timer = -0x3C;
-					title_ray_mighty_started = 1u;
-				}
-			}
-			else
-				title_step_timer = -4;
-		}
-		else
 			title_step_timer = -2;
+			return;
+		}
+		if (title_sonic_step >= 0x13)
+		{
+			if (title_sonic_step >= 0x14)
+			{
+				title_step_timer = -3;
+				return;
+			}
+			title_step_timer = -0x3C;
+			title_ray_mighty_started = 1u;
+			return;
+		}
+		title_step_timer = -4;
 		return;
 	}
 	title_done = 1u;
@@ -384,22 +384,20 @@ void title_smoke_puff_animate(void)
 		return;
 	}
 	OBJECT(current_object)->title.timer_low++;
-	if (OBJECT(current_object)->timer < 3)
+	if (OBJECT(current_object)->timer >= 3)
 	{
-		queue_sprite_in_layer();
-		return;
+		OBJECT(current_object)->timer = 0;
+		puff_frame = OBJECT(current_object)->title.frame_index;
+		OBJECT(current_object)->title.frame_index++;
+		puff_frame = title_smoke_puff_frames_ADDRESS + puff_frame * 2u;
+		OBJECT(current_object)->sprite_frame = ROM16(puff_frame);
+		if (ROM16(puff_frame) == 0xFFFFu)
+		{
+			delete_current_object();
+			return;
+		}
 	}
-	OBJECT(current_object)->timer = 0;
-	puff_frame = OBJECT(current_object)->title.frame_index;
-	OBJECT(current_object)->title.frame_index++;
-	puff_frame = title_smoke_puff_frames_ADDRESS + puff_frame * 2u;
-	OBJECT(current_object)->sprite_frame = ROM16(puff_frame);
-	if (ROM16(puff_frame) != 0xFFFFu)
-	{
-		queue_sprite_in_layer();
-		return;
-	}
-	delete_current_object();
+	queue_sprite_in_layer();
 }
 
 void init_title_puff_sprite(uint32_t puff)

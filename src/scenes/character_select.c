@@ -127,9 +127,8 @@ void character_chooser_wait(void)
 {
 	uint8_t left_turns = 0, right_turns = 0, turn = 0;
 	uint16_t trackball_x = 0;
-	uint32_t r1 = 0, idle_frame = 0, kind = 0, piece_value = 0, taken_bit = 0;
+	uint32_t kind = 0;
 	uint8_t right_steps = 0;
-	uint16_t step_timer = 0;
 
 	if (free_character_count == 1u || character_select_timer < 0x1E)
 	{
@@ -145,43 +144,7 @@ void character_chooser_wait(void)
 	trackball_x = RAM16(GAME_VARIABLES + chooser_trackball_offsets[kind]);
 	if (trackball_x == 0u)
 	{
-	character_chooser_idle:
-		r1 = character_taken_bits[OBJECT(current_object)->character_chooser.character];
-		if ((characters_taken & shl32(1u, (int)(r1))) != 0u)
-		{
-			OBJECT(current_object)->character_chooser.step_timer = 0;
-			OBJECT(current_object)->character_chooser.turn_timer = 0x18u;
-			OBJECT(current_object)->handler = character_chooser_turn_ADDRESS;
-			character_chooser_turn();
-			return;
-		}
-		step_timer = OBJECT(current_object)->character_chooser.step_timer;
-		OBJECT(current_object)->character_chooser.step_timer = step_timer - 1u;
-		if (step_timer == 0u)
-		{
-			OBJECT(current_object)->character_chooser.step_timer = 3;
-			r1 = OBJECT(current_object)->character_chooser.idle_step;
-			idle_frame = chooser_idle_steps[r1];
-			OBJECT(current_object)->sprite_frame = chooser_portrait_frames[(uint8_t)(idle_frame + OBJECT(current_object)->character_chooser.character * 4u)];
-			OBJECT(current_object)->character_chooser.idle_step++;
-			OBJECT(current_object)->character_chooser.idle_step &= 3u;
-		}
-		queue_sprite(r1);
-		r14 = 2u;
-		do
-		{
-			current_object = LINKED(current_object, OBJECT(current_object)->child);
-			piece_value = OBJECT(current_object)->piece_value;
-			taken_bit = character_taken_bits[piece_value];
-			if ((characters_taken & shl32(1u, (int)(taken_bit))) != 0u)
-			{
-				OBJECT(current_object)->sprite_palette = chooser_portrait_palettes[piece_value];
-				OBJECT(current_object)->sprite_palette = 0x87A0u;
-			}
-			queue_sprite(taken_bit);
-			r14 = r14 - 1u;
-		} while (r14 != 0u);
-		draw_character_chooser_labels();
+		character_chooser_idle();
 		return;
 	}
 	if ((int16_t)trackball_x < 0)
@@ -201,7 +164,10 @@ void character_chooser_wait(void)
 	right_steps = right_turns;
 	turn = (uint8_t)(right_steps - left_turns);
 	if (right_steps == left_turns)
-		goto character_chooser_idle;
+	{
+		character_chooser_idle();
+		return;
+	}
 	OBJECT(current_object)->character_chooser.turn_direction = turn;
 	OBJECT(current_object)->character_chooser.step_timer = 0;
 	OBJECT(current_object)->character_chooser.turn_timer = 0x18u;
@@ -246,6 +212,49 @@ void character_chooser_confirm(void)
 	character_chooser_chosen();
 }
 
+void character_chooser_idle(void)
+{
+	uint32_t character_bit = 0, idle_frame = 0, piece_value = 0, taken_bit = 0;
+	uint16_t step_timer = 0;
+
+	character_bit = character_taken_bits[OBJECT(current_object)->character_chooser.character];
+	if ((characters_taken & shl32(1u, (int)(character_bit))) != 0u)
+	{
+		OBJECT(current_object)->character_chooser.step_timer = 0;
+		OBJECT(current_object)->character_chooser.turn_timer = 0x18u;
+		OBJECT(current_object)->handler = character_chooser_turn_ADDRESS;
+		character_chooser_turn();
+		return;
+	}
+	step_timer = OBJECT(current_object)->character_chooser.step_timer;
+	OBJECT(current_object)->character_chooser.step_timer = step_timer - 1u;
+	if (step_timer == 0u)
+	{
+		OBJECT(current_object)->character_chooser.step_timer = 3;
+		character_bit = OBJECT(current_object)->character_chooser.idle_step;
+		idle_frame = chooser_idle_steps[character_bit];
+		OBJECT(current_object)->sprite_frame = chooser_portrait_frames[(uint8_t)(idle_frame + OBJECT(current_object)->character_chooser.character * 4u)];
+		OBJECT(current_object)->character_chooser.idle_step++;
+		OBJECT(current_object)->character_chooser.idle_step &= 3u;
+	}
+	queue_sprite(character_bit);
+	r14 = 2u;
+	do
+	{
+		current_object = LINKED(current_object, OBJECT(current_object)->child);
+		piece_value = OBJECT(current_object)->piece_value;
+		taken_bit = character_taken_bits[piece_value];
+		if ((characters_taken & shl32(1u, (int)(taken_bit))) != 0u)
+		{
+			OBJECT(current_object)->sprite_palette = chooser_portrait_palettes[piece_value];
+			OBJECT(current_object)->sprite_palette = 0x87A0u;
+		}
+		queue_sprite(taken_bit);
+		r14 = r14 - 1u;
+	} while (r14 != 0u);
+	draw_character_chooser_labels();
+}
+
 void draw_character_chooser_labels(void)
 {
 	uint32_t ignored = 0;
@@ -264,9 +273,9 @@ void draw_character_chooser_labels(void)
 void character_chooser_turn(void)
 {
 	uint16_t turn_step = 0;
-	uint32_t r1 = 0, character = 0, idle_frame = 0, piece_value = 0, taken_bit = 0, x_index = 0;
+	uint32_t r1 = 0, character = 0, piece_value = 0, x_index = 0;
 	uint8_t next_character = 0;
-	uint16_t turn_timer = 0, step_timer = 0, scale_step = 0;
+	uint16_t turn_timer = 0, scale_step = 0;
 
 	for (;;)
 	{
@@ -333,41 +342,7 @@ void character_chooser_turn(void)
 		{
 			OBJECT(current_object)->character_chooser.name_changed = 1u;
 			OBJECT(current_object)->handler = character_chooser_wait_ADDRESS;
-			r1 = character_taken_bits[OBJECT(current_object)->character_chooser.character];
-			if ((characters_taken & shl32(1u, (int)(r1))) != 0u)
-			{
-				OBJECT(current_object)->character_chooser.step_timer = 0;
-				OBJECT(current_object)->character_chooser.turn_timer = 0x18u;
-				OBJECT(current_object)->handler = character_chooser_turn_ADDRESS;
-				continue;
-			}
-			step_timer = OBJECT(current_object)->character_chooser.step_timer;
-			OBJECT(current_object)->character_chooser.step_timer = step_timer - 1u;
-			if (step_timer == 0u)
-			{
-				OBJECT(current_object)->character_chooser.step_timer = 3;
-				r1 = OBJECT(current_object)->character_chooser.idle_step;
-				idle_frame = chooser_idle_steps[r1];
-				OBJECT(current_object)->sprite_frame = chooser_portrait_frames[(uint8_t)(idle_frame + OBJECT(current_object)->character_chooser.character * 4u)];
-				OBJECT(current_object)->character_chooser.idle_step++;
-				OBJECT(current_object)->character_chooser.idle_step &= 3u;
-			}
-			queue_sprite(r1);
-			r14 = 2u;
-			do
-			{
-				current_object = LINKED(current_object, OBJECT(current_object)->child);
-				piece_value = OBJECT(current_object)->piece_value;
-				taken_bit = character_taken_bits[piece_value];
-				if ((characters_taken & shl32(1u, (int)(taken_bit))) != 0u)
-				{
-					OBJECT(current_object)->sprite_palette = chooser_portrait_palettes[piece_value];
-					OBJECT(current_object)->sprite_palette = 0x87A0u;
-				}
-				queue_sprite(taken_bit);
-				r14 = r14 - 1u;
-			} while (r14 != 0u);
-			draw_character_chooser_labels();
+			character_chooser_idle();
 			return;
 		}
 		OBJECT(current_object)->sprite_palette = chooser_portrait_palettes[character];
@@ -532,7 +507,7 @@ void join_character_chooser_update(uint32_t text_x)
 {
 	uint8_t left_steps = 0, right_turns = 0, turn = 0;
 	uint16_t trackball_x = 0, y = 0;
-	uint32_t character = 0, kind = 0, palette = 0, player = 0, scale = 0, taken_bit = 0, text = 0;
+	uint32_t character = 0, kind = 0, palette = 0, player = 0, scale = 0, text = 0;
 	uint8_t right_steps = 0, next_character = 0;
 	uint16_t time_left = 0;
 
@@ -544,96 +519,107 @@ void join_character_chooser_update(uint32_t text_x)
 	OBJECT(current_object)->join_character_chooser.countdown = time_left - 1u;
 	if (time_left == 0u)
 	{
-		for (;;)
-		{
-		join_character_chooser_take_character:
-			character = OBJECT(current_object)->join_character_chooser.character;
-			OBJECT(object_cursor)->kind = character;
-			taken_bit = character_taken_bits[character];
-			if ((characters_taken & shl32(1u, (int)(taken_bit))) == 0u)
-				break;
-			OBJECT(current_object)->join_character_chooser.character++;
-			OBJECT(current_object)->join_character_chooser.character = OBJECT(current_object)->join_character_chooser.character % 3u;
-		}
-		characters_taken |= shl32(1u, (int)(taken_bit));
-		AS32(players_in_join_chooser) &= ~shl32(1u, (int)(OBJECT(current_object)->kind));
+		join_character_chooser_take_character();
+		return;
 	}
-	else
+	text_x = (text_x & ~0xFFFFu) | (uint16_t)OBJECT(current_object)->screen_x;
+	text_x = (text_x & ~0xFFFFu) | (uint16_t)(text_x - 0x25u);
+	y = (uint16_t)(OBJECT(current_object)->screen_y - 0x13u);
+	palette = 0x8AD0u;
+	scale = 0x140u;
+	text = countdown_second_texts_ADDRESS + (int32_t)OBJECT(current_object)->join_character_chooser.countdown / 0x3C * 3u;
+	queue_string_at(text_x, y, &palette, &scale, &text);
+	text_x = (text_x & ~0xFFFFu) | (uint16_t)OBJECT(current_object)->screen_x;
+	text_x = (text_x & ~0xFFFFu) | (uint16_t)(text_x + 9u);
+	y = (uint16_t)(OBJECT(current_object)->screen_y - 0x13u);
+	queue_string_at(text_x, y, &palette, &scale, &text);
+	if (joining_closed != 0u)
 	{
-		text_x = (text_x & ~0xFFFFu) | (uint16_t)OBJECT(current_object)->screen_x;
-		text_x = (text_x & ~0xFFFFu) | (uint16_t)(text_x - 0x25u);
-		y = (uint16_t)(OBJECT(current_object)->screen_y - 0x13u);
-		palette = 0x8AD0u;
-		scale = 0x140u;
-		text = countdown_second_texts_ADDRESS + (int32_t)OBJECT(current_object)->join_character_chooser.countdown / 0x3C * 3u;
-		queue_string_at(text_x, y, &palette, &scale, &text);
-		text_x = (text_x & ~0xFFFFu) | (uint16_t)OBJECT(current_object)->screen_x;
-		text_x = (text_x & ~0xFFFFu) | (uint16_t)(text_x + 9u);
-		y = (uint16_t)(OBJECT(current_object)->screen_y - 0x13u);
-		queue_string_at(text_x, y, &palette, &scale, &text);
-		if (joining_closed != 0u)
-			goto join_character_chooser_take_character;
-		kind = OBJECT(current_object)->kind;
-		if ((inputs_pressed & shl32(1u, (int)(chooser_button_bits[kind]))) != 0u)
-			goto join_character_chooser_take_character;
-		trackball_x = RAM16(GAME_VARIABLES + chooser_trackball_offsets[kind]);
-		if (trackball_x != 0u)
-		{
-			if ((int16_t)trackball_x < 0)
-			{
-				OBJECT(current_object)->spawn_arg_1 = 0u;
-				OBJECT(current_object)->spawn_arg_2 += 8u;
-			}
-			else
-			{
-				OBJECT(current_object)->spawn_arg_1 += 8u;
-				OBJECT(current_object)->spawn_arg_2 = 0u;
-			}
-			right_turns = OBJECT(current_object)->spawn_arg_1_high;
-			left_steps = OBJECT(current_object)->spawn_arg_2_high;
-			OBJECT(current_object)->spawn_arg_2_high = 0u;
-			OBJECT(current_object)->spawn_arg_1_high = 0u;
-			right_steps = right_turns;
-			turn = (uint8_t)(right_steps - left_steps);
-			if (right_steps != left_steps)
-			{
-				OBJECT(current_object)->hitbox_centre_y = turn;
-				OBJECT(current_object)->join_character_chooser.portrait_changed = 1u;
-				next_character = OBJECT(current_object)->join_character_chooser.character + turn;
-				OBJECT(current_object)->join_character_chooser.character = next_character;
-				if ((int8_t)next_character >= 0)
-					OBJECT(current_object)->join_character_chooser.character = OBJECT(current_object)->join_character_chooser.character % 3u;
-				else
-					OBJECT(current_object)->join_character_chooser.character = 2u;
-			}
-		}
-		for (;;)
-		{
-			character = OBJECT(current_object)->join_character_chooser.character;
-			if ((characters_taken & shl32(1u, (int)(character_taken_bits[character]))) == 0u)
-				break;
-			OBJECT(current_object)->join_character_chooser.portrait_changed = 1u;
-			OBJECT(current_object)->join_character_chooser.character += OBJECT(current_object)->hitbox_centre_y;
-			if ((int8_t)OBJECT(current_object)->join_character_chooser.character < 0)
-				OBJECT(current_object)->join_character_chooser.character = 2u;
-			OBJECT(current_object)->join_character_chooser.character = OBJECT(current_object)->join_character_chooser.character % 3u;
-		}
-		if (OBJECT(current_object)->join_character_chooser.portrait_changed != 0u)
-		{
-			OBJECT(current_object)->sprite_frame = join_chooser_portraits[character];
-			OBJECT(current_object)->sprite_palette = join_chooser_palettes[character];
-		}
-		queue_sprite_on_top();
-		OBJECT(current_object)->join_character_chooser.portrait_changed = 0u;
-		r14 = current_object;
-		current_object = LINKED(current_object, OBJECT(current_object)->child);
-		if (OBJECT(current_object)->piece_value != OBJECT(r14)->join_character_chooser.character)
-		{
-			OBJECT(current_object)->piece_value = OBJECT(r14)->join_character_chooser.character;
-			OBJECT(current_object)->sprite_frame = character_name_sprites[OBJECT(current_object)->piece_value];
-		}
-		queue_sprite_on_top();
+		join_character_chooser_take_character();
+		return;
 	}
+	kind = OBJECT(current_object)->kind;
+	if ((inputs_pressed & shl32(1u, (int)(chooser_button_bits[kind]))) != 0u)
+	{
+		join_character_chooser_take_character();
+		return;
+	}
+	trackball_x = RAM16(GAME_VARIABLES + chooser_trackball_offsets[kind]);
+	if (trackball_x != 0u)
+	{
+		if ((int16_t)trackball_x < 0)
+		{
+			OBJECT(current_object)->spawn_arg_1 = 0u;
+			OBJECT(current_object)->spawn_arg_2 += 8u;
+		}
+		else
+		{
+			OBJECT(current_object)->spawn_arg_1 += 8u;
+			OBJECT(current_object)->spawn_arg_2 = 0u;
+		}
+		right_turns = OBJECT(current_object)->spawn_arg_1_high;
+		left_steps = OBJECT(current_object)->spawn_arg_2_high;
+		OBJECT(current_object)->spawn_arg_2_high = 0u;
+		OBJECT(current_object)->spawn_arg_1_high = 0u;
+		right_steps = right_turns;
+		turn = (uint8_t)(right_steps - left_steps);
+		if (right_steps != left_steps)
+		{
+			OBJECT(current_object)->hitbox_centre_y = turn;
+			OBJECT(current_object)->join_character_chooser.portrait_changed = 1u;
+			next_character = OBJECT(current_object)->join_character_chooser.character + turn;
+			OBJECT(current_object)->join_character_chooser.character = next_character;
+			if ((int8_t)next_character >= 0)
+				OBJECT(current_object)->join_character_chooser.character = OBJECT(current_object)->join_character_chooser.character % 3u;
+			else
+				OBJECT(current_object)->join_character_chooser.character = 2u;
+		}
+	}
+	for (;;)
+	{
+		character = OBJECT(current_object)->join_character_chooser.character;
+		if ((characters_taken & shl32(1u, (int)(character_taken_bits[character]))) == 0u)
+			break;
+		OBJECT(current_object)->join_character_chooser.portrait_changed = 1u;
+		OBJECT(current_object)->join_character_chooser.character += OBJECT(current_object)->hitbox_centre_y;
+		if ((int8_t)OBJECT(current_object)->join_character_chooser.character < 0)
+			OBJECT(current_object)->join_character_chooser.character = 2u;
+		OBJECT(current_object)->join_character_chooser.character = OBJECT(current_object)->join_character_chooser.character % 3u;
+	}
+	if (OBJECT(current_object)->join_character_chooser.portrait_changed != 0u)
+	{
+		OBJECT(current_object)->sprite_frame = join_chooser_portraits[character];
+		OBJECT(current_object)->sprite_palette = join_chooser_palettes[character];
+	}
+	queue_sprite_on_top();
+	OBJECT(current_object)->join_character_chooser.portrait_changed = 0u;
+	r14 = current_object;
+	current_object = LINKED(current_object, OBJECT(current_object)->child);
+	if (OBJECT(current_object)->piece_value != OBJECT(r14)->join_character_chooser.character)
+	{
+		OBJECT(current_object)->piece_value = OBJECT(r14)->join_character_chooser.character;
+		OBJECT(current_object)->sprite_frame = character_name_sprites[OBJECT(current_object)->piece_value];
+	}
+	queue_sprite_on_top();
+	current_object = object_cursor;
+}
+
+void join_character_chooser_take_character(void)
+{
+	uint32_t character = 0, taken_bit = 0;
+
+	for (;;)
+	{
+		character = OBJECT(current_object)->join_character_chooser.character;
+		OBJECT(object_cursor)->kind = character;
+		taken_bit = character_taken_bits[character];
+		if ((characters_taken & shl32(1u, (int)(taken_bit))) == 0u)
+			break;
+		OBJECT(current_object)->join_character_chooser.character++;
+		OBJECT(current_object)->join_character_chooser.character = OBJECT(current_object)->join_character_chooser.character % 3u;
+	}
+	characters_taken |= shl32(1u, (int)(taken_bit));
+	AS32(players_in_join_chooser) &= ~shl32(1u, (int)(OBJECT(current_object)->kind));
 	current_object = object_cursor;
 }
 

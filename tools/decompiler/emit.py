@@ -198,6 +198,9 @@ class Names:
     def flag(self, name):
         return self.writer.use(("f", name))
 
+    def control(self, name):
+        return self.writer.control(name)
+
     def temp(self, temp):
         return self.writer.temp_name(temp), temp.bits
 
@@ -289,6 +292,10 @@ def rerolled(lines):
     return found
 
 
+CONTROL_MARK = "\x01"    # around a control variable's name while the body is written (name_controls)
+CONTROL_PATTERN = "\x01([^\x01]*)\x01"
+
+
 class FunctionWriter:
     def __init__(self, emitter, function, after, fields=None, live_in=frozenset()):
         self.emitter = emitter
@@ -306,6 +313,7 @@ class FunctionWriter:
         self.used = set()
         self.referenced = set()
         self.extra = 0
+        self.controls = {}         # control variable of gotos.py -> its C name (control)
         self.returned = emitter.returned(function.entry)
         self.results = emitter.by_pointer(function.entry)
         self.params = emitter.by_value(function.entry)
@@ -1158,6 +1166,37 @@ class FunctionWriter:
         self.referenced.add(label)
         return f"goto {self.emitter.label_text(label)};"
 
+    def control_name(self, label):
+        """The name of the control variable for the jumps to 'label' (gotos.py): the label's name without the
+        words it starts with that the function's name has ("flood_fill_scan_row_found" in flood_fill_scan_row
+        is found, "flood_fill_skip_parent_left_pairs" in flood_fill_scan_row_skip_parent left_pairs)."""
+        words = self.emitter.label_text(label).split("_")
+        own = set(self.function.name.split("_"))
+        while len(words) > 1 and words[0] in own and words[1][:1].isalpha():
+            words.pop(0)
+        return "_".join(words)
+
+    def control(self, name):
+        """A control variable in the body being written: a mark that name_controls() replaces once the body
+        shows every other name the function uses."""
+        self.controls.setdefault(name, None)
+        return CONTROL_MARK + name + CONTROL_MARK
+
+    def name_controls(self, body):
+        """'body' with the control variables named: each its own name, apart from every other name the
+        function and the program use."""
+        if not self.controls:
+            return body
+        text = "\n".join([self.prototype()] + body)
+        taken = set(re.findall(r"[A-Za-z_]\w*", re.sub(CONTROL_PATTERN, " ", text)))
+        for name in sorted(self.controls):
+            found, number = name, 2
+            while found in taken or self.emitter.local_name(found) is None:
+                found, number = f"{name}_{number}", number + 1
+            self.controls[name] = found
+            taken.add(found)
+        return [re.sub(CONTROL_PATTERN, lambda match: self.controls[match.group(1)], line) for line in body]
+
     # ---- statements ----
 
     def expr(self, node):
@@ -1718,6 +1757,10 @@ class FunctionWriter:
             return [pad + "continue;"]
         if isinstance(node, structure.Goto):
             return [pad + f"goto {self.emitter.label_text(node.label)};"]
+        if isinstance(node, structure.Mark):
+            value = node.value
+            text = ("true" if value.value else "false") if isinstance(value, ir.Const) else self.exact(value)
+            return [pad + f"{self.control(node.name)} = {text};"]
         if isinstance(node, structure.If):
             return self.if_lines(node, depth)
         if isinstance(node, structure.Loop):
@@ -1801,8 +1844,8 @@ class FunctionWriter:
         return self.emitter.prototype(self.entry)
 
     def write(self):
-        tree, self.labels = structure.structure(self.function)
-        body = self.nodes(tree, 1)
+        tree, self.labels = structure.structure(self.function, self.control_name)
+        body = self.name_controls(self.nodes(tree, 1))
         if body and body[-1] == "\treturn;":
             body.pop()    # running off the end returns as well
         text = [self.prototype(), "{"]
@@ -1835,6 +1878,8 @@ class FunctionWriter:
             cast = "" if width == 32 else f"({cprint.UNSIGNED[width]})"
             lines.append(f"{cprint.UNSIGNED[width]} {name} = {cast}*p_{self.emitter.param_name(self.entry, value)};")
             declared.add(name)
+        if self.controls:
+            lines.append("bool " + ", ".join(f"{name} = false" for name in sorted(self.controls.values())) + ";")
         flags = ordered(value for value in self.used if value[0] == "f" and value not in params
                         and value not in self.results and value_name(value) in words)
         if flags:

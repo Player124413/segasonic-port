@@ -511,14 +511,23 @@ uint32_t spawn_player_ride(uint32_t object)
 
 	if (PLAYER(current_player)->ridden_object != 0u)
 		return object;
-	if (OBJECT(current_object)->x_int <= 0xAE0)
+	if (OBJECT(current_object)->x_int > 0xAE0)
 	{
-		if (OBJECT(current_object)->x_int >= 0xA60)
-			return object;
-		ride_start_x = 0xA600000u;
-	}
-	else
 		ride_start_x = 0xAE00000u;
+		allocate_object(&free_count, &object);
+		if (free_count != 0u)
+		{
+			OBJECT(object)->x = ride_start_x;
+			OBJECT(object)->y = 0xEB20000;
+			OBJECT(object)->z = 0x5300000;
+			OBJECT(object)->handler = ridden_object_start_ADDRESS;
+			PLAYER(current_player)->ridden_object = object;
+		}
+		return object;
+	}
+	if (OBJECT(current_object)->x_int >= 0xA60)
+		return object;
+	ride_start_x = 0xA600000u;
 	allocate_object(&free_count, &object);
 	if (free_count != 0u)
 	{

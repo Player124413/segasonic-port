@@ -31,45 +31,32 @@ uint32_t check_zones(uint32_t box_edge)
 		{
 			box_edge = (box_edge & ~0xFFFFu) | (uint16_t)OBJECT(object)->hitbox_offset_x;
 			box_start = (uint16_t)(OBJECT(object)->x_int + box_edge);
-			if (OBJECT(hitter)->x_int < (int16_t)box_start || (int16_t)(box_start + OBJECT(object)->hitbox_size_x) < OBJECT(hitter)->x_int)
+			if ((int16_t)box_start <= OBJECT(hitter)->x_int && OBJECT(hitter)->x_int <= (int16_t)(box_start + OBJECT(object)->hitbox_size_x))
 			{
-				if ((int16_t)OBJECT(object)->hit_list_next < 0)
-					break;
-				object = LINKED(object, OBJECT(object)->hit_list_next);
-				continue;
+				box_edge = (box_edge & ~0xFFFFu) | (uint16_t)OBJECT(object)->hitbox_offset_y;
+				box_start = (uint16_t)(OBJECT(object)->y_int + box_edge);
+				if ((int16_t)box_start <= OBJECT(hitter)->y_int && OBJECT(hitter)->y_int <= (int16_t)(box_start + OBJECT(object)->hitbox_size_y))
+				{
+					box_edge = (box_edge & ~0xFFFFu) | (uint16_t)OBJECT(object)->z_int;
+					box_edge = (box_edge & ~0xFFFFu) | (uint16_t)(box_edge - OBJECT(object)->hitbox_height);
+					if ((int16_t)box_edge <= OBJECT(hitter)->z_int)
+					{
+						box_edge = (box_edge & ~0xFFFFu) | (uint16_t)OBJECT(hitter)->z_int;
+						box_edge = (box_edge & ~0xFFFFu) | (uint16_t)(box_edge - OBJECT(hitter)->hitbox_height);
+						if ((int16_t)box_edge <= OBJECT(object)->z_int)
+						{
+							OBJECT(object)->flags |= 0x8000000u;
+							OBJECT(hitter)->flags |= 0x8000000u;
+							OBJECT(hitter)->anchor_x = object;
+							OBJECT(object)->anchor_x = hitter;
+							break;
+						}
+					}
+				}
 			}
-			box_edge = (box_edge & ~0xFFFFu) | (uint16_t)OBJECT(object)->hitbox_offset_y;
-			box_start = (uint16_t)(OBJECT(object)->y_int + box_edge);
-			if (OBJECT(hitter)->y_int < (int16_t)box_start || (int16_t)(box_start + OBJECT(object)->hitbox_size_y) < OBJECT(hitter)->y_int)
-			{
-				if ((int16_t)OBJECT(object)->hit_list_next < 0)
-					break;
-				object = LINKED(object, OBJECT(object)->hit_list_next);
-				continue;
-			}
-			box_edge = (box_edge & ~0xFFFFu) | (uint16_t)OBJECT(object)->z_int;
-			box_edge = (box_edge & ~0xFFFFu) | (uint16_t)(box_edge - OBJECT(object)->hitbox_height);
-			if (OBJECT(hitter)->z_int < (int16_t)box_edge)
-			{
-				if ((int16_t)OBJECT(object)->hit_list_next < 0)
-					break;
-				object = LINKED(object, OBJECT(object)->hit_list_next);
-				continue;
-			}
-			box_edge = (box_edge & ~0xFFFFu) | (uint16_t)OBJECT(hitter)->z_int;
-			box_edge = (box_edge & ~0xFFFFu) | (uint16_t)(box_edge - OBJECT(hitter)->hitbox_height);
-			if (OBJECT(object)->z_int < (int16_t)box_edge)
-			{
-				if ((int16_t)OBJECT(object)->hit_list_next < 0)
-					break;
-				object = LINKED(object, OBJECT(object)->hit_list_next);
-				continue;
-			}
-			OBJECT(object)->flags |= 0x8000000u;
-			OBJECT(hitter)->flags |= 0x8000000u;
-			OBJECT(hitter)->anchor_x = object;
-			OBJECT(object)->anchor_x = hitter;
-			break;
+			if ((int16_t)OBJECT(object)->hit_list_next < 0)
+				break;
+			object = LINKED(object, OBJECT(object)->hit_list_next);
 		}
 	}
 	zone_list = 0xFFFFu;
@@ -109,7 +96,6 @@ void check_hits(uint32_t *p_box_edge, uint32_t *p_distance, uint32_t *p_dy, uint
 	{
 		if ((int16_t)OBJECT(object)->hit_list_next < 0)
 		{
-		check_hits_against_touchables:
 			other = LINKED(other, touchable_list);
 			if ((int16_t)other >= 0)
 			{
@@ -123,7 +109,14 @@ void check_hits(uint32_t *p_box_edge, uint32_t *p_distance, uint32_t *p_dy, uint
 			previous = (previous & ~0xFFFFu) | (uint16_t)object;
 			check_hit(other, object, &box_edge, &distance, &dy, &edge_or_centre_y, &radius, &centre_offset, &previous);
 			if ((OBJECT(object)->flags & 4u) == 0u)
-				goto check_hits_against_touchables;
+			{
+				other = LINKED(other, touchable_list);
+				if ((int16_t)other >= 0)
+				{
+					previous = touchable_list_ADDRESS - 0x68u;
+					check_hit(other, object, &box_edge, &distance, &dy, &edge_or_centre_y, &radius, &centre_offset, &previous);
+				}
+			}
 		}
 		object = LINKED(object, OBJECT(object)->hit_list_next);
 	} while ((int16_t)object >= 0);
@@ -138,194 +131,297 @@ void check_hits(uint32_t *p_box_edge, uint32_t *p_distance, uint32_t *p_dy, uint
 	*p_previous = previous;
 }
 
-void check_hit(uint32_t other, uint32_t hitter, uint32_t *p_box_edge, uint32_t *p_distance, uint32_t *p_r3, uint32_t *p_r4, uint32_t *p_radius, uint32_t *p_centre_offset, uint32_t *p_previous)
+void check_hit(uint32_t other, uint32_t hitter, uint32_t *p_box_edge, uint32_t *p_distance, uint32_t *p_dy, uint32_t *p_edge_or_centre_y, uint32_t *p_radius, uint32_t *p_centre_offset, uint32_t *p_previous)
 {
 	uint32_t box_edge = *p_box_edge;
 	uint16_t distance = (uint16_t)*p_distance;
-	uint16_t r3 = (uint16_t)*p_r3;
-	uint16_t r4 = (uint16_t)*p_r4;
+	uint16_t dy = (uint16_t)*p_dy;
+	uint16_t edge_or_centre_y = (uint16_t)*p_edge_or_centre_y;
 	uint16_t radius = (uint16_t)*p_radius;
 	uint16_t centre_offset = (uint16_t)*p_centre_offset;
 	uint16_t previous = (uint16_t)*p_previous;
+	bool within_box_left = false, within_box_x = false;
 	uint16_t box_start = 0, diameter = 0;
 	uint32_t floor_slope = 0, quadrant = 0, slope_factor = 0, slope_kind = 0, slope_record = 0;
 
 	for (;;)
 	{
-		if ((int8_t)OBJECT(other)->kind <= 2 && (int8_t)OBJECT(hitter)->kind <= 2)
+		if ((int8_t)OBJECT(other)->kind > 2 || (int8_t)OBJECT(hitter)->kind > 2)
 		{
-		check_hit_next_pair:
-			if ((int16_t)OBJECT(other)->hit_list_next < 0)
+			if ((OBJECT(hitter)->flags & 2u) == 0u)
 			{
-				*p_box_edge = box_edge;
-				*p_distance = (*p_distance & 0xFFFF0000u) | distance;
-				*p_r3 = (*p_r3 & 0xFFFF0000u) | r3;
-				*p_r4 = (*p_r4 & 0xFFFF0000u) | r4;
-				*p_radius = (*p_radius & 0xFFFF0000u) | radius;
-				*p_centre_offset = (*p_centre_offset & 0xFFFF0000u) | centre_offset;
-				*p_previous = (*p_previous & 0xFFFF0000u) | previous;
-				return;
-			}
-			previous = (uint16_t)other;
-			other = LINKED(other, OBJECT(other)->hit_list_next);
-			continue;
-		}
-		if ((OBJECT(hitter)->flags & 2u) == 0u)
-		{
-			if ((OBJECT(other)->flags & 2u) == 0u)
-			{
-				radius = (uint16_t)(OBJECT(hitter)->hitbox_size_x + OBJECT(other)->hitbox_size_x);
-				diameter = (uint16_t)(radius * 2u + 1u);
-				centre_offset = (uint16_t)OBJECT(hitter)->hitbox_centre_x;
-				r3 = (uint16_t)(OBJECT(hitter)->x_int + centre_offset);
-				distance = (uint16_t)(OBJECT(other)->x_int + OBJECT(other)->hitbox_centre_x - r3);
-				if (diameter <= (uint16_t)(distance + radius))
-					goto check_hit_next_pair;
-				centre_offset = (uint16_t)OBJECT(hitter)->hitbox_centre_y;
-				r4 = (uint16_t)(OBJECT(hitter)->y_int + centre_offset);
-				r3 = (uint16_t)(OBJECT(other)->y_int + OBJECT(other)->hitbox_centre_y - r4);
-				if (diameter <= (uint16_t)(r3 + radius))
-					goto check_hit_next_pair;
-				if (OBJECT(hitter)->floor_slope != 0u)
+				if ((OBJECT(other)->flags & 2u) == 0u)
 				{
-					floor_slope = OBJECT(hitter)->floor_slope;
-					slope_record = floor_slopes_ADDRESS + (uint16_t)(floor_slope * 2u) * 4u;
-					slope_kind = ROM8(slope_record) * 2u;
-					slope_record++;
-					switch (slope_kind)
+					radius = (uint16_t)(OBJECT(hitter)->hitbox_size_x + OBJECT(other)->hitbox_size_x);
+					diameter = (uint16_t)(radius * 2u + 1u);
+					centre_offset = (uint16_t)OBJECT(hitter)->hitbox_centre_x;
+					dy = (uint16_t)(OBJECT(hitter)->x_int + centre_offset);
+					distance = (uint16_t)(OBJECT(other)->x_int + OBJECT(other)->hitbox_centre_x - dy);
+					if ((uint16_t)(distance + radius) < diameter)
 					{
-					case 0x0u:
-					case 0x2u:
-					case 0x8u:
-						box_edge = (int16_t)r3;
-						break;
-					case 0x4u:
-					case 0x6u:
-						box_edge = (int16_t)distance;
-						break;
-					default:
-						invalid_jump(0x1FDEu + slope_kind);
-					}
-					if ((int16_t)box_edge < 0)
-						box_edge = 0u - box_edge;
-					slope_factor = ROM32(slope_record + 1u);
-					if ((int32_t)slope_factor < 0)
-						slope_factor = 0u - slope_factor;
-					box_edge = (((box_edge * slope_factor) >> 8) * 0xB5u) >> 16;
-					quadrant = 0u;
-					if ((int16_t)distance < 0)
-						quadrant = (uint16_t)(quadrant + 2u);
-					if ((int16_t)r3 < 0)
-						quadrant = (uint16_t)(quadrant + 1u);
-					switch (quadrant)
-					{
-					case 0:
-					check_hit_add_slope_to_dx:
-						distance += box_edge;
-						r3 -= box_edge;
-						break;
-					case 1:
-					case 4:
-						if ((int16_t)r3 < (int16_t)distance)
-							goto check_hit_add_slope_to_dx;
-					case 2:
-					check_hit_sub_slope_from_dx:
-						distance -= box_edge;
-						r3 += box_edge;
-						break;
-					case 3:
-						if ((int16_t)r3 <= (int16_t)distance)
-							goto check_hit_add_slope_to_dx;
-						goto check_hit_sub_slope_from_dx;
-					default:
-						invalid_jump(0x202Eu + quadrant * 2u);
+						centre_offset = (uint16_t)OBJECT(hitter)->hitbox_centre_y;
+						edge_or_centre_y = (uint16_t)(OBJECT(hitter)->y_int + centre_offset);
+						dy = (uint16_t)(OBJECT(other)->y_int + OBJECT(other)->hitbox_centre_y - edge_or_centre_y);
+						if ((uint16_t)(dy + radius) < diameter)
+						{
+							if (OBJECT(hitter)->floor_slope != 0u)
+							{
+								floor_slope = OBJECT(hitter)->floor_slope;
+								slope_record = floor_slopes_ADDRESS + (uint16_t)(floor_slope * 2u) * 4u;
+								slope_kind = ROM8(slope_record) * 2u;
+								slope_record++;
+								switch (slope_kind)
+								{
+								case 0x0u:
+								case 0x2u:
+								case 0x8u:
+									box_edge = (int16_t)dy;
+									break;
+								case 0x4u:
+								case 0x6u:
+									box_edge = (int16_t)distance;
+									break;
+								default:
+									invalid_jump(0x1FDEu + slope_kind);
+								}
+								if ((int16_t)box_edge < 0)
+									box_edge = 0u - box_edge;
+								slope_factor = ROM32(slope_record + 1u);
+								if ((int32_t)slope_factor < 0)
+									slope_factor = 0u - slope_factor;
+								box_edge = (((box_edge * slope_factor) >> 8) * 0xB5u) >> 16;
+								quadrant = 0u;
+								if ((int16_t)distance < 0)
+									quadrant = (uint16_t)(quadrant + 2u);
+								if ((int16_t)dy < 0)
+									quadrant = (uint16_t)(quadrant + 1u);
+								switch (quadrant)
+								{
+								case 0:
+									distance += box_edge;
+									dy -= box_edge;
+									break;
+								case 1:
+								case 4:
+									if ((int16_t)distance <= (int16_t)dy)
+									{
+										distance -= box_edge;
+										dy += box_edge;
+									}
+									else
+									{
+										distance += box_edge;
+										dy -= box_edge;
+									}
+									break;
+								case 2:
+									distance -= box_edge;
+									dy += box_edge;
+									break;
+								case 3:
+									if ((int16_t)dy <= (int16_t)distance)
+									{
+										distance += box_edge;
+										dy -= box_edge;
+									}
+									else
+									{
+										distance -= box_edge;
+										dy += box_edge;
+									}
+									break;
+								default:
+									invalid_jump(0x202Eu + quadrant * 2u);
+								}
+							}
+							dy = (uint16_t)((uint32_t)dy * dy);
+							distance = (uint16_t)((uint32_t)distance * distance + dy);
+							radius = (uint16_t)((uint32_t)radius * radius);
+							if ((int16_t)distance <= (int16_t)radius)
+							{
+								box_edge = (box_edge & ~0xFFFFu) | (uint16_t)OBJECT(other)->z_int;
+								box_edge = (box_edge & ~0xFFFFu) | (uint16_t)(box_edge - OBJECT(other)->hitbox_height);
+								if ((int16_t)box_edge <= OBJECT(hitter)->z_int)
+								{
+									box_edge = (box_edge & ~0xFFFFu) | (uint16_t)OBJECT(hitter)->z_int;
+									box_edge = (box_edge & ~0xFFFFu) | (uint16_t)(box_edge - OBJECT(hitter)->hitbox_height);
+									if ((int16_t)box_edge <= OBJECT(other)->z_int)
+										break;
+								}
+							}
+						}
 					}
 				}
-				r3 = (uint16_t)((uint32_t)r3 * r3);
-				distance = (uint16_t)((uint32_t)distance * distance + r3);
-				radius = (uint16_t)((uint32_t)radius * radius);
-				if ((int16_t)radius < (int16_t)distance)
-					goto check_hit_next_pair;
+				else
+				{
+					box_edge = (box_edge & ~0xFFFFu) | (uint16_t)OBJECT(other)->hitbox_offset_x;
+					box_start = (uint16_t)(OBJECT(other)->x_int + box_edge);
+					if ((int16_t)box_start <= OBJECT(hitter)->x_int && OBJECT(hitter)->x_int <= (int16_t)(box_start + OBJECT(other)->hitbox_size_x))
+					{
+						box_edge = (box_edge & ~0xFFFFu) | (uint16_t)OBJECT(other)->hitbox_offset_y;
+						box_start = (uint16_t)(OBJECT(other)->y_int + box_edge);
+						if ((int16_t)box_start <= OBJECT(hitter)->y_int && OBJECT(hitter)->y_int <= (int16_t)(box_start + OBJECT(other)->hitbox_size_y))
+						{
+							box_edge = (box_edge & ~0xFFFFu) | (uint16_t)OBJECT(other)->z_int;
+							box_edge = (box_edge & ~0xFFFFu) | (uint16_t)(box_edge - OBJECT(other)->hitbox_height);
+							if ((int16_t)box_edge <= OBJECT(hitter)->z_int)
+							{
+								box_edge = (box_edge & ~0xFFFFu) | (uint16_t)OBJECT(hitter)->z_int;
+								box_edge = (box_edge & ~0xFFFFu) | (uint16_t)(box_edge - OBJECT(hitter)->hitbox_height);
+								if ((int16_t)box_edge <= OBJECT(other)->z_int)
+									break;
+							}
+						}
+					}
+				}
+			}
+			else if ((OBJECT(other)->flags & 2u) == 0u)
+			{
+				dy = (uint16_t)OBJECT(hitter)->hitbox_offset_x;
+				distance = (uint16_t)(OBJECT(hitter)->x_int + dy);
+				within_box_left = (int16_t)distance <= OBJECT(other)->x_int;
+				if (!within_box_left)
+				{
+					box_edge = (box_edge & ~0xFFFFu) | (uint16_t)OBJECT(other)->x_int;
+					box_edge = (box_edge & ~0xFFFFu) | (uint16_t)(box_edge + OBJECT(other)->hitbox_size_x);
+					within_box_left = (int16_t)distance <= (int16_t)box_edge;
+				}
+				if (within_box_left)
+				{
+					distance += OBJECT(hitter)->hitbox_size_x;
+					within_box_x = OBJECT(other)->x_int <= (int16_t)distance;
+					if (!within_box_x)
+					{
+						box_edge = (box_edge & ~0xFFFFu) | (uint16_t)OBJECT(other)->x_int;
+						box_edge = (box_edge & ~0xFFFFu) | (uint16_t)(box_edge - OBJECT(other)->hitbox_size_x);
+						within_box_x = (int16_t)box_edge <= (int16_t)distance;
+					}
+					if (within_box_x)
+					{
+						dy = (uint16_t)OBJECT(hitter)->hitbox_offset_y;
+						distance = (uint16_t)(OBJECT(hitter)->y_int + dy);
+						if ((int16_t)distance <= OBJECT(other)->y_int)
+						{
+							distance += OBJECT(hitter)->hitbox_size_y;
+							if (OBJECT(other)->y_int <= (int16_t)distance)
+							{
+								box_edge = (box_edge & ~0xFFFFu) | (uint16_t)OBJECT(other)->z_int;
+								box_edge = (box_edge & ~0xFFFFu) | (uint16_t)(box_edge - OBJECT(other)->hitbox_height);
+								if ((int16_t)box_edge <= OBJECT(hitter)->z_int)
+								{
+									box_edge = (box_edge & ~0xFFFFu) | (uint16_t)OBJECT(hitter)->z_int;
+									box_edge = (box_edge & ~0xFFFFu) | (uint16_t)(box_edge - OBJECT(hitter)->hitbox_height);
+									if ((int16_t)box_edge <= OBJECT(other)->z_int)
+										break;
+								}
+							}
+							else
+							{
+								box_edge = (box_edge & ~0xFFFFu) | (uint16_t)OBJECT(other)->y_int;
+								box_edge = (box_edge & ~0xFFFFu) | (uint16_t)(box_edge - OBJECT(other)->hitbox_size_x);
+								if ((int16_t)box_edge <= (int16_t)distance)
+								{
+									box_edge = (box_edge & ~0xFFFFu) | (uint16_t)OBJECT(other)->z_int;
+									box_edge = (box_edge & ~0xFFFFu) | (uint16_t)(box_edge - OBJECT(other)->hitbox_height);
+									if ((int16_t)box_edge <= OBJECT(hitter)->z_int)
+									{
+										box_edge = (box_edge & ~0xFFFFu) | (uint16_t)OBJECT(hitter)->z_int;
+										box_edge = (box_edge & ~0xFFFFu) | (uint16_t)(box_edge - OBJECT(hitter)->hitbox_height);
+										if ((int16_t)box_edge <= OBJECT(other)->z_int)
+											break;
+									}
+								}
+							}
+						}
+						else
+						{
+							box_edge = (box_edge & ~0xFFFFu) | (uint16_t)OBJECT(other)->y_int;
+							box_edge = (box_edge & ~0xFFFFu) | (uint16_t)(box_edge + OBJECT(other)->hitbox_size_x);
+							if ((int16_t)distance <= (int16_t)box_edge)
+							{
+								distance += OBJECT(hitter)->hitbox_size_y;
+								if (OBJECT(other)->y_int <= (int16_t)distance)
+								{
+									box_edge = (box_edge & ~0xFFFFu) | (uint16_t)OBJECT(other)->z_int;
+									box_edge = (box_edge & ~0xFFFFu) | (uint16_t)(box_edge - OBJECT(other)->hitbox_height);
+									if ((int16_t)box_edge <= OBJECT(hitter)->z_int)
+									{
+										box_edge = (box_edge & ~0xFFFFu) | (uint16_t)OBJECT(hitter)->z_int;
+										box_edge = (box_edge & ~0xFFFFu) | (uint16_t)(box_edge - OBJECT(hitter)->hitbox_height);
+										if ((int16_t)box_edge <= OBJECT(other)->z_int)
+											break;
+									}
+								}
+								else
+								{
+									box_edge = (box_edge & ~0xFFFFu) | (uint16_t)OBJECT(other)->y_int;
+									box_edge = (box_edge & ~0xFFFFu) | (uint16_t)(box_edge - OBJECT(other)->hitbox_size_x);
+									if ((int16_t)box_edge <= (int16_t)distance)
+									{
+										box_edge = (box_edge & ~0xFFFFu) | (uint16_t)OBJECT(other)->z_int;
+										box_edge = (box_edge & ~0xFFFFu) | (uint16_t)(box_edge - OBJECT(other)->hitbox_height);
+										if ((int16_t)box_edge <= OBJECT(hitter)->z_int)
+										{
+											box_edge = (box_edge & ~0xFFFFu) | (uint16_t)OBJECT(hitter)->z_int;
+											box_edge = (box_edge & ~0xFFFFu) | (uint16_t)(box_edge - OBJECT(hitter)->hitbox_height);
+											if ((int16_t)box_edge <= OBJECT(other)->z_int)
+												break;
+										}
+									}
+								}
+							}
+						}
+					}
+				}
 			}
 			else
 			{
-				box_edge = (box_edge & ~0xFFFFu) | (uint16_t)OBJECT(other)->hitbox_offset_x;
-				box_start = (uint16_t)(OBJECT(other)->x_int + box_edge);
-				if (OBJECT(hitter)->x_int < (int16_t)box_start || (int16_t)(box_start + OBJECT(other)->hitbox_size_x) < OBJECT(hitter)->x_int)
-					goto check_hit_next_pair;
-				box_edge = (box_edge & ~0xFFFFu) | (uint16_t)OBJECT(other)->hitbox_offset_y;
-				box_start = (uint16_t)(OBJECT(other)->y_int + box_edge);
-				if (OBJECT(hitter)->y_int < (int16_t)box_start || (int16_t)(box_start + OBJECT(other)->hitbox_size_y) < OBJECT(hitter)->y_int)
-					goto check_hit_next_pair;
+				dy = (uint16_t)OBJECT(hitter)->hitbox_offset_x;
+				distance = (uint16_t)(OBJECT(hitter)->x_int + dy);
+				radius = (uint16_t)OBJECT(other)->hitbox_offset_x;
+				edge_or_centre_y = (uint16_t)(OBJECT(other)->x_int + radius);
+				if ((int16_t)edge_or_centre_y <= (int16_t)(distance + OBJECT(hitter)->hitbox_size_x))
+				{
+					edge_or_centre_y += OBJECT(other)->hitbox_size_x;
+					if ((int16_t)distance <= (int16_t)edge_or_centre_y)
+					{
+						dy = (uint16_t)OBJECT(hitter)->hitbox_offset_y;
+						distance = (uint16_t)(OBJECT(hitter)->y_int + dy);
+						radius = (uint16_t)OBJECT(other)->hitbox_offset_y;
+						edge_or_centre_y = (uint16_t)(OBJECT(other)->y_int + radius);
+						if ((int16_t)edge_or_centre_y <= (int16_t)(distance + OBJECT(hitter)->hitbox_size_y))
+						{
+							edge_or_centre_y += OBJECT(other)->hitbox_size_y;
+							if ((int16_t)distance <= (int16_t)edge_or_centre_y)
+							{
+								box_edge = (box_edge & ~0xFFFFu) | (uint16_t)OBJECT(other)->z_int;
+								box_edge = (box_edge & ~0xFFFFu) | (uint16_t)(box_edge - OBJECT(other)->hitbox_height);
+								if ((int16_t)box_edge <= OBJECT(hitter)->z_int)
+								{
+									box_edge = (box_edge & ~0xFFFFu) | (uint16_t)OBJECT(hitter)->z_int;
+									box_edge = (box_edge & ~0xFFFFu) | (uint16_t)(box_edge - OBJECT(hitter)->hitbox_height);
+									if ((int16_t)box_edge <= OBJECT(other)->z_int)
+										break;
+								}
+							}
+						}
+					}
+				}
 			}
 		}
-		else if ((OBJECT(other)->flags & 2u) == 0u)
+		if ((int16_t)OBJECT(other)->hit_list_next < 0)
 		{
-			r3 = (uint16_t)OBJECT(hitter)->hitbox_offset_x;
-			distance = (uint16_t)(OBJECT(hitter)->x_int + r3);
-			if (OBJECT(other)->x_int < (int16_t)distance)
-			{
-				box_edge = (box_edge & ~0xFFFFu) | (uint16_t)OBJECT(other)->x_int;
-				box_edge = (box_edge & ~0xFFFFu) | (uint16_t)(box_edge + OBJECT(other)->hitbox_size_x);
-				if ((int16_t)box_edge < (int16_t)distance)
-					goto check_hit_next_pair;
-			}
-			distance += OBJECT(hitter)->hitbox_size_x;
-			if ((int16_t)distance < OBJECT(other)->x_int)
-			{
-				box_edge = (box_edge & ~0xFFFFu) | (uint16_t)OBJECT(other)->x_int;
-				box_edge = (box_edge & ~0xFFFFu) | (uint16_t)(box_edge - OBJECT(other)->hitbox_size_x);
-				if ((int16_t)distance < (int16_t)box_edge)
-					goto check_hit_next_pair;
-			}
-			r3 = (uint16_t)OBJECT(hitter)->hitbox_offset_y;
-			distance = (uint16_t)(OBJECT(hitter)->y_int + r3);
-			if (OBJECT(other)->y_int < (int16_t)distance)
-			{
-				box_edge = (box_edge & ~0xFFFFu) | (uint16_t)OBJECT(other)->y_int;
-				box_edge = (box_edge & ~0xFFFFu) | (uint16_t)(box_edge + OBJECT(other)->hitbox_size_x);
-				if ((int16_t)box_edge < (int16_t)distance)
-					goto check_hit_next_pair;
-			}
-			distance += OBJECT(hitter)->hitbox_size_y;
-			if ((int16_t)distance < OBJECT(other)->y_int)
-			{
-				box_edge = (box_edge & ~0xFFFFu) | (uint16_t)OBJECT(other)->y_int;
-				box_edge = (box_edge & ~0xFFFFu) | (uint16_t)(box_edge - OBJECT(other)->hitbox_size_x);
-				if ((int16_t)distance < (int16_t)box_edge)
-					goto check_hit_next_pair;
-			}
+			*p_box_edge = box_edge;
+			*p_distance = (*p_distance & 0xFFFF0000u) | distance;
+			*p_dy = (*p_dy & 0xFFFF0000u) | dy;
+			*p_edge_or_centre_y = (*p_edge_or_centre_y & 0xFFFF0000u) | edge_or_centre_y;
+			*p_radius = (*p_radius & 0xFFFF0000u) | radius;
+			*p_centre_offset = (*p_centre_offset & 0xFFFF0000u) | centre_offset;
+			*p_previous = (*p_previous & 0xFFFF0000u) | previous;
+			return;
 		}
-		else
-		{
-			r3 = (uint16_t)OBJECT(hitter)->hitbox_offset_x;
-			distance = (uint16_t)(OBJECT(hitter)->x_int + r3);
-			radius = (uint16_t)OBJECT(other)->hitbox_offset_x;
-			r4 = (uint16_t)(OBJECT(other)->x_int + radius);
-			if ((int16_t)(distance + OBJECT(hitter)->hitbox_size_x) < (int16_t)r4)
-				goto check_hit_next_pair;
-			r4 += OBJECT(other)->hitbox_size_x;
-			if ((int16_t)r4 < (int16_t)distance)
-				goto check_hit_next_pair;
-			r3 = (uint16_t)OBJECT(hitter)->hitbox_offset_y;
-			distance = (uint16_t)(OBJECT(hitter)->y_int + r3);
-			radius = (uint16_t)OBJECT(other)->hitbox_offset_y;
-			r4 = (uint16_t)(OBJECT(other)->y_int + radius);
-			if ((int16_t)(distance + OBJECT(hitter)->hitbox_size_y) < (int16_t)r4)
-				goto check_hit_next_pair;
-			r4 += OBJECT(other)->hitbox_size_y;
-			if ((int16_t)r4 < (int16_t)distance)
-				goto check_hit_next_pair;
-		}
-		box_edge = (box_edge & ~0xFFFFu) | (uint16_t)OBJECT(other)->z_int;
-		box_edge = (box_edge & ~0xFFFFu) | (uint16_t)(box_edge - OBJECT(other)->hitbox_height);
-		if (OBJECT(hitter)->z_int < (int16_t)box_edge)
-			goto check_hit_next_pair;
-		box_edge = (box_edge & ~0xFFFFu) | (uint16_t)OBJECT(hitter)->z_int;
-		box_edge = (box_edge & ~0xFFFFu) | (uint16_t)(box_edge - OBJECT(hitter)->hitbox_height);
-		if ((int16_t)box_edge <= OBJECT(other)->z_int)
-			break;
-		goto check_hit_next_pair;
+		previous = (uint16_t)other;
+		other = LINKED(other, OBJECT(other)->hit_list_next);
 	}
 	OBJECT(other)->flags |= 4u;
 	OBJECT(hitter)->flags |= 4u;
@@ -335,8 +431,8 @@ void check_hit(uint32_t other, uint32_t hitter, uint32_t *p_box_edge, uint32_t *
 	OBJECT(other)->touched_by = hitter;
 	*p_box_edge = box_edge;
 	*p_distance = (*p_distance & 0xFFFF0000u) | distance;
-	*p_r3 = (*p_r3 & 0xFFFF0000u) | r3;
-	*p_r4 = (*p_r4 & 0xFFFF0000u) | r4;
+	*p_dy = (*p_dy & 0xFFFF0000u) | dy;
+	*p_edge_or_centre_y = (*p_edge_or_centre_y & 0xFFFF0000u) | edge_or_centre_y;
 	*p_radius = (*p_radius & 0xFFFF0000u) | radius;
 	*p_centre_offset = (*p_centre_offset & 0xFFFF0000u) | centre_offset;
 	*p_previous = (*p_previous & 0xFFFF0000u) | previous;
@@ -413,11 +509,8 @@ void check_platforms(uint32_t *p_middle, uint32_t *p_plank, uint32_t *p_span, ui
 		*p_platform = object;
 		return;
 	}
-	for (;;)
+	while ((int16_t)OBJECT(rider)->platform_list_next >= 0)
 	{
-	check_platforms_next_rider:
-		if ((int16_t)OBJECT(rider)->platform_list_next < 0)
-			break;
 		rider = LINKED(rider, OBJECT(rider)->platform_list_next);
 		object = LINKED(object, platform_list);
 		for (;;)
@@ -438,7 +531,22 @@ void check_platforms(uint32_t *p_middle, uint32_t *p_plank, uint32_t *p_span, ui
 				object = LINKED(object, OBJECT(object)->platform_list_next);
 				continue;
 			}
-			goto check_platforms_link_rider;
+			OBJECT(rider)->flags |= 8u;
+			OBJECT(rider)->platform = object;
+			OBJECT(object)->platform = rider;
+			if (OBJECT(rider)->z_int < OBJECT(object)->floor_z_int)
+				break;
+			flags = OBJECT(object)->flags;
+			OBJECT(object)->flags = flags | 8u;
+			if ((flags & 8u) != 0u)
+				break;
+			load_list = bridge_0_load_ADDRESS;
+			if (OBJECT(object)->spawn_arg_2_high != 0u)
+				load_list = bridge_1_load_ADDRESS;
+			BRIDGE_LOAD(load_list)->count++;
+			load_count = BRIDGE_LOAD(load_list)->count;
+			mem_write8(load_list + load_count, OBJECT(object)->member_number);
+			break;
 		}
 	}
 	if (bridge_0_plank_count != 0u)
@@ -478,24 +586,6 @@ void check_platforms(uint32_t *p_middle, uint32_t *p_plank, uint32_t *p_span, ui
 	*p_passes_left = passes_left;
 	*p_platform = object;
 	*p_load_list = load_list;
-	return;
-check_platforms_link_rider:
-	OBJECT(rider)->flags |= 8u;
-	OBJECT(rider)->platform = object;
-	OBJECT(object)->platform = rider;
-	if (OBJECT(rider)->z_int < OBJECT(object)->floor_z_int)
-		goto check_platforms_next_rider;
-	flags = OBJECT(object)->flags;
-	OBJECT(object)->flags = flags | 8u;
-	if ((flags & 8u) != 0u)
-		goto check_platforms_next_rider;
-	load_list = bridge_0_load_ADDRESS;
-	if (OBJECT(object)->spawn_arg_2_high != 0u)
-		load_list = bridge_1_load_ADDRESS;
-	BRIDGE_LOAD(load_list)->count++;
-	load_count = BRIDGE_LOAD(load_list)->count;
-	mem_write8(load_list + load_count, OBJECT(object)->member_number);
-	goto check_platforms_next_rider;
 }
 
 void compute_bridge_sag(uint32_t load_list, uint16_t plank_count, uint32_t *p_middle, uint32_t *p_plank, uint32_t *p_span, uint32_t *p_sag, uint32_t *p_sag_step, uint32_t *p_count, uint32_t *p_passes_left, uint32_t *p_load_entry, uint32_t *p_sag_curve)
@@ -630,27 +720,22 @@ uint32_t check_walls(uint32_t hitbox_offset)
 		{
 			hitbox_offset = (hitbox_offset & ~0xFFFFu) | (uint16_t)OBJECT(object)->hitbox_offset_x;
 			box_start = (uint16_t)(OBJECT(object)->x_int + hitbox_offset);
-			if (OBJECT(rider)->x_int < (int16_t)box_start || (int16_t)(box_start + OBJECT(object)->hitbox_size_x) < OBJECT(rider)->x_int)
+			if ((int16_t)box_start <= OBJECT(rider)->x_int && OBJECT(rider)->x_int <= (int16_t)(box_start + OBJECT(object)->hitbox_size_x))
 			{
-				if ((int16_t)OBJECT(object)->platform_list_next < 0)
+				hitbox_offset = (hitbox_offset & ~0xFFFFu) | (uint16_t)OBJECT(object)->hitbox_offset_y;
+				box_start = (uint16_t)(OBJECT(object)->y_int + hitbox_offset);
+				if ((int16_t)box_start <= OBJECT(rider)->y_int && OBJECT(rider)->y_int <= (int16_t)(box_start + OBJECT(object)->hitbox_size_y) && (uint16_t)(OBJECT(object)->z_int - OBJECT(rider)->z_int) < OBJECT(object)->hitbox_height)
+				{
+					OBJECT(rider)->flags |= 0x20u;
+					OBJECT(object)->flags |= 0x20u;
+					OBJECT(rider)->wall = object;
+					OBJECT(object)->wall = rider;
 					break;
-				object = LINKED(object, OBJECT(object)->platform_list_next);
-				continue;
+				}
 			}
-			hitbox_offset = (hitbox_offset & ~0xFFFFu) | (uint16_t)OBJECT(object)->hitbox_offset_y;
-			box_start = (uint16_t)(OBJECT(object)->y_int + hitbox_offset);
-			if (OBJECT(rider)->y_int < (int16_t)box_start || (int16_t)(box_start + OBJECT(object)->hitbox_size_y) < OBJECT(rider)->y_int || OBJECT(object)->hitbox_height <= (uint16_t)(OBJECT(object)->z_int - OBJECT(rider)->z_int))
-			{
-				if ((int16_t)OBJECT(object)->platform_list_next < 0)
-					break;
-				object = LINKED(object, OBJECT(object)->platform_list_next);
-				continue;
-			}
-			OBJECT(rider)->flags |= 0x20u;
-			OBJECT(object)->flags |= 0x20u;
-			OBJECT(rider)->wall = object;
-			OBJECT(object)->wall = rider;
-			break;
+			if ((int16_t)OBJECT(object)->platform_list_next < 0)
+				break;
+			object = LINKED(object, OBJECT(object)->platform_list_next);
 		}
 	}
 	wall_list = 0xFFFFu;

@@ -2049,26 +2049,28 @@ void ending_eggman_fly_away(void)
 				circle_wipe_right += half_width_squared;
 				circle_wipe_left -= half_width_squared;
 			}
-			else
+			else if ((OBJECT(current_object)->cycle_count & 1u) != 0u)
 			{
-				if ((OBJECT(current_object)->cycle_count & 1u) == 0u)
-				{
-					if ((int16_t)(0x70u - circle_wipe_radius) <= (int16_t)((int32_t)(left_entry - (VIDEO_RAM + 0xA000u)) >> 1))
-						goto ending_eggman_fly_away_whole_line;
-					goto ending_eggman_fly_away_empty_line;
-				}
 				if ((int16_t)((int32_t)(left_entry - (VIDEO_RAM + 0xA000u)) >> 1) <= (int16_t)(circle_wipe_radius + 0x70u))
 				{
-				ending_eggman_fly_away_whole_line:
 					circle_wipe_left = 0u;
 					circle_wipe_right = 0x13Fu;
 				}
 				else
 				{
-				ending_eggman_fly_away_empty_line:
 					circle_wipe_left = 1u;
 					circle_wipe_right = 0u;
 				}
+			}
+			else if ((int16_t)(0x70u - circle_wipe_radius) <= (int16_t)((int32_t)(left_entry - (VIDEO_RAM + 0xA000u)) >> 1))
+			{
+				circle_wipe_left = 0u;
+				circle_wipe_right = 0x13Fu;
+			}
+			else
+			{
+				circle_wipe_left = 1u;
+				circle_wipe_right = 0u;
 			}
 			if ((int16_t)circle_wipe_left <= 0)
 				circle_wipe_left = 0u;

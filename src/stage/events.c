@@ -85,11 +85,11 @@ void event_0f_stop_scroll(void)
 	}
 }
 
-void event_0f_show_messages(uint32_t screen_x, uint32_t *p_frames, uint32_t *p_box)
+void event_0f_show_messages(uint32_t *p_frames, uint32_t *p_box)
 {
 	uint16_t frames = (uint16_t)*p_frames;
 	uint32_t box = *p_box;
-	uint16_t kind = 0, screen_y = 0;
+	uint16_t kind = 0, screen_x = 0, screen_y = 0;
 	uint32_t cursor = 0;
 	uint16_t show_time = 0;
 
@@ -166,24 +166,54 @@ void falling_rock_bounce(void)
 {
 	uint32_t bounce_speed = 0, ignored = 0, off_screen = 0;
 
-	if ((OBJECT(current_object)->flags & 0x400u) == 0u)
+	if ((OBJECT(current_object)->flags & 0x400u) != 0u)
 	{
-		OBJECT(current_object)->x += OBJECT(current_object)->speed_x;
-		OBJECT(current_object)->y += OBJECT(current_object)->speed_y;
-		OBJECT(current_object)->speed_z += 0x6000u;
-		OBJECT(current_object)->z += OBJECT(current_object)->speed_z;
-		find_floor(&ignored, &ignored, &ignored, &ignored, &ignored);
-		if (OBJECT(current_object)->floor_z_int <= OBJECT(current_object)->z_int)
+		project_object(&ignored, &ignored);
+		off_screen = check_left_screen();
+		if (off_screen == 0u)
 		{
-			OBJECT(current_object)->z = OBJECT(current_object)->floor_z;
-			bounce_speed = (int32_t)OBJECT(current_object)->speed_z >> 1;
-			if ((int32_t)bounce_speed > 0x20000)
-				OBJECT(current_object)->speed_z = 0u - bounce_speed;
-			else
-				OBJECT(current_object)->flags |= 0x400u;
+			ignored = queue_sprite(ignored);
+			return;
 		}
-		animate(&ignored, &ignored, &ignored);
+		delete_current_object();
+		return;
 	}
+	OBJECT(current_object)->x += OBJECT(current_object)->speed_x;
+	OBJECT(current_object)->y += OBJECT(current_object)->speed_y;
+	OBJECT(current_object)->speed_z += 0x6000u;
+	OBJECT(current_object)->z += OBJECT(current_object)->speed_z;
+	find_floor(&ignored, &ignored, &ignored, &ignored, &ignored);
+	if (OBJECT(current_object)->z_int < OBJECT(current_object)->floor_z_int)
+	{
+		animate(&ignored, &ignored, &ignored);
+		project_object(&ignored, &ignored);
+		off_screen = check_left_screen();
+		if (off_screen == 0u)
+		{
+			ignored = queue_sprite(ignored);
+			return;
+		}
+		delete_current_object();
+		return;
+	}
+	OBJECT(current_object)->z = OBJECT(current_object)->floor_z;
+	bounce_speed = (int32_t)OBJECT(current_object)->speed_z >> 1;
+	if ((int32_t)bounce_speed > 0x20000)
+	{
+		OBJECT(current_object)->speed_z = 0u - bounce_speed;
+		animate(&ignored, &ignored, &ignored);
+		project_object(&ignored, &ignored);
+		off_screen = check_left_screen();
+		if (off_screen == 0u)
+		{
+			ignored = queue_sprite(ignored);
+			return;
+		}
+		delete_current_object();
+		return;
+	}
+	OBJECT(current_object)->flags |= 0x400u;
+	animate(&ignored, &ignored, &ignored);
 	project_object(&ignored, &ignored);
 	off_screen = check_left_screen();
 	if (off_screen == 0u)
@@ -234,7 +264,7 @@ uint32_t event_0c_first_quake(uint32_t write_index_address)
 	return write_index_address;
 }
 
-void event_0c_second_quake(uint32_t second_sprite, uint32_t *p_part_size, uint32_t *p_point_y, uint32_t *p_z, uint32_t *p_wall)
+void event_0c_second_quake(uint32_t *p_part_size, uint32_t *p_point_y, uint32_t *p_z, uint32_t *p_wall)
 {
 	uint32_t part_size = *p_part_size;
 	uint32_t point_y = *p_point_y;
@@ -284,15 +314,15 @@ void event_0c_finish(void)
 	}
 }
 
-void update_stage_05_event(uint32_t r2, uint32_t r3, uint32_t r11, uint32_t *p_r4, uint32_t *p_count, uint32_t *p_r9, uint32_t *p_r10)
+void update_stage_05_event(uint32_t position, uint32_t speed, uint32_t object, uint32_t *p_speed_value, uint32_t *p_count, uint32_t *p_cycle, uint32_t *p_list_cursor)
 {
-	uint32_t r4 = *p_r4;
+	uint32_t speed_value = *p_speed_value;
 	uint32_t count = *p_count;
-	uint32_t r9 = *p_r9;
-	uint32_t r10 = *p_r10;
+	uint32_t cycle = *p_cycle;
+	uint32_t list_cursor = *p_list_cursor;
 	uint8_t sound_id = 0, spawned = 0;
 	uint16_t kind = 0, screen_x = 0, screen_y = 0;
-	uint32_t r2_2 = 0, r10_2 = 0, frames = 0, free_count = 0, ignored = 0, object = 0, piece_record = 0, rocks_left = 0;
+	uint32_t frames = 0, free_count = 0, ignored = 0, object_2 = 0, piece_record = 0, platform = 0, rocks_left = 0, scroll_y = 0;
 
 	spawned = (uint8_t)(scene_step * 3u);
 	switch (scene_step)
@@ -302,122 +332,166 @@ void update_stage_05_event(uint32_t r2, uint32_t r3, uint32_t r11, uint32_t *p_r
 		scene_timer = 0;
 		unused_stage_05_event_long = 0u;
 		scene_step++;
-		update_player_summary(&r3, &count, &ignored, &r11);
-		update_scroll(&r2, &r3, &r4, &ignored, &count, &r9, &ignored, &r11);
-		update_stage_tile_layers(&ignored, &r2, &ignored, &r4, &ignored, &count, &r9, &ignored, &r11);
-		check_hits(&ignored, &r2, &ignored, &r4, &ignored, &count, &ignored);
+		update_player_summary(&speed, &count, &ignored, &object);
+		update_scroll(&position, &speed, &speed_value, &ignored, &count, &cycle, &ignored, &object);
+		update_stage_tile_layers(&ignored, &position, &ignored, &speed_value, &ignored, &count, &cycle, &ignored, &object);
+		check_hits(&ignored, &position, &ignored, &speed_value, &ignored, &count, &ignored);
 		check_walls(ignored);
-		check_platforms(&ignored, &ignored, &ignored, &r4, &ignored, &count, &r9, &r10_2, &ignored);
+		check_platforms(&ignored, &ignored, &ignored, &speed_value, &ignored, &count, &cycle, &platform, &ignored);
 		goal_unlocked = 0xFFu;
-		check_stage_clear(&count, &r10_2, &ignored);
+		check_stage_clear(&count, &platform, &ignored);
 		if (game_mode != 0x17u)
 		{
-			*p_r4 = r4;
+			*p_speed_value = speed_value;
 			*p_count = count;
-			*p_r9 = r9;
-			*p_r10 = r10_2;
+			*p_cycle = cycle;
+			*p_list_cursor = platform;
 			return;
 		}
 		game_mode = 0xAu;
 		scene_step++;
 		scene_timer = 0;
 		goal_scroll_position = 0xFFFFu;
-		*p_r4 = r4;
+		*p_speed_value = speed_value;
 		*p_count = count;
-		*p_r9 = r9;
-		*p_r10 = r10_2;
+		*p_cycle = cycle;
+		*p_list_cursor = platform;
 		return;
 	case 1:
-		update_player_summary(&r3, &count, &ignored, &r11);
-		update_scroll(&r2, &r3, &r4, &ignored, &count, &r9, &ignored, &r11);
-		update_stage_tile_layers(&ignored, &r2, &ignored, &r4, &ignored, &count, &r9, &ignored, &r11);
-		check_hits(&ignored, &r2, &ignored, &r4, &ignored, &count, &ignored);
+		update_player_summary(&speed, &count, &ignored, &object);
+		update_scroll(&position, &speed, &speed_value, &ignored, &count, &cycle, &ignored, &object);
+		update_stage_tile_layers(&ignored, &position, &ignored, &speed_value, &ignored, &count, &cycle, &ignored, &object);
+		check_hits(&ignored, &position, &ignored, &speed_value, &ignored, &count, &ignored);
 		check_walls(ignored);
-		check_platforms(&ignored, &ignored, &ignored, &r4, &ignored, &count, &r9, &r10_2, &ignored);
+		check_platforms(&ignored, &ignored, &ignored, &speed_value, &ignored, &count, &cycle, &platform, &ignored);
 		goal_unlocked = 0xFFu;
-		check_stage_clear(&count, &r10_2, &ignored);
+		check_stage_clear(&count, &platform, &ignored);
 		if (game_mode != 0x17u)
 		{
-			*p_r4 = r4;
+			*p_speed_value = speed_value;
 			*p_count = count;
-			*p_r9 = r9;
-			*p_r10 = r10_2;
+			*p_cycle = cycle;
+			*p_list_cursor = platform;
 			return;
 		}
 		game_mode = 0xAu;
 		scene_step++;
 		scene_timer = 0;
 		goal_scroll_position = 0xFFFFu;
-		*p_r4 = r4;
+		*p_speed_value = speed_value;
 		*p_count = count;
-		*p_r9 = r9;
-		*p_r10 = r10_2;
+		*p_cycle = cycle;
+		*p_list_cursor = platform;
 		return;
 	case 2:
+		if (stage_05_switch_step < 0)
+		{
+			find_nearby_floor_blocks(&ignored, &ignored, &speed_value, &ignored, &count, &ignored, &ignored);
+			check_hits(&ignored, &position, &ignored, &speed_value, &ignored, &count, &ignored);
+			check_walls(ignored);
+			check_platforms(&ignored, &ignored, &ignored, &speed_value, &ignored, &count, &cycle, &platform, &ignored);
+			scene_timer++;
+			if (scene_timer < 0xB4)
+			{
+				*p_speed_value = speed_value;
+				*p_count = count;
+				*p_cycle = cycle;
+				*p_list_cursor = platform;
+				return;
+			}
+			scene_step++;
+			scene_timer = 0;
+			stage_init_flags &= ~0x20u;
+			*p_speed_value = speed_value;
+			*p_count = count;
+			*p_cycle = cycle;
+			*p_list_cursor = platform;
+			return;
+		}
+		run_stage_05_switch(speed, &position, &speed_value, &object);
+		if ((uint8_t)stage_05_switch_step == 2u)
+		{
+			allocate_object_outside_loop(&free_count, &object);
+			if (free_count != 0u)
+				OBJECT(object)->handler = stage_00_platform_start_ADDRESS;
+		}
 		if (stage_05_switch_step >= 0)
 		{
-			run_stage_05_switch(r3, &r2, &r4, &r11);
-			if ((uint8_t)stage_05_switch_step == 2u)
+			find_nearby_floor_blocks(&ignored, &ignored, &speed_value, &ignored, &count, &ignored, &ignored);
+			check_hits(&ignored, &position, &ignored, &speed_value, &ignored, &count, &ignored);
+			check_walls(ignored);
+			check_platforms(&ignored, &ignored, &ignored, &speed_value, &ignored, &count, &cycle, &platform, &ignored);
+			scene_timer++;
+			if (scene_timer < 0xB4)
 			{
-				allocate_object_outside_loop(&free_count, &r11);
-				if (free_count != 0u)
-					OBJECT(r11)->handler = stage_00_platform_start_ADDRESS;
+				*p_speed_value = speed_value;
+				*p_count = count;
+				*p_cycle = cycle;
+				*p_list_cursor = platform;
+				return;
 			}
-			if (stage_05_switch_step < 0)
-				load_stage_map_pointers(&ignored, &ignored);
+			scene_step++;
+			scene_timer = 0;
+			stage_init_flags &= ~0x20u;
+			*p_speed_value = speed_value;
+			*p_count = count;
+			*p_cycle = cycle;
+			*p_list_cursor = platform;
+			return;
 		}
-		find_nearby_floor_blocks(&ignored, &ignored, &r4, &ignored, &count, &ignored, &ignored);
-		check_hits(&ignored, &r2, &ignored, &r4, &ignored, &count, &ignored);
+		load_stage_map_pointers(&ignored, &ignored);
+		find_nearby_floor_blocks(&ignored, &ignored, &speed_value, &ignored, &count, &ignored, &ignored);
+		check_hits(&ignored, &position, &ignored, &speed_value, &ignored, &count, &ignored);
 		check_walls(ignored);
-		check_platforms(&ignored, &ignored, &ignored, &r4, &ignored, &count, &r9, &r10_2, &ignored);
+		check_platforms(&ignored, &ignored, &ignored, &speed_value, &ignored, &count, &cycle, &platform, &ignored);
 		scene_timer++;
 		if (scene_timer < 0xB4)
 		{
-			*p_r4 = r4;
+			*p_speed_value = speed_value;
 			*p_count = count;
-			*p_r9 = r9;
-			*p_r10 = r10_2;
+			*p_cycle = cycle;
+			*p_list_cursor = platform;
 			return;
 		}
 		scene_step++;
 		scene_timer = 0;
 		stage_init_flags &= ~0x20u;
-		*p_r4 = r4;
+		*p_speed_value = speed_value;
 		*p_count = count;
-		*p_r9 = r9;
-		*p_r10 = r10_2;
+		*p_cycle = cycle;
+		*p_list_cursor = platform;
 		return;
 	case 3:
 		if ((uint16_t)scene_timer == 0u)
-			spawn_eggman_booth(spawned, 0u, r3, &r2, &r11);
+			spawn_eggman_booth(spawned, 0u, speed, &position, &object);
 		if ((uint16_t)scene_timer == 0xAu)
 		{
 			kind = 0x10u;
 			frames = (count & ~0xFFFFu) | 0xB4u;
 			screen_y = 0x50u;
-			stage_05_event_show_message(r2, screen_y, kind, r11, &r4, &frames, &r9, &r10_2);
-			*p_r4 = r4;
+			stage_05_event_show_message(position, screen_y, kind, object, &speed_value, &frames, &cycle, &platform);
+			*p_speed_value = speed_value;
 			*p_count = frames;
-			*p_r9 = r9;
-			*p_r10 = r10_2;
+			*p_cycle = cycle;
+			*p_list_cursor = platform;
 			return;
 		}
-		stage_05_event_step_3_frame(r2, r11, &r4, &count, &r9, &r10_2);
-		*p_r4 = r4;
+		stage_05_event_step_3_frame(position, object, &speed_value, &count, &cycle, &platform);
+		*p_speed_value = speed_value;
 		*p_count = count;
-		*p_r9 = r9;
-		*p_r10 = r10_2;
+		*p_cycle = cycle;
+		*p_list_cursor = platform;
 		return;
 	case 4:
 		camera_shake_active = 1u;
 		camera_shake_length = 0x200u;
 		camera_shake_wave = 0x200u;
-		r2_2 = update_camera_with_shake();
-		update_scroll(&r2_2, &r3, &r4, &ignored, &count, &r9, &ignored, &r11);
-		update_stage_tile_layers(&ignored, &r2_2, &ignored, &r4, &ignored, &count, &r9, &ignored, &r11);
-		check_hits(&ignored, &r2_2, &ignored, &r4, &ignored, &count, &ignored);
+		scroll_y = update_camera_with_shake();
+		update_scroll(&scroll_y, &speed, &speed_value, &ignored, &count, &cycle, &ignored, &object);
+		update_stage_tile_layers(&ignored, &scroll_y, &ignored, &speed_value, &ignored, &count, &cycle, &ignored, &object);
+		check_hits(&ignored, &scroll_y, &ignored, &speed_value, &ignored, &count, &ignored);
 		check_walls(ignored);
-		check_platforms(&ignored, &ignored, &ignored, &r4, &ignored, &count, &r9, &r10_2, &ignored);
+		check_platforms(&ignored, &ignored, &ignored, &speed_value, &ignored, &count, &cycle, &platform, &ignored);
 		if ((uint16_t)scene_timer == 1u || (uint16_t)scene_timer == 0x3Bu)
 		{
 			sound_id = 0xFu;
@@ -426,34 +500,34 @@ void update_stage_05_event(uint32_t r2, uint32_t r3, uint32_t r11, uint32_t *p_r
 		scene_timer++;
 		if (scene_timer < 0x3C)
 		{
-			*p_r4 = r4;
+			*p_speed_value = speed_value;
 			*p_count = count;
-			*p_r9 = r9;
-			*p_r10 = r10_2;
+			*p_cycle = cycle;
+			*p_list_cursor = platform;
 			return;
 		}
 		scene_step++;
-		*p_r4 = r4;
+		*p_speed_value = speed_value;
 		*p_count = count;
-		*p_r9 = r9;
-		*p_r10 = r10_2;
+		*p_cycle = cycle;
+		*p_list_cursor = platform;
 		return;
 	case 5:
-		allocate_object_outside_loop(&free_count, &r11);
+		allocate_object_outside_loop(&free_count, &object);
 		if (free_count != 0u)
 		{
-			OBJECT(r11)->flags = 0u;
-			OBJECT(r11)->handler = stage_00_geyser_rise_ADDRESS;
-			stage_00_geyser = r11;
+			OBJECT(object)->flags = 0u;
+			OBJECT(object)->handler = stage_00_geyser_rise_ADDRESS;
+			stage_00_geyser = object;
 		}
-		object = LINKED(WORK_RAM, stage_00_platform);
-		screen_x = (uint16_t)OBJECT(object)->screen_x;
-		r14 = (r14 & ~0xFFFFu) | (uint16_t)OBJECT(object)->screen_y;
+		object_2 = LINKED(WORK_RAM, stage_00_platform);
+		screen_x = (uint16_t)OBJECT(object_2)->screen_x;
+		r14 = (r14 & ~0xFFFFu) | (uint16_t)OBJECT(object_2)->screen_y;
 		rocks_left = stage_00_rock_count;
 		piece_record = stage_00_rock_pieces_ADDRESS;
 		do
 		{
-			allocate_object_outside_loop(&free_count, &r11);
+			allocate_object_outside_loop(&free_count, &object);
 			if (free_count == 0u)
 			{
 				scene_timer = 0;
@@ -461,31 +535,31 @@ void update_stage_05_event(uint32_t r2, uint32_t r3, uint32_t r11, uint32_t *p_r
 				play_sound(sound_id, &ignored, &ignored);
 				scene_step++;
 				*p_count = rocks_left;
-				*p_r10 = object;
+				*p_list_cursor = object_2;
 				return;
 			}
-			OBJECT(r11)->sprite_flags = ROM16(piece_record);
-			OBJECT(r11)->screen_x = screen_x;
+			OBJECT(object)->sprite_flags = ROM16(piece_record);
+			OBJECT(object)->screen_x = screen_x;
 			piece_record += 2u;
-			OBJECT(r11)->screen_x += ROM16(piece_record);
-			OBJECT(r11)->screen_y = r14;
+			OBJECT(object)->screen_x += ROM16(piece_record);
+			OBJECT(object)->screen_y = r14;
 			piece_record += 2u;
-			OBJECT(r11)->screen_y += ROM16(piece_record);
+			OBJECT(object)->screen_y += ROM16(piece_record);
 			piece_record += 2u;
-			OBJECT(r11)->speed_x_fraction = ROM16(piece_record);
+			OBJECT(object)->speed_x_fraction = ROM16(piece_record);
 			piece_record += 2u;
-			OBJECT(r11)->speed_y_fraction = ROM16(piece_record);
+			OBJECT(object)->speed_y_fraction = ROM16(piece_record);
 			piece_record += 2u;
-			OBJECT(r11)->animation = rock_debris_animations_ADDRESS + ROM16(piece_record);
-			OBJECT(r11)->sprite_palette = 0x8240u;
-			OBJECT(r11)->projected_x = (uint32_t)OBJECT(r11)->screen_x << 4;
-			OBJECT(r11)->projected_y_fraction = (uint32_t)OBJECT(r11)->screen_y << 4;
-			OBJECT(r11)->animation_frame = 0u;
-			OBJECT(r11)->animation_speed = 4u;
-			OBJECT(r11)->animation_timer = 0;
-			OBJECT(r11)->flags = 0u;
-			OBJECT(r11)->sprite_scale = 0x100u;
-			OBJECT(r11)->handler = rock_debris_fly_ADDRESS;
+			OBJECT(object)->animation = rock_debris_animations_ADDRESS + ROM16(piece_record);
+			OBJECT(object)->sprite_palette = 0x8240u;
+			OBJECT(object)->projected_x = (uint32_t)OBJECT(object)->screen_x << 4;
+			OBJECT(object)->projected_y_fraction = (uint32_t)OBJECT(object)->screen_y << 4;
+			OBJECT(object)->animation_frame = 0u;
+			OBJECT(object)->animation_speed = 4u;
+			OBJECT(object)->animation_timer = 0;
+			OBJECT(object)->flags = 0u;
+			OBJECT(object)->sprite_scale = 0x100u;
+			OBJECT(object)->handler = rock_debris_fly_ADDRESS;
 			rocks_left--;
 			piece_record += 2u;
 		} while (rocks_left != 0u);
@@ -494,56 +568,56 @@ void update_stage_05_event(uint32_t r2, uint32_t r3, uint32_t r11, uint32_t *p_r
 		play_sound(sound_id, &ignored, &ignored);
 		scene_step++;
 		*p_count = rocks_left;
-		*p_r10 = object;
+		*p_list_cursor = object_2;
 		return;
 	case 6:
 		scene_timer++;
 		if (scene_timer >= 0x1E)
-			update_stage_00_exit_scene(r11, &r4, &r10);
+			update_stage_00_exit_scene(object, &speed_value, &list_cursor);
 		if ((uint16_t)scene_timer == 5u)
-		{
 			sound_id = 6u;
-			play_sound(sound_id, &ignored, &ignored);
-		}
-		else if ((uint16_t)scene_timer == 0x30u)
+		else
 		{
-			sound_id = 6u;
-			play_sound(sound_id, &ignored, &ignored);
-			if (scene_timer < 0x186)
+			if ((uint16_t)scene_timer != 0x30u)
 			{
-				*p_r4 = r4;
-				*p_r10 = r10;
+				if (scene_timer < 0x186)
+				{
+					*p_speed_value = speed_value;
+					*p_list_cursor = list_cursor;
+					return;
+				}
+				scene_step++;
+				scene_timer = 0;
+				*p_speed_value = speed_value;
+				*p_list_cursor = list_cursor;
 				return;
 			}
-			scene_step++;
-			scene_timer = 0;
-			*p_r4 = r4;
-			*p_r10 = r10;
-			return;
+			sound_id = 6u;
 		}
+		play_sound(sound_id, &ignored, &ignored);
 		if (scene_timer < 0x186)
 		{
-			*p_r4 = r4;
-			*p_r10 = r10;
+			*p_speed_value = speed_value;
+			*p_list_cursor = list_cursor;
 			return;
 		}
 		scene_step++;
 		scene_timer = 0;
-		*p_r4 = r4;
-		*p_r10 = r10;
+		*p_speed_value = speed_value;
+		*p_list_cursor = list_cursor;
 		return;
 	case 7:
-		update_stage_00_exit_scene(r11, &r4, &r10);
+		update_stage_00_exit_scene(object, &speed_value, &list_cursor);
 		scene_timer++;
 		if (scene_timer < 0x12C)
 		{
-			*p_r4 = r4;
-			*p_r10 = r10;
+			*p_speed_value = speed_value;
+			*p_list_cursor = list_cursor;
 			return;
 		}
 		game_mode = 2u;
-		*p_r4 = r4;
-		*p_r10 = r10;
+		*p_speed_value = speed_value;
+		*p_list_cursor = list_cursor;
 		return;
 	default:
 		invalid_jump(0x9493Cu + scene_step * 3u);
@@ -807,22 +881,18 @@ void rock_debris_fly(void)
 		delete_current_object();
 		return;
 	}
-	if ((OBJECT(current_object)->sprite_flags & ~0xFFFu) != 0u)
+	if ((OBJECT(current_object)->sprite_flags & ~0xFFFu) == 0u)
 	{
-		animate(&ignored, &ignored, &ignored);
-		bucket = 1u;
-		queue_sprite_in_bucket(bucket);
-		return;
+		OBJECT(current_object)->sprite_scale += 0x30u;
+		if ((int16_t)OBJECT(current_object)->sprite_scale >= 0x600)
+		{
+			delete_current_object();
+			return;
+		}
 	}
-	OBJECT(current_object)->sprite_scale += 0x30u;
-	if ((int16_t)OBJECT(current_object)->sprite_scale < 0x600)
-	{
-		animate(&ignored, &ignored, &ignored);
-		bucket = 1u;
-		queue_sprite_in_bucket(bucket);
-		return;
-	}
-	delete_current_object();
+	animate(&ignored, &ignored, &ignored);
+	bucket = 1u;
+	queue_sprite_in_bucket(bucket);
 }
 
 void event_1c_follow(void)
@@ -860,44 +930,44 @@ void event_1c_scroll(void)
 	scroll_speed_low = 0xF;
 }
 
-void update_ending(uint32_t r2, uint32_t r3, uint32_t object, uint32_t *p_r4, uint32_t *p_r8, uint32_t *p_r9, uint32_t *p_platform)
+void update_ending(uint32_t position, uint32_t speed, uint32_t object, uint32_t *p_speed_value, uint32_t *p_count, uint32_t *p_cycle, uint32_t *p_platform)
 {
-	uint32_t r4 = *p_r4;
-	uint32_t r8 = *p_r8;
-	uint32_t r9 = *p_r9;
+	uint32_t speed_value = *p_speed_value;
+	uint32_t count = *p_count;
+	uint32_t cycle = *p_cycle;
 	uint32_t ignored = 0, platform = 0;
 
 	if (scene_step == 0u)
 		scene_step = 0xFFu;
 	next_stage_slot_request = 0u;
 	joining_closed = 0xFFu;
-	build_ending_scene(&r2, &r3, &r4, &r8, &r9, &object);
-	find_nearby_floor_blocks(&ignored, &r3, &r4, &ignored, &r8, &ignored, &object);
-	r4 = update_restart_point(r4);
-	spawn_objects_by_type(&ignored, &r2, &r3, &r4, &ignored, &r8, &object);
-	spawn_ring_rows(&ignored, &r2, &ignored, &object);
-	spawn_walls(&ignored, &r2, &ignored, &r8, &r9, &object);
-	spawn_object_groups_2(&ignored, &r8, &object);
-	spawn_object_groups(&ignored, &r2, &ignored, &r8, &object);
+	build_ending_scene(&position, &speed, &speed_value, &count, &cycle, &object);
+	find_nearby_floor_blocks(&ignored, &speed, &speed_value, &ignored, &count, &ignored, &object);
+	speed_value = update_restart_point(speed_value);
+	spawn_objects_by_type(&ignored, &position, &speed, &speed_value, &ignored, &count, &object);
+	spawn_ring_rows(&ignored, &position, &ignored, &object);
+	spawn_walls(&ignored, &position, &ignored, &count, &cycle, &object);
+	spawn_object_groups_2(&ignored, &count, &object);
+	spawn_object_groups(&ignored, &position, &ignored, &count, &object);
 	spawn_objects_by_handler(&ignored, &ignored, &object);
 	ignored = check_zones(ignored);
-	check_hits(&ignored, &r2, &ignored, &r4, &ignored, &r8, &ignored);
+	check_hits(&ignored, &position, &ignored, &speed_value, &ignored, &count, &ignored);
 	check_walls(ignored);
-	check_platforms(&ignored, &ignored, &ignored, &r4, &ignored, &r8, &r9, &platform, &ignored);
+	check_platforms(&ignored, &ignored, &ignored, &speed_value, &ignored, &count, &cycle, &platform, &ignored);
 	if ((player_status[0] | player_2_status | player_3_status | player_status_spare) != 0u)
 	{
-		*p_r4 = r4;
-		*p_r8 = r8;
-		*p_r9 = r9;
+		*p_speed_value = speed_value;
+		*p_count = count;
+		*p_cycle = cycle;
 		*p_platform = platform;
 		return;
 	}
 	saved_game_mode = game_mode;
 	game_mode = 7u;
 	game_mode_timer = 0;
-	*p_r4 = r4;
-	*p_r8 = r8;
-	*p_r9 = r9;
+	*p_speed_value = speed_value;
+	*p_count = count;
+	*p_cycle = cycle;
 	*p_platform = platform;
 }
 
@@ -952,16 +1022,14 @@ void stage_06_lightning_animate(void)
 {
 	uint32_t at_last_step = 0, ignored = 0;
 
-	if (current_game_mode != 0x10u)
+	if (current_game_mode == 0x10u)
 	{
-		delete_current_object();
-		return;
-	}
-	animate(&ignored, &ignored, &at_last_step);
-	if ((uint8_t)at_last_step == 0u)
-	{
-		ignored = queue_sprite(ignored);
-		return;
+		animate(&ignored, &ignored, &at_last_step);
+		if ((uint8_t)at_last_step == 0u)
+		{
+			ignored = queue_sprite(ignored);
+			return;
+		}
 	}
 	delete_current_object();
 }

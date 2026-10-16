@@ -151,49 +151,13 @@ void handle_rod_swing(void)
 	unproject_object(&ignored, &ignored, &ignored, &ignored);
 	if (OBJECT(current_object)->handle_rod.swing_side != 0u)
 	{
-		if (OBJECT(current_object)->handle_rod.drops_players == 0u)
-		{
-			if ((int16_t)OBJECT(current_object)->handle_rod.angle >= 0x200)
-			{
-				if (OBJECT(current_object)->handle_rod.angle_speed < -0x100)
-					OBJECT(current_object)->handle_rod.angle_speed += 0x100u;
-				OBJECT(current_object)->handle_rod.angle_speed++;
-				OBJECT(current_object)->handle_rod.swing_accel = 0u - OBJECT(current_object)->handle_rod.swing_accel;
-				OBJECT(current_object)->handle_rod.swing_side = 0u;
-			}
-		}
-		else
+		if (OBJECT(current_object)->handle_rod.drops_players != 0u)
 		{
 			OBJECT(current_object)->handle_rod.angle = 0u;
 			OBJECT(current_object)->handle_rod.angle_speed = (int16_t)OBJECT(current_object)->handle_rod.angle_speed >> 1;
 			OBJECT(current_object)->handle_rod.angle_speed = 0u - OBJECT(current_object)->handle_rod.angle_speed;
 			OBJECT(current_object)->handle_rod.swing_accel = 0u - OBJECT(current_object)->handle_rod.swing_accel;
 			OBJECT(current_object)->handle_rod.swing_side = 0u;
-		}
-		OBJECT(current_object)->handle_rod.angle_speed += OBJECT(current_object)->handle_rod.swing_accel;
-		OBJECT(current_object)->handle_rod.angle += OBJECT(current_object)->handle_rod.angle_speed_int;
-		OBJECT(current_object)->handle_rod.angle &= 0x3FFu;
-	}
-	else
-	{
-		if (OBJECT(current_object)->handle_rod.angle != 0u || OBJECT(current_object)->handle_rod.angle_speed > 0x100)
-		{
-			if ((int16_t)OBJECT(current_object)->handle_rod.angle > 0x200)
-			{
-				OBJECT(current_object)->handle_rod.angle_speed += OBJECT(current_object)->handle_rod.swing_accel;
-				OBJECT(current_object)->handle_rod.angle += OBJECT(current_object)->handle_rod.angle_speed_int;
-				OBJECT(current_object)->handle_rod.angle &= 0x3FFu;
-				depth = (uint16_t)OBJECT(current_object)->screen_y;
-				OBJECT(current_object)->hitbox_size_x = depth;
-				queue_sprite_at_depth(&ignored, &depth);
-				add_to_rider_list();
-				return;
-			}
-			if (OBJECT(current_object)->handle_rod.angle_speed > 0x100)
-				OBJECT(current_object)->handle_rod.angle_speed -= 0x100u;
-			OBJECT(current_object)->handle_rod.angle_speed--;
-			OBJECT(current_object)->handle_rod.swing_accel = 0u - OBJECT(current_object)->handle_rod.swing_accel;
-			OBJECT(current_object)->handle_rod.swing_side = 1u;
 			OBJECT(current_object)->handle_rod.angle_speed += OBJECT(current_object)->handle_rod.swing_accel;
 			OBJECT(current_object)->handle_rod.angle += OBJECT(current_object)->handle_rod.angle_speed_int;
 			OBJECT(current_object)->handle_rod.angle &= 0x3FFu;
@@ -203,9 +167,55 @@ void handle_rod_swing(void)
 			add_to_rider_list();
 			return;
 		}
-		OBJECT(current_object)->handle_rod.angle = 0u;
-		OBJECT(current_object)->handler = handle_rod_hang_ADDRESS;
+		if ((int16_t)OBJECT(current_object)->handle_rod.angle < 0x200)
+		{
+			OBJECT(current_object)->handle_rod.angle_speed += OBJECT(current_object)->handle_rod.swing_accel;
+			OBJECT(current_object)->handle_rod.angle += OBJECT(current_object)->handle_rod.angle_speed_int;
+			OBJECT(current_object)->handle_rod.angle &= 0x3FFu;
+			depth = (uint16_t)OBJECT(current_object)->screen_y;
+			OBJECT(current_object)->hitbox_size_x = depth;
+			queue_sprite_at_depth(&ignored, &depth);
+			add_to_rider_list();
+			return;
+		}
+		if (OBJECT(current_object)->handle_rod.angle_speed < -0x100)
+			OBJECT(current_object)->handle_rod.angle_speed += 0x100u;
+		OBJECT(current_object)->handle_rod.angle_speed++;
+		OBJECT(current_object)->handle_rod.swing_accel = 0u - OBJECT(current_object)->handle_rod.swing_accel;
+		OBJECT(current_object)->handle_rod.swing_side = 0u;
 	}
+	else
+	{
+		if (OBJECT(current_object)->handle_rod.angle == 0u && OBJECT(current_object)->handle_rod.angle_speed <= 0x100)
+		{
+			OBJECT(current_object)->handle_rod.angle = 0u;
+			OBJECT(current_object)->handler = handle_rod_hang_ADDRESS;
+			depth = (uint16_t)OBJECT(current_object)->screen_y;
+			OBJECT(current_object)->hitbox_size_x = depth;
+			queue_sprite_at_depth(&ignored, &depth);
+			add_to_rider_list();
+			return;
+		}
+		if ((int16_t)OBJECT(current_object)->handle_rod.angle > 0x200)
+		{
+			OBJECT(current_object)->handle_rod.angle_speed += OBJECT(current_object)->handle_rod.swing_accel;
+			OBJECT(current_object)->handle_rod.angle += OBJECT(current_object)->handle_rod.angle_speed_int;
+			OBJECT(current_object)->handle_rod.angle &= 0x3FFu;
+			depth = (uint16_t)OBJECT(current_object)->screen_y;
+			OBJECT(current_object)->hitbox_size_x = depth;
+			queue_sprite_at_depth(&ignored, &depth);
+			add_to_rider_list();
+			return;
+		}
+		if (OBJECT(current_object)->handle_rod.angle_speed > 0x100)
+			OBJECT(current_object)->handle_rod.angle_speed -= 0x100u;
+		OBJECT(current_object)->handle_rod.angle_speed--;
+		OBJECT(current_object)->handle_rod.swing_accel = 0u - OBJECT(current_object)->handle_rod.swing_accel;
+		OBJECT(current_object)->handle_rod.swing_side = 1u;
+	}
+	OBJECT(current_object)->handle_rod.angle_speed += OBJECT(current_object)->handle_rod.swing_accel;
+	OBJECT(current_object)->handle_rod.angle += OBJECT(current_object)->handle_rod.angle_speed_int;
+	OBJECT(current_object)->handle_rod.angle &= 0x3FFu;
 	depth = (uint16_t)OBJECT(current_object)->screen_y;
 	OBJECT(current_object)->hitbox_size_x = depth;
 	queue_sprite_at_depth(&ignored, &depth);
@@ -601,53 +611,62 @@ void ice_launcher_update(void)
 		return;
 	}
 	OBJECT(current_object)->ice_launcher.step++;
-	if (OBJECT(current_object)->ice_launcher.step <= OBJECT(current_object)->ice_launcher.last_step)
-	{
-		frame_index = ice_launcher_frames[(uint8_t)OBJECT(current_object)->ice_launcher.step];
-		OBJECT(current_object)->sprite_frame = ice_launcher_sprites[frame_index];
-		size_record = ice_launcher_hitbox_sizes_ADDRESS + frame_index * 4u;
-		OBJECT(current_object)->hitbox_size_x = ROM16(size_record);
-		OBJECT(current_object)->hitbox_size_y = ROM16(size_record + 2u);
-		offset_record = ice_launcher_hitbox_offsets_ADDRESS + frame_index * 2u;
-		OBJECT(current_object)->hitbox_offset_x = ROM8(offset_record);
-		offset_record++;
-		OBJECT(current_object)->hitbox_offset_y = ROM8(offset_record);
-		duration_index_or_spawned = OBJECT(current_object)->ice_launcher.step_duration_index;
-		OBJECT(current_object)->ice_launcher.step_timer = ice_launcher_frame_durations[duration_index_or_spawned];
-		if ((uint8_t)OBJECT(current_object)->ice_launcher.step == 0xCu)
-		{
-			spawn_count = 2u;
-			spawn_object_with_pieces(0x011D7Du, &duration_index_or_spawned, &ignored, &offset_record, &object, &r11);
-			if ((uint8_t)duration_index_or_spawned != 0u)
-			{
-				OBJECT(object_cursor)->ice_launcher.step_timer += 3u;
-				copy_position_to(object);
-				OBJECT(object)->projected_x -= 0x2Bu;
-				OBJECT(object)->projected_y_int += 0x4Fu;
-				OBJECT(object)->sprite_frame = 0x7418u;
-				OBJECT(object)->sprite_palette = OBJECT(object_cursor)->sprite_palette;
-				OBJECT(object)->flags |= 2u;
-				OBJECT(object)->hitbox_size_x = 0x22u;
-				OBJECT(object)->hitbox_size_y = 0x42u;
-				OBJECT(object)->hitbox_offset_x = -0xB;
-				OBJECT(object)->hitbox_offset_y = -0x3C;
-				OBJECT(object)->hitbox_height = 0x28u;
-				OBJECT(object)->kind = 0x19u;
-				OBJECT(object)->handler = ice_cube_slide_ADDRESS;
-				OBJECT(object)->speed = ice_cube_speeds[OBJECT(current_object)->ice_launcher.cube_speed_index];
-				object = LINKED(object, OBJECT(object)->child);
-				OBJECT(object)->sprite_frame = 0x7418u;
-				OBJECT(object)->sprite_palette = 0x11D0u;
-				OBJECT(object)->sprite_palette |= 0x2000u;
-			}
-		}
-	}
-	else
+	if (OBJECT(current_object)->ice_launcher.last_step < OBJECT(current_object)->ice_launcher.step)
 	{
 		OBJECT(current_object)->ice_launcher.step = 0;
 		OBJECT(current_object)->sprite_frame = 0x7420u;
 		OBJECT(current_object)->ice_launcher.step_timer = 0u;
+		add_to_touchable_list(duration_index_or_spawned);
+		depth = (uint16_t)(OBJECT(current_object)->screen_y + 0x30u);
+		queue_sprite_at_depth(&ignored, &depth);
+		return;
 	}
+	frame_index = ice_launcher_frames[(uint8_t)OBJECT(current_object)->ice_launcher.step];
+	OBJECT(current_object)->sprite_frame = ice_launcher_sprites[frame_index];
+	size_record = ice_launcher_hitbox_sizes_ADDRESS + frame_index * 4u;
+	OBJECT(current_object)->hitbox_size_x = ROM16(size_record);
+	OBJECT(current_object)->hitbox_size_y = ROM16(size_record + 2u);
+	offset_record = ice_launcher_hitbox_offsets_ADDRESS + frame_index * 2u;
+	OBJECT(current_object)->hitbox_offset_x = ROM8(offset_record);
+	offset_record++;
+	OBJECT(current_object)->hitbox_offset_y = ROM8(offset_record);
+	duration_index_or_spawned = OBJECT(current_object)->ice_launcher.step_duration_index;
+	OBJECT(current_object)->ice_launcher.step_timer = ice_launcher_frame_durations[duration_index_or_spawned];
+	if ((uint8_t)OBJECT(current_object)->ice_launcher.step != 0xCu)
+	{
+		add_to_touchable_list(duration_index_or_spawned);
+		depth = (uint16_t)(OBJECT(current_object)->screen_y + 0x30u);
+		queue_sprite_at_depth(&ignored, &depth);
+		return;
+	}
+	spawn_count = 2u;
+	spawn_object_with_pieces(0x011D7Du, &duration_index_or_spawned, &ignored, &offset_record, &object, &r11);
+	if ((uint8_t)duration_index_or_spawned == 0u)
+	{
+		add_to_touchable_list(duration_index_or_spawned);
+		depth = (uint16_t)(OBJECT(current_object)->screen_y + 0x30u);
+		queue_sprite_at_depth(&ignored, &depth);
+		return;
+	}
+	OBJECT(object_cursor)->ice_launcher.step_timer += 3u;
+	copy_position_to(object);
+	OBJECT(object)->projected_x -= 0x2Bu;
+	OBJECT(object)->projected_y_int += 0x4Fu;
+	OBJECT(object)->sprite_frame = 0x7418u;
+	OBJECT(object)->sprite_palette = OBJECT(object_cursor)->sprite_palette;
+	OBJECT(object)->flags |= 2u;
+	OBJECT(object)->hitbox_size_x = 0x22u;
+	OBJECT(object)->hitbox_size_y = 0x42u;
+	OBJECT(object)->hitbox_offset_x = -0xB;
+	OBJECT(object)->hitbox_offset_y = -0x3C;
+	OBJECT(object)->hitbox_height = 0x28u;
+	OBJECT(object)->kind = 0x19u;
+	OBJECT(object)->handler = ice_cube_slide_ADDRESS;
+	OBJECT(object)->speed = ice_cube_speeds[OBJECT(current_object)->ice_launcher.cube_speed_index];
+	object = LINKED(object, OBJECT(object)->child);
+	OBJECT(object)->sprite_frame = 0x7418u;
+	OBJECT(object)->sprite_palette = 0x11D0u;
+	OBJECT(object)->sprite_palette |= 0x2000u;
 	add_to_touchable_list(duration_index_or_spawned);
 	depth = (uint16_t)(OBJECT(current_object)->screen_y + 0x30u);
 	queue_sprite_at_depth(&ignored, &depth);
@@ -805,100 +824,135 @@ void snow_mound_init(void)
 
 void snow_mound_update(void)
 {
-	uint8_t bucket = 0;
-	uint16_t offset_x = 0, offset_y = 0;
-	uint32_t r3 = 0, r11 = 0, burst_frame = 0, deleted = 0, depth = 0, ignored = 0, object = 0, object_2 = 0, random_value = 0, ring = 0;
+	uint32_t r3 = 0, r11 = 0, deleted = 0, ignored = 0, random_value = 0, ring = 0;
 
 	move_object_projected(&ignored, &ignored, &r3, &r11);
-	fall_to_floor(&ignored, &depth, &ignored);
+	fall_to_floor(&ignored, &ignored, &ignored);
 	delete_if_off_screen(&deleted, &ignored, &r3);
 	if ((uint8_t)deleted == 1u)
 		return;
 	if (OBJECT(current_object)->snow_mound.bursting != 0u)
 	{
-	snow_mound_burst:
-		OBJECT(current_object)->snow_mound.frame_count++;
-		OBJECT(current_object)->snow_mound.part_3_count++;
-		if (OBJECT(current_object)->snow_mound.frame_count <= 1)
-		{
-		snow_mound_draw:
-			depth = (depth & ~0xFFFFu) | (uint16_t)OBJECT(current_object)->screen_y;
-			depth = (depth & ~0xFFFFu) | (uint16_t)(depth + 0x12u);
-			queue_sprite_at_depth(&ignored, &depth);
-			if ((uint8_t)OBJECT(current_object)->snow_mound.burst_frame != 0u)
-			{
-				current_object = LINKED(current_object, OBJECT(object_cursor)->child);
-				OBJECT(current_object)->screen_x = OBJECT(object_cursor)->screen_x;
-				OBJECT(current_object)->screen_y = OBJECT(object_cursor)->screen_y;
-				depth = (depth & ~0xFFFFu) | (uint16_t)OBJECT(current_object)->screen_y;
-				depth = (depth & ~0xFFFFu) | (uint16_t)(depth + 0x11u);
-				queue_sprite_at_depth(&ignored, &depth);
-				current_object = LINKED(current_object, OBJECT(object_cursor)->child);
-				current_object = LINKED(current_object, OBJECT(current_object)->child);
-				OBJECT(current_object)->screen_x = OBJECT(object_cursor)->screen_x;
-				OBJECT(current_object)->screen_y = OBJECT(object_cursor)->screen_y;
-				OBJECT(current_object)->screen_y -= 0x16u;
-				queue_sprite(depth);
-			}
-			else
-			{
-				add_to_touchable_list(ignored);
-				add_to_rider_list();
-			}
-			current_object = LINKED(current_object, OBJECT(object_cursor)->child);
-			object = current_object;
-			current_object = LINKED(current_object, OBJECT(current_object)->child);
-			current_object = LINKED(current_object, OBJECT(current_object)->child);
-			OBJECT(current_object)->sprite_frame = OBJECT(object_cursor)->sprite_frame;
-			if ((uint8_t)OBJECT(object_cursor)->snow_mound.burst_frame != 0u)
-				OBJECT(current_object)->sprite_frame = OBJECT(object)->sprite_frame;
-			offset_x = 0u;
-			offset_y = 0x15u;
-			place_sprite_near_cursor(offset_x, offset_y);
-			bucket = 0xFFu;
-			queue_sprite_in_bucket(bucket);
-			return;
-		}
-		if (OBJECT(current_object)->snow_mound.burst_frame <= 0xE)
-		{
-			burst_frame = (uint8_t)OBJECT(current_object)->snow_mound.burst_frame;
-			OBJECT(current_object)->sprite_frame = snow_mound_burst_frames[burst_frame];
-			OBJECT(current_object)->snow_mound.frame_count = 0;
-			OBJECT(current_object)->snow_mound.burst_frame++;
-			burst_frame += 2u;
-			if ((int8_t)burst_frame > 0xE)
-				goto snow_mound_draw;
-			object_2 = LINKED(WORK_RAM, OBJECT(current_object)->child);
-			OBJECT(object_2)->sprite_frame = snow_mound_burst_frames[burst_frame];
-			if (OBJECT(current_object)->snow_mound.part_3_count <= 2)
-				goto snow_mound_draw;
-			object_2 = LINKED(object_2, OBJECT(current_object)->child);
-			object_2 = LINKED(object_2, OBJECT(object_2)->child);
-			OBJECT(current_object)->snow_mound.part_3_count = 0;
-			OBJECT(current_object)->snow_mound.part_3_frame++;
-			OBJECT(object_2)->sprite_frame = snow_mound_burst_frames[OBJECT(current_object)->snow_mound.part_3_frame];
-			goto snow_mound_draw;
-		}
-		OBJECT(current_object)->snow_mound.frame_count = 0;
-		OBJECT(current_object)->snow_mound.part_3_count = 0;
-		OBJECT(current_object)->snow_mound.burst_frame = 0;
-		OBJECT(current_object)->snow_mound.bursting = 0u;
-		OBJECT(current_object)->snow_mound.part_3_frame = 4u;
-		OBJECT(current_object)->sprite_frame = snow_mound_burst_frames[(uint8_t)OBJECT(current_object)->snow_mound.burst_frame];
-		delete_object_and_children(&ignored, &ignored, &ignored);
+		snow_mound_burst();
 		return;
 	}
 	if ((OBJECT(current_object)->flags & 4u) == 0u)
-		goto snow_mound_draw;
+	{
+		snow_mound_draw();
+		return;
+	}
 	OBJECT(current_object)->snow_mound.bursting = 1u;
 	if (OBJECT(current_object)->snow_mound.ring_count == 0u)
-		goto snow_mound_burst;
+	{
+		snow_mound_burst();
+		return;
+	}
 	released_ring_flip = 0u;
 	rings_to_release = OBJECT(current_object)->snow_mound.ring_count;
 	released_ring_angle = OBJECT(current_object)->spawn_arg_2;
 	released_rings_random = OBJECT(current_object)->snow_mound.random_scatter;
 	drop_rings(r3, &r11, &random_value, &ring);
-	goto snow_mound_burst;
+	snow_mound_burst();
+}
+
+void snow_mound_burst(void)
+{
+	uint32_t burst_frame = 0, ignored = 0, object = 0;
+
+	OBJECT(current_object)->snow_mound.frame_count++;
+	OBJECT(current_object)->snow_mound.part_3_count++;
+	if (OBJECT(current_object)->snow_mound.frame_count <= 1)
+	{
+		snow_mound_draw();
+		return;
+	}
+	if (OBJECT(current_object)->snow_mound.burst_frame <= 0xE)
+	{
+		burst_frame = (uint8_t)OBJECT(current_object)->snow_mound.burst_frame;
+		OBJECT(current_object)->sprite_frame = snow_mound_burst_frames[burst_frame];
+		OBJECT(current_object)->snow_mound.frame_count = 0;
+		OBJECT(current_object)->snow_mound.burst_frame++;
+		burst_frame += 2u;
+		if ((int8_t)burst_frame <= 0xE)
+		{
+			object = LINKED(WORK_RAM, OBJECT(current_object)->child);
+			OBJECT(object)->sprite_frame = snow_mound_burst_frames[burst_frame];
+			if (OBJECT(current_object)->snow_mound.part_3_count <= 2)
+			{
+				snow_mound_draw();
+				return;
+			}
+			object = LINKED(object, OBJECT(current_object)->child);
+			object = LINKED(object, OBJECT(object)->child);
+			OBJECT(current_object)->snow_mound.part_3_count = 0;
+			OBJECT(current_object)->snow_mound.part_3_frame++;
+			OBJECT(object)->sprite_frame = snow_mound_burst_frames[OBJECT(current_object)->snow_mound.part_3_frame];
+			snow_mound_draw();
+			return;
+		}
+		snow_mound_draw();
+		return;
+	}
+	OBJECT(current_object)->snow_mound.frame_count = 0;
+	OBJECT(current_object)->snow_mound.part_3_count = 0;
+	OBJECT(current_object)->snow_mound.burst_frame = 0;
+	OBJECT(current_object)->snow_mound.bursting = 0u;
+	OBJECT(current_object)->snow_mound.part_3_frame = 4u;
+	OBJECT(current_object)->sprite_frame = snow_mound_burst_frames[(uint8_t)OBJECT(current_object)->snow_mound.burst_frame];
+	delete_object_and_children(&ignored, &ignored, &ignored);
+}
+
+void snow_mound_draw(void)
+{
+	uint8_t bucket = 0;
+	uint16_t offset_x = 0, offset_y = 0;
+	uint32_t depth = 0, ignored = 0, object = 0;
+
+	depth = (uint16_t)OBJECT(current_object)->screen_y;
+	depth = (uint16_t)(depth + 0x12u);
+	queue_sprite_at_depth(&ignored, &depth);
+	if ((uint8_t)OBJECT(current_object)->snow_mound.burst_frame == 0u)
+	{
+		add_to_touchable_list(ignored);
+		add_to_rider_list();
+		current_object = LINKED(current_object, OBJECT(object_cursor)->child);
+		object = current_object;
+		current_object = LINKED(current_object, OBJECT(current_object)->child);
+		current_object = LINKED(current_object, OBJECT(current_object)->child);
+		OBJECT(current_object)->sprite_frame = OBJECT(object_cursor)->sprite_frame;
+		if ((uint8_t)OBJECT(object_cursor)->snow_mound.burst_frame != 0u)
+			OBJECT(current_object)->sprite_frame = OBJECT(object)->sprite_frame;
+		offset_x = 0u;
+		offset_y = 0x15u;
+		place_sprite_near_cursor(offset_x, offset_y);
+		bucket = 0xFFu;
+		queue_sprite_in_bucket(bucket);
+		return;
+	}
+	current_object = LINKED(current_object, OBJECT(object_cursor)->child);
+	OBJECT(current_object)->screen_x = OBJECT(object_cursor)->screen_x;
+	OBJECT(current_object)->screen_y = OBJECT(object_cursor)->screen_y;
+	depth = (depth & ~0xFFFFu) | (uint16_t)OBJECT(current_object)->screen_y;
+	depth = (depth & ~0xFFFFu) | (uint16_t)(depth + 0x11u);
+	queue_sprite_at_depth(&ignored, &depth);
+	current_object = LINKED(current_object, OBJECT(object_cursor)->child);
+	current_object = LINKED(current_object, OBJECT(current_object)->child);
+	OBJECT(current_object)->screen_x = OBJECT(object_cursor)->screen_x;
+	OBJECT(current_object)->screen_y = OBJECT(object_cursor)->screen_y;
+	OBJECT(current_object)->screen_y -= 0x16u;
+	queue_sprite(depth);
+	current_object = LINKED(current_object, OBJECT(object_cursor)->child);
+	object = current_object;
+	current_object = LINKED(current_object, OBJECT(current_object)->child);
+	current_object = LINKED(current_object, OBJECT(current_object)->child);
+	OBJECT(current_object)->sprite_frame = OBJECT(object_cursor)->sprite_frame;
+	if ((uint8_t)OBJECT(object_cursor)->snow_mound.burst_frame != 0u)
+		OBJECT(current_object)->sprite_frame = OBJECT(object)->sprite_frame;
+	offset_x = 0u;
+	offset_y = 0x15u;
+	place_sprite_near_cursor(offset_x, offset_y);
+	bucket = 0xFFu;
+	queue_sprite_in_bucket(bucket);
 }
 
 void ice_block_row_start(void)
@@ -1079,28 +1133,7 @@ void ice_platform_piece_update(void)
 			OBJECT(current_object)->part_list = ice_platform_piece_parts_2_ADDRESS;
 		return;
 	case 1:
-		margin = 0x60u;
-		off_screen = check_left_screen_margin(margin);
-		if (off_screen != 0u)
-		{
-			delete_current_object();
-			return;
-		}
-		if (OBJECT(current_object)->ice_platform_piece.icicle_landed != 0u)
-		{
-			OBJECT(current_object)->ice_platform_piece.state++;
-			OBJECT(current_object)->part_list = ice_platform_piece_parts_2_ADDRESS;
-		}
-		object = LINKED(current_object, OBJECT(current_object)->parent);
-		OBJECT(current_object)->x = OBJECT(object)->x;
-		OBJECT(current_object)->y = OBJECT(object)->y;
-		OBJECT(current_object)->x_int -= OBJECT(current_object)->ice_platform_piece.member * 0x2Du;
-		add_to_platform_list();
-		project_object(&ignored, &ignored);
-		depth = (uint16_t)(OBJECT(current_object)->screen_y + OBJECT(current_object)->ice_platform_piece.depth_offset - OBJECT(current_object)->sprite_offset_y);
-		OBJECT(current_object)->draw_depth = depth;
-		queue_sprite_at_depth(&ignored, &depth);
-		return;
+		break;
 	case 2:
 		off_screen = is_off_screen();
 		if (off_screen == 0u)
@@ -1117,6 +1150,27 @@ void ice_platform_piece_update(void)
 	default:
 		invalid_jump(0x87FB3u + OBJECT(current_object)->ice_platform_piece.state * 3u);
 	}
+	margin = 0x60u;
+	off_screen = check_left_screen_margin(margin);
+	if (off_screen != 0u)
+	{
+		delete_current_object();
+		return;
+	}
+	if (OBJECT(current_object)->ice_platform_piece.icicle_landed != 0u)
+	{
+		OBJECT(current_object)->ice_platform_piece.state++;
+		OBJECT(current_object)->part_list = ice_platform_piece_parts_2_ADDRESS;
+	}
+	object = LINKED(current_object, OBJECT(current_object)->parent);
+	OBJECT(current_object)->x = OBJECT(object)->x;
+	OBJECT(current_object)->y = OBJECT(object)->y;
+	OBJECT(current_object)->x_int -= OBJECT(current_object)->ice_platform_piece.member * 0x2Du;
+	add_to_platform_list();
+	project_object(&ignored, &ignored);
+	depth = (uint16_t)(OBJECT(current_object)->screen_y + OBJECT(current_object)->ice_platform_piece.depth_offset - OBJECT(current_object)->sprite_offset_y);
+	OBJECT(current_object)->draw_depth = depth;
+	queue_sprite_at_depth(&ignored, &depth);
 }
 
 void ice_floor_start(void)
@@ -1286,10 +1340,9 @@ void icicle_dropper_start(void)
 
 void icicle_dropper_move(void)
 {
-	uint16_t hold_threshold = 0, move_speed = 0, row_spacing = 0;
-	uint32_t r3 = 0, r11 = 0, direction = 0, floor_slope = 0, ignored = 0, path_cursor = 0, slope_factor = 0, step = 0;
-	uint8_t hold_timer = 0;
-	uint16_t wait_timer = 0, record_scroll = 0;
+	uint16_t hold_threshold = 0;
+	uint32_t direction = 0, path = 0;
+	uint16_t wait_timer = 0;
 	uint32_t flags = 0;
 
 	flags = OBJECT(current_object)->flags;
@@ -1297,7 +1350,10 @@ void icicle_dropper_move(void)
 	if ((flags & 0x80000000u) != 0u)
 	{
 		if (OBJECT(current_object)->icicle_dropper.holding_back != 0u)
-			goto icicle_dropper_move_step;
+		{
+			icicle_dropper_move_step();
+			return;
+		}
 		if (no_player_in_play != 0u || player_mishap != 0u || player_dropping_in != 0u)
 		{
 			OBJECT(current_object)->icicle_dropper.holding_back = 0xFFu;
@@ -1310,208 +1366,302 @@ void icicle_dropper_move(void)
 			if (OBJECT(current_object)->direction < 0x100 || OBJECT(current_object)->direction > 0x200)
 				hold_threshold = 0x160u;
 			OBJECT(current_object)->icicle_dropper.screen_threshold = hold_threshold;
-			goto icicle_dropper_move_step;
+			icicle_dropper_move_step();
+			return;
 		}
 	}
 	wait_timer = OBJECT(current_object)->icicle_dropper.wait_timer;
 	OBJECT(current_object)->icicle_dropper.wait_timer = wait_timer - 1u;
 	if ((int16_t)wait_timer > 1)
 	{
-	icicle_dropper_move_step:
-		if (OBJECT(current_object)->icicle_dropper.rides_platform == 0u)
-		{
-			find_floor(&ignored, &ignored, &ignored, &r3, &r11);
-			OBJECT(current_object)->z = OBJECT(current_object)->floor_z;
-		}
-		if (OBJECT(current_object)->icicle_dropper.rides_platform != 0u)
-		{
-			OBJECT(current_object)->x = OBJECT(LINKED(current_object, moving_floor_object))->x;
-			OBJECT(current_object)->x -= OBJECT(current_object)->icicle_dropper.platform_offset;
-			OBJECT(current_object)->x_int += 0x2Du;
-		}
-		project_object(&ignored, &ignored);
-		if (OBJECT(current_object)->icicle_dropper.holding_back != 0u)
-		{
-			if ((int16_t)(scroll_position - OBJECT(current_object)->icicle_dropper.hold_start_position) >= 0x300 || (OBJECT(current_object)->icicle_dropper.last_dropper != 0u && AS32(players_finished[0]) == 0xFFFFFFu))
-				goto icicle_dropper_stop_holding_back;
-			if (no_player_in_play != 0u)
-				OBJECT(current_object)->icicle_dropper.hold_timer = 0xFFu;
-			hold_timer = OBJECT(current_object)->icicle_dropper.hold_timer;
-			OBJECT(current_object)->icicle_dropper.hold_timer = hold_timer - 1u;
-			if (hold_timer == 0u)
-				goto icicle_dropper_stop_holding_back;
-		}
-		direction = OBJECT(current_object)->direction;
-		switch (direction >> 8)
-		{
-		case 0:
-		case 3:
-			if (OBJECT(current_object)->screen_x <= OBJECT(current_object)->icicle_dropper.screen_threshold)
-			{
-			icicle_dropper_use_base_speed:
-				move_speed = (uint16_t)OBJECT(current_object)->icicle_dropper.base_speed;
-			}
-			else
-			{
-			icicle_dropper_catch_up:
-				OBJECT(current_object)->icicle_dropper.wait_timer = 0;
-				if (OBJECT(current_object)->icicle_dropper.holding_back != 0u)
-				{
-				icicle_dropper_stop_holding_back:
-					OBJECT(current_object)->icicle_dropper.holding_back = 0u;
-					OBJECT(current_object)->icicle_dropper.screen_threshold = OBJECT(current_object)->icicle_dropper.saved_threshold;
-					OBJECT(current_object)->icicle_dropper.base_speed = OBJECT(current_object)->icicle_dropper.saved_base_speed;
-				}
-				slope_factor = 0u;
-				if ((OBJECT(current_object)->floor_slope | OBJECT(current_object)->floor_type) != 0u)
-				{
-					floor_slope = OBJECT(current_object)->floor_slope;
-					slope_factor = floor_slope_factors[(uint16_t)(floor_slope * 2u)];
-				}
-				r3 = compute_camera_slope_speed(r3, slope_factor);
-				move_speed = (uint16_t)((uint32_t)camera_slope_speed_int * OBJECT(current_object)->icicle_dropper.catch_up_factor) >> 8;
-				if ((int16_t)move_speed <= OBJECT(current_object)->icicle_dropper.base_speed)
-					goto icicle_dropper_use_base_speed;
-			}
-			break;
-		case 1:
-		case 2:
-		case 4:
-			if (OBJECT(current_object)->icicle_dropper.screen_threshold <= OBJECT(current_object)->screen_x)
-				goto icicle_dropper_use_base_speed;
-			goto icicle_dropper_catch_up;
-		default:
-			invalid_jump(0x884C0u + (direction >> 8) * 2u);
-		}
-		chaser_speed = move_speed;
-		if (OBJECT(current_object)->icicle_dropper.wait_timer <= 0)
-		{
-			if (OBJECT(current_object)->icicle_dropper.last_dropper != 0u && AS32(players_finished[0]) == 0xFFFFFFu)
-				chaser_speed = 0x400;
-			direction = OBJECT(current_object)->direction;
-			switch (direction >> 8)
-			{
-			case 0:
-				step = chaser_speed;
-				OBJECT(current_object)->icicle_dropper.travel += step;
-				step = step << 12;
-				OBJECT(current_object)->icicle_dropper.platform_offset += step;
-				if (OBJECT(current_object)->icicle_dropper.rides_platform == 0u)
-					OBJECT(current_object)->y -= step;
-				break;
-			case 1:
-				step = chaser_speed;
-				OBJECT(current_object)->icicle_dropper.travel += step;
-				step = step << 12;
-				OBJECT(current_object)->icicle_dropper.platform_offset += step;
-				if (OBJECT(current_object)->icicle_dropper.rides_platform == 0u)
-					OBJECT(current_object)->x += step;
-				break;
-			case 2:
-			case 4:
-				step = chaser_speed;
-				OBJECT(current_object)->icicle_dropper.travel += step;
-				step = step << 12;
-				OBJECT(current_object)->icicle_dropper.platform_offset += step;
-				if (OBJECT(current_object)->icicle_dropper.rides_platform == 0u)
-					OBJECT(current_object)->y += step;
-				break;
-			case 3:
-				step = chaser_speed;
-				OBJECT(current_object)->icicle_dropper.travel += step;
-				step = step << 12;
-				OBJECT(current_object)->icicle_dropper.platform_offset += step;
-				if (OBJECT(current_object)->icicle_dropper.rides_platform == 0u)
-					OBJECT(current_object)->x -= step;
-				break;
-			default:
-				invalid_jump(0x88572u + (direction >> 8) * 2u);
-			}
-		}
-		if ((OBJECT(current_object)->flags & 1u) != 0u)
-			return;
-		row_spacing = 0x400u;
-		if (OBJECT(current_object)->icicle_dropper.rides_platform != 0u)
-			row_spacing = 0x300u;
-		if ((int16_t)row_spacing <= OBJECT(current_object)->icicle_dropper.travel)
-		{
-			OBJECT(current_object)->icicle_dropper.travel -= row_spacing;
-			drop_icicle_row(r3, r11);
-		}
+		icicle_dropper_move_step();
 		return;
 	}
 	OBJECT(current_object)->icicle_dropper.wait_timer = 0;
-	path_cursor = OBJECT(current_object)->icicle_dropper.path;
+	path = OBJECT(current_object)->icicle_dropper.path;
 	if (OBJECT(current_object)->icicle_dropper.rides_platform != 0u)
 	{
-		if ((int16_t)ROM16(path_cursor - 2u) <= OBJECT(current_object)->icicle_dropper.platform_offset_int)
+		if (OBJECT(current_object)->icicle_dropper.platform_offset_int < (int16_t)ROM16(path - 2u))
 		{
-			icicle_dropper_ready = 0xFFu;
-			if (OBJECT(current_object)->icicle_dropper.last_dropper != 0u)
-			{
-				OBJECT(current_object)->icicle_dropper.finish_timer = 3u;
-				OBJECT(current_object)->handler = icicle_dropper_finish_ADDRESS;
-				icicle_dropper_finish();
-				return;
-			}
-			delete_current_object();
+			icicle_dropper_check_scroll_position(path);
 			return;
 		}
-		goto icicle_dropper_check_scroll_position;
+		icicle_dropper_ready = 0xFFu;
+		if (OBJECT(current_object)->icicle_dropper.last_dropper != 0u)
+		{
+			OBJECT(current_object)->icicle_dropper.finish_timer = 3u;
+			OBJECT(current_object)->handler = icicle_dropper_finish_ADDRESS;
+			icicle_dropper_finish();
+			return;
+		}
+		delete_current_object();
+		return;
 	}
 	direction = OBJECT(current_object)->direction;
 	switch (direction >> 8)
 	{
 	case 0:
-		if (OBJECT(current_object)->y_int <= (int16_t)ROM16(path_cursor - 2u))
+		if (OBJECT(current_object)->y_int <= (int16_t)ROM16(path - 2u))
 		{
-		icicle_dropper_coordinate_reached:
-			path_cursor += 2u;
-		icicle_dropper_load_record:
-			if ((int16_t)ROM16(path_cursor + 2u) >= 0)
-			{
-				OBJECT(current_object)->icicle_dropper.screen_threshold = ROM16(path_cursor);
-				path_cursor += 2u;
-				OBJECT(current_object)->icicle_dropper.catch_up_factor = ROM16(path_cursor);
-				path_cursor += 2u;
-				OBJECT(current_object)->icicle_dropper.base_speed = ROM16(path_cursor);
-				path_cursor += 2u;
-				OBJECT(current_object)->icicle_dropper.wait_timer = ROM16(path_cursor);
-				OBJECT(current_object)->icicle_dropper.path = path_cursor + 4u;
-				goto icicle_dropper_move_step;
-			}
-			icicle_dropper_ready = 0xFFu;
-			if (OBJECT(current_object)->icicle_dropper.last_dropper != 0u)
-			{
-				OBJECT(current_object)->icicle_dropper.finish_timer = 3u;
-				OBJECT(current_object)->handler = icicle_dropper_finish_ADDRESS;
-				icicle_dropper_finish();
-				return;
-			}
-			delete_current_object();
+			icicle_dropper_coordinate_reached(path);
 			return;
 		}
-	icicle_dropper_check_scroll_position:
-		record_scroll = ROM16(path_cursor);
-		path_cursor += 2u;
-		if (scroll_position < record_scroll)
-			goto icicle_dropper_move_step;
-		goto icicle_dropper_load_record;
+		icicle_dropper_check_scroll_position(path);
+		return;
 	case 1:
-		if ((int16_t)ROM16(path_cursor - 2u) <= OBJECT(current_object)->x_int)
-			goto icicle_dropper_coordinate_reached;
-		goto icicle_dropper_check_scroll_position;
+		if ((int16_t)ROM16(path - 2u) <= OBJECT(current_object)->x_int)
+		{
+			icicle_dropper_coordinate_reached(path);
+			return;
+		}
+		icicle_dropper_check_scroll_position(path);
+		return;
 	case 2:
 	case 4:
-		if ((int16_t)ROM16(path_cursor - 2u) <= OBJECT(current_object)->y_int)
-			goto icicle_dropper_coordinate_reached;
-		goto icicle_dropper_check_scroll_position;
+		if ((int16_t)ROM16(path - 2u) <= OBJECT(current_object)->y_int)
+		{
+			icicle_dropper_coordinate_reached(path);
+			return;
+		}
+		icicle_dropper_check_scroll_position(path);
+		return;
 	case 3:
-		if ((int16_t)ROM16(path_cursor - 2u) < OBJECT(current_object)->x_int)
-			goto icicle_dropper_check_scroll_position;
-		goto icicle_dropper_coordinate_reached;
+		if ((int16_t)ROM16(path - 2u) < OBJECT(current_object)->x_int)
+		{
+			icicle_dropper_check_scroll_position(path);
+			return;
+		}
+		icicle_dropper_coordinate_reached(path);
+		return;
 	default:
 		invalid_jump(0x883C6u + (direction >> 8) * 2u);
+	}
+}
+
+void icicle_dropper_coordinate_reached(uint32_t path_cursor)
+{
+	path_cursor += 2u;
+	icicle_dropper_load_record(path_cursor);
+}
+
+void icicle_dropper_check_scroll_position(uint32_t path_cursor)
+{
+	uint16_t record_scroll = 0;
+
+	record_scroll = ROM16(path_cursor);
+	path_cursor += 2u;
+	if (scroll_position < record_scroll)
+	{
+		icicle_dropper_move_step();
+		return;
+	}
+	icicle_dropper_load_record(path_cursor);
+}
+
+void icicle_dropper_load_record(uint32_t path_cursor)
+{
+	if ((int16_t)ROM16(path_cursor + 2u) < 0)
+	{
+		icicle_dropper_ready = 0xFFu;
+		if (OBJECT(current_object)->icicle_dropper.last_dropper != 0u)
+		{
+			OBJECT(current_object)->icicle_dropper.finish_timer = 3u;
+			OBJECT(current_object)->handler = icicle_dropper_finish_ADDRESS;
+			icicle_dropper_finish();
+			return;
+		}
+		delete_current_object();
+		return;
+	}
+	OBJECT(current_object)->icicle_dropper.screen_threshold = ROM16(path_cursor);
+	path_cursor += 2u;
+	OBJECT(current_object)->icicle_dropper.catch_up_factor = ROM16(path_cursor);
+	path_cursor += 2u;
+	OBJECT(current_object)->icicle_dropper.base_speed = ROM16(path_cursor);
+	path_cursor += 2u;
+	OBJECT(current_object)->icicle_dropper.wait_timer = ROM16(path_cursor);
+	OBJECT(current_object)->icicle_dropper.path = path_cursor + 4u;
+	icicle_dropper_move_step();
+}
+
+void icicle_dropper_move_step(void)
+{
+	uint32_t cursor = 0, ignored = 0, slope_height = 0;
+	uint8_t hold_timer = 0;
+
+	if (OBJECT(current_object)->icicle_dropper.rides_platform == 0u)
+	{
+		find_floor(&ignored, &ignored, &ignored, &slope_height, &cursor);
+		OBJECT(current_object)->z = OBJECT(current_object)->floor_z;
+	}
+	if (OBJECT(current_object)->icicle_dropper.rides_platform != 0u)
+	{
+		OBJECT(current_object)->x = OBJECT(LINKED(current_object, moving_floor_object))->x;
+		OBJECT(current_object)->x -= OBJECT(current_object)->icicle_dropper.platform_offset;
+		OBJECT(current_object)->x_int += 0x2Du;
+	}
+	project_object(&ignored, &ignored);
+	if (OBJECT(current_object)->icicle_dropper.holding_back == 0u)
+	{
+		icicle_dropper_choose_speed(slope_height, cursor);
+		return;
+	}
+	if ((int16_t)(scroll_position - OBJECT(current_object)->icicle_dropper.hold_start_position) >= 0x300 || (OBJECT(current_object)->icicle_dropper.last_dropper != 0u && AS32(players_finished[0]) == 0xFFFFFFu))
+	{
+		OBJECT(current_object)->icicle_dropper.holding_back = 0u;
+		OBJECT(current_object)->icicle_dropper.screen_threshold = OBJECT(current_object)->icicle_dropper.saved_threshold;
+		OBJECT(current_object)->icicle_dropper.base_speed = OBJECT(current_object)->icicle_dropper.saved_base_speed;
+		icicle_dropper_catch_up_speed(slope_height, cursor);
+		return;
+	}
+	if (no_player_in_play != 0u)
+		OBJECT(current_object)->icicle_dropper.hold_timer = 0xFFu;
+	hold_timer = OBJECT(current_object)->icicle_dropper.hold_timer;
+	OBJECT(current_object)->icicle_dropper.hold_timer = hold_timer - 1u;
+	if (hold_timer == 0u)
+	{
+		OBJECT(current_object)->icicle_dropper.holding_back = 0u;
+		OBJECT(current_object)->icicle_dropper.screen_threshold = OBJECT(current_object)->icicle_dropper.saved_threshold;
+		OBJECT(current_object)->icicle_dropper.base_speed = OBJECT(current_object)->icicle_dropper.saved_base_speed;
+		icicle_dropper_catch_up_speed(slope_height, cursor);
+		return;
+	}
+	icicle_dropper_choose_speed(slope_height, cursor);
+}
+
+void icicle_dropper_choose_speed(uint32_t slope_height, uint32_t cursor)
+{
+	uint16_t move_speed = 0;
+	uint32_t direction = 0;
+
+	direction = OBJECT(current_object)->direction;
+	switch (direction >> 8)
+	{
+	case 0:
+	case 3:
+		if (OBJECT(current_object)->screen_x <= OBJECT(current_object)->icicle_dropper.screen_threshold)
+		{
+			move_speed = (uint16_t)OBJECT(current_object)->icicle_dropper.base_speed;
+			icicle_dropper_move_at_speed(move_speed, slope_height, cursor);
+			return;
+		}
+		OBJECT(current_object)->icicle_dropper.wait_timer = 0;
+		if (OBJECT(current_object)->icicle_dropper.holding_back == 0u)
+		{
+			icicle_dropper_catch_up_speed(slope_height, cursor);
+			return;
+		}
+		OBJECT(current_object)->icicle_dropper.holding_back = 0u;
+		OBJECT(current_object)->icicle_dropper.screen_threshold = OBJECT(current_object)->icicle_dropper.saved_threshold;
+		OBJECT(current_object)->icicle_dropper.base_speed = OBJECT(current_object)->icicle_dropper.saved_base_speed;
+		icicle_dropper_catch_up_speed(slope_height, cursor);
+		return;
+	case 1:
+	case 2:
+	case 4:
+		if (OBJECT(current_object)->icicle_dropper.screen_threshold <= OBJECT(current_object)->screen_x)
+		{
+			move_speed = (uint16_t)OBJECT(current_object)->icicle_dropper.base_speed;
+			icicle_dropper_move_at_speed(move_speed, slope_height, cursor);
+			return;
+		}
+		OBJECT(current_object)->icicle_dropper.wait_timer = 0;
+		if (OBJECT(current_object)->icicle_dropper.holding_back == 0u)
+		{
+			icicle_dropper_catch_up_speed(slope_height, cursor);
+			return;
+		}
+		OBJECT(current_object)->icicle_dropper.holding_back = 0u;
+		OBJECT(current_object)->icicle_dropper.screen_threshold = OBJECT(current_object)->icicle_dropper.saved_threshold;
+		OBJECT(current_object)->icicle_dropper.base_speed = OBJECT(current_object)->icicle_dropper.saved_base_speed;
+		icicle_dropper_catch_up_speed(slope_height, cursor);
+		return;
+	default:
+		invalid_jump(0x884C0u + (direction >> 8) * 2u);
+	}
+}
+
+void icicle_dropper_catch_up_speed(uint32_t slope_height, uint32_t cursor)
+{
+	uint16_t move_speed = 0;
+	uint32_t floor_slope = 0, slope_factor = 0;
+
+	slope_factor = 0u;
+	if ((OBJECT(current_object)->floor_slope | OBJECT(current_object)->floor_type) != 0u)
+	{
+		floor_slope = OBJECT(current_object)->floor_slope;
+		slope_factor = floor_slope_factors[(uint16_t)(floor_slope * 2u)];
+	}
+	slope_height = compute_camera_slope_speed(slope_height, slope_factor);
+	move_speed = (uint16_t)((uint32_t)camera_slope_speed_int * OBJECT(current_object)->icicle_dropper.catch_up_factor) >> 8;
+	if (OBJECT(current_object)->icicle_dropper.base_speed < (int16_t)move_speed)
+	{
+		icicle_dropper_move_at_speed(move_speed, slope_height, cursor);
+		return;
+	}
+	move_speed = (uint16_t)OBJECT(current_object)->icicle_dropper.base_speed;
+	icicle_dropper_move_at_speed(move_speed, slope_height, cursor);
+}
+
+void icicle_dropper_move_at_speed(uint16_t move_speed, uint32_t slope_height, uint32_t cursor)
+{
+	uint16_t row_spacing = 0;
+	uint32_t direction = 0, step = 0;
+
+	chaser_speed = move_speed;
+	if (OBJECT(current_object)->icicle_dropper.wait_timer <= 0)
+	{
+		if (OBJECT(current_object)->icicle_dropper.last_dropper != 0u && AS32(players_finished[0]) == 0xFFFFFFu)
+			chaser_speed = 0x400;
+		direction = OBJECT(current_object)->direction;
+		switch (direction >> 8)
+		{
+		case 0:
+			step = chaser_speed;
+			OBJECT(current_object)->icicle_dropper.travel += step;
+			step = step << 12;
+			OBJECT(current_object)->icicle_dropper.platform_offset += step;
+			if (OBJECT(current_object)->icicle_dropper.rides_platform == 0u)
+				OBJECT(current_object)->y -= step;
+			break;
+		case 1:
+			step = chaser_speed;
+			OBJECT(current_object)->icicle_dropper.travel += step;
+			step = step << 12;
+			OBJECT(current_object)->icicle_dropper.platform_offset += step;
+			if (OBJECT(current_object)->icicle_dropper.rides_platform == 0u)
+				OBJECT(current_object)->x += step;
+			break;
+		case 2:
+		case 4:
+			step = chaser_speed;
+			OBJECT(current_object)->icicle_dropper.travel += step;
+			step = step << 12;
+			OBJECT(current_object)->icicle_dropper.platform_offset += step;
+			if (OBJECT(current_object)->icicle_dropper.rides_platform == 0u)
+				OBJECT(current_object)->y += step;
+			break;
+		case 3:
+			step = chaser_speed;
+			OBJECT(current_object)->icicle_dropper.travel += step;
+			step = step << 12;
+			OBJECT(current_object)->icicle_dropper.platform_offset += step;
+			if (OBJECT(current_object)->icicle_dropper.rides_platform == 0u)
+				OBJECT(current_object)->x -= step;
+			break;
+		default:
+			invalid_jump(0x88572u + (direction >> 8) * 2u);
+		}
+	}
+	if ((OBJECT(current_object)->flags & 1u) != 0u)
+		return;
+	row_spacing = 0x400u;
+	if (OBJECT(current_object)->icicle_dropper.rides_platform != 0u)
+		row_spacing = 0x300u;
+	if ((int16_t)row_spacing <= OBJECT(current_object)->icicle_dropper.travel)
+	{
+		OBJECT(current_object)->icicle_dropper.travel -= row_spacing;
+		drop_icicle_row(slope_height, cursor);
 	}
 }
 
@@ -1519,14 +1669,17 @@ void icicle_dropper_finish(void)
 {
 	uint16_t finish_timer = 0;
 
-	if ((int8_t)goal_unlocked < 3)
-		return;
-	finish_timer = OBJECT(current_object)->icicle_dropper.finish_timer;
-	OBJECT(current_object)->icicle_dropper.finish_timer = finish_timer - 1u;
-	if ((int16_t)finish_timer > 1)
-		return;
-	goal_unlocked = 0xFFu;
-	delete_current_object();
+	if ((int8_t)goal_unlocked >= 3)
+	{
+		finish_timer = OBJECT(current_object)->icicle_dropper.finish_timer;
+		OBJECT(current_object)->icicle_dropper.finish_timer = finish_timer - 1u;
+		if ((int16_t)finish_timer <= 1)
+		{
+			goal_unlocked = 0xFFu;
+			delete_current_object();
+			return;
+		}
+	}
 }
 
 void drop_icicle_row(uint32_t random_value, uint32_t block)
@@ -1593,7 +1746,6 @@ void drop_icicle_row(uint32_t random_value, uint32_t block)
 				if ((int16_t)(end_coordinate - OBJECT(current_object)->y_int) >= -0x40)
 				{
 					OBJECT(block)->y_int = line_coordinate + 0x20u;
-				drop_icicle_row_line_up:
 					OBJECT(block)->flags |= 1u;
 					OBJECT(current_object)->flags |= 1u;
 					OBJECT(block)->icicle_update.line_coordinate = ROM16(OBJECT(current_object)->drop_icicle_row.path - 2u);
@@ -1603,7 +1755,9 @@ void drop_icicle_row(uint32_t random_value, uint32_t block)
 				if ((int16_t)(end_coordinate - OBJECT(current_object)->x_int) <= 0x40)
 				{
 					OBJECT(block)->x_int = line_coordinate - 0x20u;
-					goto drop_icicle_row_line_up;
+					OBJECT(block)->flags |= 1u;
+					OBJECT(current_object)->flags |= 1u;
+					OBJECT(block)->icicle_update.line_coordinate = ROM16(OBJECT(current_object)->drop_icicle_row.path - 2u);
 				}
 				break;
 			case 2:
@@ -1611,14 +1765,18 @@ void drop_icicle_row(uint32_t random_value, uint32_t block)
 				if ((int16_t)(end_coordinate - OBJECT(current_object)->y_int) <= 0x40)
 				{
 					OBJECT(block)->y_int = line_coordinate - 0x20u;
-					goto drop_icicle_row_line_up;
+					OBJECT(block)->flags |= 1u;
+					OBJECT(current_object)->flags |= 1u;
+					OBJECT(block)->icicle_update.line_coordinate = ROM16(OBJECT(current_object)->drop_icicle_row.path - 2u);
 				}
 				break;
 			case 3:
 				if ((int16_t)(end_coordinate - OBJECT(current_object)->x_int) >= -0x40)
 				{
 					OBJECT(block)->x_int = line_coordinate + 0x20u;
-					goto drop_icicle_row_line_up;
+					OBJECT(block)->flags |= 1u;
+					OBJECT(current_object)->flags |= 1u;
+					OBJECT(block)->icicle_update.line_coordinate = ROM16(OBJECT(current_object)->drop_icicle_row.path - 2u);
 				}
 				break;
 			default:
@@ -1691,69 +1849,93 @@ void icicle_update(void)
 		margin_x = queue_sprite(margin_x);
 		return;
 	case 2:
-		if (free_object_stack >= 2 && free_object_stack_2[0] >= 2)
+		if (free_object_stack < 2 || free_object_stack_2[0] < 2)
 		{
-			if ((OBJECT(current_object)->flags & 1u) == 0u)
+			if ((uint16_t)(OBJECT(current_object)->screen_x + 8u) < 0x150u)
 			{
-				allocate_object(&ignored, &object_2);
-				OBJECT(object_2)->sprite_flags = OBJECT(current_object)->sprite_flags;
-				OBJECT(object_2)->sprite_frame = OBJECT(current_object)->sprite_frame;
-				OBJECT(object_2)->sprite_palette = OBJECT(current_object)->sprite_palette;
-				OBJECT(object_2)->sprite_palette &= 0x1FFFu;
-				OBJECT(object_2)->sprite_palette |= 0x2000u;
-				OBJECT(object_2)->handler = icicle_buried_part_draw_ADDRESS;
-				OBJECT(object_2)->x = OBJECT(current_object)->x;
-				OBJECT(object_2)->y = OBJECT(current_object)->y;
-				OBJECT(object_2)->floor_z = OBJECT(current_object)->floor_z;
-				OBJECT(object_2)->parent = current_object;
-				OBJECT(current_object)->child = object_2;
+				sound_id = 0x29u;
+				play_sound(sound_id, &ignored, &ignored);
 			}
-			else
-				object_2 = current_object;
-			parts_left = 2u;
-			do
-			{
-				object_3 = object_2;
-				allocate_object_2(&ignored, &ignored, &object_2);
-				object = object_2 + 2u;
-				OBJECT(object - 0x2u)->sprite_flags = 0x5000u;
-				object += 2u;
-				OBJECT(object - 0x4u)->sprite_frame = 0xE0u;
-				object += 2u;
-				OBJECT(object - 0x6u)->sprite_palette = 0u;
-				object += 2u;
-				OBJECT(object - 0x8u)->sprite_scale = 0x140u;
-				object += 2u;
-				OBJECT(object - 0xAu)->sprite_layer = 0u;
-				object += 2u;
-				OBJECT(object - 0xCu)->screen_y = 0;
-				object += 2u;
-				OBJECT(object - 0xEu)->screen_x = 0;
-				OBJECT(object - 0xEu)->hitbox_size_x = 0u;
-				OBJECT(object_2)->parent = object_3;
-				OBJECT(object_3)->child = object_2;
-				parts_left--;
-			} while (parts_left != 0u);
+			update_screen_position(&ignored, &ignored);
+			add_to_touchable_list(ignored);
+			depth = (uint16_t)(((int32_t)((uint32_t)OBJECT(current_object)->projected_y + OBJECT(current_object)->floor_z) >> 16) - view_y);
+			OBJECT(current_object)->draw_depth = depth;
+			queue_sprite_at_depth(&ignored, &depth);
+			return;
+		}
+		if ((OBJECT(current_object)->flags & 1u) == 0u)
+		{
 			allocate_object(&ignored, &object_2);
-			OBJECT(object_2)->sprite_flags = 0x1004u;
-			OBJECT(object_2)->sprite_palette = 0x9150u;
-			OBJECT(object_2)->handler = icicle_cracks_spread_ADDRESS;
+			OBJECT(object_2)->sprite_flags = OBJECT(current_object)->sprite_flags;
+			OBJECT(object_2)->sprite_frame = OBJECT(current_object)->sprite_frame;
+			OBJECT(object_2)->sprite_palette = OBJECT(current_object)->sprite_palette;
+			OBJECT(object_2)->sprite_palette &= 0x1FFFu;
+			OBJECT(object_2)->sprite_palette |= 0x2000u;
+			OBJECT(object_2)->handler = icicle_buried_part_draw_ADDRESS;
 			OBJECT(object_2)->x = OBJECT(current_object)->x;
 			OBJECT(object_2)->y = OBJECT(current_object)->y;
 			OBJECT(object_2)->floor_z = OBJECT(current_object)->floor_z;
-			OBJECT(object_2)->z = OBJECT(object_2)->floor_z;
-			OBJECT(object_2)->flags = 0u;
-			OBJECT(object_2)->sprite_offset_x = 0;
-			OBJECT(object_2)->sprite_offset_y = 0;
 			OBJECT(object_2)->parent = current_object;
-			OBJECT(object_2)->animation = icicle_crack_animation_ADDRESS;
-			OBJECT(object_2)->animation_frame = 0xFFu;
-			OBJECT(object_2)->animation_speed = 0u;
-			OBJECT(object_2)->animation_timer = 0;
-			OBJECT(current_object)->icicle_update.state++;
-			if ((OBJECT(current_object)->flags & 1u) != 0u)
-				OBJECT(current_object)->icicle_update.state = 7u;
+			OBJECT(current_object)->child = object_2;
 		}
+		else
+			object_2 = current_object;
+		parts_left = 2u;
+		do
+		{
+			object_3 = object_2;
+			allocate_object_2(&ignored, &ignored, &object_2);
+			object = object_2 + 2u;
+			OBJECT(object - 0x2u)->sprite_flags = 0x5000u;
+			object += 2u;
+			OBJECT(object - 0x4u)->sprite_frame = 0xE0u;
+			object += 2u;
+			OBJECT(object - 0x6u)->sprite_palette = 0u;
+			object += 2u;
+			OBJECT(object - 0x8u)->sprite_scale = 0x140u;
+			object += 2u;
+			OBJECT(object - 0xAu)->sprite_layer = 0u;
+			object += 2u;
+			OBJECT(object - 0xCu)->screen_y = 0;
+			object += 2u;
+			OBJECT(object - 0xEu)->screen_x = 0;
+			OBJECT(object - 0xEu)->hitbox_size_x = 0u;
+			OBJECT(object_2)->parent = object_3;
+			OBJECT(object_3)->child = object_2;
+			parts_left--;
+		} while (parts_left != 0u);
+		allocate_object(&ignored, &object_2);
+		OBJECT(object_2)->sprite_flags = 0x1004u;
+		OBJECT(object_2)->sprite_palette = 0x9150u;
+		OBJECT(object_2)->handler = icicle_cracks_spread_ADDRESS;
+		OBJECT(object_2)->x = OBJECT(current_object)->x;
+		OBJECT(object_2)->y = OBJECT(current_object)->y;
+		OBJECT(object_2)->floor_z = OBJECT(current_object)->floor_z;
+		OBJECT(object_2)->z = OBJECT(object_2)->floor_z;
+		OBJECT(object_2)->flags = 0u;
+		OBJECT(object_2)->sprite_offset_x = 0;
+		OBJECT(object_2)->sprite_offset_y = 0;
+		OBJECT(object_2)->parent = current_object;
+		OBJECT(object_2)->animation = icicle_crack_animation_ADDRESS;
+		OBJECT(object_2)->animation_frame = 0xFFu;
+		OBJECT(object_2)->animation_speed = 0u;
+		OBJECT(object_2)->animation_timer = 0;
+		OBJECT(current_object)->icicle_update.state++;
+		if ((OBJECT(current_object)->flags & 1u) == 0u)
+		{
+			if ((uint16_t)(OBJECT(current_object)->screen_x + 8u) < 0x150u)
+			{
+				sound_id = 0x29u;
+				play_sound(sound_id, &ignored, &ignored);
+			}
+			update_screen_position(&ignored, &ignored);
+			add_to_touchable_list(ignored);
+			depth = (uint16_t)(((int32_t)((uint32_t)OBJECT(current_object)->projected_y + OBJECT(current_object)->floor_z) >> 16) - view_y);
+			OBJECT(current_object)->draw_depth = depth;
+			queue_sprite_at_depth(&ignored, &depth);
+			return;
+		}
+		OBJECT(current_object)->icicle_update.state = 7u;
 		if ((uint16_t)(OBJECT(current_object)->screen_x + 8u) < 0x150u)
 		{
 			sound_id = 0x29u;
@@ -1805,19 +1987,17 @@ void icicle_update(void)
 		platform_shift = landing_offset;
 		landing_offset = (uint16_t)(((int32_t)landing_offset >> 16) + OBJECT(object)->ice_platform_leader.travel);
 		swing_limit = 0x87u;
-		if ((int16_t)landing_offset > 0x87)
-			OBJECT(current_object)->x += platform_shift - ((uint32_t)(uint16_t)((landing_offset - swing_limit) * 2u) << 16);
-		else
+		if ((int16_t)landing_offset <= 0x87)
 		{
 			swing_limit = (uint16_t)(0u - swing_limit);
 			if ((int16_t)landing_offset < (int16_t)swing_limit)
-			{
 				OBJECT(current_object)->x += platform_shift - ((uint32_t)(uint16_t)((landing_offset - swing_limit) * 2u) << 16);
-				project_object(&ignored, &ignored);
-				return;
-			}
-			OBJECT(current_object)->x += platform_shift;
+			else
+				OBJECT(current_object)->x += platform_shift;
+			project_object(&ignored, &ignored);
+			return;
 		}
+		OBJECT(current_object)->x += platform_shift - ((uint32_t)(uint16_t)((landing_offset - swing_limit) * 2u) << 16);
 		project_object(&ignored, &ignored);
 		return;
 	case 5:

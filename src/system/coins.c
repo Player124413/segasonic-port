@@ -94,7 +94,6 @@ void update_coins(void)
 		case 1:
 			break;
 		case 2:
-		update_coins_service_p2:
 			credit_block = p2_coins_ADDRESS;
 			service_credits_added = add_service_credit(service_credits_added, credit_block, max_credits);
 			break;
@@ -102,7 +101,9 @@ void update_coins(void)
 		case 4:
 			credit_block = p3_coins_ADDRESS;
 			service_credits_added = add_service_credit(service_credits_added, credit_block, max_credits);
-			goto update_coins_service_p2;
+			credit_block = p2_coins_ADDRESS;
+			service_credits_added = add_service_credit(service_credits_added, credit_block, max_credits);
+			break;
 		default:
 			invalid_jump(0xFF7CDu + cabinet_config * 2u);
 		}
@@ -113,62 +114,78 @@ void update_coins(void)
 	coin_credits_added = 0u;
 	coins_released = inputs_released & 0x4Cu;
 	coin_inputs = coins_released;
-	if (coins_released != 0u)
+	if (coins_released == 0u)
 	{
-		coin_credit_block = p1_coins_ADDRESS;
-		pending_offset = 0x7408u;
-		chute_offset = 0u;
-		switch (cabinet_config)
+		if (shared_coin_counter == 0u)
 		{
-		case 0:
-		case 1:
-		case 4:
-			if ((coin_inputs & 8u) != 0u)
-			{
-				bookkeeping_chute = bookkeeping_coin_chute_2;
-				if (shared_coin_counter == 0u)
-				{
-					mem_write8(cabinet_events, 0x11u);
-					pending_offset = 0x740Cu;
-					chute_offset = 4u;
-				}
-				else
-					mem_write8(cabinet_events, 0x11u);
-				coin_credits_added = add_coin(chute_offset, pending_offset, bookkeeping_chute, coin_credits_added, coin_credit_block, max_credits);
-				pending_offset = 0x7408u;
-				chute_offset = 0u;
-			}
-			break;
-		case 2:
-		update_coins_individual_chute_2:
-			if ((coin_inputs & 8u) != 0u)
-			{
-				mem_write8(cabinet_events, 0x11u);
-				bookkeeping_chute = bookkeeping_coin_chute_2;
-				coin_credits_added = add_coin(chute_offset, pending_offset, bookkeeping_chute, coin_credits_added, coin_credit_block, max_credits);
-			}
-			coin_credit_block += 4u;
-			break;
-		case 3:
-			if ((coin_inputs & 0x40u) != 0u)
-			{
-				mem_write8(cabinet_events, 0x11u);
-				bookkeeping_chute = bookkeeping_coin_chute_3;
-				coin_credits_added = add_coin(chute_offset, pending_offset, bookkeeping_chute, coin_credits_added, coin_credit_block, max_credits);
-			}
-			coin_credit_block += 4u;
-			goto update_coins_individual_chute_2;
-		default:
-			invalid_jump(0xFF821u + cabinet_config * 3u);
+			counter_state = coin_counter_2_on_ADDRESS;
+			counter_bit = 1u;
+			pulse_coin_counter(counter_bit, counter_state, (uint16_t)service_credits_added, (uint16_t)coin_credits_added);
 		}
-		if ((coin_inputs & 4u) != 0u)
+		counter_state = coin_counter_1_on_ADDRESS;
+		counter_bit = 0u;
+		pulse_coin_counter(counter_bit, counter_state, (uint16_t)service_credits_added, (uint16_t)coin_credits_added);
+		return;
+	}
+	coin_credit_block = p1_coins_ADDRESS;
+	pending_offset = 0x7408u;
+	chute_offset = 0u;
+	switch (cabinet_config)
+	{
+	case 0:
+	case 1:
+	case 4:
+		if ((coin_inputs & 8u) != 0u)
+		{
+			bookkeeping_chute = bookkeeping_coin_chute_2;
+			if (shared_coin_counter == 0u)
+			{
+				mem_write8(cabinet_events, 0x11u);
+				pending_offset = 0x740Cu;
+				chute_offset = 4u;
+			}
+			else
+				mem_write8(cabinet_events, 0x11u);
+			coin_credits_added = add_coin(chute_offset, pending_offset, bookkeeping_chute, coin_credits_added, coin_credit_block, max_credits);
+			pending_offset = 0x7408u;
+			chute_offset = 0u;
+		}
+		break;
+	case 2:
+		if ((coin_inputs & 8u) != 0u)
 		{
 			mem_write8(cabinet_events, 0x11u);
-			bookkeeping_chute = bookkeeping_coin_chute_1;
+			bookkeeping_chute = bookkeeping_coin_chute_2;
 			coin_credits_added = add_coin(chute_offset, pending_offset, bookkeeping_chute, coin_credits_added, coin_credit_block, max_credits);
 		}
-		mem_write16(bookkeeping_coin_credits, mem_read16(bookkeeping_coin_credits) + coin_credits_added);
+		coin_credit_block += 4u;
+		break;
+	case 3:
+		if ((coin_inputs & 0x40u) != 0u)
+		{
+			mem_write8(cabinet_events, 0x11u);
+			bookkeeping_chute = bookkeeping_coin_chute_3;
+			coin_credits_added = add_coin(chute_offset, pending_offset, bookkeeping_chute, coin_credits_added, coin_credit_block, max_credits);
+		}
+		coin_credit_block += 4u;
+		if ((coin_inputs & 8u) != 0u)
+		{
+			mem_write8(cabinet_events, 0x11u);
+			bookkeeping_chute = bookkeeping_coin_chute_2;
+			coin_credits_added = add_coin(chute_offset, pending_offset, bookkeeping_chute, coin_credits_added, coin_credit_block, max_credits);
+		}
+		coin_credit_block += 4u;
+		break;
+	default:
+		invalid_jump(0xFF821u + cabinet_config * 3u);
 	}
+	if ((coin_inputs & 4u) != 0u)
+	{
+		mem_write8(cabinet_events, 0x11u);
+		bookkeeping_chute = bookkeeping_coin_chute_1;
+		coin_credits_added = add_coin(chute_offset, pending_offset, bookkeeping_chute, coin_credits_added, coin_credit_block, max_credits);
+	}
+	mem_write16(bookkeeping_coin_credits, mem_read16(bookkeeping_coin_credits) + coin_credits_added);
 	if (shared_coin_counter == 0u)
 	{
 		counter_state = coin_counter_2_on_ADDRESS;

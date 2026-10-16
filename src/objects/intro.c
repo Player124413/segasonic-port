@@ -84,20 +84,18 @@ void metal_wall_rise(uint32_t octant)
 
 	frame_count = (uint16_t)OBJECT(current_object)->metal_wall.frame_count;
 	OBJECT(current_object)->metal_wall.frame_count++;
-	if ((int16_t)frame_count <= 2)
+	if ((int16_t)frame_count > 2)
 	{
-		metal_wall_update(octant);
-		return;
+		OBJECT(current_object)->metal_wall.frame_count = 0;
+		OBJECT(current_object)->metal_wall.frame_index++;
+		if (OBJECT(current_object)->metal_wall.rise_limit < OBJECT(current_object)->metal_wall.frame_index)
+		{
+			OBJECT(current_object)->metal_wall.rise_limit = 7;
+			OBJECT(current_object)->handler = metal_wall_update_ADDRESS;
+			metal_wall_update(octant);
+			return;
+		}
 	}
-	OBJECT(current_object)->metal_wall.frame_count = 0;
-	OBJECT(current_object)->metal_wall.frame_index++;
-	if (OBJECT(current_object)->metal_wall.frame_index <= OBJECT(current_object)->metal_wall.rise_limit)
-	{
-		metal_wall_update(octant);
-		return;
-	}
-	OBJECT(current_object)->metal_wall.rise_limit = 7;
-	OBJECT(current_object)->handler = metal_wall_update_ADDRESS;
 	metal_wall_update(octant);
 }
 
@@ -193,16 +191,18 @@ void metal_wall_draw(void)
 			bucket = 0xFEu;
 			if (parts_left != 2u)
 				bucket = 0xFFu;
-		metal_wall_draw_part_in_bucket:
 			queue_sprite_in_bucket(bucket);
 		}
 		else
 		{
 			bucket = 0xFEu;
 			if (health == 0u)
-				goto metal_wall_draw_part_in_bucket;
-			depth = (uint16_t)(OBJECT(current_object)->screen_y - 0x20u);
-			queue_sprite_at_depth(&ignored, &depth);
+				queue_sprite_in_bucket(bucket);
+			else
+			{
+				depth = (uint16_t)(OBJECT(current_object)->screen_y - 0x20u);
+				queue_sprite_at_depth(&ignored, &depth);
+			}
 		}
 		parts_left--;
 	} while (parts_left != 0u);
@@ -337,97 +337,104 @@ void how_to_play_trackball_hand_update(void)
 	uint32_t box = 0, depth = 0, ignored = 0, next_step = 0, step_list = 0;
 	uint8_t pause_timer = 0, animation_timer = 0;
 
-	if (stage == 7u)
+	if (stage != 7u)
 	{
-		if (game_mode_timer >= 0x32)
+		if (OBJECT(current_object)->child != 0u)
 		{
-			switch (OBJECT(current_object)->how_to_play_trackball_hand.step)
-			{
-			case 0:
-			case 3:
-				OBJECT(current_object)->screen_x -= 0xAu;
-				OBJECT(current_object)->screen_y += 0xAu;
-				if ((int16_t)(OBJECT(current_object)->screen_x - OBJECT(current_object)->projected_x) <= -0x20)
-				{
-					OBJECT(current_object)->how_to_play_trackball_hand.step++;
-					OBJECT(current_object)->how_to_play_trackball_hand.pause_timer = 8;
-				}
-				break;
-			case 1:
-				pause_timer = OBJECT(current_object)->how_to_play_trackball_hand.pause_timer;
-				OBJECT(current_object)->how_to_play_trackball_hand.pause_timer = pause_timer - 1u;
-				if ((int8_t)pause_timer <= 1)
-					OBJECT(current_object)->how_to_play_trackball_hand.step++;
-				break;
-			case 2:
-				OBJECT(current_object)->screen_x += 4u;
-				OBJECT(current_object)->screen_y -= 4u;
-				if (OBJECT(current_object)->projected_x <= OBJECT(current_object)->screen_x)
-					OBJECT(current_object)->how_to_play_trackball_hand.step = 0u;
-				break;
-			default:
-				invalid_jump(0x83E6Du + OBJECT(current_object)->how_to_play_trackball_hand.step * 2u);
-			}
+			child = OBJECT(current_object)->child;
+			free_object_2(child);
 		}
-		if ((uint16_t)game_mode_timer == 0xAu)
-			OBJECT(current_object)->sprite_palette = 0x8760u;
-		else if ((uint16_t)game_mode_timer == 0xBEu)
-			OBJECT(current_object)->sprite_palette = 0x8530u;
-		if ((uint16_t)game_mode_timer == 0xAu)
-		{
-			screen_x = 0x40u;
-			screen_y = 0x30u;
-			kind = 0xDu;
-			frames = 0x1E0u;
-			box = spawn_message_box(screen_x, screen_y, kind, frames, 0u);
-			screen_x = 0xA0u;
-			screen_y = 0x7Cu;
-			kind = 0xBu;
-			frames = 0xB4u;
-			spawn_message_box(screen_x, screen_y, kind, frames, box);
-		}
-		if (game_mode_timer >= 0x20)
-		{
-			scroll_mode = 0u;
-			scroll_speed_low = 0x10;
-		}
-		depth = 0xEEu;
-		queue_sprite_at_depth(&ignored, &depth);
-		current_object = LINKED(current_object, OBJECT(current_object)->child);
-		if ((uint16_t)current_object == 0u)
-			return;
-		if (game_mode_timer >= 0x32)
-		{
-			animation_timer = OBJECT(object_cursor)->animation_timer;
-			OBJECT(object_cursor)->animation_timer = animation_timer - 1u;
-			if ((int8_t)animation_timer <= 1)
-			{
-				OBJECT(object_cursor)->animation_timer = OBJECT(object_cursor)->animation_speed;
-				step_list = OBJECT(object_cursor)->animation;
-				last_step = (uint8_t)ROM16(step_list);
-				next_step = OBJECT(object_cursor)->animation_frame;
-				next_step = (uint8_t)(next_step + 1u);
-				step_list += 2u;
-				if ((int8_t)last_step < (int8_t)next_step)
-					next_step = 0u;
-				OBJECT(object_cursor)->animation_frame = next_step;
-				OBJECT(current_object)->sprite_frame = ROM16(step_list + next_step * 2u);
-			}
-		}
-		child_palette = 0x8750u;
-		if (OBJECT(object_cursor)->sprite_palette != 0x8760u)
-			child_palette = 0x8550u;
-		OBJECT(current_object)->sprite_palette = child_palette;
-		depth = 0xEDu;
-		queue_sprite_at_depth(&ignored, &depth);
+		delete_current_object();
 		return;
 	}
-	if (OBJECT(current_object)->child != 0u)
+	if (game_mode_timer >= 0x32)
 	{
-		child = OBJECT(current_object)->child;
-		free_object_2(child);
+		switch (OBJECT(current_object)->how_to_play_trackball_hand.step)
+		{
+		case 0:
+		case 3:
+			OBJECT(current_object)->screen_x -= 0xAu;
+			OBJECT(current_object)->screen_y += 0xAu;
+			if ((int16_t)(OBJECT(current_object)->screen_x - OBJECT(current_object)->projected_x) <= -0x20)
+			{
+				OBJECT(current_object)->how_to_play_trackball_hand.step++;
+				OBJECT(current_object)->how_to_play_trackball_hand.pause_timer = 8;
+			}
+			break;
+		case 1:
+			pause_timer = OBJECT(current_object)->how_to_play_trackball_hand.pause_timer;
+			OBJECT(current_object)->how_to_play_trackball_hand.pause_timer = pause_timer - 1u;
+			if ((int8_t)pause_timer <= 1)
+				OBJECT(current_object)->how_to_play_trackball_hand.step++;
+			break;
+		case 2:
+			OBJECT(current_object)->screen_x += 4u;
+			OBJECT(current_object)->screen_y -= 4u;
+			if (OBJECT(current_object)->projected_x <= OBJECT(current_object)->screen_x)
+				OBJECT(current_object)->how_to_play_trackball_hand.step = 0u;
+			break;
+		default:
+			invalid_jump(0x83E6Du + OBJECT(current_object)->how_to_play_trackball_hand.step * 2u);
+		}
 	}
-	delete_current_object();
+	if ((uint16_t)game_mode_timer == 0xAu)
+		OBJECT(current_object)->sprite_palette = 0x8760u;
+	else if ((uint16_t)game_mode_timer == 0xBEu)
+		OBJECT(current_object)->sprite_palette = 0x8530u;
+	if ((uint16_t)game_mode_timer == 0xAu)
+	{
+		screen_x = 0x40u;
+		screen_y = 0x30u;
+		kind = 0xDu;
+		frames = 0x1E0u;
+		box = spawn_message_box(screen_x, screen_y, kind, frames, 0u);
+		screen_x = 0xA0u;
+		screen_y = 0x7Cu;
+		kind = 0xBu;
+		frames = 0xB4u;
+		spawn_message_box(screen_x, screen_y, kind, frames, box);
+	}
+	if (game_mode_timer >= 0x20)
+	{
+		scroll_mode = 0u;
+		scroll_speed_low = 0x10;
+	}
+	depth = 0xEEu;
+	queue_sprite_at_depth(&ignored, &depth);
+	current_object = LINKED(current_object, OBJECT(current_object)->child);
+	if ((uint16_t)current_object == 0u)
+		return;
+	if (game_mode_timer >= 0x32)
+	{
+		animation_timer = OBJECT(object_cursor)->animation_timer;
+		OBJECT(object_cursor)->animation_timer = animation_timer - 1u;
+		if ((int8_t)animation_timer > 1)
+		{
+			child_palette = 0x8750u;
+			if (OBJECT(object_cursor)->sprite_palette != 0x8760u)
+				child_palette = 0x8550u;
+			OBJECT(current_object)->sprite_palette = child_palette;
+			depth = 0xEDu;
+			queue_sprite_at_depth(&ignored, &depth);
+			return;
+		}
+		OBJECT(object_cursor)->animation_timer = OBJECT(object_cursor)->animation_speed;
+		step_list = OBJECT(object_cursor)->animation;
+		last_step = (uint8_t)ROM16(step_list);
+		next_step = OBJECT(object_cursor)->animation_frame;
+		next_step = (uint8_t)(next_step + 1u);
+		step_list += 2u;
+		if ((int8_t)last_step < (int8_t)next_step)
+			next_step = 0u;
+		OBJECT(object_cursor)->animation_frame = next_step;
+		OBJECT(current_object)->sprite_frame = ROM16(step_list + next_step * 2u);
+	}
+	child_palette = 0x8750u;
+	if (OBJECT(object_cursor)->sprite_palette != 0x8760u)
+		child_palette = 0x8550u;
+	OBJECT(current_object)->sprite_palette = child_palette;
+	depth = 0xEDu;
+	queue_sprite_at_depth(&ignored, &depth);
 }
 
 void how_to_play_panel_start(void)
@@ -637,14 +644,19 @@ void opening_machine_approach(void)
 {
 	uint16_t shake_before = 0;
 
-	if (stage_06_shake != 0u)
+	if (stage_06_shake == 0u)
 	{
-		shake_before = stage_06_shake;
-		stage_06_shake = shake_before - 0x80u;
-		if ((int16_t)shake_before < 0x80)
-			stage_06_shake = 0u;
-		stage_06_shake_sign = ~stage_06_shake_sign;
+		OBJECT(current_object)->opening_machine.zoom += OBJECT(current_object)->opening_machine.zoom_speed;
+		OBJECT(current_object)->sprite_scale = OBJECT(current_object)->opening_machine.zoom_int;
+		if (scene_timer > 0xC0)
+			OBJECT(current_object)->opening_machine.phase++;
+		return;
 	}
+	shake_before = stage_06_shake;
+	stage_06_shake = shake_before - 0x80u;
+	if ((int16_t)shake_before < 0x80)
+		stage_06_shake = 0u;
+	stage_06_shake_sign = ~stage_06_shake_sign;
 	OBJECT(current_object)->opening_machine.zoom += OBJECT(current_object)->opening_machine.zoom_speed;
 	OBJECT(current_object)->sprite_scale = OBJECT(current_object)->opening_machine.zoom_int;
 	if (scene_timer > 0xC0)

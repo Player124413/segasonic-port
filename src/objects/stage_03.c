@@ -73,16 +73,29 @@ void spike_panel_hold(void)
 {
 	uint16_t trigger_delay = 0;
 
-	if (OBJECT(current_object)->spike_panel.start_step != 0u)
+	if (OBJECT(current_object)->spike_panel.start_step == 0u)
 	{
-		find_nearest_player_x();
-		if (nearest_player_distance > 0x40)
+		trigger_delay = OBJECT(current_object)->spike_panel.trigger_delay;
+		OBJECT(current_object)->spike_panel.trigger_delay = trigger_delay - 1u;
+		if (trigger_delay == 0u)
 		{
-			OBJECT(current_object)->spike_panel.step_timer = 0;
-			OBJECT(current_object)->spike_panel.step = OBJECT(current_object)->spike_panel.start_step;
+			OBJECT(current_object)->spike_panel.start_step = 0u;
+			OBJECT(current_object)->handler = spike_panel_update_ADDRESS;
 			spike_panel_update();
 			return;
 		}
+		OBJECT(current_object)->spike_panel.step_timer = 0;
+		OBJECT(current_object)->spike_panel.step = OBJECT(current_object)->spike_panel.start_step;
+		spike_panel_update();
+		return;
+	}
+	find_nearest_player_x();
+	if (nearest_player_distance > 0x40)
+	{
+		OBJECT(current_object)->spike_panel.step_timer = 0;
+		OBJECT(current_object)->spike_panel.step = OBJECT(current_object)->spike_panel.start_step;
+		spike_panel_update();
+		return;
 	}
 	trigger_delay = OBJECT(current_object)->spike_panel.trigger_delay;
 	OBJECT(current_object)->spike_panel.trigger_delay = trigger_delay - 1u;
@@ -285,29 +298,26 @@ void electric_pole_rise(void)
 	OBJECT(current_object)->electric_pole.frame_toggle++;
 	odd_frame = OBJECT(current_object)->electric_pole.frame_toggle & 1u;
 	OBJECT(current_object)->electric_pole.frame_toggle = odd_frame;
-	if (odd_frame != 0u)
+	if (odd_frame == 0u)
 	{
-		electric_pole_update();
-		return;
+		OBJECT(current_object)->electric_pole.frame_index++;
+		OBJECT(current_object)->sprite_frame = electric_pole_sprites[electric_pole_rise_frames[(uint8_t)OBJECT(current_object)->electric_pole.frame_index]];
+		if (OBJECT(current_object)->electric_pole.frame_index >= 0xA)
+		{
+			OBJECT(current_object)->projected_y_int -= 0xBu;
+			OBJECT(current_object)->electric_pole.draw_offset_y = 0xBu;
+			OBJECT(current_object)->handler = electric_pole_update_ADDRESS;
+			electric_pole_update();
+			return;
+		}
 	}
-	OBJECT(current_object)->electric_pole.frame_index++;
-	OBJECT(current_object)->sprite_frame = electric_pole_sprites[electric_pole_rise_frames[(uint8_t)OBJECT(current_object)->electric_pole.frame_index]];
-	if (OBJECT(current_object)->electric_pole.frame_index < 0xA)
-	{
-		electric_pole_update();
-		return;
-	}
-	OBJECT(current_object)->projected_y_int -= 0xBu;
-	OBJECT(current_object)->electric_pole.draw_offset_y = 0xBu;
-	OBJECT(current_object)->handler = electric_pole_update_ADDRESS;
 	electric_pole_update();
 }
 
 void electric_pole_update(void)
 {
 	uint8_t sound_id = 0;
-	uint32_t charging_spark_y = 0, deleted = 0, ignored = 0, spark_y = 0;
-	uint8_t front_odd_frame = 0, side_odd_frame = 0;
+	uint32_t ignored = 0;
 
 	r14 = LINKED(WORK_RAM, chaser_object);
 	distance_xy_to_object(&ignored, &ignored);
@@ -326,85 +336,92 @@ void electric_pole_update(void)
 	}
 	if ((OBJECT(current_object)->flags & 4u) == 0u)
 	{
-	electric_pole_draw:
-		unproject_object(&ignored, &ignored, &ignored, &ignored);
-		delete_if_off_screen(&deleted, &ignored, &ignored);
-		if ((uint8_t)deleted == 1u)
+		electric_pole_draw();
+		return;
+	}
+	if (OBJECT(current_object)->health >= 4)
+	{
+		OBJECT(current_object)->kind = 0x15u;
+		electric_pole_draw();
+		return;
+	}
+	OBJECT(current_object)->sprite_scale = 0x200u;
+	OBJECT(current_object)->projected_y_int += 0xBu;
+	OBJECT(current_object)->electric_pole.frame_index = 0;
+	OBJECT(current_object)->electric_pole.last_frame = 0xF;
+	OBJECT(current_object)->sprite_palette = 0x9000u;
+	OBJECT(current_object)->handler = explosion_animate_ADDRESS;
+	OBJECT(current_object)->electric_pole.frame_toggle = 0u;
+	sound_id = 7u;
+	play_sound(sound_id, &ignored, &ignored);
+}
+
+void electric_pole_draw(void)
+{
+	uint32_t charging_spark_y = 0, deleted = 0, ignored = 0, spark_y = 0;
+	uint8_t front_odd_frame = 0, side_odd_frame = 0;
+
+	unproject_object(&ignored, &ignored, &ignored, &ignored);
+	delete_if_off_screen(&deleted, &ignored, &ignored);
+	if ((uint8_t)deleted == 1u)
+		return;
+	OBJECT(current_object)->screen_y += OBJECT(current_object)->electric_pole.draw_offset_y;
+	queue_sprite(0u);
+	if ((int16_t)AS16(OBJECT(object_cursor)->electric_pole.frame_index) < 0xA)
+	{
+		current_object = LINKED(current_object, OBJECT(current_object)->child);
+		if (OBJECT(object_cursor)->electric_pole.frame_index < 2)
 			return;
-		OBJECT(current_object)->screen_y += OBJECT(current_object)->electric_pole.draw_offset_y;
-		queue_sprite(ignored);
-		if ((int16_t)AS16(OBJECT(object_cursor)->electric_pole.frame_index) >= 0xA)
-		{
-			current_object = LINKED(current_object, OBJECT(current_object)->child);
-			OBJECT(current_object)->direction_high++;
-			front_odd_frame = OBJECT(current_object)->direction_high & 1u;
-			OBJECT(current_object)->direction_high = front_odd_frame;
-			if (front_odd_frame == 0u)
-			{
-				OBJECT(current_object)->direction_low++;
-				if ((int8_t)OBJECT(current_object)->direction_low > 6)
-					OBJECT(current_object)->direction = 0u;
-				OBJECT(current_object)->sprite_frame = electric_pole_front_spark_sprites[OBJECT(current_object)->direction_low];
-			}
-			OBJECT(current_object)->screen_x = OBJECT(object_cursor)->screen_x;
-			spark_y = (uint16_t)(OBJECT(object_cursor)->screen_y - 0xAu);
-			OBJECT(current_object)->screen_y = spark_y;
-			spark_y += 0xBu;
-			queue_sprite_at_depth(&ignored, &spark_y);
-			r14 = 2u;
-			do
-			{
-				current_object = LINKED(current_object, OBJECT(current_object)->child);
-				OBJECT(current_object)->direction_high++;
-				side_odd_frame = OBJECT(current_object)->direction_high & 1u;
-				OBJECT(current_object)->direction_high = side_odd_frame;
-				if (side_odd_frame == 0u)
-				{
-					OBJECT(current_object)->direction_low++;
-					if ((int8_t)OBJECT(current_object)->direction_low > 6)
-						OBJECT(current_object)->direction = 0u;
-					OBJECT(current_object)->sprite_frame = electric_pole_side_spark_sprites[OBJECT(current_object)->direction_low];
-				}
-				OBJECT(current_object)->screen_x = OBJECT(object_cursor)->screen_x;
-				OBJECT(current_object)->screen_x += electric_pole_side_spark_offsets_x[r14 - 1u];
-				spark_y = (uint16_t)(OBJECT(object_cursor)->screen_y - 0x10u);
-				OBJECT(current_object)->screen_y = spark_y;
-				spark_y += 0x11u;
-				queue_sprite_at_depth(&ignored, &spark_y);
-				r14 = r14 - 1u;
-			} while (r14 != 0u);
-		}
-		else
-		{
-			current_object = LINKED(current_object, OBJECT(current_object)->child);
-			if (OBJECT(object_cursor)->electric_pole.frame_index < 2)
-				return;
-			OBJECT(current_object)->sprite_frame = electric_pole_side_spark_sprites[(uint8_t)OBJECT(object_cursor)->electric_pole.frame_index - 2u];
-			OBJECT(current_object)->screen_x = OBJECT(object_cursor)->screen_x;
-			charging_spark_y = (uint16_t)OBJECT(object_cursor)->screen_y;
-			OBJECT(current_object)->screen_y = charging_spark_y;
-			charging_spark_y++;
-			queue_sprite_at_depth(&ignored, &charging_spark_y);
-		}
+		OBJECT(current_object)->sprite_frame = electric_pole_side_spark_sprites[(uint8_t)OBJECT(object_cursor)->electric_pole.frame_index - 2u];
+		OBJECT(current_object)->screen_x = OBJECT(object_cursor)->screen_x;
+		charging_spark_y = (uint16_t)OBJECT(object_cursor)->screen_y;
+		OBJECT(current_object)->screen_y = charging_spark_y;
+		charging_spark_y++;
+		queue_sprite_at_depth(&ignored, &charging_spark_y);
 		current_object = object_cursor;
 		add_to_touchable_list(ignored);
 		return;
 	}
-	if (OBJECT(current_object)->health < 4)
+	current_object = LINKED(current_object, OBJECT(current_object)->child);
+	OBJECT(current_object)->direction_high++;
+	front_odd_frame = OBJECT(current_object)->direction_high & 1u;
+	OBJECT(current_object)->direction_high = front_odd_frame;
+	if (front_odd_frame == 0u)
 	{
-		OBJECT(current_object)->sprite_scale = 0x200u;
-		OBJECT(current_object)->projected_y_int += 0xBu;
-		OBJECT(current_object)->electric_pole.frame_index = 0;
-		OBJECT(current_object)->electric_pole.last_frame = 0xF;
-		OBJECT(current_object)->sprite_palette = 0x9000u;
-		OBJECT(current_object)->handler = explosion_animate_ADDRESS;
-		OBJECT(current_object)->electric_pole.frame_toggle = 0u;
-		sound_id = 7u;
-		play_sound(sound_id, &ignored, &ignored);
-		return;
+		OBJECT(current_object)->direction_low++;
+		if ((int8_t)OBJECT(current_object)->direction_low > 6)
+			OBJECT(current_object)->direction = 0u;
+		OBJECT(current_object)->sprite_frame = electric_pole_front_spark_sprites[OBJECT(current_object)->direction_low];
 	}
-	OBJECT(current_object)->kind = 0x15u;
-	goto electric_pole_draw;
+	OBJECT(current_object)->screen_x = OBJECT(object_cursor)->screen_x;
+	spark_y = (uint16_t)(OBJECT(object_cursor)->screen_y - 0xAu);
+	OBJECT(current_object)->screen_y = spark_y;
+	spark_y += 0xBu;
+	queue_sprite_at_depth(&ignored, &spark_y);
+	r14 = 2u;
+	do
+	{
+		current_object = LINKED(current_object, OBJECT(current_object)->child);
+		OBJECT(current_object)->direction_high++;
+		side_odd_frame = OBJECT(current_object)->direction_high & 1u;
+		OBJECT(current_object)->direction_high = side_odd_frame;
+		if (side_odd_frame == 0u)
+		{
+			OBJECT(current_object)->direction_low++;
+			if ((int8_t)OBJECT(current_object)->direction_low > 6)
+				OBJECT(current_object)->direction = 0u;
+			OBJECT(current_object)->sprite_frame = electric_pole_side_spark_sprites[OBJECT(current_object)->direction_low];
+		}
+		OBJECT(current_object)->screen_x = OBJECT(object_cursor)->screen_x;
+		OBJECT(current_object)->screen_x += electric_pole_side_spark_offsets_x[r14 - 1u];
+		spark_y = (uint16_t)(OBJECT(object_cursor)->screen_y - 0x10u);
+		OBJECT(current_object)->screen_y = spark_y;
+		spark_y += 0x11u;
+		queue_sprite_at_depth(&ignored, &spark_y);
+		r14 = r14 - 1u;
+	} while (r14 != 0u);
+	current_object = object_cursor;
+	add_to_touchable_list(ignored);
 }
 
 void push_crate_init(void)
@@ -487,27 +504,23 @@ void push_crate_break(void)
 	OBJECT(current_object)->push_crate.frame_count++;
 	odd_frame = OBJECT(current_object)->push_crate.frame_count & 1u;
 	OBJECT(current_object)->push_crate.frame_count = odd_frame;
-	if (odd_frame != 0u)
+	if (odd_frame == 0u)
 	{
-		push_crate_move(0u, 0u, 0u);
-		return;
+		OBJECT(current_object)->push_crate.break_frame++;
+		break_frame = OBJECT(current_object)->push_crate.break_frame;
+		OBJECT(current_object)->sprite_frame = push_crate_break_sprites[break_frame];
+		if (break_frame == 2u)
+		{
+			OBJECT(current_object)->handler = push_crate_move_ADDRESS;
+			if (OBJECT(current_object)->push_crate.ring_count > 0)
+			{
+				push_crate_release_all_rings(&r11, &random_value, &ring);
+				push_crate_move(r11, random_value, ring);
+				return;
+			}
+		}
 	}
-	OBJECT(current_object)->push_crate.break_frame++;
-	break_frame = OBJECT(current_object)->push_crate.break_frame;
-	OBJECT(current_object)->sprite_frame = push_crate_break_sprites[break_frame];
-	if (break_frame != 2u)
-	{
-		push_crate_move(0u, 0u, 0u);
-		return;
-	}
-	OBJECT(current_object)->handler = push_crate_move_ADDRESS;
-	if (OBJECT(current_object)->push_crate.ring_count <= 0)
-	{
-		push_crate_move(0u, 0u, 0u);
-		return;
-	}
-	push_crate_release_all_rings(&r11, &random_value, &ring);
-	push_crate_move(r11, random_value, ring);
+	push_crate_move(0u, 0u, 0u);
 }
 
 void push_crate_move(uint32_t cursor, uint32_t random_value, uint32_t ring)
@@ -640,20 +653,18 @@ void breakable_panel_break(void)
 
 	frame_timer = OBJECT(current_object)->breakable_panel.frame_timer;
 	OBJECT(current_object)->breakable_panel.frame_timer = frame_timer - 1u;
-	if (frame_timer != 0u)
+	if (frame_timer == 0u)
 	{
-		draw_breakable_panel();
-		return;
+		OBJECT(current_object)->sprite_frame = breakable_panel_break_frames[(uint8_t)OBJECT(current_object)->breakable_panel.frame_index];
+		OBJECT(current_object)->breakable_panel.frame_timer = 2u;
+		OBJECT(current_object)->breakable_panel.frame_index++;
+		if (OBJECT(current_object)->breakable_panel.frame_index > 0x10)
+		{
+			OBJECT(current_object)->handler = draw_breakable_panel_ADDRESS;
+			draw_breakable_panel();
+			return;
+		}
 	}
-	OBJECT(current_object)->sprite_frame = breakable_panel_break_frames[(uint8_t)OBJECT(current_object)->breakable_panel.frame_index];
-	OBJECT(current_object)->breakable_panel.frame_timer = 2u;
-	OBJECT(current_object)->breakable_panel.frame_index++;
-	if (OBJECT(current_object)->breakable_panel.frame_index <= 0x10)
-	{
-		draw_breakable_panel();
-		return;
-	}
-	OBJECT(current_object)->handler = draw_breakable_panel_ADDRESS;
 	draw_breakable_panel();
 }
 
@@ -675,19 +686,31 @@ void draw_breakable_panel(void)
 	current_object = LINKED(current_object, OBJECT(current_object)->child);
 	direction = OBJECT(current_object)->direction;
 	OBJECT(current_object)->direction = direction - 1u;
-	if (direction == 0u)
+	if (direction != 0u)
 	{
-		OBJECT(current_object)->sprite_palette = breakable_panel_glow_palettes[breakable_panel_glow_steps[(uint8_t)OBJECT(current_object)->piece_frame]];
-		OBJECT(current_object)->direction = 2u;
-		OBJECT(current_object)->piece_frame++;
-		if ((uint8_t)OBJECT(current_object)->piece_frame == 0xFu)
-			OBJECT(current_object)->direction = 0xFu;
-		if (OBJECT(current_object)->piece_frame > 0x1C)
-		{
-			OBJECT(current_object)->direction = 0x1Eu;
-			OBJECT(current_object)->piece_frame = 0;
-		}
+		offset_x = 0u;
+		offset_y = 0u;
+		place_sprite_near_cursor(offset_x, offset_y);
+		depth = (uint16_t)(OBJECT(object_cursor)->screen_y - 0x19u);
+		queue_sprite_at_depth(&ignored, &depth);
+		return;
 	}
+	OBJECT(current_object)->sprite_palette = breakable_panel_glow_palettes[breakable_panel_glow_steps[(uint8_t)OBJECT(current_object)->piece_frame]];
+	OBJECT(current_object)->direction = 2u;
+	OBJECT(current_object)->piece_frame++;
+	if ((uint8_t)OBJECT(current_object)->piece_frame == 0xFu)
+		OBJECT(current_object)->direction = 0xFu;
+	if (OBJECT(current_object)->piece_frame <= 0x1C)
+	{
+		offset_x = 0u;
+		offset_y = 0u;
+		place_sprite_near_cursor(offset_x, offset_y);
+		depth = (uint16_t)(OBJECT(object_cursor)->screen_y - 0x19u);
+		queue_sprite_at_depth(&ignored, &depth);
+		return;
+	}
+	OBJECT(current_object)->direction = 0x1Eu;
+	OBJECT(current_object)->piece_frame = 0;
 	offset_x = 0u;
 	offset_y = 0u;
 	place_sprite_near_cursor(offset_x, offset_y);
@@ -731,22 +754,51 @@ void stage_03_floor_block_update(void)
 {
 	uint32_t at_last_step = 0, depth = 0, ignored = 0;
 
-	if (stage_03_floor_block_falls[OBJECT(current_object)->speed_x_fraction] != 0u)
+	if (stage_03_floor_block_falls[OBJECT(current_object)->speed_x_fraction] == 0u)
 	{
-		OBJECT(current_object)->speed_z += 0x1000u;
-		OBJECT(current_object)->z += OBJECT(current_object)->speed_z;
-		if (OBJECT(current_object)->speed_x_int < 4)
+		update_screen_position(&ignored, &ignored);
+		if (OBJECT(current_object)->screen_y < 0x158)
 		{
-			OBJECT(current_object)->sprite_offset_x = 0;
-			OBJECT(current_object)->sprite_offset_y = 0;
+			depth = (uint16_t)(OBJECT(current_object)->screen_y - OBJECT(current_object)->speed_y_fraction - OBJECT(current_object)->sprite_offset_y);
+			queue_sprite_at_depth(&ignored, &depth);
+			return;
 		}
-		if ((int8_t)OBJECT(current_object)->animation_speed >= 0)
-		{
-			animate(&ignored, &ignored, &at_last_step);
-			if ((uint8_t)at_last_step != 0u)
-				OBJECT(current_object)->animation_speed = 0xFFu;
-		}
+		delete_current_object();
+		return;
 	}
+	OBJECT(current_object)->speed_z += 0x1000u;
+	OBJECT(current_object)->z += OBJECT(current_object)->speed_z;
+	if (OBJECT(current_object)->speed_x_int < 4)
+	{
+		OBJECT(current_object)->sprite_offset_x = 0;
+		OBJECT(current_object)->sprite_offset_y = 0;
+	}
+	if ((int8_t)OBJECT(current_object)->animation_speed < 0)
+	{
+		update_screen_position(&ignored, &ignored);
+		if (OBJECT(current_object)->screen_y < 0x158)
+		{
+			depth = (uint16_t)(OBJECT(current_object)->screen_y - OBJECT(current_object)->speed_y_fraction - OBJECT(current_object)->sprite_offset_y);
+			queue_sprite_at_depth(&ignored, &depth);
+			return;
+		}
+		delete_current_object();
+		return;
+	}
+	animate(&ignored, &ignored, &at_last_step);
+	if ((uint8_t)at_last_step == 0u)
+	{
+		update_screen_position(&ignored, &ignored);
+		if (OBJECT(current_object)->screen_y < 0x158)
+		{
+			depth = (uint16_t)(OBJECT(current_object)->screen_y - OBJECT(current_object)->speed_y_fraction - OBJECT(current_object)->sprite_offset_y);
+			queue_sprite_at_depth(&ignored, &depth);
+			return;
+		}
+		delete_current_object();
+		return;
+	}
+	OBJECT(current_object)->animation_speed = 0xFFu;
 	update_screen_position(&ignored, &ignored);
 	if (OBJECT(current_object)->screen_y < 0x158)
 	{
@@ -928,100 +980,125 @@ void spiked_roller_update(void)
 	default:
 		invalid_jump(0x803BBu + OBJECT(current_object)->spiked_roller.state * 3u);
 	}
-	if (OBJECT(current_object)->player == 0u)
+	if (OBJECT(current_object)->player != 0u)
 	{
-		if ((OBJECT(current_object)->flags & 1u) != 0u)
-			return;
-		add_to_zone_list(0u);
-		if (OBJECT(current_object)->spiked_roller.state == 1u)
-		{
-			ignored = queue_sprite_at_previous_floor();
-			return;
-		}
-		ignored = queue_sprite_at_base(0u);
+		if (chaser_object == (uint16_t)current_object)
+			chaser_object = 0u;
+		delete_current_object();
 		return;
 	}
-	if (chaser_object == (uint16_t)current_object)
-		chaser_object = 0u;
-	delete_current_object();
+	if ((OBJECT(current_object)->flags & 1u) != 0u)
+		return;
+	add_to_zone_list(0u);
+	if (OBJECT(current_object)->spiked_roller.state == 1u)
+	{
+		ignored = queue_sprite_at_previous_floor();
+		return;
+	}
+	ignored = queue_sprite_at_base(0u);
 }
 
 void spiked_roller_chase(void)
 {
-	uint8_t sound_id = 0;
-	uint16_t chase_speed = 0, height_above_floor = 0;
-	uint32_t event_kind = 0, ignored = 0, move_step = 0, off_screen = 0, record_cursor = 0, speed_level = 0;
-	uint8_t hold_timer = 0, rumble_timer = 0;
-	uint16_t record_position = 0, z_int = 0, floor_z_int = 0, event_position = 0, max_y = 0, min_x = 0, min_y = 0, max_x = 0;
 	uint32_t flags = 0;
 
 	flags = OBJECT(current_object)->flags;
 	OBJECT(current_object)->flags = flags | 0x80000000u;
 	if ((flags & 0x80000000u) == 0u)
 	{
-	spiked_roller_chase_read_script:
-		if ((uint16_t)OBJECT(current_object)->spiked_roller.wait_timer == 0u)
-		{
-			record_cursor = OBJECT(current_object)->spiked_roller.path;
-			record_position = ROM16(record_cursor);
-			record_cursor += 2u;
-			if (record_position <= scroll_position)
-			{
-				if ((int16_t)ROM16(record_cursor + 2u) >= 0)
-				{
-					OBJECT(current_object)->spiked_roller.screen_threshold = ROM16(record_cursor);
-					record_cursor += 2u;
-					OBJECT(current_object)->spiked_roller.catch_up_factor = ROM16(record_cursor);
-					record_cursor += 2u;
-					OBJECT(current_object)->spiked_roller.base_speed = ROM16(record_cursor);
-					record_cursor += 2u;
-					OBJECT(current_object)->spiked_roller.wait_timer = ROM16(record_cursor);
-					OBJECT(current_object)->spiked_roller.path = record_cursor + 2u;
-					if ((uint16_t)OBJECT(current_object)->spiked_roller.wait_timer == 0u)
-					{
-						OBJECT(current_object)->kind = 0x18u;
-						players_frozen = 0u;
-					}
-				}
-				else
-				{
-					OBJECT(current_object)->spiked_roller.catch_up_factor = 0u;
-					OBJECT(current_object)->spiked_roller.base_speed = 0;
-					off_screen = is_off_screen();
-					if (off_screen != 0u)
-					{
-						OBJECT(current_object)->spiked_roller.state = 5u;
-						return;
-					}
-				}
-			}
-		}
+		spiked_roller_chase_read_script();
+		return;
 	}
-	else if (OBJECT(current_object)->spiked_roller.holding_back == 0u)
+	if (OBJECT(current_object)->spiked_roller.holding_back != 0u)
 	{
-		if (no_player_in_play == 0u && player_mishap == 0u && player_dropping_in == 0u)
-			goto spiked_roller_chase_read_script;
-		OBJECT(current_object)->spiked_roller.holding_back = 0xFFu;
-		OBJECT(current_object)->spiked_roller.saved_base_speed = OBJECT(current_object)->spiked_roller.base_speed;
-		OBJECT(current_object)->spiked_roller.base_speed = 0;
-		OBJECT(current_object)->spiked_roller.hold_start_position = scroll_position;
-		OBJECT(current_object)->spiked_roller.hold_timer = 0xFFu;
-		OBJECT(current_object)->spiked_roller.saved_threshold = OBJECT(current_object)->spiked_roller.screen_threshold;
-		switch (OBJECT(current_object)->spiked_roller.path_direction)
-		{
-		case 0:
-		case 3:
-		case 4:
-			OBJECT(current_object)->spiked_roller.screen_threshold = 0x160;
-			break;
-		case 1:
-		case 2:
-			OBJECT(current_object)->spiked_roller.screen_threshold = -0x20;
-			break;
-		default:
-			invalid_jump(0x80448u + OBJECT(current_object)->spiked_roller.path_direction * 2u);
-		}
+		spiked_roller_chase_move_step();
+		return;
 	}
+	if (no_player_in_play == 0u && player_mishap == 0u && player_dropping_in == 0u)
+	{
+		spiked_roller_chase_read_script();
+		return;
+	}
+	OBJECT(current_object)->spiked_roller.holding_back = 0xFFu;
+	OBJECT(current_object)->spiked_roller.saved_base_speed = OBJECT(current_object)->spiked_roller.base_speed;
+	OBJECT(current_object)->spiked_roller.base_speed = 0;
+	OBJECT(current_object)->spiked_roller.hold_start_position = scroll_position;
+	OBJECT(current_object)->spiked_roller.hold_timer = 0xFFu;
+	OBJECT(current_object)->spiked_roller.saved_threshold = OBJECT(current_object)->spiked_roller.screen_threshold;
+	switch (OBJECT(current_object)->spiked_roller.path_direction)
+	{
+	case 0:
+	case 3:
+	case 4:
+		OBJECT(current_object)->spiked_roller.screen_threshold = 0x160;
+		spiked_roller_chase_move_step();
+		return;
+	case 1:
+	case 2:
+		OBJECT(current_object)->spiked_roller.screen_threshold = -0x20;
+		spiked_roller_chase_move_step();
+		return;
+	default:
+		invalid_jump(0x80448u + OBJECT(current_object)->spiked_roller.path_direction * 2u);
+	}
+}
+
+void spiked_roller_chase_read_script(void)
+{
+	uint32_t off_screen = 0, record_cursor = 0;
+	uint16_t record_position = 0;
+
+	if ((uint16_t)OBJECT(current_object)->spiked_roller.wait_timer != 0u)
+	{
+		spiked_roller_chase_move_step();
+		return;
+	}
+	record_cursor = OBJECT(current_object)->spiked_roller.path;
+	record_position = ROM16(record_cursor);
+	record_cursor += 2u;
+	if (scroll_position < record_position)
+	{
+		spiked_roller_chase_move_step();
+		return;
+	}
+	if ((int16_t)ROM16(record_cursor + 2u) >= 0)
+	{
+		OBJECT(current_object)->spiked_roller.screen_threshold = ROM16(record_cursor);
+		record_cursor += 2u;
+		OBJECT(current_object)->spiked_roller.catch_up_factor = ROM16(record_cursor);
+		record_cursor += 2u;
+		OBJECT(current_object)->spiked_roller.base_speed = ROM16(record_cursor);
+		record_cursor += 2u;
+		OBJECT(current_object)->spiked_roller.wait_timer = ROM16(record_cursor);
+		OBJECT(current_object)->spiked_roller.path = record_cursor + 2u;
+		if ((uint16_t)OBJECT(current_object)->spiked_roller.wait_timer != 0u)
+		{
+			spiked_roller_chase_move_step();
+			return;
+		}
+		OBJECT(current_object)->kind = 0x18u;
+		players_frozen = 0u;
+		spiked_roller_chase_move_step();
+		return;
+	}
+	OBJECT(current_object)->spiked_roller.catch_up_factor = 0u;
+	OBJECT(current_object)->spiked_roller.base_speed = 0;
+	off_screen = is_off_screen();
+	if (off_screen == 0u)
+	{
+		spiked_roller_chase_move_step();
+		return;
+	}
+	OBJECT(current_object)->spiked_roller.state = 5u;
+}
+
+void spiked_roller_chase_move_step(void)
+{
+	uint16_t chase_speed = 0, height_above_floor = 0;
+	uint32_t ignored = 0, move_step = 0, speed_level = 0;
+	uint8_t hold_timer = 0;
+	uint16_t z_int = 0, floor_z_int = 0;
+
 	if (OBJECT(current_object)->spiked_roller.roller_kind != 5u && OBJECT(current_object)->spiked_roller.roller_kind != 2u)
 	{
 		find_floor(&ignored, &ignored, &ignored, &ignored, &ignored);
@@ -1037,51 +1114,126 @@ void spiked_roller_chase(void)
 		}
 	}
 	project_object(&ignored, &ignored);
-	if (OBJECT(current_object)->spiked_roller.holding_back != 0u)
+	if (OBJECT(current_object)->spiked_roller.holding_back == 0u)
 	{
-		if ((int16_t)(scroll_position - OBJECT(current_object)->spiked_roller.hold_start_position) >= 0x300)
-			goto spiked_roller_chase_stop_holding_back;
+		switch (OBJECT(current_object)->spiked_roller.path_direction)
+		{
+		case 0:
+		case 3:
+			if (OBJECT(current_object)->screen_x <= OBJECT(current_object)->spiked_roller.screen_threshold)
+				chase_speed = (uint16_t)OBJECT(current_object)->spiked_roller.base_speed;
+			else
+			{
+				OBJECT(current_object)->spiked_roller.wait_timer = 0;
+				if (OBJECT(current_object)->spiked_roller.holding_back != 0u)
+				{
+					OBJECT(current_object)->spiked_roller.holding_back = 0u;
+					OBJECT(current_object)->spiked_roller.screen_threshold = OBJECT(current_object)->spiked_roller.saved_threshold;
+					OBJECT(current_object)->spiked_roller.base_speed = OBJECT(current_object)->spiked_roller.saved_base_speed;
+				}
+				compute_camera_ground_speed(ignored);
+				chase_speed = (uint16_t)((uint32_t)camera_ground_speed_int * OBJECT(current_object)->spiked_roller.catch_up_factor) >> 8;
+				if ((int16_t)chase_speed <= OBJECT(current_object)->spiked_roller.base_speed)
+					chase_speed = (uint16_t)OBJECT(current_object)->spiked_roller.base_speed;
+			}
+			break;
+		case 1:
+		case 2:
+		case 4:
+			if (OBJECT(current_object)->spiked_roller.screen_threshold <= OBJECT(current_object)->screen_x)
+				chase_speed = (uint16_t)OBJECT(current_object)->spiked_roller.base_speed;
+			else
+			{
+				OBJECT(current_object)->spiked_roller.wait_timer = 0;
+				if (OBJECT(current_object)->spiked_roller.holding_back != 0u)
+				{
+					OBJECT(current_object)->spiked_roller.holding_back = 0u;
+					OBJECT(current_object)->spiked_roller.screen_threshold = OBJECT(current_object)->spiked_roller.saved_threshold;
+					OBJECT(current_object)->spiked_roller.base_speed = OBJECT(current_object)->spiked_roller.saved_base_speed;
+				}
+				compute_camera_ground_speed(ignored);
+				chase_speed = (uint16_t)((uint32_t)camera_ground_speed_int * OBJECT(current_object)->spiked_roller.catch_up_factor) >> 8;
+				if ((int16_t)chase_speed <= OBJECT(current_object)->spiked_roller.base_speed)
+					chase_speed = (uint16_t)OBJECT(current_object)->spiked_roller.base_speed;
+			}
+			break;
+		default:
+			invalid_jump(0x80548u + OBJECT(current_object)->spiked_roller.path_direction * 2u);
+		}
+	}
+	else if ((int16_t)(scroll_position - OBJECT(current_object)->spiked_roller.hold_start_position) >= 0x300)
+	{
+		OBJECT(current_object)->spiked_roller.holding_back = 0u;
+		OBJECT(current_object)->spiked_roller.screen_threshold = OBJECT(current_object)->spiked_roller.saved_threshold;
+		OBJECT(current_object)->spiked_roller.base_speed = OBJECT(current_object)->spiked_roller.saved_base_speed;
+		compute_camera_ground_speed(ignored);
+		chase_speed = (uint16_t)((uint32_t)camera_ground_speed_int * OBJECT(current_object)->spiked_roller.catch_up_factor) >> 8;
+		if ((int16_t)chase_speed <= OBJECT(current_object)->spiked_roller.base_speed)
+			chase_speed = (uint16_t)OBJECT(current_object)->spiked_roller.base_speed;
+	}
+	else
+	{
 		if (no_player_in_play != 0u)
 			OBJECT(current_object)->spiked_roller.hold_timer = 0xFFu;
 		hold_timer = OBJECT(current_object)->spiked_roller.hold_timer;
 		OBJECT(current_object)->spiked_roller.hold_timer = hold_timer - 1u;
 		if (hold_timer == 0u || AS32(players_finished[0]) == 0xFFFFFFu)
-			goto spiked_roller_chase_stop_holding_back;
-	}
-	switch (OBJECT(current_object)->spiked_roller.path_direction)
-	{
-	case 0:
-	case 3:
-		if (OBJECT(current_object)->screen_x <= OBJECT(current_object)->spiked_roller.screen_threshold)
 		{
-		spiked_roller_chase_use_base_speed:
-			chase_speed = (uint16_t)OBJECT(current_object)->spiked_roller.base_speed;
-		}
-		else
-		{
-		spiked_roller_chase_catch_up:
-			OBJECT(current_object)->spiked_roller.wait_timer = 0;
-			if (OBJECT(current_object)->spiked_roller.holding_back != 0u)
-			{
-			spiked_roller_chase_stop_holding_back:
-				OBJECT(current_object)->spiked_roller.holding_back = 0u;
-				OBJECT(current_object)->spiked_roller.screen_threshold = OBJECT(current_object)->spiked_roller.saved_threshold;
-				OBJECT(current_object)->spiked_roller.base_speed = OBJECT(current_object)->spiked_roller.saved_base_speed;
-			}
+			OBJECT(current_object)->spiked_roller.holding_back = 0u;
+			OBJECT(current_object)->spiked_roller.screen_threshold = OBJECT(current_object)->spiked_roller.saved_threshold;
+			OBJECT(current_object)->spiked_roller.base_speed = OBJECT(current_object)->spiked_roller.saved_base_speed;
 			compute_camera_ground_speed(ignored);
 			chase_speed = (uint16_t)((uint32_t)camera_ground_speed_int * OBJECT(current_object)->spiked_roller.catch_up_factor) >> 8;
 			if ((int16_t)chase_speed <= OBJECT(current_object)->spiked_roller.base_speed)
-				goto spiked_roller_chase_use_base_speed;
+				chase_speed = (uint16_t)OBJECT(current_object)->spiked_roller.base_speed;
 		}
-		break;
-	case 1:
-	case 2:
-	case 4:
-		if (OBJECT(current_object)->spiked_roller.screen_threshold <= OBJECT(current_object)->screen_x)
-			goto spiked_roller_chase_use_base_speed;
-		goto spiked_roller_chase_catch_up;
-	default:
-		invalid_jump(0x80548u + OBJECT(current_object)->spiked_roller.path_direction * 2u);
+		else
+		{
+			switch (OBJECT(current_object)->spiked_roller.path_direction)
+			{
+			case 0:
+			case 3:
+				if (OBJECT(current_object)->screen_x <= OBJECT(current_object)->spiked_roller.screen_threshold)
+					chase_speed = (uint16_t)OBJECT(current_object)->spiked_roller.base_speed;
+				else
+				{
+					OBJECT(current_object)->spiked_roller.wait_timer = 0;
+					if (OBJECT(current_object)->spiked_roller.holding_back != 0u)
+					{
+						OBJECT(current_object)->spiked_roller.holding_back = 0u;
+						OBJECT(current_object)->spiked_roller.screen_threshold = OBJECT(current_object)->spiked_roller.saved_threshold;
+						OBJECT(current_object)->spiked_roller.base_speed = OBJECT(current_object)->spiked_roller.saved_base_speed;
+					}
+					compute_camera_ground_speed(ignored);
+					chase_speed = (uint16_t)((uint32_t)camera_ground_speed_int * OBJECT(current_object)->spiked_roller.catch_up_factor) >> 8;
+					if ((int16_t)chase_speed <= OBJECT(current_object)->spiked_roller.base_speed)
+						chase_speed = (uint16_t)OBJECT(current_object)->spiked_roller.base_speed;
+				}
+				break;
+			case 1:
+			case 2:
+			case 4:
+				if (OBJECT(current_object)->spiked_roller.screen_threshold <= OBJECT(current_object)->screen_x)
+					chase_speed = (uint16_t)OBJECT(current_object)->spiked_roller.base_speed;
+				else
+				{
+					OBJECT(current_object)->spiked_roller.wait_timer = 0;
+					if (OBJECT(current_object)->spiked_roller.holding_back != 0u)
+					{
+						OBJECT(current_object)->spiked_roller.holding_back = 0u;
+						OBJECT(current_object)->spiked_roller.screen_threshold = OBJECT(current_object)->spiked_roller.saved_threshold;
+						OBJECT(current_object)->spiked_roller.base_speed = OBJECT(current_object)->spiked_roller.saved_base_speed;
+					}
+					compute_camera_ground_speed(ignored);
+					chase_speed = (uint16_t)((uint32_t)camera_ground_speed_int * OBJECT(current_object)->spiked_roller.catch_up_factor) >> 8;
+					if ((int16_t)chase_speed <= OBJECT(current_object)->spiked_roller.base_speed)
+						chase_speed = (uint16_t)OBJECT(current_object)->spiked_roller.base_speed;
+				}
+				break;
+			default:
+				invalid_jump(0x80548u + OBJECT(current_object)->spiked_roller.path_direction * 2u);
+			}
+		}
 	}
 	chaser_speed = chase_speed;
 	if (current_game_mode != 0x11u)
@@ -1139,50 +1291,85 @@ void spiked_roller_chase(void)
 	case 4:
 		if (OBJECT(current_object)->screen_x > 0x140)
 		{
-		spiked_roller_chase_no_rumble:
 			OBJECT(current_object)->spiked_roller.rumble_off_screen = 0xFFu;
+			spiked_roller_chase_check_event();
+			return;
 		}
-		else
-		{
-		spiked_roller_chase_rumble:
-			if (OBJECT(current_object)->spiked_roller.rumble_off_screen != 0u)
-			{
-				OBJECT(current_object)->spiked_roller.rumble_off_screen = 0u;
-				OBJECT(current_object)->spiked_roller.rumble_timer = 0u;
-			}
-			if ((uint16_t)chaser_speed == 0u)
-				goto spiked_roller_chase_no_rumble;
-			rumble_timer = OBJECT(current_object)->spiked_roller.rumble_timer;
-			OBJECT(current_object)->spiked_roller.rumble_timer = rumble_timer - 1u;
-			if (rumble_timer == 0u)
-			{
-				sound_id = 0xBu;
-				play_sound(sound_id, &ignored, &ignored);
-				speed_level = (uint16_t)chaser_speed;
-				speed_level = speed_level >> 4;
-				if ((int16_t)speed_level < 0)
-					speed_level = 0u;
-				if ((int16_t)speed_level > 4)
-					speed_level = 4u;
-				OBJECT(current_object)->spiked_roller.rumble_timer = spiked_roller_rumble_delays[speed_level];
-			}
-		}
-		break;
+		spiked_roller_chase_rumble();
+		return;
 	case 1:
 		if (OBJECT(current_object)->screen_x < -0x50)
-			goto spiked_roller_chase_no_rumble;
-		goto spiked_roller_chase_rumble;
+		{
+			OBJECT(current_object)->spiked_roller.rumble_off_screen = 0xFFu;
+			spiked_roller_chase_check_event();
+			return;
+		}
+		spiked_roller_chase_rumble();
+		return;
 	case 2:
 		if (OBJECT(current_object)->screen_x < 0)
-			goto spiked_roller_chase_no_rumble;
-		goto spiked_roller_chase_rumble;
+		{
+			OBJECT(current_object)->spiked_roller.rumble_off_screen = 0xFFu;
+			spiked_roller_chase_check_event();
+			return;
+		}
+		spiked_roller_chase_rumble();
+		return;
 	case 3:
 		if (OBJECT(current_object)->screen_x > 0x140)
-			goto spiked_roller_chase_no_rumble;
-		goto spiked_roller_chase_rumble;
+		{
+			OBJECT(current_object)->spiked_roller.rumble_off_screen = 0xFFu;
+			spiked_roller_chase_check_event();
+			return;
+		}
+		spiked_roller_chase_rumble();
+		return;
 	default:
 		invalid_jump(0x80678u + OBJECT(current_object)->spiked_roller.path_direction * 2u);
 	}
+}
+
+void spiked_roller_chase_rumble(void)
+{
+	uint8_t sound_id = 0;
+	uint32_t ignored = 0, speed_level = 0;
+	uint8_t rumble_timer = 0;
+
+	if (OBJECT(current_object)->spiked_roller.rumble_off_screen != 0u)
+	{
+		OBJECT(current_object)->spiked_roller.rumble_off_screen = 0u;
+		OBJECT(current_object)->spiked_roller.rumble_timer = 0u;
+	}
+	if ((uint16_t)chaser_speed == 0u)
+	{
+		OBJECT(current_object)->spiked_roller.rumble_off_screen = 0xFFu;
+		spiked_roller_chase_check_event();
+		return;
+	}
+	rumble_timer = OBJECT(current_object)->spiked_roller.rumble_timer;
+	OBJECT(current_object)->spiked_roller.rumble_timer = rumble_timer - 1u;
+	if (rumble_timer != 0u)
+	{
+		spiked_roller_chase_check_event();
+		return;
+	}
+	sound_id = 0xBu;
+	play_sound(sound_id, &ignored, &ignored);
+	speed_level = (uint16_t)chaser_speed;
+	speed_level = speed_level >> 4;
+	if ((int16_t)speed_level < 0)
+		speed_level = 0u;
+	if ((int16_t)speed_level > 4)
+		speed_level = 4u;
+	OBJECT(current_object)->spiked_roller.rumble_timer = spiked_roller_rumble_delays[speed_level];
+	spiked_roller_chase_check_event();
+}
+
+void spiked_roller_chase_check_event(void)
+{
+	uint32_t event_kind = 0, record_cursor = 0;
+	uint16_t event_position = 0, max_y = 0, min_x = 0, min_y = 0, max_x = 0;
+
 	record_cursor = OBJECT(current_object)->spiked_roller.event_offset + spiked_roller_events_ADDRESS;
 	event_position = ROM16(record_cursor);
 	record_cursor += 2u;
@@ -1522,18 +1709,22 @@ void spiked_roller_crash_into_machine(void)
 		animate(&ignored, &ignored, &ignored);
 		rumble_timer = OBJECT(current_object)->spiked_roller.rumble_timer;
 		OBJECT(current_object)->spiked_roller.rumble_timer = rumble_timer - 1u;
-		if ((int8_t)rumble_timer <= 1)
+		if ((int8_t)rumble_timer > 1)
 		{
-			sound_id = 0xBu;
-			play_sound(sound_id, &ignored, &ignored);
-			speed_level = (uint16_t)chaser_speed;
-			speed_level = speed_level >> 4;
-			if ((int16_t)speed_level < 0)
-				speed_level = 0u;
-			if ((int16_t)speed_level > 4)
-				speed_level = 4u;
-			OBJECT(current_object)->spiked_roller.rumble_timer = spiked_roller_rumble_delays[speed_level];
+			if (OBJECT(current_object)->y_int <= 0xAE0)
+				OBJECT(current_object)->spiked_roller.substate++;
+			project_object(&ignored, &ignored);
+			return;
 		}
+		sound_id = 0xBu;
+		play_sound(sound_id, &ignored, &ignored);
+		speed_level = (uint16_t)chaser_speed;
+		speed_level = speed_level >> 4;
+		if ((int16_t)speed_level < 0)
+			speed_level = 0u;
+		if ((int16_t)speed_level > 4)
+			speed_level = 4u;
+		OBJECT(current_object)->spiked_roller.rumble_timer = spiked_roller_rumble_delays[speed_level];
 		if (OBJECT(current_object)->y_int <= 0xAE0)
 			OBJECT(current_object)->spiked_roller.substate++;
 		project_object(&ignored, &ignored);
@@ -1571,26 +1762,7 @@ void spiked_roller_sink_and_jump(void)
 	{
 	case 0:
 	case 2:
-		if (stage_03_floor_block_falls[0] == 0u)
-		{
-			sound_number = 0xDu;
-			play_sound(sound_number, &ignored, &ignored);
-		}
-		stage_03_floor_block_falls[0] = 0xFFu;
-		OBJECT(current_object)->speed_z += 0x1000u;
-		OBJECT(current_object)->z += OBJECT(current_object)->speed_z;
-		chaser_speed = 0x40;
-		OBJECT(current_object)->speed_x = 0;
-		OBJECT(current_object)->animation_speed = 1u;
-		animate(&ignored, &ignored, &ignored);
-		if ((int16_t)(OBJECT(current_object)->z_int - OBJECT(current_object)->floor_z_int) >= 0x40)
-		{
-			OBJECT(current_object)->spiked_roller.substate++;
-			OBJECT(current_object)->speed_z = -0x60000;
-			OBJECT(current_object)->speed_x = 0x30000;
-		}
-		project_object(&ignored, &ignored);
-		return;
+		break;
 	case 1:
 		OBJECT(current_object)->speed_z += 0x3000u;
 		OBJECT(current_object)->z += OBJECT(current_object)->speed_z;
@@ -1612,6 +1784,25 @@ void spiked_roller_sink_and_jump(void)
 	default:
 		invalid_jump(0x80BC9u + OBJECT(current_object)->spiked_roller.substate * 2u);
 	}
+	if (stage_03_floor_block_falls[0] == 0u)
+	{
+		sound_number = 0xDu;
+		play_sound(sound_number, &ignored, &ignored);
+	}
+	stage_03_floor_block_falls[0] = 0xFFu;
+	OBJECT(current_object)->speed_z += 0x1000u;
+	OBJECT(current_object)->z += OBJECT(current_object)->speed_z;
+	chaser_speed = 0x40;
+	OBJECT(current_object)->speed_x = 0;
+	OBJECT(current_object)->animation_speed = 1u;
+	animate(&ignored, &ignored, &ignored);
+	if ((int16_t)(OBJECT(current_object)->z_int - OBJECT(current_object)->floor_z_int) >= 0x40)
+	{
+		OBJECT(current_object)->spiked_roller.substate++;
+		OBJECT(current_object)->speed_z = -0x60000;
+		OBJECT(current_object)->speed_x = 0x30000;
+	}
+	project_object(&ignored, &ignored);
 }
 
 void spiked_roller_burst_out(void)
@@ -1839,11 +2030,10 @@ void machine_run(void)
 
 void machine_fire_update(void)
 {
-	uint8_t sound_id_2 = 0;
-	uint16_t climb_speed = 0;
-	uint32_t free_count = 0, ignored = 0, object = 0, path_cursor = 0, point_x = 0, point_y = 0, projected_dx = 0, random_bits = 0, sound_id = 0, spawn_record = 0;
-	uint8_t hold_timer = 0, sound_timer = 0, sound_timer_2 = 0, lane_timer_before = 0, lane_before = 0, sound_timer_3 = 0;
-	uint16_t spawns_left_before = 0, record_height = 0, wait_timer = 0;
+	uint8_t sound_id = 0;
+	uint32_t free_count = 0, ignored = 0, object = 0, random_bits = 0, spawn_record = 0;
+	uint8_t lane_timer_before = 0, lane_before = 0, sound_timer = 0, sound_timer_2 = 0;
+	uint16_t spawns_left_before = 0;
 	uint32_t flags = 0, lane_timer_address = 0;
 
 	switch (OBJECT(current_object)->machine_fire.state)
@@ -1918,124 +2108,28 @@ void machine_fire_update(void)
 		OBJECT(current_object)->flags = flags | 0x80000000u;
 		if ((flags & 0x80000000u) == 0u)
 		{
-		machine_fire_read_script:
-			path_cursor = OBJECT(current_object)->machine_fire.path;
-			record_height = ROM16(path_cursor);
-			path_cursor += 2u;
-			if ((int16_t)record_height < (int16_t)(OBJECT(current_object)->z_int - OBJECT(current_object)->hitbox_height))
-			{
-			machine_fire_climb_step:
-				if (OBJECT(current_object)->machine_fire.holding_back != 0u)
-				{
-					if ((int16_t)(scroll_position - OBJECT(current_object)->machine_fire.hold_start_position) >= 0x300)
-						goto machine_fire_stop_holding_back;
-					if (no_player_in_play != 0u)
-						OBJECT(current_object)->machine_fire.hold_timer = 0xFFu;
-					hold_timer = OBJECT(current_object)->machine_fire.hold_timer;
-					OBJECT(current_object)->machine_fire.hold_timer = hold_timer - 1u;
-					if (hold_timer == 0u)
-						goto machine_fire_stop_holding_back;
-				}
-				if ((int16_t)(OBJECT(current_object)->screen_y - OBJECT(current_object)->hitbox_height) <= OBJECT(current_object)->machine_fire.screen_threshold)
-				{
-				machine_fire_use_base_speed:
-					climb_speed = (uint16_t)OBJECT(current_object)->machine_fire.base_speed;
-				}
-				else
-				{
-					if (OBJECT(current_object)->machine_fire.holding_back != 0u)
-					{
-					machine_fire_stop_holding_back:
-						OBJECT(current_object)->machine_fire.holding_back = 0u;
-						OBJECT(current_object)->machine_fire.screen_threshold = OBJECT(current_object)->machine_fire.saved_threshold;
-						OBJECT(current_object)->machine_fire.base_speed = OBJECT(current_object)->machine_fire.saved_base_speed;
-					}
-					compute_camera_ground_speed(0u);
-					climb_speed = (uint16_t)((uint32_t)camera_ground_speed_int * OBJECT(current_object)->machine_fire.catch_up_factor) >> 8;
-					if ((int16_t)climb_speed <= OBJECT(current_object)->machine_fire.base_speed)
-						goto machine_fire_use_base_speed;
-				}
-				OBJECT(current_object)->speed_fraction = climb_speed;
-				wait_timer = OBJECT(current_object)->machine_fire.wait_timer;
-				OBJECT(current_object)->machine_fire.wait_timer = wait_timer - 1u;
-				if ((int16_t)wait_timer <= 1)
-				{
-					OBJECT(current_object)->machine_fire.wait_timer = 0;
-					OBJECT(current_object)->z -= (uint32_t)(int16_t)OBJECT(current_object)->speed_fraction << 12;
-				}
-				projected_dx = (int32_t)((uint32_t)(int16_t)ROM16(floor_attribute_slopes_ADDRESS + OBJECT(current_object)->floor_attribute) * OBJECT(current_object)->speed_fraction) >> 4;
-				OBJECT(current_object)->machine_fire.fixed_projected_x += projected_dx;
-				OBJECT(current_object)->projected_x = OBJECT(current_object)->machine_fire.projected_x_whole;
-				OBJECT(current_object)->projected_y -= (int32_t)projected_dx >> 1;
-				update_screen_position(&sound_id, &ignored);
-				if (OBJECT(current_object)->screen_y > 0x160)
-					OBJECT(current_object)->machine_fire.off_screen = 0xFFu;
-				else
-				{
-					if (OBJECT(current_object)->machine_fire.off_screen != 0u)
-					{
-						OBJECT(current_object)->machine_fire.off_screen = 0u;
-						OBJECT(current_object)->machine_fire.sound_timer = 0;
-					}
-					if (current_game_mode != 7u)
-					{
-						sound_timer = OBJECT(current_object)->machine_fire.sound_timer;
-						OBJECT(current_object)->machine_fire.sound_timer = sound_timer - 1u;
-						if ((int8_t)sound_timer <= 1)
-						{
-							OBJECT(current_object)->machine_fire.sound_timer = 0x3C;
-							sound_id = 9u;
-							play_sound((uint8_t)sound_id, &ignored, &ignored);
-						}
-					}
-				}
-				point_x = OBJECT(current_object)->machine_fire.fixed_projected_x;
-				point_y = OBJECT(current_object)->projected_y * 2u;
-				unproject_point(&point_x, &point_y);
-				OBJECT(current_object)->x = point_x;
-				OBJECT(current_object)->y = point_y;
-				sound_id = add_to_touchable_list(sound_id);
-				return;
-			}
-			if ((int16_t)ROM16(path_cursor + 2u) >= 0)
-			{
-				OBJECT(current_object)->machine_fire.screen_threshold = ROM16(path_cursor);
-				path_cursor += 2u;
-				OBJECT(current_object)->machine_fire.catch_up_factor = ROM16(path_cursor);
-				path_cursor += 2u;
-				OBJECT(current_object)->machine_fire.base_speed = ROM16(path_cursor);
-				path_cursor += 2u;
-				OBJECT(current_object)->machine_fire.wait_timer = ROM16(path_cursor);
-				OBJECT(current_object)->machine_fire.path = path_cursor + 2u;
-				goto machine_fire_climb_step;
-			}
-			OBJECT(current_object)->machine_fire.state++;
-			sound_timer_2 = OBJECT(current_object)->machine_fire.sound_timer;
-			OBJECT(current_object)->machine_fire.sound_timer = sound_timer_2 - 1u;
-			if ((int8_t)sound_timer_2 <= 1)
-			{
-				OBJECT(current_object)->machine_fire.sound_timer = 0x3C;
-				sound_id_2 = 9u;
-				play_sound(sound_id_2, &ignored, &ignored);
-			}
-			update_screen_position(&ignored, &ignored);
-			ignored = add_to_touchable_list(ignored);
+			machine_fire_read_script();
 			return;
 		}
 		if (OBJECT(current_object)->machine_fire.holding_back != 0u)
-			goto machine_fire_climb_step;
-		if (no_player_in_play != 0u || player_mishap != 0u || player_dropping_in != 0u)
 		{
-			OBJECT(current_object)->machine_fire.holding_back = 0xFFu;
-			OBJECT(current_object)->machine_fire.saved_base_speed = OBJECT(current_object)->machine_fire.base_speed;
-			OBJECT(current_object)->machine_fire.base_speed = 0;
-			OBJECT(current_object)->machine_fire.hold_start_position = scroll_position;
-			OBJECT(current_object)->machine_fire.hold_timer = 0xFFu;
-			OBJECT(current_object)->machine_fire.saved_threshold = OBJECT(current_object)->machine_fire.screen_threshold;
-			OBJECT(current_object)->machine_fire.screen_threshold = 0xE0;
-			goto machine_fire_climb_step;
+			machine_fire_climb_step();
+			return;
 		}
-		goto machine_fire_read_script;
+		if (no_player_in_play == 0u && player_mishap == 0u && player_dropping_in == 0u)
+		{
+			machine_fire_read_script();
+			return;
+		}
+		OBJECT(current_object)->machine_fire.holding_back = 0xFFu;
+		OBJECT(current_object)->machine_fire.saved_base_speed = OBJECT(current_object)->machine_fire.base_speed;
+		OBJECT(current_object)->machine_fire.base_speed = 0;
+		OBJECT(current_object)->machine_fire.hold_start_position = scroll_position;
+		OBJECT(current_object)->machine_fire.hold_timer = 0xFFu;
+		OBJECT(current_object)->machine_fire.saved_threshold = OBJECT(current_object)->machine_fire.screen_threshold;
+		OBJECT(current_object)->machine_fire.screen_threshold = 0xE0;
+		machine_fire_climb_step();
+		return;
 	case 3:
 		OBJECT(current_object)->machine_fire.state++;
 		OBJECT(current_object)->machine_fire.sound_timer = 0;
@@ -2058,49 +2152,41 @@ void machine_fire_update(void)
 		find_floor(&ignored, &ignored, &ignored, &random_bits, &object);
 		fireball_lane_timer_cursor = current_object + 0x72u;
 		fireball_lane = 3;
-		for (;;)
+		do
 		{
 			lane_timer_address = fireball_lane_timer_cursor;
 			lane_timer_before = mem_read8(lane_timer_address);
 			mem_write8(lane_timer_address, lane_timer_before - 1u);
-			if ((int8_t)lane_timer_before > 1)
+			if ((int8_t)lane_timer_before <= 1)
 			{
-				fireball_lane_timer_cursor++;
-				lane_before = fireball_lane;
-				fireball_lane = lane_before - 1u;
-				if ((int8_t)lane_before <= 1)
+				next_random(&random_bits, &ignored, &ignored);
+				random_bits = (random_bits & ~0xFFu) | (random_bits & 0x1Fu);
+				mem_write8(fireball_lane_timer_cursor, random_bits);
+				allocate_object(&free_count, &object);
+				if (free_count == 0u)
 					break;
-				continue;
+				OBJECT(object)->handler = fireball_start_ADDRESS;
+				OBJECT(object)->fireball_start.state = 0u;
+				OBJECT(object)->x = OBJECT(current_object)->x;
+				OBJECT(object)->y = OBJECT(current_object)->y;
+				OBJECT(object)->y_int += (uint8_t)fireball_lane * 0x38u;
+				OBJECT(object)->fireball_start.target_x = OBJECT(object)->x_int;
+				OBJECT(object)->fireball_start.target_x += mem_read8(fireball_lane_timer_cursor);
+				OBJECT(object)->fireball_start.target_y = OBJECT(object)->y_int;
+				OBJECT(object)->z = OBJECT(current_object)->z;
+				OBJECT(object)->next_handler = flame_start_ADDRESS;
 			}
-			next_random(&random_bits, &ignored, &ignored);
-			random_bits = (random_bits & ~0xFFu) | (random_bits & 0x1Fu);
-			mem_write8(fireball_lane_timer_cursor, random_bits);
-			allocate_object(&free_count, &object);
-			if (free_count == 0u)
-				break;
-			OBJECT(object)->handler = fireball_start_ADDRESS;
-			OBJECT(object)->fireball_start.state = 0u;
-			OBJECT(object)->x = OBJECT(current_object)->x;
-			OBJECT(object)->y = OBJECT(current_object)->y;
-			OBJECT(object)->y_int += (uint8_t)fireball_lane * 0x38u;
-			OBJECT(object)->fireball_start.target_x = OBJECT(object)->x_int;
-			OBJECT(object)->fireball_start.target_x += mem_read8(fireball_lane_timer_cursor);
-			OBJECT(object)->fireball_start.target_y = OBJECT(object)->y_int;
-			OBJECT(object)->z = OBJECT(current_object)->z;
-			OBJECT(object)->next_handler = flame_start_ADDRESS;
 			fireball_lane_timer_cursor++;
 			lane_before = fireball_lane;
 			fireball_lane = lane_before - 1u;
-			if ((int8_t)lane_before <= 1)
-				break;
-		}
-		sound_timer_3 = OBJECT(current_object)->machine_fire.sound_timer;
-		OBJECT(current_object)->machine_fire.sound_timer = sound_timer_3 - 1u;
-		if ((int8_t)sound_timer_3 <= 1)
+		} while ((int8_t)lane_before > 1);
+		sound_timer = OBJECT(current_object)->machine_fire.sound_timer;
+		OBJECT(current_object)->machine_fire.sound_timer = sound_timer - 1u;
+		if ((int8_t)sound_timer <= 1)
 		{
 			OBJECT(current_object)->machine_fire.sound_timer = 0x3C;
-			sound_id_2 = 9u;
-			play_sound(sound_id_2, &ignored, &ignored);
+			sound_id = 9u;
+			play_sound(sound_id, &ignored, &ignored);
 		}
 		project_object(&ignored, &ignored);
 		ignored = add_to_touchable_list(ignored);
@@ -2109,27 +2195,14 @@ void machine_fire_update(void)
 		machine_fire_done = 0xFFu;
 		OBJECT(current_object)->machine_fire.state++;
 		if ((int16_t)(OBJECT(current_object)->screen_y - OBJECT(current_object)->hitbox_height) > 0x110 || OBJECT(current_object)->screen_x <= -0xA0)
-		{
 			OBJECT(current_object)->machine_fire.state++;
-			sound_timer_2 = OBJECT(current_object)->machine_fire.sound_timer;
-			OBJECT(current_object)->machine_fire.sound_timer = sound_timer_2 - 1u;
-			if ((int8_t)sound_timer_2 <= 1)
-			{
-				OBJECT(current_object)->machine_fire.sound_timer = 0x3C;
-				sound_id_2 = 9u;
-				play_sound(sound_id_2, &ignored, &ignored);
-			}
-			update_screen_position(&ignored, &ignored);
-			ignored = add_to_touchable_list(ignored);
-			return;
-		}
 		sound_timer_2 = OBJECT(current_object)->machine_fire.sound_timer;
 		OBJECT(current_object)->machine_fire.sound_timer = sound_timer_2 - 1u;
 		if ((int8_t)sound_timer_2 <= 1)
 		{
 			OBJECT(current_object)->machine_fire.sound_timer = 0x3C;
-			sound_id_2 = 9u;
-			play_sound(sound_id_2, &ignored, &ignored);
+			sound_id = 9u;
+			play_sound(sound_id, &ignored, &ignored);
 		}
 		update_screen_position(&ignored, &ignored);
 		ignored = add_to_touchable_list(ignored);
@@ -2142,8 +2215,8 @@ void machine_fire_update(void)
 		if ((int8_t)sound_timer_2 <= 1)
 		{
 			OBJECT(current_object)->machine_fire.sound_timer = 0x3C;
-			sound_id_2 = 9u;
-			play_sound(sound_id_2, &ignored, &ignored);
+			sound_id = 9u;
+			play_sound(sound_id, &ignored, &ignored);
 		}
 		update_screen_position(&ignored, &ignored);
 		ignored = add_to_touchable_list(ignored);
@@ -2154,6 +2227,176 @@ void machine_fire_update(void)
 	default:
 		invalid_jump(0x8358Cu + OBJECT(current_object)->machine_fire.state * 3u);
 	}
+}
+
+void machine_fire_read_script(void)
+{
+	uint8_t sound_id = 0;
+	uint32_t ignored = 0, path_cursor = 0;
+	uint8_t sound_timer = 0;
+	uint16_t record_height = 0;
+
+	path_cursor = OBJECT(current_object)->machine_fire.path;
+	record_height = ROM16(path_cursor);
+	path_cursor += 2u;
+	if ((int16_t)record_height < (int16_t)(OBJECT(current_object)->z_int - OBJECT(current_object)->hitbox_height))
+	{
+		machine_fire_climb_step();
+		return;
+	}
+	if ((int16_t)ROM16(path_cursor + 2u) < 0)
+	{
+		OBJECT(current_object)->machine_fire.state++;
+		sound_timer = OBJECT(current_object)->machine_fire.sound_timer;
+		OBJECT(current_object)->machine_fire.sound_timer = sound_timer - 1u;
+		if ((int8_t)sound_timer <= 1)
+		{
+			OBJECT(current_object)->machine_fire.sound_timer = 0x3C;
+			sound_id = 9u;
+			play_sound(sound_id, &ignored, &ignored);
+		}
+		update_screen_position(&ignored, &ignored);
+		ignored = add_to_touchable_list(ignored);
+		return;
+	}
+	OBJECT(current_object)->machine_fire.screen_threshold = ROM16(path_cursor);
+	path_cursor += 2u;
+	OBJECT(current_object)->machine_fire.catch_up_factor = ROM16(path_cursor);
+	path_cursor += 2u;
+	OBJECT(current_object)->machine_fire.base_speed = ROM16(path_cursor);
+	path_cursor += 2u;
+	OBJECT(current_object)->machine_fire.wait_timer = ROM16(path_cursor);
+	OBJECT(current_object)->machine_fire.path = path_cursor + 2u;
+	machine_fire_climb_step();
+}
+
+void machine_fire_climb_step(void)
+{
+	uint16_t climb_speed = 0;
+	uint32_t ignored = 0, point_x = 0, point_y = 0, projected_dx = 0, sound_id = 0;
+	uint8_t hold_timer = 0, sound_timer = 0;
+	uint16_t wait_timer = 0;
+
+	if (OBJECT(current_object)->machine_fire.holding_back == 0u)
+	{
+		if ((int16_t)(OBJECT(current_object)->screen_y - OBJECT(current_object)->hitbox_height) <= OBJECT(current_object)->machine_fire.screen_threshold)
+			climb_speed = (uint16_t)OBJECT(current_object)->machine_fire.base_speed;
+		else
+		{
+			if (OBJECT(current_object)->machine_fire.holding_back != 0u)
+			{
+				OBJECT(current_object)->machine_fire.holding_back = 0u;
+				OBJECT(current_object)->machine_fire.screen_threshold = OBJECT(current_object)->machine_fire.saved_threshold;
+				OBJECT(current_object)->machine_fire.base_speed = OBJECT(current_object)->machine_fire.saved_base_speed;
+			}
+			compute_camera_ground_speed(0u);
+			climb_speed = (uint16_t)((uint32_t)camera_ground_speed_int * OBJECT(current_object)->machine_fire.catch_up_factor) >> 8;
+			if ((int16_t)climb_speed <= OBJECT(current_object)->machine_fire.base_speed)
+				climb_speed = (uint16_t)OBJECT(current_object)->machine_fire.base_speed;
+		}
+	}
+	else if ((int16_t)(scroll_position - OBJECT(current_object)->machine_fire.hold_start_position) >= 0x300)
+	{
+		OBJECT(current_object)->machine_fire.holding_back = 0u;
+		OBJECT(current_object)->machine_fire.screen_threshold = OBJECT(current_object)->machine_fire.saved_threshold;
+		OBJECT(current_object)->machine_fire.base_speed = OBJECT(current_object)->machine_fire.saved_base_speed;
+		compute_camera_ground_speed(0u);
+		climb_speed = (uint16_t)((uint32_t)camera_ground_speed_int * OBJECT(current_object)->machine_fire.catch_up_factor) >> 8;
+		if ((int16_t)climb_speed <= OBJECT(current_object)->machine_fire.base_speed)
+			climb_speed = (uint16_t)OBJECT(current_object)->machine_fire.base_speed;
+	}
+	else
+	{
+		if (no_player_in_play != 0u)
+			OBJECT(current_object)->machine_fire.hold_timer = 0xFFu;
+		hold_timer = OBJECT(current_object)->machine_fire.hold_timer;
+		OBJECT(current_object)->machine_fire.hold_timer = hold_timer - 1u;
+		if (hold_timer == 0u)
+		{
+			OBJECT(current_object)->machine_fire.holding_back = 0u;
+			OBJECT(current_object)->machine_fire.screen_threshold = OBJECT(current_object)->machine_fire.saved_threshold;
+			OBJECT(current_object)->machine_fire.base_speed = OBJECT(current_object)->machine_fire.saved_base_speed;
+			compute_camera_ground_speed(0u);
+			climb_speed = (uint16_t)((uint32_t)camera_ground_speed_int * OBJECT(current_object)->machine_fire.catch_up_factor) >> 8;
+			if ((int16_t)climb_speed <= OBJECT(current_object)->machine_fire.base_speed)
+				climb_speed = (uint16_t)OBJECT(current_object)->machine_fire.base_speed;
+		}
+		else if ((int16_t)(OBJECT(current_object)->screen_y - OBJECT(current_object)->hitbox_height) <= OBJECT(current_object)->machine_fire.screen_threshold)
+			climb_speed = (uint16_t)OBJECT(current_object)->machine_fire.base_speed;
+		else
+		{
+			if (OBJECT(current_object)->machine_fire.holding_back != 0u)
+			{
+				OBJECT(current_object)->machine_fire.holding_back = 0u;
+				OBJECT(current_object)->machine_fire.screen_threshold = OBJECT(current_object)->machine_fire.saved_threshold;
+				OBJECT(current_object)->machine_fire.base_speed = OBJECT(current_object)->machine_fire.saved_base_speed;
+			}
+			compute_camera_ground_speed(0u);
+			climb_speed = (uint16_t)((uint32_t)camera_ground_speed_int * OBJECT(current_object)->machine_fire.catch_up_factor) >> 8;
+			if ((int16_t)climb_speed <= OBJECT(current_object)->machine_fire.base_speed)
+				climb_speed = (uint16_t)OBJECT(current_object)->machine_fire.base_speed;
+		}
+	}
+	OBJECT(current_object)->speed_fraction = climb_speed;
+	wait_timer = OBJECT(current_object)->machine_fire.wait_timer;
+	OBJECT(current_object)->machine_fire.wait_timer = wait_timer - 1u;
+	if ((int16_t)wait_timer <= 1)
+	{
+		OBJECT(current_object)->machine_fire.wait_timer = 0;
+		OBJECT(current_object)->z -= (uint32_t)(int16_t)OBJECT(current_object)->speed_fraction << 12;
+	}
+	projected_dx = (int32_t)((uint32_t)(int16_t)ROM16(floor_attribute_slopes_ADDRESS + OBJECT(current_object)->floor_attribute) * OBJECT(current_object)->speed_fraction) >> 4;
+	OBJECT(current_object)->machine_fire.fixed_projected_x += projected_dx;
+	OBJECT(current_object)->projected_x = OBJECT(current_object)->machine_fire.projected_x_whole;
+	OBJECT(current_object)->projected_y -= (int32_t)projected_dx >> 1;
+	update_screen_position(&sound_id, &ignored);
+	if (OBJECT(current_object)->screen_y > 0x160)
+	{
+		OBJECT(current_object)->machine_fire.off_screen = 0xFFu;
+		point_x = OBJECT(current_object)->machine_fire.fixed_projected_x;
+		point_y = OBJECT(current_object)->projected_y * 2u;
+		unproject_point(&point_x, &point_y);
+		OBJECT(current_object)->x = point_x;
+		OBJECT(current_object)->y = point_y;
+		sound_id = add_to_touchable_list(sound_id);
+		return;
+	}
+	if (OBJECT(current_object)->machine_fire.off_screen != 0u)
+	{
+		OBJECT(current_object)->machine_fire.off_screen = 0u;
+		OBJECT(current_object)->machine_fire.sound_timer = 0;
+	}
+	if (current_game_mode == 7u)
+	{
+		point_x = OBJECT(current_object)->machine_fire.fixed_projected_x;
+		point_y = OBJECT(current_object)->projected_y * 2u;
+		unproject_point(&point_x, &point_y);
+		OBJECT(current_object)->x = point_x;
+		OBJECT(current_object)->y = point_y;
+		sound_id = add_to_touchable_list(sound_id);
+		return;
+	}
+	sound_timer = OBJECT(current_object)->machine_fire.sound_timer;
+	OBJECT(current_object)->machine_fire.sound_timer = sound_timer - 1u;
+	if ((int8_t)sound_timer > 1)
+	{
+		point_x = OBJECT(current_object)->machine_fire.fixed_projected_x;
+		point_y = OBJECT(current_object)->projected_y * 2u;
+		unproject_point(&point_x, &point_y);
+		OBJECT(current_object)->x = point_x;
+		OBJECT(current_object)->y = point_y;
+		sound_id = add_to_touchable_list(sound_id);
+		return;
+	}
+	OBJECT(current_object)->machine_fire.sound_timer = 0x3C;
+	sound_id = 9u;
+	play_sound((uint8_t)sound_id, &ignored, &ignored);
+	point_x = OBJECT(current_object)->machine_fire.fixed_projected_x;
+	point_y = OBJECT(current_object)->projected_y * 2u;
+	unproject_point(&point_x, &point_y);
+	OBJECT(current_object)->x = point_x;
+	OBJECT(current_object)->y = point_y;
+	sound_id = add_to_touchable_list(sound_id);
 }
 
 void start_fireball_flipped(void)
@@ -2209,24 +2452,7 @@ void fireball_fly(void)
 	{
 	case 0:
 	case 2:
-		OBJECT(current_object)->x += OBJECT(current_object)->speed_x;
-		OBJECT(current_object)->y += OBJECT(current_object)->speed_y;
-		arc_step = 9u;
-		if (stage == 0xCu)
-			arc_step = 0xEu;
-		OBJECT(current_object)->fireball_fly.arc_angle += arc_step;
-		OBJECT(current_object)->z = sine_table[(uint16_t)OBJECT(current_object)->fireball_fly.arc_angle & 0x3FFu] * 0xFFFFFEC0u + OBJECT(current_object)->floor_z;
-		animate_and_move(0u);
-		flight_timer = OBJECT(current_object)->fireball_fly.flight_timer;
-		OBJECT(current_object)->fireball_fly.flight_timer = flight_timer - 1u;
-		if ((int16_t)flight_timer <= 1)
-		{
-			OBJECT(current_object)->fireball_fly.state++;
-			OBJECT(current_object)->z = OBJECT(current_object)->floor_z;
-		}
-		project_object(&ignored, &ignored);
-		ignored = queue_sprite_at_floor();
-		return;
+		break;
 	case 1:
 		at_last_step = animate_and_move(0u);
 		if ((uint8_t)at_last_step != 0u)
@@ -2241,6 +2467,23 @@ void fireball_fly(void)
 	default:
 		invalid_jump(0x83AA5u + OBJECT(current_object)->fireball_fly.state * 2u);
 	}
+	OBJECT(current_object)->x += OBJECT(current_object)->speed_x;
+	OBJECT(current_object)->y += OBJECT(current_object)->speed_y;
+	arc_step = 9u;
+	if (stage == 0xCu)
+		arc_step = 0xEu;
+	OBJECT(current_object)->fireball_fly.arc_angle += arc_step;
+	OBJECT(current_object)->z = sine_table[(uint16_t)OBJECT(current_object)->fireball_fly.arc_angle & 0x3FFu] * 0xFFFFFEC0u + OBJECT(current_object)->floor_z;
+	animate_and_move(0u);
+	flight_timer = OBJECT(current_object)->fireball_fly.flight_timer;
+	OBJECT(current_object)->fireball_fly.flight_timer = flight_timer - 1u;
+	if ((int16_t)flight_timer <= 1)
+	{
+		OBJECT(current_object)->fireball_fly.state++;
+		OBJECT(current_object)->z = OBJECT(current_object)->floor_z;
+	}
+	project_object(&ignored, &ignored);
+	ignored = queue_sprite_at_floor();
 }
 
 void flame_start(void)
@@ -2349,22 +2592,23 @@ void rising_flame_spawn_next(void)
 
 	object = LINKED(current_object, rising_fire_object);
 	if (OBJECT(object)->machine_fire.state != 2u)
-		OBJECT(current_object)->rising_flame.state++;
-	else if ((int16_t)(OBJECT(object)->z_int - OBJECT(object)->hitbox_height) <= OBJECT(current_object)->z_int)
 	{
-		allocate_object(&free_count, &object_2);
-		if (free_count == 0u)
-			return;
-		OBJECT(object_2)->handler = rising_flame_update_ADDRESS;
-		OBJECT(object_2)->rising_flame.state = 0u;
-		object_3 = LINKED(current_object, rising_fire_object);
-		OBJECT(object_2)->x = OBJECT(object_3)->x;
-		OBJECT(object_2)->y = OBJECT(current_object)->y;
-		OBJECT(object_2)->z = OBJECT(object_3)->z;
-		OBJECT(object_2)->z_int -= OBJECT(object_3)->hitbox_height;
 		OBJECT(current_object)->rising_flame.state++;
 		return;
 	}
+	if (OBJECT(current_object)->z_int < (int16_t)(OBJECT(object)->z_int - OBJECT(object)->hitbox_height))
+		return;
+	allocate_object(&free_count, &object_2);
+	if (free_count == 0u)
+		return;
+	OBJECT(object_2)->handler = rising_flame_update_ADDRESS;
+	OBJECT(object_2)->rising_flame.state = 0u;
+	object_3 = LINKED(current_object, rising_fire_object);
+	OBJECT(object_2)->x = OBJECT(object_3)->x;
+	OBJECT(object_2)->y = OBJECT(current_object)->y;
+	OBJECT(object_2)->z = OBJECT(object_3)->z;
+	OBJECT(object_2)->z_int -= OBJECT(object_3)->hitbox_height;
+	OBJECT(current_object)->rising_flame.state++;
 }
 
 void rising_flame_wait_offscreen(void)
@@ -2510,28 +2754,24 @@ void ram_target_check_hits(void)
 {
 	uint32_t animation = 0, script_record = 0;
 
-	if (roller_ram_hit == 0u)
+	if (roller_ram_hit != 0u)
 	{
-		ram_target_draw();
-		return;
+		OBJECT(current_object)->animation_frame = 0u;
+		OBJECT(current_object)->ram_target.hit_count++;
+		if ((int8_t)ROM8(OBJECT(current_object)->ram_target.damage_script) <= OBJECT(current_object)->ram_target.hit_count)
+		{
+			script_record = OBJECT(current_object)->ram_target.damage_script + 2u;
+			animation = ROM16(script_record) + ram_target_damage_script_ADDRESS;
+			OBJECT(current_object)->animation = animation;
+			OBJECT(current_object)->ram_target.damage_script = script_record + 2u;
+			if (OBJECT(current_object)->ram_target.hit_count >= 4)
+			{
+				ram_target_burst(animation);
+				ram_target_draw();
+				return;
+			}
+		}
 	}
-	OBJECT(current_object)->animation_frame = 0u;
-	OBJECT(current_object)->ram_target.hit_count++;
-	if (OBJECT(current_object)->ram_target.hit_count < (int8_t)ROM8(OBJECT(current_object)->ram_target.damage_script))
-	{
-		ram_target_draw();
-		return;
-	}
-	script_record = OBJECT(current_object)->ram_target.damage_script + 2u;
-	animation = ROM16(script_record) + ram_target_damage_script_ADDRESS;
-	OBJECT(current_object)->animation = animation;
-	OBJECT(current_object)->ram_target.damage_script = script_record + 2u;
-	if (OBJECT(current_object)->ram_target.hit_count < 4)
-	{
-		ram_target_draw();
-		return;
-	}
-	ram_target_burst(animation);
 	ram_target_draw();
 }
 
@@ -2623,23 +2863,45 @@ void ram_target_part_update(void)
 	uint16_t margin = 0;
 	uint32_t depth = 0, ignored = 0, off_screen = 0;
 
-	if (OBJECT(LINKED(current_object, chaser_object))->y_int <= (int16_t)(OBJECT(current_object)->y_int + 0x60u) && roller_ram_hit != 0u)
+	if ((int16_t)(OBJECT(current_object)->y_int + 0x60u) < OBJECT(LINKED(current_object, chaser_object))->y_int || roller_ram_hit == 0u)
 	{
-		OBJECT(current_object)->ram_target.hit_count++;
-		if (OBJECT(current_object)->ram_target.hit_count >= 4)
+		margin = 0x88u;
+		off_screen = check_left_screen_margin(margin);
+		if (off_screen == 0u)
 		{
-			if (OBJECT(current_object)->ram_target.variant != 0u)
-			{
-				delete_current_object();
-				return;
-			}
-			OBJECT(current_object)->sprite_flags = 0x1049u;
-			OBJECT(current_object)->sprite_frame = 0x6A88u;
-			OBJECT(current_object)->sprite_palette = 0x11B0u;
-			OBJECT(current_object)->sprite_offset_x = 2;
-			OBJECT(current_object)->sprite_offset_y = -0x19;
+			update_screen_position(&ignored, &ignored);
+			depth = (uint16_t)(OBJECT(current_object)->screen_y - 0x28u);
+			queue_sprite_at_depth(&ignored, &depth);
+			return;
 		}
+		delete_current_object();
+		return;
 	}
+	OBJECT(current_object)->ram_target.hit_count++;
+	if (OBJECT(current_object)->ram_target.hit_count < 4)
+	{
+		margin = 0x88u;
+		off_screen = check_left_screen_margin(margin);
+		if (off_screen == 0u)
+		{
+			update_screen_position(&ignored, &ignored);
+			depth = (uint16_t)(OBJECT(current_object)->screen_y - 0x28u);
+			queue_sprite_at_depth(&ignored, &depth);
+			return;
+		}
+		delete_current_object();
+		return;
+	}
+	if (OBJECT(current_object)->ram_target.variant != 0u)
+	{
+		delete_current_object();
+		return;
+	}
+	OBJECT(current_object)->sprite_flags = 0x1049u;
+	OBJECT(current_object)->sprite_frame = 0x6A88u;
+	OBJECT(current_object)->sprite_palette = 0x11B0u;
+	OBJECT(current_object)->sprite_offset_x = 2;
+	OBJECT(current_object)->sprite_offset_y = -0x19;
 	margin = 0x88u;
 	off_screen = check_left_screen_margin(margin);
 	if (off_screen == 0u)
@@ -2720,9 +2982,8 @@ void fire_vent_start(void)
 void fire_vent_update(void)
 {
 	uint32_t zero = 0, negative = 0, overflow = 0;
-	uint8_t sound_id = 0;
 	uint16_t margin = 0;
-	uint32_t depth = 0, free_count = 0, ignored = 0, object = 0, off_screen = 0;
+	uint32_t off_screen = 0;
 	uint16_t blast_delay = 0, next_delay = 0;
 
 	margin = 0x40u;
@@ -2740,50 +3001,77 @@ void fire_vent_update(void)
 	}
 	if ((uint16_t)OBJECT(current_object)->fire_vent.blast_delay == 0u)
 	{
-	fire_vent_blast:
-		OBJECT(current_object)->fire_vent.blast_delay = -1;
-		OBJECT(current_object)->fire_vent.burst_state = 1u;
-		OBJECT(current_object)->sprite_frame = 0x6A50u;
-		OBJECT(current_object)->sprite_palette = 0x9120u;
-		OBJECT(current_object)->fire_vent.palette_index = 0xFFu;
-		allocate_object(&free_count, &object);
-		if (free_count != 0u)
-		{
-			OBJECT(object)->sprite_flags = 0x1009u;
-			OBJECT(object)->sprite_palette = 0x90B0u;
-			OBJECT(object)->sprite_offset_x = 0;
-			OBJECT(object)->sprite_offset_y = 0;
-			OBJECT(object)->flags = 0u;
-			OBJECT(object)->handler = fire_vent_burst_animate_ADDRESS;
-			OBJECT(object)->parent = current_object;
-			OBJECT(object)->animation = fire_vent_blast_animation_ADDRESS;
-			OBJECT(object)->animation_frame = 0u;
-			OBJECT(object)->animation_speed = 3u;
-			OBJECT(object)->animation_timer = 0;
-			OBJECT(object)->projected_x = OBJECT(current_object)->projected_x;
-			OBJECT(object)->projected_x += 0x3Au;
-			OBJECT(object)->anchor_x = OBJECT(object)->projected_x;
-			OBJECT(object)->projected_y = OBJECT(current_object)->projected_y;
-			OBJECT(object)->projected_y_int -= 0x31u;
-			OBJECT(object)->anchor_y = OBJECT(object)->projected_y_int;
-			OBJECT(object)->z = OBJECT(current_object)->z;
-			sound_id = 0xAu;
-			play_sound(sound_id, &ignored, &ignored);
-		}
+		fire_vent_blast();
+		return;
 	}
-	else if (OBJECT(current_object)->screen_y >= 0x18)
+	if (OBJECT(current_object)->screen_y < 0x18)
 	{
-		blast_delay = OBJECT(current_object)->fire_vent.blast_delay;
-		next_delay = blast_delay - 1u;
-		overflow = blast_delay == 0x8000u;
-		zero = next_delay == 0u;
-		negative = next_delay >> 15;
-		OBJECT(current_object)->fire_vent.blast_delay = next_delay;
-		if (blast_delay == 1u)
-			goto fire_vent_blast;
-		if ((negative ^ overflow) | zero)
-			OBJECT(current_object)->fire_vent.blast_delay = -1;
+		fire_vent_draw();
+		return;
 	}
+	blast_delay = OBJECT(current_object)->fire_vent.blast_delay;
+	next_delay = blast_delay - 1u;
+	overflow = blast_delay == 0x8000u;
+	zero = next_delay == 0u;
+	negative = next_delay >> 15;
+	OBJECT(current_object)->fire_vent.blast_delay = next_delay;
+	if (blast_delay == 1u)
+	{
+		fire_vent_blast();
+		return;
+	}
+	if (((negative ^ overflow) | zero) == 0u)
+	{
+		fire_vent_draw();
+		return;
+	}
+	OBJECT(current_object)->fire_vent.blast_delay = -1;
+	fire_vent_draw();
+}
+
+void fire_vent_blast(void)
+{
+	uint8_t sound_id = 0;
+	uint32_t free_count = 0, ignored = 0, object = 0;
+
+	OBJECT(current_object)->fire_vent.blast_delay = -1;
+	OBJECT(current_object)->fire_vent.burst_state = 1u;
+	OBJECT(current_object)->sprite_frame = 0x6A50u;
+	OBJECT(current_object)->sprite_palette = 0x9120u;
+	OBJECT(current_object)->fire_vent.palette_index = 0xFFu;
+	allocate_object(&free_count, &object);
+	if (free_count == 0u)
+	{
+		fire_vent_draw();
+		return;
+	}
+	OBJECT(object)->sprite_flags = 0x1009u;
+	OBJECT(object)->sprite_palette = 0x90B0u;
+	OBJECT(object)->sprite_offset_x = 0;
+	OBJECT(object)->sprite_offset_y = 0;
+	OBJECT(object)->flags = 0u;
+	OBJECT(object)->handler = fire_vent_burst_animate_ADDRESS;
+	OBJECT(object)->parent = current_object;
+	OBJECT(object)->animation = fire_vent_blast_animation_ADDRESS;
+	OBJECT(object)->animation_frame = 0u;
+	OBJECT(object)->animation_speed = 3u;
+	OBJECT(object)->animation_timer = 0;
+	OBJECT(object)->projected_x = OBJECT(current_object)->projected_x;
+	OBJECT(object)->projected_x += 0x3Au;
+	OBJECT(object)->anchor_x = OBJECT(object)->projected_x;
+	OBJECT(object)->projected_y = OBJECT(current_object)->projected_y;
+	OBJECT(object)->projected_y_int -= 0x31u;
+	OBJECT(object)->anchor_y = OBJECT(object)->projected_y_int;
+	OBJECT(object)->z = OBJECT(current_object)->z;
+	sound_id = 0xAu;
+	play_sound(sound_id, &ignored, &ignored);
+	fire_vent_draw();
+}
+
+void fire_vent_draw(void)
+{
+	uint32_t depth = 0, ignored = 0;
+
 	update_screen_position(&ignored, &ignored);
 	if (OBJECT(current_object)->fire_vent.burst_state == 0u)
 	{

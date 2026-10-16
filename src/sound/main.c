@@ -422,31 +422,28 @@ void init_midi_parts(void)
 		z80_block(56);
 		template_then_product = (template_then_product & 0xFFu) | ((uint32_t)MIDI_PART(part)->volume << 8);
 		value = 0xFFu;
-		if ((MIDI_PART(part)->flags & 1u) != 0u)
+		if ((MIDI_PART(part)->flags & 1u) == 0u)
 		{
-		scale_part_volume:
-			z80_block(21);
-			factor = value;
-			template_then_product = multiply_bytes(factor, template_then_product);
-			z80_block(18);
-			value = (uint8_t)(template_then_product >> 8);
-			if (value != 0u)
-			{
-				z80_block(4);
-				value++;
-			}
-			z80_block(52);
-			MIDI_PART(part)->effective_volume = value;
-			part += 9u;
-			count = (uint32_t)(uint8_t)((count >> 8) - 1u) << 8;
-			if (count >> 8 == 0u)
-				break;
-			z80_cycles(5);
-			continue;
+			z80_block(13);
+			value = music_volume;
 		}
-		z80_block(13);
-		value = music_volume;
-		goto scale_part_volume;
+		z80_block(21);
+		factor = value;
+		template_then_product = multiply_bytes(factor, template_then_product);
+		z80_block(18);
+		value = (uint8_t)(template_then_product >> 8);
+		if (value != 0u)
+		{
+			z80_block(4);
+			value++;
+		}
+		z80_block(52);
+		MIDI_PART(part)->effective_volume = value;
+		part += 9u;
+		count = (uint32_t)(uint8_t)((count >> 8) - 1u) << 8;
+		if (count >> 8 == 0u)
+			break;
+		z80_cycles(5);
 	}
 	z80_block(10);
 }

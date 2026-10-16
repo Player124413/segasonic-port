@@ -157,17 +157,21 @@ void bubble_pop(void)
 		return;
 	}
 	next_random(&jitter, &ignored, &ignored);
-	if (OBJECT(current_object)->bubble_pop.variant != 6u)
+	if (OBJECT(current_object)->bubble_pop.variant == 6u)
 	{
-		jitter = (jitter & ~0xFFFFu) | (jitter & 0xFu);
-		if ((int32_t)jitter < 0)
-			jitter = (uint16_t)(0u - jitter);
-		jitter_y = (uint16_t)jitter;
-		jitter = (uint16_t)(jitter + OBJECT(current_object)->bubble_pop.base_x);
-		OBJECT(current_object)->x_int = jitter;
-		OBJECT(current_object)->y_int = jitter_y + OBJECT(current_object)->bubble_pop.base_y;
-		project_object(&ignored, &ignored);
+		OBJECT(current_object)->animation_speed = (jitter & 7u) + 1u;
+		depth = OBJECT(current_object)->bubble_pop.draw_depth;
+		queue_sprite_at_depth(&ignored, &depth);
+		return;
 	}
+	jitter = (jitter & ~0xFFFFu) | (jitter & 0xFu);
+	if ((int32_t)jitter < 0)
+		jitter = (uint16_t)(0u - jitter);
+	jitter_y = (uint16_t)jitter;
+	jitter = (uint16_t)(jitter + OBJECT(current_object)->bubble_pop.base_x);
+	OBJECT(current_object)->x_int = jitter;
+	OBJECT(current_object)->y_int = jitter_y + OBJECT(current_object)->bubble_pop.base_y;
+	project_object(&ignored, &ignored);
 	OBJECT(current_object)->animation_speed = (jitter & 7u) + 1u;
 	depth = OBJECT(current_object)->bubble_pop.draw_depth;
 	queue_sprite_at_depth(&ignored, &depth);

@@ -19,20 +19,7 @@ uint32_t run_map_screen(uint32_t bottom_speed, uint32_t object)
 	{
 	case 0:
 	case 6:
-		mixer_text_blend |= 0x4000u;
-		mixer_nbg0_blend |= 0x4000u;
-		mixer_nbg1_blend |= 0x4000u;
-		mixer_nbg2_blend |= 0x4000u;
-		mixer_nbg3_blend |= 0x4000u;
-		mixer_bitmap_blend |= 0x4000u;
-		mixer_sprite_control |= 0x8000u;
-		fade_kind = 0;
-		fade_speed = 1u;
-		window_wipe_closing = 0u;
-		record = map_wipe_in_windows_ADDRESS + stage * 6u;
-		bottom_speed = start_window_wipe(record);
-		map_screen_step++;
-		return bottom_speed;
+		break;
 	case 1:
 		update_fade(0u);
 		if (fade_kind < 0)
@@ -61,6 +48,20 @@ uint32_t run_map_screen(uint32_t bottom_speed, uint32_t object)
 	default:
 		invalid_jump(0x95983u + map_screen_step * 3u);
 	}
+	mixer_text_blend |= 0x4000u;
+	mixer_nbg0_blend |= 0x4000u;
+	mixer_nbg1_blend |= 0x4000u;
+	mixer_nbg2_blend |= 0x4000u;
+	mixer_nbg3_blend |= 0x4000u;
+	mixer_bitmap_blend |= 0x4000u;
+	mixer_sprite_control |= 0x8000u;
+	fade_kind = 0;
+	fade_speed = 1u;
+	window_wipe_closing = 0u;
+	record = map_wipe_in_windows_ADDRESS + stage * 6u;
+	bottom_speed = start_window_wipe(record);
+	map_screen_step++;
+	return bottom_speed;
 }
 
 void run_map_screen_wait_for_wipe(uint32_t edges_done)
@@ -184,14 +185,29 @@ void move_map_stage_icon(void)
 	uint16_t icon_x = 0, icon_y = 0;
 
 	icon_y = (uint16_t)(((int32_t)OBJECT(current_object)->move_map_stage_icon.offset_y >> 16) + OBJECT(current_object)->move_map_stage_icon.base_y);
-	if ((uint16_t)(((int32_t)OBJECT(current_object)->move_map_stage_icon.offset_x >> 16) + OBJECT(current_object)->move_map_stage_icon.base_x) != 0x30u || icon_y != 0x10u)
+	if ((uint16_t)(((int32_t)OBJECT(current_object)->move_map_stage_icon.offset_x >> 16) + OBJECT(current_object)->move_map_stage_icon.base_x) == 0x30u && icon_y == 0x10u)
 	{
-		OBJECT(current_object)->move_map_stage_icon.timer--;
-		if ((uint16_t)OBJECT(current_object)->move_map_stage_icon.timer == 0u)
-			OBJECT(current_object)->animation_frame++;
-		OBJECT(current_object)->move_map_stage_icon.offset_x += OBJECT(current_object)->move_map_stage_icon.step_x;
-		OBJECT(current_object)->move_map_stage_icon.offset_y += OBJECT(current_object)->move_map_stage_icon.step_y;
+		icon_x = (uint16_t)(((int32_t)OBJECT(current_object)->move_map_stage_icon.offset_x >> 16) + OBJECT(current_object)->move_map_stage_icon.base_x);
+		icon_y = (uint16_t)(((int32_t)OBJECT(current_object)->move_map_stage_icon.offset_y >> 16) + OBJECT(current_object)->move_map_stage_icon.base_y);
+		OBJECT(current_object)->sprite_frame = map_stage_icon;
+		OBJECT(current_object)->move_map_stage_icon.blink_phase++;
+		OBJECT(current_object)->move_map_stage_icon.blink_phase &= 1u;
+		if (OBJECT(current_object)->move_map_stage_icon.blink_phase == 0u)
+			OBJECT(current_object)->sprite_frame = 0x6538u;
+		OBJECT(current_object)->sprite_palette = 0x6B0u;
+		OBJECT(current_object)->sprite_scale = 0x100u;
+		OBJECT(current_object)->sprite_layer = 1u;
+		OBJECT(current_object)->screen_x = icon_x;
+		OBJECT(current_object)->screen_y = icon_y;
+		OBJECT(current_object)->sprite_flags = 0x10Au;
+		queue_sprite_in_layer();
+		return;
 	}
+	OBJECT(current_object)->move_map_stage_icon.timer--;
+	if ((uint16_t)OBJECT(current_object)->move_map_stage_icon.timer == 0u)
+		OBJECT(current_object)->animation_frame++;
+	OBJECT(current_object)->move_map_stage_icon.offset_x += OBJECT(current_object)->move_map_stage_icon.step_x;
+	OBJECT(current_object)->move_map_stage_icon.offset_y += OBJECT(current_object)->move_map_stage_icon.step_y;
 	icon_x = (uint16_t)(((int32_t)OBJECT(current_object)->move_map_stage_icon.offset_x >> 16) + OBJECT(current_object)->move_map_stage_icon.base_x);
 	icon_y = (uint16_t)(((int32_t)OBJECT(current_object)->move_map_stage_icon.offset_y >> 16) + OBJECT(current_object)->move_map_stage_icon.base_y);
 	OBJECT(current_object)->sprite_frame = map_stage_icon;
@@ -353,16 +369,11 @@ void map_screen_update(void)
 		OBJECT(current_object)->map_screen.timer = 0x3C;
 		return;
 	case 6:
-		if ((uint16_t)OBJECT(current_object)->map_screen.timer != 0u)
-			OBJECT(current_object)->map_screen.timer--;
-		else
+		if ((uint16_t)OBJECT(current_object)->map_screen.timer == 0u)
 		{
 			update_screen_wipe(&ignored, &ignored, &ignored, &edges_done);
-			if ((edges_done & 0xFu) == 0xFu)
+			if ((edges_done & 0xFu) != 0xFu)
 			{
-				OBJECT(current_object)->animation_frame++;
-				map_screen_step++;
-				OBJECT(current_object)->map_screen.timer--;
 				OBJECT(current_object)->sprite_frame = map_stage_icon;
 				OBJECT(current_object)->map_screen.blink_phase++;
 				OBJECT(current_object)->map_screen.blink_phase &= 1u;
@@ -377,7 +388,10 @@ void map_screen_update(void)
 				queue_sprite_in_layer();
 				return;
 			}
+			OBJECT(current_object)->animation_frame++;
+			map_screen_step++;
 		}
+		OBJECT(current_object)->map_screen.timer--;
 		OBJECT(current_object)->sprite_frame = map_stage_icon;
 		OBJECT(current_object)->map_screen.blink_phase++;
 		OBJECT(current_object)->map_screen.blink_phase &= 1u;
@@ -567,42 +581,42 @@ void map_eggman_update(void)
 				return;
 			}
 		}
-		if (OBJECT(current_object)->map_eggman.hold_frames == 0u)
+		if (OBJECT(current_object)->map_eggman.hold_frames != 0u)
 		{
-			if (OBJECT(current_object)->map_eggman.sound_step == 1u)
+			if (OBJECT(current_object)->map_eggman.sound_step == 0u)
 			{
-				OBJECT(current_object)->map_eggman.sound_step = 2u;
-				sound_id = stage_map_sounds_3[stage];
+				OBJECT(current_object)->map_eggman.sound_step = 1u;
+				sound_id = stage_map_sounds_2[stage];
 				queue_sound(sound_id, &ignored, &ignored);
-				if (stage == 9u)
-				{
-					map_stage_09_sound_count++;
-					if ((int8_t)map_stage_09_sound_count >= 0x5A)
-					{
-						map_stage_09_sound_count = 0x5Au;
-						sound_id = 0x95u;
-						queue_sound(sound_id, &ignored, &ignored);
-					}
-				}
 			}
-			if ((int16_t)AS16(OBJECT(current_object)->kind) <= 5)
-			{
-				draw_map_eggman();
-				return;
-			}
-			OBJECT(current_object)->kind = 4u;
-			OBJECT(current_object)->map_eggman.timer = 5u;
+			OBJECT(current_object)->kind = 3u;
+			OBJECT(current_object)->map_eggman.hold_frames--;
 			draw_map_eggman();
 			return;
 		}
-		if (OBJECT(current_object)->map_eggman.sound_step == 0u)
+		if (OBJECT(current_object)->map_eggman.sound_step == 1u)
 		{
-			OBJECT(current_object)->map_eggman.sound_step = 1u;
-			sound_id = stage_map_sounds_2[stage];
+			OBJECT(current_object)->map_eggman.sound_step = 2u;
+			sound_id = stage_map_sounds_3[stage];
 			queue_sound(sound_id, &ignored, &ignored);
+			if (stage == 9u)
+			{
+				map_stage_09_sound_count++;
+				if ((int8_t)map_stage_09_sound_count >= 0x5A)
+				{
+					map_stage_09_sound_count = 0x5Au;
+					sound_id = 0x95u;
+					queue_sound(sound_id, &ignored, &ignored);
+				}
+			}
 		}
-		OBJECT(current_object)->kind = 3u;
-		OBJECT(current_object)->map_eggman.hold_frames--;
+		if ((int16_t)AS16(OBJECT(current_object)->kind) <= 5)
+		{
+			draw_map_eggman();
+			return;
+		}
+		OBJECT(current_object)->kind = 4u;
+		OBJECT(current_object)->map_eggman.timer = 5u;
 		draw_map_eggman();
 		return;
 	default:
@@ -612,26 +626,30 @@ void map_eggman_update(void)
 
 void map_eggman_hands_update(void)
 {
-	if (OBJECT(current_object)->map_eggman_hands.timer == 0u)
-		return;
-	OBJECT(current_object)->map_eggman_hands.timer--;
-	OBJECT(current_object)->sprite_frame = ((uint32_t)OBJECT(current_object)->map_eggman_hands.frame_step << 3) + 0x5798u;
-	OBJECT(current_object)->sprite_palette = 0x690u;
-	OBJECT(current_object)->sprite_scale = 0x100u;
-	OBJECT(current_object)->sprite_layer = 0u;
-	OBJECT(current_object)->screen_x = 0xB7;
-	OBJECT(current_object)->screen_y = 0x9B;
-	OBJECT(current_object)->sprite_flags = 0u;
-	OBJECT(current_object)->sprite_flags &= ~0xFu;
-	OBJECT(current_object)->sprite_flags |= 7u;
-	queue_sprite_in_layer();
-	if ((OBJECT(current_object)->map_eggman_hands.timer & 3u) != 3u)
-		return;
-	OBJECT(current_object)->kind++;
-	OBJECT(current_object)->map_eggman_hands.frame_step++;
-	if (OBJECT(current_object)->map_eggman_hands.frame_step != 6u)
-		return;
-	OBJECT(current_object)->map_eggman_hands.frame_step = 0u;
+	if (OBJECT(current_object)->map_eggman_hands.timer != 0u)
+	{
+		OBJECT(current_object)->map_eggman_hands.timer--;
+		OBJECT(current_object)->sprite_frame = ((uint32_t)OBJECT(current_object)->map_eggman_hands.frame_step << 3) + 0x5798u;
+		OBJECT(current_object)->sprite_palette = 0x690u;
+		OBJECT(current_object)->sprite_scale = 0x100u;
+		OBJECT(current_object)->sprite_layer = 0u;
+		OBJECT(current_object)->screen_x = 0xB7;
+		OBJECT(current_object)->screen_y = 0x9B;
+		OBJECT(current_object)->sprite_flags = 0u;
+		OBJECT(current_object)->sprite_flags &= ~0xFu;
+		OBJECT(current_object)->sprite_flags |= 7u;
+		queue_sprite_in_layer();
+		if ((OBJECT(current_object)->map_eggman_hands.timer & 3u) == 3u)
+		{
+			OBJECT(current_object)->kind++;
+			OBJECT(current_object)->map_eggman_hands.frame_step++;
+			if (OBJECT(current_object)->map_eggman_hands.frame_step == 6u)
+			{
+				OBJECT(current_object)->map_eggman_hands.frame_step = 0u;
+				return;
+			}
+		}
+	}
 }
 
 void map_eggman_draw_plain(void)
@@ -775,7 +793,6 @@ uint32_t draw_map_stage_markers(uint32_t badge_offset)
 			layout = (layout & ~0xFFFFu) | (uint16_t)(layout + 2u);
 			if (OBJECT(object_cursor)->draw_map_stage_markers.trail_done >= 0)
 			{
-			draw_map_stage_markers_show_marker:
 				queue_sprite_in_layer();
 				current_object = current_object + 0x30u;
 			}
@@ -783,13 +800,28 @@ uint32_t draw_map_stage_markers(uint32_t badge_offset)
 			{
 				badge_offset = stage_map_markers[stage];
 				if ((int8_t)badge_offset < 0)
-					goto draw_map_stage_markers_show_marker;
-				badge_offset = badge_offset * 0xCu;
-				if (OBJECT(current_object)->sprite_frame != ROM16(map_number_badge_sprites_ADDRESS + badge_offset))
-					goto draw_map_stage_markers_show_marker;
-				OBJECT(object_cursor)->draw_map_stage_markers.marker_blink_count++;
-				if ((OBJECT(object_cursor)->draw_map_stage_markers.marker_blink_count & 8u) != 0u)
-					goto draw_map_stage_markers_show_marker;
+				{
+					queue_sprite_in_layer();
+					current_object = current_object + 0x30u;
+				}
+				else
+				{
+					badge_offset = badge_offset * 0xCu;
+					if (OBJECT(current_object)->sprite_frame != ROM16(map_number_badge_sprites_ADDRESS + badge_offset))
+					{
+						queue_sprite_in_layer();
+						current_object = current_object + 0x30u;
+					}
+					else
+					{
+						OBJECT(object_cursor)->draw_map_stage_markers.marker_blink_count++;
+						if ((OBJECT(object_cursor)->draw_map_stage_markers.marker_blink_count & 8u) != 0u)
+						{
+							queue_sprite_in_layer();
+							current_object = current_object + 0x30u;
+						}
+					}
+				}
 			}
 			markers_left--;
 		} while (markers_left != 0u);

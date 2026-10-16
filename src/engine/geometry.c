@@ -259,100 +259,74 @@ void find_floor(uint32_t *p_x, uint32_t *p_y, uint32_t *p_block_offset, uint32_t
 	uint32_t y = *p_y;
 	uint32_t block_offset = *p_block_offset;
 	uint32_t cursor = *p_cursor;
-	uint32_t carry = 0;
-	uint32_t base_z = 0, block = 0, blocks_left = 0, floor_type_index = 0, object = 0, record = 0, slope_factor = 0, slope_height = 0, slope_index = 0;
+	uint32_t r0 = 0, base_z = 0, block = 0, block_slope_height = 0, blocks_left = 0, candidate_offset = 0, floor_type_index = 0, nearby_cursor = 0, object = 0, object_x = 0, record = 0, slope_height = 0, slope_index = 0;
 	uint32_t x_min = 0, x_max = 0, y_min = 0;
 
 	if ((OBJECT(current_object)->flags & 8u) == 0u)
 	{
 		blocks_left = nearby_floor_block_count;
-		cursor = nearby_floor_blocks_ADDRESS;
+		nearby_cursor = nearby_floor_blocks_ADDRESS;
 		block = floor_blocks + 2u;
 		if (blocks_left == 0u)
 		{
-		find_floor_no_block:
-			if (OBJECT(current_object)->floor_block >= 0 && OBJECT(current_object)->floor_z_int < 0x7FF)
-			{
-				OBJECT(current_object)->previous_floor_block = OBJECT(current_object)->floor_block;
-				OBJECT(current_object)->previous_floor_z = OBJECT(current_object)->floor_z;
-			}
-			OBJECT(current_object)->floor_block = -1;
-			block = no_floor_block_ADDRESS;
-		}
-		else
-		{
-			x = OBJECT(current_object)->x;
-			y = OBJECT(current_object)->y;
-			for (;;)
-			{
-				block_offset = mem_read16(cursor);
-				record = block + block_offset;
-				x_min = FLOOR_BLOCK(record)->x_min;
-				cursor += 2u;
-				record += 4u;
-				if ((int32_t)x < (int32_t)x_min)
-				{
-				find_floor_next_block:
-					blocks_left--;
-					if (blocks_left != 0u)
-						continue;
-					goto find_floor_no_block;
-				}
-				x_max = FLOOR_BLOCK(record - 0x4u)->x_max;
-				record += 4u;
-				if ((int32_t)x_max < (int32_t)x)
-					goto find_floor_next_block;
-				y_min = FLOOR_BLOCK(record - 0x8u)->y_min;
-				record += 4u;
-				if ((int32_t)y < (int32_t)y_min || FLOOR_BLOCK(record - 0xCu)->y_max < (int32_t)y)
-					goto find_floor_next_block;
-				break;
-			}
-			if (OBJECT(current_object)->floor_block >= 0 && OBJECT(current_object)->floor_z_int < 0x7FF)
-			{
-				OBJECT(current_object)->previous_floor_block = OBJECT(current_object)->floor_block;
-				OBJECT(current_object)->previous_floor_z = OBJECT(current_object)->floor_z;
-			}
-			OBJECT(current_object)->floor_block = block_offset;
-			block += block_offset;
-			x = FLOOR_BLOCK(block)->type_index;
-			record = floor_types_ADDRESS + x * 4u;
-			OBJECT(current_object)->floor_type = ROM8(record);
-			OBJECT(current_object)->floor_attribute = ROM16(record + 2u);
-		}
-		OBJECT(current_object)->floor_z_int = FLOOR_BLOCK(block)->height;
-		OBJECT(current_object)->floor_z_fraction = 0u;
-		OBJECT(current_object)->floor_slope = FLOOR_BLOCK(block)->slope;
-		slope_height = 0u;
-		if (FLOOR_BLOCK(block)->slope == 0u)
-		{
+			find_floor_no_block(&x, &block_slope_height, &nearby_cursor);
 			*p_x = x;
 			*p_y = y;
 			*p_block_offset = block_offset;
-			*p_slope_height = slope_height;
-			*p_cursor = cursor;
+			*p_slope_height = block_slope_height;
+			*p_cursor = nearby_cursor;
 			return;
 		}
-		slope_index = FLOOR_BLOCK(block)->slope;
-		cursor = floor_slopes_ADDRESS + (uint16_t)(slope_index * 2u) * 4u;
-		if ((ROM32(cursor) & 2u) == 0u)
-			slope_height = (uint32_t)OBJECT(current_object)->y - FLOOR_BLOCK(block)->y_min;
-		else
-			slope_height = (uint32_t)OBJECT(current_object)->x - FLOOR_BLOCK(block)->x_min;
-		cursor += 2u;
-		slope_factor = ROM32(cursor);
-		carry = (slope_height >> 11) & 1u;
-		slope_height = (int32_t)slope_height >> 12;
-		cursor += 4u;
-		if (carry)
-			slope_height++;
-		slope_height = (int32_t)(slope_height * slope_factor) >> 4;
-		OBJECT(current_object)->floor_z += slope_height;
-		*p_x = slope_factor;
+		object_x = OBJECT(current_object)->x;
+		y = OBJECT(current_object)->y;
+		for (;;)
+		{
+			candidate_offset = mem_read16(nearby_cursor);
+			record = block + candidate_offset;
+			x_min = FLOOR_BLOCK(record)->x_min;
+			nearby_cursor += 2u;
+			record += 4u;
+			if ((int32_t)x_min <= (int32_t)object_x)
+			{
+				x_max = FLOOR_BLOCK(record - 0x4u)->x_max;
+				record += 4u;
+				if ((int32_t)object_x <= (int32_t)x_max)
+				{
+					y_min = FLOOR_BLOCK(record - 0x8u)->y_min;
+					record += 4u;
+					if ((int32_t)y_min <= (int32_t)y && (int32_t)y <= FLOOR_BLOCK(record - 0xCu)->y_max)
+						break;
+				}
+			}
+			blocks_left--;
+			if (blocks_left == 0u)
+			{
+				find_floor_no_block(&object_x, &block_slope_height, &nearby_cursor);
+				*p_x = object_x;
+				*p_y = y;
+				*p_block_offset = candidate_offset;
+				*p_slope_height = block_slope_height;
+				*p_cursor = nearby_cursor;
+				return;
+			}
+		}
+		if (OBJECT(current_object)->floor_block >= 0 && OBJECT(current_object)->floor_z_int < 0x7FF)
+		{
+			OBJECT(current_object)->previous_floor_block = OBJECT(current_object)->floor_block;
+			OBJECT(current_object)->previous_floor_z = OBJECT(current_object)->floor_z;
+		}
+		OBJECT(current_object)->floor_block = candidate_offset;
+		block += candidate_offset;
+		r0 = FLOOR_BLOCK(block)->type_index;
+		record = floor_types_ADDRESS + r0 * 4u;
+		OBJECT(current_object)->floor_type = ROM8(record);
+		OBJECT(current_object)->floor_attribute = ROM16(record + 2u);
+		find_floor_set_floor_z(block, &r0, &block_slope_height, &nearby_cursor);
+		*p_x = r0;
 		*p_y = y;
-		*p_block_offset = block_offset;
-		*p_slope_height = slope_height;
-		*p_cursor = cursor;
+		*p_block_offset = candidate_offset;
+		*p_slope_height = block_slope_height;
+		*p_cursor = nearby_cursor;
 		return;
 	}
 	if (OBJECT(current_object)->floor_block >= 0 && OBJECT(current_object)->floor_z_int < 0x7FF)
@@ -392,6 +366,68 @@ void find_floor(uint32_t *p_x, uint32_t *p_y, uint32_t *p_block_offset, uint32_t
 	*p_cursor = cursor;
 }
 
+void find_floor_no_block(uint32_t *p_x, uint32_t *p_slope_height, uint32_t *p_cursor)
+{
+	uint32_t x = *p_x;
+	uint32_t cursor = *p_cursor;
+	uint32_t block = 0, slope_height = 0;
+
+	if (OBJECT(current_object)->floor_block < 0 || OBJECT(current_object)->floor_z_int >= 0x7FF)
+	{
+		OBJECT(current_object)->floor_block = -1;
+		block = no_floor_block_ADDRESS;
+		find_floor_set_floor_z(block, &x, &slope_height, &cursor);
+		*p_x = x;
+		*p_slope_height = slope_height;
+		*p_cursor = cursor;
+		return;
+	}
+	OBJECT(current_object)->previous_floor_block = OBJECT(current_object)->floor_block;
+	OBJECT(current_object)->previous_floor_z = OBJECT(current_object)->floor_z;
+	OBJECT(current_object)->floor_block = -1;
+	block = no_floor_block_ADDRESS;
+	find_floor_set_floor_z(block, &x, &slope_height, &cursor);
+	*p_x = x;
+	*p_slope_height = slope_height;
+	*p_cursor = cursor;
+}
+
+void find_floor_set_floor_z(uint32_t block, uint32_t *p_x, uint32_t *p_slope_height, uint32_t *p_cursor)
+{
+	uint32_t x = *p_x;
+	uint32_t cursor = *p_cursor;
+	uint32_t carry = 0;
+	uint32_t slope_factor = 0, slope_height = 0, slope_index = 0;
+
+	OBJECT(current_object)->floor_z_int = FLOOR_BLOCK(block)->height;
+	OBJECT(current_object)->floor_z_fraction = 0u;
+	OBJECT(current_object)->floor_slope = FLOOR_BLOCK(block)->slope;
+	slope_height = 0u;
+	if (FLOOR_BLOCK(block)->slope == 0u)
+	{
+		*p_slope_height = slope_height;
+		return;
+	}
+	slope_index = FLOOR_BLOCK(block)->slope;
+	cursor = floor_slopes_ADDRESS + (uint16_t)(slope_index * 2u) * 4u;
+	if ((ROM32(cursor) & 2u) == 0u)
+		slope_height = (uint32_t)OBJECT(current_object)->y - FLOOR_BLOCK(block)->y_min;
+	else
+		slope_height = (uint32_t)OBJECT(current_object)->x - FLOOR_BLOCK(block)->x_min;
+	cursor += 2u;
+	slope_factor = ROM32(cursor);
+	carry = (slope_height >> 11) & 1u;
+	slope_height = (int32_t)slope_height >> 12;
+	cursor += 4u;
+	if (carry)
+		slope_height++;
+	slope_height = (int32_t)(slope_height * slope_factor) >> 4;
+	OBJECT(current_object)->floor_z += slope_height;
+	*p_x = slope_factor;
+	*p_slope_height = slope_height;
+	*p_cursor = cursor;
+}
+
 void get_floor_z_at_point(uint32_t x, uint32_t y, uint32_t *p_floor_z, uint32_t *p_block)
 {
 	uint32_t floor_z = *p_floor_z;
@@ -415,42 +451,28 @@ void get_floor_z_at_point(uint32_t x, uint32_t y, uint32_t *p_floor_z, uint32_t 
 		x_min = FLOOR_BLOCK(bounds)->x_min;
 		cursor += 2u;
 		bounds += 4u;
-		if ((int32_t)test_x < (int32_t)x_min)
+		if ((int32_t)x_min <= (int32_t)test_x)
 		{
-		get_floor_z_at_point_next_block:
-			blocks_left--;
-			if (blocks_left != 0u)
-				continue;
-			block = no_floor_block_ADDRESS;
-			floor_z = (uint32_t)(uint16_t)FLOOR_BLOCK(block)->height << 16;
-			if (FLOOR_BLOCK(block)->slope == 0u)
+			x_max = FLOOR_BLOCK(bounds - 0x4u)->x_max;
+			bounds += 4u;
+			if ((int32_t)test_x <= (int32_t)x_max)
 			{
-				*p_floor_z = floor_z;
-				*p_block = block;
-				return;
+				y_min = FLOOR_BLOCK(bounds - 0x8u)->y_min;
+				bounds += 4u;
+				if ((int32_t)y_min <= (int32_t)test_y && (int32_t)test_y <= FLOOR_BLOCK(bounds - 0xCu)->y_max)
+				{
+					block += block_offset;
+					break;
+				}
 			}
-			slope = FLOOR_BLOCK(block)->slope;
-			slope_record = floor_slopes_ADDRESS + (uint16_t)(slope * 2u) * 4u;
-			if ((ROM32(slope_record) & 2u) == 0u)
-				slope_distance = y - FLOOR_BLOCK(block)->y_min;
-			else
-				slope_distance = x - FLOOR_BLOCK(block)->x_min;
-			floor_z += (slope_distance >> 16) * ROM32(slope_record + 2u);
-			*p_floor_z = floor_z;
-			*p_block = block;
-			return;
 		}
-		x_max = FLOOR_BLOCK(bounds - 0x4u)->x_max;
-		bounds += 4u;
-		if ((int32_t)x_max < (int32_t)test_x)
-			goto get_floor_z_at_point_next_block;
-		y_min = FLOOR_BLOCK(bounds - 0x8u)->y_min;
-		bounds += 4u;
-		if ((int32_t)test_y < (int32_t)y_min || FLOOR_BLOCK(bounds - 0xCu)->y_max < (int32_t)test_y)
-			goto get_floor_z_at_point_next_block;
-		break;
+		blocks_left--;
+		if (blocks_left == 0u)
+		{
+			block = no_floor_block_ADDRESS;
+			break;
+		}
 	}
-	block += block_offset;
 	floor_z = (uint32_t)(uint16_t)FLOOR_BLOCK(block)->height << 16;
 	if (FLOOR_BLOCK(block)->slope == 0u)
 	{

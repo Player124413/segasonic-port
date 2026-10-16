@@ -100,93 +100,98 @@ void unpack_picture_pixels(uint32_t stream, uint32_t width, uint32_t colour_cach
 		current_player = current_player + code_bits;
 		run_length = code_value - 1u + shift_by(1u, (uint8_t)code_bits, 32);
 		pixels_left = run_length - 1u;
-		if (run_length == 1u)
+		if (run_length != 1u)
 		{
-		unpack_picture_new_pixel:
-			x++;
-			offset++;
-			if ((uint16_t)width <= (uint16_t)x)
+			do
 			{
-				y++;
-				if ((uint16_t)r14 <= (uint16_t)y)
-					break;
-				x = 0u;
-				offset += row_skip;
-			}
-			read_picture_colour(stream, colour_cache, &colour, &newest_slot);
-			mem_write8(bitmap + offset, colour);
-			done_address = done_bits + (offset >> 3);
-			mem_write32(done_address, (mem_read32(done_address) & ~shl32(1u, (int)(offset & 7u))) | shl32(1u, (int)(offset & 7u)));
-			bit = shr32(mem_read32(stream + (current_player >> 3)), (int)(current_player & 7u)) & 1u;
-			current_player = current_player + 1u;
-			if (bit == 0u)
-				continue;
-			chain_offset = offset;
-			for (;;)
+				x++;
+				offset++;
+				if ((uint16_t)width <= (uint16_t)x)
+				{
+					y++;
+					if ((uint16_t)r14 <= (uint16_t)y)
+						return;
+					x = 0u;
+					offset += row_skip;
+				}
+				if ((shr32(mem_read32(done_bits + (offset >> 3)), (int)(offset & 7u)) & 1u) == 0u)
+					mem_write8(bitmap + offset, colour);
+				else
+					colour = mem_read8(bitmap + offset);
+				pixels_left--;
+			} while (pixels_left != 0u);
+		}
+		x++;
+		offset++;
+		if ((uint16_t)width <= (uint16_t)x)
+		{
+			y++;
+			if ((uint16_t)r14 <= (uint16_t)y)
+				break;
+			x = 0u;
+			offset += row_skip;
+		}
+		read_picture_colour(stream, colour_cache, &colour, &newest_slot);
+		mem_write8(bitmap + offset, colour);
+		done_address = done_bits + (offset >> 3);
+		mem_write32(done_address, (mem_read32(done_address) & ~shl32(1u, (int)(offset & 7u))) | shl32(1u, (int)(offset & 7u)));
+		bit = shr32(mem_read32(stream + (current_player >> 3)), (int)(current_player & 7u)) & 1u;
+		current_player = current_player + 1u;
+		if (bit == 0u)
+			continue;
+		chain_offset = offset;
+		for (;;)
+		{
+			chain_step = shr32(mem_read32(stream + (current_player >> 3)), (int)(current_player & 7u)) & 3u;
+			current_player = current_player + 2u;
+			switch (chain_step)
 			{
-				chain_step = shr32(mem_read32(stream + (current_player >> 3)), (int)(current_player & 7u)) & 3u;
-				current_player = current_player + 2u;
-				switch (chain_step)
-				{
-				case 0:
-					break;
-				case 1:
-					chain_offset--;
-				case 2:
-				unpack_picture_chain_down:
-					chain_offset += row_bytes;
-					mem_write8(bitmap + chain_offset, colour);
-					chain_done_address = done_bits + (chain_offset >> 3);
-					mem_write32(chain_done_address, (mem_read32(chain_done_address) & ~shl32(1u, (int)(chain_offset & 7u))) | shl32(1u, (int)(chain_offset & 7u)));
-					continue;
-				case 3:
-					chain_offset++;
-					goto unpack_picture_chain_down;
-				default:
-					invalid_jump(picture_chain_step_jumps[chain_step]);
-				}
-				bit = shr32(mem_read32(stream + (current_player >> 3)), (int)(current_player & 7u)) & 1u;
-				current_player = current_player + 1u;
-				if (bit == 0u)
-					break;
-				bit = shr32(mem_read32(stream + (current_player >> 3)), (int)(current_player & 7u)) & 1u;
-				current_player = current_player + 1u;
-				if (bit == 0u)
-				{
-					chain_offset -= 2u;
-					chain_offset += row_bytes;
-					mem_write8(bitmap + chain_offset, colour);
-					chain_done_address = done_bits + (chain_offset >> 3);
-					mem_write32(chain_done_address, (mem_read32(chain_done_address) & ~shl32(1u, (int)(chain_offset & 7u))) | shl32(1u, (int)(chain_offset & 7u)));
-					continue;
-				}
-				chain_offset += 2u;
+			case 0:
+				break;
+			case 1:
+				chain_offset--;
 				chain_offset += row_bytes;
 				mem_write8(bitmap + chain_offset, colour);
 				chain_done_address = done_bits + (chain_offset >> 3);
 				mem_write32(chain_done_address, (mem_read32(chain_done_address) & ~shl32(1u, (int)(chain_offset & 7u))) | shl32(1u, (int)(chain_offset & 7u)));
+				continue;
+			case 3:
+				chain_offset++;
+				chain_offset += row_bytes;
+				mem_write8(bitmap + chain_offset, colour);
+				chain_done_address = done_bits + (chain_offset >> 3);
+				mem_write32(chain_done_address, (mem_read32(chain_done_address) & ~shl32(1u, (int)(chain_offset & 7u))) | shl32(1u, (int)(chain_offset & 7u)));
+				continue;
+			case 2:
+				chain_offset += row_bytes;
+				mem_write8(bitmap + chain_offset, colour);
+				chain_done_address = done_bits + (chain_offset >> 3);
+				mem_write32(chain_done_address, (mem_read32(chain_done_address) & ~shl32(1u, (int)(chain_offset & 7u))) | shl32(1u, (int)(chain_offset & 7u)));
+				continue;
+			default:
+				invalid_jump(picture_chain_step_jumps[chain_step]);
 			}
-			continue;
-		}
-		do
-		{
-			x++;
-			offset++;
-			if ((uint16_t)width <= (uint16_t)x)
+			bit = shr32(mem_read32(stream + (current_player >> 3)), (int)(current_player & 7u)) & 1u;
+			current_player = current_player + 1u;
+			if (bit == 0u)
+				break;
+			bit = shr32(mem_read32(stream + (current_player >> 3)), (int)(current_player & 7u)) & 1u;
+			current_player = current_player + 1u;
+			if (bit == 0u)
 			{
-				y++;
-				if ((uint16_t)r14 <= (uint16_t)y)
-					return;
-				x = 0u;
-				offset += row_skip;
+				chain_offset -= 2u;
+				chain_offset += row_bytes;
+				mem_write8(bitmap + chain_offset, colour);
+				chain_done_address = done_bits + (chain_offset >> 3);
+				mem_write32(chain_done_address, (mem_read32(chain_done_address) & ~shl32(1u, (int)(chain_offset & 7u))) | shl32(1u, (int)(chain_offset & 7u)));
+				continue;
 			}
-			if ((shr32(mem_read32(done_bits + (offset >> 3)), (int)(offset & 7u)) & 1u) == 0u)
-				mem_write8(bitmap + offset, colour);
-			else
-				colour = mem_read8(bitmap + offset);
-			pixels_left--;
-		} while (pixels_left != 0u);
-		goto unpack_picture_new_pixel;
+			chain_offset += 2u;
+			chain_offset += row_bytes;
+			mem_write8(bitmap + chain_offset, colour);
+			chain_done_address = done_bits + (chain_offset >> 3);
+			mem_write32(chain_done_address, (mem_read32(chain_done_address) & ~shl32(1u, (int)(chain_offset & 7u))) | shl32(1u, (int)(chain_offset & 7u)));
+		}
 	}
 }
 
@@ -609,6 +614,7 @@ void draw_line(uint32_t end_x, uint32_t end_y, uint32_t *p_start_x, uint32_t *p_
 	uint32_t start_y = *p_start_y;
 	uint32_t color = *p_color;
 	uint32_t unclipped_y = *p_unclipped_y;
+	bool diagonal_odd_pixel = false, steep_odd_pixel = false;
 	uint32_t zero = 0, negative = 0, overflow = 0, carry = 0;
 	uint8_t high_nibble_mask = 0, low_nibble_color = 0;
 	uint16_t fraction_4bpp = 0, fraction_8bpp = 0;
@@ -691,21 +697,42 @@ void draw_line(uint32_t end_x, uint32_t end_y, uint32_t *p_start_x, uint32_t *p_
 		{
 			steep_slope = divide_u32(steep_slope << 16, slope);
 			fraction_4bpp = 0u;
-			if ((start_x & 1u) != 0u)
+			for (;;)
 			{
+				if (steep_odd_pixel || (start_x & 1u) != 0u)
+				{
+					do
+					{
+						start_x = (start_x & ~0xFFu) | mem_read8(start_y);
+						start_x = (start_x & ~0xFFu) | (start_x & 0xFu);
+						start_x = (start_x & ~0xFFu) | (uint8_t)(start_x | color);
+						mem_write8(start_y, start_x);
+						start_y += row_step_4bpp;
+						carry = (uint16_t)(fraction_4bpp + steep_slope) < fraction_4bpp;
+						fraction_4bpp += steep_slope;
+						slope--;
+					} while ((slope != 0u) & (carry == 0u));
+					start_y++;
+					if (slope == 0u)
+					{
+						*p_start_x = start_x;
+						*p_start_y = start_y;
+						*p_color = color;
+						*p_unclipped_y = unclipped_y;
+						return;
+					}
+				}
 				do
 				{
-				draw_line_steep_odd_pixel:
 					start_x = (start_x & ~0xFFu) | mem_read8(start_y);
-					start_x = (start_x & ~0xFFu) | (start_x & 0xFu);
-					start_x = (start_x & ~0xFFu) | (uint8_t)(start_x | color);
+					start_x = (start_x & ~0xFFu) | (start_x & high_nibble_mask);
+					start_x = (start_x & ~0xFFu) | (uint8_t)(start_x | low_nibble_color);
 					mem_write8(start_y, start_x);
 					start_y += row_step_4bpp;
 					carry = (uint16_t)(fraction_4bpp + steep_slope) < fraction_4bpp;
 					fraction_4bpp += steep_slope;
 					slope--;
 				} while ((slope != 0u) & (carry == 0u));
-				start_y++;
 				if (slope == 0u)
 				{
 					*p_start_x = start_x;
@@ -714,33 +741,33 @@ void draw_line(uint32_t end_x, uint32_t end_y, uint32_t *p_start_x, uint32_t *p_
 					*p_unclipped_y = unclipped_y;
 					return;
 				}
+				steep_odd_pixel = true;
 			}
-			do
+		}
+		if (steep_slope != slope)
+		{
+			slope = divide_u32(slope << 16, steep_slope);
+			fraction_4bpp = 0u;
+			if ((start_x & 1u) != 0u)
 			{
-				start_x = (start_x & ~0xFFu) | mem_read8(start_y);
-				start_x = (start_x & ~0xFFu) | (start_x & high_nibble_mask);
-				start_x = (start_x & ~0xFFu) | (uint8_t)(start_x | low_nibble_color);
-				mem_write8(start_y, start_x);
-				start_y += row_step_4bpp;
-				carry = (uint16_t)(fraction_4bpp + steep_slope) < fraction_4bpp;
-				fraction_4bpp += steep_slope;
-				slope--;
-			} while ((slope != 0u) & (carry == 0u));
-			if (slope == 0u)
-			{
+				start_y = draw_line_shallow_odd_pixel(start_y, fraction_4bpp, low_nibble_color, (uint8_t)color, (uint16_t)slope, steep_slope, high_nibble_mask, row_step_4bpp);
 				*p_start_x = start_x;
 				*p_start_y = start_y;
 				*p_color = color;
 				*p_unclipped_y = unclipped_y;
 				return;
 			}
-			goto draw_line_steep_odd_pixel;
+			start_y = draw_line_shallow_even_pixel(start_y, fraction_4bpp, low_nibble_color, (uint8_t)color, (uint16_t)slope, steep_slope, high_nibble_mask, row_step_4bpp);
+			*p_start_x = start_x;
+			*p_start_y = start_y;
+			*p_color = color;
+			*p_unclipped_y = unclipped_y;
+			return;
 		}
-		if (steep_slope == slope)
+		for (;;)
 		{
-			if ((start_x & 1u) != 0u)
+			if (diagonal_odd_pixel || (start_x & 1u) != 0u)
 			{
-			draw_line_diagonal_odd_pixel:
 				start_x = (start_x & ~0xFFu) | mem_read8(start_y);
 				start_x = (start_x & ~0xFFu) | (start_x & 0xFu);
 				start_x = (start_x & ~0xFFu) | (uint8_t)(start_x | color);
@@ -771,57 +798,8 @@ void draw_line(uint32_t end_x, uint32_t end_y, uint32_t *p_start_x, uint32_t *p_
 				*p_unclipped_y = unclipped_y;
 				return;
 			}
-			goto draw_line_diagonal_odd_pixel;
+			diagonal_odd_pixel = true;
 		}
-		slope = divide_u32(slope << 16, steep_slope);
-		fraction_4bpp = 0u;
-		if ((start_x & 1u) != 0u)
-		{
-		draw_line_shallow_odd_pixel:
-			start_x = (start_x & ~0xFFu) | mem_read8(start_y);
-		draw_line_shallow_set_high_nibble:
-			start_x = (start_x & ~0xFFu) | (start_x & 0xFu);
-			start_x = (start_x & ~0xFFu) | (uint8_t)(start_x | color);
-			mem_write8(start_y, start_x);
-			carry = (uint16_t)(fraction_4bpp + slope) < fraction_4bpp;
-			fraction_4bpp += slope;
-			steep_slope--;
-			start_y++;
-			if ((steep_slope != 0u) & (carry == 0u))
-			{
-			draw_line_shallow_even_pixel:
-				start_x = (start_x & ~0xFFu) | mem_read8(start_y);
-				start_x = (start_x & ~0xFFu) | (start_x & high_nibble_mask);
-				start_x = (start_x & ~0xFFu) | (uint8_t)(start_x | low_nibble_color);
-				carry = (uint16_t)(fraction_4bpp + slope) < fraction_4bpp;
-				fraction_4bpp += slope;
-				steep_slope--;
-				if ((steep_slope != 0u) & (carry == 0u))
-					goto draw_line_shallow_set_high_nibble;
-				mem_write8(start_y, start_x);
-				if (steep_slope == 0u)
-				{
-					*p_start_x = start_x;
-					*p_start_y = start_y;
-					*p_color = color;
-					*p_unclipped_y = unclipped_y;
-					return;
-				}
-				start_y += row_step_4bpp;
-				goto draw_line_shallow_odd_pixel;
-			}
-			start_y += row_step_4bpp;
-			if (steep_slope == 0u)
-			{
-				*p_start_x = start_x;
-				*p_start_y = start_y;
-				*p_color = color;
-				*p_unclipped_y = unclipped_y;
-				return;
-			}
-			goto draw_line_shallow_even_pixel;
-		}
-		goto draw_line_shallow_even_pixel;
 	}
 	direction_index = 0u;
 	end_y_copy_8bpp = end_y;
@@ -974,65 +952,79 @@ void fill_span_8bpp(uint32_t length, uint32_t *p_blocks, uint32_t *p_pixel_addre
 			return;
 		}
 	}
-	if (length != 0u)
+	if (length == 0u)
 	{
-		color = (uint8_t)color * 0x1010101u;
-		length++;
-		block_count = length >> 4;
-		blocks = block_count;
-		if (block_count != 0u)
-		{
-			do
-			{
-				mem_write32(pixel_address, color);
-				pixel_address += 4u;
-				mem_write32(pixel_address, color);
-				pixel_address += 4u;
-				mem_write32(pixel_address, color);
-				pixel_address += 4u;
-				mem_write32(pixel_address, color);
-				blocks--;
-				pixel_address += 4u;
-			} while (blocks != 0u);
-		}
-		length &= 0xFu;
-		if (length >= 8u)
+		mem_write8(pixel_address, color);
+		pixel_address++;
+		pixel_address = (pixel_address & ~0xFFFFu) | (uint16_t)(pixel_address - 1u);
+		*p_blocks = blocks;
+		*p_pixel_address = pixel_address;
+		*p_color = color;
+		return;
+	}
+	color = (uint8_t)color * 0x1010101u;
+	length++;
+	block_count = length >> 4;
+	blocks = block_count;
+	if (block_count != 0u)
+	{
+		do
 		{
 			mem_write32(pixel_address, color);
 			pixel_address += 4u;
 			mem_write32(pixel_address, color);
-			length -= 8u;
 			pixel_address += 4u;
-		}
-		if (length >= 4u)
-		{
 			mem_write32(pixel_address, color);
 			pixel_address += 4u;
-		}
-		tail_pixels = length & 3u;
-		tail_count = (uint8_t)tail_pixels;
-		if (tail_pixels == 0u)
-		{
-			pixel_address = (pixel_address & ~0xFFFFu) | (uint16_t)(pixel_address - 1u);
-			*p_blocks = blocks;
-			*p_pixel_address = pixel_address;
-			*p_color = color;
-			return;
-		}
-		zero = (uint8_t)(tail_count - 2u) == 0u;
-		if (tail_count >= 2u)
-		{
-			mem_write16(pixel_address, color);
-			pixel_address += 2u;
-			if (zero)
-			{
-				pixel_address = (pixel_address & ~0xFFFFu) | (uint16_t)(pixel_address - 1u);
-				*p_blocks = blocks;
-				*p_pixel_address = pixel_address;
-				*p_color = color;
-				return;
-			}
-		}
+			mem_write32(pixel_address, color);
+			blocks--;
+			pixel_address += 4u;
+		} while (blocks != 0u);
+	}
+	length &= 0xFu;
+	if (length >= 8u)
+	{
+		mem_write32(pixel_address, color);
+		pixel_address += 4u;
+		mem_write32(pixel_address, color);
+		length -= 8u;
+		pixel_address += 4u;
+	}
+	if (length >= 4u)
+	{
+		mem_write32(pixel_address, color);
+		pixel_address += 4u;
+	}
+	tail_pixels = length & 3u;
+	tail_count = (uint8_t)tail_pixels;
+	if (tail_pixels == 0u)
+	{
+		pixel_address = (pixel_address & ~0xFFFFu) | (uint16_t)(pixel_address - 1u);
+		*p_blocks = blocks;
+		*p_pixel_address = pixel_address;
+		*p_color = color;
+		return;
+	}
+	zero = (uint8_t)(tail_count - 2u) == 0u;
+	if (tail_count < 2u)
+	{
+		mem_write8(pixel_address, color);
+		pixel_address++;
+		pixel_address = (pixel_address & ~0xFFFFu) | (uint16_t)(pixel_address - 1u);
+		*p_blocks = blocks;
+		*p_pixel_address = pixel_address;
+		*p_color = color;
+		return;
+	}
+	mem_write16(pixel_address, color);
+	pixel_address += 2u;
+	if (zero)
+	{
+		pixel_address = (pixel_address & ~0xFFFFu) | (uint16_t)(pixel_address - 1u);
+		*p_blocks = blocks;
+		*p_pixel_address = pixel_address;
+		*p_color = color;
+		return;
 	}
 	mem_write8(pixel_address, color);
 	pixel_address++;
@@ -1082,6 +1074,50 @@ void draw_vertical_span_8bpp(uint32_t row_step, uint8_t color, uint32_t *p_pixel
 	*p_length = length;
 }
 
+uint32_t draw_line_shallow_even_pixel(uint32_t pixel_address, uint16_t fraction, uint8_t low_nibble_color, uint8_t high_nibble_color, uint16_t slope, uint32_t steps_left, uint8_t high_nibble_mask, uint32_t row_step)
+{
+	uint32_t carry = 0;
+	uint8_t pixel_byte = 0;
+
+	pixel_byte = (uint8_t)((mem_read8(pixel_address) & high_nibble_mask) | low_nibble_color);
+	carry = (uint16_t)(fraction + slope) < (uint16_t)fraction;
+	fraction += slope;
+	steps_left--;
+	if ((steps_left != 0u) & (carry == 0u))
+		return draw_line_shallow_set_high_nibble(pixel_byte, pixel_address, fraction, low_nibble_color, high_nibble_color, slope, steps_left, high_nibble_mask, row_step);
+	mem_write8(pixel_address, pixel_byte);
+	if (steps_left == 0u)
+		return pixel_address;
+	pixel_address += row_step;
+	return draw_line_shallow_odd_pixel(pixel_address, fraction, low_nibble_color, high_nibble_color, slope, steps_left, high_nibble_mask, row_step);
+}
+
+uint32_t draw_line_shallow_odd_pixel(uint32_t pixel_address, uint16_t fraction, uint8_t low_nibble_color, uint8_t high_nibble_color, uint16_t slope, uint32_t steps_left, uint8_t high_nibble_mask, uint32_t row_step)
+{
+	uint8_t pixel_byte = 0;
+
+	pixel_byte = mem_read8(pixel_address);
+	return draw_line_shallow_set_high_nibble(pixel_byte, pixel_address, fraction, low_nibble_color, high_nibble_color, slope, steps_left, high_nibble_mask, row_step);
+}
+
+uint32_t draw_line_shallow_set_high_nibble(uint8_t pixel_byte, uint32_t pixel_address, uint16_t fraction, uint8_t low_nibble_color, uint8_t high_nibble_color, uint16_t slope, uint32_t steps_left, uint8_t high_nibble_mask, uint32_t row_step)
+{
+	uint32_t carry = 0;
+
+	mem_write8(pixel_address, (pixel_byte & 0xFu) | high_nibble_color);
+	carry = (uint16_t)(fraction + slope) < (uint16_t)fraction;
+	fraction += slope;
+	steps_left--;
+	pixel_address++;
+	if (((steps_left != 0u) & (carry == 0u)) == 0u)
+	{
+		pixel_address += row_step;
+		if (steps_left == 0u)
+			return pixel_address;
+	}
+	return draw_line_shallow_even_pixel(pixel_address, fraction, low_nibble_color, high_nibble_color, slope, steps_left, high_nibble_mask, row_step);
+}
+
 void fill_span_4bpp(uint16_t end_x, uint32_t *p_start_x, uint32_t *p_start_y, uint32_t *p_color, uint32_t *p_length)
 {
 	uint32_t start_x = *p_start_x;
@@ -1090,7 +1126,7 @@ void fill_span_4bpp(uint16_t end_x, uint32_t *p_start_x, uint32_t *p_start_y, ui
 	uint32_t carry = 0;
 	uint32_t end_x_copy = 0, keep_mask = 0, length = 0, longs_left = 0;
 	uint16_t end_column = 0;
-	uint32_t length_left = 0, tail_pixels = 0, pixels_before_byte = 0, pixels_before_second = 0;
+	uint32_t length_left = 0, pixels_before_byte = 0, pixels_before_second = 0, tail_pixels = 0;
 
 	end_x_copy = (uint16_t)end_x;
 	end_column = end_x_copy;
@@ -1126,45 +1162,22 @@ void fill_span_4bpp(uint16_t end_x, uint32_t *p_start_x, uint32_t *p_start_y, ui
 	}
 	start_y = (start_y & ~0xFFFFu) | (uint16_t)(start_y + start_x);
 	length++;
-	if ((start_y & 1u) == 0u)
+	if ((start_y & 1u) != 0u)
 	{
-		color = color * 0x11111111u;
-		if ((uint16_t)length >= 8u)
+		pixels_before_byte = length;
+		length = pixels_before_byte - 1u;
+		if (pixels_before_byte == 1u)
 		{
-			longs_left = length >> 3;
-			do
-			{
-				mem_write32(start_y, color);
-				start_y += 4u;
-				longs_left--;
-			} while (longs_left != 0u);
-			tail_pixels = length & 7u;
-			length = tail_pixels;
-			if (tail_pixels == 0u)
-			{
-				*p_start_x = start_x;
-				*p_start_y = start_y;
-				*p_color = color;
-				*p_length = length;
-				return;
-			}
+			start_x = (start_x & ~0xFFu) | 0xF0u;
+			start_x = (start_x & ~0xFFu) | (start_x & mem_read8(start_y));
+			start_x = (start_x & ~0xFFu) | (uint8_t)(start_x | color);
+			mem_write8(start_y, start_x);
+			*p_start_x = start_x;
+			*p_start_y = start_y;
+			*p_color = color;
+			*p_length = length;
+			return;
 		}
-		length = (length & ~0xFFu) | (uint8_t)(length * 2u);
-		length = (length & ~0xFFu) | (uint8_t)(length * 2u);
-		keep_mask = shift_by(0xFFFFFFFFu, (uint8_t)length, 32);
-		start_x = ~keep_mask;
-		color = color & start_x & start_x;
-		mem_write32(start_y, (keep_mask & mem_read32(start_y)) | color);
-		*p_start_x = start_x;
-		*p_start_y = start_y;
-		*p_color = color;
-		*p_length = length;
-		return;
-	}
-	pixels_before_byte = length;
-	length = pixels_before_byte - 1u;
-	if (pixels_before_byte != 1u)
-	{
 		start_x = (start_x & ~0xFFu) | (uint8_t)color;
 		start_x = (start_x & ~0xFFu) | (uint8_t)(start_x << 4);
 		start_x = (start_x & ~0xFFu) | (uint8_t)(start_x | color);
@@ -1180,27 +1193,10 @@ void fill_span_4bpp(uint16_t end_x, uint32_t *p_start_x, uint32_t *p_start_y, ui
 			*p_length = length;
 			return;
 		}
-		color = color * 0x11111111u;
-		if ((uint16_t)length >= 8u)
-		{
-			longs_left = length >> 3;
-			do
-			{
-				mem_write32(start_y, color);
-				start_y += 4u;
-				longs_left--;
-			} while (longs_left != 0u);
-			tail_pixels = length & 7u;
-			length = tail_pixels;
-			if (tail_pixels == 0u)
-			{
-				*p_start_x = start_x;
-				*p_start_y = start_y;
-				*p_color = color;
-				*p_length = length;
-				return;
-			}
-		}
+	}
+	color = color * 0x11111111u;
+	if ((uint16_t)length < 8u)
+	{
 		length = (length & ~0xFFu) | (uint8_t)(length * 2u);
 		length = (length & ~0xFFu) | (uint8_t)(length * 2u);
 		keep_mask = shift_by(0xFFFFFFFFu, (uint8_t)length, 32);
@@ -1213,10 +1209,29 @@ void fill_span_4bpp(uint16_t end_x, uint32_t *p_start_x, uint32_t *p_start_y, ui
 		*p_length = length;
 		return;
 	}
-	start_x = (start_x & ~0xFFu) | 0xF0u;
-	start_x = (start_x & ~0xFFu) | (start_x & mem_read8(start_y));
-	start_x = (start_x & ~0xFFu) | (uint8_t)(start_x | color);
-	mem_write8(start_y, start_x);
+	longs_left = length >> 3;
+	do
+	{
+		mem_write32(start_y, color);
+		start_y += 4u;
+		longs_left--;
+	} while (longs_left != 0u);
+	tail_pixels = length & 7u;
+	length = tail_pixels;
+	if (tail_pixels == 0u)
+	{
+		*p_start_x = start_x;
+		*p_start_y = start_y;
+		*p_color = color;
+		*p_length = length;
+		return;
+	}
+	length = (length & ~0xFFu) | (uint8_t)(length * 2u);
+	length = (length & ~0xFFu) | (uint8_t)(length * 2u);
+	keep_mask = shift_by(0xFFFFFFFFu, (uint8_t)length, 32);
+	start_x = ~keep_mask;
+	color = color & start_x & start_x;
+	mem_write32(start_y, (keep_mask & mem_read32(start_y)) | color);
 	*p_start_x = start_x;
 	*p_start_y = start_y;
 	*p_color = color;
@@ -1703,52 +1718,51 @@ uint32_t draw_rect_top_bottom_8bpp(uint32_t pixel_address, uint32_t width, uint3
 		mem_write8(pixel_address, color);
 		mem_write8(bottom_address, color);
 		pixel_address++;
+		pixel_address = (pixel_address & ~0xFFFFu) | (uint16_t)(pixel_address - 1u);
+		return pixel_address;
 	}
-	else
+	bytes_left++;
+	byte_count = (uint8_t)bytes_left;
+	long_count = bytes_left >> 2;
+	longs_left = long_count;
+	if (long_count != 0u)
 	{
-		bytes_left++;
-		byte_count = (uint8_t)bytes_left;
-		long_count = bytes_left >> 2;
-		longs_left = long_count;
-		if (long_count != 0u)
+		do
 		{
-			do
-			{
-				mem_write32(pixel_address, color);
-				mem_write32(bottom_address, color);
-				bottom_address += 4u;
-				longs_left--;
-				pixel_address += 4u;
-			} while (longs_left != 0u);
-		}
-		tail_count = byte_count & 3u;
-		tail_bytes = (uint8_t)tail_count;
-		if (tail_count == 0u)
-		{
-			pixel_address = (pixel_address & ~0xFFFFu) | (uint16_t)(pixel_address - 1u);
-			return pixel_address;
-		}
-		if (tail_bytes < 2u)
-		{
-			mem_write8(pixel_address, color);
-			mem_write8(bottom_address, color);
-			pixel_address++;
-			pixel_address = (pixel_address & ~0xFFFFu) | (uint16_t)(pixel_address - 1u);
-			return pixel_address;
-		}
-		mem_write16(pixel_address, color);
-		mem_write16(bottom_address, color);
-		bottom_address += 2u;
-		pixel_address += 2u;
-		if (tail_bytes != 2u)
-		{
-			mem_write8(pixel_address, color);
-			mem_write8(bottom_address, color);
-			pixel_address++;
-			pixel_address = (pixel_address & ~0xFFFFu) | (uint16_t)(pixel_address - 1u);
-			return pixel_address;
-		}
+			mem_write32(pixel_address, color);
+			mem_write32(bottom_address, color);
+			bottom_address += 4u;
+			longs_left--;
+			pixel_address += 4u;
+		} while (longs_left != 0u);
 	}
+	tail_count = byte_count & 3u;
+	tail_bytes = (uint8_t)tail_count;
+	if (tail_count == 0u)
+	{
+		pixel_address = (pixel_address & ~0xFFFFu) | (uint16_t)(pixel_address - 1u);
+		return pixel_address;
+	}
+	if (tail_bytes < 2u)
+	{
+		mem_write8(pixel_address, color);
+		mem_write8(bottom_address, color);
+		pixel_address++;
+		pixel_address = (pixel_address & ~0xFFFFu) | (uint16_t)(pixel_address - 1u);
+		return pixel_address;
+	}
+	mem_write16(pixel_address, color);
+	mem_write16(bottom_address, color);
+	bottom_address += 2u;
+	pixel_address += 2u;
+	if (tail_bytes == 2u)
+	{
+		pixel_address = (pixel_address & ~0xFFFFu) | (uint16_t)(pixel_address - 1u);
+		return pixel_address;
+	}
+	mem_write8(pixel_address, color);
+	mem_write8(bottom_address, color);
+	pixel_address++;
 	pixel_address = (pixel_address & ~0xFFFFu) | (uint16_t)(pixel_address - 1u);
 	return pixel_address;
 }
@@ -2085,38 +2099,60 @@ void fill_rect_unclipped(uint32_t right, uint32_t bottom, uint32_t *p_left, uint
 		} while (rows_to_fill != 0u);
 		pixel_columns -= 2u;
 	}
-	if (pixel_columns >= 4u)
+	if (pixel_columns < 4u)
 	{
+		color = (color & ~0xFFFFu) | (color & 0xFu);
 		color = (color & ~0xFFFFu) | (uint16_t)(color * 0x1111u);
-		rows_to_fill = rows_left;
-		block_cursor = (uint16_t)(rows_left << 8) + top;
-		blocks_per_row = pixel_columns >> 2;
+		tail_keep_mask = shift_by(0xFFFFu, (uint8_t)(pixel_columns * 2u * 2u), 16);
+		left = (left & ~0xFFFFu) | (uint16_t)~tail_keep_mask;
+		color = (color & ~0xFFFFu) | (uint16_t)(color & left);
 		do
 		{
-			lower_row_cursor = blocks_per_row;
-			block_cursor -= row_pitch_4bpp;
-			do
-			{
-				mem_write16(block_cursor, color);
-				block_cursor += 2u;
-				lower_row_cursor--;
-			} while (lower_row_cursor != 0u);
-			rows_to_fill--;
-		} while (rows_to_fill != 0u);
-		top = block_cursor;
-		tail_pixels = pixel_columns & 3u;
-		pixel_columns = tail_pixels;
-		if (tail_pixels == 0u)
+			left = (left & ~0xFFFFu) | mem_read16(top);
+			left = (left & ~0xFFFFu) | (left & tail_keep_mask);
+			left = (left & ~0xFFFFu) | (uint16_t)(left | color);
+			mem_write16(top, left);
+			top += row_pitch_4bpp;
+			rows_left--;
+		} while (rows_left != 0u);
+		*p_left = left;
+		*p_top = top;
+		*p_color = color;
+		*p_inner_count = rows_left;
+		*p_row_pairs_left = row_pitch_4bpp;
+		*p_blocks_per_row = blocks_per_row;
+		*p_lower_row_cursor = lower_row_cursor;
+		return;
+	}
+	color = (color & ~0xFFFFu) | (uint16_t)(color * 0x1111u);
+	rows_to_fill = rows_left;
+	block_cursor = (uint16_t)(rows_left << 8) + top;
+	blocks_per_row = pixel_columns >> 2;
+	do
+	{
+		lower_row_cursor = blocks_per_row;
+		block_cursor -= row_pitch_4bpp;
+		do
 		{
-			*p_left = left;
-			*p_top = top;
-			*p_color = color;
-			*p_inner_count = rows_left;
-			*p_row_pairs_left = row_pitch_4bpp;
-			*p_blocks_per_row = blocks_per_row;
-			*p_lower_row_cursor = lower_row_cursor;
-			return;
-		}
+			mem_write16(block_cursor, color);
+			block_cursor += 2u;
+			lower_row_cursor--;
+		} while (lower_row_cursor != 0u);
+		rows_to_fill--;
+	} while (rows_to_fill != 0u);
+	top = block_cursor;
+	tail_pixels = pixel_columns & 3u;
+	pixel_columns = tail_pixels;
+	if (tail_pixels == 0u)
+	{
+		*p_left = left;
+		*p_top = top;
+		*p_color = color;
+		*p_inner_count = rows_left;
+		*p_row_pairs_left = row_pitch_4bpp;
+		*p_blocks_per_row = blocks_per_row;
+		*p_lower_row_cursor = lower_row_cursor;
+		return;
 	}
 	color = (color & ~0xFFFFu) | (color & 0xFu);
 	color = (color & ~0xFFFFu) | (uint16_t)(color * 0x1111u);

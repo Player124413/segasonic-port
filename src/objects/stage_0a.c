@@ -43,35 +43,44 @@ void cactus_update(void)
 		OBJECT(current_object)->speed_x = speed_x;
 		OBJECT(current_object)->speed_y = speed_y;
 		OBJECT(current_object)->speed_z -= 0xC00u;
+		queue_sprite_at_floor();
+		current_object = LINKED(current_object, OBJECT(current_object)->child);
+		bucket = place_sprite_at_cursor_floor();
+		queue_sprite_in_bucket(bucket);
+		return;
 	}
-	else
+	r14 = tornado_object;
+	distance_to_object();
+	if (nearest_player_distance <= 0x60)
 	{
-		r14 = tornado_object;
-		distance_to_object();
-		if (nearest_player_distance <= 0x60)
-		{
-			OBJECT(current_object)->cactus.lifted = 1u;
-			OBJECT(current_object)->sprite_frame = 0x77E0u;
-			OBJECT(current_object)->speed_z = -0xC001;
-			OBJECT(current_object)->cactus.angle -= 0x10u;
-			OBJECT(current_object)->cactus.angle &= 0x3FFu;
-			OBJECT(current_object)->cactus.spiral_speed += 0x18u;
-			direction = OBJECT(current_object)->cactus.angle;
-			spin_speed = OBJECT(current_object)->cactus.spiral_speed;
-			direction_to_speed(spin_speed, &direction, &speed_x, &speed_y);
-			OBJECT(current_object)->speed_x = speed_x;
-			OBJECT(current_object)->speed_y = speed_y;
-			OBJECT(current_object)->speed_z -= 0xC00u;
-			queue_sprite_at_floor();
-			current_object = LINKED(current_object, OBJECT(current_object)->child);
-			bucket = place_sprite_at_cursor_floor();
-			queue_sprite_in_bucket(bucket);
-			return;
-		}
-		fall_to_floor(&ignored, &ignored, &ignored);
-		if (nearest_player_distance <= 0x60 && (uint16_t)OBJECT(current_object)->floor_z_int == (uint16_t)OBJECT(current_object)->z_int)
-			OBJECT(current_object)->z_int -= 3u;
+		OBJECT(current_object)->cactus.lifted = 1u;
+		OBJECT(current_object)->sprite_frame = 0x77E0u;
+		OBJECT(current_object)->speed_z = -0xC001;
+		OBJECT(current_object)->cactus.angle -= 0x10u;
+		OBJECT(current_object)->cactus.angle &= 0x3FFu;
+		OBJECT(current_object)->cactus.spiral_speed += 0x18u;
+		direction = OBJECT(current_object)->cactus.angle;
+		spin_speed = OBJECT(current_object)->cactus.spiral_speed;
+		direction_to_speed(spin_speed, &direction, &speed_x, &speed_y);
+		OBJECT(current_object)->speed_x = speed_x;
+		OBJECT(current_object)->speed_y = speed_y;
+		OBJECT(current_object)->speed_z -= 0xC00u;
+		queue_sprite_at_floor();
+		current_object = LINKED(current_object, OBJECT(current_object)->child);
+		bucket = place_sprite_at_cursor_floor();
+		queue_sprite_in_bucket(bucket);
+		return;
 	}
+	fall_to_floor(&ignored, &ignored, &ignored);
+	if (nearest_player_distance > 0x60 || (uint16_t)OBJECT(current_object)->floor_z_int != (uint16_t)OBJECT(current_object)->z_int)
+	{
+		queue_sprite_at_floor();
+		current_object = LINKED(current_object, OBJECT(current_object)->child);
+		bucket = place_sprite_at_cursor_floor();
+		queue_sprite_in_bucket(bucket);
+		return;
+	}
+	OBJECT(current_object)->z_int -= 3u;
 	queue_sprite_at_floor();
 	current_object = LINKED(current_object, OBJECT(current_object)->child);
 	bucket = place_sprite_at_cursor_floor();
@@ -181,21 +190,18 @@ void whirlwind_vanish(void)
 	OBJECT(current_object)->whirlwind.timer++;
 	odd_frame = OBJECT(current_object)->whirlwind.timer & 1u;
 	OBJECT(current_object)->whirlwind.timer = odd_frame;
-	if (odd_frame != 0u)
+	if (odd_frame == 0u)
 	{
-		queue_sprite(0u);
-		add_to_touchable_list(ignored);
-		return;
+		OBJECT(current_object)->sprite_frame = whirlwind_vanish_sprites[(uint8_t)OBJECT(current_object)->whirlwind.frame_index];
+		OBJECT(current_object)->whirlwind.frame_index++;
+		if (OBJECT(current_object)->whirlwind.frame_index > 7)
+		{
+			delete_object_and_children(&ignored, &ignored, &ignored);
+			return;
+		}
 	}
-	OBJECT(current_object)->sprite_frame = whirlwind_vanish_sprites[(uint8_t)OBJECT(current_object)->whirlwind.frame_index];
-	OBJECT(current_object)->whirlwind.frame_index++;
-	if (OBJECT(current_object)->whirlwind.frame_index <= 7)
-	{
-		queue_sprite(0u);
-		add_to_touchable_list(ignored);
-		return;
-	}
-	delete_object_and_children(&ignored, &ignored, &ignored);
+	queue_sprite(0u);
+	add_to_touchable_list(ignored);
 }
 
 void centipede_init(void)
@@ -254,19 +260,17 @@ void centipede_chase(void)
 		{
 			nearest_player_distance = 0;
 			centipede_command = 0u;
-			if (OBJECT(current_object)->speed_z > 0)
+			if (OBJECT(current_object)->speed_z <= 0)
 			{
-				centipede_move(r11);
-				return;
+				r0 = add_to_touchable_list(r0);
+				face_nearest_player(r0, r3);
+				if (nearest_player_floor_z >= 0x800)
+				{
+					OBJECT(current_object)->anchor_y = 0;
+					centipede_move(r11);
+					return;
+				}
 			}
-			r0 = add_to_touchable_list(r0);
-			face_nearest_player(r0, r3);
-			if (nearest_player_floor_z < 0x800)
-			{
-				centipede_move(r11);
-				return;
-			}
-			OBJECT(current_object)->anchor_y = 0;
 			centipede_move(r11);
 			return;
 		}
@@ -295,19 +299,17 @@ void centipede_chase(void)
 	OBJECT(current_object)->handler = centipede_leave_ADDRESS;
 	nearest_player_distance = 0;
 	centipede_command = 0u;
-	if (OBJECT(current_object)->speed_z > 0)
+	if (OBJECT(current_object)->speed_z <= 0)
 	{
-		centipede_move(r11);
-		return;
+		r0 = add_to_touchable_list(r0);
+		face_nearest_player(r0, r3);
+		if (nearest_player_floor_z >= 0x800)
+		{
+			OBJECT(current_object)->anchor_y = 0;
+			centipede_move(r11);
+			return;
+		}
 	}
-	r0 = add_to_touchable_list(r0);
-	face_nearest_player(r0, r3);
-	if (nearest_player_floor_z < 0x800)
-	{
-		centipede_move(r11);
-		return;
-	}
-	OBJECT(current_object)->anchor_y = 0;
 	centipede_move(r11);
 }
 
@@ -690,7 +692,7 @@ void sand_rock_init(void)
 
 void sand_rock_update(void)
 {
-	uint32_t r3 = 0, r11 = 0, crumble_frame = 0, deleted = 0, depth = 0, ignored = 0, random_value = 0, ring = 0;
+	uint32_t r3 = 0, r11 = 0, deleted = 0, ignored = 0, random_value = 0, ring = 0;
 
 	unproject_object(&ignored, &ignored, &r3, &r11);
 	fall_to_floor(&ignored, &ignored, &ignored);
@@ -699,60 +701,64 @@ void sand_rock_update(void)
 		return;
 	if (OBJECT(current_object)->sand_rock.crumbling != 0u)
 	{
-	sand_rock_crumble:
-		OBJECT(current_object)->sand_rock.frame_count++;
-		if (OBJECT(current_object)->sand_rock.frame_count <= 1)
-		{
-			depth = (uint16_t)(OBJECT(current_object)->screen_y + 0x14u);
-			queue_sprite_at_depth(&ignored, &depth);
-			if ((uint8_t)OBJECT(current_object)->sand_rock.crumble_frame == 0u)
-				add_to_touchable_list(ignored);
-			return;
-		}
-		if (OBJECT(current_object)->sand_rock.crumble_frame <= 0xD)
-		{
-			crumble_frame = (uint8_t)OBJECT(current_object)->sand_rock.crumble_frame;
-			OBJECT(current_object)->sprite_frame = sand_rock_crumble_frames[crumble_frame];
-			OBJECT(current_object)->sand_rock.frame_count = 0;
-			OBJECT(current_object)->sand_rock.crumble_frame++;
-			crumble_frame++;
-			if ((int8_t)crumble_frame > 0xD)
-			{
-				depth = (uint16_t)(OBJECT(current_object)->screen_y + 0x14u);
-				queue_sprite_at_depth(&ignored, &depth);
-				if ((uint8_t)OBJECT(current_object)->sand_rock.crumble_frame == 0u)
-					add_to_touchable_list(ignored);
-				return;
-			}
-			OBJECT(LINKED(WORK_RAM, OBJECT(current_object)->child))->sprite_frame = sand_rock_crumble_frames[crumble_frame];
-			depth = (uint16_t)(OBJECT(current_object)->screen_y + 0x14u);
-			queue_sprite_at_depth(&ignored, &depth);
-			if ((uint8_t)OBJECT(current_object)->sand_rock.crumble_frame == 0u)
-				add_to_touchable_list(ignored);
-			return;
-		}
-		OBJECT(current_object)->sand_rock.frame_count = 0;
-		OBJECT(current_object)->sand_rock.crumble_frame = 0;
-		OBJECT(current_object)->sand_rock.crumbling = 0u;
-		OBJECT(current_object)->sprite_frame = sand_rock_crumble_frames[(uint8_t)OBJECT(current_object)->sand_rock.crumble_frame];
-		delete_object_and_children(&ignored, &ignored, &ignored);
+		sand_rock_crumble();
 		return;
 	}
 	if ((OBJECT(current_object)->flags & 4u) == 0u)
 	{
-		depth = (uint16_t)(OBJECT(current_object)->screen_y + 0x14u);
-		queue_sprite_at_depth(&ignored, &depth);
-		if ((uint8_t)OBJECT(current_object)->sand_rock.crumble_frame == 0u)
-			add_to_touchable_list(ignored);
+		sand_rock_draw();
 		return;
 	}
 	OBJECT(current_object)->sand_rock.crumbling = 1u;
 	if (OBJECT(current_object)->sand_rock.ring_count == 0u)
-		goto sand_rock_crumble;
+	{
+		sand_rock_crumble();
+		return;
+	}
 	released_ring_flip = 0u;
 	rings_to_release = OBJECT(current_object)->sand_rock.ring_count;
 	released_ring_angle = OBJECT(current_object)->spawn_arg_2;
 	drop_rings(r3, &r11, &random_value, &ring);
+	sand_rock_draw();
+}
+
+void sand_rock_crumble(void)
+{
+	uint32_t crumble_frame = 0, ignored = 0;
+
+	OBJECT(current_object)->sand_rock.frame_count++;
+	if (OBJECT(current_object)->sand_rock.frame_count <= 1)
+	{
+		sand_rock_draw();
+		return;
+	}
+	if (OBJECT(current_object)->sand_rock.crumble_frame <= 0xD)
+	{
+		crumble_frame = (uint8_t)OBJECT(current_object)->sand_rock.crumble_frame;
+		OBJECT(current_object)->sprite_frame = sand_rock_crumble_frames[crumble_frame];
+		OBJECT(current_object)->sand_rock.frame_count = 0;
+		OBJECT(current_object)->sand_rock.crumble_frame++;
+		crumble_frame++;
+		if ((int8_t)crumble_frame > 0xD)
+		{
+			sand_rock_draw();
+			return;
+		}
+		OBJECT(LINKED(WORK_RAM, OBJECT(current_object)->child))->sprite_frame = sand_rock_crumble_frames[crumble_frame];
+		sand_rock_draw();
+		return;
+	}
+	OBJECT(current_object)->sand_rock.frame_count = 0;
+	OBJECT(current_object)->sand_rock.crumble_frame = 0;
+	OBJECT(current_object)->sand_rock.crumbling = 0u;
+	OBJECT(current_object)->sprite_frame = sand_rock_crumble_frames[(uint8_t)OBJECT(current_object)->sand_rock.crumble_frame];
+	delete_object_and_children(&ignored, &ignored, &ignored);
+}
+
+void sand_rock_draw(void)
+{
+	uint32_t depth = 0, ignored = 0;
+
 	depth = (uint16_t)(OBJECT(current_object)->screen_y + 0x14u);
 	queue_sprite_at_depth(&ignored, &depth);
 	if ((uint8_t)OBJECT(current_object)->sand_rock.crumble_frame == 0u)
@@ -873,7 +879,19 @@ void sand_arch_ball_move(void)
 	move_object_projected(&ignored, &ignored, &ignored, &ignored);
 	add_to_touchable_list(ignored);
 	add_to_rider_list();
-	if (OBJECT(current_object)->floor_z_int >= 0x800)
+	if (OBJECT(current_object)->floor_z_int < 0x800)
+	{
+		sand_arch_ball_bob();
+		below_floor = (uint16_t)(OBJECT(current_object)->z_int - OBJECT(current_object)->floor_z_int);
+		if ((int16_t)below_floor >= 0x10)
+		{
+			sand_arch_ball_gone();
+			return;
+		}
+		if ((int16_t)below_floor < -8)
+			ignored = queue_sprite_at_floor();
+	}
+	else
 	{
 		if (OBJECT(current_object)->z_int >= 0x800)
 		{
@@ -883,18 +901,6 @@ void sand_arch_ball_move(void)
 			OBJECT(current_object)->handler = sand_arch_ball_gone_ADDRESS;
 		}
 		fall_to_floor(&ignored, &ignored, &ignored);
-		goto sand_arch_ball_draw;
-	}
-	sand_arch_ball_bob();
-	below_floor = (uint16_t)(OBJECT(current_object)->z_int - OBJECT(current_object)->floor_z_int);
-	if ((int16_t)below_floor >= 0x10)
-	{
-		sand_arch_ball_gone();
-		return;
-	}
-	if ((int16_t)below_floor < -8)
-	{
-	sand_arch_ball_draw:
 		ignored = queue_sprite_at_floor();
 	}
 	if ((int16_t)(OBJECT(current_object)->floor_z_int - OBJECT(current_object)->z_int) <= 0x10)
@@ -1057,26 +1063,14 @@ void tornado_start(void)
 
 void tornado_move(void)
 {
-	uint8_t sound_id = 0;
-	uint16_t box_across = 0, box_along = 0, hazard_coordinate = 0, move_speed = 0, threshold = 0;
-	uint32_t r0 = 0, r2 = 0, r3 = 0, r11 = 0, columns_left = 0, direction = 0, floor_slope = 0, hazard_record = 0, ignored = 0, object = 0, path_cursor = 0, slope_factor = 0, slot_cursor = 0, x = 0, y = 0, z = 0;
-	uint8_t hold_timer = 0, sound_timer = 0;
-	uint16_t hazard_scroll = 0, record_scroll = 0;
+	uint16_t threshold = 0;
+	uint32_t direction = 0, path_cursor = 0;
+	uint16_t record_scroll = 0;
 	uint32_t flags = 0;
 
 	if (map_screen_active != 0u)
 	{
-		object = current_object;
-		slot_cursor = current_object + 0x96u;
-		columns_left = 5u;
-		do
-		{
-			object = (object & ~0xFFFFu) | mem_read16(slot_cursor);
-			OBJECT(object)->flags |= 0x400u;
-			columns_left--;
-			slot_cursor += 2u;
-		} while (columns_left != 0u);
-		delete_current_object();
+		tornado_remove_with_columns();
 		return;
 	}
 	flags = OBJECT(current_object)->flags;
@@ -1084,7 +1078,10 @@ void tornado_move(void)
 	if ((flags & 0x80000000u) != 0u)
 	{
 		if (OBJECT(current_object)->tornado.holding_back != 0u)
-			goto tornado_move_step;
+		{
+			tornado_move_step();
+			return;
+		}
 		if (no_player_in_play != 0u || player_mishap != 0u || player_dropping_in != 0u)
 		{
 			OBJECT(current_object)->tornado.holding_back = 0xFFu;
@@ -1097,206 +1094,15 @@ void tornado_move(void)
 			if (OBJECT(current_object)->direction < 0x100 || OBJECT(current_object)->direction > 0x200)
 				threshold = 0x190u;
 			OBJECT(current_object)->tornado.screen_threshold = threshold;
-			goto tornado_move_step;
+			tornado_move_step();
+			return;
 		}
 	}
 	if (current_game_mode != 0x11u)
 		OBJECT(current_object)->tornado.wait_timer--;
 	if (OBJECT(current_object)->tornado.wait_timer > 0)
 	{
-	tornado_move_step:
-		find_floor(&ignored, &ignored, &r2, &r3, &r11);
-		OBJECT(current_object)->z = OBJECT(current_object)->floor_z;
-		OBJECT(current_object)->z_int += 8u;
-		OBJECT(current_object)->tornado.rotation_angle -= 4u;
-		OBJECT(current_object)->tornado.rotation_angle &= 0x3FFu;
-		project_object(&r0, &ignored);
-		r0 = add_to_zone_list(r0);
-		r11 = tornado_throw_whirlwinds((uint8_t)r0, r2, r3, r11);
-		hazard_record = OBJECT(current_object)->animation;
-		hazard_scroll = TORNADO_HAZARD(hazard_record)->position;
-		hazard_record += 2u;
-		if (hazard_scroll <= scroll_position)
-		{
-			hazard_coordinate = (uint16_t)TORNADO_HAZARD(hazard_record - 0x2u)->coordinate;
-			direction = OBJECT(current_object)->direction;
-			switch (direction >> 8)
-			{
-			case 0:
-			case 4:
-				if (OBJECT(current_object)->y_int <= (int16_t)hazard_coordinate)
-				{
-					y = OBJECT(current_object)->y;
-				tornado_hazard_x_at_block_edge:
-					x = mem_read32(floor_blocks + 2u + OBJECT(current_object)->floor_block) - 0x80000u;
-				tornado_place_hazard:
-					z = OBJECT(current_object)->z;
-					spawn_tornado_hazard(x, y, z, r11);
-					OBJECT(current_object)->animation += 4u;
-				}
-				break;
-			case 1:
-				if ((int16_t)hazard_coordinate <= OBJECT(current_object)->x_int)
-				{
-					x = OBJECT(current_object)->x - 0x800000u;
-				tornado_hazard_y_at_block_edge:
-					y = mem_read32(floor_blocks + 2u + OBJECT(current_object)->floor_block + 8u) - 0x80000u;
-					goto tornado_place_hazard;
-				}
-				break;
-			case 2:
-				if ((int16_t)hazard_coordinate <= OBJECT(current_object)->y_int)
-				{
-					y = OBJECT(current_object)->y - 0x800000u;
-					goto tornado_hazard_x_at_block_edge;
-				}
-				break;
-			case 3:
-				if (OBJECT(current_object)->x_int <= (int16_t)hazard_coordinate)
-				{
-					x = OBJECT(current_object)->x;
-					goto tornado_hazard_y_at_block_edge;
-				}
-				break;
-			default:
-				invalid_jump(0x89477u + (direction >> 8) * 2u);
-			}
-		}
-		if (OBJECT(current_object)->tornado.holding_back != 0u)
-		{
-			if ((int16_t)(scroll_position - OBJECT(current_object)->tornado.hold_start_position) >= 0x300)
-				goto tornado_stop_holding_back;
-			if (player_mishap != 0u || player_dropping_in != 0u || no_player_in_play != 0u)
-				OBJECT(current_object)->tornado.hold_timer = 0xFFu;
-			hold_timer = OBJECT(current_object)->tornado.hold_timer;
-			OBJECT(current_object)->tornado.hold_timer = hold_timer - 1u;
-			if (hold_timer == 0u)
-				goto tornado_stop_holding_back;
-		}
-		if (OBJECT(current_object)->screen_y < 0)
-		{
-		tornado_catch_up:
-			if (OBJECT(current_object)->tornado.holding_back != 0u)
-			{
-			tornado_stop_holding_back:
-				OBJECT(current_object)->tornado.holding_back = 0u;
-				OBJECT(current_object)->tornado.screen_threshold = OBJECT(current_object)->tornado.saved_threshold;
-				OBJECT(current_object)->tornado.base_speed = OBJECT(current_object)->tornado.saved_base_speed;
-			}
-			slope_factor = 0u;
-			if ((OBJECT(current_object)->floor_slope | OBJECT(current_object)->floor_type) != 0u)
-			{
-				floor_slope = OBJECT(current_object)->floor_slope;
-				slope_factor = floor_slope_factors[(uint16_t)(floor_slope * 2u)];
-			}
-			compute_camera_slope_speed(r3, slope_factor);
-			move_speed = (uint16_t)((uint32_t)camera_slope_speed_int * OBJECT(current_object)->tornado.catch_up_factor) >> 8;
-			if ((int16_t)move_speed <= OBJECT(current_object)->tornado.base_speed)
-			{
-			tornado_use_base_speed:
-				move_speed = (uint16_t)OBJECT(current_object)->tornado.base_speed;
-			}
-		}
-		else
-		{
-			direction = OBJECT(current_object)->direction;
-			switch (direction >> 8)
-			{
-			case 0:
-			case 3:
-				if (OBJECT(current_object)->screen_x <= OBJECT(current_object)->tornado.screen_threshold)
-					goto tornado_use_base_speed;
-				goto tornado_catch_up;
-			case 1:
-			case 2:
-			case 4:
-				if (OBJECT(current_object)->tornado.screen_threshold <= OBJECT(current_object)->screen_x)
-					goto tornado_use_base_speed;
-				goto tornado_catch_up;
-			default:
-				invalid_jump(0x89545u + (direction >> 8) * 2u);
-			}
-		}
-		if (AS32(players_finished[0]) == 0xFFFFFFu)
-			move_speed = (uint16_t)((uint32_t)move_speed << 2);
-		chaser_speed = move_speed;
-		if (OBJECT(current_object)->tornado.wait_timer <= 0)
-		{
-			direction = OBJECT(current_object)->direction;
-			switch (direction >> 8)
-			{
-			case 0:
-				OBJECT(current_object)->y -= (uint32_t)chaser_speed << 12;
-				break;
-			case 1:
-				OBJECT(current_object)->x += (uint32_t)chaser_speed << 12;
-				break;
-			case 2:
-			case 4:
-				OBJECT(current_object)->y += (uint32_t)chaser_speed << 12;
-				break;
-			case 3:
-				OBJECT(current_object)->x -= (uint32_t)chaser_speed << 12;
-				break;
-			default:
-				invalid_jump(0x895E6u + (direction >> 8) * 2u);
-			}
-		}
-		direction = OBJECT(current_object)->direction;
-		switch (direction >> 8)
-		{
-		case 0:
-		case 3:
-			if (OBJECT(current_object)->screen_x > 0x180)
-				OBJECT(current_object)->tornado.off_screen = 0xFFu;
-			else
-			{
-				if (OBJECT(current_object)->tornado.off_screen != 0u)
-				{
-					OBJECT(current_object)->tornado.off_screen = 0u;
-					OBJECT(current_object)->tornado.sound_timer = 0u;
-				}
-				if (current_game_mode != 7u)
-				{
-					sound_timer = OBJECT(current_object)->tornado.sound_timer;
-					OBJECT(current_object)->tornado.sound_timer = sound_timer - 1u;
-					if (sound_timer == 0u)
-					{
-						sound_id = 0x12u;
-						play_sound(sound_id, &ignored, &ignored);
-						OBJECT(current_object)->tornado.sound_timer = 0x28u;
-					}
-				}
-			}
-			break;
-		case 1:
-		case 2:
-		case 4:
-			if (OBJECT(current_object)->screen_x < -0x40)
-			{
-				OBJECT(current_object)->tornado.off_screen = 0xFFu;
-				return;
-			}
-			if (OBJECT(current_object)->tornado.off_screen != 0u)
-			{
-				OBJECT(current_object)->tornado.off_screen = 0u;
-				OBJECT(current_object)->tornado.sound_timer = 0u;
-			}
-			if (current_game_mode != 7u)
-			{
-				sound_timer = OBJECT(current_object)->tornado.sound_timer;
-				OBJECT(current_object)->tornado.sound_timer = sound_timer - 1u;
-				if (sound_timer == 0u)
-				{
-					sound_id = 0x12u;
-					play_sound(sound_id, &ignored, &ignored);
-					OBJECT(current_object)->tornado.sound_timer = 0x28u;
-				}
-			}
-			return;
-		default:
-			invalid_jump(0x89634u + (direction >> 8) * 2u);
-		}
+		tornado_move_step();
 		return;
 	}
 	OBJECT(current_object)->tornado.wait_timer = 0;
@@ -1306,7 +1112,8 @@ void tornado_move(void)
 	if (record_scroll <= scroll_position)
 	{
 		path_cursor += 2u;
-		goto tornado_load_record;
+		tornado_load_record(path_cursor);
+		return;
 	}
 	threshold = ROM16(path_cursor);
 	direction = OBJECT(current_object)->direction;
@@ -1316,103 +1123,490 @@ void tornado_move(void)
 	case 0:
 	case 4:
 		if ((int16_t)threshold < OBJECT(current_object)->y_int)
-			goto tornado_move_step;
-	tornado_load_record:
-		if ((int16_t)ROM16(path_cursor + 2u) >= 0)
 		{
-			OBJECT(current_object)->tornado.screen_threshold = ROM16(path_cursor);
-			path_cursor += 2u;
-			OBJECT(current_object)->tornado.catch_up_factor = ROM16(path_cursor);
-			path_cursor += 2u;
-			OBJECT(current_object)->tornado.base_speed = ROM16(path_cursor);
-			path_cursor += 2u;
-			OBJECT(current_object)->tornado.wait_timer = ROM16(path_cursor);
-			path_cursor += 2u;
-			OBJECT(current_object)->direction = ROM16(path_cursor);
-			OBJECT(current_object)->tornado.path = path_cursor + 2u;
-			box_across = 0xF0u;
-			box_along = 0x80u;
-			direction = OBJECT(current_object)->direction;
-			switch (direction >> 8)
-			{
-			case 0:
-			case 4:
-				OBJECT(current_object)->hitbox_size_x = box_across;
-				OBJECT(current_object)->hitbox_size_y = box_along;
-				OBJECT(current_object)->hitbox_offset_x = 0u - (box_across >> 1);
-				OBJECT(current_object)->hitbox_offset_y = 0u - (box_along >> 1);
-				break;
-			case 1:
-				OBJECT(current_object)->hitbox_size_x = box_along;
-				OBJECT(current_object)->hitbox_size_y = box_across;
-				OBJECT(current_object)->hitbox_offset_x = 0u - (box_along >> 1);
-				OBJECT(current_object)->hitbox_offset_y = 0u - (box_across >> 1);
-				break;
-			case 2:
-				OBJECT(current_object)->hitbox_size_x = box_across;
-				OBJECT(current_object)->hitbox_size_y = box_along;
-				OBJECT(current_object)->hitbox_offset_x = 0u - (box_across >> 1);
-				OBJECT(current_object)->hitbox_offset_y = 0u - (box_along >> 1);
-				break;
-			case 3:
-				OBJECT(current_object)->hitbox_size_x = box_along;
-				OBJECT(current_object)->hitbox_size_y = box_across;
-				OBJECT(current_object)->hitbox_offset_x = 0u - (box_along >> 1);
-				OBJECT(current_object)->hitbox_offset_y = 0u - (box_across >> 1);
-				if ((uint16_t)OBJECT(current_object)->tornado.wait_timer == 0u)
-					players_frozen = 0u;
-				break;
-			default:
-				invalid_jump(0x8939Du + (direction >> 8) * 2u);
-			}
-			if (OBJECT(current_object)->tornado.path != tornado_kind_0_end_record_ADDRESS)
-				goto tornado_move_step;
-			group_leader_0_held = 0u;
-			goto tornado_move_step;
-		}
-		if ((int16_t)ROM16(path_cursor + 4u) >= 0)
-		{
-			object = current_object;
-			slot_cursor = current_object + 0x96u;
-			columns_left = 5u;
-			do
-			{
-				object = (object & ~0xFFFFu) | mem_read16(slot_cursor);
-				OBJECT(object)->flags |= 0x400u;
-				columns_left--;
-				slot_cursor += 2u;
-			} while (columns_left != 0u);
-			delete_current_object();
+			tornado_move_step();
 			return;
 		}
-		goal_unlocked = 0xFFu;
-		object = current_object;
-		slot_cursor = current_object + 0x96u;
-		columns_left = 5u;
-		do
-		{
-			object = (object & ~0xFFFFu) | mem_read16(slot_cursor);
-			OBJECT(object)->flags |= 0x400u;
-			columns_left--;
-			slot_cursor += 2u;
-		} while (columns_left != 0u);
-		delete_current_object();
+		tornado_load_record(path_cursor);
 		return;
 	case 1:
 		if (OBJECT(current_object)->x_int < (int16_t)threshold)
-			goto tornado_move_step;
-		goto tornado_load_record;
+		{
+			tornado_move_step();
+			return;
+		}
+		tornado_load_record(path_cursor);
+		return;
 	case 2:
 		if (OBJECT(current_object)->y_int < (int16_t)threshold)
-			goto tornado_move_step;
-		goto tornado_load_record;
+		{
+			tornado_move_step();
+			return;
+		}
+		tornado_load_record(path_cursor);
+		return;
 	case 3:
 		if ((int16_t)threshold < OBJECT(current_object)->x_int)
-			goto tornado_move_step;
-		goto tornado_load_record;
+		{
+			tornado_move_step();
+			return;
+		}
+		tornado_load_record(path_cursor);
+		return;
 	default:
 		invalid_jump(0x89306u + (direction >> 8) * 2u);
 	}
+}
+
+void tornado_load_record(uint32_t path_cursor)
+{
+	uint16_t box_across = 0, box_along = 0;
+	uint32_t direction = 0;
+
+	if ((int16_t)ROM16(path_cursor + 2u) < 0)
+	{
+		if ((int16_t)ROM16(path_cursor + 4u) >= 0)
+		{
+			tornado_remove_with_columns();
+			return;
+		}
+		goal_unlocked = 0xFFu;
+		tornado_remove_with_columns();
+		return;
+	}
+	OBJECT(current_object)->tornado.screen_threshold = ROM16(path_cursor);
+	path_cursor += 2u;
+	OBJECT(current_object)->tornado.catch_up_factor = ROM16(path_cursor);
+	path_cursor += 2u;
+	OBJECT(current_object)->tornado.base_speed = ROM16(path_cursor);
+	path_cursor += 2u;
+	OBJECT(current_object)->tornado.wait_timer = ROM16(path_cursor);
+	path_cursor += 2u;
+	OBJECT(current_object)->direction = ROM16(path_cursor);
+	OBJECT(current_object)->tornado.path = path_cursor + 2u;
+	box_across = 0xF0u;
+	box_along = 0x80u;
+	direction = OBJECT(current_object)->direction;
+	switch (direction >> 8)
+	{
+	case 0:
+	case 4:
+		OBJECT(current_object)->hitbox_size_x = box_across;
+		OBJECT(current_object)->hitbox_size_y = box_along;
+		OBJECT(current_object)->hitbox_offset_x = 0u - (box_across >> 1);
+		OBJECT(current_object)->hitbox_offset_y = 0u - (box_along >> 1);
+		if (OBJECT(current_object)->tornado.path != tornado_kind_0_end_record_ADDRESS)
+		{
+			tornado_move_step();
+			return;
+		}
+		group_leader_0_held = 0u;
+		tornado_move_step();
+		return;
+	case 1:
+		OBJECT(current_object)->hitbox_size_x = box_along;
+		OBJECT(current_object)->hitbox_size_y = box_across;
+		OBJECT(current_object)->hitbox_offset_x = 0u - (box_along >> 1);
+		OBJECT(current_object)->hitbox_offset_y = 0u - (box_across >> 1);
+		if (OBJECT(current_object)->tornado.path != tornado_kind_0_end_record_ADDRESS)
+		{
+			tornado_move_step();
+			return;
+		}
+		group_leader_0_held = 0u;
+		tornado_move_step();
+		return;
+	case 2:
+		OBJECT(current_object)->hitbox_size_x = box_across;
+		OBJECT(current_object)->hitbox_size_y = box_along;
+		OBJECT(current_object)->hitbox_offset_x = 0u - (box_across >> 1);
+		OBJECT(current_object)->hitbox_offset_y = 0u - (box_along >> 1);
+		if (OBJECT(current_object)->tornado.path != tornado_kind_0_end_record_ADDRESS)
+		{
+			tornado_move_step();
+			return;
+		}
+		group_leader_0_held = 0u;
+		tornado_move_step();
+		return;
+	case 3:
+		break;
+	default:
+		invalid_jump(0x8939Du + (direction >> 8) * 2u);
+	}
+	OBJECT(current_object)->hitbox_size_x = box_along;
+	OBJECT(current_object)->hitbox_size_y = box_across;
+	OBJECT(current_object)->hitbox_offset_x = 0u - (box_along >> 1);
+	OBJECT(current_object)->hitbox_offset_y = 0u - (box_across >> 1);
+	if ((uint16_t)OBJECT(current_object)->tornado.wait_timer != 0u)
+	{
+		if (OBJECT(current_object)->tornado.path != tornado_kind_0_end_record_ADDRESS)
+		{
+			tornado_move_step();
+			return;
+		}
+		group_leader_0_held = 0u;
+		tornado_move_step();
+		return;
+	}
+	players_frozen = 0u;
+	if (OBJECT(current_object)->tornado.path != tornado_kind_0_end_record_ADDRESS)
+	{
+		tornado_move_step();
+		return;
+	}
+	group_leader_0_held = 0u;
+	tornado_move_step();
+}
+
+void tornado_remove_with_columns(void)
+{
+	uint32_t columns_left = 0, object = 0, slot_cursor = 0;
+
+	object = current_object;
+	slot_cursor = current_object + 0x96u;
+	columns_left = 5u;
+	do
+	{
+		object = (object & ~0xFFFFu) | mem_read16(slot_cursor);
+		OBJECT(object)->flags |= 0x400u;
+		columns_left--;
+		slot_cursor += 2u;
+	} while (columns_left != 0u);
+	delete_current_object();
+}
+
+void tornado_move_step(void)
+{
+	uint16_t hazard_coordinate = 0;
+	uint32_t block_offset = 0, direction = 0, hazard_record = 0, ignored = 0, object = 0, old_head = 0, slope_height = 0, x = 0, y = 0, z = 0;
+	uint8_t hold_timer = 0;
+	uint16_t hazard_scroll = 0;
+
+	find_floor(&ignored, &ignored, &block_offset, &slope_height, &object);
+	OBJECT(current_object)->z = OBJECT(current_object)->floor_z;
+	OBJECT(current_object)->z_int += 8u;
+	OBJECT(current_object)->tornado.rotation_angle -= 4u;
+	OBJECT(current_object)->tornado.rotation_angle &= 0x3FFu;
+	project_object(&old_head, &ignored);
+	old_head = add_to_zone_list(old_head);
+	object = tornado_throw_whirlwinds((uint8_t)old_head, block_offset, slope_height, object);
+	hazard_record = OBJECT(current_object)->animation;
+	hazard_scroll = TORNADO_HAZARD(hazard_record)->position;
+	hazard_record += 2u;
+	if (hazard_scroll <= scroll_position)
+	{
+		hazard_coordinate = (uint16_t)TORNADO_HAZARD(hazard_record - 0x2u)->coordinate;
+		direction = OBJECT(current_object)->direction;
+		switch (direction >> 8)
+		{
+		case 0:
+		case 4:
+			if (OBJECT(current_object)->y_int <= (int16_t)hazard_coordinate)
+			{
+				y = OBJECT(current_object)->y;
+				x = mem_read32(floor_blocks + 2u + OBJECT(current_object)->floor_block) - 0x80000u;
+				z = OBJECT(current_object)->z;
+				spawn_tornado_hazard(x, y, z, object);
+				OBJECT(current_object)->animation += 4u;
+			}
+			break;
+		case 1:
+			if ((int16_t)hazard_coordinate <= OBJECT(current_object)->x_int)
+			{
+				x = OBJECT(current_object)->x - 0x800000u;
+				y = mem_read32(floor_blocks + 2u + OBJECT(current_object)->floor_block + 8u) - 0x80000u;
+				z = OBJECT(current_object)->z;
+				spawn_tornado_hazard(x, y, z, object);
+				OBJECT(current_object)->animation += 4u;
+				if (OBJECT(current_object)->tornado.holding_back == 0u)
+				{
+					tornado_choose_speed();
+					return;
+				}
+				if ((int16_t)(scroll_position - OBJECT(current_object)->tornado.hold_start_position) >= 0x300)
+				{
+					OBJECT(current_object)->tornado.holding_back = 0u;
+					OBJECT(current_object)->tornado.screen_threshold = OBJECT(current_object)->tornado.saved_threshold;
+					OBJECT(current_object)->tornado.base_speed = OBJECT(current_object)->tornado.saved_base_speed;
+					tornado_catch_up_speed();
+					return;
+				}
+				if (player_mishap != 0u || player_dropping_in != 0u || no_player_in_play != 0u)
+					OBJECT(current_object)->tornado.hold_timer = 0xFFu;
+				hold_timer = OBJECT(current_object)->tornado.hold_timer;
+				OBJECT(current_object)->tornado.hold_timer = hold_timer - 1u;
+				if (hold_timer == 0u)
+				{
+					OBJECT(current_object)->tornado.holding_back = 0u;
+					OBJECT(current_object)->tornado.screen_threshold = OBJECT(current_object)->tornado.saved_threshold;
+					OBJECT(current_object)->tornado.base_speed = OBJECT(current_object)->tornado.saved_base_speed;
+					tornado_catch_up_speed();
+					return;
+				}
+				tornado_choose_speed();
+				return;
+			}
+			break;
+		case 2:
+			if ((int16_t)hazard_coordinate <= OBJECT(current_object)->y_int)
+			{
+				y = OBJECT(current_object)->y - 0x800000u;
+				x = mem_read32(floor_blocks + 2u + OBJECT(current_object)->floor_block) - 0x80000u;
+				z = OBJECT(current_object)->z;
+				spawn_tornado_hazard(x, y, z, object);
+				OBJECT(current_object)->animation += 4u;
+				if (OBJECT(current_object)->tornado.holding_back == 0u)
+				{
+					tornado_choose_speed();
+					return;
+				}
+				if ((int16_t)(scroll_position - OBJECT(current_object)->tornado.hold_start_position) >= 0x300)
+				{
+					OBJECT(current_object)->tornado.holding_back = 0u;
+					OBJECT(current_object)->tornado.screen_threshold = OBJECT(current_object)->tornado.saved_threshold;
+					OBJECT(current_object)->tornado.base_speed = OBJECT(current_object)->tornado.saved_base_speed;
+					tornado_catch_up_speed();
+					return;
+				}
+				if (player_mishap != 0u || player_dropping_in != 0u || no_player_in_play != 0u)
+					OBJECT(current_object)->tornado.hold_timer = 0xFFu;
+				hold_timer = OBJECT(current_object)->tornado.hold_timer;
+				OBJECT(current_object)->tornado.hold_timer = hold_timer - 1u;
+				if (hold_timer == 0u)
+				{
+					OBJECT(current_object)->tornado.holding_back = 0u;
+					OBJECT(current_object)->tornado.screen_threshold = OBJECT(current_object)->tornado.saved_threshold;
+					OBJECT(current_object)->tornado.base_speed = OBJECT(current_object)->tornado.saved_base_speed;
+					tornado_catch_up_speed();
+					return;
+				}
+				tornado_choose_speed();
+				return;
+			}
+			break;
+		case 3:
+			if (OBJECT(current_object)->x_int <= (int16_t)hazard_coordinate)
+			{
+				x = OBJECT(current_object)->x;
+				y = mem_read32(floor_blocks + 2u + OBJECT(current_object)->floor_block + 8u) - 0x80000u;
+				z = OBJECT(current_object)->z;
+				spawn_tornado_hazard(x, y, z, object);
+				OBJECT(current_object)->animation += 4u;
+				if (OBJECT(current_object)->tornado.holding_back == 0u)
+				{
+					tornado_choose_speed();
+					return;
+				}
+				if ((int16_t)(scroll_position - OBJECT(current_object)->tornado.hold_start_position) >= 0x300)
+				{
+					OBJECT(current_object)->tornado.holding_back = 0u;
+					OBJECT(current_object)->tornado.screen_threshold = OBJECT(current_object)->tornado.saved_threshold;
+					OBJECT(current_object)->tornado.base_speed = OBJECT(current_object)->tornado.saved_base_speed;
+					tornado_catch_up_speed();
+					return;
+				}
+				if (player_mishap != 0u || player_dropping_in != 0u || no_player_in_play != 0u)
+					OBJECT(current_object)->tornado.hold_timer = 0xFFu;
+				hold_timer = OBJECT(current_object)->tornado.hold_timer;
+				OBJECT(current_object)->tornado.hold_timer = hold_timer - 1u;
+				if (hold_timer == 0u)
+				{
+					OBJECT(current_object)->tornado.holding_back = 0u;
+					OBJECT(current_object)->tornado.screen_threshold = OBJECT(current_object)->tornado.saved_threshold;
+					OBJECT(current_object)->tornado.base_speed = OBJECT(current_object)->tornado.saved_base_speed;
+					tornado_catch_up_speed();
+					return;
+				}
+				tornado_choose_speed();
+				return;
+			}
+			break;
+		default:
+			invalid_jump(0x89477u + (direction >> 8) * 2u);
+		}
+	}
+	if (OBJECT(current_object)->tornado.holding_back == 0u)
+	{
+		tornado_choose_speed();
+		return;
+	}
+	if ((int16_t)(scroll_position - OBJECT(current_object)->tornado.hold_start_position) >= 0x300)
+	{
+		OBJECT(current_object)->tornado.holding_back = 0u;
+		OBJECT(current_object)->tornado.screen_threshold = OBJECT(current_object)->tornado.saved_threshold;
+		OBJECT(current_object)->tornado.base_speed = OBJECT(current_object)->tornado.saved_base_speed;
+		tornado_catch_up_speed();
+		return;
+	}
+	if (player_mishap != 0u || player_dropping_in != 0u || no_player_in_play != 0u)
+		OBJECT(current_object)->tornado.hold_timer = 0xFFu;
+	hold_timer = OBJECT(current_object)->tornado.hold_timer;
+	OBJECT(current_object)->tornado.hold_timer = hold_timer - 1u;
+	if (hold_timer == 0u)
+	{
+		OBJECT(current_object)->tornado.holding_back = 0u;
+		OBJECT(current_object)->tornado.screen_threshold = OBJECT(current_object)->tornado.saved_threshold;
+		OBJECT(current_object)->tornado.base_speed = OBJECT(current_object)->tornado.saved_base_speed;
+		tornado_catch_up_speed();
+		return;
+	}
+	tornado_choose_speed();
+}
+
+void tornado_choose_speed(void)
+{
+	uint16_t move_speed = 0;
+	uint32_t direction = 0;
+
+	if (OBJECT(current_object)->screen_y < 0)
+	{
+		if (OBJECT(current_object)->tornado.holding_back == 0u)
+		{
+			tornado_catch_up_speed();
+			return;
+		}
+		OBJECT(current_object)->tornado.holding_back = 0u;
+		OBJECT(current_object)->tornado.screen_threshold = OBJECT(current_object)->tornado.saved_threshold;
+		OBJECT(current_object)->tornado.base_speed = OBJECT(current_object)->tornado.saved_base_speed;
+		tornado_catch_up_speed();
+		return;
+	}
+	direction = OBJECT(current_object)->direction;
+	switch (direction >> 8)
+	{
+	case 0:
+	case 3:
+		if (OBJECT(current_object)->screen_x <= OBJECT(current_object)->tornado.screen_threshold)
+		{
+			move_speed = (uint16_t)OBJECT(current_object)->tornado.base_speed;
+			tornado_move_at_speed(move_speed);
+			return;
+		}
+		if (OBJECT(current_object)->tornado.holding_back == 0u)
+		{
+			tornado_catch_up_speed();
+			return;
+		}
+		OBJECT(current_object)->tornado.holding_back = 0u;
+		OBJECT(current_object)->tornado.screen_threshold = OBJECT(current_object)->tornado.saved_threshold;
+		OBJECT(current_object)->tornado.base_speed = OBJECT(current_object)->tornado.saved_base_speed;
+		tornado_catch_up_speed();
+		return;
+	case 1:
+	case 2:
+	case 4:
+		if (OBJECT(current_object)->tornado.screen_threshold <= OBJECT(current_object)->screen_x)
+		{
+			move_speed = (uint16_t)OBJECT(current_object)->tornado.base_speed;
+			tornado_move_at_speed(move_speed);
+			return;
+		}
+		if (OBJECT(current_object)->tornado.holding_back == 0u)
+		{
+			tornado_catch_up_speed();
+			return;
+		}
+		OBJECT(current_object)->tornado.holding_back = 0u;
+		OBJECT(current_object)->tornado.screen_threshold = OBJECT(current_object)->tornado.saved_threshold;
+		OBJECT(current_object)->tornado.base_speed = OBJECT(current_object)->tornado.saved_base_speed;
+		tornado_catch_up_speed();
+		return;
+	default:
+		invalid_jump(0x89545u + (direction >> 8) * 2u);
+	}
+}
+
+void tornado_catch_up_speed(void)
+{
+	uint16_t move_speed = 0;
+	uint32_t floor_slope = 0, slope_factor = 0;
+
+	slope_factor = 0u;
+	if ((OBJECT(current_object)->floor_slope | OBJECT(current_object)->floor_type) != 0u)
+	{
+		floor_slope = OBJECT(current_object)->floor_slope;
+		slope_factor = floor_slope_factors[(uint16_t)(floor_slope * 2u)];
+	}
+	compute_camera_slope_speed(0u, slope_factor);
+	move_speed = (uint16_t)((uint32_t)camera_slope_speed_int * OBJECT(current_object)->tornado.catch_up_factor) >> 8;
+	if (OBJECT(current_object)->tornado.base_speed < (int16_t)move_speed)
+	{
+		tornado_move_at_speed(move_speed);
+		return;
+	}
+	move_speed = (uint16_t)OBJECT(current_object)->tornado.base_speed;
+	tornado_move_at_speed(move_speed);
+}
+
+void tornado_move_at_speed(uint16_t move_speed)
+{
+	uint8_t sound_id = 0;
+	uint32_t direction = 0, ignored = 0;
+	uint8_t sound_timer = 0;
+
+	if (AS32(players_finished[0]) == 0xFFFFFFu)
+		move_speed = (uint16_t)((uint32_t)move_speed << 2);
+	chaser_speed = move_speed;
+	if (OBJECT(current_object)->tornado.wait_timer <= 0)
+	{
+		direction = OBJECT(current_object)->direction;
+		switch (direction >> 8)
+		{
+		case 0:
+			OBJECT(current_object)->y -= (uint32_t)chaser_speed << 12;
+			break;
+		case 1:
+			OBJECT(current_object)->x += (uint32_t)chaser_speed << 12;
+			break;
+		case 2:
+		case 4:
+			OBJECT(current_object)->y += (uint32_t)chaser_speed << 12;
+			break;
+		case 3:
+			OBJECT(current_object)->x -= (uint32_t)chaser_speed << 12;
+			break;
+		default:
+			invalid_jump(0x895E6u + (direction >> 8) * 2u);
+		}
+	}
+	direction = OBJECT(current_object)->direction;
+	switch (direction >> 8)
+	{
+	case 0:
+	case 3:
+		if (OBJECT(current_object)->screen_x > 0x180)
+		{
+			OBJECT(current_object)->tornado.off_screen = 0xFFu;
+			return;
+		}
+		break;
+	case 1:
+	case 2:
+	case 4:
+		if (OBJECT(current_object)->screen_x < -0x40)
+		{
+			OBJECT(current_object)->tornado.off_screen = 0xFFu;
+			return;
+		}
+		break;
+	default:
+		invalid_jump(0x89634u + (direction >> 8) * 2u);
+	}
+	if (OBJECT(current_object)->tornado.off_screen != 0u)
+	{
+		OBJECT(current_object)->tornado.off_screen = 0u;
+		OBJECT(current_object)->tornado.sound_timer = 0u;
+	}
+	if (current_game_mode == 7u)
+		return;
+	sound_timer = OBJECT(current_object)->tornado.sound_timer;
+	OBJECT(current_object)->tornado.sound_timer = sound_timer - 1u;
+	if (sound_timer != 0u)
+		return;
+	sound_id = 0x12u;
+	play_sound(sound_id, &ignored, &ignored);
+	OBJECT(current_object)->tornado.sound_timer = 0x28u;
 }
 
 void tornado_column_circle(void)
@@ -1431,7 +1625,6 @@ void tornado_column_circle(void)
 		next_random(&radius_rate, &ignored, &ignored);
 		radius_rate = (radius_rate + 0x100u) & 0x3FFu;
 		radius_limit = 0x1000u;
-	tornado_column_bounce_radius:
 		OBJECT(current_object)->hitbox_size_y = radius_rate;
 		OBJECT(current_object)->speed_z_fraction = radius_limit;
 	}
@@ -1440,7 +1633,8 @@ void tornado_column_circle(void)
 		next_random(&radius_rate, &ignored, &ignored);
 		radius_rate = (uint16_t)(0u - ((radius_rate + 0x100u) & 0x3FFu));
 		radius_limit = 0x6800u;
-		goto tornado_column_bounce_radius;
+		OBJECT(current_object)->hitbox_size_y = radius_rate;
+		OBJECT(current_object)->speed_z_fraction = radius_limit;
 	}
 	object_2 = LINKED(current_object, OBJECT(current_object)->parent);
 	OBJECT(current_object)->x = OBJECT(object_2)->x;
@@ -1673,28 +1867,38 @@ void quicksand_swirl(void)
 		}
 		animation_timer = OBJECT(current_object)->animation_timer;
 		OBJECT(current_object)->animation_timer = animation_timer - 1u;
-		if ((int8_t)animation_timer <= 1)
+		if ((int8_t)animation_timer > 1)
 		{
-			OBJECT(current_object)->animation_timer = OBJECT(current_object)->animation_speed;
-			step_list = OBJECT(current_object)->animation;
-			next_step = OBJECT(current_object)->animation_frame;
-			next_step = (uint8_t)(next_step + 1u);
-			last_step = ROM16(step_list);
-			step_list += 2u;
-			if ((int16_t)last_step < (int16_t)next_step)
-				next_step = 0u;
-			OBJECT(current_object)->animation_frame = next_step;
-			step_frame = ROM16(step_list + next_step * 2u);
-			part_cursor = OBJECT(LINKED(current_object, OBJECT(current_object)->child))->part_list;
-			parts_left = SPRITE_PART_LIST(part_cursor)->count;
-			part_cursor += 2u;
-			do
-			{
-				SPRITE_PART(part_cursor)->frame = step_frame;
-				part_cursor += 8u;
-				parts_left--;
-			} while (parts_left != 0u);
+			object_2 = LINKED(current_object, OBJECT(current_object)->child);
+			OBJECT(object_2)->screen_x = OBJECT(current_object)->screen_x;
+			OBJECT(object_2)->screen_y = OBJECT(current_object)->screen_y;
+			current_object = LINKED(current_object, OBJECT(current_object)->child);
+			depth = (uint16_t)(OBJECT(current_object)->screen_y - 0x58u);
+			queue_sprite_at_depth(&ignored, &depth);
+			current_object = object_cursor;
+			depth = (uint16_t)(OBJECT(current_object)->screen_y - 0x58u);
+			queue_sprite_at_depth(&ignored, &depth);
+			return;
 		}
+		OBJECT(current_object)->animation_timer = OBJECT(current_object)->animation_speed;
+		step_list = OBJECT(current_object)->animation;
+		next_step = OBJECT(current_object)->animation_frame;
+		next_step = (uint8_t)(next_step + 1u);
+		last_step = ROM16(step_list);
+		step_list += 2u;
+		if ((int16_t)last_step < (int16_t)next_step)
+			next_step = 0u;
+		OBJECT(current_object)->animation_frame = next_step;
+		step_frame = ROM16(step_list + next_step * 2u);
+		part_cursor = OBJECT(LINKED(current_object, OBJECT(current_object)->child))->part_list;
+		parts_left = SPRITE_PART_LIST(part_cursor)->count;
+		part_cursor += 2u;
+		do
+		{
+			SPRITE_PART(part_cursor)->frame = step_frame;
+			part_cursor += 8u;
+			parts_left--;
+		} while (parts_left != 0u);
 		object_2 = LINKED(current_object, OBJECT(current_object)->child);
 		OBJECT(object_2)->screen_x = OBJECT(current_object)->screen_x;
 		OBJECT(object_2)->screen_y = OBJECT(current_object)->screen_y;
@@ -1914,18 +2118,31 @@ void rimmed_sinkhole_open(void)
 	}
 	if (scroll_position < OBJECT(current_object)->rimmed_sinkhole.open_position)
 		return;
-	if ((int16_t)OBJECT(current_object)->sprite_scale < 0x100)
+	if ((int16_t)OBJECT(current_object)->sprite_scale >= 0x100)
 	{
-		if (OBJECT(current_object)->sprite_scale == 1u)
-		{
-			sound_id = 0xFu;
-			play_sound((uint8_t)sound_id, &ignored, &ignored);
-		}
-		OBJECT(current_object)->sprite_scale += OBJECT(current_object)->rimmed_sinkhole.zoom_step;
-		OBJECT(LINKED(current_object, OBJECT(current_object)->child))->sprite_scale = OBJECT(current_object)->sprite_scale;
-		animate(&ignored, &ignored, &ignored);
-		OBJECT(current_object)->hitbox_size_x = (int32_t)((uint32_t)OBJECT(current_object)->rimmed_sinkhole.unscaled_hitbox_size_x * OBJECT(current_object)->sprite_scale) >> 8;
+		add_to_touchable_list(sound_id);
+		update_screen_position(&ignored, &ignored);
+		depth = (uint16_t)(OBJECT(current_object)->screen_y - 0x30u);
+		if ((int16_t)depth <= -0xF)
+			depth = 0xFFF1u;
+		OBJECT(current_object)->draw_depth = depth;
+		queue_sprite_at_depth(&ignored, &depth);
+		current_object = LINKED(current_object, OBJECT(current_object)->child);
+		OBJECT(current_object)->screen_x = OBJECT(object_cursor)->screen_x;
+		OBJECT(current_object)->screen_y = OBJECT(object_cursor)->screen_y;
+		depth = (uint16_t)(OBJECT(object_cursor)->draw_depth - 8u);
+		queue_sprite_at_depth(&ignored, &depth);
+		return;
 	}
+	if (OBJECT(current_object)->sprite_scale == 1u)
+	{
+		sound_id = 0xFu;
+		play_sound((uint8_t)sound_id, &ignored, &ignored);
+	}
+	OBJECT(current_object)->sprite_scale += OBJECT(current_object)->rimmed_sinkhole.zoom_step;
+	OBJECT(LINKED(current_object, OBJECT(current_object)->child))->sprite_scale = OBJECT(current_object)->sprite_scale;
+	animate(&ignored, &ignored, &ignored);
+	OBJECT(current_object)->hitbox_size_x = (int32_t)((uint32_t)OBJECT(current_object)->rimmed_sinkhole.unscaled_hitbox_size_x * OBJECT(current_object)->sprite_scale) >> 8;
 	add_to_touchable_list(sound_id);
 	update_screen_position(&ignored, &ignored);
 	depth = (uint16_t)(OBJECT(current_object)->screen_y - 0x30u);
@@ -2003,136 +2220,244 @@ void sand_block_leader_wait(void)
 
 void sand_block_leader_move(void)
 {
-	uint16_t hold_threshold = 0, move_speed = 0;
-	uint32_t block_record = 0, ignored = 0, path_cursor = 0;
-	uint8_t hold_timer = 0;
-	uint16_t wait_timer = 0, record_scroll = 0;
+	uint16_t hold_threshold = 0;
 	uint32_t flags = 0;
 
 	flags = OBJECT(current_object)->flags;
 	OBJECT(current_object)->flags = flags | 0x80000000u;
 	if ((flags & 0x80000000u) == 0u)
 	{
-	sand_block_leader_read_script:
-		wait_timer = OBJECT(current_object)->sand_block_leader.wait_timer;
-		OBJECT(current_object)->sand_block_leader.wait_timer = wait_timer - 1u;
-		if ((int16_t)wait_timer <= 1)
-		{
-			OBJECT(current_object)->sand_block_leader.wait_timer = 0;
-			path_cursor = OBJECT(current_object)->sand_block_leader.path;
-			record_scroll = ROM16(path_cursor);
-			path_cursor += 2u;
-			if (record_scroll <= scroll_position)
-			{
-				if ((int16_t)ROM16(path_cursor + 2u) < 0)
-				{
-					delete_current_object();
-					return;
-				}
-				OBJECT(current_object)->sand_block_leader.screen_threshold = ROM16(path_cursor);
-				path_cursor += 2u;
-				OBJECT(current_object)->sand_block_leader.catch_up_factor = ROM16(path_cursor);
-				path_cursor += 2u;
-				OBJECT(current_object)->sand_block_leader.base_speed = ROM16(path_cursor);
-				path_cursor += 2u;
-				OBJECT(current_object)->sand_block_leader.wait_timer = ROM16(path_cursor);
-				OBJECT(current_object)->sand_block_leader.path = path_cursor + 2u;
-			}
-		}
+		sand_block_leader_read_script();
+		return;
 	}
-	else if (OBJECT(current_object)->sand_block_leader.holding_back == 0u)
+	if (OBJECT(current_object)->sand_block_leader.holding_back != 0u)
 	{
-		if (no_player_in_play == 0u && player_mishap == 0u && player_dropping_in == 0u)
-			goto sand_block_leader_read_script;
-		OBJECT(current_object)->sand_block_leader.holding_back = 0xFFu;
-		OBJECT(current_object)->sand_block_leader.saved_base_speed = OBJECT(current_object)->sand_block_leader.base_speed;
-		OBJECT(current_object)->sand_block_leader.base_speed = 0;
-		OBJECT(current_object)->sand_block_leader.hold_start_position = scroll_position;
-		OBJECT(current_object)->sand_block_leader.hold_timer = 0xFFu;
-		OBJECT(current_object)->sand_block_leader.saved_threshold = OBJECT(current_object)->sand_block_leader.screen_threshold;
-		hold_threshold = 0xFFE0u;
-		if ((OBJECT(current_object)->direction_low & 1u) != 0u)
-			hold_threshold = 0x160u;
-		OBJECT(current_object)->sand_block_leader.screen_threshold = hold_threshold;
+		sand_block_leader_move_step();
+		return;
 	}
+	if (no_player_in_play == 0u && player_mishap == 0u && player_dropping_in == 0u)
+	{
+		sand_block_leader_read_script();
+		return;
+	}
+	OBJECT(current_object)->sand_block_leader.holding_back = 0xFFu;
+	OBJECT(current_object)->sand_block_leader.saved_base_speed = OBJECT(current_object)->sand_block_leader.base_speed;
+	OBJECT(current_object)->sand_block_leader.base_speed = 0;
+	OBJECT(current_object)->sand_block_leader.hold_start_position = scroll_position;
+	OBJECT(current_object)->sand_block_leader.hold_timer = 0xFFu;
+	OBJECT(current_object)->sand_block_leader.saved_threshold = OBJECT(current_object)->sand_block_leader.screen_threshold;
+	hold_threshold = 0xFFE0u;
+	if ((OBJECT(current_object)->direction_low & 1u) != 0u)
+		hold_threshold = 0x160u;
+	OBJECT(current_object)->sand_block_leader.screen_threshold = hold_threshold;
+	sand_block_leader_move_step();
+}
+
+void sand_block_leader_read_script(void)
+{
+	uint32_t path_cursor = 0;
+	uint16_t wait_timer = 0, record_scroll = 0;
+
+	wait_timer = OBJECT(current_object)->sand_block_leader.wait_timer;
+	OBJECT(current_object)->sand_block_leader.wait_timer = wait_timer - 1u;
+	if ((int16_t)wait_timer > 1)
+	{
+		sand_block_leader_move_step();
+		return;
+	}
+	OBJECT(current_object)->sand_block_leader.wait_timer = 0;
+	path_cursor = OBJECT(current_object)->sand_block_leader.path;
+	record_scroll = ROM16(path_cursor);
+	path_cursor += 2u;
+	if (scroll_position < record_scroll)
+	{
+		sand_block_leader_move_step();
+		return;
+	}
+	if ((int16_t)ROM16(path_cursor + 2u) < 0)
+	{
+		delete_current_object();
+		return;
+	}
+	OBJECT(current_object)->sand_block_leader.screen_threshold = ROM16(path_cursor);
+	path_cursor += 2u;
+	OBJECT(current_object)->sand_block_leader.catch_up_factor = ROM16(path_cursor);
+	path_cursor += 2u;
+	OBJECT(current_object)->sand_block_leader.base_speed = ROM16(path_cursor);
+	path_cursor += 2u;
+	OBJECT(current_object)->sand_block_leader.wait_timer = ROM16(path_cursor);
+	OBJECT(current_object)->sand_block_leader.path = path_cursor + 2u;
+	sand_block_leader_move_step();
+}
+
+void sand_block_leader_move_step(void)
+{
+	uint16_t move_speed = 0;
+	uint32_t block_record = 0, ignored = 0;
+	uint8_t hold_timer = 0;
+
 	find_floor(&ignored, &ignored, &ignored, &ignored, &ignored);
 	project_object(&ignored, &ignored);
 	add_to_rider_list();
-	if (OBJECT(current_object)->sand_block_leader.holding_back != 0u)
+	if (OBJECT(current_object)->sand_block_leader.holding_back == 0u)
 	{
-		if ((int16_t)(scroll_position - OBJECT(current_object)->sand_block_leader.hold_start_position) >= 0x300)
-			goto sand_block_leader_stop_holding_back;
+		switch (OBJECT(current_object)->direction)
+		{
+		case 0:
+		case 2:
+		case 4:
+			if (OBJECT(current_object)->sand_block_leader.screen_threshold <= OBJECT(current_object)->screen_x)
+				move_speed = (uint16_t)OBJECT(current_object)->sand_block_leader.base_speed;
+			else
+			{
+				OBJECT(current_object)->sand_block_leader.wait_timer = 0;
+				if (OBJECT(current_object)->sand_block_leader.holding_back != 0u)
+				{
+					OBJECT(current_object)->sand_block_leader.holding_back = 0u;
+					OBJECT(current_object)->sand_block_leader.screen_threshold = OBJECT(current_object)->sand_block_leader.saved_threshold;
+					OBJECT(current_object)->sand_block_leader.base_speed = OBJECT(current_object)->sand_block_leader.saved_base_speed;
+				}
+				compute_camera_ground_speed(ignored);
+				move_speed = (uint16_t)((uint32_t)camera_ground_speed_int * OBJECT(current_object)->sand_block_leader.catch_up_factor) >> 8;
+				if ((int16_t)move_speed <= OBJECT(current_object)->sand_block_leader.base_speed)
+					move_speed = (uint16_t)OBJECT(current_object)->sand_block_leader.base_speed;
+			}
+			break;
+		case 1:
+		case 3:
+			if (OBJECT(current_object)->sand_block_leader.screen_threshold < OBJECT(current_object)->screen_x || OBJECT(current_object)->screen_y > 0xE0)
+			{
+				OBJECT(current_object)->sand_block_leader.wait_timer = 0;
+				if (OBJECT(current_object)->sand_block_leader.holding_back != 0u)
+				{
+					OBJECT(current_object)->sand_block_leader.holding_back = 0u;
+					OBJECT(current_object)->sand_block_leader.screen_threshold = OBJECT(current_object)->sand_block_leader.saved_threshold;
+					OBJECT(current_object)->sand_block_leader.base_speed = OBJECT(current_object)->sand_block_leader.saved_base_speed;
+				}
+				compute_camera_ground_speed(ignored);
+				move_speed = (uint16_t)((uint32_t)camera_ground_speed_int * OBJECT(current_object)->sand_block_leader.catch_up_factor) >> 8;
+				if ((int16_t)move_speed <= OBJECT(current_object)->sand_block_leader.base_speed)
+					move_speed = (uint16_t)OBJECT(current_object)->sand_block_leader.base_speed;
+			}
+			else
+				move_speed = (uint16_t)OBJECT(current_object)->sand_block_leader.base_speed;
+			break;
+		default:
+			invalid_jump(0x8A046u + OBJECT(current_object)->direction * 2u);
+		}
+	}
+	else if ((int16_t)(scroll_position - OBJECT(current_object)->sand_block_leader.hold_start_position) >= 0x300)
+	{
+		OBJECT(current_object)->sand_block_leader.holding_back = 0u;
+		OBJECT(current_object)->sand_block_leader.screen_threshold = OBJECT(current_object)->sand_block_leader.saved_threshold;
+		OBJECT(current_object)->sand_block_leader.base_speed = OBJECT(current_object)->sand_block_leader.saved_base_speed;
+		compute_camera_ground_speed(ignored);
+		move_speed = (uint16_t)((uint32_t)camera_ground_speed_int * OBJECT(current_object)->sand_block_leader.catch_up_factor) >> 8;
+		if ((int16_t)move_speed <= OBJECT(current_object)->sand_block_leader.base_speed)
+			move_speed = (uint16_t)OBJECT(current_object)->sand_block_leader.base_speed;
+	}
+	else
+	{
 		if (no_player_in_play != 0u)
 			OBJECT(current_object)->sand_block_leader.hold_timer = 0xFFu;
 		hold_timer = OBJECT(current_object)->sand_block_leader.hold_timer;
 		OBJECT(current_object)->sand_block_leader.hold_timer = hold_timer - 1u;
 		if (hold_timer == 0u)
-			goto sand_block_leader_stop_holding_back;
-	}
-	switch (OBJECT(current_object)->direction)
-	{
-	case 0:
-	case 2:
-	case 4:
-		if (OBJECT(current_object)->sand_block_leader.screen_threshold <= OBJECT(current_object)->screen_x)
 		{
-		sand_block_leader_use_base_speed:
-			move_speed = (uint16_t)OBJECT(current_object)->sand_block_leader.base_speed;
-		}
-		else
-		{
-		sand_block_leader_catch_up:
-			OBJECT(current_object)->sand_block_leader.wait_timer = 0;
-			if (OBJECT(current_object)->sand_block_leader.holding_back != 0u)
-			{
-			sand_block_leader_stop_holding_back:
-				OBJECT(current_object)->sand_block_leader.holding_back = 0u;
-				OBJECT(current_object)->sand_block_leader.screen_threshold = OBJECT(current_object)->sand_block_leader.saved_threshold;
-				OBJECT(current_object)->sand_block_leader.base_speed = OBJECT(current_object)->sand_block_leader.saved_base_speed;
-			}
+			OBJECT(current_object)->sand_block_leader.holding_back = 0u;
+			OBJECT(current_object)->sand_block_leader.screen_threshold = OBJECT(current_object)->sand_block_leader.saved_threshold;
+			OBJECT(current_object)->sand_block_leader.base_speed = OBJECT(current_object)->sand_block_leader.saved_base_speed;
 			compute_camera_ground_speed(ignored);
 			move_speed = (uint16_t)((uint32_t)camera_ground_speed_int * OBJECT(current_object)->sand_block_leader.catch_up_factor) >> 8;
 			if ((int16_t)move_speed <= OBJECT(current_object)->sand_block_leader.base_speed)
-				goto sand_block_leader_use_base_speed;
+				move_speed = (uint16_t)OBJECT(current_object)->sand_block_leader.base_speed;
 		}
-		break;
-	case 1:
-	case 3:
-		if (OBJECT(current_object)->sand_block_leader.screen_threshold < OBJECT(current_object)->screen_x || OBJECT(current_object)->screen_y > 0xE0)
-			goto sand_block_leader_catch_up;
-		goto sand_block_leader_use_base_speed;
-	default:
-		invalid_jump(0x8A046u + OBJECT(current_object)->direction * 2u);
+		else
+		{
+			switch (OBJECT(current_object)->direction)
+			{
+			case 0:
+			case 2:
+			case 4:
+				if (OBJECT(current_object)->sand_block_leader.screen_threshold <= OBJECT(current_object)->screen_x)
+					move_speed = (uint16_t)OBJECT(current_object)->sand_block_leader.base_speed;
+				else
+				{
+					OBJECT(current_object)->sand_block_leader.wait_timer = 0;
+					if (OBJECT(current_object)->sand_block_leader.holding_back != 0u)
+					{
+						OBJECT(current_object)->sand_block_leader.holding_back = 0u;
+						OBJECT(current_object)->sand_block_leader.screen_threshold = OBJECT(current_object)->sand_block_leader.saved_threshold;
+						OBJECT(current_object)->sand_block_leader.base_speed = OBJECT(current_object)->sand_block_leader.saved_base_speed;
+					}
+					compute_camera_ground_speed(ignored);
+					move_speed = (uint16_t)((uint32_t)camera_ground_speed_int * OBJECT(current_object)->sand_block_leader.catch_up_factor) >> 8;
+					if ((int16_t)move_speed <= OBJECT(current_object)->sand_block_leader.base_speed)
+						move_speed = (uint16_t)OBJECT(current_object)->sand_block_leader.base_speed;
+				}
+				break;
+			case 1:
+			case 3:
+				if (OBJECT(current_object)->sand_block_leader.screen_threshold < OBJECT(current_object)->screen_x || OBJECT(current_object)->screen_y > 0xE0)
+				{
+					OBJECT(current_object)->sand_block_leader.wait_timer = 0;
+					if (OBJECT(current_object)->sand_block_leader.holding_back != 0u)
+					{
+						OBJECT(current_object)->sand_block_leader.holding_back = 0u;
+						OBJECT(current_object)->sand_block_leader.screen_threshold = OBJECT(current_object)->sand_block_leader.saved_threshold;
+						OBJECT(current_object)->sand_block_leader.base_speed = OBJECT(current_object)->sand_block_leader.saved_base_speed;
+					}
+					compute_camera_ground_speed(ignored);
+					move_speed = (uint16_t)((uint32_t)camera_ground_speed_int * OBJECT(current_object)->sand_block_leader.catch_up_factor) >> 8;
+					if ((int16_t)move_speed <= OBJECT(current_object)->sand_block_leader.base_speed)
+						move_speed = (uint16_t)OBJECT(current_object)->sand_block_leader.base_speed;
+				}
+				else
+					move_speed = (uint16_t)OBJECT(current_object)->sand_block_leader.base_speed;
+				break;
+			default:
+				invalid_jump(0x8A046u + OBJECT(current_object)->direction * 2u);
+			}
+		}
 	}
 	chaser_speed = move_speed;
-	if (OBJECT(current_object)->sand_block_leader.wait_timer <= 0)
+	if (OBJECT(current_object)->sand_block_leader.wait_timer > 0)
 	{
-		block_record = floor_blocks + 2u + OBJECT(current_object)->floor_block;
-		switch (OBJECT(current_object)->direction)
-		{
-		case 0:
-		case 4:
-			OBJECT(current_object)->y += (uint32_t)chaser_speed << 12;
-			OBJECT(current_object)->x = (uint32_t)((int32_t)((uint32_t)FLOOR_BLOCK(block_record)->x_max - FLOOR_BLOCK(block_record)->x_min) >> 1) + FLOOR_BLOCK(block_record)->x_min;
-			break;
-		case 1:
-			OBJECT(current_object)->y -= (uint32_t)chaser_speed << 12;
-			OBJECT(current_object)->x = (uint32_t)((int32_t)((uint32_t)FLOOR_BLOCK(block_record)->x_max - FLOOR_BLOCK(block_record)->x_min) >> 1) + FLOOR_BLOCK(block_record)->x_min;
-			break;
-		case 2:
-			OBJECT(current_object)->x += (uint32_t)chaser_speed << 12;
-			OBJECT(current_object)->y = (uint32_t)((int32_t)((uint32_t)FLOOR_BLOCK(block_record)->y_max - FLOOR_BLOCK(block_record)->y_min) >> 1) + FLOOR_BLOCK(block_record)->y_min;
-			break;
-		case 3:
-			OBJECT(current_object)->x -= (uint32_t)chaser_speed << 12;
-			OBJECT(current_object)->y = (uint32_t)((int32_t)((uint32_t)FLOOR_BLOCK(block_record)->y_max - FLOOR_BLOCK(block_record)->y_min) >> 1) + FLOOR_BLOCK(block_record)->y_min;
-			break;
-		default:
-			invalid_jump(0x8A0D4u + OBJECT(current_object)->direction * 2u);
-		}
+		if (OBJECT(current_object)->y_int <= 0xA2B)
+			sand_block_leader_active = 0u;
+		return;
 	}
-	if (OBJECT(current_object)->y_int <= 0xA2B)
-		sand_block_leader_active = 0u;
+	block_record = floor_blocks + 2u + OBJECT(current_object)->floor_block;
+	switch (OBJECT(current_object)->direction)
+	{
+	case 0:
+	case 4:
+		OBJECT(current_object)->y += (uint32_t)chaser_speed << 12;
+		OBJECT(current_object)->x = (uint32_t)((int32_t)((uint32_t)FLOOR_BLOCK(block_record)->x_max - FLOOR_BLOCK(block_record)->x_min) >> 1) + FLOOR_BLOCK(block_record)->x_min;
+		if (OBJECT(current_object)->y_int <= 0xA2B)
+			sand_block_leader_active = 0u;
+		return;
+	case 1:
+		OBJECT(current_object)->y -= (uint32_t)chaser_speed << 12;
+		OBJECT(current_object)->x = (uint32_t)((int32_t)((uint32_t)FLOOR_BLOCK(block_record)->x_max - FLOOR_BLOCK(block_record)->x_min) >> 1) + FLOOR_BLOCK(block_record)->x_min;
+		if (OBJECT(current_object)->y_int <= 0xA2B)
+			sand_block_leader_active = 0u;
+		return;
+	case 2:
+		OBJECT(current_object)->x += (uint32_t)chaser_speed << 12;
+		OBJECT(current_object)->y = (uint32_t)((int32_t)((uint32_t)FLOOR_BLOCK(block_record)->y_max - FLOOR_BLOCK(block_record)->y_min) >> 1) + FLOOR_BLOCK(block_record)->y_min;
+		if (OBJECT(current_object)->y_int <= 0xA2B)
+			sand_block_leader_active = 0u;
+		return;
+	case 3:
+		OBJECT(current_object)->x -= (uint32_t)chaser_speed << 12;
+		OBJECT(current_object)->y = (uint32_t)((int32_t)((uint32_t)FLOOR_BLOCK(block_record)->y_max - FLOOR_BLOCK(block_record)->y_min) >> 1) + FLOOR_BLOCK(block_record)->y_min;
+		if (OBJECT(current_object)->y_int <= 0xA2B)
+			sand_block_leader_active = 0u;
+		return;
+	default:
+		invalid_jump(0x8A0D4u + OBJECT(current_object)->direction * 2u);
+	}
 }
 
 void sand_block_update(void)
@@ -2333,23 +2658,25 @@ void sand_face_update(void)
 		object = LINKED(object, OBJECT(object)->parent);
 		OBJECT(current_object)->y = OBJECT(object)->y;
 		OBJECT(current_object)->z = OBJECT(object)->z;
+		animate_all_parts(&ignored, &ignored);
+		project_object(&ignored, &ignored);
+		depth = (uint16_t)(OBJECT(current_object)->screen_y - OBJECT(current_object)->sand_face.depth_offset);
+		queue_sprite_at_depth(&ignored, &depth);
+		return;
 	}
-	else
+	if (OBJECT(current_object)->screen_y >= 0x150)
 	{
-		if (OBJECT(current_object)->screen_y >= 0x150)
-		{
-			part_list = (uint16_t)OBJECT(current_object)->part_list;
-			free_object_2(part_list);
-			object = LINKED(current_object, OBJECT(current_object)->child);
-			OBJECT(object)->flags |= 0x400u;
-			delete_current_object();
-			return;
-		}
-		OBJECT(current_object)->sand_face.depth_offset = 0x38;
-		OBJECT(current_object)->animation = sand_face_fall_animation_ADDRESS;
-		OBJECT(current_object)->speed_z += 0x6000u;
-		OBJECT(current_object)->z += OBJECT(current_object)->speed_z;
+		part_list = (uint16_t)OBJECT(current_object)->part_list;
+		free_object_2(part_list);
+		object = LINKED(current_object, OBJECT(current_object)->child);
+		OBJECT(object)->flags |= 0x400u;
+		delete_current_object();
+		return;
 	}
+	OBJECT(current_object)->sand_face.depth_offset = 0x38;
+	OBJECT(current_object)->animation = sand_face_fall_animation_ADDRESS;
+	OBJECT(current_object)->speed_z += 0x6000u;
+	OBJECT(current_object)->z += OBJECT(current_object)->speed_z;
 	animate_all_parts(&ignored, &ignored);
 	project_object(&ignored, &ignored);
 	depth = (uint16_t)(OBJECT(current_object)->screen_y - OBJECT(current_object)->sand_face.depth_offset);

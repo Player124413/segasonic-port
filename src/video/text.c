@@ -548,13 +548,11 @@ void formatted_text_single(uint16_t cell, uint32_t text, uint32_t text_position)
 			formatted_text_triple(cell, text, text_position);
 			return;
 		case 0xCu:
+		case 0x12u:
 			formatted_text_attribute_single(text, text_position);
 			return;
 		case 0xFu:
 			formatted_text_position_single(text, text_position);
-			return;
-		case 0x12u:
-			formatted_text_attribute_single(text, text_position);
 			return;
 		case 0x15u:
 			formatted_text_position_double(text, text_position);
@@ -656,6 +654,7 @@ void formatted_text_double(uint16_t cell, uint32_t text, uint32_t text_position)
 			formatted_text_triple(cell, text, text_position);
 			return;
 		case 0xCu:
+		case 0x18u:
 			formatted_text_attribute_double(text, text_position);
 			return;
 		case 0xFu:
@@ -666,9 +665,6 @@ void formatted_text_double(uint16_t cell, uint32_t text, uint32_t text_position)
 			return;
 		case 0x15u:
 			formatted_text_position_double(text, text_position);
-			return;
-		case 0x18u:
-			formatted_text_attribute_double(text, text_position);
 			return;
 		case 0x1Bu:
 			formatted_text_position_triple(text, text_position);
@@ -765,6 +761,7 @@ void formatted_text_triple(uint16_t cell, uint32_t text, uint32_t text_position)
 		case 0x9u:
 			continue;
 		case 0xCu:
+		case 0x1Eu:
 			formatted_text_attribute_triple(text, text_position);
 			return;
 		case 0xFu:
@@ -781,9 +778,6 @@ void formatted_text_triple(uint16_t cell, uint32_t text, uint32_t text_position)
 			return;
 		case 0x1Bu:
 			formatted_text_position_triple(text, text_position);
-			return;
-		case 0x1Eu:
-			formatted_text_attribute_triple(text, text_position);
 			return;
 		case 0x21u:
 			formatted_text_skip_triple(cell, text, text_position);
@@ -870,13 +864,11 @@ void erase_formatted_text_single(uint32_t cell, uint32_t text, uint32_t text_pos
 			erase_formatted_text_triple(cell, text, text_position);
 			return;
 		case 0xCu:
+		case 0x12u:
 			erase_formatted_text_attribute_single(cell, text, text_position);
 			return;
 		case 0xFu:
 			erase_formatted_text_position_single(cell, text, text_position);
-			return;
-		case 0x12u:
-			erase_formatted_text_attribute_single(cell, text, text_position);
 			return;
 		case 0x15u:
 			erase_formatted_text_position_double(cell, text, text_position);
@@ -961,6 +953,7 @@ void erase_formatted_text_double(uint32_t cell, uint32_t text, uint32_t text_pos
 			erase_formatted_text_triple(cell, text, text_position);
 			return;
 		case 0xCu:
+		case 0x18u:
 			erase_formatted_text_attribute_double(cell, text, text_position);
 			return;
 		case 0xFu:
@@ -971,9 +964,6 @@ void erase_formatted_text_double(uint32_t cell, uint32_t text, uint32_t text_pos
 			return;
 		case 0x15u:
 			erase_formatted_text_position_double(cell, text, text_position);
-			return;
-		case 0x18u:
-			erase_formatted_text_attribute_double(cell, text, text_position);
 			return;
 		case 0x1Bu:
 			erase_formatted_text_position_triple(cell, text, text_position);
@@ -1052,6 +1042,7 @@ void erase_formatted_text_triple(uint32_t cell, uint32_t text, uint32_t text_pos
 		case 0x9u:
 			continue;
 		case 0xCu:
+		case 0x1Eu:
 			erase_formatted_text_attribute_triple(cell, text, text_position);
 			return;
 		case 0xFu:
@@ -1068,9 +1059,6 @@ void erase_formatted_text_triple(uint32_t cell, uint32_t text, uint32_t text_pos
 			return;
 		case 0x1Bu:
 			erase_formatted_text_position_triple(cell, text, text_position);
-			return;
-		case 0x1Eu:
-			erase_formatted_text_attribute_triple(cell, text, text_position);
 			return;
 		case 0x21u:
 			erase_formatted_text_skip_triple(cell, text, text_position);

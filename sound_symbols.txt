@@ -141,6 +141,7 @@
 47DE  code  copy_one_data_byte      # Cn, Dn (and the second half of copy_two_data_bytes)
 47EF  code  count_midi_message      # midi_queue_count + 1, then read_delta_time
 47F5  code  system_event            # F0 (sysex up to F7), F7 (by length), others end the sequence
+4803  code  system_event_other      # a status byte F1-F6 or F8-FE (no sysex): the sequence ends (end_of_sequence)
 4823  code  meta_event              # FF: 2F end, 51 meta_51_value, others skipped by length
 4840  code  read_delta_time         # after an event: flag 6 (chained) -> next event; a delta byte 00 -> next event; else set_delta_time
 484F  code  set_delta_time          # a delta byte not 0: bit 7 -> two bytes (14 bits: high 6 to field 07, low 7 + the high byte's bit 0 to field 06); stores the position and the queue index, sample bank back, returns
