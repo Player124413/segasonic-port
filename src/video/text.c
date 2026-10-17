@@ -3,7 +3,7 @@
  *    Description: text: the text layer's font, printing and erasing text, lines, fractions and digits, and the strings drawn with sprites
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    16-10-2026
+ *    Modified:    17-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by

@@ -3,7 +3,7 @@
  *    Description: stage 3's objects: the spiked panels and the electric poles, the crate pushed to a post, the breakable panel, the spiked roller that chases the players (also in stage E) and the floor that crumbles at the finale, the machine at 8300 with its fire and fireballs, the fire vents, the end pillar
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    16-10-2026
+ *    Modified:    17-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -876,7 +876,7 @@ void spiked_roller_start(void)
 	record_cursor += 2u;
 	roller_back_zone_index = ROM16(record_cursor);
 	OBJECT(current_object)->spiked_roller.path = record_cursor + 2u;
-	r11 += 0x8219Cu;
+	r11 += spiked_roller_layouts_ADDRESS;
 	roller_step_x = (uint32_t)(int8_t)ROM8(r11) << 16;
 	r11++;
 	roller_step_y = (uint32_t)(int8_t)ROM8(r11) << 16;

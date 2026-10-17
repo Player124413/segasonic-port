@@ -3,7 +3,7 @@
  *    Description: objects several stages use: the signs, the scenery sprites, the walls players and objects bounce off, the zones behind the chasers, the pacer that keeps two players together, the hold on a group leader; object types 4 and 13; the crawler, which nothing spawns
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    16-10-2026
+ *    Modified:    17-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -775,7 +775,7 @@ void init_sign_from_kind(uint32_t record, uint32_t *p_depth, uint32_t *p_sign)
 	OBJECT(sign)->speed_x_fraction = SIGN_KIND(record - 0x4u)->duration;
 	record += 2u;
 	OBJECT(sign)->animate_sign.palette_list = SIGN_KIND(record - 0x6u)->palette_list_offset;
-	OBJECT(sign)->animate_sign.palette_list += 0x8514Du;
+	OBJECT(sign)->animate_sign.palette_list += sign_palette_lists_ADDRESS;
 	OBJECT(sign)->handler = SIGN_KIND(record - 0x6u)->handler;
 	OBJECT(sign)->sprite_flags = 0x1000u;
 	OBJECT(sign)->flags = 0u;
@@ -992,7 +992,7 @@ void place_screen_sign(uint16_t screen_x, uint16_t screen_y, uint32_t kind, uint
 	kind += 2u;
 	OBJECT(sign)->speed_x_fraction = ROM16(kind);
 	OBJECT(sign)->screen_sign.palette_list = ROM16(kind + 2u);
-	OBJECT(sign)->screen_sign.palette_list += 0x8514Du;
+	OBJECT(sign)->screen_sign.palette_list += sign_palette_lists_ADDRESS;
 	OBJECT(sign)->sprite_flags = 0x1000u;
 	OBJECT(sign)->flags = 0u;
 	OBJECT(sign)->handler = screen_sign_show_ADDRESS;

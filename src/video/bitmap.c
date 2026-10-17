@@ -3,7 +3,7 @@
  *    Description: the bitmap layer: clearing it, its address, scroll and window, pixels, lines, spans and rectangles; an unused packed picture decoder and LZ unpacker
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    16-10-2026
+ *    Modified:    17-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -261,7 +261,7 @@ void rotate_bitmap_for_monitor_flip(void)
 
 	if (setting_monitor_flip == 0u)
 		return;
-	top_cursor = 0x300000u;
+	top_cursor = VIDEO_RAM;
 	bottom_cursor = VIDEO_RAM + 0x1BF40u;
 	row_pairs_left = 0x70u;
 	blocks_per_row = 0x14u;

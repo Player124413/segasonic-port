@@ -3,7 +3,7 @@
  *    Description: the voices: the RF5C68's sample voices (starting a sample, refilling its pages, stopping it) and the YM3438's FM voices (note off, release with the sustain pedal, volumes, patches, the vibrato)
  *    Version:     0.1.0
  *    Created:     13-10-2026
- *    Modified:    16-10-2026
+ *    Modified:    17-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the Z80 sound program decompiled into C by

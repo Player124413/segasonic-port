@@ -3,7 +3,7 @@
  *    Description: the scripted game modes run_game_mode jumps into and what they spawn: platforms, rocks, lightning, message boxes, the escape alarm and countdown
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    16-10-2026
+ *    Modified:    17-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -773,7 +773,7 @@ void stage_00_geyser_rise(void)
 		OBJECT(current_object)->animation = stage_00_geyser_animation_ADDRESS;
 		OBJECT(current_object)->speed_x_int = 0x2B;
 		OBJECT(current_object)->speed_x_fraction = 8u;
-		OBJECT(current_object)->floor_z = 0x9569C;
+		OBJECT(current_object)->floor_z = stage_00_geyser_speeds_ADDRESS;
 		OBJECT(current_object)->speed_y_fraction = 0u;
 		OBJECT(current_object)->speed_z = 0;
 	}

@@ -3,7 +3,7 @@
  *    Description: stage 0x11, the ending: the runners, the tower and the explosions, the flash to white, the credits (portraits, name plates, scrolling blocks), Eggman flying away and the three running across
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    16-10-2026
+ *    Modified:    17-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -660,7 +660,7 @@ void run_timed_spawns_2(uint32_t object)
 	if (OBJECT(current_object)->z_fraction != 0xFFFFu && (int16_t)ROM16(spawn_record) <= OBJECT(current_object)->timer)
 	{
 		allocate_object_outside_loop(&ignored, &object);
-		OBJECT(current_object)->z += 0x1BFC4u;
+		OBJECT(current_object)->z += ending_debris_1_fly_ADDRESS;
 		OBJECT(object)->handler = OBJECT(current_object)->z;
 		OBJECT(object)->flags_low_byte = 0u;
 		OBJECT(current_object)->run_timed_spawns.list_index++;
@@ -710,7 +710,7 @@ void ending_dust_cloud_rise(void)
 
 	if (OBJECT(current_object)->ending.started == 0u)
 	{
-		OBJECT(current_object)->z = 0x1C636;
+		OBJECT(current_object)->z = ending_dust_cloud_frames_ADDRESS;
 		OBJECT(current_object)->ending.started = 1u;
 		OBJECT(current_object)->timer = 0;
 	}
@@ -1099,7 +1099,7 @@ void ending_credits_team_logo_scroll(void)
 		OBJECT(current_object)->sprite_frame = 0x9850u;
 		OBJECT(current_object)->sprite_palette = 0x1010u;
 		init_credits_sprite();
-		OBJECT(current_object)->speed_x = 0x1CC3D;
+		OBJECT(current_object)->speed_x = credits_team_logo_parts_ADDRESS;
 		for (;;)
 		{
 			field_cursor = OBJECT(object_cursor)->speed_x;
@@ -1157,7 +1157,7 @@ void ending_credits_director_scroll(void)
 	OBJECT(current_object)->sprite_frame = 0x97C8u;
 	OBJECT(current_object)->sprite_palette = 0x1010u;
 	init_credits_sprite();
-	OBJECT(current_object)->speed_x = 0x1CD01;
+	OBJECT(current_object)->speed_x = credits_director_parts_ADDRESS;
 	for (;;)
 	{
 		field_cursor = OBJECT(object_cursor)->speed_x;
@@ -1259,7 +1259,7 @@ void ending_credits_program_scroll(void)
 	OBJECT(current_object)->sprite_frame = 0x97C0u;
 	OBJECT(current_object)->sprite_palette = 0x1010u;
 	init_credits_sprite();
-	OBJECT(current_object)->speed_x = 0x1CDEF;
+	OBJECT(current_object)->speed_x = credits_program_parts_ADDRESS;
 	for (;;)
 	{
 		field_cursor = OBJECT(object_cursor)->speed_x;
@@ -1334,7 +1334,7 @@ void ending_credits_design_scroll(void)
 	OBJECT(current_object)->sprite_frame = 0x97E8u;
 	OBJECT(current_object)->sprite_palette = 0x1010u;
 	init_credits_sprite();
-	OBJECT(current_object)->speed_x = 0x1CEFE;
+	OBJECT(current_object)->speed_x = credits_design_parts_ADDRESS;
 	for (;;)
 	{
 		field_cursor = OBJECT(object_cursor)->speed_x;
@@ -1404,7 +1404,7 @@ void ending_credits_sound_scroll(void)
 	OBJECT(current_object)->sprite_frame = 0x97E0u;
 	OBJECT(current_object)->sprite_palette = 0x1010u;
 	init_credits_sprite();
-	OBJECT(current_object)->speed_x = 0x1D004;
+	OBJECT(current_object)->speed_x = credits_sound_parts_ADDRESS;
 	for (;;)
 	{
 		field_cursor = OBJECT(object_cursor)->speed_x;
@@ -1478,7 +1478,7 @@ void ending_credits_voice_actor_scroll(void)
 	OBJECT(current_object)->sprite_frame = 0x97F0u;
 	OBJECT(current_object)->sprite_palette = 0x1010u;
 	init_credits_sprite();
-	OBJECT(current_object)->speed_x = 0x1D113;
+	OBJECT(current_object)->speed_x = credits_voice_actor_parts_ADDRESS;
 	for (;;)
 	{
 		field_cursor = OBJECT(object_cursor)->speed_x;
@@ -1565,7 +1565,7 @@ void ending_credits_special_thanks_scroll(void)
 	OBJECT(current_object)->sprite_frame = 0x97D0u;
 	OBJECT(current_object)->sprite_palette = 0x1010u;
 	init_credits_sprite();
-	OBJECT(current_object)->speed_x = 0x1D25D;
+	OBJECT(current_object)->speed_x = credits_special_thanks_parts_ADDRESS;
 	for (;;)
 	{
 		field_cursor = OBJECT(object_cursor)->speed_x;
@@ -1633,7 +1633,7 @@ void run_timed_spawns_3(void)
 	if ((int16_t)ROM16(spawn_record) <= OBJECT(current_object)->timer)
 	{
 		allocate_object_outside_loop(&ignored, &object);
-		OBJECT(current_object)->z += 0x1C82Fu;
+		OBJECT(current_object)->z += ending_credits_fade_in_ADDRESS;
 		OBJECT(object)->handler = OBJECT(current_object)->z;
 		OBJECT(object)->flags_low_byte = 0u;
 		OBJECT(current_object)->run_timed_spawns.list_index++;
@@ -2266,8 +2266,8 @@ void ending_sonic_run_across(void)
 	init_ending_runner_across();
 	OBJECT(current_object)->screen_y += 0x1Au;
 	OBJECT(current_object)->screen_x -= 4u;
-	OBJECT(object_cursor)->x = 0x1E054;
-	OBJECT(object_cursor)->y = 0x1E058;
+	OBJECT(object_cursor)->x = ending_sonic_body_frames_ADDRESS;
+	OBJECT(object_cursor)->y = ending_sonic_leg_frames_ADDRESS;
 	OBJECT(object_cursor)->hit_list_next = 0u;
 }
 
@@ -2299,8 +2299,8 @@ void ending_ray_run_across(void)
 	init_ending_runner_across();
 	OBJECT(current_object)->screen_y += 0x1Au;
 	OBJECT(current_object)->screen_x -= 4u;
-	OBJECT(object_cursor)->x = 0x1E060;
-	OBJECT(object_cursor)->y = 0x1E064;
+	OBJECT(object_cursor)->x = ending_ray_body_frames_ADDRESS;
+	OBJECT(object_cursor)->y = ending_ray_leg_frames_ADDRESS;
 }
 
 /* Mighty crossing the screen last: body 0xA7B0 and legs 0xA7C0 (scale 0xE0, layers 4 and 3,
@@ -2331,8 +2331,8 @@ void ending_mighty_run_across(void)
 	init_ending_runner_across();
 	OBJECT(current_object)->screen_y += 0x1Au;
 	OBJECT(current_object)->screen_x -= 4u;
-	OBJECT(object_cursor)->x = 0x1E06C;
-	OBJECT(object_cursor)->y = 0x1E070;
+	OBJECT(object_cursor)->x = ending_mighty_body_frames_ADDRESS;
+	OBJECT(object_cursor)->y = ending_mighty_leg_frames_ADDRESS;
 }
 
 /* Starts a runner across: the object's started set, timer and cycle_count 0; the current sprite (body or

@@ -74,6 +74,7 @@ REGIONS = [(0x300000, 0x320000, "VIDEO_RAM"), (0x400000, 0x420000, "SPRITE_RAM")
            (0x500000, 0x500010, "SPRITE_CONTROL"), (0x600000, 0x610000, "PALETTE_RAM"),
            (0x610000, 0x620000, "MIXER_REGISTERS"), (0x700000, 0x702000, "SOUND_RAM"), (0xC00000, 0xC00080, "IO_PORTS"),
            (0xD00000, 0xD00010, "INTERRUPT_CONTROL"), (0xD80000, 0xD80010, "RANDOM_GENERATOR")]
+BOARD_MEMORIES = {0x200000} | {start for start, _, _ in REGIONS}    # where the board's memories start
 
 
 def value_name(value):
@@ -1437,6 +1438,8 @@ class FunctionWriter:
         constant = statement.value
         while isinstance(constant, ir.Op) and constant.name in ("trunc", "fits") and constant.bits == statement.bits:
             constant = constant.args[0]
+        if signed and isinstance(constant, ir.Const) and statement.bits == 32 and self.rom_address_name(constant):
+            return f"{lvalue} = {self.rom_address_name(constant)};"
         if signed and isinstance(constant, ir.Const):
             # a signed field or variable gets the number it holds: -4, not 0xFCu
             return f"{lvalue} = {cprint.signed_literal(constant.value & ((1 << statement.bits) - 1), statement.bits)};"
@@ -1549,8 +1552,25 @@ class FunctionWriter:
                 return name, value - start, width
         return None
 
+    def rom_address_name(self, node):
+        """NAME_ADDRESS for a constant that is the address of a table, data or code of the program ROM with
+        a name, where it can only be that: not a whole 16.16 number (0x80000 is 8.0) nor one below 0x10000,
+        nor what the code masks, shifts or multiplies. A field that holds a number (z, speed_x) can hold
+        such an address too ("z = ending_dust_cloud_frames_ADDRESS"), as can a base an offset is added to
+        ("palette_list += sign_palette_lists_ADDRESS"). None otherwise."""
+        if not isinstance(node, ir.Const) or node.bits != cpu.current.address_bits or id(node) in self.numbers():
+            return None
+        value = node.value
+        if value < 0x10000 or not value & 0xFFFF or not memory.program_rom(value):
+            return None
+        named = self.emitter.address_text(value)
+        return named[0] if named is not None else self.emitter.code_addresses.get(value)
+
     def compound(self, lvalue, operation, right):
         """'lvalue op= right;', or ++ and --; adding 0xFFFFFFFA takes 6 away, as the expressions say it."""
+        named = self.rom_address_name(right) if operation in ("add", "sub") else None
+        if named is not None:
+            return f"{lvalue} {'+=' if operation == 'add' else '-='} {named};"
         if operation in ("add", "sub") and isinstance(right, ir.Const):
             bits = right.bits
             value = right.value & ((1 << bits) - 1)
@@ -1570,11 +1590,13 @@ class FunctionWriter:
     def numbers(self):
         """ids of the constants that are numbers whatever their value: what the code masks, shifts,
         multiplies, divides or adds with, and whole 16.16 values (0x80000 is 8.0 and the address of
-        spawn_objects_by_handler) outside an object's handler."""
+        spawn_objects_by_handler) outside an object's handler, and but for a board memory's start the
+        function puts in a variable it reads or writes memory through (ram_cursor = VIDEO_RAM)."""
         if hasattr(self, "_numbers"):
             return self._numbers
         found = set()
         summed = set()
+        pointing = self.address_variables()
         numeric = {"and", "or", "xor", "mul", "mulu", "shl", "shr", "sar", "div", "divu", "rem",
                    "remu", "udiv", "urem", "sdiv", "srem"}
         for block in self.function.blocks.values():
@@ -1587,11 +1609,28 @@ class FunctionWriter:
                             summed |= {id(arg) for arg in node.args if isinstance(arg, ir.Const)}
                         elif isinstance(node, ir.Const) and not node.value & 0xFFFF:
                             hit = self.fields.get(id(statement))
-                            if not (isinstance(statement, ir.Store) and statement.value is node
-                                    and hit is not None and hit[:2] == ("object", 0x1C)):
-                                found.add(id(node))
+                            if isinstance(statement, ir.Store) and statement.value is node                                     and hit is not None and hit[:2] == ("object", 0x1C):
+                                continue
+                            if isinstance(statement, ir.SetReg) and statement.value is node                                     and node.value in BOARD_MEMORIES                                     and self.vars.def_name(statement, statement.index) in pointing:
+                                continue
+                            found.add(id(node))
         self._numbers = found
         self._summed = summed
+        return found
+
+    def address_variables(self):
+        """The variables the function reads or writes memory through (in the address of a load or a store)."""
+        found = set()
+        for block in self.function.blocks.values():
+            for statement in block.statements + [block.end]:
+                addresses = [statement.address] if isinstance(statement, ir.Store) else []
+                for expression in ir.statement_expressions(statement):
+                    addresses += [node.address for node in ir.walk(expression) if isinstance(node, ir.Load)]
+                for address in addresses:
+                    for node in ir.walk(address):
+                        if isinstance(node, ir.Reg) and node.index not in self.emitter.context:
+                            found.add(self.vars.use_name(node))
+        found.discard(None)
         return found
 
     def sum_operands(self):
@@ -2196,6 +2235,8 @@ class Emitter:
                 # the list's head, less the offset of the link it is reached through
                 return f"{anchor[0]}_ADDRESS - 0x{anchor[1]:X}u", cprint.ADD
             item = self.memory.variables.get(address)
+            if item is None and address == 0x200000:
+                return "WORK_RAM", cprint.PRIMARY
             return (f"{item.name}_ADDRESS", cprint.PRIMARY) if item is not None else None
         if memory.program_rom(address):
             if address < memory.ROM_NAMES_FROM:

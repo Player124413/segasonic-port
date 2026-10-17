@@ -3,7 +3,7 @@
  *    Description: the player's states while the stage carries or holds them: thrown, carried off, trapped, riding, the final stage, tripped, swept away, climbing an object, pulled, held still, stuck on an object, caught, sinking, knocked off
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    16-10-2026
+ *    Modified:    17-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -2233,14 +2233,15 @@ void scene_object_start(void)
 	OBJECT(current_object)->y = 0x145B0000;
 	OBJECT(current_object)->z = 0x780000;
 	OBJECT(current_object)->scene_object_view.end_position = 0x5C00u;
-	OBJECT(current_object)->scene_object_view.angle = 0xF90u;
+	OBJECT(current_object)->scene_object_view.radius_x4 = 0xF90u;
 	OBJECT(current_object)->direction = 0x300u;
 	OBJECT(current_object)->handler = scene_object_update_ADDRESS;
 	scene_object = current_object;
 }
 
 /* Between scroll 0x4FF0 and end_position the object circles in x and z around (0x5D0, z 0x78): direction
-   - 0xF a frame, radius scene_object_view.angle >> 2, which grows by 1 a frame. Removed at end_position. */
+   - 0xF a frame, radius scene_object_view.radius_x4 >> 2, which grows by 1 a frame. Removed at
+   end_position. */
 void scene_object_update(void)
 {
 	uint32_t direction = 0, radius = 0;
@@ -2252,11 +2253,11 @@ void scene_object_update(void)
 		delete_current_object();
 		return;
 	}
-	OBJECT(current_object)->scene_object_view.angle += 4u;
+	OBJECT(current_object)->scene_object_view.radius_x4 += 4u;
 	OBJECT(current_object)->direction -= 0xFu;
 	OBJECT(current_object)->direction &= 0x3FFu;
 	direction = OBJECT(current_object)->direction;
-	radius = (int16_t)OBJECT(current_object)->scene_object_view.angle;
+	radius = (int16_t)OBJECT(current_object)->scene_object_view.radius_x4;
 	radius = (radius & ~0xFFFFu) | ((uint16_t)radius >> 2);
 	OBJECT(current_object)->x = sine_table[direction] * radius + 0x5D00000u;
 	OBJECT(current_object)->z = 0u - cosine_table[direction] * radius + 0x780000u;
@@ -2488,7 +2489,7 @@ void player_stuck_on_object_jump_out(void)
 
 /* State 0x30: the caught player plays the near-edge fall animation, then cries, pulled toward
    scene_object in game mode 0x19 (else sinking 0x84000 a frame); at z 0x4C8 it leaves a player effect
-   (its var_96, the depth offset, 0x70) and goes hurt (state 0xD, substate 2) with sound 0x87. */
+   (depth_offset 0x70) and goes hurt (state 0xD, substate 2) with sound 0x87. */
 void player_state_caught(uint32_t cursor)
 {
 	uint8_t sound_number = 0;
@@ -2558,7 +2559,7 @@ void player_state_caught(uint32_t cursor)
 	case 2:
 		cursor = spawn_player_effect(cursor);
 		OBJECT(cursor)->sprite_palette &= 0xBFFFu;
-		OBJECT(cursor)->var_96 = 0x70u;
+		OBJECT(cursor)->player_effect.depth_offset = 0x70;
 		PLAYER(current_player)->state = 0xDu;
 		PLAYER(current_player)->substate = 2u;
 		OBJECT(current_object)->speed_z = 0;

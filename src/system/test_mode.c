@@ -3,7 +3,7 @@
  *    Description: the test mode: the menu, the memory, input and sound tests, the CRT test, the game and coin assignments, the bookkeeping screen, the backup clear, the output test, the exit
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    16-10-2026
+ *    Modified:    17-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -360,7 +360,7 @@ void test_work_ram(void)
 	uint32_t bytes_left = 0, passes_left = 0, pattern = 0, pattern_index = 0, ram_cursor = 0;
 
 	move_bytes(VIDEO_RAM, WORK_RAM, 0x10000u);
-	ram_cursor = 0x200000u;
+	ram_cursor = WORK_RAM;
 	passes_left = 0x42u;
 	do
 	{
@@ -396,7 +396,7 @@ void test_work_ram_verify(void)
 	uint32_t bytes_left = 0, passes_left = 0, pattern = 0, pattern_index = 0, ram_cursor = 0;
 	uint8_t expected = 0, actual = 0;
 
-	ram_cursor = 0x200000u;
+	ram_cursor = WORK_RAM;
 	passes_left = 0x42u;
 	do
 	{
@@ -437,7 +437,7 @@ void test_video_ram(void)
 {
 	uint32_t bytes_left = 0, passes_left = 0, pattern = 0, pattern_index = 0, ram_cursor = 0;
 
-	ram_cursor = 0x300000u;
+	ram_cursor = VIDEO_RAM;
 	passes_left = 0x84u;
 	do
 	{
@@ -473,7 +473,7 @@ void test_video_ram_verify(void)
 	uint32_t bytes_left = 0, passes_left = 0, pattern = 0, pattern_index = 0, ram_cursor = 0;
 	uint8_t expected = 0, actual = 0;
 
-	ram_cursor = 0x300000u;
+	ram_cursor = VIDEO_RAM;
 	passes_left = 0x84u;
 	do
 	{
@@ -517,7 +517,7 @@ void test_sprite_ram(void)
 {
 	uint32_t bytes_left = 0, passes_left = 0, pattern = 0, pattern_index = 0, ram_cursor = 0;
 
-	ram_cursor = 0x400000u;
+	ram_cursor = SPRITE_RAM;
 	passes_left = 0x84u;
 	do
 	{
@@ -553,7 +553,7 @@ void test_sprite_ram_verify(void)
 	uint32_t bytes_left = 0, passes_left = 0, pattern = 0, pattern_index = 0, ram_cursor = 0;
 	uint8_t expected = 0, actual = 0;
 
-	ram_cursor = 0x400000u;
+	ram_cursor = SPRITE_RAM;
 	passes_left = 0x84u;
 	do
 	{
@@ -599,7 +599,7 @@ void test_palette_ram(void)
 {
 	uint32_t halfwords_left = 0, passes_left = 0, pattern = 0, pattern_index = 0, ram_cursor = 0;
 
-	ram_cursor = 0x600000u;
+	ram_cursor = PALETTE_RAM;
 	passes_left = 8u;
 	do
 	{
@@ -634,7 +634,7 @@ void test_palette_ram_verify_first_half(void)
 	uint32_t halfwords_left = 0, passes_left = 0, pattern = 0, pattern_index = 0, ram_cursor = 0;
 	uint16_t expected_first = 0, actual_first = 0;
 
-	ram_cursor = 0x600000u;
+	ram_cursor = PALETTE_RAM;
 	passes_left = 8u;
 	do
 	{
@@ -750,7 +750,7 @@ void test_sound_ram(void)
 	uint32_t bytes_left = 0, passes_left = 0, pattern = 0, pattern_index = 0, ram_cursor = 0;
 
 	move_halfwords(VIDEO_RAM, SOUND_RAM, 0x1000u);
-	ram_cursor = 0x700000u;
+	ram_cursor = SOUND_RAM;
 	passes_left = 9u;
 	do
 	{
@@ -785,7 +785,7 @@ void test_sound_ram_verify(void)
 	uint32_t bytes_left = 0, passes_left = 0, pattern = 0, pattern_index = 0, ram_cursor = 0;
 	uint8_t expected = 0, actual = 0;
 
-	ram_cursor = 0x700000u;
+	ram_cursor = SOUND_RAM;
 	passes_left = 9u;
 	do
 	{

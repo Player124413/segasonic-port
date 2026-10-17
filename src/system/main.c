@@ -3,7 +3,7 @@
  *    Description: the machine's main program: power-on and boot, the frame loop, the attract mode and the system modes, the frame wait and the controls, the interrupt handlers, the reset vector
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    16-10-2026
+ *    Modified:    17-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -35,7 +35,7 @@ void boot(void)
 		pairs_left--;
 		source++;
 	} while (pairs_left != 0u);
-	dest = 0xD00000u;
+	dest = irq_vectors;
 	bytes_left = 0xCu;
 	do
 	{

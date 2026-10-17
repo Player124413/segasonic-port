@@ -3,7 +3,7 @@
  *    Description: the object system: the object list and its two pools, allocating, linking and deleting objects, spawning them from the stage lists (by type, by handler, in groups led by a leader), and what the stage objects share
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    16-10-2026
+ *    Modified:    17-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -2630,7 +2630,7 @@ void spawn_object_groups_2_build_group(uint32_t record, uint32_t plank_count_var
 		group_member_y += group_step_y;
 		member_record = group_record;
 		OBJECT(object)->kind = member_record;
-		member_record += 0x93F59u;
+		member_record += stage_object_records_2_ADDRESS;
 		OBJECT(object)->sprite_flags = STAGE_OBJECT_RECORD_2(member_record)->sprite_flags;
 		member_record += 2u;
 		OBJECT(object)->sprite_frame = STAGE_OBJECT_RECORD_2(member_record - 0x2u)->sprite_frame;

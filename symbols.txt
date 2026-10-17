@@ -4304,7 +4304,7 @@ scoped object burning_boulder_flame 82 offset_y s16  # screen y offset
 
 # scene_object (scene_object_start, scene_object_update)
 scoped object scene_object 80 end_position u16  # 5C00: scroll_position where it is removed
-scoped object scene_object 82 angle u16  # F90 at the start, + 4 a frame: it circles (x, z)
+scoped object scene_object 82 radius_x4 u16  # F90 at the start, + 4 a frame: four times the radius of the circle it turns on in (x, z) (scene_object_update shifts it right 2)
 
 # trap (trap_start, trap_update: the second object of player state 32)
 scoped object trap 80 player_block u32 player  # the trapped player's block (its substate 3 = broke free)
@@ -6576,7 +6576,7 @@ local spawn_climb_hand 008C2E,008C35,008C3C,008C46 r1 sprite_frame  # the hand's
 local player_move_with_scroll 009798 r2 drift_speed  # scroll_drift_speed >> 14: the length of this frame's drift move; find_floor's R2 lands in it unread
 local player_move_with_scroll 009769 r9 drift_byte  # 0: the R9 byte compute_scroll_drift stores in unused_drift_byte
 local player_move_with_scroll 0098D6,0098E2,0098F0 r10 animation  # the character's drift animation (sonic/ray/mighty_drift_animation)
-local scene_object_update 009BCB r1 radius  # scene_object_view.angle >> 2 (it grows by 4 a frame): the distance from (5D0, z 78) on the circle the object turns on
+local scene_object_update 009BCB r1 radius  # scene_object_view.radius_x4 >> 2 (it grows by 4 a frame): the distance from (5D0, z 78) on the circle the object turns on
 local player_stuck_on_object_begin 009D69,009D73,009D7F r0 sprite_frame  # 1A40 (Sonic), 5180 (Ray), 35C8 (Mighty)
 local player_stuck_on_object_shake 009E3B,009E42,009E4E r0 speed  # (trackball magnitude)^2, at most 5000000: the new speed
 local player_stuck_on_object_shake 009E28,009E5D r1 trackball_y  # the player's trackball_y for the magnitude and the angle; square_root's, animate's and play_sound's R1 land in it unread
@@ -7762,6 +7762,7 @@ local player_state_climbing_object 008961,008971 r0 x_shift  # 0x18, 0x14 for th
 local player_state_pulled 008D3C r0 pull_distance  # (0x5D00000 - x) >> 12: pull_start_distance; (0x1200 - it) >> 5 is pull_distance_factor
 local player_state_pulled 008EDC r0 new_heading  # heading + 0x200 (turned around): target_heading and facing_angle
 local player_state_floor_8_sequence 0091E7 r0 drift_direction  # scroll_drift_direction: sine/cosine index of the drift added to x and y
+local player_state_caught 00A14E r11 effect object.player_effect  # spawn_player_effect's effect (substate 2): palette bit 0x4000 cleared, depth_offset 0x70
 local player_state_caught 00A1DF r0 sound_number  # 0x87 for play_sound, then only handed to find_floor
 local player_state_sinking 00A242,00A24B r0 edge_direction  # ledge_side, or ledge_direction when it is 4: which way the player is moved 0xC off the edge
 local player_state_sinking 00A27A,00A295 r0 sink_z  # 0x1D80000 on floor blocks of kind 0x22, else 0x200000: floor_z and z of the sinking player
@@ -14624,7 +14625,7 @@ comment player_object_climb_begin Starts a climb along the touched object: at it
 comment player_object_climb_move When a climb step's animation ends: back to substate 1, climb_hand flips (Ray alternates object_climb_animation_ray and object_climb_animation_ray_2) and the player moves one hold on: screen_x + 0x12, projected_y - 9, x and y from unproject_point.
 comment player_object_climb_push Climbing: the trackball's speed (set_climb_speed_from_trackball) aimed between 0x380 and 0x17F adds to step_accumulator; at 0x400 a step (substate 2, object_climb_steps + 1, spawn_climb_hand, sound 0x64, 0x6B or 0x51 by character) if the next hold is on screen, else the push is lost.
 comment player_state_carried_off State 0x31 (stage 8): runs as previous_state while it has a floor; off the edge it falls, pulled toward scene_object, to z 0x9D0 and lands hurt. Step 4 sets burning_boulder_released and stands until seesaw_launched throws it up off the screen; it flies to its player_carriers object and at z 0x530 is trapped (state 0x32).
-comment player_state_caught State 0x30: the caught player plays the near-edge fall animation, then cries, pulled toward scene_object in game mode 0x19 (else sinking 0x84000 a frame); at z 0x4C8 it leaves a player effect (its var_96, the depth offset, 0x70) and goes hurt (state 0xD, substate 2) with sound 0x87.
+comment player_state_caught State 0x30: the caught player plays the near-edge fall animation, then cries, pulled toward scene_object in game mode 0x19 (else sinking 0x84000 a frame); at z 0x4C8 it leaves a player effect (depth_offset 0x70) and goes hurt (state 0xD, substate 2) with sound 0x87.
 comment player_state_climbing_object State 0x27: climbs hand over hand along the touched object (begin, push, move by substate) until x_int reaches climb_remaining, then stands. With handle_rod_drop_players set and x_int 0x450 or less it lets go and falls (state 6; a cry at 8 health or less). Sorted by the object's parent's spawn_arg_1_low and object_climb_steps.
 comment player_state_final_stage State 0x2B: once ending_finished is set the player gets 0xC8 rings and one more stages_reached, leaves the game (in_game 0) and goes to the continue countdown (state 0x23, 9 seconds).
 comment player_state_floor_8_sequence State 0x25, by sequence_step: from scene_step 2 the player drops hurt from above with a cry, hops, rides the scroll to y 0x4F2, sinks 0x20 into the floor and drifts on to y 0x9B0, floats to y 0xA1C and is caught: shaking free (step 12) within state_timer (0x258) jumps it out to land walking, else it falls (step 14).
@@ -14643,7 +14644,7 @@ comment player_stuck_on_object_jump_out When the escape animation ends the playe
 comment player_stuck_on_object_shake Shaking free: the trackball's speed, aimed between 0x180 and 0x380, adds to escape_progress (a speed below 0x100 clears it); struggle frames by escape_progress / 0x4000, the stuck animation at 0. At 0xC000 the escape animation and sound 0x2B (substate 3).
 comment player_stuck_on_object_wait Waits state_timer frames, then substate 2 with the animation restarted at speed 4 and the character's voice (0x35, 0x31 or 0x3D).
 comment scene_object_start Sets up scene_object at (0x4D7, 0x145B), z 0x78, end_position 0x5C00, direction 0x300; then scene_object_update.
-comment scene_object_update Between scroll 0x4FF0 and end_position the object circles in x and z around (0x5D0, z 0x78): direction - 0xF a frame, radius scene_object_view.angle >> 2, which grows by 1 a frame. Removed at end_position.
+comment scene_object_update Between scroll 0x4FF0 and end_position the object circles in x and z around (0x5D0, z 0x78): direction - 0xF a frame, radius scene_object_view.radius_x4 >> 2, which grows by 1 a frame. Removed at end_position.
 comment sinking_effect_update The effect of a sinking player: moves 1.5 along y a frame with the player, plays its animation once (sorted at screen_y + depth_offset), then is removed.
 comment spawn_climb_hand Leaves a hand on the climbed object at the player's projected position and z (sprite 0x8300 for Sonic or 0x8258 with climb_hand 0, 0x82C8 below 0, 0x82C0 above), in the player's palette and offsets; handler climb_hand_update. hand is only scratch.
 comment spawn_player_effect Spawns an effect object 0x20 along x, 0x10 back along y and 0x10 lower than the player (palette 0xD190, player_effect_animation, depth_offset 0x28, player_effect_start) and hands it back in effect.

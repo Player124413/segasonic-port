@@ -3,7 +3,7 @@
  *    Description: the stage view, the scroll and the camera: the view set-up and the tile sets around it, the scroll modes and the screen edges the players push, the camera's speeds, shake and path along the sections, the fades between stages, the start section of the demos and the unused scroll skip panel
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    16-10-2026
+ *    Modified:    17-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -142,7 +142,7 @@ void init_stage_view(uint32_t *p_direction_y, uint32_t *p_direction_x, uint32_t 
 	nbg0_center_y = 0u;
 	nbg1_center_x = 0u;
 	nbg1_center_y = 0u;
-	tile_set_cursor += 0x19712u;
+	tile_set_cursor += stage_initial_tile_sets_ADDRESS;
 	do
 	{
 		tile_set = ROM32(tile_set_cursor);

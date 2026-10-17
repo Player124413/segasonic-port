@@ -3,7 +3,7 @@
  *    Description: the game's variables, tables, board registers and structures
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    16-10-2026
+ *    Modified:    17-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -6208,7 +6208,7 @@ struct object
 		{
 			uint8_t pad_10[0x70];
 			uint16_t end_position;
-			uint16_t angle;
+			uint16_t radius_x4;
 		} scene_object_view;
 		struct
 		{
