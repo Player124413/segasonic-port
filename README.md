@@ -230,6 +230,10 @@ Other tools:
   loops, `switch` and control variables (`tools/decompiler/structure.py` and `gotos.py`) do what the
   program's jumps do: it runs every function's blocks and its C on the same made-up outcomes of its tests
   and compares the blocks each runs, the code no scenario reaches too.
+- `tools/noise_report.py [--save]` counts what is left of the CPU and of the decompiler in the C (gotos,
+  names after a register, fields without a name, memory reached through computed addresses, results
+  copied back, jumps out of a table, ROM addresses as numbers, functions without a comment) and compares
+  it with `tools/noise_baseline.txt`: a count that goes up makes it fail.
 - `tools/memory_census.py` runs every scenario on a build of the game made with
   `-DSONIC_MEMORY_CENSUS=ON` and says, for each line of `src/` that reads or writes memory through an
   address the code computes, which of the board's memories it reached (the ROM, the work RAM, video RAM,
@@ -301,6 +305,7 @@ tools/decompile.py      decompiles the program into readable C (tools/decompiler
 tools/decompile_sound.py  decompiles the sound program with the same decompiler, set up for the Z80
 tools/check_scenarios.py  runs the control scripts on the reference and on the decompiled game
 tools/check_structure.py  checks that the C's control flow runs what the program's jumps run
+tools/noise_report.py   counts the leftovers in the C against tools/noise_baseline.txt
 tools/reference/        MAME's V60 and Z80 cores and disassemblers, its System 32 video and RF5C68, and
                         ymfm's YM3438, built only into the reference tools (s32ref, the oracles), over
                         stand-ins for the parts of MAME they need

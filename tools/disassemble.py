@@ -574,7 +574,8 @@ class Analysis:
                 self.add_target(cursor, "loc", origin, label=False)
                 entries.append(cursor)
             else:
-                # the last case can be plain code right after the branches (seen at 0998B8)
+                # the last case can be plain code right after the branches (seen at 0998B8), even code one of
+                # the branches leads to as well: the game uses that index (00353C's, at 003548)
                 if cursor in self.instructions or self.trial(cursor):
                     self.add_target(cursor, "func" if called else "loc", origin, label=False)
                     entries.append(cursor)
