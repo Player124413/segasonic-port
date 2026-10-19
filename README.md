@@ -71,6 +71,8 @@ decompiled game plays the scenarios of <code>tests/controls/</code>.</sub></p>
       object templates, animation steps, text records in the ROM; ranking records, palette cycles, sprite
       part lists in the work RAM) and 7 in the sound program (instruments, drum notes, songs...). The
       original's quirks found along the way are noted next to the code they are in
+- [x] Readable C: no `goto`, a comment above every function (1,783), and what is left of the CPU counted
+      by `tools/noise_report.py` and explained under "What is left, and why" below
 - [x] The game's source: the decompiled C is in `src/`, and the game builds from it
 - [x] Code coverage: the static analysis follows the game's object tables described in `symbols.txt`,
       so the C comes from the ROM alone, and it finds all the code the reference runs. The 98 scenarios
@@ -457,6 +459,24 @@ memory is in `runtime/include/game/support.h`.
   they did on the board. Its unused routines are in the C too, as the game's are (the last section of
   `sound_symbols.txt`): among them a driver for a MIDI port, an 8251 USART at ports F0 and F1 that the
   System 32 board does not have.
+
+### What is left, and why
+
+`tools/noise_report.py` counts these in `src/` and `src/sound/` against `tools/noise_baseline.txt`; none
+of them can go without the C doing something the original does not:
+
+| What | Count | Why it stays |
+|---|---:|---|
+| `goto`, functions or memory named after an address (`sub_`, `unk_`), functions without a comment | 0 | |
+| Results copied back at each `return` (`*p_x = x;`) | 1500 | a caller hands two results the same variable (`ignored`), so writing one through its pointer would change the other; or the function works on the variable much more than it copies it back; or the copy is a part of the register |
+| Memory through a computed address (`mem_read16`, `mem_write32`) | 1192 | the board's memories and registers (video RAM, palette RAM, the I/O ports) and the generic routines that fill, copy and draw wherever they are told |
+| Partial writes of a variable (`(x & ~0xFFFFu) \| y`) | 727 | the original writes the low byte or halfword of a register and keeps the rest |
+| `default: invalid_jump(...)` | 243 | the original never checks a jump table's index; the C stops where it would leave the table |
+| Parameters and locals named after a register (`r1`, `p_r4`) | 99 | a value one routine leaves in a register and another reads several calls later, whose meaning changes with the caller |
+| Several fields at once (`AS16`, `AT8`) | 67 | the original reads or writes two fields as one long |
+| Object fields without a name (`var_80`) | 48 | read through an object whose type the code does not show |
+| Numbers in the ROM's range left as numbers | 10 | most are not addresses (the checksum's bounds, values written into a ranking record, constants); one is `fraction_digit_font` + 3, the font's fourth byte (`build/decompile/unnamed_addresses.txt` lists them) |
+| Functions with `bool` control variables | 10 | jumps that cross in a way blocks cannot (see Control flow) |
 
 ## How the port works
 
