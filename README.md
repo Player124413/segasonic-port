@@ -58,11 +58,12 @@ decompiled game plays the scenarios of <code>tests/controls/</code>.</sub></p>
       update runs into the state code of its animation, which takes an `entry_point`; each player state
       the update jumps to is a function of its own). The code nothing in the program reaches (about
       14 KB: drawing routines, a packed picture decoder and an LZ unpacker, object types never spawned,
-      earlier versions of live routines) is decompiled too, so the C holds the whole program. It matches the reference frame by frame in every
-      scenario of `tests/controls/`
+      earlier versions of live routines) is decompiled too, so the C holds the whole program. It matches
+      the reference frame by frame in every scenario of `tests/controls/`
 - [x] Names: every function, variable, table, structure field and board register has one in
       `symbols.txt`, with the evidence for it, and so do the parameters and results of the functions,
-      the places the C's control variables are named after, and what each object type keeps in the object structure
+      the places the C's control variables are named after, and what each object type keeps in the object
+      structure
       (`OBJECT(current_object)->fire_front.path`, per family of functions, wherever the code shows which
       type an object is: its own, one it gives a handler, one a typed link leads to); local variables have
       the names `symbols.txt` gives them by the instructions that write them, or take the name of what they
@@ -444,10 +445,10 @@ memory is in `runtime/include/game/support.h`.
   place by address; their entries in `symbols.txt` (at the end) start with "unused:" and say what each one
   would do. With no caller to say what they take and hand back, they take every register they read before
   writing it, and hand back what `symbols.txt` says (`result` lines). The 00 bytes that align the routine
-  after them are data, not code. A few of them use addresses of their own stack frame as values: there the V60's stack
-  pointer is a global variable, `stack_pointer`, and the stack stays in work RAM, as on the board. An
-  instruction the V60 would refuse (a bit operand in a register) is `invalid_operand(address)`, which
-  stops the game, as MAME does.
+  after them are data, not code. A few of them use addresses of their own stack frame as values: there the
+  V60's stack pointer is a global variable, `stack_pointer`, and the stack stays in work RAM, as on the
+  board. An instruction the V60 would refuse (a bit operand in a register) is `invalid_operand(address)`,
+  which stops the game, as MAME does.
 - **The sound driver.** `src/sound/` is the Z80 program the same way. The sound chips are read and
   written through `port_in`/`port_out` by the ports' names; its variables are names over the sound RAM
   (`sound.h`), its structures are reached with `FM_VOICE(voice)->`, `SAMPLE_VOICE(voice)->`,
@@ -502,7 +503,7 @@ of them can go without the C doing something the original does not:
   extracted assets are distributed by this project; they come from your own ROM. The screenshots in
   `docs/screenshots/` show the game running from this code.
 - `runtime/`, `tools/v60/disassembler.py` and `tools/z80/disassembler.py` follow the behavior of MAME
-  source files and, for the YM3438, of ymfm, and `tools/reference/mame/` holds copies of MAME files. Those are BSD-3-Clause; see
-  `tools/reference/mame/LICENSE`. `tools/reference/ymfm/` holds a copy of ymfm (BSD-3-Clause; see its
-  `LICENSE`).
+  source files and, for the YM3438, of ymfm, and `tools/reference/mame/` holds copies of MAME files. Those
+  are BSD-3-Clause; see `tools/reference/mame/LICENSE`. `tools/reference/ymfm/` holds a copy of ymfm
+  (BSD-3-Clause; see its `LICENSE`).
 - SegaSonic The Hedgehog is a trademark of SEGA. This project is not affiliated with or endorsed by SEGA.
