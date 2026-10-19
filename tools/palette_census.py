@@ -1,9 +1,10 @@
 """
 Name:        palette_census.py
-Description: finds where in the program ROM the palette of each sprite frame and each tile is, for extract_assets.py
+Description: finds where in the program ROM the palette of each sprite frame and each tile is, and which
+             frames are drawn opaque, for extract_assets.py
 Version:     0.1.0
 Created:     14-10-2026
-Modified:    15-10-2026
+Modified:    19-10-2026
 Author:      Sebastian Toyos
 
 Neither the frame records nor the tiles say anything of colors: the object that draws a frame, or the
@@ -15,6 +16,11 @@ palette window's alternate format, the V60's byte order). What it writes, sprite
 tile_palettes.json, holds positions only: where each frame's or tile's palette starts in the program ROM;
 extract_assets.py reads the colors from the user's ROM. A frame or tile no scenario shows takes the palette
 of the nearest one before it (the frames of a character, the tiles of a stage, lie together).
+
+The sprite census also says whether each sprite was drawn opaque (sprite entry bit 8: the end code, all ones
+at a word's edges, is drawn as a color, and the row goes on past it): sprite_palettes.json lists those
+frames, so that the sheets show what follows an end code where the board draws it (the players, among
+others). A frame no scenario draws is drawn the way of the nearest one before it.
 
 Usage:
   py tools/palette_census.py run DIR       the censuses of every scenario into DIR (two files each)
@@ -55,16 +61,43 @@ def run(out_dir):
             print(f"{name:<40} {'done' if code == 0 else 'failed'}", flush=True)
 
 
-def read_census(paths, key_bits=None):
-    """{what was drawn (a sprite's graphics word, a tile): Counter of color tuples}"""
+def read_census(paths, first):
+    """{what was drawn (a sprite's graphics word, a tile): Counter of color tuples}; 'first' is the field the
+    colors start at (5 in the sprite census, 3 in the tile census)"""
     seen = {}
     for path in paths:
         for line in path.read_text(encoding="ascii").splitlines():
             parts = line.split()
-            first = 4 if key_bits is None else 3
             colors = tuple(int(part, 16) for part in parts[first:])
             seen.setdefault(int(parts[0], 16), Counter())[colors] += 1
     return seen
+
+
+def read_opaque(paths):
+    """{a sprite's graphics word: whether it was drawn opaque} from the sprite census. A sprite drawn both
+    ways counts as opaque: what follows its end codes is part of its picture."""
+    opaque = {}
+    for path in paths:
+        for line in path.read_text(encoding="ascii").splitlines():
+            parts = line.split()
+            word = int(parts[0], 16)
+            opaque[word] = opaque.get(word, False) or parts[4] == "1"
+    return opaque
+
+
+def resolve_opaque(items, opaque):
+    """The items drawn opaque, and the items no scenario draws that the nearest item before them makes
+    opaque. 'items' are in ROM order."""
+    drawn, nearby = [], []
+    last = False
+    for item in items:
+        if item in opaque:
+            last = opaque[item]
+            if last:
+                drawn.append(item)
+        elif last:
+            nearby.append(item)
+    return drawn, nearby
 
 
 def alternate_format(color):
@@ -108,22 +141,28 @@ def resolve_all(items, seen, program, index):
     return found, guessed
 
 
-def write_palettes(path, what, found, guessed, digits):
+def write_palettes(path, what, found, guessed, digits, opaque=None):
     """The census's palettes into 'path'; the 'chosen' ones the file already has (a palette picked by hand
     where the census's is wrong: a frame shown during a flash, a neighbour's palette that does not fit) are
-    kept."""
+    kept. 'opaque', for the sprite frames: the frames drawn opaque and those taken to be (two lists)."""
     chosen = json.loads(path.read_text(encoding="ascii")).get("chosen", {}) if path.exists() else {}
-    path.write_text(json.dumps({
-        "notes": [f"Positions only: where in the program ROM the palette of each {what} starts; "
-                  "tools/palette_census.py writes it.",
-                  f"'drawn': the palette the {what} was shown with in the scenarios; 'nearby': one no scenario "
-                  f"shows, given the palette of the {what} before it; 'chosen': picked by hand where those are "
-                  "wrong (a frame caught during a flash, a neighbour's palette that is not its own), and used "
-                  "instead of them."],
-        "drawn": {f"{item:0{digits}X}": f"0x{offset:06X}" for item, offset in sorted(found.items())},
-        "nearby": {f"{item:0{digits}X}": f"0x{offset:06X}" for item, offset in sorted(guessed.items())},
-        "chosen": chosen},
-        indent=1) + "\n", encoding="ascii")
+    notes = [f"Positions only: where in the program ROM the palette of each {what} starts; "
+             "tools/palette_census.py writes it.",
+             f"'drawn': the palette the {what} was shown with in the scenarios; 'nearby': one no scenario "
+             f"shows, given the palette of the {what} before it; 'chosen': picked by hand where those are "
+             "wrong (a frame caught during a flash, a neighbour's palette that is not its own), and used "
+             "instead of them."]
+    content = {"notes": notes,
+               "drawn": {f"{item:0{digits}X}": f"0x{offset:06X}" for item, offset in sorted(found.items())},
+               "nearby": {f"{item:0{digits}X}": f"0x{offset:06X}" for item, offset in sorted(guessed.items())},
+               "chosen": chosen}
+    if opaque is not None:
+        notes.append("'opaque': the frames drawn opaque (sprite entry bit 8: the end code is drawn as a color "
+                     "and the row goes on past it), 'drawn' so in the scenarios or 'nearby' (a frame no scenario "
+                     "draws, drawn the way of the frame before it).")
+        content["opaque"] = {source: [f"{item:0{digits}X}" for item in sorted(items)]
+                             for source, items in zip(("drawn", "nearby"), opaque)}
+    path.write_text(json.dumps(content, indent=1) + "\n", encoding="ascii")
     print(f"written: {path}")
 
 
@@ -137,16 +176,19 @@ def resolve(census_dir):
 
     frames = asset_formats.sprite_frames(program, FRAME_RECORDS, FRAME_COUNT)
     by_word = {frame["word"]: frame["number"] for frame in frames}
-    seen = read_census(sorted(census_dir.glob("sprites_*.txt")))
+    census = sorted(census_dir.glob("sprites_*.txt"))
+    seen = read_census(census, 5)
     words = sorted(by_word)
     found, guessed = resolve_all(words, seen, program, index)
+    opaque = resolve_opaque(words, read_opaque(census))
     write_palettes(ROOT / "sprite_palettes.json", "sprite frame (its sprite_frame, the record's offset in "
                    "sprite_frame_records)", {by_word[word]: offset for word, offset in found.items()},
-                   {by_word[word]: offset for word, offset in guessed.items()}, 4)
+                   {by_word[word]: offset for word, offset in guessed.items()}, 4,
+                   [[by_word[word] for word in part] for part in opaque])
     print(f"  {len(frames)} frames: {len(found)} drawn, {len(guessed)} nearby, "
-          f"{len(frames) - len(found) - len(guessed)} none")
+          f"{len(frames) - len(found) - len(guessed)} none; opaque: {len(opaque[0])} drawn, {len(opaque[1])} nearby")
 
-    shown = read_census(sorted(census_dir.glob("tiles_*.txt")), key_bits=13)
+    shown = read_census(sorted(census_dir.glob("tiles_*.txt")), 3)
     seen = {}
     for tile, sets in shown.items():
         # (the tile ROM repeats past its end: the board takes the tile number modulo its size)

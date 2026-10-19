@@ -4,7 +4,7 @@
  *                 buffers and the mixer, drawing each frame from the board's memories
  *    Version:     0.1.0
  *    Created:     13-10-2026
- *    Modified:    14-10-2026
+ *    Modified:    19-10-2026
  *    Author:      Sebastian Toyos
  *
  *    license:BSD-3-Clause
@@ -847,7 +847,8 @@ static int draw_sprite(uint32_t entry, int x_offset, int y_offset, const area *i
 		for (int pen = 0; pen < pens; pen++)
 			pixels[pen] = (uint16_t)(!sprite.indirect ? (sprite.color | pen)
 				: (sprite.bits8 ? sprite.table[pen >> 4] | (pen & 0x0f) : sprite.table[pen]));
-		s32_video_sprite_observer(bank << 20 | (address & 0xfffff), source_width, source_height, sprite.bits8, pixels);
+		s32_video_sprite_observer(bank << 20 | (address & 0xfffff), source_width, source_height, sprite.bits8,
+			end_pen == 0, pixels);
 	}
 
 	x_zoom = (((sprite.bits8 ? 4 : 8) * source_width) << 16) / width;

@@ -5,7 +5,7 @@
  *                 format tools/reference/s32ref uses
  *    Version:     0.1.0
  *    Created:     11-10-2026
- *    Modified:    15-10-2026
+ *    Modified:    19-10-2026
  *    Author:      Sebastian Toyos
  *
  *    license:BSD-3-Clause
@@ -54,8 +54,9 @@ static FILE *sprite_census;
 static uint64_t *census_seen;    /* hashes of the sprite and color sets written, open addressing (0 = free) */
 
 /* --sprite-census: every sprite of the ROM the list draws, with the colors its pens show, once per set of
-   colors: "ADDRESS WORDS ROWS BITS COLOR..." (hex; colors RGB555, one a pen) */
-static void on_sprite_drawn(uint32_t address, int words, int rows, bool bits8, const uint16_t *pixels)
+   colors and way of drawing it: "ADDRESS WORDS ROWS BITS OPAQUE COLOR..." (hex; OPAQUE 1 when it draws the
+   end code and goes on past it, else 0; colors RGB555, one a pen) */
+static void on_sprite_drawn(uint32_t address, int words, int rows, bool bits8, bool opaque, const uint16_t *pixels)
 {
 	const int pens = bits8 ? 256 : 16;
 	uint16_t colors[256];
@@ -65,7 +66,8 @@ static void on_sprite_drawn(uint32_t address, int words, int rows, bool bits8, c
 	for (int pen = 0; pen < pens; pen++)
 		colors[pen] = s32_video_sprite_pixel_color(pixels[pen]);
 	hash = (hash ^ address) * 0x100000001b3ull;
-	hash = (hash ^ (uint64_t)((uint32_t)words << 16 | (uint32_t)rows << 1 | (bits8 ? 1u : 0u))) * 0x100000001b3ull;
+	hash = (hash ^ (uint64_t)((uint32_t)words << 16 | (uint32_t)rows << 2 | (opaque ? 2u : 0u) | (bits8 ? 1u : 0u)))
+		* 0x100000001b3ull;
 	for (int pen = 0; pen < pens; pen++)
 		hash = (hash ^ colors[pen]) * 0x100000001b3ull;
 	if (hash == 0)
@@ -74,7 +76,7 @@ static void on_sprite_drawn(uint32_t address, int words, int rows, bool bits8, c
 		if (census_seen[slot] == hash)
 			return;
 	census_seen[slot] = hash;
-	fprintf(sprite_census, "%06X %d %d %d", address, words, rows, bits8 ? 8 : 4);
+	fprintf(sprite_census, "%06X %d %d %d %d", address, words, rows, bits8 ? 8 : 4, opaque ? 1 : 0);
 	for (int pen = 0; pen < pens; pen++)
 		fprintf(sprite_census, " %04X", colors[pen]);
 	fputc('\n', sprite_census);

@@ -261,7 +261,8 @@ Other tools:
 rom/                    your ROM (ignored by git)
 assets.json             asset manifest: positions and formats, no data
 extract_assets.py       extracts assets/ from your ROM, and checks they build back into it (--check)
-sprite_palettes.json    where in the program ROM each sprite frame's palette is (positions only)
+sprite_palettes.json    where in the program ROM each sprite frame's palette is (positions only), and
+                        which frames the game draws opaque
 tile_palettes.json      the same for each tile
 sprite_sheets.txt       which frames make each sprite sheet, with the sheets' and their rows' names
 data_formats.json       the files of the program's data by subject, and each piece's format

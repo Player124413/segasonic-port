@@ -1,5 +1,5 @@
 {
-  "manifest_version": 11,
+  "manifest_version": 12,
   "rom_set": "sonic",
   "notes": [
     "Positions only: every byte comes from the user's own ROM at extraction time.",

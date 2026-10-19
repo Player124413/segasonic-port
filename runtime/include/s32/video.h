@@ -3,7 +3,7 @@
  *    Description: Sega System 32 video: draws each frame of the board from its memories, as the hardware does
  *    Version:     0.1.0
  *    Created:     13-10-2026
- *    Modified:    14-10-2026
+ *    Modified:    19-10-2026
  *    Author:      Sebastian Toyos
  *
  *    license:BSD-3-Clause
@@ -46,9 +46,11 @@ uint64_t s32_video_frame_hash(void);
 
 /* For tools that look at what the sprites are drawn with (the asset extractor's census): called for every
    sprite the list draws, before it is drawn, with its graphics' place in the sprite ROM (32-bit words,
-   bank << 20 | offset), its size in words and rows, whether it is 8 bits a pen, and the pixel each pen
-   puts in the sprite buffer (16 or 256 of them). NULL, the default, calls nothing. */
-typedef void (*s32_sprite_observer)(uint32_t address, int words, int rows, bool bits8, const uint16_t *pixels);
+   bank << 20 | offset), its size in words and rows, whether it is 8 bits a pen, whether it is opaque (it
+   draws the end code, all ones at a word's edges, and goes on past it), and the pixel each pen puts in the
+   sprite buffer (16 or 256 of them). NULL, the default, calls nothing. */
+typedef void (*s32_sprite_observer)(uint32_t address, int words, int rows, bool bits8, bool opaque,
+	const uint16_t *pixels);
 extern s32_sprite_observer s32_video_sprite_observer;
 
 /* The color (RGB555) a pixel of the sprite buffer shows with the mixer's registers as they are now: its

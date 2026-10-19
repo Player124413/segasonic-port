@@ -1,7 +1,7 @@
 {
  "notes": [
   "Positions only: where in the program ROM the palette of each 16x16 tile (its number in the tile ROM) starts; tools/palette_census.py writes it.",
-  "'drawn': the palette the 16x16 tile (its number in the tile ROM) was shown with in the scenarios; 'nearby': one no scenario shows, given the palette of the 16x16 tile (its number in the tile ROM) before it."
+  "'drawn': the palette the 16x16 tile (its number in the tile ROM) was shown with in the scenarios; 'nearby': one no scenario shows, given the palette of the 16x16 tile (its number in the tile ROM) before it; 'chosen': picked by hand where those are wrong (a frame caught during a flash, a neighbour's palette that is not its own), and used instead of them."
  ],
  "drawn": {
   "0000": "0x104FCE",
@@ -16390,5 +16390,6 @@
   "3FFD": "0x107F70",
   "3FFE": "0x107F70",
   "3FFF": "0x107F70"
- }
+ },
+ "chosen": {}
 }

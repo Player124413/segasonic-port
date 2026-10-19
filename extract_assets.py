@@ -4,7 +4,7 @@ Name:        extract_assets.py
 Description: extracts the game's assets from the user's own ROM, driven by assets.json (as in n64decomp/sm64)
 Version:     0.1.0
 Created:     11-10-2026
-Modified:    15-10-2026
+Modified:    19-10-2026
 Author:      Sebastian Toyos
 
 Usage:
@@ -64,9 +64,11 @@ SHEET_NOTES = ["Each frame goes back into the sprite ROM at 'word' (32-bit words
                "the sheet at x, y (width, height in pixels); 'frame' is its number in the game (the offset of its "
                "record in sprite_frame_records). 'rows' are the sheet's animations, by the index of their first frame.",
                "4-bit sheets: up to 8 palettes, 32 entries each ('palettes', by slot): a pixel is slot * 32 + its pen "
-               "where the board draws it, slot * 32 + 16 + its pen where it does not (pen 0, the end code 15 at a "
-               "word's edges, what follows a word that ends with it), shown see-through. 8-bit sheets: the pixel is "
-               "the pen; pen 0 is see-through.",
+               "where the board draws it, slot * 32 + 16 + its pen where it does not, shown see-through: pen 0 and, "
+               "unless the frame is 'opaque' (the game draws it so: the end code is a color), the end code 15 at a "
+               "word's edges and what follows a word that ends with it. 8-bit sheets: the pixel is the pen; pen 0 "
+               "is see-through, and so is pen 255 where the sheet's frames are not opaque (it is their end code, "
+               "which the board does not draw).",
                "'palettes' are where the colours are in the program ROM; a frame's 'palette_from' says how its "
                "palette was found: 'drawn' in the scenarios, 'nearby' (a frame no scenario draws, given its "
                "neighbour's) or 'chosen' by hand (sprite_palettes.json)."]
@@ -81,6 +83,7 @@ def extract_sprites(asset, sprites, program, path):
     known = json.loads((ROOT / asset["palettes"]).read_text(encoding="ascii"))
     palettes = {int(number, 16): (int(offset, 0), source)
                 for source in ("drawn", "nearby", "chosen") for number, offset in known.get(source, {}).items()}
+    opaque = {int(number, 16) for numbers in known.get("opaque", {}).values() for number in numbers}
     sheets, where = asset_formats.load_sprite_sheets(ROOT / asset["sheets"], list(by_number))
     left_out = [number for number in by_number if number not in where]
     if left_out:
@@ -104,13 +107,17 @@ def extract_sprites(asset, sprites, program, path):
         see_through = asset_formats.NOT_DRAWN if bits == 4 else 0
         canvas = [[see_through] * width for _ in range(height)]
         listing = []
+        end_code_drawn = set()      # an 8-bit sheet's pen 255: whether the board draws it
         for frame in members:
             number = frame["number"]
             offset, source = palettes.get(number, (None, "none"))
             slot = slots.index(offset)
             x, y = placed[number]
             rows = pens[number]
-            drawn = asset_formats.sprite_drawn(rows, 4) if bits == 4 else None
+            drawn = asset_formats.sprite_drawn(rows, bits, number in opaque)
+            if bits == 8:
+                end_code_drawn |= {shown for row, flags in zip(rows, drawn)
+                                   for pen, shown in zip(row, flags) if pen == 255}
             for line, row in enumerate(rows):
                 if bits == 4:
                     canvas[y + line][x:x + len(row)] = [slot * 32 + pen + (0 if shown else asset_formats.NOT_DRAWN)
@@ -119,7 +126,7 @@ def extract_sprites(asset, sprites, program, path):
                     canvas[y + line][x:x + len(row)] = row
             listing.append({"index": len(listing), "frame": f"{number:04X}", "x": x, "y": y,
                             "width": sizes[number][0], "height": sizes[number][1], "word": f"{frame['word']:06X}",
-                            "slot": slot, "palette_from": source})
+                            "slot": slot, "palette_from": source, "opaque": number in opaque})
             covered[frame["word"]:frame["word"] + frame["words"]] = b"\x01" * frame["words"]
         if bits == 4:
             colors, alphas = [], []
@@ -132,7 +139,11 @@ def extract_sprites(asset, sprites, program, path):
         else:
             colors = sprite_palette_colors(program, slots[0], 256) if slots[0] is not None \
                 else [(level,) * 3 for level in range(256)]
-            options = {"transparent": 0}
+            if len(end_code_drawn) > 1:
+                raise SystemExit(f"{asset['sheets']}: {sheet_path} has pens 255 the board draws and pens 255 it "
+                                 "does not, which an 8-bit sheet cannot show apart")
+            hidden = (0,) if True in end_code_drawn else (0, 255)
+            options = {"alphas": [0 if index in hidden else 255 for index in range(256)]}
         target = path / f"{sheet_path}.png"
         target.parent.mkdir(parents=True, exist_ok=True)
         asset_formats.write_png_indexed(target, canvas, colors, 8, **options)

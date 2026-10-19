@@ -3,7 +3,7 @@ Name:        asset_formats.py
 Description: converters from System 32 data formats to standard files (indexed PNG, WAV), and back
 Version:     0.1.0
 Created:     11-10-2026
-Modified:    15-10-2026
+Modified:    19-10-2026
 Author:      Sebastian Toyos
 
 Formats follow MAME's segas32 driver (BSD-3-Clause):
@@ -217,11 +217,13 @@ def rgb555(color):
     return tuple(((color >> shift) & 0x1F) * 255 // 31 for shift in (0, 5, 10))
 
 
-def sprite_drawn(rows, bits):
-    """Which pens of a frame the board draws (sprite list, palette not indirect, not opaque): never pen 0;
-    in each word of a row, not the first or last pen when it is all ones (the end code); and a word that
-    ends with the end code ends the row (runtime/src/video.c, draw_sprite_row and put_sprite_pixel). Rows
-    of booleans."""
+def sprite_drawn(rows, bits, opaque=False):
+    """Which pens of a frame the board draws (sprite list, palette not indirect): never pen 0; and unless
+    the frame is drawn opaque (sprite entry bit 8), not the first or last pen of a word when it is all ones
+    (the end code), and nothing after a word that ends with the end code (runtime/src/video.c,
+    draw_sprite_row and put_sprite_pixel). Rows of booleans."""
+    if opaque:
+        return [[pen != 0 for pen in row] for row in rows]
     per_word = 32 // bits
     end = (1 << bits) - 1
     drawn = []
