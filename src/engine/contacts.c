@@ -3,7 +3,7 @@
  *    Description: contacts between objects and players: the zones, the hitter, touchable, rider, platform and wall lists, and the checks that pair them
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    17-10-2026
+ *    Modified:    19-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -511,7 +511,6 @@ void check_platforms(uint32_t *p_middle, uint32_t *p_plank, uint32_t *p_span, ui
 	uint32_t span = *p_span;
 	uint32_t sag = *p_sag;
 	uint32_t sag_step = *p_sag_step;
-	uint32_t load_count = *p_load_count;
 	uint32_t load_list = *p_load_list;
 	uint16_t plank_count = 0, x_int = 0, y_int = 0;
 	uint32_t load_list_2 = 0, object = 0, rider = 0;
@@ -567,8 +566,8 @@ void check_platforms(uint32_t *p_middle, uint32_t *p_plank, uint32_t *p_span, ui
 			if (OBJECT(object)->spawn_arg_2_high != 0u)
 				load_list = bridge_1_load_ADDRESS;
 			BRIDGE_LOAD(load_list)->count++;
-			load_count = BRIDGE_LOAD(load_list)->count;
-			mem_write8(load_list + load_count, OBJECT(object)->member_number);
+			*p_load_count = BRIDGE_LOAD(load_list)->count;
+			mem_write8(load_list + *p_load_count, OBJECT(object)->member_number);
 			break;
 		}
 	}
@@ -577,7 +576,7 @@ void check_platforms(uint32_t *p_middle, uint32_t *p_plank, uint32_t *p_span, ui
 		load_list_2 = bridge_0_load_ADDRESS;
 		current_player = bridge_0_sag_ADDRESS;
 		plank_count = bridge_0_plank_count;
-		compute_bridge_sag(load_list_2, plank_count, &middle, &plank, &span, &sag, &sag_step, &load_count, p_passes_left, &object, &load_list);
+		compute_bridge_sag(load_list_2, plank_count, &middle, &plank, &span, &sag, &sag_step, p_load_count, p_passes_left, &object, &load_list);
 	}
 	if (bridge_1_plank_count == 0u)
 	{
@@ -588,7 +587,6 @@ void check_platforms(uint32_t *p_middle, uint32_t *p_plank, uint32_t *p_span, ui
 		*p_span = span;
 		*p_sag = (*p_sag & 0xFFFF0000u) | (sag & 0xFFFFu);
 		*p_sag_step = (*p_sag_step & 0xFFFF0000u) | (sag_step & 0xFFFFu);
-		*p_load_count = load_count;
 		*p_platform = object;
 		*p_load_list = load_list;
 		return;
@@ -596,7 +594,7 @@ void check_platforms(uint32_t *p_middle, uint32_t *p_plank, uint32_t *p_span, ui
 	load_list_2 = bridge_1_load_ADDRESS;
 	current_player = bridge_1_sag_ADDRESS;
 	plank_count = bridge_1_plank_count;
-	compute_bridge_sag(load_list_2, plank_count, &middle, &plank, &span, &sag, &sag_step, &load_count, p_passes_left, &object, &load_list);
+	compute_bridge_sag(load_list_2, plank_count, &middle, &plank, &span, &sag, &sag_step, p_load_count, p_passes_left, &object, &load_list);
 	rider_list = 0xFFFFu;
 	platform_list = 0xFFFFu;
 	*p_middle = (*p_middle & 0xFFFF0000u) | (middle & 0xFFFFu);
@@ -604,7 +602,6 @@ void check_platforms(uint32_t *p_middle, uint32_t *p_plank, uint32_t *p_span, ui
 	*p_span = span;
 	*p_sag = (*p_sag & 0xFFFF0000u) | (sag & 0xFFFFu);
 	*p_sag_step = (*p_sag_step & 0xFFFF0000u) | (sag_step & 0xFFFFu);
-	*p_load_count = load_count;
 	*p_platform = object;
 	*p_load_list = load_list;
 }

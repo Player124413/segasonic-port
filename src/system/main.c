@@ -3,7 +3,7 @@
  *    Description: the machine's main program: power-on and boot, the frame loop, the attract mode and the system modes, the frame wait and the controls, the interrupt handlers, the reset vector
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    17-10-2026
+ *    Modified:    19-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -81,8 +81,7 @@ void boot(void)
    system_mode's handler, run_objects, build_sprite_list, draw_queued_strings. */
 void run_frame(uint32_t pressed, uint32_t released, uint32_t input_cursor, uint32_t count, uint32_t trackball_port, uint32_t trackball_cursor, uint32_t *p_scale, uint32_t *p_cursor, uint32_t *p_height)
 {
-	uint32_t cursor = *p_cursor;
-	uint32_t r10 = 0, r11 = 0, credits_needed = 0, sprite_entry = 0, start_bit = 0, string_cursor = 0;
+	uint32_t r10 = 0, r11 = 0, credits_needed = 0, sprite_entry = 0, start_bit = 0;
 
 	frame_counter++;
 	if (system_mode == 0u || system_mode == 6u)
@@ -102,13 +101,13 @@ void run_frame(uint32_t pressed, uint32_t released, uint32_t input_cursor, uint3
 			attract_title(p_scale, &count, p_height, &trackball_port);
 			break;
 		case 4:
-			attract_demo_1(pressed, released, input_cursor, (uint16_t)cursor, trackball_cursor, p_scale, &count, p_height, &trackball_port);
+			attract_demo_1(pressed, released, input_cursor, (uint16_t)*p_cursor, trackball_cursor, p_scale, &count, p_height, &trackball_port);
 			break;
 		case 5:
-			attract_demo_2(pressed, released, input_cursor, (uint16_t)cursor, trackball_cursor, p_scale, &count, p_height, &trackball_port);
+			attract_demo_2(pressed, released, input_cursor, (uint16_t)*p_cursor, trackball_cursor, p_scale, &count, p_height, &trackball_port);
 			break;
 		case 6:
-			run_game_mode(pressed, released, input_cursor, (uint16_t)cursor, trackball_cursor, p_scale, &count, p_height, &trackball_port);
+			run_game_mode(pressed, released, input_cursor, (uint16_t)*p_cursor, trackball_cursor, p_scale, &count, p_height, &trackball_port);
 			break;
 		case 7:
 			wait_attract_timer();
@@ -118,8 +117,7 @@ void run_frame(uint32_t pressed, uint32_t released, uint32_t input_cursor, uint3
 		}
 		run_objects();
 		build_sprite_list(p_scale, &count, p_height, &trackball_port, &sprite_entry);
-		draw_queued_strings((uint16_t)count, (uint16_t)trackball_port, sprite_entry, p_scale, &string_cursor, p_height);
-		*p_cursor = string_cursor;
+		draw_queued_strings((uint16_t)count, (uint16_t)trackball_port, sprite_entry, p_scale, p_cursor, p_height);
 		return;
 	}
 	draw_attract_credits(&pressed, &released, &r10, &r11);
@@ -148,13 +146,13 @@ void run_frame(uint32_t pressed, uint32_t released, uint32_t input_cursor, uint3
 				attract_title(p_scale, &count, p_height, &r10);
 				break;
 			case 4:
-				attract_demo_1(pressed, released, credits_needed, (uint16_t)cursor, r11, p_scale, &count, p_height, &r10);
+				attract_demo_1(pressed, released, credits_needed, (uint16_t)*p_cursor, r11, p_scale, &count, p_height, &r10);
 				break;
 			case 5:
-				attract_demo_2(pressed, released, credits_needed, (uint16_t)cursor, r11, p_scale, &count, p_height, &r10);
+				attract_demo_2(pressed, released, credits_needed, (uint16_t)*p_cursor, r11, p_scale, &count, p_height, &r10);
 				break;
 			case 6:
-				run_game_mode(pressed, released, credits_needed, (uint16_t)cursor, r11, p_scale, &count, p_height, &r10);
+				run_game_mode(pressed, released, credits_needed, (uint16_t)*p_cursor, r11, p_scale, &count, p_height, &r10);
 				break;
 			case 7:
 				wait_attract_timer();
@@ -164,23 +162,20 @@ void run_frame(uint32_t pressed, uint32_t released, uint32_t input_cursor, uint3
 			}
 			run_objects();
 			build_sprite_list(p_scale, &count, p_height, &r10, &sprite_entry);
-			draw_queued_strings((uint16_t)count, (uint16_t)r10, sprite_entry, p_scale, &string_cursor, p_height);
-			*p_cursor = string_cursor;
+			draw_queued_strings((uint16_t)count, (uint16_t)r10, sprite_entry, p_scale, p_cursor, p_height);
 			return;
 		}
 		if (setting_no_start_buttons != 0u)
 		{
 			if ((inputs_pressed & 0x10000u) != 0u || (inputs_pressed & 0x1000000u) != 0u)
 			{
-				run_frame_start_game(pressed, released, credits_needed, count, r10, r11, p_scale, &cursor, p_height);
-				*p_cursor = cursor;
+				run_frame_start_game(pressed, released, credits_needed, count, r10, r11, p_scale, p_cursor, p_height);
 				return;
 			}
 		}
 		else if ((inputs_pressed & 0x10u) != 0u || (inputs_pressed & 0x20u) != 0u)
 		{
-			run_frame_start_game(pressed, released, credits_needed, count, r10, r11, p_scale, &cursor, p_height);
-			*p_cursor = cursor;
+			run_frame_start_game(pressed, released, credits_needed, count, r10, r11, p_scale, p_cursor, p_height);
 			return;
 		}
 		if ((cabinet_config & 1u) == 0u)
@@ -200,13 +195,13 @@ void run_frame(uint32_t pressed, uint32_t released, uint32_t input_cursor, uint3
 				attract_title(p_scale, &count, p_height, &r10);
 				break;
 			case 4:
-				attract_demo_1(pressed, released, credits_needed, (uint16_t)cursor, r11, p_scale, &count, p_height, &r10);
+				attract_demo_1(pressed, released, credits_needed, (uint16_t)*p_cursor, r11, p_scale, &count, p_height, &r10);
 				break;
 			case 5:
-				attract_demo_2(pressed, released, credits_needed, (uint16_t)cursor, r11, p_scale, &count, p_height, &r10);
+				attract_demo_2(pressed, released, credits_needed, (uint16_t)*p_cursor, r11, p_scale, &count, p_height, &r10);
 				break;
 			case 6:
-				run_game_mode(pressed, released, credits_needed, (uint16_t)cursor, r11, p_scale, &count, p_height, &r10);
+				run_game_mode(pressed, released, credits_needed, (uint16_t)*p_cursor, r11, p_scale, &count, p_height, &r10);
 				break;
 			case 7:
 				wait_attract_timer();
@@ -216,8 +211,7 @@ void run_frame(uint32_t pressed, uint32_t released, uint32_t input_cursor, uint3
 			}
 			run_objects();
 			build_sprite_list(p_scale, &count, p_height, &r10, &sprite_entry);
-			draw_queued_strings((uint16_t)count, (uint16_t)r10, sprite_entry, p_scale, &string_cursor, p_height);
-			*p_cursor = string_cursor;
+			draw_queued_strings((uint16_t)count, (uint16_t)r10, sprite_entry, p_scale, p_cursor, p_height);
 			return;
 		}
 		start_bit = 0x12u;
@@ -225,8 +219,7 @@ void run_frame(uint32_t pressed, uint32_t released, uint32_t input_cursor, uint3
 			start_bit = 7u;
 		if ((inputs_pressed & shl32(1u, (int)(start_bit))) != 0u)
 		{
-			run_frame_start_game(pressed, released, credits_needed, count, r10, r11, p_scale, &cursor, p_height);
-			*p_cursor = cursor;
+			run_frame_start_game(pressed, released, credits_needed, count, r10, r11, p_scale, p_cursor, p_height);
 			return;
 		}
 		switch (system_mode)
@@ -244,13 +237,13 @@ void run_frame(uint32_t pressed, uint32_t released, uint32_t input_cursor, uint3
 			attract_title(p_scale, &count, p_height, &r10);
 			break;
 		case 4:
-			attract_demo_1(pressed, released, credits_needed, (uint16_t)cursor, r11, p_scale, &count, p_height, &r10);
+			attract_demo_1(pressed, released, credits_needed, (uint16_t)*p_cursor, r11, p_scale, &count, p_height, &r10);
 			break;
 		case 5:
-			attract_demo_2(pressed, released, credits_needed, (uint16_t)cursor, r11, p_scale, &count, p_height, &r10);
+			attract_demo_2(pressed, released, credits_needed, (uint16_t)*p_cursor, r11, p_scale, &count, p_height, &r10);
 			break;
 		case 6:
-			run_game_mode(pressed, released, credits_needed, (uint16_t)cursor, r11, p_scale, &count, p_height, &r10);
+			run_game_mode(pressed, released, credits_needed, (uint16_t)*p_cursor, r11, p_scale, &count, p_height, &r10);
 			break;
 		case 7:
 			wait_attract_timer();
@@ -260,18 +253,15 @@ void run_frame(uint32_t pressed, uint32_t released, uint32_t input_cursor, uint3
 		}
 		run_objects();
 		build_sprite_list(p_scale, &count, p_height, &r10, &sprite_entry);
-		draw_queued_strings((uint16_t)count, (uint16_t)r10, sprite_entry, p_scale, &string_cursor, p_height);
-		*p_cursor = string_cursor;
+		draw_queued_strings((uint16_t)count, (uint16_t)r10, sprite_entry, p_scale, p_cursor, p_height);
 		return;
 	case 2:
-		run_frame_check_p2_start(pressed, released, credits_needed, count, r10, r11, p_scale, &cursor, p_height);
-		*p_cursor = cursor;
+		run_frame_check_p2_start(pressed, released, credits_needed, count, r10, r11, p_scale, p_cursor, p_height);
 		return;
 	case 3:
 		if (p3_credits < (uint8_t)credits_needed)
 		{
-			run_frame_check_p2_start(pressed, released, credits_needed, count, r10, r11, p_scale, &cursor, p_height);
-			*p_cursor = cursor;
+			run_frame_check_p2_start(pressed, released, credits_needed, count, r10, r11, p_scale, p_cursor, p_height);
 			return;
 		}
 		start_bit = 0x12u;
@@ -279,12 +269,10 @@ void run_frame(uint32_t pressed, uint32_t released, uint32_t input_cursor, uint3
 			start_bit = 7u;
 		if ((inputs_pressed & shl32(1u, (int)(start_bit))) != 0u)
 		{
-			run_frame_start_game(pressed, released, credits_needed, count, r10, r11, p_scale, &cursor, p_height);
-			*p_cursor = cursor;
+			run_frame_start_game(pressed, released, credits_needed, count, r10, r11, p_scale, p_cursor, p_height);
 			return;
 		}
-		run_frame_check_p2_start(pressed, released, credits_needed, count, r10, r11, p_scale, &cursor, p_height);
-		*p_cursor = cursor;
+		run_frame_check_p2_start(pressed, released, credits_needed, count, r10, r11, p_scale, p_cursor, p_height);
 		return;
 	default:
 		invalid_jump(0x115u + cabinet_config * 3u);
@@ -297,8 +285,7 @@ void run_frame(uint32_t pressed, uint32_t released, uint32_t input_cursor, uint3
    (run_frame_start_game); else the system mode's handler and the rest of the frame. */
 void run_frame_check_p2_start(uint32_t credits, uint32_t blink_bit, uint32_t credits_needed, uint32_t count, uint32_t message_text, uint32_t text_position, uint32_t *p_scale, uint32_t *p_cursor, uint32_t *p_height)
 {
-	uint32_t cursor = *p_cursor;
-	uint32_t sprite_entry = 0, start_bit = 0, string_cursor = 0;
+	uint32_t sprite_entry = 0, start_bit = 0;
 
 	if ((uint8_t)credits_needed <= p2_credits)
 	{
@@ -307,8 +294,7 @@ void run_frame_check_p2_start(uint32_t credits, uint32_t blink_bit, uint32_t cre
 			start_bit = 5u;
 		if ((inputs_pressed & shl32(1u, (int)(start_bit))) != 0u)
 		{
-			run_frame_start_game(credits, blink_bit, credits_needed, count, message_text, text_position, p_scale, &cursor, p_height);
-			*p_cursor = cursor;
+			run_frame_start_game(credits, blink_bit, credits_needed, count, message_text, text_position, p_scale, p_cursor, p_height);
 			return;
 		}
 	}
@@ -329,13 +315,13 @@ void run_frame_check_p2_start(uint32_t credits, uint32_t blink_bit, uint32_t cre
 			attract_title(p_scale, &count, p_height, &message_text);
 			break;
 		case 4:
-			attract_demo_1(credits, blink_bit, credits_needed, (uint16_t)cursor, text_position, p_scale, &count, p_height, &message_text);
+			attract_demo_1(credits, blink_bit, credits_needed, (uint16_t)*p_cursor, text_position, p_scale, &count, p_height, &message_text);
 			break;
 		case 5:
-			attract_demo_2(credits, blink_bit, credits_needed, (uint16_t)cursor, text_position, p_scale, &count, p_height, &message_text);
+			attract_demo_2(credits, blink_bit, credits_needed, (uint16_t)*p_cursor, text_position, p_scale, &count, p_height, &message_text);
 			break;
 		case 6:
-			run_game_mode(credits, blink_bit, credits_needed, (uint16_t)cursor, text_position, p_scale, &count, p_height, &message_text);
+			run_game_mode(credits, blink_bit, credits_needed, (uint16_t)*p_cursor, text_position, p_scale, &count, p_height, &message_text);
 			break;
 		case 7:
 			wait_attract_timer();
@@ -345,8 +331,7 @@ void run_frame_check_p2_start(uint32_t credits, uint32_t blink_bit, uint32_t cre
 		}
 		run_objects();
 		build_sprite_list(p_scale, &count, p_height, &message_text, &sprite_entry);
-		draw_queued_strings((uint16_t)count, (uint16_t)message_text, sprite_entry, p_scale, &string_cursor, p_height);
-		*p_cursor = string_cursor;
+		draw_queued_strings((uint16_t)count, (uint16_t)message_text, sprite_entry, p_scale, p_cursor, p_height);
 		return;
 	}
 	start_bit = 0x10u;
@@ -369,13 +354,13 @@ void run_frame_check_p2_start(uint32_t credits, uint32_t blink_bit, uint32_t cre
 			attract_title(p_scale, &count, p_height, &message_text);
 			break;
 		case 4:
-			attract_demo_1(credits, blink_bit, credits_needed, (uint16_t)cursor, text_position, p_scale, &count, p_height, &message_text);
+			attract_demo_1(credits, blink_bit, credits_needed, (uint16_t)*p_cursor, text_position, p_scale, &count, p_height, &message_text);
 			break;
 		case 5:
-			attract_demo_2(credits, blink_bit, credits_needed, (uint16_t)cursor, text_position, p_scale, &count, p_height, &message_text);
+			attract_demo_2(credits, blink_bit, credits_needed, (uint16_t)*p_cursor, text_position, p_scale, &count, p_height, &message_text);
 			break;
 		case 6:
-			run_game_mode(credits, blink_bit, credits_needed, (uint16_t)cursor, text_position, p_scale, &count, p_height, &message_text);
+			run_game_mode(credits, blink_bit, credits_needed, (uint16_t)*p_cursor, text_position, p_scale, &count, p_height, &message_text);
 			break;
 		case 7:
 			wait_attract_timer();
@@ -385,12 +370,10 @@ void run_frame_check_p2_start(uint32_t credits, uint32_t blink_bit, uint32_t cre
 		}
 		run_objects();
 		build_sprite_list(p_scale, &count, p_height, &message_text, &sprite_entry);
-		draw_queued_strings((uint16_t)count, (uint16_t)message_text, sprite_entry, p_scale, &string_cursor, p_height);
-		*p_cursor = string_cursor;
+		draw_queued_strings((uint16_t)count, (uint16_t)message_text, sprite_entry, p_scale, p_cursor, p_height);
 		return;
 	}
-	run_frame_start_game(credits, blink_bit, credits_needed, count, message_text, text_position, p_scale, &cursor, p_height);
-	*p_cursor = cursor;
+	run_frame_start_game(credits, blink_bit, credits_needed, count, message_text, text_position, p_scale, p_cursor, p_height);
 }
 
 /* A start pressed with credits: system_mode 6 (the game), game_mode 0, system_mode_step 0,

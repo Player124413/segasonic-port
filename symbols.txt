@@ -163,7 +163,7 @@
 # The frame loop: every frame of the game starts when wait_for_frame returns. It polls 7000[R25], which
 # the VBLANK end interrupt decrements, and then falls into read_controls.
 098EC6  func  wait_for_frames      # 7000[R25] = 7001[R25] (frames_per_wait: 0, so one frame; only the unused init_sprites_swapping_every_frame sets 1), then wait_for_frame
-098ECE  func  wait_for_frame
+098ECE  func  wait_for_frame  # Waits for the next frame: sets sprite_list_ready, polls until irq_vblank_end has counted frames_to_wait below 0, reloads it from frames_per_wait,...
 098ED6  code  frame_wait_loop
 098EDE  code  frame_wait_done
 098EFB  func  read_controls        # ports, then the three trackballs into 7062[R25]..706D[R25]
@@ -295,11 +295,11 @@ D0000A  io  timer_1_reload   u16
 099246  func  allocate_object       # R0 = how many were free (0: none); R11 = the object
 099353  func  allocate_object_2     # the same from the second pool
 09C724  func  eeprom_read_all       # 0x40 words into 7600[R25]
-09C79C  func  eeprom_read_word
+09C79C  func  eeprom_read_word  # Reads one EEPROM word: eeprom_send_command(command), then 0x12 clocks reading port_f bit 7, then eeprom_deselect; hands back the 16-bit word in...
 09C7CB  func  eeprom_write_word     # then waits for the chip to say it is ready (data out high)
-09C82B  func  eeprom_send_command
+09C82B  func  eeprom_send_command  # Starts an EEPROM command on port_d: lines low, a clock, chip select up, then the start bit and command's 8 bits, high bit first, each on the data...
 09C87B  func  eeprom_select         # R13 = port D, R12 = port F; interrupts off
-09C8E0  func  eeprom_deselect
+09C8E0  func  eeprom_deselect  # Clears the EEPROM's chip select, clock and data lines (bits 5-7 of lines) on port_d and hands back lines
 09C8E4  func  eeprom_set_lines      # writes R2 to port D
 
 # ======== system (from build/naming/system.txt) ========
@@ -1311,7 +1311,7 @@ field player 1D8 stall_frames s16           # 00E415: frames the scroll has not 
 00A3F8  func  sinking_effect_update          # state 0x33 changes the effect's handler to this: moves down 1.5 a frame, deleted at the end
 009B4D  func  scene_object_start             # object at a fixed spot that becomes scene_object (20E62E), handler 009B8E
 009B8E  func  scene_object_update            # circles (x, z) while the scroll is between 0x4FF0 and its 80; deleted after
-009A62  func  player_effect_start
+009A62  func  player_effect_start  # Projects the effect object, then player_effect_update
 009A6F  func  player_effect_update           # animates, deleted when the animation ends
 009A94  func  spawn_struggle_marker          # state 0x25 step 0xB: object (tile 0x77A0) that follows the player, handler 009ADC
 009ADC  func  struggle_marker_update         # follows its player while state 0x25 step 0xC, else deleted
@@ -1555,7 +1555,7 @@ field player 1D8 stall_frames s16           # 00E415: frames the scroll has not 
 # the camera does; in modes 7/8 the speed follows the leading player (field 6E of his object).
 015F80  func  update_scroll                    # switches on scroll_mode; stops at scroll_end (then stage 3's end sequence); modes 7/8 pick the speed from the players pushing the screen edge
 016A77  func  scroll_at_scroll_speed           # scroll mode 0: advance_scroll with scroll_speed
-016A7C  func  advance_scroll_unless_ended
+016A7C  func  advance_scroll_unless_ended  # advance_scroll, unless scroll_ended is set
 016A83  func  advance_scroll                   # move_camera_along_path, then at a section end loads the next section (speed, follow speed, x/y limits, mode script, direction, end)
 016B36  func  set_camera_velocity              # camera_velocity_x/_y = section direction * speed; update_camera_with_shake; then update_background_scroll
 016B70  func  update_background_scroll         # NBG1/NBG3/NBG2 per-stage scroll; inside stage_fast_scroll_ranges forces follow_base_speed to 10
@@ -1582,16 +1582,16 @@ field player 1D8 stall_frames s16           # 00E415: frames the scroll has not 
 01780C  func  move_camera_y_done_at_end        # case 5: advance_camera_x
 01780F  func  move_camera_xy_done              # case 6: advance_scroll_position
 017812  func  move_camera_all_done             # case 7: snap_camera_to_section_end
-017815  func  advance_camera_scroll_x_y
-017828  func  advance_camera_x_y
-017835  func  advance_camera_y_scroll
+017815  func  advance_camera_scroll_x_y  # advance_scroll_position, advance_camera_x and advance_camera_y by speed: the scroll and the camera both go on
+017828  func  advance_camera_x_y  # advance_camera_x and advance_camera_y by speed (scroll_position at the section's end)
+017835  func  advance_camera_y_scroll  # advance_camera_y and advance_scroll_position by speed (the camera's x at its limit)
 017842  func  advance_camera_y                  # camera_y += section_direction_y * speed
-017850  func  advance_camera_x_scroll
+017850  func  advance_camera_x_scroll  # advance_camera_x and advance_scroll_position by speed (the camera's y at its limit)
 01785D  func  advance_camera_x                  # camera_x += section_direction_x * speed
 01786B  func  advance_scroll_position          # scroll_position += speed
 017871  func  snap_camera_to_section_end        # camera at the section's x/y limits, scroll_position = the section end
 0176E5  func  update_camera_view               # camera_x_pixels/_y_pixels from camera_x/_y; view_x/_y = those minus view_offset_x/_y
-017707  func  update_camera_view_y
+017707  func  update_camera_view_y  # camera_y_pixels from y's whole part (16.16) and view_y = it minus view_offset_y, which it hands back
 0175F6  func  update_camera_with_shake          # update_camera_view; while camera_shake_active, every other frame adds sine * 20 to camera y (shake from 8 pixels down to 0)
 017690  func  set_nbg0_scroll_from_camera      # NBG0 scroll = camera pixels; tile_block_row/tile_block_column for the block map
 015F3B  func  clamp_camera_pixels              # x to 0..1FFF, y to 0..FFF
@@ -1671,7 +1671,7 @@ field player 1D8 stall_frames s16           # 00E415: frames the scroll has not 
 015DD7  func  reload_changed_tile_set          # one slot a frame: when the wanted set is not loaded yet, load_tile_set
 015E4D  func  load_tile_set                    # stage_tile_sets[stage][set]: list of vram scripts (FFFFFFFF ends) run with run_vram_script
 015E79  func  get_tile_set_script_bank         # +100000 for the stages that keep their scripts in the second half
-015EB4  func  get_tile_set_list_bank
+015EB4  func  get_tile_set_list_bank  # Hands back script_list + 0x100000 for stages 3-0x10 and 0x13, unchanged for stages 0-2, 0x11 and 0x12
 015EEE  func  get_tile_set_list                # stages 0-2, 11-13: u16 offsets + 170602; the others u32 pointers
 01B1D4  func  set_stage_layer_mixing           # mixer 610022-610028 = stage_layer_priorities + 200; 31FF02 low nibble = stage_layer_disables; 31FF04 = stage_rowscroll_settings
 01B2C0  func  init_nbg1_layer                  # four vram scripts (170722-17076A), NBG1 pages 0F-12, per-stage mixer bits
@@ -1679,17 +1679,17 @@ field player 1D8 stall_frames s16           # 00E415: frames the scroll has not 
 01B622  func  init_nbg3_layer                  # per-stage vram scripts and NBG3 pages; stage_nbg3_widths
 01B868  func  set_nbg3_page_5_flags            # 20F2C0 = A, palette 608000, sets bit 13 of the 400 cells at 301400 (tile pages 5 and 6)
 01B388  func  update_nbg1_scroll               # jump table by stage
-01B3D1  func  skip_nbg1_scroll
-01B3D2  func  set_nbg1_scroll_to_camera
+01B3D1  func  skip_nbg1_scroll  # Does nothing: update_nbg1_scroll's case for the stages whose NBG1 stays put, and its common end
+01B3D2  func  set_nbg1_scroll_to_camera  # NBG1's scroll = the camera's position in whole pixels (camera_x_pixels, camera_y_pixels)
 01B515  func  update_nbg2_scroll               # jump table by stage
-01B58F  func  skip_nbg2_scroll
-01B55E  func  set_nbg2_scroll_to_camera
-01B590  func  set_nbg2_scroll_to_camera_2
+01B58F  func  skip_nbg2_scroll  # Does nothing: update_nbg2_scroll's case for the stages whose NBG2 stays put, and its common end
+01B55E  func  set_nbg2_scroll_to_camera  # NBG2's scroll = the camera's position in whole pixels (camera_x_pixels, camera_y_pixels)
+01B590  func  set_nbg2_scroll_to_camera_2  # set_nbg2_scroll_to_camera again: a second copy, for stages 1 and 2
 01B5A5  func  set_nbg2_scroll_stages_03_07     # camera; +10 once scroll_position passes 9159
-01B5F9  func  set_nbg2_scroll_stage_04
+01B5F9  func  set_nbg2_scroll_stage_04  # Stage 4: NBG2 on pages 0xA-0xD, scrolled with the camera (the original adds 0x20 to x and takes it off again)
 01B891  func  update_nbg3_scroll               # per-stage parallax (view/2, view/4, view*3/4, camera)
 01B9A5  func  select_nbg3_pages                # NBG3 page numbers from the blocks under its scroll (stage_nbg3_block_maps)
-01BAA3  func  get_nbg3_block
+01BAA3  func  get_nbg3_block  # The NBG3 block under its scroll: nbg3_block_column = nbg3_scroll_x >> 9 (blocks of 0x200 pixels), nbg3_block_row = (nbg3_scroll_y + 0x400) >> 8...
 01B096  func  init_nbg0_picture_screen         # display off, 31FF00 bit 10, palette set 1076AE, only NBG0 and text on (31FF02 = 2E), NBG0 scroll 0
 01B112  func  show_nbg0_picture                # init_nbg0_picture_screen, NBG0 pages 1, vram script 17280A, palette row 1B154 (called by 08F22D and 08F9AB)
 
@@ -1717,21 +1717,21 @@ field player 1D8 stall_frames s16           # 00E415: frames the scroll has not 
 
 # The vram script interpreter: bytes 00-7F write word [n] of the dictionary at 20F300; 80-AA are commands
 # (jump table of 3-byte entries at 09988E); AA ends.
-09986B  func  run_vram_script
-09988E  func  vram_script_set_address_entry
-099891  func  vram_script_skip_entry
-099894  func  vram_script_fill_entry
-099897  func  vram_script_count_up_entry
-09989A  func  vram_script_count_down_entry
-09989D  func  vram_script_bytes_entry
-0998A0  func  vram_script_words_entry
-0998A3  func  vram_script_words_to_dictionary_entry
-0998A6  func  vram_script_clear_pages_entry
-0998A9  func  vram_script_fill_down_entry
-0998AC  func  vram_script_fill_down_wide_entry
-0998AF  func  vram_script_fill_up_entry
-0998B2  func  vram_script_repeat_entry
-0998B5  func  vram_script_skip_long_entry
+09986B  func  run_vram_script  # Runs a VRAM script from script, writing tilemap cells at dest: a byte 0x00-0x7F writes that word of vram_script_dictionary; 0x80-0xA7 are the...
+09988E  func  vram_script_set_address_entry  # run_vram_script's table entry: a br to vram_script_set_address (the C calls vram_script_set_address in the switch)
+099891  func  vram_script_skip_entry  # run_vram_script's table entry: a br to vram_script_skip (the C calls vram_script_skip in the switch)
+099894  func  vram_script_fill_entry  # run_vram_script's table entry: a br to vram_script_fill (the C calls vram_script_fill in the switch)
+099897  func  vram_script_count_up_entry  # run_vram_script's table entry: a br to vram_script_count_up (the C calls vram_script_count_up in the switch)
+09989A  func  vram_script_count_down_entry  # run_vram_script's table entry: a br to vram_script_count_down (the C calls vram_script_count_down in the switch)
+09989D  func  vram_script_bytes_entry  # run_vram_script's table entry: a br to vram_script_bytes (the C calls vram_script_bytes in the switch)
+0998A0  func  vram_script_words_entry  # run_vram_script's table entry: a br to vram_script_words (the C calls vram_script_words in the switch)
+0998A3  func  vram_script_words_to_dictionary_entry  # run_vram_script's table entry: a br to vram_script_words_to_dictionary (the C calls vram_script_words_to_dictionary in the switch)
+0998A6  func  vram_script_clear_pages_entry  # run_vram_script's table entry: a br to vram_script_clear_pages (the C calls vram_script_clear_pages in the switch)
+0998A9  func  vram_script_fill_down_entry  # run_vram_script's table entry: a br to vram_script_fill_down (the C calls vram_script_fill_down in the switch)
+0998AC  func  vram_script_fill_down_wide_entry  # run_vram_script's table entry: a br to vram_script_fill_down_wide (the C calls vram_script_fill_down_wide in the switch)
+0998AF  func  vram_script_fill_up_entry  # run_vram_script's table entry: a br to vram_script_fill_up (the C calls vram_script_fill_up in the switch)
+0998B2  func  vram_script_repeat_entry  # run_vram_script's table entry: a br to vram_script_repeat (the C calls vram_script_repeat in the switch)
+0998B5  func  vram_script_skip_long_entry  # run_vram_script's table entry: a br to vram_script_skip_long (the C calls vram_script_skip_long in the switch)
 0998BC  func  vram_script_set_address          # 80: destination = 300000 + word * 2
 0998C8  func  vram_script_skip                 # 83: destination += s8 * 2
 0998D0  func  vram_script_skip_long            # A7: destination += s16 * 2
@@ -1749,17 +1749,17 @@ field player 1D8 stall_frames s16           # 00E415: frames the scroll has not 
 
 # ======== Palettes animated per stage ========
 01AD30  func  animate_stage_palette            # jump table by stage (20 entries of 3 bytes at 01AD41)
-01AD7A  func  skip_stage_palette_animation
+01AD7A  func  skip_stage_palette_animation  # Does nothing: animate_stage_palette's case for the stages without a palette animation
 01AF10  func  cycle_palette                    # state (delay, frames, -, frame, timer): every delay frames copies the next 16-colour frame to palette RAM
-01AEE6  func  animate_palette_stage_04
-01AEBC  func  animate_palette_stage_09
-01AE6D  func  animate_palette_stage_0a
-01ADCA  func  animate_palette_stage_0c
-01ADF4  func  animate_palette_stage_0d_0e
-01AE1E  func  animate_palette_stage_0f
-01AD7B  func  animate_palette_stage_10
+01AEE6  func  animate_palette_stage_04  # Stage 4's palette animation: palette_cycle_0 every 4 frames through the 8 frames of stage_04_cycle_palettes, each copied to 2 rows at palette RAM...
+01AEBC  func  animate_palette_stage_09  # Stage 9's palette animation: palette_cycle_0 every 3 frames through the 7 frames of stage_09_cycle_palettes, 2 rows at palette RAM + 0x88A0
+01AE6D  func  animate_palette_stage_0a  # Stage 0xA's palette animation: palette_cycle_0 every 5 frames through the 6 frames of stage_0a_cycle_palettes_0 (1 row at palette RAM + 0x8A40),...
+01ADCA  func  animate_palette_stage_0c  # Stage 0xC's palette animation: palette_cycle_0 every 6 frames through the 8 frames of stage_0c_cycle_palettes, 1 row at palette RAM + 0x8800
+01ADF4  func  animate_palette_stage_0d_0e  # The palette animation of stages 0xD and 0xE: palette_cycle_0 every 6 frames through the 8 frames of stage_0d_0e_cycle_palettes, 1 row at palette...
+01AE1E  func  animate_palette_stage_0f  # Stage 0xF's palette animation: palette_cycle_0 every 0xC frames through the 6 frames of stage_0f_cycle_palettes_0 (3 rows at palette RAM +...
+01AD7B  func  animate_palette_stage_10  # Stage 0x10's palette animation: palette_cycle_0 every 6 frames through the 8 frames of stage_10_cycle_palettes_0 (6 rows at palette RAM + 0x8B40),...
 01AF4D  func  cycle_palette_set_0              # update_stage_06_background
-01AF5B  func  cycle_palette_set_1
+01AF5B  func  cycle_palette_set_1  # cycle_palette_set on the second record (palette_cycle_set = 0x2090A0), for update_stage_06_background
 01AF69  func  cycle_palette_set                # like cycle_palette, state at palette_cycle_set
 01AFD7  func  load_stage_palette_set           # load_palette_set_and_backdrop for the stage
 01AFDC  func  load_palette_set_and_backdrop    # 31FF00 bit 10 (tile banking) from stage_tile_bank_bits[R1], palette set stage_palette_sets[R1] through 09A4BC, backdrop colour (609400) by stage
@@ -1844,8 +1844,8 @@ field player 1D8 stall_frames s16           # 00E415: frames the scroll has not 
 01E61F  func  carried_ring_spin                # ring_spin following its platform's floor and height
 01EA86  func  spawn_ring_sparkle               # animation 01F5CE
 01EAA4  func  spawn_ring_glint                 # animation 01F5AC
-01EAC1  func  init_sparkle_object
-01EB04  func  sparkle_start
+01EAC1  func  init_sparkle_object  # Sets up the new sparkle or glint sparkle at the current object's x, y, z and floor_z: sprite_flags 0x1000, palette 0x1B0, flags 0, handler...
+01EB04  func  sparkle_start  # First frame of a sparkle or glint: projects it to the screen, then becomes sparkle_animate
 01EB11  func  sparkle_animate                  # removed at the end of its animation
 01F56E  data  ring_animation
 
@@ -1854,16 +1854,16 @@ field player 1D8 stall_frames s16           # 00E415: frames the scroll has not 
 084B91  func  sign_start                       # stage_spawns_by_handler entries whose field 04 is the kind: init_sign_from_kind
 084BAE  func  spawn_sign                       # (R5, R6, R8) = x, y, z; R7 = kind
 084BBA  func  spawn_sign_2                     # the same with allocate_object
-084BC4  func  place_sign
+084BC4  func  place_sign  # Puts the object sign at x, y, z and sets it up from record kind of object_kinds, without the record's own z (init_sign_from_kind); hands back sign...
 084BEC  func  init_sign_from_kind              # object_kinds record: sprite 04, duration in speed_x, animation 80, handler
 084CC6  func  sign_show                        # animate_sign, counts speed_x down, drawn on top (bucket 0); removed at 0
-084C43  func  sign_show_unless_mode_32
+084C43  func  sign_show_unless_mode_32  # sign_show, except in game mode 0x20 (YOU FAILED), where the sign is removed
 084C52  func  sign_show_while_player_busy      # while the parent's player is in state 1D, 2C or 32
 084C82  func  sign_show_until_goal_unlocked    # "BREAK!!" (stage 5): until goal_unlocked is set (game mode 0x0A sets it in stage 5)
 084C8E  func  sign_show_while_parent_still     # until the parent's field 3E is non-zero
-084CA0  func  sign_show_until_gate_closed
+084CA0  func  sign_show_until_gate_closed  # sign_show until sign_stop_flag is set, then removed (only the unused exit gate sets the flag)
 084CAC  func  sign_show_until_cage_bar_hit     # the arrow over "BREAK!!"
-084CB8  func  sign_show_unless_stage_0
+084CB8  func  sign_show_unless_stage_0  # sign_show, except in stage 0, where the sign is removed
 084CE6  func  sign_follow_parent               # 38 above the parent while its flag 40
 084D2B  func  sign_follow_player               # 28 above the parent while its player is in state 22
 00CB15  func  animate_sign                     # palette (field 06) from the animation list at field 80, every field 85 frames
@@ -1903,9 +1903,9 @@ field player 1D8 stall_frames s16           # 00E415: frames the scroll has not 
 09887C  func  update_ring_tally_percent        # after 12C frames stage_results_done; colour cycling (ring_tally_blink_palettes) at or above the bonus
 0988D0  func  ring_tally_end_sound_wait             # when the counting stops: sound 73 if the percentage is under the bonus
 09891C  func  ring_tally_ticker_update            # sound 83 every 6 frames while counting
-098954  func  ring_tally_player_1_update
+098954  func  ring_tally_player_1_update  # Player 1's panel: the first frame builds it at the left (build_ring_tally_panel) and starts the count; then update_ring_tally_panel
 098981  func  ring_tally_player_2_update        # its place depends on the cabinet setting (20F41E bit 0)
-098A00  func  ring_tally_player_3_update
+098A00  func  ring_tally_player_3_update  # Player 3's panel: built on the right (screen x 0x100); then update_ring_tally_panel
 098A77  func  build_ring_tally_panel           # portrait (ring_tally_portraits[R0]), "NO BONUS"/bonus label, ring icon and three digits from the second pool
 098C2A  func  update_ring_tally_panel          # counts the player's rings up; the bonus: 00E22A, sounds (by character) and 88/89
 098E44  func  cycle_ring_tally_backdrop_palette  # the ring tally panel's portrait backdrop (the concentric squares, sprite 9DD8 at 40 of build_ring_tally_panel): its palette steps through ring_tally_backdrop_palettes
@@ -1922,15 +1922,15 @@ field player 1D8 stall_frames s16           # 00E415: frames the scroll has not 
 095976  func  run_map_screen                   # game mode 4: map_screen_step 0 window wipe around the stage (start_window_wipe), 1 fade, 2 map_intro_update, 3-5 wait; its caller game_mode_stage_end_fade goes to game mode 2 when the step reaches 5
 095A53  func  map_intro_update                 # by animation_frame: step 0 adds 4, so steps 1-3 (the stage's icon from stage_map_icons flying to the corner) never run; 4 loads the island map (palettes 1076BC, map_monitor_script, map_eggman_head_script) and starts the fade; 6 fades in, then spawns map_screen_update (which spawns map_eggman_update); 7 removes it
 095B0B  func  move_map_stage_icon              # to its target over 3C frames, blinking
-095D31  func  draw_map_markers_and_trail
+095D31  func  draw_map_markers_and_trail  # draw_map_stage_markers, then start_map_trail and draw_map_trail_dot: the markers with the trail's first dot, the trail starting over at every call...
 095DB2  func  map_screen_update                # the trail to the next stage, the icon blinking at the stage's marker, a wipe, the icon flying to the next stage (map_stage_positions); map_screen_step = 5
 09617C  func  map_eggman_update                # the big Eggman seen from behind at the bottom (sprites 5760-57C8): gestures, stage_map_sounds_1/2/3 (stage 9 one more)
 09628D  func  map_eggman_hands_update          # sprites 5798+
 0964E5  func  start_map_trail                  # stage_map_trails[stage]
-09650F  func  next_map_trail_segment
-096579  func  draw_map_trail_dot
+09650F  func  next_map_trail_segment  # Starts the trail's next segment, from the point at trail_point to the one after it (next_trail_point): base = start, target = end, steps = (base -...
+096579  func  draw_map_trail_dot  # Draws the trail's dot for object_cursor at base + offset, moving it one step along the segment while trail_done is clear (sprite 0x64E0, palette...
 09660B  func  draw_map_stage_markers           # the numbered markers (map_marker_layouts), cleared ones in their other palette
-0966E7  func  blink_current_map_marker
+0966E7  func  blink_current_map_marker  # While step_timer (the map screen's timer) counts down, draws the stage's name over its marker (map_marker_blink_sprites for...
 096761  func  start_window_wipe                # the bitmap layer as a black frame (30E000 filled with 1111) whose window moves between the record's edges over its frame count (update_screen_wipe)
 2090D5  var   map_screen_step       u8
 2090D4  var   window_wipe_closing   u8
@@ -3446,7 +3446,7 @@ field object 78 wall         u16 object              # check_walls
 014D64  func  eel_segment_move                 # the same for a body piece (no frames of its own)
 014E52  func  place_eel_piece                  # map position = the anchor's, speed from (24, 6E) so the next move puts it out along 24; z = anchor's - 8C + sine[82 += 8] * 92 (speed_y gets twice that): a wave growing toward the head
 014ED5  func  eel_head_explode_delay           # waits its delay (82), still drawn, then eel_piece_start_explosion
-014EF8  func  eel_segment_explode_delay
+014EF8  func  eel_segment_explode_delay  # A body piece of an eel waiting its turn to explode: counts explode_delay down, still drawn at its floor with its shadow; then...
 014F23  func  eel_piece_start_explosion        # projected_y + 18, palette 1070|4000, flags 4, sound 24, eel_piece_explode
 014F5D  func  eel_piece_explode                # underwater_explosion_frames 2-15 every 3 frames; then the anchor's count - 1, sound 24, eel_piece_gone
 014FB7  func  eel_piece_gone                   # rsr: waits for the anchor to remove the eel

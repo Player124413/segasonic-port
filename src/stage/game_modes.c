@@ -3,7 +3,7 @@
  *    Description: the game modes (run_game_mode) and what a stage frame runs: starting a stage, layer blending, the stage clear check, the player summary, stage slots and events, restart points, the player objects, the GAME OVER banner and the demo prompt
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    17-10-2026
+ *    Modified:    19-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -15,196 +15,101 @@
    too). A mode that changes game_mode runs the new one in the same frame (run_game_mode again). */
 void run_game_mode(uint32_t pressed, uint32_t position, uint32_t speed, uint16_t next_scroll_position, uint32_t object, uint32_t *p_speed_value, uint32_t *p_count, uint32_t *p_cycle, uint32_t *p_list_cursor)
 {
-	uint32_t count = *p_count;
-	uint32_t cycle = *p_cycle;
-	uint32_t list_cursor = *p_list_cursor;
-	uint32_t r8 = 0, r9 = 0, r10 = 0;
-
 	switch (game_mode)
 	{
 	case 0:
 	case 33:
-		game_mode_start_game(&r8, &r10);
-		*p_count = r8;
-		*p_cycle = cycle;
-		*p_list_cursor = r10;
+		game_mode_start_game(p_count, p_list_cursor);
 		return;
 	case 1:
-		game_mode_intro(position, speed, object, p_speed_value, &count, &cycle, &r10);
-		*p_count = count;
-		*p_cycle = cycle;
-		*p_list_cursor = r10;
+		game_mode_intro(position, speed, object, p_speed_value, p_count, p_cycle, p_list_cursor);
 		return;
 	case 2:
-		start_stage(next_scroll_position, &position, &speed, p_speed_value, &r8, &r9, &r10, &object);
-		*p_count = r8;
-		*p_cycle = r9;
-		*p_list_cursor = r10;
+		start_stage(next_scroll_position, &position, &speed, p_speed_value, p_count, p_cycle, p_list_cursor, &object);
 		return;
 	case 3:
 	case 5:
 	case 6:
-		game_mode_play_stage(pressed, position, speed, next_scroll_position, object, p_speed_value, &count, &cycle, &list_cursor);
-		*p_count = count;
-		*p_cycle = cycle;
-		*p_list_cursor = list_cursor;
+		game_mode_play_stage(pressed, position, speed, next_scroll_position, object, p_speed_value, p_count, p_cycle, p_list_cursor);
 		return;
 	case 4:
 		*p_speed_value = game_mode_stage_end_fade(*p_speed_value, object);
-		*p_count = count;
-		*p_cycle = cycle;
-		*p_list_cursor = list_cursor;
 		return;
 	case 7:
-		game_mode_game_over(pressed, position, (uint16_t)speed, p_speed_value, &count, &cycle, &r10);
-		*p_count = count;
-		*p_cycle = cycle;
-		*p_list_cursor = r10;
+		game_mode_game_over(pressed, position, (uint16_t)speed, p_speed_value, p_count, p_cycle, p_list_cursor);
 		return;
 	case 8:
-		game_mode_stage_select(&count, &r10);
-		*p_count = count;
-		*p_cycle = cycle;
-		*p_list_cursor = r10;
+		game_mode_stage_select(p_count, p_list_cursor);
 		return;
 	case 9:
-		game_mode_event_09(speed, object, p_speed_value, &count, &cycle, &list_cursor);
-		*p_count = count;
-		*p_cycle = cycle;
-		*p_list_cursor = list_cursor;
+		game_mode_event_09(speed, object, p_speed_value, p_count, p_cycle, p_list_cursor);
 		return;
 	case 10:
 	case 11:
-		game_mode_event_0A(pressed, position, speed, next_scroll_position, object, p_speed_value, &count, &cycle, &list_cursor);
-		*p_count = count;
-		*p_cycle = cycle;
-		*p_list_cursor = list_cursor;
+		game_mode_event_0A(pressed, position, speed, next_scroll_position, object, p_speed_value, p_count, p_cycle, p_list_cursor);
 		return;
 	case 12:
-		game_mode_event_0C(position, speed, object, p_speed_value, &count, &cycle, &r10);
-		*p_count = count;
-		*p_cycle = cycle;
-		*p_list_cursor = r10;
+		game_mode_event_0C(position, speed, object, p_speed_value, p_count, p_cycle, p_list_cursor);
 		return;
 	case 13:
-		game_mode_event_0D(position, speed, object, p_speed_value, &count, &cycle, &r10);
-		*p_count = count;
-		*p_cycle = cycle;
-		*p_list_cursor = r10;
+		game_mode_event_0D(position, speed, object, p_speed_value, p_count, p_cycle, p_list_cursor);
 		return;
 	case 14:
-		game_mode_continue(position, p_speed_value, &count, &cycle, &r10);
-		*p_count = count;
-		*p_cycle = cycle;
-		*p_list_cursor = r10;
+		game_mode_continue(position, p_speed_value, p_count, p_cycle, p_list_cursor);
 		return;
 	case 15:
-		game_mode_event_0F(position, speed, object, p_speed_value, &count, &cycle, &r10);
-		*p_count = count;
-		*p_cycle = cycle;
-		*p_list_cursor = r10;
+		game_mode_event_0F(position, speed, object, p_speed_value, p_count, p_cycle, p_list_cursor);
 		return;
 	case 16:
-		game_mode_event_10(speed, object, p_speed_value, &cycle, &r10);
-		*p_count = count;
-		*p_cycle = cycle;
-		*p_list_cursor = r10;
+		game_mode_event_10(speed, object, p_speed_value, p_cycle, p_list_cursor);
 		return;
 	case 17:
-		game_mode_screen_wipe(position, speed, next_scroll_position, object, p_speed_value, &count, &cycle, &r10);
-		*p_count = count;
-		*p_cycle = cycle;
-		*p_list_cursor = r10;
+		game_mode_screen_wipe(position, speed, next_scroll_position, object, p_speed_value, p_count, p_cycle, p_list_cursor);
 		return;
 	case 18:
-		game_mode_event_12(pressed, position, speed, next_scroll_position, object, p_speed_value, &count, &cycle, &list_cursor);
-		*p_count = count;
-		*p_cycle = cycle;
-		*p_list_cursor = list_cursor;
+		game_mode_event_12(pressed, position, speed, next_scroll_position, object, p_speed_value, p_count, p_cycle, p_list_cursor);
 		return;
 	case 19:
-		game_mode_event_13(pressed, position, speed, next_scroll_position, object, p_speed_value, &count, &cycle, &list_cursor);
-		*p_count = count;
-		*p_cycle = cycle;
-		*p_list_cursor = list_cursor;
+		game_mode_event_13(pressed, position, speed, next_scroll_position, object, p_speed_value, p_count, p_cycle, p_list_cursor);
 		return;
 	case 20:
-		game_mode_event_14(pressed, position, speed, next_scroll_position, object, p_speed_value, &count, &cycle, &list_cursor);
-		*p_count = count;
-		*p_cycle = cycle;
-		*p_list_cursor = list_cursor;
+		game_mode_event_14(pressed, position, speed, next_scroll_position, object, p_speed_value, p_count, p_cycle, p_list_cursor);
 		return;
 	case 21:
-		game_mode_event_15(pressed, position, speed, next_scroll_position, object, p_speed_value, &count, &cycle, &list_cursor);
-		*p_count = count;
-		*p_cycle = cycle;
-		*p_list_cursor = list_cursor;
+		game_mode_event_15(pressed, position, speed, next_scroll_position, object, p_speed_value, p_count, p_cycle, p_list_cursor);
 		return;
 	case 22:
-		game_mode_event_16(pressed, position, speed, next_scroll_position, object, p_speed_value, &count, &cycle, &list_cursor);
-		*p_count = count;
-		*p_cycle = cycle;
-		*p_list_cursor = list_cursor;
+		game_mode_event_16(pressed, position, speed, next_scroll_position, object, p_speed_value, p_count, p_cycle, p_list_cursor);
 		return;
 	case 23:
-		game_mode_stage_clear(position, speed, object, p_speed_value, &count, &cycle, &r10);
-		*p_count = count;
-		*p_cycle = cycle;
-		*p_list_cursor = r10;
+		game_mode_stage_clear(position, speed, object, p_speed_value, p_count, p_cycle, p_list_cursor);
 		return;
 	case 24:
-		game_mode_event_18(position, speed, object, p_speed_value, &count, &cycle, &r10);
-		*p_count = count;
-		*p_cycle = cycle;
-		*p_list_cursor = r10;
+		game_mode_event_18(position, speed, object, p_speed_value, p_count, p_cycle, p_list_cursor);
 		return;
 	case 25:
-		game_mode_event_19(pressed, position, speed, next_scroll_position, object, p_speed_value, &count, &cycle, &list_cursor);
-		*p_count = count;
-		*p_cycle = cycle;
-		*p_list_cursor = list_cursor;
+		game_mode_event_19(pressed, position, speed, next_scroll_position, object, p_speed_value, p_count, p_cycle, p_list_cursor);
 		return;
 	case 26:
-		game_mode_event_1A(pressed, position, speed, next_scroll_position, object, p_speed_value, &count, &cycle, &list_cursor);
-		*p_count = count;
-		*p_cycle = cycle;
-		*p_list_cursor = list_cursor;
+		game_mode_event_1A(pressed, position, speed, next_scroll_position, object, p_speed_value, p_count, p_cycle, p_list_cursor);
 		return;
 	case 27:
-		game_mode_character_select(position, speed, object, p_speed_value, &count, &cycle, &r10);
-		*p_count = count;
-		*p_cycle = cycle;
-		*p_list_cursor = r10;
+		game_mode_character_select(position, speed, object, p_speed_value, p_count, p_cycle, p_list_cursor);
 		return;
 	case 28:
-		game_mode_event_1C(pressed, position, speed, next_scroll_position, object, p_speed_value, &count, &cycle, &list_cursor);
-		*p_count = count;
-		*p_cycle = cycle;
-		*p_list_cursor = list_cursor;
+		game_mode_event_1C(pressed, position, speed, next_scroll_position, object, p_speed_value, p_count, p_cycle, p_list_cursor);
 		return;
 	case 29:
-		game_mode_stage_results(position, speed, object, p_speed_value, &count, &cycle, &r10);
-		*p_count = count;
-		*p_cycle = cycle;
-		*p_list_cursor = r10;
+		game_mode_stage_results(position, speed, object, p_speed_value, p_count, p_cycle, p_list_cursor);
 		return;
 	case 30:
-		game_mode_stage_change_fade(pressed, position, speed, next_scroll_position, object, p_speed_value, &count, &cycle, &list_cursor);
-		*p_count = count;
-		*p_cycle = cycle;
-		*p_list_cursor = list_cursor;
+		game_mode_stage_change_fade(pressed, position, speed, next_scroll_position, object, p_speed_value, p_count, p_cycle, p_list_cursor);
 		return;
 	case 31:
-		game_mode_event_1F(pressed, position, speed, next_scroll_position, object, p_speed_value, &count, &cycle, &list_cursor);
-		*p_count = count;
-		*p_cycle = cycle;
-		*p_list_cursor = list_cursor;
+		game_mode_event_1F(pressed, position, speed, next_scroll_position, object, p_speed_value, p_count, p_cycle, p_list_cursor);
 		return;
 	case 32:
-		game_mode_you_failed(pressed, position, speed, object, p_speed_value, &count, &cycle, &r10);
-		*p_count = count;
-		*p_cycle = cycle;
-		*p_list_cursor = r10;
+		game_mode_you_failed(pressed, position, speed, object, p_speed_value, p_count, p_cycle, p_list_cursor);
 		return;
 	default:
 		invalid_jump(0x65Fu + game_mode * 3u);
@@ -267,9 +172,8 @@ void game_mode_start_game(uint32_t *p_count, uint32_t *p_list_cursor)
    In a game, cabinet_events 0x15 (0x14 when cleared_stages - 2 is odd). */
 void start_stage(uint32_t stage_offset, uint32_t *p_write_index_address, uint32_t *p_floor_block, uint32_t *p_bounds_offset, uint32_t *p_corners_left, uint32_t *p_palette_record, uint32_t *p_source, uint32_t *p_object)
 {
-	uint32_t object = *p_object;
 	uint8_t cabinet_event = 0, sound_id = 0, stages_past_2 = 0;
-	uint32_t ignored = 0, palette_dest = 0;
+	uint32_t ignored = 0;
 	uint16_t cleared_count = 0;
 
 	if (stage_start_kind == 0u)
@@ -279,7 +183,7 @@ void start_stage(uint32_t stage_offset, uint32_t *p_write_index_address, uint32_
 			mem_write8(cleared_stages_ADDRESS, 0xEu);
 	}
 	if ((int8_t)stage_start_kind >= 0)
-		*p_floor_block = start_player_objects_alt(object);
+		*p_floor_block = start_player_objects_alt(*p_object);
 	hitter_list = 0xFFFFu;
 	touchable_list = 0xFFFFu;
 	platform_list = 0xFFFFu;
@@ -358,8 +262,7 @@ void start_stage(uint32_t stage_offset, uint32_t *p_write_index_address, uint32_
 	stage_start_kind = 0u;
 	if (game_in_progress == 0u)
 	{
-		load_stage_palette(p_palette_record, p_source, &palette_dest);
-		*p_object = palette_dest;
+		load_stage_palette(p_palette_record, p_source, p_object);
 		return;
 	}
 	cleared_count = cleared_stages;
@@ -370,8 +273,7 @@ void start_stage(uint32_t stage_offset, uint32_t *p_write_index_address, uint32_
 	if ((stages_past_2 & 1u) == 0u)
 		cabinet_event = 0x15u;
 	mem_write8(cabinet_events, cabinet_event);
-	load_stage_palette(p_palette_record, p_source, &palette_dest);
-	*p_object = palette_dest;
+	load_stage_palette(p_palette_record, p_source, p_object);
 }
 
 /* Game modes 3, 5 and 6, a frame of play: update_player_summary (on stage 0xB in a game it also closes
@@ -380,12 +282,11 @@ void start_stage(uint32_t stage_offset, uint32_t *p_write_index_address, uint32_
    runs the new mode at once. */
 void game_mode_play_stage(uint32_t pressed, uint32_t position, uint32_t in_play_count, uint32_t next_scroll_position, uint32_t object, uint32_t *p_speed_value, uint32_t *p_count, uint32_t *p_cycle, uint32_t *p_list_cursor)
 {
-	uint32_t list_cursor = *p_list_cursor;
-	uint32_t box_edge = 0, event = 0, ignored = 0, speed = 0;
+	uint32_t box_edge = 0, ignored = 0, speed = 0;
 
 	current_game_mode = 3u;
 	next_stage_slot_request = 0u;
-	update_player_summary(&in_play_count, p_count, &list_cursor, &object);
+	update_player_summary(&in_play_count, p_count, p_list_cursor, &object);
 	if (game_in_progress != 0u && joining_closed == 0u && stage == 0xBu)
 	{
 		joining_closed = 0xFFu;
@@ -398,15 +299,13 @@ void game_mode_play_stage(uint32_t pressed, uint32_t position, uint32_t in_play_
 		saved_game_mode = game_mode;
 		game_mode = 7u;
 		game_mode_timer = 0;
-		run_game_mode(pressed, position, in_play_count, (uint16_t)next_scroll_position, object, p_speed_value, p_count, p_cycle, &list_cursor);
-		*p_list_cursor = list_cursor;
+		run_game_mode(pressed, position, in_play_count, (uint16_t)next_scroll_position, object, p_speed_value, p_count, p_cycle, p_list_cursor);
 		return;
 	}
-	check_stage_clear(p_count, &list_cursor, &object);
+	check_stage_clear(p_count, p_list_cursor, &object);
 	if (game_mode != 3u)
 	{
-		run_game_mode(pressed, position, in_play_count, (uint16_t)next_scroll_position, object, p_speed_value, p_count, p_cycle, &list_cursor);
-		*p_list_cursor = list_cursor;
+		run_game_mode(pressed, position, in_play_count, (uint16_t)next_scroll_position, object, p_speed_value, p_count, p_cycle, p_list_cursor);
 		return;
 	}
 	speed = update_grey_screen();
@@ -425,14 +324,12 @@ void game_mode_play_stage(uint32_t pressed, uint32_t position, uint32_t in_play_
 	check_hits(&box_edge, &position, &speed, p_speed_value, &next_scroll_position, p_count, &object);
 	box_edge = check_walls(box_edge);
 	check_platforms(&box_edge, &position, &speed, p_speed_value, &next_scroll_position, p_count, p_cycle, &ignored, &object);
-	run_stage_events(&box_edge, &event);
+	run_stage_events(&box_edge, p_list_cursor);
 	if (game_mode != 3u)
 	{
-		run_game_mode(box_edge, position, speed, (uint16_t)next_scroll_position, object, p_speed_value, p_count, p_cycle, &event);
-		*p_list_cursor = event;
+		run_game_mode(box_edge, position, speed, (uint16_t)next_scroll_position, object, p_speed_value, p_count, p_cycle, p_list_cursor);
 		return;
 	}
-	*p_list_cursor = event;
 }
 
 /* Game mode 1, the intro at a game's start (stage 7, how to play): set up once (stage_init_flags bit 13:
@@ -527,7 +424,7 @@ void game_mode_continue(uint32_t position, uint32_t *p_speed_value, uint32_t *p_
 {
 	uint32_t speed_value = *p_speed_value;
 	uint16_t attribute = 0, cell = 0;
-	uint32_t count_text = 0, ignored = 0, platform = 0, text = 0, text_position = 0, value = 0;
+	uint32_t ignored = 0, text = 0, text_position = 0, value = 0;
 	uint8_t old_continue_count = 0;
 
 	if (continue_count == 9u)
@@ -539,7 +436,7 @@ void game_mode_continue(uint32_t position, uint32_t *p_speed_value, uint32_t *p_
 	ignored = check_zones(0u);
 	check_hits(&ignored, &position, &ignored, &speed_value, &ignored, p_count, &ignored);
 	check_walls(ignored);
-	check_platforms(&ignored, &ignored, &ignored, &speed_value, &ignored, p_count, p_cycle, &platform, &ignored);
+	check_platforms(&ignored, &ignored, &ignored, &speed_value, &ignored, p_count, p_cycle, p_list_cursor, &ignored);
 	if ((inputs_pressed & 0x10000u) != 0u || (inputs_pressed & 0x1000000u) != 0u || (inputs_pressed & 0x40000u) != 0u)
 		continue_second_frames = 0x3C;
 	continue_second_frames++;
@@ -555,11 +452,10 @@ void game_mode_continue(uint32_t position, uint32_t *p_speed_value, uint32_t *p_
 			text = continue_text_ADDRESS;
 			erase_text(text);
 			cell = 0u;
-			count_text = 0x25C4u;
+			*p_list_cursor = 0x25C4u;
 			text_position = TEXT_CELL(24, 14);
-			erase_text_here(cell, &count_text, &text_position);
+			erase_text_here(cell, p_list_cursor, &text_position);
 			*p_speed_value = (*p_speed_value & 0xFFFF0000u) | (speed_value & 0xFFFFu);
-			*p_list_cursor = count_text;
 			return;
 		}
 	}
@@ -575,7 +471,6 @@ void game_mode_continue(uint32_t position, uint32_t *p_speed_value, uint32_t *p_
 		if (p1_credits == 0u || ((inputs_pressed & 0x10u) == 0u && (inputs_pressed & 0x20u) == 0u && (inputs_pressed & 0x80u) == 0u))
 		{
 			*p_speed_value = (*p_speed_value & 0xFFFF0000u) | (speed_value & 0xFFFFu);
-			*p_list_cursor = platform;
 			return;
 		}
 		game_mode = saved_game_mode;
@@ -592,17 +487,15 @@ void game_mode_continue(uint32_t position, uint32_t *p_speed_value, uint32_t *p_
 		text = continue_text_ADDRESS;
 		erase_text(text);
 		cell = 0u;
-		count_text = 0x25C4u;
+		*p_list_cursor = 0x25C4u;
 		text_position = TEXT_CELL(24, 14);
-		erase_text_here(cell, &count_text, &text_position);
+		erase_text_here(cell, p_list_cursor, &text_position);
 		*p_speed_value = (*p_speed_value & 0xFFFF0000u) | (speed_value & 0xFFFFu);
-		*p_list_cursor = count_text;
 		return;
 	case 2:
 		if ((p2_credits == 0u || (inputs_pressed & 0x20u) == 0u) && (p1_credits == 0u || (inputs_pressed & 0x10u) == 0u))
 		{
 			*p_speed_value = (*p_speed_value & 0xFFFF0000u) | (speed_value & 0xFFFFu);
-			*p_list_cursor = platform;
 			return;
 		}
 		game_mode = saved_game_mode;
@@ -619,11 +512,10 @@ void game_mode_continue(uint32_t position, uint32_t *p_speed_value, uint32_t *p_
 		text = continue_text_ADDRESS;
 		erase_text(text);
 		cell = 0u;
-		count_text = 0x25C4u;
+		*p_list_cursor = 0x25C4u;
 		text_position = TEXT_CELL(24, 14);
-		erase_text_here(cell, &count_text, &text_position);
+		erase_text_here(cell, p_list_cursor, &text_position);
 		*p_speed_value = (*p_speed_value & 0xFFFF0000u) | (speed_value & 0xFFFFu);
-		*p_list_cursor = count_text;
 		return;
 	case 3:
 		if (p3_credits == 0u || (inputs_pressed & 0x80u) == 0u)
@@ -631,7 +523,6 @@ void game_mode_continue(uint32_t position, uint32_t *p_speed_value, uint32_t *p_
 			if ((p2_credits == 0u || (inputs_pressed & 0x20u) == 0u) && (p1_credits == 0u || (inputs_pressed & 0x10u) == 0u))
 			{
 				*p_speed_value = (*p_speed_value & 0xFFFF0000u) | (speed_value & 0xFFFFu);
-				*p_list_cursor = platform;
 				return;
 			}
 			game_mode = saved_game_mode;
@@ -648,11 +539,10 @@ void game_mode_continue(uint32_t position, uint32_t *p_speed_value, uint32_t *p_
 			text = continue_text_ADDRESS;
 			erase_text(text);
 			cell = 0u;
-			count_text = 0x25C4u;
+			*p_list_cursor = 0x25C4u;
 			text_position = TEXT_CELL(24, 14);
-			erase_text_here(cell, &count_text, &text_position);
+			erase_text_here(cell, p_list_cursor, &text_position);
 			*p_speed_value = (*p_speed_value & 0xFFFF0000u) | (speed_value & 0xFFFFu);
-			*p_list_cursor = count_text;
 			return;
 		}
 		game_mode = saved_game_mode;
@@ -669,11 +559,10 @@ void game_mode_continue(uint32_t position, uint32_t *p_speed_value, uint32_t *p_
 		text = continue_text_ADDRESS;
 		erase_text(text);
 		cell = 0u;
-		count_text = 0x25C4u;
+		*p_list_cursor = 0x25C4u;
 		text_position = TEXT_CELL(24, 14);
-		erase_text_here(cell, &count_text, &text_position);
+		erase_text_here(cell, p_list_cursor, &text_position);
 		*p_speed_value = (*p_speed_value & 0xFFFF0000u) | (speed_value & 0xFFFFu);
-		*p_list_cursor = count_text;
 		return;
 	default:
 		invalid_jump(0xBDCu + cabinet_config * 2u);
@@ -827,9 +716,8 @@ void game_mode_stage_clear(uint32_t position, uint32_t speed, uint32_t object, u
    start with enough credits begins a new game. */
 void game_mode_game_over(uint32_t box_edge, uint32_t position, uint16_t scale, uint32_t *p_speed_value, uint32_t *p_count, uint32_t *p_cycle, uint32_t *p_list_cursor)
 {
-	uint32_t count = *p_count;
 	uint8_t credits_needed = 0, sound_id = 0;
-	uint32_t handler_cursor = 0, ignored = 0, platform = 0, record = 0, rounds_left = 0;
+	uint32_t ignored = 0, record = 0;
 	uint8_t game_over_cnt_bits = 0;
 
 	if ((uint16_t)game_mode_timer == 0u)
@@ -853,9 +741,9 @@ void game_mode_game_over(uint32_t box_edge, uint32_t position, uint16_t scale, u
 		queue_string_record(record, (uint16_t)box_edge, scale, &position, p_speed_value);
 	}
 	box_edge = check_zones(box_edge);
-	check_hits(&box_edge, &position, &ignored, p_speed_value, &ignored, &count, &ignored);
+	check_hits(&box_edge, &position, &ignored, p_speed_value, &ignored, p_count, &ignored);
 	check_walls(box_edge);
-	check_platforms(&ignored, &ignored, &ignored, p_speed_value, &ignored, &count, p_cycle, &platform, &ignored);
+	check_platforms(&ignored, &ignored, &ignored, p_speed_value, &ignored, p_count, p_cycle, p_list_cursor, &ignored);
 	game_mode_timer++;
 	if (game_mode_timer >= 0x78)
 	{
@@ -887,30 +775,22 @@ void game_mode_game_over(uint32_t box_edge, uint32_t position, uint16_t scale, u
 	case 4:
 		if (p1_credits < (uint8_t)credits_needed || ((inputs_pressed & 0x10u) == 0u && (inputs_pressed & 0x20u) == 0u && (inputs_pressed & 0x80u) == 0u))
 		{
-			*p_count = count;
-			*p_list_cursor = platform;
 			return;
 		}
 		system_mode = 6u;
 		game_mode = 0u;
 		system_mode_step = 0u;
-		game_mode_start_game(&rounds_left, &handler_cursor);
-		*p_count = rounds_left;
-		*p_list_cursor = handler_cursor;
+		game_mode_start_game(p_count, p_list_cursor);
 		return;
 	case 2:
 		if ((p2_credits < (uint8_t)credits_needed || (inputs_pressed & 0x20u) == 0u) && (p1_credits < (uint8_t)credits_needed || (inputs_pressed & 0x10u) == 0u))
 		{
-			*p_count = count;
-			*p_list_cursor = platform;
 			return;
 		}
 		system_mode = 6u;
 		game_mode = 0u;
 		system_mode_step = 0u;
-		game_mode_start_game(&rounds_left, &handler_cursor);
-		*p_count = rounds_left;
-		*p_list_cursor = handler_cursor;
+		game_mode_start_game(p_count, p_list_cursor);
 		return;
 	case 3:
 		if ((uint8_t)credits_needed <= p3_credits && (inputs_pressed & 0x80u) != 0u)
@@ -918,23 +798,17 @@ void game_mode_game_over(uint32_t box_edge, uint32_t position, uint16_t scale, u
 			system_mode = 6u;
 			game_mode = 0u;
 			system_mode_step = 0u;
-			game_mode_start_game(&rounds_left, &handler_cursor);
-			*p_count = rounds_left;
-			*p_list_cursor = handler_cursor;
+			game_mode_start_game(p_count, p_list_cursor);
 			return;
 		}
 		if ((p2_credits < (uint8_t)credits_needed || (inputs_pressed & 0x20u) == 0u) && (p1_credits < (uint8_t)credits_needed || (inputs_pressed & 0x10u) == 0u))
 		{
-			*p_count = count;
-			*p_list_cursor = platform;
 			return;
 		}
 		system_mode = 6u;
 		game_mode = 0u;
 		system_mode_step = 0u;
-		game_mode_start_game(&rounds_left, &handler_cursor);
-		*p_count = rounds_left;
-		*p_list_cursor = handler_cursor;
+		game_mode_start_game(p_count, p_list_cursor);
 		return;
 	default:
 		invalid_jump(0xF8Fu + cabinet_config * 2u);
@@ -1049,8 +923,7 @@ void game_mode_stage_results(uint32_t position, uint32_t speed, uint32_t object,
    colour offsets are on during the fades. */
 void game_mode_stage_change_fade(uint32_t delta, uint32_t position, uint32_t in_play_count, uint16_t next_scroll_position, uint32_t object, uint32_t *p_speed_value, uint32_t *p_count, uint32_t *p_cycle, uint32_t *p_list_cursor)
 {
-	uint32_t list_cursor = *p_list_cursor;
-	uint32_t ignored = 0, platform = 0;
+	uint32_t ignored = 0;
 
 	if ((uint16_t)game_mode_timer == 0u)
 	{
@@ -1087,8 +960,7 @@ void game_mode_stage_change_fade(uint32_t delta, uint32_t position, uint32_t in_
 			ignored = check_zones(ignored);
 			check_hits(&ignored, &position, &ignored, p_speed_value, &ignored, p_count, &ignored);
 			check_walls(ignored);
-			check_platforms(&ignored, &ignored, &ignored, p_speed_value, &ignored, p_count, p_cycle, &platform, &ignored);
-			*p_list_cursor = platform;
+			check_platforms(&ignored, &ignored, &ignored, p_speed_value, &ignored, p_count, p_cycle, p_list_cursor, &ignored);
 			return;
 		}
 		game_mode = 3u;
@@ -1099,8 +971,7 @@ void game_mode_stage_change_fade(uint32_t delta, uint32_t position, uint32_t in_
 		mixer_nbg3_blend &= 0xBFFFu;
 		mixer_bitmap_blend &= 0xBFFFu;
 		mixer_sprite_control &= ~0x8000u;
-		run_game_mode(delta, position, in_play_count, next_scroll_position, object, p_speed_value, p_count, p_cycle, &list_cursor);
-		*p_list_cursor = list_cursor;
+		run_game_mode(delta, position, in_play_count, next_scroll_position, object, p_speed_value, p_count, p_cycle, p_list_cursor);
 		return;
 	}
 	fade_kind = 0;
@@ -1124,11 +995,10 @@ void game_mode_stage_change_fade(uint32_t delta, uint32_t position, uint32_t in_
 		ignored = check_zones(ignored);
 		check_hits(&ignored, &position, &ignored, p_speed_value, &ignored, p_count, &ignored);
 		check_walls(ignored);
-		check_platforms(&ignored, &ignored, &ignored, p_speed_value, &ignored, p_count, p_cycle, &platform, &ignored);
-		*p_list_cursor = platform;
+		check_platforms(&ignored, &ignored, &ignored, p_speed_value, &ignored, p_count, p_cycle, p_list_cursor, &ignored);
 		return;
 	}
-	start_stage(next_scroll_position, &position, &in_play_count, p_speed_value, p_count, p_cycle, &platform, &object);
+	start_stage(next_scroll_position, &position, &in_play_count, p_speed_value, p_count, p_cycle, p_list_cursor, &object);
 	game_mode = 0x1Eu;
 	game_mode_timer = -1;
 	fade_step = 0u;
@@ -1158,12 +1028,10 @@ void game_mode_stage_change_fade(uint32_t delta, uint32_t position, uint32_t in_
 		ignored = check_zones(ignored);
 		check_hits(&ignored, &position, &ignored, p_speed_value, &ignored, p_count, &ignored);
 		check_walls(ignored);
-		check_platforms(&ignored, &ignored, &ignored, p_speed_value, &ignored, p_count, p_cycle, &platform, &ignored);
-		*p_list_cursor = platform;
+		check_platforms(&ignored, &ignored, &ignored, p_speed_value, &ignored, p_count, p_cycle, p_list_cursor, &ignored);
 		return;
 	}
 	game_mode = 3u;
-	*p_list_cursor = platform;
 }
 
 /* Game mode 0x20, YOU FAILED (from the stage 0xB escape): once, sound 0x94 and the colour offsets on;
@@ -1262,7 +1130,7 @@ void check_stage_select_buttons(void)
 void game_mode_stage_select(uint32_t *p_count, uint32_t *p_list_cursor)
 {
 	uint16_t cell = 0;
-	uint32_t attribute = 0, clear_dest = 0, fill_word = 0, ignored = 0, new_stage = 0, player_number = 0, text = 0, text_position = 0, trackball = 0, value = 0;
+	uint32_t attribute = 0, clear_dest = 0, fill_word = 0, ignored = 0, new_stage = 0, player_number = 0, text_position = 0, value = 0;
 	uint32_t stage_select_init_flags = 0;
 
 	stage_select_init_flags = stage_init_flags;
@@ -1270,12 +1138,12 @@ void game_mode_stage_select(uint32_t *p_count, uint32_t *p_list_cursor)
 	if ((stage_select_init_flags & 0x40u) == 0u)
 	{
 		stage = 3u;
-		text = stage_select_mode_text_ADDRESS;
+		*p_list_cursor = stage_select_mode_text_ADDRESS;
 		text_position = TEXT_CELL(14, 20);
-		print_text_here(&ignored, &text, &text_position);
-		text = stage_number_text_ADDRESS;
+		print_text_here(&ignored, p_list_cursor, &text_position);
+		*p_list_cursor = stage_number_text_ADDRESS;
 		text_position = TEXT_CELL(18, 21);
-		print_text_here(&ignored, &text, &text_position);
+		print_text_here(&ignored, p_list_cursor, &text_position);
 		player_number = 0u;
 		reset_trackball_step(player_number);
 		clear_dest = VIDEO_RAM + 0xE000u;
@@ -1295,7 +1163,7 @@ void game_mode_stage_select(uint32_t *p_count, uint32_t *p_list_cursor)
 		} while (*p_count != 0u);
 	}
 	new_stage = 0u;
-	read_trackball_step(&new_stage, &trackball);
+	read_trackball_step(&new_stage, p_list_cursor);
 	if ((uint16_t)new_stage == 0u)
 	{
 		value = stage;
@@ -1304,24 +1172,22 @@ void game_mode_stage_select(uint32_t *p_count, uint32_t *p_list_cursor)
 		draw_hex_4(&value, &attribute, &text_position);
 		if ((inputs_pressed & 0x10u) == 0u)
 		{
-			*p_list_cursor = trackball;
 			return;
 		}
 		mem_write16(cleared_stages_ADDRESS, stage_select_cleared_values[stage]);
 		game_mode = 2u;
 		stage_init_flags &= ~0x40u;
 		stage_start_kind = 1u;
-		text = stage_select_mode_text_ADDRESS;
+		*p_list_cursor = stage_select_mode_text_ADDRESS;
 		text_position = TEXT_CELL(14, 20);
 		cell = 0u;
-		erase_text_here(cell, &text, &text_position);
-		text = stage_number_text_ADDRESS;
+		erase_text_here(cell, p_list_cursor, &text_position);
+		*p_list_cursor = stage_number_text_ADDRESS;
 		text_position = TEXT_CELL(18, 21);
-		erase_text_here(cell, &text, &text_position);
-		text = stage_number_text_ADDRESS;
+		erase_text_here(cell, p_list_cursor, &text_position);
+		*p_list_cursor = stage_number_text_ADDRESS;
 		text_position = TEXT_CELL(24, 21);
-		erase_text_here(cell, &text, &text_position);
-		*p_list_cursor = text;
+		erase_text_here(cell, p_list_cursor, &text_position);
 		return;
 	}
 	new_stage = (uint16_t)(new_stage + stage);
@@ -1336,24 +1202,22 @@ void game_mode_stage_select(uint32_t *p_count, uint32_t *p_list_cursor)
 	draw_hex_4(&value, &attribute, &text_position);
 	if ((inputs_pressed & 0x10u) == 0u)
 	{
-		*p_list_cursor = trackball;
 		return;
 	}
 	mem_write16(cleared_stages_ADDRESS, stage_select_cleared_values[stage]);
 	game_mode = 2u;
 	stage_init_flags &= ~0x40u;
 	stage_start_kind = 1u;
-	text = stage_select_mode_text_ADDRESS;
+	*p_list_cursor = stage_select_mode_text_ADDRESS;
 	text_position = TEXT_CELL(14, 20);
 	cell = 0u;
-	erase_text_here(cell, &text, &text_position);
-	text = stage_number_text_ADDRESS;
+	erase_text_here(cell, p_list_cursor, &text_position);
+	*p_list_cursor = stage_number_text_ADDRESS;
 	text_position = TEXT_CELL(18, 21);
-	erase_text_here(cell, &text, &text_position);
-	text = stage_number_text_ADDRESS;
+	erase_text_here(cell, p_list_cursor, &text_position);
+	*p_list_cursor = stage_number_text_ADDRESS;
 	text_position = TEXT_CELL(24, 21);
-	erase_text_here(cell, &text, &text_position);
-	*p_list_cursor = text;
+	erase_text_here(cell, p_list_cursor, &text_position);
 }
 
 /* Game mode 9, which no code or stage event sets: only the scroll, the tile layers,
@@ -1504,8 +1368,7 @@ void game_mode_event_0D(uint32_t position, uint32_t speed, uint32_t object, uint
    over with no player left; at scroll 0x6080 game_mode 3, scroll mode 7, speed 5. */
 void game_mode_event_1A(uint32_t pressed, uint32_t position, uint32_t in_play_count, uint16_t next_scroll_position, uint32_t object, uint32_t *p_speed_value, uint32_t *p_count, uint32_t *p_cycle, uint32_t *p_list_cursor)
 {
-	uint32_t list_cursor = *p_list_cursor;
-	uint32_t ignored = 0, platform = 0, scroll_script = 0;
+	uint32_t ignored = 0, scroll_script = 0;
 	uint16_t event_1a_timer = 0;
 
 	current_game_mode = 0x1Au;
@@ -1523,14 +1386,13 @@ void game_mode_event_1A(uint32_t pressed, uint32_t position, uint32_t in_play_co
 		object = event_1a_scroll_script_step_1_ADDRESS;
 	}
 	next_stage_slot_request = 0u;
-	update_player_summary(&in_play_count, p_count, &list_cursor, &object);
+	update_player_summary(&in_play_count, p_count, p_list_cursor, &object);
 	if ((player_status[0] | player_2_status | player_3_status | player_status_spare) == 0u)
 	{
 		saved_game_mode = game_mode;
 		game_mode = 7u;
 		game_mode_timer = 0;
-		run_game_mode(pressed, position, in_play_count, next_scroll_position, object, p_speed_value, p_count, p_cycle, &list_cursor);
-		*p_list_cursor = list_cursor;
+		run_game_mode(pressed, position, in_play_count, next_scroll_position, object, p_speed_value, p_count, p_cycle, p_list_cursor);
 		return;
 	}
 	scroll_script = event_1a_scroll_script_ADDRESS + scene_step * 3u * 2u;
@@ -1576,16 +1438,14 @@ void game_mode_event_1A(uint32_t pressed, uint32_t position, uint32_t in_play_co
 	ignored = check_zones(ignored);
 	check_hits(&ignored, &position, &ignored, p_speed_value, &ignored, p_count, &ignored);
 	check_walls(ignored);
-	check_platforms(&ignored, &ignored, &ignored, p_speed_value, &ignored, p_count, p_cycle, &platform, &ignored);
+	check_platforms(&ignored, &ignored, &ignored, p_speed_value, &ignored, p_count, p_cycle, p_list_cursor, &ignored);
 	if (scroll_position < 0x6080u)
 	{
-		*p_list_cursor = platform;
 		return;
 	}
 	game_mode = 3u;
 	scroll_speed_low = 5;
 	scroll_mode_low = 7u;
-	*p_list_cursor = platform;
 }
 
 /* Game mode 0xF, which no code or stage event sets: by scene_step event_0f_start (also for step 3),
@@ -1715,9 +1575,7 @@ void game_mode_event_10(uint32_t random_value, uint32_t object, uint32_t *p_roll
    game_mode 3, run at once. */
 void game_mode_event_12(uint32_t pressed, uint32_t position, uint32_t done_count, uint16_t next_scroll_position, uint32_t object, uint32_t *p_speed_value, uint32_t *p_count, uint32_t *p_cycle, uint32_t *p_list_cursor)
 {
-	uint32_t count = *p_count;
 	uint16_t kind = 0, x = 0, y = 0;
-	uint32_t z = 0;
 	uint8_t event_12_status = 0;
 
 	current_game_mode = 0x12u;
@@ -1725,19 +1583,17 @@ void game_mode_event_12(uint32_t pressed, uint32_t position, uint32_t done_count
 	{
 		if (scroll_position < 0x80B1u)
 		{
-			event_12_stage_frame(pressed, position, done_count, next_scroll_position, object, p_speed_value, &count, p_cycle, p_list_cursor);
-			*p_count = count;
+			event_12_stage_frame(pressed, position, done_count, next_scroll_position, object, p_speed_value, p_count, p_cycle, p_list_cursor);
 			return;
 		}
 		scroll_mode = 1u;
-		event_12_stage_frame(pressed, position, done_count, next_scroll_position, object, p_speed_value, &count, p_cycle, p_list_cursor);
-		*p_count = count;
+		event_12_stage_frame(pressed, position, done_count, next_scroll_position, object, p_speed_value, p_count, p_cycle, p_list_cursor);
 		return;
 	}
 	done_count &= ~0xFFu;
 	object = PLAYER_BLOCK(1);
 	*p_list_cursor = player_status_ADDRESS;
-	count = 3u;
+	*p_count = 3u;
 	do
 	{
 		event_12_status = mem_read8(*p_list_cursor);
@@ -1747,31 +1603,28 @@ void game_mode_event_12(uint32_t pressed, uint32_t position, uint32_t done_count
 			done_count = (done_count & ~0xFFu) | (uint8_t)(done_count + 1u);
 		}
 		object += 0x200u;
-		count--;
-	} while (count != 0u);
+		(*p_count)--;
+	} while (*p_count != 0u);
 	if ((uint8_t)done_count != 3u)
 	{
 		if (scroll_position < 0x80B1u)
 		{
-			event_12_stage_frame(pressed, position, done_count, next_scroll_position, object, p_speed_value, &count, p_cycle, p_list_cursor);
-			*p_count = count;
+			event_12_stage_frame(pressed, position, done_count, next_scroll_position, object, p_speed_value, p_count, p_cycle, p_list_cursor);
 			return;
 		}
 		scroll_mode = 1u;
-		event_12_stage_frame(pressed, position, done_count, next_scroll_position, object, p_speed_value, &count, p_cycle, p_list_cursor);
-		*p_count = count;
+		event_12_stage_frame(pressed, position, done_count, next_scroll_position, object, p_speed_value, p_count, p_cycle, p_list_cursor);
 		return;
 	}
 	x = 0x644u;
 	y = 0x149Eu;
 	kind = 0xFu;
-	z = (count & ~0xFFFFu) | 0x168u;
-	spawn_sign(x, y, kind, (uint16_t)z, &pressed, &object);
+	*p_count = (*p_count & ~0xFFFFu) | 0x168u;
+	spawn_sign(x, y, kind, (uint16_t)*p_count, &pressed, &object);
 	event_12_fast_scroll = 0u;
 	scroll_mode = 7u;
 	game_mode = 3u;
-	run_game_mode(pressed, position, done_count, x, object, p_speed_value, &z, p_cycle, p_list_cursor);
-	*p_count = z;
+	run_game_mode(pressed, position, done_count, x, object, p_speed_value, p_count, p_cycle, p_list_cursor);
 }
 
 /* Game mode 0x13, stage 9's event at scroll 0: the scroll held (scroll_mode 1) for 0x78 frames
@@ -1825,10 +1678,9 @@ void game_mode_event_13(uint32_t pressed, uint32_t position, uint32_t in_play_co
    The stage frame; game over with no player left. */
 void game_mode_event_14(uint32_t pressed, uint32_t position, uint32_t unbounced_count, uint16_t x, uint32_t object, uint32_t *p_speed_value, uint32_t *p_count, uint32_t *p_cycle, uint32_t *p_list_cursor)
 {
-	uint32_t list_cursor = *p_list_cursor;
 	uint8_t playing_count = 0;
 	uint16_t kind = 0, y = 0;
-	uint32_t ignored = 0, platform = 0;
+	uint32_t ignored = 0;
 	uint8_t event_14_status = 0;
 	uint16_t event_14_timer = 0;
 
@@ -1842,7 +1694,7 @@ void game_mode_event_14(uint32_t pressed, uint32_t position, uint32_t unbounced_
 	case 1:
 		unbounced_count &= ~0xFFu;
 		playing_count = 3u;
-		list_cursor = PLAYER_BLOCK(1);
+		*p_list_cursor = PLAYER_BLOCK(1);
 		object = player_status_ADDRESS;
 		*p_count = 3u;
 		do
@@ -1851,12 +1703,12 @@ void game_mode_event_14(uint32_t pressed, uint32_t position, uint32_t unbounced_
 			object++;
 			if (event_14_status == 0xFFu)
 			{
-				if (PLAYER(list_cursor)->state == 0x25u && PLAYER(list_cursor)->sequence_bounced == 0u)
+				if (PLAYER(*p_list_cursor)->state == 0x25u && PLAYER(*p_list_cursor)->sequence_bounced == 0u)
 					unbounced_count = (unbounced_count & ~0xFFu) | (uint8_t)(unbounced_count + 1u);
 			}
 			else
 				playing_count--;
-			list_cursor += 0x200u;
+			*p_list_cursor += 0x200u;
 			(*p_count)--;
 		} while (*p_count != 0u);
 		if (playing_count != 0u && (uint8_t)unbounced_count == 0u && free_object_stack >= 2)
@@ -1875,8 +1727,7 @@ void game_mode_event_14(uint32_t pressed, uint32_t position, uint32_t unbounced_
 			{
 				scroll_mode = 7u;
 				game_mode = 3u;
-				run_game_mode(pressed, position, unbounced_count, x, object, p_speed_value, p_count, p_cycle, &list_cursor);
-				*p_list_cursor = list_cursor;
+				run_game_mode(pressed, position, unbounced_count, x, object, p_speed_value, p_count, p_cycle, p_list_cursor);
 				return;
 			}
 		}
@@ -1888,8 +1739,7 @@ void game_mode_event_14(uint32_t pressed, uint32_t position, uint32_t unbounced_
 		{
 			scroll_mode = 7u;
 			game_mode = 3u;
-			run_game_mode(pressed, position, unbounced_count, x, object, p_speed_value, p_count, p_cycle, &list_cursor);
-			*p_list_cursor = list_cursor;
+			run_game_mode(pressed, position, unbounced_count, x, object, p_speed_value, p_count, p_cycle, p_list_cursor);
 			return;
 		}
 		break;
@@ -1904,15 +1754,14 @@ void game_mode_event_14(uint32_t pressed, uint32_t position, uint32_t unbounced_
 		*p_count = (*p_count & ~0xFFFFu) | 0x28u;
 		spawn_sign(x, y, kind, (uint16_t)*p_count, &pressed, &object);
 	}
-	update_player_summary(&unbounced_count, p_count, &list_cursor, &object);
+	update_player_summary(&unbounced_count, p_count, p_list_cursor, &object);
 	scroll_mode = 1u;
 	if ((player_status[0] | player_2_status | player_3_status | player_status_spare) == 0u)
 	{
 		saved_game_mode = game_mode;
 		game_mode = 7u;
 		game_mode_timer = 0;
-		run_game_mode(pressed, position, unbounced_count, x, object, p_speed_value, p_count, p_cycle, &list_cursor);
-		*p_list_cursor = list_cursor;
+		run_game_mode(pressed, position, unbounced_count, x, object, p_speed_value, p_count, p_cycle, p_list_cursor);
 		return;
 	}
 	update_scroll(&position, &unbounced_count, p_speed_value, &ignored, p_count, p_cycle, &ignored, &object);
@@ -1928,16 +1777,14 @@ void game_mode_event_14(uint32_t pressed, uint32_t position, uint32_t unbounced_
 	ignored = check_zones(ignored);
 	check_hits(&ignored, &position, &ignored, p_speed_value, &ignored, p_count, &ignored);
 	check_walls(ignored);
-	check_platforms(&ignored, &ignored, &ignored, p_speed_value, &ignored, p_count, p_cycle, &platform, &ignored);
-	*p_list_cursor = platform;
+	check_platforms(&ignored, &ignored, &ignored, p_speed_value, &ignored, p_count, p_cycle, p_list_cursor, &ignored);
 }
 
 /* Game mode 0x15, stage 3's event at scroll 0xA360: the stage frame with the scroll stopped (scroll_mode
    1) until check_stage_clear changes game_mode (run at once); game over with no player left. */
 void game_mode_event_15(uint32_t pressed, uint32_t position, uint32_t speed, uint16_t next_scroll_position, uint32_t object, uint32_t *p_speed_value, uint32_t *p_count, uint32_t *p_cycle, uint32_t *p_list_cursor)
 {
-	uint32_t list_cursor = *p_list_cursor;
-	uint32_t ignored = 0, platform = 0;
+	uint32_t ignored = 0;
 
 	current_game_mode = 0x15u;
 	next_stage_slot_request = 0u;
@@ -1946,15 +1793,13 @@ void game_mode_event_15(uint32_t pressed, uint32_t position, uint32_t speed, uin
 		saved_game_mode = game_mode;
 		game_mode = 7u;
 		game_mode_timer = 0;
-		run_game_mode(pressed, position, speed, next_scroll_position, object, p_speed_value, p_count, p_cycle, &list_cursor);
-		*p_list_cursor = list_cursor;
+		run_game_mode(pressed, position, speed, next_scroll_position, object, p_speed_value, p_count, p_cycle, p_list_cursor);
 		return;
 	}
-	check_stage_clear(p_count, &list_cursor, &object);
+	check_stage_clear(p_count, p_list_cursor, &object);
 	if (game_mode != 0x15u)
 	{
-		run_game_mode(pressed, position, speed, next_scroll_position, object, p_speed_value, p_count, p_cycle, &list_cursor);
-		*p_list_cursor = list_cursor;
+		run_game_mode(pressed, position, speed, next_scroll_position, object, p_speed_value, p_count, p_cycle, p_list_cursor);
 		return;
 	}
 	scroll_mode = 1u;
@@ -1971,8 +1816,7 @@ void game_mode_event_15(uint32_t pressed, uint32_t position, uint32_t speed, uin
 	ignored = check_zones(ignored);
 	check_hits(&ignored, &position, &ignored, p_speed_value, &ignored, p_count, &ignored);
 	check_walls(ignored);
-	check_platforms(&ignored, &ignored, &ignored, p_speed_value, &ignored, p_count, p_cycle, &platform, &ignored);
-	*p_list_cursor = platform;
+	check_platforms(&ignored, &ignored, &ignored, p_speed_value, &ignored, p_count, p_cycle, p_list_cursor, &ignored);
 }
 
 /* Game mode 0x16, stage 3's event at scroll 0x1B80 and 0x8610: the stage frame without the scroll or
@@ -1980,18 +1824,16 @@ void game_mode_event_15(uint32_t pressed, uint32_t position, uint32_t speed, uin
    player left. */
 void game_mode_event_16(uint32_t box_edge, uint32_t position, uint32_t in_play_count, uint16_t next_scroll_position, uint32_t object, uint32_t *p_speed_value, uint32_t *p_count, uint32_t *p_cycle, uint32_t *p_list_cursor)
 {
-	uint32_t list_cursor = *p_list_cursor;
-	uint32_t ignored = 0, platform = 0;
+	uint32_t ignored = 0;
 
 	current_game_mode = 0x16u;
-	update_player_summary(&in_play_count, p_count, &list_cursor, &object);
+	update_player_summary(&in_play_count, p_count, p_list_cursor, &object);
 	if ((player_status[0] | player_2_status | player_3_status | player_status_spare) == 0u)
 	{
 		saved_game_mode = game_mode;
 		game_mode = 7u;
 		game_mode_timer = 0;
-		run_game_mode(box_edge, position, in_play_count, next_scroll_position, object, p_speed_value, p_count, p_cycle, &list_cursor);
-		*p_list_cursor = list_cursor;
+		run_game_mode(box_edge, position, in_play_count, next_scroll_position, object, p_speed_value, p_count, p_cycle, p_list_cursor);
 		return;
 	}
 	find_nearby_floor_blocks(&box_edge, &in_play_count, p_speed_value, &ignored, p_count, &ignored, &object);
@@ -2005,16 +1847,14 @@ void game_mode_event_16(uint32_t box_edge, uint32_t position, uint32_t in_play_c
 	box_edge = check_zones(box_edge);
 	check_hits(&box_edge, &position, &ignored, p_speed_value, &ignored, p_count, &ignored);
 	check_walls(box_edge);
-	check_platforms(&ignored, &ignored, &ignored, p_speed_value, &ignored, p_count, p_cycle, &platform, &ignored);
+	check_platforms(&ignored, &ignored, &ignored, p_speed_value, &ignored, p_count, p_cycle, p_list_cursor, &ignored);
 	if (scroll_resume_request == 0u)
 	{
-		*p_list_cursor = platform;
 		return;
 	}
 	scroll_resume_request = 0u;
 	scroll_mode = 7u;
 	game_mode = 3u;
-	*p_list_cursor = platform;
 }
 
 /* Game mode 0x18, the last stage's (0x11) event at scroll 0: the ending (update_ending). */
@@ -2029,29 +1869,25 @@ void game_mode_event_18(uint32_t position, uint32_t speed, uint32_t object, uint
    event_19_check_rope_bridge. */
 void game_mode_event_19(uint32_t pressed, uint32_t position, uint32_t in_play_count, uint16_t next_scroll_position, uint32_t object, uint32_t *p_speed_value, uint32_t *p_count, uint32_t *p_cycle, uint32_t *p_list_cursor)
 {
-	uint32_t count = *p_count;
-	uint32_t list_cursor = *p_list_cursor;
-	uint32_t platform = 0, player_block = 0, player_object = 0, players_left = 0, status_cursor = 0;
+	uint32_t player_block = 0, player_object = 0, status_cursor = 0;
 	uint8_t event_19_status = 0;
 
 	current_game_mode = 0x19u;
 	current_game_mode = 0x19u;
 	next_stage_slot_request = 0u;
-	update_player_summary(&in_play_count, &count, &list_cursor, &object);
+	update_player_summary(&in_play_count, p_count, p_list_cursor, &object);
 	if ((player_status[0] | player_2_status | player_3_status | player_status_spare) == 0u)
 	{
 		saved_game_mode = game_mode;
 		game_mode = 7u;
 		game_mode_timer = 0;
-		run_game_mode(pressed, position, in_play_count, next_scroll_position, object, p_speed_value, &count, p_cycle, &list_cursor);
-		*p_count = count;
-		*p_list_cursor = list_cursor;
+		run_game_mode(pressed, position, in_play_count, next_scroll_position, object, p_speed_value, p_count, p_cycle, p_list_cursor);
 		return;
 	}
 	status_cursor = player_status_ADDRESS;
 	player_object = player_status_ADDRESS;
 	player_block = PLAYER_BLOCK(1);
-	players_left = 3u;
+	*p_count = 3u;
 	for (;;)
 	{
 		event_19_status = mem_read8(status_cursor);
@@ -2062,20 +1898,16 @@ void game_mode_event_19(uint32_t pressed, uint32_t position, uint32_t in_play_co
 			if (OBJECT(player_object)->x_int > 0x17C)
 				break;
 		}
-		players_left--;
+		(*p_count)--;
 		player_block += 0x200u;
-		if (players_left == 0u)
+		if (*p_count == 0u)
 		{
-			event_19_check_rope_bridge(position, in_play_count, player_block, p_speed_value, &players_left, p_cycle, &platform);
-			*p_count = players_left;
-			*p_list_cursor = platform;
+			event_19_check_rope_bridge(position, in_play_count, player_block, p_speed_value, p_count, p_cycle, p_list_cursor);
 			return;
 		}
 	}
 	barred_gate_closing = 0xFFu;
-	event_19_check_rope_bridge(position, in_play_count, player_block, p_speed_value, &players_left, p_cycle, &platform);
-	*p_count = players_left;
-	*p_list_cursor = platform;
+	event_19_check_rope_bridge(position, in_play_count, player_block, p_speed_value, p_count, p_cycle, p_list_cursor);
 }
 
 /* Game mode 0x1C, stage 8's riding event at scroll 0x7A8D: by scene_step event_1c_follow (steps 0, 1 and
@@ -2083,8 +1915,7 @@ void game_mode_event_19(uint32_t pressed, uint32_t position, uint32_t in_play_co
    0x84A0 game_mode 3 at scroll speed 5, and bridge_0_plank_count 0. */
 void game_mode_event_1C(uint32_t pressed, uint32_t position, uint32_t in_play_count, uint16_t next_scroll_position, uint32_t object, uint32_t *p_speed_value, uint32_t *p_count, uint32_t *p_cycle, uint32_t *p_list_cursor)
 {
-	uint32_t list_cursor = *p_list_cursor;
-	uint32_t ignored = 0, platform = 0;
+	uint32_t ignored = 0;
 
 	current_game_mode = 0x1Cu;
 	if (scene_step == 0u)
@@ -2093,14 +1924,13 @@ void game_mode_event_1C(uint32_t pressed, uint32_t position, uint32_t in_play_co
 		event_1c_riding = 0u;
 	}
 	next_stage_slot_request = 0u;
-	update_player_summary(&in_play_count, p_count, &list_cursor, &object);
+	update_player_summary(&in_play_count, p_count, p_list_cursor, &object);
 	if ((player_status[0] | player_2_status | player_3_status | player_status_spare) == 0u)
 	{
 		saved_game_mode = game_mode;
 		game_mode = 7u;
 		game_mode_timer = 0;
-		run_game_mode(pressed, position, in_play_count, next_scroll_position, object, p_speed_value, p_count, p_cycle, &list_cursor);
-		*p_list_cursor = list_cursor;
+		run_game_mode(pressed, position, in_play_count, next_scroll_position, object, p_speed_value, p_count, p_cycle, p_list_cursor);
 		return;
 	}
 	switch (scene_step)
@@ -2136,16 +1966,14 @@ void game_mode_event_1C(uint32_t pressed, uint32_t position, uint32_t in_play_co
 	ignored = check_zones(ignored);
 	check_hits(&ignored, &position, &ignored, p_speed_value, &ignored, p_count, &ignored);
 	check_walls(ignored);
-	check_platforms(&ignored, &ignored, &ignored, p_speed_value, &ignored, p_count, p_cycle, &platform, &ignored);
+	check_platforms(&ignored, &ignored, &ignored, p_speed_value, &ignored, p_count, p_cycle, p_list_cursor, &ignored);
 	if (scroll_position < 0x84A0u)
 	{
-		*p_list_cursor = platform;
 		return;
 	}
 	game_mode = 3u;
 	scroll_speed_low = 5;
 	bridge_0_plank_count = 0u;
-	*p_list_cursor = platform;
 }
 
 /* Game mode 0x1F, stage 0xB's escape at scroll 0xF00: start_escape_countdown once; the stage frame after
@@ -2154,9 +1982,8 @@ void game_mode_event_1C(uint32_t pressed, uint32_t position, uint32_t in_play_co
    player 1's byte for player 3); at escape_seconds 0 YOU FAILED (0x20). */
 void game_mode_event_1F(uint32_t pressed, uint32_t position, uint32_t in_play_count, uint16_t next_scroll_position, uint32_t object, uint32_t *p_speed_value, uint32_t *p_count, uint32_t *p_cycle, uint32_t *p_list_cursor)
 {
-	uint32_t list_cursor = *p_list_cursor;
 	uint8_t sound_id = 0;
-	uint32_t exit_status_cursor = 0, finished_flags = 0, ignored = 0;
+	uint32_t exit_status_cursor = 0, ignored = 0;
 
 	current_game_mode = 0x1Fu;
 	if (scene_step == 0u)
@@ -2167,21 +1994,19 @@ void game_mode_event_1F(uint32_t pressed, uint32_t position, uint32_t in_play_co
 		start_escape_countdown(&position, p_count, &object);
 	}
 	next_stage_slot_request = 0u;
-	update_player_summary(&in_play_count, p_count, &list_cursor, &object);
+	update_player_summary(&in_play_count, p_count, p_list_cursor, &object);
 	if ((player_status[0] | player_2_status | player_3_status | player_status_spare) == 0u)
 	{
 		saved_game_mode = game_mode;
 		game_mode = 7u;
 		game_mode_timer = 0;
-		run_game_mode(pressed, position, in_play_count, next_scroll_position, object, p_speed_value, p_count, p_cycle, &list_cursor);
-		*p_list_cursor = list_cursor;
+		run_game_mode(pressed, position, in_play_count, next_scroll_position, object, p_speed_value, p_count, p_cycle, p_list_cursor);
 		return;
 	}
-	check_stage_clear(p_count, &list_cursor, &object);
+	check_stage_clear(p_count, p_list_cursor, &object);
 	if (game_mode != 0x1Fu)
 	{
-		run_game_mode(pressed, position, in_play_count, next_scroll_position, object, p_speed_value, p_count, p_cycle, &list_cursor);
-		*p_list_cursor = list_cursor;
+		run_game_mode(pressed, position, in_play_count, next_scroll_position, object, p_speed_value, p_count, p_cycle, p_list_cursor);
 		return;
 	}
 	update_scroll(&position, &in_play_count, p_speed_value, &ignored, p_count, p_cycle, &ignored, &object);
@@ -2197,7 +2022,7 @@ void game_mode_event_1F(uint32_t pressed, uint32_t position, uint32_t in_play_co
 	ignored = check_zones(ignored);
 	check_hits(&ignored, &position, &ignored, p_speed_value, &ignored, p_count, &object);
 	check_walls(ignored);
-	check_platforms(&ignored, &ignored, &ignored, p_speed_value, &ignored, p_count, p_cycle, &finished_flags, &object);
+	check_platforms(&ignored, &ignored, &ignored, p_speed_value, &ignored, p_count, p_cycle, p_list_cursor, &object);
 	if (escape_started != 0u)
 	{
 		escape_alarm_timer++;
@@ -2224,39 +2049,35 @@ void game_mode_event_1F(uint32_t pressed, uint32_t position, uint32_t in_play_co
 	else
 	{
 		exit_status_cursor = player_status_ADDRESS;
-		finished_flags = AS32(players_finished[0]);
+		*p_list_cursor = AS32(players_finished[0]);
 		*p_count = (*p_count & ~0xFFu) | 3u;
 		do
 		{
 			if ((int8_t)mem_read8(exit_status_cursor) >= 0)
-				finished_flags = (finished_flags & ~0xFFu) | 0xFFu;
-			finished_flags = (finished_flags & ~0xFFFFu) | (uint16_t)((finished_flags << 8) | ((uint16_t)finished_flags >> 8));
+				*p_list_cursor = (*p_list_cursor & ~0xFFu) | 0xFFu;
+			*p_list_cursor = (*p_list_cursor & ~0xFFFFu) | (uint16_t)((*p_list_cursor << 8) | ((uint16_t)*p_list_cursor >> 8));
 			exit_status_cursor++;
 			(*p_count)--;
 		} while (*p_count != 0u);
-		if (finished_flags != 0xFFFFFFFFu)
+		if (*p_list_cursor != 0xFFFFFFFFu)
 		{
 			if (no_player_in_play == 0u)
 				update_escape_countdown();
 			if (escape_seconds != 0u)
 			{
-				*p_list_cursor = finished_flags;
 				return;
 			}
 			game_mode = 0x20u;
 			game_mode_timer = 0;
-			*p_list_cursor = finished_flags;
 			return;
 		}
 	}
 	if (escape_seconds != 0u)
 	{
-		*p_list_cursor = finished_flags;
 		return;
 	}
 	game_mode = 0x20u;
 	game_mode_timer = 0;
-	*p_list_cursor = finished_flags;
 }
 
 /* The CLEARED banner, not drawn yet: once stage_name_shown is set it is revealed
@@ -2440,7 +2261,6 @@ void banner_letter_spin(void)
    its blend factor in mixer_blend with the enable bit 11. */
 void apply_stage_layer_blending(uint32_t *p_layer_bit, uint32_t *p_count)
 {
-	uint32_t layer_bit = *p_layer_bit;
 	uint16_t blend_mask = 0;
 	uint32_t count = 0, cursor = 0, layer_shadow = 0;
 
@@ -2464,12 +2284,12 @@ void apply_stage_layer_blending(uint32_t *p_layer_bit, uint32_t *p_count)
 	{
 		blend_mask = ROM8(cursor);
 		cursor++;
-		layer_bit = ROM8(cursor);
+		*p_layer_bit = ROM8(cursor);
 		cursor++;
 		layer_shadow = GAME_VARIABLES + ROM16(cursor);
 		mem_write16(layer_shadow, mem_read16(layer_shadow) & ~0x3Fu);
 		mem_write16(layer_shadow, mem_read16(layer_shadow) | blend_mask);
-		mem_write32(layer_shadow, mem_read32(layer_shadow) | shl32(1u, (int)(layer_bit)));
+		mem_write32(layer_shadow, mem_read32(layer_shadow) | shl32(1u, (int)(*p_layer_bit)));
 		mixer_blend &= ~0xF00u;
 		cursor += 2u;
 		mixer_blend |= ROM16(cursor);
@@ -2477,7 +2297,6 @@ void apply_stage_layer_blending(uint32_t *p_layer_bit, uint32_t *p_count)
 		count--;
 		cursor += 2u;
 	} while (count != 0u);
-	*p_layer_bit = layer_bit;
 	*p_count = count;
 }
 
@@ -2487,28 +2306,24 @@ void apply_stage_layer_blending(uint32_t *p_layer_bit, uint32_t *p_count)
    game_mode 0x17, or 0x1E on stages 0xB-0xF. */
 void check_stage_clear(uint32_t *p_count, uint32_t *p_finished_flag, uint32_t *p_status)
 {
-	uint32_t count = *p_count;
-	uint32_t finished_flag = *p_finished_flag;
 	uint32_t status = *p_status;
 	uint8_t next_game_mode = 0;
 
 	if (scroll_position < goal_scroll_position || player_status_spare != 0u || stage_exit_started == 0u)
 		return;
-	finished_flag = players_finished_ADDRESS;
+	*p_finished_flag = players_finished_ADDRESS;
 	status = player_status_ADDRESS;
-	count = (count & ~0xFFu) | 3u;
+	*p_count = (*p_count & ~0xFFu) | 3u;
 	do
 	{
 		if (mem_read8(status) == 0u || mem_read8(status) == 0x82u || mem_read8(status) == 3u || mem_read8(status) == 4u || mem_read8(status) == 2u)
-			mem_write8(finished_flag, 0xFFu);
-		finished_flag++;
+			mem_write8(*p_finished_flag, 0xFFu);
+		(*p_finished_flag)++;
 		status++;
-		count--;
-	} while (count != 0u);
+		(*p_count)--;
+	} while (*p_count != 0u);
 	if (AS32(players_finished[0]) != 0xFFFFFFFFu)
 	{
-		*p_count = count;
-		*p_finished_flag = finished_flag;
 		*p_status = status;
 		return;
 	}
@@ -2517,8 +2332,6 @@ void check_stage_clear(uint32_t *p_count, uint32_t *p_finished_flag, uint32_t *p
 	if (stage == 0xBu || stage == 0xCu || stage == 0xDu || stage == 0xEu || stage == 0xFu)
 		next_game_mode = 0x1Eu;
 	game_mode = next_game_mode;
-	*p_count = count;
-	*p_finished_flag = finished_flag;
 	*p_status = status;
 }
 

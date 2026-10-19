@@ -3,7 +3,7 @@
  *    Description: the player's states in play: standing, walking, running, falling and jumping (player_move, player_animate), teetering on a ledge and going over it, dropping, falling into a pit, climbing a wall, skidding, hopping, dying, launched, hurt, bouncing
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    17-10-2026
+ *    Modified:    19-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -270,7 +270,7 @@ void player_animate_standing(void)
 {
 	uint32_t animation_table = 0, depth = 0, ignored = 0;
 
-	if ((int32_t)OBJECT(current_object)->animation >= 0x10FD8C)
+	if ((int32_t)OBJECT(current_object)->animation >= (int32_t)sonic_walking_animations_ADDRESS)
 	{
 		OBJECT(current_object)->animation_timer = 0;
 		OBJECT(current_object)->animation_speed = ((uint32_t)OBJECT(current_object)->kind << 3) + 0x2Cu;
@@ -317,13 +317,13 @@ void player_animate_walking(void)
 	uint32_t depth = 0, ignored = 0, walking_animations = 0;
 	uint32_t flags = 0;
 
-	if ((int32_t)OBJECT(current_object)->animation < 0x10FD8C || (int32_t)OBJECT(current_object)->animation >= 0x11230C)
+	if ((int32_t)OBJECT(current_object)->animation < (int32_t)sonic_walking_animations_ADDRESS || (int32_t)OBJECT(current_object)->animation >= 0x11230C)
 	{
 		OBJECT(current_object)->animation_timer = 0;
 		OBJECT(current_object)->animation_frame = 0u;
 		OBJECT(current_object)->flags |= 0x4000u;
 	}
-	if ((int32_t)OBJECT(current_object)->animation < 0x10FD8C || (int32_t)OBJECT(current_object)->animation >= 0x110A4C)
+	if ((int32_t)OBJECT(current_object)->animation < (int32_t)sonic_walking_animations_ADDRESS || (int32_t)OBJECT(current_object)->animation >= (int32_t)sonic_running_animations_ADDRESS)
 	{
 		PLAYER(current_player)->walk_pending_x = 0;
 		PLAYER(current_player)->walk_pending_y = 0;
@@ -474,7 +474,7 @@ void player_animate_run_from_table(uint32_t animation_table)
 	uint32_t depth = 0, ignored = 0, walk_cycle_limit = 0;
 	uint32_t flags = 0;
 
-	if ((int32_t)OBJECT(current_object)->animation < 0x110A4C || (int32_t)OBJECT(current_object)->animation >= 0x11230C)
+	if ((int32_t)OBJECT(current_object)->animation < (int32_t)sonic_running_animations_ADDRESS || (int32_t)OBJECT(current_object)->animation >= 0x11230C)
 	{
 		OBJECT(current_object)->animation_timer = 0;
 		OBJECT(current_object)->animation_frame = 2u;
@@ -1091,7 +1091,7 @@ void player_state_falling_off_edge(void)
 		OBJECT(current_object)->projected_y -= 0x200000u;
 		OBJECT(current_object)->sprite_layer = OBJECT(current_object)->projected_y_int;
 		x_shift = 0x18u;
-		if ((int32_t)OBJECT(current_object)->animation >= 0x1128EE)
+		if ((int32_t)OBJECT(current_object)->animation >= (int32_t)sonic_far_edge_teeter_animation_ADDRESS)
 			x_shift = 0x14u;
 		OBJECT(current_object)->projected_x -= x_shift;
 		OBJECT(current_object)->speed_z = 0;

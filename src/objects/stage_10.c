@@ -3,7 +3,7 @@
  *    Description: stage 10's objects, the river: the mines and the bubble column, the lid trap, the turtle, the eel and its den, the rafts, the geysers, the waterfall and the river water, the propeller machine that chases the players, the barred gate, the rope bridge
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    17-10-2026
+ *    Modified:    19-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -2028,12 +2028,10 @@ uint32_t spawn_listed_geyser(uint32_t geyser)
 void spawn_geyser(uint32_t x, uint32_t y, uint16_t wait, uint32_t *p_spawned, uint32_t *p_geyser)
 {
 	uint32_t geyser = *p_geyser;
-	uint32_t free_count = 0, spawned = 0;
 
-	allocate_object(&free_count, &geyser);
-	if (free_count == 0u)
+	allocate_object(p_spawned, &geyser);
+	if (*p_spawned == 0u)
 	{
-		*p_spawned = free_count;
 		*p_geyser = geyser;
 		return;
 	}
@@ -2061,8 +2059,7 @@ void spawn_geyser(uint32_t x, uint32_t y, uint16_t wait, uint32_t *p_spawned, ui
 	OBJECT(geyser)->animation_timer = 0;
 	OBJECT(geyser)->animation_frame = 0xFFu;
 	OBJECT(geyser)->animation = geyser_animation_ADDRESS;
-	spawned = 0xFFFFFFFFu;
-	*p_spawned = spawned;
+	*p_spawned = 0xFFFFFFFFu;
 	*p_geyser = geyser;
 }
 
@@ -2144,12 +2141,11 @@ void geyser_erupt(void)
 void spawn_waterfall(uint32_t record, uint32_t *p_spawned, uint32_t *p_free_stack, uint32_t *p_block)
 {
 	uint32_t block = *p_block;
-	uint32_t free_count = 0, ignored = 0, object = 0, spawned = 0;
+	uint32_t ignored = 0, object = 0;
 
-	allocate_object_outside_loop(&free_count, &block);
-	if (free_count == 0u || (uint16_t)free_object_stack_2[0] == 0u)
+	allocate_object_outside_loop(p_spawned, &block);
+	if (*p_spawned == 0u || (uint16_t)free_object_stack_2[0] == 0u)
 	{
-		*p_spawned = free_count;
 		*p_block = block;
 		return;
 	}
@@ -2183,8 +2179,7 @@ void spawn_waterfall(uint32_t record, uint32_t *p_spawned, uint32_t *p_free_stac
 	allocate_object_2(&ignored, p_free_stack, &block);
 	move_halfwords_backward(block, waterfall_parts_ADDRESS, 0xDu);
 	OBJECT(object)->part_list = block;
-	spawned = 0xFFFFFFFFu;
-	*p_spawned = spawned;
+	*p_spawned = 0xFFFFFFFFu;
 	*p_block = block;
 }
 
@@ -3637,18 +3632,16 @@ void event_19_check_rope_bridge(uint32_t position, uint32_t in_play_count, uint3
    spawners and contacts. */
 void event_12_stage_frame(uint32_t pressed, uint32_t position, uint32_t in_play_count, uint16_t next_scroll_position, uint32_t object, uint32_t *p_speed_value, uint32_t *p_count, uint32_t *p_cycle, uint32_t *p_list_cursor)
 {
-	uint32_t list_cursor = *p_list_cursor;
-	uint32_t ignored = 0, platform = 0;
+	uint32_t ignored = 0;
 
 	next_stage_slot_request = 0u;
-	update_player_summary(&in_play_count, p_count, &list_cursor, &object);
+	update_player_summary(&in_play_count, p_count, p_list_cursor, &object);
 	if ((player_status[0] | player_2_status | player_3_status | player_status_spare) == 0u)
 	{
 		saved_game_mode = game_mode;
 		game_mode = 7u;
 		game_mode_timer = 0;
-		run_game_mode(pressed, position, in_play_count, next_scroll_position, object, p_speed_value, p_count, p_cycle, &list_cursor);
-		*p_list_cursor = list_cursor;
+		run_game_mode(pressed, position, in_play_count, next_scroll_position, object, p_speed_value, p_count, p_cycle, p_list_cursor);
 		return;
 	}
 	if (scroll_mode == 7u && event_12_fast_scroll != 0u)
@@ -3669,6 +3662,5 @@ void event_12_stage_frame(uint32_t pressed, uint32_t position, uint32_t in_play_
 	ignored = check_zones(ignored);
 	check_hits(&ignored, &position, &ignored, p_speed_value, &ignored, p_count, &ignored);
 	check_walls(ignored);
-	check_platforms(&ignored, &ignored, &ignored, p_speed_value, &ignored, p_count, p_cycle, &platform, &ignored);
-	*p_list_cursor = platform;
+	check_platforms(&ignored, &ignored, &ignored, p_speed_value, &ignored, p_count, p_cycle, p_list_cursor, &ignored);
 }

@@ -3,7 +3,7 @@
  *    Description: around the players: the skid dust, the HUD (gauge, portrait, ring count, start prompt, messages), the ride of game mode 0x1C, joining with a character select, the result bonus, the climb zone splash, the intro marker
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    17-10-2026
+ *    Modified:    19-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -170,7 +170,6 @@ void player_hud_start(void)
    the no-continue text. */
 void player_hud_update(uint32_t *p_digit_attribute, uint32_t *p_text_position)
 {
-	uint32_t digit_attribute = *p_digit_attribute;
 	uint32_t text_position = *p_text_position;
 	uint32_t digit = 0, message_position = 0, object = 0, player = 0, player_2 = 0, portrait_anim = 0, prompt_position = 0, text = 0, value = 0, wrapped = 0;
 	uint32_t flags = 0;
@@ -287,23 +286,23 @@ void player_hud_update(uint32_t *p_digit_attribute, uint32_t *p_text_position)
 		{
 			value = PLAYER(current_player)->rings;
 			convert_to_bcd(&value, &digit);
-			digit_attribute = (digit & ~0xFFFFu) | 0x800u;
+			*p_digit_attribute = (digit & ~0xFFFFu) | 0x800u;
 			if (OBJECT(object_cursor)->kind != 0u)
 			{
-				digit_attribute = (digit_attribute & ~0xFFFFu) | 0xA00u;
+				*p_digit_attribute = (*p_digit_attribute & ~0xFFFFu) | 0xA00u;
 				if (OBJECT(object_cursor)->kind != 1u)
-					digit_attribute = (digit_attribute & ~0xFFFFu) | 0xC00u;
+					*p_digit_attribute = (*p_digit_attribute & ~0xFFFFu) | 0xC00u;
 			}
 			player_2 = OBJECT(object_cursor)->player;
 			text_position = 0x310000u | hud_ring_count_positions_3p[player_2];
 			if ((cabinet_config & 1u) == 0u)
 				text_position = (text_position & ~0xFFFFu) | hud_ring_count_positions_2p[player_2];
-			draw_hex_4(&value, &digit_attribute, &text_position);
+			draw_hex_4(&value, p_digit_attribute, &text_position);
 		}
 		current_object = (current_object & ~0xFFFFu) | PLAYER(current_player)->hud_ring_effect;
 		if ((int8_t)OBJECT(current_object)->direction_high >= 0)
 		{
-			animate_hud_tiles(&digit_attribute, &wrapped);
+			animate_hud_tiles(p_digit_attribute, &wrapped);
 			if ((int8_t)wrapped < 0)
 				OBJECT(current_object)->direction_high = 0xFFu;
 			queue_sprite_on_top();
@@ -311,7 +310,7 @@ void player_hud_update(uint32_t *p_digit_attribute, uint32_t *p_text_position)
 		current_object = LINKED(current_object, PLAYER(current_player)->hud_portrait);
 		if (OBJECT(current_object)->hud_anim_repeats > 0)
 		{
-			animate_hud_palette(&digit_attribute, &wrapped);
+			animate_hud_palette(p_digit_attribute, &wrapped);
 			if (wrapped != 0u)
 				OBJECT(current_object)->hud_anim_repeats--;
 		}
@@ -319,7 +318,7 @@ void player_hud_update(uint32_t *p_digit_attribute, uint32_t *p_text_position)
 		current_object = LINKED(current_object, PLAYER(current_player)->hud_gauge);
 		if (OBJECT(current_object)->hud_anim_repeats > 0)
 		{
-			animate_hud_palette(&digit_attribute, &wrapped);
+			animate_hud_palette(p_digit_attribute, &wrapped);
 			if (wrapped != 0u)
 				OBJECT(current_object)->hud_anim_repeats--;
 		}
@@ -327,14 +326,12 @@ void player_hud_update(uint32_t *p_digit_attribute, uint32_t *p_text_position)
 		if (OBJECT(current_object)->sprite_width <= 0)
 		{
 			current_object = (current_object & ~0xFFFFu) | (uint16_t)object_cursor;
-			*p_digit_attribute = digit_attribute;
 			*p_text_position = text_position;
 			return;
 		}
 		OBJECT(current_object)->sprite_width++;
 		queue_sprite_on_top();
 		current_object = (current_object & ~0xFFFFu) | (uint16_t)object_cursor;
-		*p_digit_attribute = digit_attribute;
 		*p_text_position = text_position;
 		return;
 	}
@@ -360,7 +357,6 @@ void player_hud_update(uint32_t *p_digit_attribute, uint32_t *p_text_position)
 	if (joining_closed == 0u)
 	{
 		prompt_position = draw_player_start_prompt();
-		*p_digit_attribute = digit_attribute;
 		*p_text_position = prompt_position;
 		return;
 	}

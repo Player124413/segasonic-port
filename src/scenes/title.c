@@ -3,7 +3,7 @@
  *    Description: the title screen: the SEGA logo, the emblem, the land, the craft, Sonic's loop, the clouds and the sky
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    17-10-2026
+ *    Modified:    19-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -17,19 +17,16 @@
    title_emblem_animate, timed_spawner_run and title_sky_wave. */
 void run_title_screen(uint32_t text_position, uint32_t *p_color, uint32_t *p_row_pairs_left, uint32_t *p_blocks_per_row, uint32_t *p_text)
 {
-	uint32_t text = *p_text;
-	uint32_t background_script = 0, ignored = 0, object = 0, palette_list = 0, script = 0;
+	uint32_t ignored = 0, object = 0, palette_list = 0, script = 0;
 	uint8_t cnt_bits = 0;
 
-	run_sega_logo(text_position, p_color, p_row_pairs_left, p_blocks_per_row, &text);
+	run_sega_logo(text_position, p_color, p_row_pairs_left, p_blocks_per_row, p_text);
 	if (sega_logo_step != 7u)
 	{
-		*p_text = text;
 		return;
 	}
 	if (title_scene_built != 0u)
 	{
-		*p_text = text;
 		return;
 	}
 	cnt_bits = mem_read8(io_cnt);
@@ -58,8 +55,8 @@ void run_title_screen(uint32_t text_position, uint32_t *p_color, uint32_t *p_row
 	load_palette_list(palette_list, &ignored, &object);
 	script = title_sky_script_ADDRESS;
 	run_vram_script(&ignored, &script, &object);
-	background_script = title_waving_background_script_ADDRESS;
-	run_vram_script(&ignored, &background_script, &object);
+	*p_text = title_waving_background_script_ADDRESS;
+	run_vram_script(&ignored, p_text, &object);
 	nbg2_scroll_x = 0u;
 	nbg2_scroll_y = 0xFFE8u;
 	nbg3_scroll_x = 0u;
@@ -85,7 +82,6 @@ void run_title_screen(uint32_t text_position, uint32_t *p_color, uint32_t *p_row
 	mem_write16(video_backdrop_control, 0u);
 	mem_write16(video_layer_disable, mem_read16(video_layer_disable) & 0xD0u);
 	mem_write16(video_layer_disable, mem_read16(video_layer_disable) | 0x23u);
-	*p_text = background_script;
 }
 
 /* The title's emblem in four 8 bpp quarters (0x52E0-0x52F8), Sonic rising (0x5300 + 8 * n,

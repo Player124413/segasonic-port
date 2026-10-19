@@ -3,7 +3,7 @@
  *    Description: the player: starting, joining, resetting and placing a player, player_update, the movement (screen edges, trackball, turning, jumps, walls), the shadow, the floor checks, the restart point, the checks of every frame, and check_player_contacts (what touching each kind of object does)
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    17-10-2026
+ *    Modified:    19-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -2059,8 +2059,7 @@ void check_player_step(uint32_t *p_height_diff, uint32_t *p_cursor)
    (state 0). */
 void check_player_step_against_floor(uint32_t *p_height_diff, uint32_t *p_cursor)
 {
-	uint32_t cursor = *p_cursor;
-	uint32_t floor_block = 0, object_z = 0, opposite_side = 0, x = 0, y = 0;
+	uint32_t floor_block = 0, object_z = 0, opposite_side = 0, y = 0;
 	uint16_t floor_z_int = 0, z_int = 0, height_diff_2 = 0;
 
 	if (PLAYER(current_player)->path != 0u)
@@ -2113,14 +2112,13 @@ void check_player_step_against_floor(uint32_t *p_height_diff, uint32_t *p_cursor
 	if (OBJECT(current_object)->speed_int >= 0x500)
 	{
 		floor_block = step_blocking_floor_block;
-		x = OBJECT(current_object)->x;
+		*p_cursor = OBJECT(current_object)->x;
 		y = OBJECT(current_object)->y;
-		opposite_side = get_floor_block_side(floor_block, x, y);
+		opposite_side = get_floor_block_side(floor_block, *p_cursor, y);
 		opposite_side = (opposite_side & ~0xFFu) | (uint8_t)(opposite_side + 2u);
 		AS16(PLAYER(current_player)->bounce_direction) = (opposite_side & ~0xFFu) | (opposite_side & 3u);
 		PLAYER(current_player)->state = 0xEu;
 		PLAYER(current_player)->substate = 0u;
-		*p_cursor = x;
 		return;
 	}
 	*p_height_diff = 0u;
@@ -3471,26 +3469,20 @@ uint32_t follow_player_path_target_speed(void)
    flags bit 9. */
 void check_player_contacts(uint32_t *p_health_limit, uint32_t *p_cursor)
 {
-	uint32_t health_limit = *p_health_limit;
-	uint32_t cursor = *p_cursor;
 	uint8_t new_substate = 0, sound_id = 0;
 	uint16_t dy = 0, held_frame = 0, saved_sides = 0;
-	uint32_t carried_x = 0, carried_y = 0, catapult = 0, distance = 0, draw_depth = 0, ignored = 0, joined_health_setting = 0, max_health = 0, move_angle = 0, object = 0, object_2 = 0, push_cos = 0, sides = 0;
+	uint32_t carried_x = 0, carried_y = 0, distance = 0, ignored = 0, joined_health_setting = 0, move_angle = 0, object = 0, sides = 0;
 	uint32_t flags = 0, flags_2 = 0;
 
 	if (PLAYER(current_player)->path_request != 0u || all_players_path_request != 0u || (PLAYER(current_player)->path != 0u && (PLAYER(current_player)->path < 0x14 || PLAYER(current_player)->path > 0x16)) || (OBJECT(current_object)->flags & 4u) == 0u)
 	{
 		check_player_contacts_clear_state();
-		*p_health_limit = health_limit;
-		*p_cursor = cursor;
 		return;
 	}
 	object = LINKED(WORK_RAM, OBJECT(current_object)->touched_by);
 	if ((OBJECT(object)->flags & 0x200u) != 0u)
 	{
 		check_player_contacts_clear_state();
-		*p_health_limit = health_limit;
-		*p_cursor = cursor;
 		return;
 	}
 	if (OBJECT(object)->kind != 8u)
@@ -3512,108 +3504,86 @@ void check_player_contacts(uint32_t *p_health_limit, uint32_t *p_cursor)
 		case 4:
 			OBJECT(current_object)->health++;
 			joined_health_setting = PLAYER(current_player)->joined_health_setting;
-			max_health = (health_limit & ~0xFFu) | (uint8_t)max_health_by_setting[(uint16_t)(joined_health_setting * 2u)];
-			if (OBJECT(current_object)->health <= (int8_t)max_health)
+			*p_health_limit = (*p_health_limit & ~0xFFu) | (uint8_t)max_health_by_setting[(uint16_t)(joined_health_setting * 2u)];
+			if (OBJECT(current_object)->health <= (int8_t)*p_health_limit)
 			{
 				check_player_contacts_clear_state();
-				*p_health_limit = max_health;
-				*p_cursor = cursor;
 				return;
 			}
-			OBJECT(current_object)->health = max_health;
+			OBJECT(current_object)->health = *p_health_limit;
 			check_player_contacts_clear_state();
-			*p_health_limit = max_health;
-			*p_cursor = cursor;
 			return;
 		case 1:
 		case 2:
-			health_limit = (health_limit & ~0xFFu) | 4u;
+			*p_health_limit = (*p_health_limit & ~0xFFu) | 4u;
 			break;
 		case 3:
-			health_limit = (health_limit & ~0xFFu) | 8u;
+			*p_health_limit = (*p_health_limit & ~0xFFu) | 8u;
 			break;
 		default:
 			invalid_jump(0xE578u + health_setting * 2u);
 		}
 		if (players_in_play >= 2)
-			health_limit = (health_limit & ~0xFFFFu) | ((uint16_t)health_limit >> 1);
+			*p_health_limit = (*p_health_limit & ~0xFFFFu) | ((uint16_t)*p_health_limit >> 1);
 		PLAYER(current_player)->rings_to_health++;
-		if (PLAYER(current_player)->rings_to_health < (int8_t)health_limit)
+		if (PLAYER(current_player)->rings_to_health < (int8_t)*p_health_limit)
 		{
 			joined_health_setting = PLAYER(current_player)->joined_health_setting;
-			max_health = (health_limit & ~0xFFu) | (uint8_t)max_health_by_setting[(uint16_t)(joined_health_setting * 2u)];
-			if (OBJECT(current_object)->health <= (int8_t)max_health)
+			*p_health_limit = (*p_health_limit & ~0xFFu) | (uint8_t)max_health_by_setting[(uint16_t)(joined_health_setting * 2u)];
+			if (OBJECT(current_object)->health <= (int8_t)*p_health_limit)
 			{
 				check_player_contacts_clear_state();
-				*p_health_limit = max_health;
-				*p_cursor = cursor;
 				return;
 			}
-			OBJECT(current_object)->health = max_health;
+			OBJECT(current_object)->health = *p_health_limit;
 			check_player_contacts_clear_state();
-			*p_health_limit = max_health;
-			*p_cursor = cursor;
 			return;
 		}
 		OBJECT(current_object)->health++;
 		PLAYER(current_player)->rings_to_health = 0;
 		joined_health_setting = PLAYER(current_player)->joined_health_setting;
-		max_health = (health_limit & ~0xFFu) | (uint8_t)max_health_by_setting[(uint16_t)(joined_health_setting * 2u)];
-		if (OBJECT(current_object)->health <= (int8_t)max_health)
+		*p_health_limit = (*p_health_limit & ~0xFFu) | (uint8_t)max_health_by_setting[(uint16_t)(joined_health_setting * 2u)];
+		if (OBJECT(current_object)->health <= (int8_t)*p_health_limit)
 		{
 			check_player_contacts_clear_state();
-			*p_health_limit = max_health;
-			*p_cursor = cursor;
 			return;
 		}
-		OBJECT(current_object)->health = max_health;
+		OBJECT(current_object)->health = *p_health_limit;
 		check_player_contacts_clear_state();
-		*p_health_limit = max_health;
-		*p_cursor = cursor;
 		return;
 	case 4:
 	case 15:
 	case 16:
 	case 22:
 		check_player_contacts_hurt_unless_invulnerable(object);
-		*p_health_limit = health_limit;
-		*p_cursor = cursor;
 		return;
 	case 5:
 		if (PLAYER(current_player)->invulnerable_timer >= 0)
 		{
 			check_player_contacts_clear_state();
-			*p_health_limit = health_limit;
-			*p_cursor = cursor;
 			return;
 		}
-		health_limit = check_player_contacts_solid(health_limit, object);
-		*p_health_limit = health_limit;
-		*p_cursor = cursor;
+		*p_health_limit = check_player_contacts_solid(*p_health_limit, object);
 		return;
 	case 6:
 		new_substate = 0u;
-		catapult = LINKED(current_object, OBJECT(current_object)->touched_by);
-		if (OBJECT(catapult)->catapult.state != 1u)
+		*p_cursor = LINKED(current_object, OBJECT(current_object)->touched_by);
+		if (OBJECT(*p_cursor)->catapult.state != 1u)
 		{
-			*p_cursor = catapult;
 			return;
 		}
 		PLAYER(current_player)->state = 0xFu;
 		PLAYER(current_player)->substate = new_substate;
-		*p_cursor = catapult;
 		return;
 	case 7:
 		new_substate = 1u;
-		catapult = LINKED(current_object, OBJECT(current_object)->touched_by);
-		if (OBJECT(catapult)->catapult.state != 1u)
+		*p_cursor = LINKED(current_object, OBJECT(current_object)->touched_by);
+		if (OBJECT(*p_cursor)->catapult.state != 1u)
 		{
-			*p_cursor = catapult;
 			return;
 		}
 		PLAYER(current_player)->state = 0xFu;
 		PLAYER(current_player)->substate = new_substate;
-		*p_cursor = catapult;
 		return;
 	case 8:
 	case 10:
@@ -3640,21 +3610,15 @@ void check_player_contacts(uint32_t *p_health_limit, uint32_t *p_cursor)
 	case 24:
 	case 40:
 		check_player_contacts_hurt(object);
-		*p_health_limit = health_limit;
-		*p_cursor = cursor;
 		return;
 	case 11:
 		new_substate = 1u;
 		check_player_contacts_attack_or_hurt(new_substate, object);
-		*p_health_limit = health_limit;
-		*p_cursor = cursor;
 		return;
 	case 12:
 	case 32:
 	case 33:
-		health_limit = check_player_contacts_solid(health_limit, object);
-		*p_health_limit = health_limit;
-		*p_cursor = cursor;
+		*p_health_limit = check_player_contacts_solid(*p_health_limit, object);
 		return;
 	case 14:
 		new_substate = 7u;
@@ -3670,15 +3634,11 @@ void check_player_contacts(uint32_t *p_health_limit, uint32_t *p_cursor)
 		if (PLAYER(current_player)->state == 4u)
 		{
 			check_player_contacts_attack(object);
-			*p_health_limit = health_limit;
-			*p_cursor = cursor;
 			return;
 		}
 		if (OBJECT(current_object)->speed_int < 0x200)
 		{
-			health_limit = check_player_contacts_solid(health_limit, object);
-			*p_health_limit = health_limit;
-			*p_cursor = cursor;
+			*p_health_limit = check_player_contacts_solid(*p_health_limit, object);
 			return;
 		}
 		PLAYER(current_player)->state = 0x1Du;
@@ -3710,8 +3670,6 @@ void check_player_contacts(uint32_t *p_health_limit, uint32_t *p_cursor)
 		if (PLAYER(current_player)->invulnerable_timer >= 0)
 		{
 			check_player_contacts_clear_state();
-			*p_health_limit = health_limit;
-			*p_cursor = cursor;
 			return;
 		}
 		if ((uint16_t)object != PLAYER(current_player)->last_hazard)
@@ -3726,8 +3684,6 @@ void check_player_contacts(uint32_t *p_health_limit, uint32_t *p_cursor)
 		if (PLAYER(current_player)->invulnerable_timer >= 0)
 		{
 			check_player_contacts_clear_state();
-			*p_health_limit = health_limit;
-			*p_cursor = cursor;
 			return;
 		}
 		if ((uint16_t)object == PLAYER(current_player)->last_hazard)
@@ -3744,8 +3700,6 @@ void check_player_contacts(uint32_t *p_health_limit, uint32_t *p_cursor)
 		if (PLAYER(current_player)->invulnerable_timer >= 0)
 		{
 			check_player_contacts_clear_state();
-			*p_health_limit = health_limit;
-			*p_cursor = cursor;
 			return;
 		}
 		contact_saved_x = OBJECT(current_object)->x;
@@ -3755,13 +3709,11 @@ void check_player_contacts(uint32_t *p_health_limit, uint32_t *p_cursor)
 		OBJECT(current_object)->z = PLAYER(current_player)->previous_z;
 		OBJECT(current_object)->floor_block = OBJECT(current_object)->previous_floor_block;
 		OBJECT(current_object)->floor_z = OBJECT(current_object)->previous_floor_z;
-		side_of_box(object, &health_limit, &sides);
+		side_of_box(object, p_health_limit, &sides);
 		contact_box_side = sides;
 		if ((uint16_t)sides != 8u && (uint16_t)sides != 0u && PLAYER(current_player)->state == 4u)
 		{
 			check_player_contacts_attack(object);
-			*p_health_limit = health_limit;
-			*p_cursor = cursor;
 			return;
 		}
 		OBJECT(current_object)->flags |= 0x1000u;
@@ -3775,7 +3727,6 @@ void check_player_contacts(uint32_t *p_health_limit, uint32_t *p_cursor)
 					AS16(PLAYER(current_player)->bounce_direction) = ((OBJECT(current_object)->direction + 0x80u) & 0x3FFu) >> 8;
 					PLAYER(current_player)->state = 0xEu;
 					PLAYER(current_player)->substate = 0u;
-					*p_health_limit = health_limit;
 					return;
 				}
 				OBJECT(current_object)->speed = 0;
@@ -3791,7 +3742,6 @@ void check_player_contacts(uint32_t *p_health_limit, uint32_t *p_cursor)
 				OBJECT(current_object)->flags &= ~0x40u;
 				OBJECT(current_object)->flags &= ~0x100000u;
 				OBJECT(current_object)->flags &= ~0x200000u;
-				*p_health_limit = health_limit;
 				return;
 			}
 			OBJECT(current_object)->x = contact_saved_x;
@@ -3818,19 +3768,16 @@ void check_player_contacts(uint32_t *p_health_limit, uint32_t *p_cursor)
 		OBJECT(current_object)->flags &= ~0x40u;
 		OBJECT(current_object)->flags &= ~0x100000u;
 		OBJECT(current_object)->flags &= ~0x200000u;
-		*p_health_limit = health_limit;
 		return;
 	case 26:
-		object_2 = LINKED(current_object, OBJECT(object)->parent);
-		if (OBJECT(object_2)->var_82 != 0x300u)
+		*p_cursor = LINKED(current_object, OBJECT(object)->parent);
+		if (OBJECT(*p_cursor)->var_82 != 0x300u)
 		{
-			*p_cursor = object_2;
 			return;
 		}
 		PLAYER(current_player)->state = 0x27u;
 		PLAYER(current_player)->substate = 0u;
 		PLAYER(current_player)->climb_remaining = OBJECT(object)->spawn_arg_2;
-		*p_cursor = object_2;
 		return;
 	case 27:
 		OBJECT(current_object)->flags |= 0x20000u;
@@ -3864,17 +3811,14 @@ void check_player_contacts(uint32_t *p_health_limit, uint32_t *p_cursor)
 		OBJECT(current_object)->speed_x = OBJECT(current_object)->speed_x * 2u;
 		OBJECT(current_object)->speed_y = OBJECT(current_object)->speed_y * 2u;
 		PLAYER(current_player)->ledge_side = OBJECT(object)->direction >> 8;
-		draw_depth = (int32_t)((uint32_t)OBJECT(current_object)->projected_y + OBJECT(current_object)->previous_floor_z) >> 16;
-		draw_depth = (draw_depth & ~0xFFFFu) | (uint16_t)(draw_depth - view_y);
-		PLAYER(current_player)->fall_draw_depth = draw_depth;
-		*p_health_limit = draw_depth;
+		*p_health_limit = (int32_t)((uint32_t)OBJECT(current_object)->projected_y + OBJECT(current_object)->previous_floor_z) >> 16;
+		*p_health_limit = (*p_health_limit & ~0xFFFFu) | (uint16_t)(*p_health_limit - view_y);
+		PLAYER(current_player)->fall_draw_depth = *p_health_limit;
 		return;
 	case 28:
 		if (PLAYER(current_player)->invulnerable_timer >= 0)
 		{
 			check_player_contacts_clear_state();
-			*p_health_limit = health_limit;
-			*p_cursor = cursor;
 			return;
 		}
 		flags = OBJECT(current_object)->flags;
@@ -3909,7 +3853,7 @@ void check_player_contacts(uint32_t *p_health_limit, uint32_t *p_cursor)
 						sound_id = 0x3Du;
 				}
 				play_sound(sound_id, &ignored, &ignored);
-				cursor = spawn_sink_swirl(cursor);
+				*p_cursor = spawn_sink_swirl(*p_cursor);
 			}
 		}
 		object = LINKED(current_object, OBJECT(current_object)->touched_by);
@@ -3918,10 +3862,8 @@ void check_player_contacts(uint32_t *p_health_limit, uint32_t *p_cursor)
 		angle_of_vector(dy, &move_angle, &ignored);
 		move_angle = (uint16_t)(move_angle - 0x80u) & 0x3FFu;
 		PLAYER(current_player)->push_x = (int32_t)(sine_table[move_angle] * 0x6000u) >> 16;
-		push_cos = (int32_t)(cosine_table[move_angle] * 0x6000u) >> 16;
-		PLAYER(current_player)->push_y = 0u - push_cos;
-		*p_health_limit = push_cos;
-		*p_cursor = cursor;
+		*p_health_limit = (int32_t)(cosine_table[move_angle] * 0x6000u) >> 16;
+		PLAYER(current_player)->push_y = 0u - *p_health_limit;
 		return;
 	case 29:
 		PLAYER(current_player)->flags |= 2u;
@@ -3937,8 +3879,6 @@ void check_player_contacts(uint32_t *p_health_limit, uint32_t *p_cursor)
 		if (PLAYER(current_player)->invulnerable_timer >= 0)
 		{
 			check_player_contacts_clear_state();
-			*p_health_limit = health_limit;
-			*p_cursor = cursor;
 			return;
 		}
 		if (PLAYER(current_player)->state == 0x29u || PLAYER(current_player)->state == 5u || PLAYER(current_player)->state == 7u || PLAYER(current_player)->state == 0xDu || OBJECT(current_object)->floor_type == 0xAu || OBJECT(current_object)->floor_type == 0xBu)
@@ -3950,8 +3890,6 @@ void check_player_contacts(uint32_t *p_health_limit, uint32_t *p_cursor)
 		if (PLAYER(current_player)->invulnerable_timer >= 0)
 		{
 			check_player_contacts_clear_state();
-			*p_health_limit = health_limit;
-			*p_cursor = cursor;
 			return;
 		}
 		PLAYER(current_player)->state = 0x1Fu;
@@ -3966,8 +3904,6 @@ void check_player_contacts(uint32_t *p_health_limit, uint32_t *p_cursor)
 		if (PLAYER(current_player)->invulnerable_timer >= 0)
 		{
 			check_player_contacts_clear_state();
-			*p_health_limit = health_limit;
-			*p_cursor = cursor;
 			return;
 		}
 		if ((uint16_t)object != PLAYER(current_player)->last_hazard)
@@ -3989,14 +3925,10 @@ void check_player_contacts(uint32_t *p_health_limit, uint32_t *p_cursor)
 	case 39:
 		OBJECT(current_object)->flags |= 0x1000u;
 		check_player_contacts_hurt_unless_invulnerable(object);
-		*p_health_limit = health_limit;
-		*p_cursor = cursor;
 		return;
 	case 41:
 		OBJECT(current_object)->flags |= 0x1000u;
 		check_player_contacts_hurt(object);
-		*p_health_limit = health_limit;
-		*p_cursor = cursor;
 		return;
 	default:
 		invalid_jump(0xE4DFu + OBJECT(object)->kind * 3u);

@@ -3,7 +3,7 @@
  *    Description: objects several stages use: the signs, the scenery sprites, the walls players and objects bounce off, the zones behind the chasers, the pacer that keeps two players together, the hold on a group leader; object types 4 and 13; the crawler, which nothing spawns
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    17-10-2026
+ *    Modified:    19-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -1270,13 +1270,11 @@ void group_leader_hold_wait(void)
 void spawn_walls(uint32_t *p_spawns_offset, uint32_t *p_part_size, uint32_t *p_second_sprite, uint32_t *p_point_y, uint32_t *p_z, uint32_t *p_wall)
 {
 	uint32_t spawns_offset = *p_spawns_offset;
-	uint32_t part_size = *p_part_size;
 	uint32_t second_sprite = *p_second_sprite;
 	uint32_t point_y = *p_point_y;
-	uint32_t z = *p_z;
 	uint32_t wall = *p_wall;
 	uint16_t blocks_needed = 0, past_spawn = 0;
-	uint32_t corner_x = 0, free_count = 0, free_count_after = 0, ignored = 0, kind_record = 0, object = 0, previous = 0, record = 0;
+	uint32_t corner_x = 0, free_count = 0, free_count_after = 0, ignored = 0, kind_record = 0, object = 0, record = 0;
 	uint16_t spawn_position = 0, current_scroll = 0;
 	uint32_t init_flags = 0;
 
@@ -1299,10 +1297,8 @@ void spawn_walls(uint32_t *p_spawns_offset, uint32_t *p_part_size, uint32_t *p_s
 	{
 		wall_spawn_cursor += 0xEu;
 		*p_spawns_offset = spawns_offset;
-		*p_part_size = part_size;
 		*p_second_sprite = (*p_second_sprite & 0xFFFF0000u) | (second_sprite & 0xFFFFu);
 		*p_point_y = point_y;
-		*p_z = z;
 		*p_wall = wall;
 		return;
 	}
@@ -1342,13 +1338,12 @@ void spawn_walls(uint32_t *p_spawns_offset, uint32_t *p_part_size, uint32_t *p_s
 	if (free_object_stack_2[0] <= (int16_t)blocks_needed)
 	{
 		object = current_object;
-		delete_object_outside_loop(object, &free_count_after, &previous);
+		delete_object_outside_loop(object, &free_count_after, p_part_size);
 		*p_spawns_offset = free_count_after;
-		*p_part_size = previous;
 		*p_wall = wall;
 		return;
 	}
-	build_wall_parts(&part_size, &second_sprite, &wall);
+	build_wall_parts(p_part_size, &second_sprite, &wall);
 	kind_record = OBJECT(current_object)->sprite_frame + wall_kinds_ADDRESS;
 	OBJECT(current_object)->hitbox_offset_x = ROM8(kind_record);
 	kind_record++;
@@ -1361,19 +1356,17 @@ void spawn_walls(uint32_t *p_spawns_offset, uint32_t *p_part_size, uint32_t *p_s
 	project_object(&ignored, &ignored);
 	wall_corner_x = OBJECT(current_object)->x + ((uint32_t)OBJECT(current_object)->hitbox_size_x << 16);
 	wall_corner_y = OBJECT(current_object)->y + ((uint32_t)OBJECT(current_object)->hitbox_size_y << 16);
-	z = OBJECT(current_object)->z;
+	*p_z = OBJECT(current_object)->z;
 	corner_x = wall_corner_x;
 	point_y = wall_corner_y;
-	project_point(z, &spawns_offset, &corner_x, &point_y);
+	project_point(*p_z, &spawns_offset, &corner_x, &point_y);
 	OBJECT(current_object)->speed_z_fraction = corner_x - OBJECT(current_object)->screen_x;
 	point_y = (point_y & ~0xFFFFu) | (uint16_t)(point_y - OBJECT(current_object)->screen_y);
 	OBJECT(current_object)->speed_z_int = point_y;
 	wall_spawn_cursor += 0xEu;
 	*p_spawns_offset = spawns_offset;
-	*p_part_size = part_size;
 	*p_second_sprite = (*p_second_sprite & 0xFFFF0000u) | (second_sprite & 0xFFFFu);
 	*p_point_y = point_y;
-	*p_z = z;
 	*p_wall = wall;
 }
 

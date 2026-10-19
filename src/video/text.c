@@ -3,7 +3,7 @@
  *    Description: text: the text layer's font, printing and erasing text, lines, fractions and digits, and the strings drawn with sprites
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    17-10-2026
+ *    Modified:    19-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -365,7 +365,6 @@ void print_text(uint32_t *p_text, uint32_t *p_text_position)
 void print_text_here(uint32_t *p_cell, uint32_t *p_text, uint32_t *p_text_position)
 {
 	uint32_t text = *p_text;
-	uint32_t text_position = *p_text_position;
 	uint16_t cell = 0;
 	uint8_t next_char = 0;
 
@@ -381,15 +380,14 @@ void print_text_here(uint32_t *p_cell, uint32_t *p_text, uint32_t *p_text_positi
 	}
 	do
 	{
-		mem_write16(text_position, cell);
+		mem_write16(*p_text_position, cell);
 		next_char = ROM8(text);
 		text++;
 		cell = (uint16_t)((cell & ~0xFFu) | next_char);
-		text_position += 2u;
+		*p_text_position += 2u;
 	} while ((uint8_t)cell != 0u);
 	*p_cell = (*p_cell & 0xFFFF0000u) | cell;
 	*p_text = text;
-	*p_text_position = text_position;
 }
 
 /* Unused: erase_text for each record from text until a 0 halfword. */
@@ -420,7 +418,6 @@ uint32_t erase_text(uint32_t text)
 void erase_text_here(uint16_t cell, uint32_t *p_text, uint32_t *p_text_position)
 {
 	uint32_t text = *p_text;
-	uint32_t text_position = *p_text_position;
 	uint8_t first_char = 0, next_char = 0;
 
 	text++;
@@ -433,13 +430,12 @@ void erase_text_here(uint16_t cell, uint32_t *p_text, uint32_t *p_text_position)
 	}
 	do
 	{
-		mem_write16(text_position, cell);
+		mem_write16(*p_text_position, cell);
 		next_char = ROM8(text);
 		text++;
-		text_position += 2u;
+		*p_text_position += 2u;
 	} while (next_char != 0u);
 	*p_text = text;
-	*p_text_position = text_position;
 }
 
 /* Writes text like print_text_here over several lines: a byte with bit 7 set starts the next line, one

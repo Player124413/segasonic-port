@@ -3,7 +3,7 @@
  *    Description: the test mode: the menu, the memory, input and sound tests, the CRT test, the game and coin assignments, the bookkeeping screen, the backup clear, the output test, the exit
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    17-10-2026
+ *    Modified:    19-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -822,9 +822,8 @@ void test_sound_ram_verify(void)
    (move_input_test_cursors). Test, pressed and released, leaves. */
 void test_inputs(uint16_t count, uint32_t *p_panel_color, uint32_t *p_blocks_per_row)
 {
-	uint32_t panel_color = *p_panel_color;
 	uint16_t sprite_block = 0;
-	uint32_t bottom = 0, coin_text = 0, cursors_left = 0, first_panel_color = 0, ignored = 0, input_bits = 0, input_index = 0, inputs_left = 0, left = 0, object = 0, off_texts = 0, on_texts = 0, right = 0, text = 0, text_entry = 0, top = 0, value = 0;
+	uint32_t bottom = 0, coin_text = 0, first_panel_color = 0, ignored = 0, input_bits = 0, input_index = 0, inputs_left = 0, left = 0, object = 0, off_texts = 0, on_texts = 0, right = 0, text = 0, text_entry = 0, top = 0, value = 0;
 
 	if (test_screen_ready != 0u)
 	{
@@ -882,22 +881,19 @@ void test_inputs(uint16_t count, uint32_t *p_panel_color, uint32_t *p_blocks_per
 				coin_text = input_test_coin_3_off_text_ADDRESS;
 			print_text_list(&coin_text, &ignored);
 		}
-		move_input_test_cursors(count, coin_text, &cursors_left, p_blocks_per_row);
+		move_input_test_cursors(count, coin_text, p_panel_color, p_blocks_per_row);
 		if ((input_ports_active & 0x2002u) != 0u && input_test_switch_released == 0u)
 		{
-			*p_panel_color = cursors_left;
 			return;
 		}
 		input_test_switch_released = 1u;
 		if ((input_ports_active & 0x2002u) != 0u)
 		{
 			input_test_switch_pressed = 1u;
-			*p_panel_color = cursors_left;
 			return;
 		}
 		if (input_test_switch_pressed == 0u)
 		{
-			*p_panel_color = cursors_left;
 			return;
 		}
 		sprite_block = screen_sprite_block;
@@ -910,14 +906,12 @@ void test_inputs(uint16_t count, uint32_t *p_panel_color, uint32_t *p_blocks_per
 		{
 			test_screen++;
 			test_screen_ready = 0u;
-			*p_panel_color = cursors_left;
 			return;
 		}
 		test_cursor = test_menu_item;
 		test_screen = 0u;
 		test_screen_ready = 1u;
 		draw_test_menu();
-		*p_panel_color = cursors_left;
 		return;
 	}
 	test_screen_ready = 1u;
@@ -948,7 +942,7 @@ void test_inputs(uint16_t count, uint32_t *p_panel_color, uint32_t *p_blocks_per
 	top = 0x30u;
 	right = 0x138u;
 	bottom = 0x60u;
-	first_panel_color = (panel_color & ~0xFFFFu) | 2u;
+	first_panel_color = (*p_panel_color & ~0xFFFFu) | 2u;
 	if ((mem_read32(video_control) & 0x200u) != 0u)
 		flip_test_coordinates(&left, &top, &right, &bottom);
 	fill_rect(top, right, bottom, &left, &first_panel_color, p_blocks_per_row);
@@ -956,20 +950,20 @@ void test_inputs(uint16_t count, uint32_t *p_panel_color, uint32_t *p_blocks_per
 	top = 0x68u;
 	right = 0x138u;
 	bottom = 0x98u;
-	panel_color = (first_panel_color & ~0xFFFFu) | 0xEu;
+	*p_panel_color = (first_panel_color & ~0xFFFFu) | 0xEu;
 	if ((mem_read32(video_control) & 0x200u) != 0u)
 		flip_test_coordinates(&left, &top, &right, &bottom);
-	fill_rect(top, right, bottom, &left, &panel_color, p_blocks_per_row);
+	fill_rect(top, right, bottom, &left, p_panel_color, p_blocks_per_row);
 	if (setting_cabinet_type != 0u)
 	{
 		left = (left & ~0xFFFFu) | 0xA0u;
 		top = 0xA0u;
 		right = 0x138u;
 		bottom = 0xD0u;
-		panel_color = (panel_color & ~0xFFFFu) | 6u;
+		*p_panel_color = (*p_panel_color & ~0xFFFFu) | 6u;
 		if ((mem_read32(video_control) & 0x200u) != 0u)
 			flip_test_coordinates(&left, &top, &right, &bottom);
-		fill_rect(top, right, bottom, &left, &panel_color, p_blocks_per_row);
+		fill_rect(top, right, bottom, &left, p_panel_color, p_blocks_per_row);
 	}
 	allocate_object_2(&ignored, &ignored, &object);
 	screen_sprite_block = object;
@@ -998,7 +992,6 @@ void test_inputs(uint16_t count, uint32_t *p_panel_color, uint32_t *p_blocks_per
 	trackball_1_quadrants = 0u;
 	trackball_2_quadrants = 0u;
 	trackball_3_quadrants = 0u;
-	*p_panel_color = panel_color;
 }
 
 /* Queues the input test's cursors (the third for 3 players), prints GOOD for each trackball whose

@@ -3,7 +3,7 @@
  *    Description: the stage view, the scroll and the camera: the view set-up and the tile sets around it, the scroll modes and the screen edges the players push, the camera's speeds, shake and path along the sections, the fades between stages, the start section of the demos and the unused scroll skip panel
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    17-10-2026
+ *    Modified:    19-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -287,18 +287,15 @@ void update_stage_tile_layers(uint32_t *p_shifted_tile_set, uint32_t *p_copy_ent
 {
 	uint32_t copy_entry = *p_copy_entry;
 	uint32_t columns_left = *p_columns_left;
-	uint32_t palette_count = *p_palette_count;
 	uint32_t stage_number = *p_stage_number;
-	uint32_t row_skip = *p_row_skip;
 	uint32_t block_cursor = *p_block_cursor;
-	uint32_t r4 = 0, copy_offset = 0, loaded_shift = 0, rows_left = 0, set_shift = 0, shifted_tile_set = 0, slot_tile_set = 0, slots_left = 0;
+	uint32_t copy_offset = 0, rows_left = 0, shifted_tile_set = 0, slot_tile_set = 0, slots_left = 0;
 
-	animate_stage_palette(&copy_offset, &copy_entry, &palette_count, p_cycle, &block_cursor, p_dest);
+	animate_stage_palette(&copy_offset, &copy_entry, p_palette_count, p_cycle, &block_cursor, p_dest);
 	if (scroll_ended < 0)
 	{
 		*p_shifted_tile_set = copy_offset;
 		*p_copy_entry = copy_entry;
-		*p_palette_count = palette_count;
 		*p_block_cursor = block_cursor;
 		return;
 	}
@@ -308,20 +305,20 @@ void update_stage_tile_layers(uint32_t *p_shifted_tile_set, uint32_t *p_copy_ent
 	block_cursor = stage_block_maps[stage_number] + stage_block_maps_ADDRESS + tile_block_row + tile_block_column;
 	columns_left = 2u;
 	rows_left = 2u;
-	set_shift = 0u;
+	*p_palette_count = 0u;
 	wanted_tile_sets = 0u;
 	for (;;)
 	{
-		shifted_tile_set = rotate_by(ROM8(block_cursor), (uint8_t)set_shift, 32);
+		shifted_tile_set = rotate_by(ROM8(block_cursor), (uint8_t)*p_palette_count, 32);
 		wanted_tile_sets += shifted_tile_set;
-		set_shift = (uint16_t)(set_shift + 8u);
+		*p_palette_count = (uint16_t)(*p_palette_count + 8u);
 		columns_left--;
 		block_cursor++;
 		if (columns_left == 0u)
 		{
-			row_skip = stage_block_map_width;
-			row_skip = (uint16_t)(row_skip - 2u);
-			block_cursor += row_skip;
+			*p_row_skip = stage_block_map_width;
+			*p_row_skip = (uint16_t)(*p_row_skip - 2u);
+			block_cursor += *p_row_skip;
 			columns_left = 2u;
 			rows_left--;
 			if (rows_left != 0u)
@@ -333,14 +330,12 @@ void update_stage_tile_layers(uint32_t *p_shifted_tile_set, uint32_t *p_copy_ent
 	{
 		if (tile_sets_in_progress != wanted_tile_sets && (int8_t)(uint8_t)tile_set_slot > 1)
 			wanted_tile_sets = tile_sets_in_progress;
-		reload_changed_tile_set(&shifted_tile_set, &slots_left, &r4, &slot_tile_set, &loaded_shift, &block_cursor, p_dest);
+		reload_changed_tile_set(&shifted_tile_set, &slots_left, p_palette_count, &slot_tile_set, p_row_skip, &block_cursor, p_dest);
 		clamp_camera_pixels();
 		*p_shifted_tile_set = shifted_tile_set;
 		*p_copy_entry = slots_left;
 		*p_columns_left = columns_left;
-		*p_palette_count = r4;
 		*p_stage_number = slot_tile_set;
-		*p_row_skip = loaded_shift;
 		*p_block_cursor = block_cursor;
 		return;
 	}
@@ -349,9 +344,7 @@ void update_stage_tile_layers(uint32_t *p_shifted_tile_set, uint32_t *p_copy_ent
 	*p_shifted_tile_set = shifted_tile_set;
 	*p_copy_entry = rows_left;
 	*p_columns_left = columns_left;
-	*p_palette_count = set_shift;
 	*p_stage_number = stage_number;
-	*p_row_skip = row_skip;
 	*p_block_cursor = block_cursor;
 }
 
@@ -362,7 +355,7 @@ void update_stage_tile_layers(uint32_t *p_shifted_tile_set, uint32_t *p_copy_ent
 void reload_changed_tile_set(uint32_t *p_shifted_tile_set, uint32_t *p_slots_left, uint32_t *p_set_shift, uint32_t *p_slot_tile_set, uint32_t *p_loaded_shift, uint32_t *p_script, uint32_t *p_dest)
 {
 	uint8_t shift_per_slot = 0;
-	uint32_t slot_tile_set = 0, stage_offset = 0, wanted_tile_set = 0;
+	uint32_t wanted_tile_set = 0;
 
 	*p_slots_left = 4u;
 	*p_set_shift = 0u;
@@ -374,28 +367,25 @@ void reload_changed_tile_set(uint32_t *p_shifted_tile_set, uint32_t *p_slots_lef
 	tile_set_slot++;
 	for (;;)
 	{
-		slot_tile_set = shift_by(loaded_tile_sets, (uint8_t)*p_loaded_shift, 32) & 0xFFu;
-		if (wanted_tile_set == slot_tile_set)
+		*p_slot_tile_set = shift_by(loaded_tile_sets, (uint8_t)*p_loaded_shift, 32) & 0xFFu;
+		if (wanted_tile_set == *p_slot_tile_set)
 			break;
 		*p_loaded_shift = (uint16_t)(*p_loaded_shift - 8u);
 		(*p_slots_left)--;
 		if (*p_slots_left == 0u)
 		{
-			load_tile_set(wanted_tile_set, p_shifted_tile_set, &stage_offset, p_script, p_dest);
-			*p_slot_tile_set = stage_offset;
+			load_tile_set(wanted_tile_set, p_shifted_tile_set, p_slot_tile_set, p_script, p_dest);
 			return;
 		}
 	}
 	if ((int8_t)(uint8_t)tile_set_slot < 4)
 	{
 		tile_sets_in_progress = wanted_tile_sets;
-		*p_slot_tile_set = slot_tile_set;
 		return;
 	}
 	loaded_tile_sets = wanted_tile_sets;
 	tile_set_slot = 0u;
 	tile_sets_in_progress = wanted_tile_sets;
-	*p_slot_tile_set = slot_tile_set;
 }
 
 /* Loads tile set tile_set of the stage: every vram script of its list in stage_tile_sets (up to a
@@ -573,57 +563,47 @@ void update_scroll(uint32_t *p_position, uint32_t *p_speed, uint32_t *p_speed_va
 {
 	uint32_t position = *p_position;
 	uint32_t speed = *p_speed;
-	uint32_t speed_value = *p_speed_value;
 	uint32_t next_scroll_position = *p_next_scroll_position;
 	uint32_t end_script = *p_end_script;
-	uint32_t dest = *p_dest;
 	uint16_t target_heading = 0;
-	uint32_t r0 = 0, r2 = 0, r4 = 0, check_result = 0, count = 0, mode_script_cursor = 0, object = 0, object_2 = 0, object_3 = 0, player = 0, player_2 = 0, player_speed = 0, push_speed = 0, sine_entry = 0;
+	uint32_t r0 = 0, r2 = 0, check_result = 0, count = 0, mode_script_cursor = 0, object = 0, object_2 = 0, object_3 = 0, player = 0, player_2 = 0, player_speed = 0, push_speed = 0;
 
 	if (scroll_ended < 0)
 	{
-		update_scroll_at_end(&position, &speed, &speed_value, &next_scroll_position, &end_script, &dest);
+		update_scroll_at_end(&position, &speed, p_speed_value, &next_scroll_position, &end_script, p_dest);
 		*p_position = position;
 		*p_speed = speed;
-		*p_speed_value = speed_value;
 		*p_next_scroll_position = next_scroll_position;
 		*p_end_script = end_script;
-		*p_dest = dest;
 		return;
 	}
 	r2 = scroll_position;
 	if ((int32_t)scroll_end <= (int32_t)r2)
 	{
-		update_scroll_at_end(&r2, &speed, &speed_value, &next_scroll_position, &end_script, &dest);
+		update_scroll_at_end(&r2, &speed, p_speed_value, &next_scroll_position, &end_script, p_dest);
 		*p_position = r2;
 		*p_speed = speed;
-		*p_speed_value = speed_value;
 		*p_next_scroll_position = next_scroll_position;
 		*p_end_script = end_script;
-		*p_dest = dest;
 		return;
 	}
 	switch (scroll_mode)
 	{
 	case 0:
-		scroll_at_scroll_speed(&r2, &speed, &speed_value, &next_scroll_position, &end_script, &dest);
+		scroll_at_scroll_speed(&r2, &speed, p_speed_value, &next_scroll_position, &end_script, p_dest);
 		*p_position = r2;
 		*p_speed = speed;
-		*p_speed_value = speed_value;
 		*p_next_scroll_position = next_scroll_position;
 		*p_end_script = end_script;
-		*p_dest = dest;
 		return;
 	case 1:
 		scroll_speed = 0u;
 		speed &= ~0xFFFFu;
-		set_camera_velocity(&r2, &speed, &r4, &next_scroll_position, &end_script, &dest);
+		set_camera_velocity(&r2, &speed, p_speed_value, &next_scroll_position, &end_script, p_dest);
 		*p_position = r2;
 		*p_speed = speed;
-		*p_speed_value = r4;
 		*p_next_scroll_position = next_scroll_position;
 		*p_end_script = end_script;
-		*p_dest = dest;
 		return;
 	case 2:
 		scroll_mode_timer--;
@@ -632,13 +612,11 @@ void update_scroll(uint32_t *p_position, uint32_t *p_speed, uint32_t *p_speed_va
 			update_camera_view();
 			speed = 0u;
 			update_camera_view();
-			set_camera_velocity(&r2, &speed, &r4, &next_scroll_position, &end_script, &dest);
+			set_camera_velocity(&r2, &speed, p_speed_value, &next_scroll_position, &end_script, p_dest);
 			*p_position = r2;
 			*p_speed = speed;
-			*p_speed_value = r4;
 			*p_next_scroll_position = next_scroll_position;
 			*p_end_script = end_script;
-			*p_dest = dest;
 			return;
 		}
 		if (scroll_mode != 2u)
@@ -646,13 +624,11 @@ void update_scroll(uint32_t *p_position, uint32_t *p_speed, uint32_t *p_speed_va
 			scroll_mode = 0u;
 			scroll_ramp_speed = 1u;
 			update_camera_view();
-			set_camera_velocity(&r2, &speed, &r4, &next_scroll_position, &end_script, &dest);
+			set_camera_velocity(&r2, &speed, p_speed_value, &next_scroll_position, &end_script, p_dest);
 			*p_position = r2;
 			*p_speed = speed;
-			*p_speed_value = r4;
 			*p_next_scroll_position = next_scroll_position;
 			*p_end_script = end_script;
-			*p_dest = dest;
 			return;
 		}
 		mode_script_cursor = scroll_mode_script;
@@ -662,31 +638,25 @@ void update_scroll(uint32_t *p_position, uint32_t *p_speed, uint32_t *p_speed_va
 		scroll_mode_duration = scroll_mode_timer;
 		scroll_mode_script = mode_script_cursor + 2u;
 		scroll_ramp_speed = 1u;
-		set_camera_velocity(&r2, &speed, &r4, &next_scroll_position, &end_script, &dest);
+		set_camera_velocity(&r2, &speed, p_speed_value, &next_scroll_position, &end_script, p_dest);
 		*p_position = r2;
 		*p_speed = speed;
-		*p_speed_value = r4;
 		*p_next_scroll_position = next_scroll_position;
 		*p_end_script = end_script;
-		*p_dest = dest;
 		return;
 	case 3:
-		scroll_slowing_down(&r2, &speed, &speed_value, &next_scroll_position, &end_script, &dest);
+		scroll_slowing_down(&r2, &speed, p_speed_value, &next_scroll_position, &end_script, p_dest);
 		*p_position = r2;
 		*p_speed = speed;
-		*p_speed_value = speed_value;
 		*p_next_scroll_position = next_scroll_position;
 		*p_end_script = end_script;
-		*p_dest = dest;
 		return;
 	case 4:
-		scroll_speeding_up(&r2, &speed, &speed_value, &next_scroll_position, &end_script, &dest);
+		scroll_speeding_up(&r2, &speed, p_speed_value, &next_scroll_position, &end_script, p_dest);
 		*p_position = r2;
 		*p_speed = speed;
-		*p_speed_value = speed_value;
 		*p_next_scroll_position = next_scroll_position;
 		*p_end_script = end_script;
-		*p_dest = dest;
 		return;
 	case 5:
 		nearby_floor_blocks_locked = 1u;
@@ -697,13 +667,11 @@ void update_scroll(uint32_t *p_position, uint32_t *p_speed, uint32_t *p_speed_va
 		scroll_mode_duration = scroll_mode_timer;
 		scroll_mode_script = mode_script_cursor + 2u;
 		scroll_ramp_speed = 1u;
-		set_camera_velocity(&r2, &speed, &r4, &next_scroll_position, &end_script, &dest);
+		set_camera_velocity(&r2, &speed, p_speed_value, &next_scroll_position, &end_script, p_dest);
 		*p_position = r2;
 		*p_speed = speed;
-		*p_speed_value = r4;
 		*p_next_scroll_position = next_scroll_position;
 		*p_end_script = end_script;
-		*p_dest = dest;
 		return;
 	case 6:
 		nearby_floor_blocks_locked = 0u;
@@ -714,13 +682,11 @@ void update_scroll(uint32_t *p_position, uint32_t *p_speed, uint32_t *p_speed_va
 		scroll_mode_duration = scroll_mode_timer;
 		scroll_mode_script = mode_script_cursor + 2u;
 		scroll_ramp_speed = 1u;
-		set_camera_velocity(&r2, &speed, &r4, &next_scroll_position, &end_script, &dest);
+		set_camera_velocity(&r2, &speed, p_speed_value, &next_scroll_position, &end_script, p_dest);
 		*p_position = r2;
 		*p_speed = speed;
-		*p_speed_value = r4;
 		*p_next_scroll_position = next_scroll_position;
 		*p_end_script = end_script;
-		*p_dest = dest;
 		return;
 	case 7:
 	case 8:
@@ -741,8 +707,8 @@ void update_scroll(uint32_t *p_position, uint32_t *p_speed, uint32_t *p_speed_va
 		if ((OBJECT(object_3)->flags & 0x10000400u) == 0u)
 			players_in_play_bits |= 4u;
 		check_result = 0u;
-		set_screen_push_edges(check_result, &count, &sine_entry);
-		is_direction_in_quadrant(count, &r0, &sine_entry);
+		set_screen_push_edges(check_result, &count, p_dest);
+		is_direction_in_quadrant(count, &r0, p_dest);
 		if ((uint8_t)r0 == 0u)
 		{
 			if (player_at_trailing_edge == 0u || (int16_t)((uint32_t)ROM16(section_end_list) - scroll_position) > 0x180)
@@ -750,15 +716,13 @@ void update_scroll(uint32_t *p_position, uint32_t *p_speed, uint32_t *p_speed_va
 				push_speed = 0u;
 				push_speed &= 0xFFu;
 				push_speed = (uint16_t)(push_speed + follow_base_speed);
-				advance_scroll(&position, &push_speed, &speed_value, &next_scroll_position, &player, &sine_entry);
+				advance_scroll(&position, &push_speed, p_speed_value, &next_scroll_position, &player, p_dest);
 				*p_position = position;
 				*p_speed = push_speed;
-				*p_speed_value = speed_value;
 				*p_next_scroll_position = next_scroll_position;
 				*p_second_player_object = object_2;
 				*p_third_player_object = object_3;
 				*p_end_script = player;
-				*p_dest = sine_entry;
 				return;
 			}
 			if ((int8_t)back_edge_frames >= 0x40)
@@ -767,50 +731,46 @@ void update_scroll(uint32_t *p_position, uint32_t *p_speed, uint32_t *p_speed_va
 				push_speed = 0u;
 				push_speed &= 0xFFu;
 				push_speed = (uint16_t)(push_speed + follow_base_speed);
-				advance_scroll(&position, &push_speed, &speed_value, &next_scroll_position, &player, &sine_entry);
+				advance_scroll(&position, &push_speed, p_speed_value, &next_scroll_position, &player, p_dest);
 				*p_position = position;
 				*p_speed = push_speed;
-				*p_speed_value = speed_value;
 				*p_next_scroll_position = next_scroll_position;
 				*p_second_player_object = object_2;
 				*p_third_player_object = object_3;
 				*p_end_script = player;
-				*p_dest = sine_entry;
 				return;
 			}
 			back_edge_frames++;
 			push_speed = 0u;
 			push_speed &= 0xFFu;
 			push_speed = (uint16_t)(push_speed + follow_base_speed);
-			advance_scroll(&position, &push_speed, &speed_value, &next_scroll_position, &player, &sine_entry);
+			advance_scroll(&position, &push_speed, p_speed_value, &next_scroll_position, &player, p_dest);
 			*p_position = position;
 			*p_speed = push_speed;
-			*p_speed_value = speed_value;
 			*p_next_scroll_position = next_scroll_position;
 			*p_second_player_object = object_2;
 			*p_third_player_object = object_3;
 			*p_end_script = player;
-			*p_dest = sine_entry;
 			return;
 		}
 		if ((players_in_play_bits & 1u) != 0u)
 		{
 			target_heading = PLAYER(player)->target_heading;
-			r0 = is_player_facing_scroll(r0, target_heading, (uint16_t)sine_entry);
+			r0 = is_player_facing_scroll(r0, target_heading, (uint16_t)*p_dest);
 			if ((uint8_t)r0 != 0u)
 				players_facing_scroll |= 1u;
 		}
 		if ((players_in_play_bits & 2u) != 0u)
 		{
 			target_heading = PLAYER(player_2)->target_heading;
-			r0 = is_player_facing_scroll(r0, target_heading, (uint16_t)sine_entry);
+			r0 = is_player_facing_scroll(r0, target_heading, (uint16_t)*p_dest);
 			if ((uint8_t)r0 != 0u)
 				players_facing_scroll |= 2u;
 		}
 		if ((players_in_play_bits & 4u) != 0u)
 		{
 			target_heading = PLAYER(r14)->target_heading;
-			r0 = is_player_facing_scroll(r0, target_heading, (uint16_t)sine_entry);
+			r0 = is_player_facing_scroll(r0, target_heading, (uint16_t)*p_dest);
 			if ((uint8_t)r0 != 0u)
 				players_facing_scroll |= 4u;
 		}
@@ -842,15 +802,13 @@ void update_scroll(uint32_t *p_position, uint32_t *p_speed, uint32_t *p_speed_va
 				push_speed = 0u;
 				push_speed &= 0xFFu;
 				push_speed = (uint16_t)(push_speed + follow_base_speed);
-				advance_scroll(&position, &push_speed, &speed_value, &next_scroll_position, &player, &sine_entry);
+				advance_scroll(&position, &push_speed, p_speed_value, &next_scroll_position, &player, p_dest);
 				*p_position = position;
 				*p_speed = push_speed;
-				*p_speed_value = speed_value;
 				*p_next_scroll_position = next_scroll_position;
 				*p_second_player_object = object_2;
 				*p_third_player_object = object_3;
 				*p_end_script = player;
-				*p_dest = sine_entry;
 				return;
 			}
 			if ((int8_t)back_edge_frames >= 0x40)
@@ -859,30 +817,26 @@ void update_scroll(uint32_t *p_position, uint32_t *p_speed, uint32_t *p_speed_va
 				push_speed = 0u;
 				push_speed &= 0xFFu;
 				push_speed = (uint16_t)(push_speed + follow_base_speed);
-				advance_scroll(&position, &push_speed, &speed_value, &next_scroll_position, &player, &sine_entry);
+				advance_scroll(&position, &push_speed, p_speed_value, &next_scroll_position, &player, p_dest);
 				*p_position = position;
 				*p_speed = push_speed;
-				*p_speed_value = speed_value;
 				*p_next_scroll_position = next_scroll_position;
 				*p_second_player_object = object_2;
 				*p_third_player_object = object_3;
 				*p_end_script = player;
-				*p_dest = sine_entry;
 				return;
 			}
 			back_edge_frames++;
 			push_speed = 0u;
 			push_speed &= 0xFFu;
 			push_speed = (uint16_t)(push_speed + follow_base_speed);
-			advance_scroll(&position, &push_speed, &speed_value, &next_scroll_position, &player, &sine_entry);
+			advance_scroll(&position, &push_speed, p_speed_value, &next_scroll_position, &player, p_dest);
 			*p_position = position;
 			*p_speed = push_speed;
-			*p_speed_value = speed_value;
 			*p_next_scroll_position = next_scroll_position;
 			*p_second_player_object = object_2;
 			*p_third_player_object = object_3;
 			*p_end_script = player;
-			*p_dest = sine_entry;
 			return;
 		}
 		players_pushing_edge &= players_facing_scroll;
@@ -896,28 +850,24 @@ void update_scroll(uint32_t *p_position, uint32_t *p_speed, uint32_t *p_speed_va
 			{
 				speed = 5u;
 				speed = (uint16_t)(speed + follow_base_speed);
-				advance_scroll(&position, &speed, &speed_value, &next_scroll_position, &player, &sine_entry);
+				advance_scroll(&position, &speed, p_speed_value, &next_scroll_position, &player, p_dest);
 				*p_position = position;
 				*p_speed = speed;
-				*p_speed_value = speed_value;
 				*p_next_scroll_position = next_scroll_position;
 				*p_second_player_object = object_2;
 				*p_third_player_object = object_3;
 				*p_end_script = player;
-				*p_dest = sine_entry;
 				return;
 			}
 			speed = 5u;
 			speed = (uint16_t)(speed + follow_base_speed);
-			advance_scroll(&position, &speed, &speed_value, &next_scroll_position, &player, &sine_entry);
+			advance_scroll(&position, &speed, p_speed_value, &next_scroll_position, &player, p_dest);
 			*p_position = position;
 			*p_speed = speed;
-			*p_speed_value = speed_value;
 			*p_next_scroll_position = next_scroll_position;
 			*p_second_player_object = object_2;
 			*p_third_player_object = object_3;
 			*p_end_script = player;
-			*p_dest = sine_entry;
 			return;
 		case 1:
 		case 9:
@@ -926,15 +876,13 @@ void update_scroll(uint32_t *p_position, uint32_t *p_speed, uint32_t *p_speed_va
 			{
 				speed = 5u;
 				speed = (uint16_t)(speed + follow_base_speed);
-				advance_scroll(&position, &speed, &speed_value, &next_scroll_position, &player, &sine_entry);
+				advance_scroll(&position, &speed, p_speed_value, &next_scroll_position, &player, p_dest);
 				*p_position = position;
 				*p_speed = speed;
-				*p_speed_value = speed_value;
 				*p_next_scroll_position = next_scroll_position;
 				*p_second_player_object = object_2;
 				*p_third_player_object = object_3;
 				*p_end_script = player;
-				*p_dest = sine_entry;
 				return;
 			}
 			push_speed = ((uint16_t)player_speed * 0x400u) >> 16;
@@ -942,29 +890,25 @@ void update_scroll(uint32_t *p_position, uint32_t *p_speed, uint32_t *p_speed_va
 			{
 				push_speed &= 0xFFu;
 				push_speed = (uint16_t)(push_speed + follow_base_speed);
-				advance_scroll(&position, &push_speed, &speed_value, &next_scroll_position, &player, &sine_entry);
+				advance_scroll(&position, &push_speed, p_speed_value, &next_scroll_position, &player, p_dest);
 				*p_position = position;
 				*p_speed = push_speed;
-				*p_speed_value = speed_value;
 				*p_next_scroll_position = next_scroll_position;
 				*p_second_player_object = object_2;
 				*p_third_player_object = object_3;
 				*p_end_script = player;
-				*p_dest = sine_entry;
 				return;
 			}
 			push_speed = (push_speed & 0xFFu) + 5u;
 			push_speed &= 0xFFu;
 			push_speed = (uint16_t)(push_speed + follow_base_speed);
-			advance_scroll(&position, &push_speed, &speed_value, &next_scroll_position, &player, &sine_entry);
+			advance_scroll(&position, &push_speed, p_speed_value, &next_scroll_position, &player, p_dest);
 			*p_position = position;
 			*p_speed = push_speed;
-			*p_speed_value = speed_value;
 			*p_next_scroll_position = next_scroll_position;
 			*p_second_player_object = object_2;
 			*p_third_player_object = object_3;
 			*p_end_script = player;
-			*p_dest = sine_entry;
 			return;
 		case 2:
 		case 10:
@@ -974,15 +918,13 @@ void update_scroll(uint32_t *p_position, uint32_t *p_speed, uint32_t *p_speed_va
 			{
 				speed = 5u;
 				speed = (uint16_t)(speed + follow_base_speed);
-				advance_scroll(&position, &speed, &speed_value, &next_scroll_position, &player, &sine_entry);
+				advance_scroll(&position, &speed, p_speed_value, &next_scroll_position, &player, p_dest);
 				*p_position = position;
 				*p_speed = speed;
-				*p_speed_value = speed_value;
 				*p_next_scroll_position = next_scroll_position;
 				*p_second_player_object = object_2;
 				*p_third_player_object = object_3;
 				*p_end_script = player;
-				*p_dest = sine_entry;
 				return;
 			}
 			push_speed = ((uint16_t)player_speed * 0x400u) >> 16;
@@ -990,15 +932,13 @@ void update_scroll(uint32_t *p_position, uint32_t *p_speed, uint32_t *p_speed_va
 				push_speed = (push_speed & 0xFFu) + 5u;
 			push_speed &= 0xFFu;
 			push_speed = (uint16_t)(push_speed + follow_base_speed);
-			advance_scroll(&position, &push_speed, &speed_value, &next_scroll_position, &player, &sine_entry);
+			advance_scroll(&position, &push_speed, p_speed_value, &next_scroll_position, &player, p_dest);
 			*p_position = position;
 			*p_speed = push_speed;
-			*p_speed_value = speed_value;
 			*p_next_scroll_position = next_scroll_position;
 			*p_second_player_object = object_2;
 			*p_third_player_object = object_3;
 			*p_end_script = player;
-			*p_dest = sine_entry;
 			return;
 		case 3:
 			if (OBJECT(object_2)->speed < OBJECT(object)->speed)
@@ -1008,15 +948,13 @@ void update_scroll(uint32_t *p_position, uint32_t *p_speed, uint32_t *p_speed_va
 				{
 					speed = 5u;
 					speed = (uint16_t)(speed + follow_base_speed);
-					advance_scroll(&position, &speed, &speed_value, &next_scroll_position, &player, &sine_entry);
+					advance_scroll(&position, &speed, p_speed_value, &next_scroll_position, &player, p_dest);
 					*p_position = position;
 					*p_speed = speed;
-					*p_speed_value = speed_value;
 					*p_next_scroll_position = next_scroll_position;
 					*p_second_player_object = object_2;
 					*p_third_player_object = object_3;
 					*p_end_script = player;
-					*p_dest = sine_entry;
 					return;
 				}
 				push_speed = ((uint16_t)player_speed * 0x400u) >> 16;
@@ -1024,15 +962,13 @@ void update_scroll(uint32_t *p_position, uint32_t *p_speed, uint32_t *p_speed_va
 					push_speed = (push_speed & 0xFFu) + 5u;
 				push_speed &= 0xFFu;
 				push_speed = (uint16_t)(push_speed + follow_base_speed);
-				advance_scroll(&position, &push_speed, &speed_value, &next_scroll_position, &player, &sine_entry);
+				advance_scroll(&position, &push_speed, p_speed_value, &next_scroll_position, &player, p_dest);
 				*p_position = position;
 				*p_speed = push_speed;
-				*p_speed_value = speed_value;
 				*p_next_scroll_position = next_scroll_position;
 				*p_second_player_object = object_2;
 				*p_third_player_object = object_3;
 				*p_end_script = player;
-				*p_dest = sine_entry;
 				return;
 			}
 			object = object_2;
@@ -1041,15 +977,13 @@ void update_scroll(uint32_t *p_position, uint32_t *p_speed, uint32_t *p_speed_va
 			{
 				speed = 5u;
 				speed = (uint16_t)(speed + follow_base_speed);
-				advance_scroll(&position, &speed, &speed_value, &next_scroll_position, &player, &sine_entry);
+				advance_scroll(&position, &speed, p_speed_value, &next_scroll_position, &player, p_dest);
 				*p_position = position;
 				*p_speed = speed;
-				*p_speed_value = speed_value;
 				*p_next_scroll_position = next_scroll_position;
 				*p_second_player_object = object_2;
 				*p_third_player_object = object_3;
 				*p_end_script = player;
-				*p_dest = sine_entry;
 				return;
 			}
 			push_speed = ((uint16_t)player_speed * 0x400u) >> 16;
@@ -1057,15 +991,13 @@ void update_scroll(uint32_t *p_position, uint32_t *p_speed, uint32_t *p_speed_va
 				push_speed = (push_speed & 0xFFu) + 5u;
 			push_speed &= 0xFFu;
 			push_speed = (uint16_t)(push_speed + follow_base_speed);
-			advance_scroll(&position, &push_speed, &speed_value, &next_scroll_position, &player, &sine_entry);
+			advance_scroll(&position, &push_speed, p_speed_value, &next_scroll_position, &player, p_dest);
 			*p_position = position;
 			*p_speed = push_speed;
-			*p_speed_value = speed_value;
 			*p_next_scroll_position = next_scroll_position;
 			*p_second_player_object = object_2;
 			*p_third_player_object = object_3;
 			*p_end_script = player;
-			*p_dest = sine_entry;
 			return;
 		case 4:
 			object = LINKED(object, PLAYER(r14)->object);
@@ -1074,15 +1006,13 @@ void update_scroll(uint32_t *p_position, uint32_t *p_speed, uint32_t *p_speed_va
 			{
 				speed = 5u;
 				speed = (uint16_t)(speed + follow_base_speed);
-				advance_scroll(&position, &speed, &speed_value, &next_scroll_position, &player, &sine_entry);
+				advance_scroll(&position, &speed, p_speed_value, &next_scroll_position, &player, p_dest);
 				*p_position = position;
 				*p_speed = speed;
-				*p_speed_value = speed_value;
 				*p_next_scroll_position = next_scroll_position;
 				*p_second_player_object = object_2;
 				*p_third_player_object = object_3;
 				*p_end_script = player;
-				*p_dest = sine_entry;
 				return;
 			}
 			push_speed = ((uint16_t)player_speed * 0x400u) >> 16;
@@ -1090,15 +1020,13 @@ void update_scroll(uint32_t *p_position, uint32_t *p_speed, uint32_t *p_speed_va
 				push_speed = (push_speed & 0xFFu) + 5u;
 			push_speed &= 0xFFu;
 			push_speed = (uint16_t)(push_speed + follow_base_speed);
-			advance_scroll(&position, &push_speed, &speed_value, &next_scroll_position, &player, &sine_entry);
+			advance_scroll(&position, &push_speed, p_speed_value, &next_scroll_position, &player, p_dest);
 			*p_position = position;
 			*p_speed = push_speed;
-			*p_speed_value = speed_value;
 			*p_next_scroll_position = next_scroll_position;
 			*p_second_player_object = object_2;
 			*p_third_player_object = object_3;
 			*p_end_script = player;
-			*p_dest = sine_entry;
 			return;
 		case 5:
 			if (OBJECT(object_3)->speed < OBJECT(object)->speed)
@@ -1108,15 +1036,13 @@ void update_scroll(uint32_t *p_position, uint32_t *p_speed, uint32_t *p_speed_va
 				{
 					speed = 5u;
 					speed = (uint16_t)(speed + follow_base_speed);
-					advance_scroll(&position, &speed, &speed_value, &next_scroll_position, &player, &sine_entry);
+					advance_scroll(&position, &speed, p_speed_value, &next_scroll_position, &player, p_dest);
 					*p_position = position;
 					*p_speed = speed;
-					*p_speed_value = speed_value;
 					*p_next_scroll_position = next_scroll_position;
 					*p_second_player_object = object_2;
 					*p_third_player_object = object_3;
 					*p_end_script = player;
-					*p_dest = sine_entry;
 					return;
 				}
 				push_speed = ((uint16_t)player_speed * 0x400u) >> 16;
@@ -1124,15 +1050,13 @@ void update_scroll(uint32_t *p_position, uint32_t *p_speed, uint32_t *p_speed_va
 					push_speed = (push_speed & 0xFFu) + 5u;
 				push_speed &= 0xFFu;
 				push_speed = (uint16_t)(push_speed + follow_base_speed);
-				advance_scroll(&position, &push_speed, &speed_value, &next_scroll_position, &player, &sine_entry);
+				advance_scroll(&position, &push_speed, p_speed_value, &next_scroll_position, &player, p_dest);
 				*p_position = position;
 				*p_speed = push_speed;
-				*p_speed_value = speed_value;
 				*p_next_scroll_position = next_scroll_position;
 				*p_second_player_object = object_2;
 				*p_third_player_object = object_3;
 				*p_end_script = player;
-				*p_dest = sine_entry;
 				return;
 			}
 			object = object_3;
@@ -1141,15 +1065,13 @@ void update_scroll(uint32_t *p_position, uint32_t *p_speed, uint32_t *p_speed_va
 			{
 				speed = 5u;
 				speed = (uint16_t)(speed + follow_base_speed);
-				advance_scroll(&position, &speed, &speed_value, &next_scroll_position, &player, &sine_entry);
+				advance_scroll(&position, &speed, p_speed_value, &next_scroll_position, &player, p_dest);
 				*p_position = position;
 				*p_speed = speed;
-				*p_speed_value = speed_value;
 				*p_next_scroll_position = next_scroll_position;
 				*p_second_player_object = object_2;
 				*p_third_player_object = object_3;
 				*p_end_script = player;
-				*p_dest = sine_entry;
 				return;
 			}
 			push_speed = ((uint16_t)player_speed * 0x400u) >> 16;
@@ -1157,15 +1079,13 @@ void update_scroll(uint32_t *p_position, uint32_t *p_speed, uint32_t *p_speed_va
 				push_speed = (push_speed & 0xFFu) + 5u;
 			push_speed &= 0xFFu;
 			push_speed = (uint16_t)(push_speed + follow_base_speed);
-			advance_scroll(&position, &push_speed, &speed_value, &next_scroll_position, &player, &sine_entry);
+			advance_scroll(&position, &push_speed, p_speed_value, &next_scroll_position, &player, p_dest);
 			*p_position = position;
 			*p_speed = push_speed;
-			*p_speed_value = speed_value;
 			*p_next_scroll_position = next_scroll_position;
 			*p_second_player_object = object_2;
 			*p_third_player_object = object_3;
 			*p_end_script = player;
-			*p_dest = sine_entry;
 			return;
 		case 6:
 			object = object_3;
@@ -1176,15 +1096,13 @@ void update_scroll(uint32_t *p_position, uint32_t *p_speed, uint32_t *p_speed_va
 				{
 					speed = 5u;
 					speed = (uint16_t)(speed + follow_base_speed);
-					advance_scroll(&position, &speed, &speed_value, &next_scroll_position, &player, &sine_entry);
+					advance_scroll(&position, &speed, p_speed_value, &next_scroll_position, &player, p_dest);
 					*p_position = position;
 					*p_speed = speed;
-					*p_speed_value = speed_value;
 					*p_next_scroll_position = next_scroll_position;
 					*p_second_player_object = object_2;
 					*p_third_player_object = object_3;
 					*p_end_script = player;
-					*p_dest = sine_entry;
 					return;
 				}
 				push_speed = ((uint16_t)player_speed * 0x400u) >> 16;
@@ -1192,15 +1110,13 @@ void update_scroll(uint32_t *p_position, uint32_t *p_speed, uint32_t *p_speed_va
 					push_speed = (push_speed & 0xFFu) + 5u;
 				push_speed &= 0xFFu;
 				push_speed = (uint16_t)(push_speed + follow_base_speed);
-				advance_scroll(&position, &push_speed, &speed_value, &next_scroll_position, &player, &sine_entry);
+				advance_scroll(&position, &push_speed, p_speed_value, &next_scroll_position, &player, p_dest);
 				*p_position = position;
 				*p_speed = push_speed;
-				*p_speed_value = speed_value;
 				*p_next_scroll_position = next_scroll_position;
 				*p_second_player_object = object_2;
 				*p_third_player_object = object_3;
 				*p_end_script = player;
-				*p_dest = sine_entry;
 				return;
 			}
 			object = object_2;
@@ -1209,15 +1125,13 @@ void update_scroll(uint32_t *p_position, uint32_t *p_speed, uint32_t *p_speed_va
 			{
 				speed = 5u;
 				speed = (uint16_t)(speed + follow_base_speed);
-				advance_scroll(&position, &speed, &speed_value, &next_scroll_position, &player, &sine_entry);
+				advance_scroll(&position, &speed, p_speed_value, &next_scroll_position, &player, p_dest);
 				*p_position = position;
 				*p_speed = speed;
-				*p_speed_value = speed_value;
 				*p_next_scroll_position = next_scroll_position;
 				*p_second_player_object = object_2;
 				*p_third_player_object = object_3;
 				*p_end_script = player;
-				*p_dest = sine_entry;
 				return;
 			}
 			push_speed = ((uint16_t)player_speed * 0x400u) >> 16;
@@ -1225,15 +1139,13 @@ void update_scroll(uint32_t *p_position, uint32_t *p_speed, uint32_t *p_speed_va
 				push_speed = (push_speed & 0xFFu) + 5u;
 			push_speed &= 0xFFu;
 			push_speed = (uint16_t)(push_speed + follow_base_speed);
-			advance_scroll(&position, &push_speed, &speed_value, &next_scroll_position, &player, &sine_entry);
+			advance_scroll(&position, &push_speed, p_speed_value, &next_scroll_position, &player, p_dest);
 			*p_position = position;
 			*p_speed = push_speed;
-			*p_speed_value = speed_value;
 			*p_next_scroll_position = next_scroll_position;
 			*p_second_player_object = object_2;
 			*p_third_player_object = object_3;
 			*p_end_script = player;
-			*p_dest = sine_entry;
 			return;
 		case 7:
 			if (OBJECT(object)->speed <= OBJECT(object_2)->speed)
@@ -1245,15 +1157,13 @@ void update_scroll(uint32_t *p_position, uint32_t *p_speed, uint32_t *p_speed_va
 				{
 					speed = 5u;
 					speed = (uint16_t)(speed + follow_base_speed);
-					advance_scroll(&position, &speed, &speed_value, &next_scroll_position, &player, &sine_entry);
+					advance_scroll(&position, &speed, p_speed_value, &next_scroll_position, &player, p_dest);
 					*p_position = position;
 					*p_speed = speed;
-					*p_speed_value = speed_value;
 					*p_next_scroll_position = next_scroll_position;
 					*p_second_player_object = object_2;
 					*p_third_player_object = object_3;
 					*p_end_script = player;
-					*p_dest = sine_entry;
 					return;
 				}
 				push_speed = ((uint16_t)player_speed * 0x400u) >> 16;
@@ -1261,15 +1171,13 @@ void update_scroll(uint32_t *p_position, uint32_t *p_speed, uint32_t *p_speed_va
 					push_speed = (push_speed & 0xFFu) + 5u;
 				push_speed &= 0xFFu;
 				push_speed = (uint16_t)(push_speed + follow_base_speed);
-				advance_scroll(&position, &push_speed, &speed_value, &next_scroll_position, &player, &sine_entry);
+				advance_scroll(&position, &push_speed, p_speed_value, &next_scroll_position, &player, p_dest);
 				*p_position = position;
 				*p_speed = push_speed;
-				*p_speed_value = speed_value;
 				*p_next_scroll_position = next_scroll_position;
 				*p_second_player_object = object_2;
 				*p_third_player_object = object_3;
 				*p_end_script = player;
-				*p_dest = sine_entry;
 				return;
 			}
 			object = object_3;
@@ -1278,15 +1186,13 @@ void update_scroll(uint32_t *p_position, uint32_t *p_speed, uint32_t *p_speed_va
 			{
 				speed = 5u;
 				speed = (uint16_t)(speed + follow_base_speed);
-				advance_scroll(&position, &speed, &speed_value, &next_scroll_position, &player, &sine_entry);
+				advance_scroll(&position, &speed, p_speed_value, &next_scroll_position, &player, p_dest);
 				*p_position = position;
 				*p_speed = speed;
-				*p_speed_value = speed_value;
 				*p_next_scroll_position = next_scroll_position;
 				*p_second_player_object = object_2;
 				*p_third_player_object = object_3;
 				*p_end_script = player;
-				*p_dest = sine_entry;
 				return;
 			}
 			push_speed = ((uint16_t)player_speed * 0x400u) >> 16;
@@ -1294,15 +1200,13 @@ void update_scroll(uint32_t *p_position, uint32_t *p_speed, uint32_t *p_speed_va
 				push_speed = (push_speed & 0xFFu) + 5u;
 			push_speed &= 0xFFu;
 			push_speed = (uint16_t)(push_speed + follow_base_speed);
-			advance_scroll(&position, &push_speed, &speed_value, &next_scroll_position, &player, &sine_entry);
+			advance_scroll(&position, &push_speed, p_speed_value, &next_scroll_position, &player, p_dest);
 			*p_position = position;
 			*p_speed = push_speed;
-			*p_speed_value = speed_value;
 			*p_next_scroll_position = next_scroll_position;
 			*p_second_player_object = object_2;
 			*p_third_player_object = object_3;
 			*p_end_script = player;
-			*p_dest = sine_entry;
 			return;
 		default:
 			invalid_jump(0x16151u + players_pushing_edge * 3u);
@@ -2080,13 +1984,12 @@ void advance_scroll(uint32_t *p_other_list, uint32_t *p_speed, uint32_t *p_speed
    update_background_scroll. */
 void set_camera_velocity(uint32_t *p_scroll_y, uint32_t *p_speed, uint32_t *p_speed_value, uint32_t *p_next_scroll_position, uint32_t *p_range, uint32_t *p_quadrant_cursor)
 {
-	uint32_t speed = *p_speed;
 	uint32_t next_scroll_position = *p_next_scroll_position;
 	uint32_t range = *p_range;
 	uint32_t quadrant_cursor = *p_quadrant_cursor;
 	uint32_t ignored = 0, scroll_y = 0, speed_value = 0, velocity_y = 0;
 
-	speed_value = (uint16_t)speed;
+	speed_value = (uint16_t)*p_speed;
 	velocity_y = section_direction_y * speed_value;
 	camera_velocity_x = section_direction_x * speed_value;
 	camera_velocity_y = velocity_y;
@@ -2099,9 +2002,8 @@ void set_camera_velocity(uint32_t *p_scroll_y, uint32_t *p_speed, uint32_t *p_sp
 		*p_speed_value = speed_value;
 		return;
 	}
-	update_background_scroll(&ignored, &scroll_y, &speed, &speed_value, &next_scroll_position, &range, &quadrant_cursor);
+	update_background_scroll(&ignored, &scroll_y, p_speed, &speed_value, &next_scroll_position, &range, &quadrant_cursor);
 	*p_scroll_y = scroll_y;
-	*p_speed = speed;
 	*p_speed_value = speed_value;
 	*p_next_scroll_position = next_scroll_position;
 	*p_range = range;
@@ -2166,13 +2068,9 @@ void update_background_scroll(uint32_t *p_fast_scroll_start, uint32_t *p_scroll_
    spawn_stage_03_end_pillar; the camera then stays still. */
 void update_scroll_at_end(uint32_t *p_position, uint32_t *p_speed, uint32_t *p_speed_value, uint32_t *p_next_scroll_position, uint32_t *p_end_script, uint32_t *p_dest)
 {
-	uint32_t position = *p_position;
 	uint32_t speed = *p_speed;
-	uint32_t speed_value = *p_speed_value;
-	uint32_t end_script = *p_end_script;
-	uint32_t dest = *p_dest;
 	uint16_t layer_scroll_x = 0;
-	uint32_t ignored = 0, script = 0, velocity_y = 0;
+	uint32_t ignored = 0, script = 0;
 
 	scroll_ended = -1;
 	switch (stage)
@@ -2207,9 +2105,9 @@ void update_scroll_at_end(uint32_t *p_position, uint32_t *p_speed, uint32_t *p_s
 	{
 		stage_03_end_started++;
 		script = stage_03_end_script_1_ADDRESS;
-		run_vram_script(&ignored, &script, &dest);
-		end_script = stage_03_end_script_2_ADDRESS;
-		run_vram_script(&ignored, &end_script, &dest);
+		run_vram_script(&ignored, &script, p_dest);
+		*p_end_script = stage_03_end_script_2_ADDRESS;
+		run_vram_script(&ignored, p_end_script, p_dest);
 		nbg0_pages = 0x2020202u;
 		scroll_mode_timer = 0x3Cu;
 		scroll_mode_duration = scroll_mode_timer;
@@ -2224,7 +2122,7 @@ void update_scroll_at_end(uint32_t *p_position, uint32_t *p_speed, uint32_t *p_s
 	case 0:
 	case 4:
 		stage_03_end_frames++;
-		scroll_speeding_up(&ignored, &speed, &ignored, p_next_scroll_position, &end_script, &dest);
+		scroll_speeding_up(&ignored, &speed, &ignored, p_next_scroll_position, p_end_script, p_dest);
 		if (scroll_mode_low == 0u)
 		{
 			speed = (speed & ~0xFFFFu) | 0x25u;
@@ -2239,8 +2137,8 @@ void update_scroll_at_end(uint32_t *p_position, uint32_t *p_speed, uint32_t *p_s
 		if (stage_03_end_timer <= 0)
 		{
 			camera_y = 0x10000;
-			end_script = stage_03_end_script_3_ADDRESS;
-			run_vram_script(&ignored, &end_script, &dest);
+			*p_end_script = stage_03_end_script_3_ADDRESS;
+			run_vram_script(&ignored, p_end_script, p_dest);
 			nbg0_pages = 0x2020200u;
 			stage_03_end_step++;
 			scroll_mode_timer = 5u;
@@ -2251,26 +2149,20 @@ void update_scroll_at_end(uint32_t *p_position, uint32_t *p_speed, uint32_t *p_s
 		break;
 	case 2:
 		stage_03_end_frames++;
-		scroll_slowing_down(&position, &speed, &speed_value, p_next_scroll_position, &end_script, &dest);
+		scroll_slowing_down(p_position, &speed, p_speed_value, p_next_scroll_position, p_end_script, p_dest);
 		if ((int16_t)scroll_speed <= 1)
 		{
 			scroll_speed = 0u;
 			stage_03_end_step++;
 			all_players_path_request = 0x23u;
-			dest = spawn_stage_03_end_pillar(dest);
-			*p_position = position;
+			*p_dest = spawn_stage_03_end_pillar(*p_dest);
 			*p_speed = speed;
-			*p_speed_value = speed_value;
-			*p_end_script = end_script;
-			*p_dest = dest;
 			return;
 		}
 		break;
 	case 3:
 		camera_velocity_x = 0;
 		camera_velocity_y = 0;
-		*p_end_script = end_script;
-		*p_dest = dest;
 		return;
 	default:
 		invalid_jump(0x174D2u + stage_03_end_step * 3u);
@@ -2285,15 +2177,11 @@ void update_scroll_at_end(uint32_t *p_position, uint32_t *p_speed, uint32_t *p_s
 	nbg0_scroll_x_int = layer_scroll_x;
 	nbg0_scroll_x_int &= 0x3FFu;
 	nbg0_scroll_y_int &= 0x1FFu;
-	speed_value = (uint16_t)speed;
-	velocity_y = section_direction_y * speed_value;
-	camera_velocity_x = section_direction_x * speed_value;
-	camera_velocity_y = velocity_y;
-	*p_position = velocity_y;
+	*p_speed_value = (uint16_t)speed;
+	*p_position = section_direction_y * *p_speed_value;
+	camera_velocity_x = section_direction_x * *p_speed_value;
+	camera_velocity_y = *p_position;
 	*p_speed = speed;
-	*p_speed_value = speed_value;
-	*p_end_script = end_script;
-	*p_dest = dest;
 }
 
 /* Unused: once per stage view (debug_sprite_spawned), an object with handler debug_sprite_mover_update
@@ -2378,8 +2266,7 @@ void call_run_map_screen(uint32_t object)
    stage_05_switch_step -1. */
 void run_stage_05_switch(uint32_t speed, uint32_t *p_scroll_y, uint32_t *p_speed_value, uint32_t *p_dest)
 {
-	uint32_t scroll_y = *p_scroll_y;
-	uint32_t camera_view_y = 0, ignored = 0, jump_offset = 0, layer_scroll_x = 0, script = 0;
+	uint32_t camera_view_y = 0, ignored = 0, jump_offset = 0, script = 0;
 
 	jump_offset = (uint8_t)stage_05_switch_step * 3u;
 	switch ((uint8_t)stage_05_switch_step)
@@ -2425,17 +2312,16 @@ void run_stage_05_switch(uint32_t speed, uint32_t *p_scroll_y, uint32_t *p_speed
 		camera_x = 0xF800000;
 		camera_y = 0x6700000;
 		camera_view_y = update_camera_view();
-		layer_scroll_x = (camera_view_y & ~0xFFFFu) | camera_x_pixels;
+		*p_scroll_y = (camera_view_y & ~0xFFFFu) | camera_x_pixels;
 		nbg0_scroll_y_int = camera_y_pixels;
-		nbg0_scroll_x_int = layer_scroll_x;
+		nbg0_scroll_x_int = *p_scroll_y;
 		nbg0_scroll_x_int &= 0x3FFu;
 		nbg0_scroll_y_int &= 0x1FFu;
 		stage = 0u;
-		update_background_scroll(&ignored, &layer_scroll_x, &ignored, p_speed_value, &ignored, &ignored, p_dest);
+		update_background_scroll(&ignored, p_scroll_y, &ignored, p_speed_value, &ignored, &ignored, p_dest);
 		stage = 5u;
 		mem_write8(video_layer_disable, mem_read8(video_layer_disable) & 0xE6u);
 		stage_05_switch_step++;
-		*p_scroll_y = layer_scroll_x;
 		return;
 	case 3:
 		fade_kind = 2;
@@ -2578,9 +2464,8 @@ uint32_t update_fade(uint32_t delta)
    stage_00_exit_zoom >> 8) as colours come back. */
 void update_stage_00_exit_scene(uint32_t dest, uint32_t *p_speed_value, uint32_t *p_script)
 {
-	uint32_t script = *p_script;
 	uint16_t layer_scroll_x = 0, layer_zoom = 0, scroll_y_past_trigger = 0;
-	uint32_t ignored = 0, range = 0, speed = 0;
+	uint32_t ignored = 0, speed = 0;
 	uint16_t scroll_y_offset = 0;
 
 	if ((int8_t)stage_00_exit_step < 2)
@@ -2591,10 +2476,10 @@ void update_stage_00_exit_scene(uint32_t dest, uint32_t *p_speed_value, uint32_t
 			scroll_y_past_trigger = (uint16_t)(nbg0_scroll_y_int - 0x20u);
 			if ((int16_t)scroll_y_past_trigger < 8 && (int16_t)scroll_y_past_trigger >= 0)
 			{
-				script = stage_00_exit_tower_wall_script_ADDRESS;
-				run_vram_script(&ignored, &script, &dest);
-				script = clear_tile_page_03_script_ADDRESS;
-				run_vram_script(&ignored, &script, &dest);
+				*p_script = stage_00_exit_tower_wall_script_ADDRESS;
+				run_vram_script(&ignored, p_script, &dest);
+				*p_script = clear_tile_page_03_script_ADDRESS;
+				run_vram_script(&ignored, p_script, &dest);
 				stage_00_exit_step++;
 			}
 		}
@@ -2605,10 +2490,10 @@ void update_stage_00_exit_scene(uint32_t dest, uint32_t *p_speed_value, uint32_t
 			if ((int16_t)scroll_y_offset >= 0 && (int16_t)scroll_y_past_trigger < 8)
 			{
 				nbg0_pages = 0x2020202u;
-				script = stage_00_exit_beam_script_ADDRESS;
-				run_vram_script(&ignored, &script, &dest);
-				script = stage_00_exit_beam_end_script_ADDRESS;
-				run_vram_script(&ignored, &script, &dest);
+				*p_script = stage_00_exit_beam_script_ADDRESS;
+				run_vram_script(&ignored, p_script, &dest);
+				*p_script = stage_00_exit_beam_end_script_ADDRESS;
+				run_vram_script(&ignored, p_script, &dest);
 				mixer_text_blend &= 0xBFFFu;
 				mixer_nbg0_blend |= 0x4000u;
 				mixer_nbg1_blend |= 0x4000u;
@@ -2633,7 +2518,6 @@ void update_stage_00_exit_scene(uint32_t dest, uint32_t *p_speed_value, uint32_t
 		{
 			nbg0_pages = 0x3020100u;
 			stage_00_exit_step++;
-			*p_script = script;
 			return;
 		}
 		stage_00_exit_timer++;
@@ -2648,15 +2532,13 @@ void update_stage_00_exit_scene(uint32_t dest, uint32_t *p_speed_value, uint32_t
 		nbg0_scroll_x_int = layer_scroll_x;
 		nbg0_scroll_x_int &= 0x3FFu;
 		nbg0_scroll_y_int &= 0x1FFu;
-		update_background_scroll(&ignored, &ignored, &ignored, p_speed_value, &ignored, &range, &ignored);
-		*p_script = range;
+		update_background_scroll(&ignored, &ignored, &ignored, p_speed_value, &ignored, p_script, &ignored);
 		return;
 	case 3:
 		if (stage_00_exit_timer >= 0xA0)
 		{
 			nbg0_pages = 0x3030100u;
 			stage_00_exit_step++;
-			*p_script = script;
 			return;
 		}
 		stage_00_exit_timer++;
@@ -2671,15 +2553,13 @@ void update_stage_00_exit_scene(uint32_t dest, uint32_t *p_speed_value, uint32_t
 		nbg0_scroll_x_int = layer_scroll_x;
 		nbg0_scroll_x_int &= 0x3FFu;
 		nbg0_scroll_y_int &= 0x1FFu;
-		update_background_scroll(&ignored, &ignored, &ignored, p_speed_value, &ignored, &range, &ignored);
-		*p_script = range;
+		update_background_scroll(&ignored, &ignored, &ignored, p_speed_value, &ignored, p_script, &ignored);
 		return;
 	case 4:
 		if (stage_00_exit_timer >= 0xAF)
 		{
 			nbg0_pages = 0x3030303u;
 			stage_00_exit_step++;
-			*p_script = script;
 			return;
 		}
 		stage_00_exit_timer++;
@@ -2694,8 +2574,7 @@ void update_stage_00_exit_scene(uint32_t dest, uint32_t *p_speed_value, uint32_t
 		nbg0_scroll_x_int = layer_scroll_x;
 		nbg0_scroll_x_int &= 0x3FFu;
 		nbg0_scroll_y_int &= 0x1FFu;
-		update_background_scroll(&ignored, &ignored, &ignored, p_speed_value, &ignored, &range, &ignored);
-		*p_script = range;
+		update_background_scroll(&ignored, &ignored, &ignored, p_speed_value, &ignored, p_script, &ignored);
 		return;
 	case 5:
 		scroll_speed--;
@@ -2704,7 +2583,6 @@ void update_stage_00_exit_scene(uint32_t dest, uint32_t *p_speed_value, uint32_t
 		if (stage_00_exit_timer >= 0xD2)
 		{
 			stage_00_exit_step++;
-			*p_script = script;
 			return;
 		}
 		stage_00_exit_timer++;
@@ -2719,8 +2597,7 @@ void update_stage_00_exit_scene(uint32_t dest, uint32_t *p_speed_value, uint32_t
 		nbg0_scroll_x_int = layer_scroll_x;
 		nbg0_scroll_x_int &= 0x3FFu;
 		nbg0_scroll_y_int &= 0x1FFu;
-		update_background_scroll(&ignored, &ignored, &ignored, p_speed_value, &ignored, &range, &ignored);
-		*p_script = range;
+		update_background_scroll(&ignored, &ignored, &ignored, p_speed_value, &ignored, p_script, &ignored);
 		return;
 	case 6:
 		clamp_colour_offsets();
@@ -2739,8 +2616,7 @@ void update_stage_00_exit_scene(uint32_t dest, uint32_t *p_speed_value, uint32_t
 			nbg0_scroll_x_int = layer_scroll_x;
 			nbg0_scroll_x_int &= 0x3FFu;
 			nbg0_scroll_y_int &= 0x1FFu;
-			update_background_scroll(&ignored, &ignored, &ignored, p_speed_value, &ignored, &range, &ignored);
-			*p_script = range;
+			update_background_scroll(&ignored, &ignored, &ignored, p_speed_value, &ignored, p_script, &ignored);
 			return;
 		}
 		stage_00_exit_delay = 0u;
@@ -2764,8 +2640,7 @@ void update_stage_00_exit_scene(uint32_t dest, uint32_t *p_speed_value, uint32_t
 			nbg0_scroll_x_int = layer_scroll_x;
 			nbg0_scroll_x_int &= 0x3FFu;
 			nbg0_scroll_y_int &= 0x1FFu;
-			update_background_scroll(&ignored, &ignored, &ignored, p_speed_value, &ignored, &range, &ignored);
-			*p_script = range;
+			update_background_scroll(&ignored, &ignored, &ignored, p_speed_value, &ignored, p_script, &ignored);
 			return;
 		}
 		nbg0_scroll_y_int = 0x58u;
@@ -2779,13 +2654,11 @@ void update_stage_00_exit_scene(uint32_t dest, uint32_t *p_speed_value, uint32_t
 		mem_write32(video_layer_disable, mem_read32(video_layer_disable) | 1u);
 		mem_write32(video_layer_disable, mem_read32(video_layer_disable) | 2u);
 		stage_00_exit_step++;
-		*p_script = script;
 		return;
 	case 7:
 		nbg0_pages = 0x6060505u;
 		video_layer_opaque_shadow = 0xBu;
 		stage_00_exit_step++;
-		*p_script = script;
 		return;
 	case 8:
 		mem_write32(video_layer_disable, mem_read32(video_layer_disable) & ~1u);
@@ -2798,18 +2671,17 @@ void update_stage_00_exit_scene(uint32_t dest, uint32_t *p_speed_value, uint32_t
 		mem_write16(nbg0_zoom_y, 0x100u);
 		mem_write16(nbg1_zoom_x, 0x100u);
 		mem_write16(nbg1_zoom_y, 0x100u);
-		script = stage_00_exit_zoom_page_0_script_ADDRESS;
-		run_vram_script(&ignored, &script, &dest);
-		script = stage_00_exit_zoom_page_1_script_ADDRESS;
-		run_vram_script(&ignored, &script, &dest);
-		script = stage_00_exit_zoom_page_2_script_ADDRESS;
-		run_vram_script(&ignored, &script, &dest);
+		*p_script = stage_00_exit_zoom_page_0_script_ADDRESS;
+		run_vram_script(&ignored, p_script, &dest);
+		*p_script = stage_00_exit_zoom_page_1_script_ADDRESS;
+		run_vram_script(&ignored, p_script, &dest);
+		*p_script = stage_00_exit_zoom_page_2_script_ADDRESS;
+		run_vram_script(&ignored, p_script, &dest);
 		mem_write16(backdrop_color, 0x1356u);
 		nbg0_pages = 0x2020200u;
 		nbg1_pages = 0x2020201u;
 		stage_00_exit_step++;
 		stage_00_exit_zoom = 0x200u;
-		*p_script = script;
 		return;
 	case 9:
 		stage_00_exit_zoom--;
@@ -2822,8 +2694,7 @@ void update_stage_00_exit_scene(uint32_t dest, uint32_t *p_speed_value, uint32_t
 		stage_00_exit_delay++;
 		if (stage_00_exit_delay != 3u)
 		{
-			update_background_scroll(&ignored, &ignored, &ignored, p_speed_value, &ignored, &range, &ignored);
-			*p_script = range;
+			update_background_scroll(&ignored, &ignored, &ignored, p_speed_value, &ignored, p_script, &ignored);
 			return;
 		}
 		stage_00_exit_delay = 0u;
@@ -2832,15 +2703,13 @@ void update_stage_00_exit_scene(uint32_t dest, uint32_t *p_speed_value, uint32_t
 		color_offset_green--;
 		if (color_offset_red != 0u)
 		{
-			update_background_scroll(&ignored, &ignored, &ignored, p_speed_value, &ignored, &range, &ignored);
-			*p_script = range;
+			update_background_scroll(&ignored, &ignored, &ignored, p_speed_value, &ignored, p_script, &ignored);
 			return;
 		}
 		stage_00_exit_step++;
-		*p_script = script;
 		return;
 	case 10:
-		update_background_scroll(&ignored, &ignored, &ignored, p_speed_value, &ignored, &range, &ignored);
+		update_background_scroll(&ignored, &ignored, &ignored, p_speed_value, &ignored, p_script, &ignored);
 		if ((int16_t)stage_00_exit_zoom < 0x42)
 			stage_00_exit_zoom = 0x42u;
 		stage_00_exit_zoom--;
@@ -2849,7 +2718,6 @@ void update_stage_00_exit_scene(uint32_t dest, uint32_t *p_speed_value, uint32_t
 		mem_write16(nbg0_zoom_y, layer_zoom);
 		mem_write16(nbg1_zoom_x, layer_zoom);
 		mem_write16(nbg1_zoom_y, layer_zoom);
-		*p_script = range;
 		return;
 	default:
 		invalid_jump(0x17160u + stage_00_exit_step * 3u);

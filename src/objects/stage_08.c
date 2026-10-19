@@ -3,7 +3,7 @@
  *    Description: stage 8's objects, the lava: the treadmill that raises a gate, the flame jets, the rock wall, the collapsing log bridge, the burning boulders and embers, the carriers and the seesaw, the metal platform and the fire wall, the fire trenches, the lava flow under the hanging bridge, the rock slabs and the lava columns
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    17-10-2026
+ *    Modified:    19-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -3362,12 +3362,11 @@ void lava_column_become_bubble(void)
 void spawn_group_slot_trigger(uint32_t record, uint32_t *p_spawned, uint32_t *p_count, uint32_t *p_trigger)
 {
 	uint32_t count = *p_count;
-	uint32_t fill_word = 0, free_count = 0, slot_cursor = 0, spawned = 0;
+	uint32_t fill_word = 0, slot_cursor = 0;
 
-	allocate_object_outside_loop(&free_count, p_trigger);
-	if (free_count == 0u)
+	allocate_object_outside_loop(p_spawned, p_trigger);
+	if (*p_spawned == 0u)
 	{
-		*p_spawned = free_count;
 		return;
 	}
 	OBJECT(*p_trigger)->group_slot_trigger.next_trigger = LEADER_SPAWN(record)->path + group_slot_triggers_ADDRESS;
@@ -3382,8 +3381,7 @@ void spawn_group_slot_trigger(uint32_t record, uint32_t *p_spawned, uint32_t *p_
 		slot_cursor += 4u;
 		count--;
 	} while (count != 0u);
-	spawned = 0xFFFFFFFFu;
-	*p_spawned = spawned;
+	*p_spawned = 0xFFFFFFFFu;
 	*p_count = count;
 }
 

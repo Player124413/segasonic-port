@@ -3,7 +3,7 @@
  *    Description: coins and credits: the coin inputs and counters, the credits and start prompts drawn outside a game
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    17-10-2026
+ *    Modified:    19-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -353,7 +353,7 @@ void copy_credit_counts(uint32_t dest, uint32_t credit_block)
    prompt (blink_start_prompt). */
 void draw_attract_credits(uint32_t *p_credits, uint32_t *p_blink_bit, uint32_t *p_message_text, uint32_t *p_text_position)
 {
-	uint32_t credit_block = 0, ignored = 0, message_text = 0, prompt_texts = 0, text = 0, text_position = 0;
+	uint32_t credit_block = 0, ignored = 0, prompt_texts = 0, text_position = 0;
 
 	switch (cabinet_config)
 	{
@@ -362,17 +362,15 @@ void draw_attract_credits(uint32_t *p_credits, uint32_t *p_blink_bit, uint32_t *
 	case 4:
 		credit_block = p1_coins_ADDRESS;
 		text_position = 0x310000u | common_credit_position;
-		draw_credit_count(credit_block, p_credits, p_blink_bit, &text, &text_position);
+		draw_credit_count(credit_block, p_credits, p_blink_bit, p_message_text, &text_position);
 		*p_credits = blink_demo_prompt(*p_credits, credit_block);
 		if (credits_per_start != 2u || free_play != 0u)
 		{
-			*p_message_text = text;
 			*p_text_position = text_position;
 			return;
 		}
-		message_text = two_credits_one_play_text_ADDRESS;
-		print_text(&message_text, &text_position);
-		*p_message_text = message_text;
+		*p_message_text = two_credits_one_play_text_ADDRESS;
+		print_text(p_message_text, &text_position);
 		*p_text_position = text_position;
 		return;
 	case 2:
@@ -384,17 +382,16 @@ void draw_attract_credits(uint32_t *p_credits, uint32_t *p_blink_bit, uint32_t *
 		blink_start_prompt(credit_block, prompt_texts, p_blink_bit, &ignored, &text_position);
 		credit_block = p1_coins_ADDRESS;
 		text_position = 0x310000u | credit_positions_3p[0];
-		draw_credit_count(credit_block, p_credits, p_blink_bit, &text, &text_position);
+		draw_credit_count(credit_block, p_credits, p_blink_bit, p_message_text, &text_position);
 		text_position = 0x310000u | start_prompt_positions_3p[0];
 		prompt_texts = start_prompt_texts_ADDRESS;
-		blink_start_prompt(credit_block, prompt_texts, p_blink_bit, &text, &text_position);
-		*p_message_text = text;
+		blink_start_prompt(credit_block, prompt_texts, p_blink_bit, p_message_text, &text_position);
 		*p_text_position = text_position;
 		return;
 	case 3:
 		credit_block = p3_coins_ADDRESS;
 		text_position = 0x310000u | credit_position_p3;
-		draw_credit_count(credit_block, p_credits, p_blink_bit, &text, &text_position);
+		draw_credit_count(credit_block, p_credits, p_blink_bit, p_message_text, &text_position);
 		text_position = 0x310000u | start_prompt_position_p3;
 		prompt_texts = start_prompt_texts_ADDRESS;
 		blink_start_prompt(credit_block, prompt_texts, p_blink_bit, &ignored, &text_position);
@@ -406,11 +403,10 @@ void draw_attract_credits(uint32_t *p_credits, uint32_t *p_blink_bit, uint32_t *
 		blink_start_prompt(credit_block, prompt_texts, p_blink_bit, &ignored, &text_position);
 		credit_block = p1_coins_ADDRESS;
 		text_position = 0x310000u | credit_positions_3p[0];
-		draw_credit_count(credit_block, p_credits, p_blink_bit, &text, &text_position);
+		draw_credit_count(credit_block, p_credits, p_blink_bit, p_message_text, &text_position);
 		text_position = 0x310000u | start_prompt_positions_3p[0];
 		prompt_texts = start_prompt_texts_ADDRESS;
-		blink_start_prompt(credit_block, prompt_texts, p_blink_bit, &text, &text_position);
-		*p_message_text = text;
+		blink_start_prompt(credit_block, prompt_texts, p_blink_bit, p_message_text, &text_position);
 		*p_text_position = text_position;
 		return;
 	default:
@@ -571,15 +567,15 @@ void erase_start_prompt(uint32_t text_position, uint32_t prompt_texts)
    set. */
 void draw_credit_count(uint32_t credit_block, uint32_t *p_credits, uint32_t *p_coins_per_credit, uint32_t *p_text, uint32_t *p_text_position)
 {
-	uint32_t compared_block = 0, drawn_bit = 0, text = 0;
+	uint32_t drawn_bit = 0;
 	uint32_t old_flags = 0;
 
 	drawn_bit = 0xFu;
-	compared_block = p1_coins_ADDRESS;
+	*p_text = p1_coins_ADDRESS;
 	if (credit_block != p1_coins_ADDRESS)
 	{
 		drawn_bit = 0x12u;
-		compared_block = p2_coins_ADDRESS;
+		*p_text = p2_coins_ADDRESS;
 		if (credit_block != p2_coins_ADDRESS)
 			drawn_bit = 0x13u;
 	}
@@ -587,11 +583,9 @@ void draw_credit_count(uint32_t credit_block, uint32_t *p_credits, uint32_t *p_c
 	stage_init_flags = old_flags | shl32(1u, (int)(drawn_bit));
 	if ((old_flags & shl32(1u, (int)(drawn_bit))) == 0u || CREDIT_BLOCK(credit_block)->changed != 0u)
 	{
-		draw_credit_count_now(credit_block, p_credits, p_coins_per_credit, &text, p_text_position);
-		*p_text = text;
+		draw_credit_count_now(credit_block, p_credits, p_coins_per_credit, p_text, p_text_position);
 		return;
 	}
-	*p_text = compared_block;
 }
 
 /* Draws credit_block's count at text_position (kept in credit_text_position): "Free play" with

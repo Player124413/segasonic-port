@@ -3,7 +3,7 @@
  *    Description: shapes on the bitmap layer, mostly unused: triangles, quadrilaterals, circles, flood fill, saved rectangles, and the clipping the lines and rectangles use
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    17-10-2026
+ *    Modified:    19-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -1361,7 +1361,7 @@ void flood_fill_span_scan_right(uint8_t border_color, uint32_t window_right, uin
 {
 	uint32_t right_x = *p_right_x;
 	uint8_t pixel_count = 0, pixels = 0;
-	uint32_t right_address = 0, right_cursor = 0, scan_count = 0;
+	uint32_t scan_count = 0;
 	uint16_t right_limit = 0;
 
 	scan_count = window_right;
@@ -1369,27 +1369,24 @@ void flood_fill_span_scan_right(uint8_t border_color, uint32_t window_right, uin
 	scan_count = (scan_count & ~0xFFFFu) | (uint16_t)(right_limit - right_x);
 	if ((int16_t)right_limit <= (int16_t)right_x)
 	{
-		right_address = flood_fill_span_fill_run(left_x, fill_pattern, right_x);
-		*p_right_address = right_address;
+		*p_right_address = flood_fill_span_fill_run(left_x, fill_pattern, right_x);
 		*p_right_x = (*p_right_x & 0xFFFF0000u) | (right_x & 0xFFFFu);
 		return;
 	}
-	right_cursor = seed_address + 1u;
+	*p_right_address = seed_address + 1u;
 	pixel_count = (uint8_t)scan_count;
 	scan_count = (scan_count & ~0xFFFFu) | ((uint16_t)scan_count >> 1);
-	if ((right_cursor & 1u) == 0u)
+	if ((*p_right_address & 1u) == 0u)
 	{
-		flood_fill_span_right_pair(scan_count, pixel_count, border_color, left_x, fill_pattern, (uint16_t)seed_address, &right_cursor, &right_x);
-		*p_right_address = right_cursor;
+		flood_fill_span_right_pair(scan_count, pixel_count, border_color, left_x, fill_pattern, (uint16_t)seed_address, p_right_address, &right_x);
 		*p_right_x = (*p_right_x & 0xFFFF0000u) | (right_x & 0xFFFFu);
 		return;
 	}
 	pixel_count--;
 	scan_count = (scan_count & ~0xFFFFu) | (uint16_t)(scan_count + 1u);
-	pixels = mem_read8(right_cursor);
-	right_cursor++;
-	flood_fill_span_right_pixel(pixels, scan_count, pixel_count, border_color, left_x, fill_pattern, (uint16_t)seed_address, &right_cursor, &right_x);
-	*p_right_address = right_cursor;
+	pixels = mem_read8(*p_right_address);
+	(*p_right_address)++;
+	flood_fill_span_right_pixel(pixels, scan_count, pixel_count, border_color, left_x, fill_pattern, (uint16_t)seed_address, p_right_address, &right_x);
 	*p_right_x = (*p_right_x & 0xFFFF0000u) | (right_x & 0xFFFFu);
 }
 
@@ -2238,22 +2235,18 @@ void draw_saved_bitmap_rect(uint32_t buffer)
    is outside bitmap_window (get_point_outcode: 1 left, 2 right, 4 above, 8 below). */
 void get_window_outcode(uint32_t *p_start_x, uint32_t *p_start_y, uint32_t *p_end_x, uint32_t *p_end_y, uint32_t *p_outcode)
 {
-	uint32_t start_x = *p_start_x;
-	uint32_t start_y = *p_start_y;
 	uint16_t end_x = (uint16_t)*p_end_x;
 	uint16_t end_y = (uint16_t)*p_end_y;
-	uint32_t old_start_x = 0, old_start_y = 0, point_x = 0, point_y = 0;
+	uint32_t old_start_x = 0, old_start_y = 0;
 	uint32_t old_end_x = 0, old_end_y = 0;
 
 	old_end_x = end_x;
-	old_start_x = start_x;
-	point_x = old_end_x;
+	old_start_x = *p_start_x;
+	*p_start_x = old_end_x;
 	old_end_y = end_y;
-	old_start_y = start_y;
-	point_y = old_end_y;
-	get_point_outcode(&point_x, &point_y, p_outcode);
-	*p_start_x = point_x;
-	*p_start_y = point_y;
+	old_start_y = *p_start_y;
+	*p_start_y = old_end_y;
+	get_point_outcode(p_start_x, p_start_y, p_outcode);
 	*p_end_x = old_start_x;
 	*p_end_y = old_start_y;
 }
@@ -2295,11 +2288,6 @@ void get_point_outcode(uint32_t *p_point_x, uint32_t *p_point_y, uint32_t *p_out
    line comes back with its ends swapped; unclipped_y gets the last moved end's y from before the move. */
 void clip_line_to_window(uint32_t outcode, uint32_t end_outcode, uint32_t *p_start_x, uint32_t *p_start_y, uint32_t *p_end_x, uint32_t *p_end_y, uint32_t *p_unclipped_y)
 {
-	uint32_t start_x = *p_start_x;
-	uint32_t start_y = *p_start_y;
-	uint32_t end_x = *p_end_x;
-	uint32_t end_y = *p_end_y;
-	uint32_t swapped_end_x = 0, swapped_end_y = 0, swapped_start_x = 0, swapped_start_y = 0;
 	uint32_t old_start_x = 0, old_start_y = 0;
 
 	switch (outcode)
@@ -2308,34 +2296,34 @@ void clip_line_to_window(uint32_t outcode, uint32_t end_outcode, uint32_t *p_sta
 		clip_line_end_inside();
 		break;
 	case 1:
-		clip_line_to_left_edge(end_x, end_y, &start_x, &start_y, p_unclipped_y);
+		clip_line_to_left_edge(*p_end_x, *p_end_y, p_start_x, p_start_y, p_unclipped_y);
 		break;
 	case 2:
-		clip_line_to_right_edge(end_x, end_y, &start_x, &start_y, p_unclipped_y);
+		clip_line_to_right_edge(*p_end_x, *p_end_y, p_start_x, p_start_y, p_unclipped_y);
 		break;
 	case 3:
 		clip_line_end_inside();
 		break;
 	case 4:
-		clip_line_to_top_edge(end_x, end_y, &start_x, &start_y, p_unclipped_y);
+		clip_line_to_top_edge(*p_end_x, *p_end_y, p_start_x, p_start_y, p_unclipped_y);
 		break;
 	case 5:
-		clip_line_to_top_edge(end_x, end_y, &start_x, &start_y, p_unclipped_y);
+		clip_line_to_top_edge(*p_end_x, *p_end_y, p_start_x, p_start_y, p_unclipped_y);
 		break;
 	case 6:
-		clip_line_to_top_edge(end_x, end_y, &start_x, &start_y, p_unclipped_y);
+		clip_line_to_top_edge(*p_end_x, *p_end_y, p_start_x, p_start_y, p_unclipped_y);
 		break;
 	case 7:
 		clip_line_end_inside();
 		break;
 	case 8:
-		clip_line_to_bottom_edge(end_x, end_y, &start_x, &start_y, p_unclipped_y);
+		clip_line_to_bottom_edge(*p_end_x, *p_end_y, p_start_x, p_start_y, p_unclipped_y);
 		break;
 	case 9:
-		clip_line_to_bottom_edge(end_x, end_y, &start_x, &start_y, p_unclipped_y);
+		clip_line_to_bottom_edge(*p_end_x, *p_end_y, p_start_x, p_start_y, p_unclipped_y);
 		break;
 	case 10:
-		clip_line_to_bottom_edge(end_x, end_y, &start_x, &start_y, p_unclipped_y);
+		clip_line_to_bottom_edge(*p_end_x, *p_end_y, p_start_x, p_start_y, p_unclipped_y);
 		break;
 	case 11:
 		clip_line_end_inside();
@@ -2343,97 +2331,49 @@ void clip_line_to_window(uint32_t outcode, uint32_t end_outcode, uint32_t *p_sta
 	default:
 		invalid_jump(0x9C3D2u + outcode * 3u);
 	}
-	old_start_x = start_x;
-	swapped_start_x = end_x;
-	swapped_end_x = old_start_x;
-	old_start_y = start_y;
-	swapped_start_y = end_y;
-	swapped_end_y = old_start_y;
+	old_start_x = *p_start_x;
+	*p_start_x = *p_end_x;
+	*p_end_x = old_start_x;
+	old_start_y = *p_start_y;
+	*p_start_y = *p_end_y;
+	*p_end_y = old_start_y;
 	switch (end_outcode)
 	{
 	case 0:
 		clip_line_end_inside();
-		*p_start_x = swapped_start_x;
-		*p_start_y = swapped_start_y;
-		*p_end_x = swapped_end_x;
-		*p_end_y = swapped_end_y;
 		return;
 	case 1:
-		clip_line_to_left_edge(swapped_end_x, swapped_end_y, &swapped_start_x, &swapped_start_y, p_unclipped_y);
-		*p_start_x = swapped_start_x;
-		*p_start_y = swapped_start_y;
-		*p_end_x = swapped_end_x;
-		*p_end_y = swapped_end_y;
+		clip_line_to_left_edge(*p_end_x, *p_end_y, p_start_x, p_start_y, p_unclipped_y);
 		return;
 	case 2:
-		clip_line_to_right_edge(swapped_end_x, swapped_end_y, &swapped_start_x, &swapped_start_y, p_unclipped_y);
-		*p_start_x = swapped_start_x;
-		*p_start_y = swapped_start_y;
-		*p_end_x = swapped_end_x;
-		*p_end_y = swapped_end_y;
+		clip_line_to_right_edge(*p_end_x, *p_end_y, p_start_x, p_start_y, p_unclipped_y);
 		return;
 	case 3:
 		clip_line_end_inside();
-		*p_start_x = swapped_start_x;
-		*p_start_y = swapped_start_y;
-		*p_end_x = swapped_end_x;
-		*p_end_y = swapped_end_y;
 		return;
 	case 4:
-		clip_line_to_top_edge(swapped_end_x, swapped_end_y, &swapped_start_x, &swapped_start_y, p_unclipped_y);
-		*p_start_x = swapped_start_x;
-		*p_start_y = swapped_start_y;
-		*p_end_x = swapped_end_x;
-		*p_end_y = swapped_end_y;
+		clip_line_to_top_edge(*p_end_x, *p_end_y, p_start_x, p_start_y, p_unclipped_y);
 		return;
 	case 5:
-		clip_line_to_top_edge(swapped_end_x, swapped_end_y, &swapped_start_x, &swapped_start_y, p_unclipped_y);
-		*p_start_x = swapped_start_x;
-		*p_start_y = swapped_start_y;
-		*p_end_x = swapped_end_x;
-		*p_end_y = swapped_end_y;
+		clip_line_to_top_edge(*p_end_x, *p_end_y, p_start_x, p_start_y, p_unclipped_y);
 		return;
 	case 6:
-		clip_line_to_top_edge(swapped_end_x, swapped_end_y, &swapped_start_x, &swapped_start_y, p_unclipped_y);
-		*p_start_x = swapped_start_x;
-		*p_start_y = swapped_start_y;
-		*p_end_x = swapped_end_x;
-		*p_end_y = swapped_end_y;
+		clip_line_to_top_edge(*p_end_x, *p_end_y, p_start_x, p_start_y, p_unclipped_y);
 		return;
 	case 7:
 		clip_line_end_inside();
-		*p_start_x = swapped_start_x;
-		*p_start_y = swapped_start_y;
-		*p_end_x = swapped_end_x;
-		*p_end_y = swapped_end_y;
 		return;
 	case 8:
-		clip_line_to_bottom_edge(swapped_end_x, swapped_end_y, &swapped_start_x, &swapped_start_y, p_unclipped_y);
-		*p_start_x = swapped_start_x;
-		*p_start_y = swapped_start_y;
-		*p_end_x = swapped_end_x;
-		*p_end_y = swapped_end_y;
+		clip_line_to_bottom_edge(*p_end_x, *p_end_y, p_start_x, p_start_y, p_unclipped_y);
 		return;
 	case 9:
-		clip_line_to_bottom_edge(swapped_end_x, swapped_end_y, &swapped_start_x, &swapped_start_y, p_unclipped_y);
-		*p_start_x = swapped_start_x;
-		*p_start_y = swapped_start_y;
-		*p_end_x = swapped_end_x;
-		*p_end_y = swapped_end_y;
+		clip_line_to_bottom_edge(*p_end_x, *p_end_y, p_start_x, p_start_y, p_unclipped_y);
 		return;
 	case 10:
-		clip_line_to_bottom_edge(swapped_end_x, swapped_end_y, &swapped_start_x, &swapped_start_y, p_unclipped_y);
-		*p_start_x = swapped_start_x;
-		*p_start_y = swapped_start_y;
-		*p_end_x = swapped_end_x;
-		*p_end_y = swapped_end_y;
+		clip_line_to_bottom_edge(*p_end_x, *p_end_y, p_start_x, p_start_y, p_unclipped_y);
 		return;
 	case 11:
 		clip_line_end_inside();
-		*p_start_x = swapped_start_x;
-		*p_start_y = swapped_start_y;
-		*p_end_x = swapped_end_x;
-		*p_end_y = swapped_end_y;
 		return;
 	default:
 		invalid_jump(0x9C3D2u + end_outcode * 3u);
@@ -2468,17 +2408,15 @@ void clip_line_to_right_edge(uint32_t end_x, uint32_t end_y, uint32_t *p_start_x
    start_x), start_y kept when the line is vertical; unclipped_y gets start_y before the move. */
 void clip_line_at_x(uint32_t end_x, uint32_t end_y, uint32_t dx, uint32_t *p_start_x, uint32_t *p_start_y, uint32_t *p_unclipped_y)
 {
-	uint32_t start_y = *p_start_y;
 	uint32_t dy_scaled = 0, line_dx = 0;
 
 	line_dx = end_x - *p_start_x;
-	*p_unclipped_y = start_y;
+	*p_unclipped_y = *p_start_y;
 	dy_scaled = (end_y - *p_unclipped_y) * dx;
 	*p_start_x += dx;
 	if (line_dx != 0u)
 	{
-		start_y += divide_s32(dy_scaled, line_dx);
-		*p_start_y = start_y;
+		*p_start_y += divide_s32(dy_scaled, line_dx);
 		return;
 	}
 }
@@ -2505,17 +2443,15 @@ void clip_line_to_bottom_edge(uint32_t end_x, uint32_t end_y, uint32_t *p_start_
    start_y), start_x kept when the line is level; unclipped_y gets start_y before the move. */
 void clip_line_at_y(uint32_t end_x, uint32_t end_y, uint32_t dy, uint32_t *p_start_x, uint32_t *p_start_y, uint32_t *p_unclipped_y)
 {
-	uint32_t start_x = *p_start_x;
 	uint32_t dx_scaled = 0, line_dy = 0;
 
 	*p_unclipped_y = *p_start_y;
 	line_dy = end_y - *p_unclipped_y;
-	dx_scaled = (end_x - start_x) * dy;
+	dx_scaled = (end_x - *p_start_x) * dy;
 	*p_start_y += dy;
 	if (line_dy != 0u)
 	{
-		start_x += divide_s32(dx_scaled, line_dy);
-		*p_start_x = start_x;
+		*p_start_x += divide_s32(dx_scaled, line_dy);
 		return;
 	}
 }

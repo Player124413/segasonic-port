@@ -3,7 +3,7 @@
  *    Description: the object system: the object list and its two pools, allocating, linking and deleting objects, spawning them from the stage lists (by type, by handler, in groups led by a leader), and what the stage objects share
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    17-10-2026
+ *    Modified:    19-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -285,7 +285,6 @@ void delete_object_outside_loop(uint32_t object, uint32_t *p_free_count, uint32_
 void spawn_objects_by_handler(uint32_t *p_list_offset, uint32_t *p_record, uint32_t *p_object)
 {
 	uint32_t list_offset = *p_list_offset;
-	uint32_t object = *p_object;
 	uint32_t free_count = 0, record = 0;
 	uint32_t old_init_flags = 0;
 
@@ -308,32 +307,29 @@ void spawn_objects_by_handler(uint32_t *p_list_offset, uint32_t *p_record, uint3
 		handler_spawn_cursor += 0xCu;
 		*p_list_offset = list_offset;
 		*p_record = record;
-		*p_object = object;
 		return;
 	}
-	allocate_object_outside_loop(&free_count, &object);
+	allocate_object_outside_loop(&free_count, p_object);
 	if (free_count == 0u)
 	{
 		*p_list_offset = list_offset;
 		*p_record = record;
-		*p_object = object;
 		return;
 	}
 	record = handler_spawn_cursor + 2u;
-	OBJECT(object)->x_int = ROM16(record);
-	OBJECT(object)->x_fraction = 0u;
+	OBJECT(*p_object)->x_int = ROM16(record);
+	OBJECT(*p_object)->x_fraction = 0u;
 	record += 2u;
-	OBJECT(object)->y_int = ROM16(record);
-	OBJECT(object)->y_fraction = 0u;
+	OBJECT(*p_object)->y_int = ROM16(record);
+	OBJECT(*p_object)->y_fraction = 0u;
 	record += 2u;
-	OBJECT(object)->sprite_frame = ROM16(record);
+	OBJECT(*p_object)->sprite_frame = ROM16(record);
 	record += 2u;
-	OBJECT(object)->handler = ROM32(record);
+	OBJECT(*p_object)->handler = ROM32(record);
 	record += 4u;
 	handler_spawn_cursor += 0xCu;
 	*p_list_offset = list_offset;
 	*p_record = record;
-	*p_object = object;
 }
 
 /* electric_fence_state = 0 when a game starts (fence_post_init sets 1, flame_machine_remove 0xFF;
@@ -364,21 +360,15 @@ void start_spawns_by_type(void)
 void spawn_objects_by_type(uint32_t *p_player_object, uint32_t *p_player_index, uint32_t *p_first, uint32_t *p_projected_x, uint32_t *p_projected_y, uint32_t *p_object_type, uint32_t *p_object)
 {
 	uint32_t player_object = *p_player_object;
-	uint32_t first = *p_first;
-	uint32_t projected_x = *p_projected_x;
 	uint32_t projected_y = *p_projected_y;
-	uint32_t object_type = *p_object_type;
 	uint16_t spawn_z = 0;
-	uint32_t r0 = 0, ignored = 0, record = 0, slope_height = 0, trigger_scroll = 0;
+	uint32_t r0 = 0, ignored = 0, record = 0, trigger_scroll = 0;
 
 	if (type_spawn_stage != stage)
 	{
 		start_spawns_by_type();
 		*p_player_object = player_object;
-		*p_first = first;
-		*p_projected_x = projected_x;
 		*p_projected_y = projected_y;
-		*p_object_type = object_type;
 		return;
 	}
 	record = type_spawn_cursor[0];
@@ -391,7 +381,7 @@ void spawn_objects_by_type(uint32_t *p_player_object, uint32_t *p_player_index, 
 		*p_player_object = player_object;
 		return;
 	}
-	projected_x = ROM16(record);
+	*p_projected_x = ROM16(record);
 	record += 2u;
 	projected_y = (int16_t)ROM16(record);
 	record += 2u;
@@ -399,49 +389,40 @@ void spawn_objects_by_type(uint32_t *p_player_object, uint32_t *p_player_index, 
 	record += 2u;
 	if ((int32_t)trigger_scroll <= (int32_t)r0)
 	{
-		object_type = 0x100000u + ROM16(record) * 8u;
-		spawn_count = ROM32(object_type);
+		*p_object_type = 0x100000u + ROM16(record) * 8u;
+		spawn_count = ROM32(*p_object_type);
 		record += 2u;
-		object_type += 4u;
-		spawn_object_with_pieces(0x08DCB1u, &r0, &ignored, p_player_index, &first, p_object);
+		*p_object_type += 4u;
+		spawn_object_with_pieces(0x08DCB1u, &r0, &ignored, p_player_index, p_first, p_object);
 		if ((uint8_t)r0 == 0u)
 		{
 			type_spawn_cursor[0] += 0xEu;
 			count_active_players(&player_object, p_player_index);
 			*p_player_object = player_object;
-			*p_first = first;
-			*p_projected_x = projected_x;
 			*p_projected_y = projected_y;
-			*p_object_type = object_type;
 			return;
 		}
-		current_object = first;
+		current_object = *p_first;
 		projected_y = projected_y << 16;
-		OBJECT(current_object)->projected_x = projected_x;
+		OBJECT(current_object)->projected_x = *p_projected_x;
 		OBJECT(current_object)->projected_y = projected_y;
 		OBJECT(current_object)->z = (uint32_t)spawn_z << 16;
 		OBJECT(current_object)->flags = 0u;
-		OBJECT(current_object)->handler = ROM32(object_type);
+		OBJECT(current_object)->handler = ROM32(*p_object_type);
 		OBJECT(current_object)->spawn_arg_1 = ROM16(record);
 		record += 2u;
 		OBJECT(current_object)->spawn_arg_2 = ROM16(record);
 		type_spawn_cursor[0] = record + 2u;
-		unproject_object(&ignored, &ignored, &slope_height, p_object);
+		unproject_object(&ignored, &ignored, p_first, p_object);
 		count_active_players(&player_object, p_player_index);
 		*p_player_object = player_object;
-		*p_first = slope_height;
-		*p_projected_x = projected_x;
 		*p_projected_y = projected_y;
-		*p_object_type = object_type;
 		return;
 	}
 	type_spawn_cursor[0] += 0xEu;
 	count_active_players(&player_object, p_player_index);
 	*p_player_object = player_object;
-	*p_first = first;
-	*p_projected_x = projected_x;
 	*p_projected_y = projected_y;
-	*p_object_type = object_type;
 }
 
 /* active_player_count = how many of the three players' objects (player_block_offsets) lack flag 0x400
@@ -473,10 +454,8 @@ void spawn_object_with_pieces(uint32_t return_address, uint32_t *p_spawned, uint
 {
 	uint32_t spawned = *p_spawned;
 	uint16_t piece_count = (uint16_t)*p_piece_count;
-	uint32_t free_count = *p_free_count;
-	uint32_t first = *p_first;
 	uint32_t block = *p_block;
-	uint32_t free_stack = 0, ignored = 0, pieces_to_add = 0, pool_2_free = 0;
+	uint32_t ignored = 0, pieces_to_add = 0, pool_2_free = 0;
 	uint16_t spawn_total = 0, free_blocks = 0;
 
 	if ((int16_t)spawn_count <= 0)
@@ -488,12 +467,11 @@ void spawn_object_with_pieces(uint32_t return_address, uint32_t *p_spawned, uint
 	first_object = first_object_address;
 	last_object = last_object_address;
 	spawned &= ~0xFFu;
-	free_count = LINKED(free_count, free_object_stack);
-	if (free_count == 0u)
+	*p_free_count = LINKED(*p_free_count, free_object_stack);
+	if (*p_free_count == 0u)
 	{
 		current_object = object_cursor;
 		*p_spawned = spawned;
-		*p_free_count = free_count;
 		return;
 	}
 	piece_count = (uint16_t)(spawn_count - 1u);
@@ -504,7 +482,7 @@ void spawn_object_with_pieces(uint32_t return_address, uint32_t *p_spawned, uint
 		OBJECT(block)->next_handler = return_address;
 		OBJECT(block)->parent = object_cursor;
 		OBJECT(block)->child = 0xFFFFu;
-		first = block;
+		*p_first = block;
 		spawned = 1u;
 		spawn_total = spawn_count;
 		pieces_to_add = (uint16_t)(spawn_total - 1u);
@@ -513,28 +491,23 @@ void spawn_object_with_pieces(uint32_t return_address, uint32_t *p_spawned, uint
 			current_object = object_cursor;
 			*p_spawned = spawned;
 			*p_piece_count = (*p_piece_count & 0xFFFF0000u) | (pieces_to_add & 0xFFFFu);
-			*p_free_count = free_count;
-			*p_first = first;
 			*p_block = block;
 			return;
 		}
-		add_object_pieces(&spawned, &pieces_to_add, &free_stack, &first, &block);
+		add_object_pieces(&spawned, &pieces_to_add, p_free_count, p_first, &block);
 		*p_spawned = spawned;
 		*p_piece_count = (*p_piece_count & 0xFFFF0000u) | (pieces_to_add & 0xFFFFu);
-		*p_free_count = free_stack;
-		*p_first = first;
 		*p_block = block;
 		return;
 	}
 	pool_2_free = LINKED(WORK_RAM, free_object_stack_2[0]);
 	free_blocks = pool_2_free;
-	free_count = (pool_2_free & ~0xFFFFu) | (uint16_t)(free_blocks - piece_count);
+	*p_free_count = (pool_2_free & ~0xFFFFu) | (uint16_t)(free_blocks - piece_count);
 	if (free_blocks < piece_count)
 	{
 		current_object = object_cursor;
 		*p_spawned = spawned;
 		*p_piece_count = (*p_piece_count & 0xFFFF0000u) | piece_count;
-		*p_free_count = free_count;
 		return;
 	}
 	allocate_object(&ignored, &block);
@@ -542,7 +515,7 @@ void spawn_object_with_pieces(uint32_t return_address, uint32_t *p_spawned, uint
 	OBJECT(block)->next_handler = return_address;
 	OBJECT(block)->parent = object_cursor;
 	OBJECT(block)->child = 0xFFFFu;
-	first = block;
+	*p_first = block;
 	spawned = 1u;
 	spawn_total = spawn_count;
 	pieces_to_add = (uint16_t)(spawn_total - 1u);
@@ -551,16 +524,12 @@ void spawn_object_with_pieces(uint32_t return_address, uint32_t *p_spawned, uint
 		current_object = object_cursor;
 		*p_spawned = spawned;
 		*p_piece_count = (*p_piece_count & 0xFFFF0000u) | (pieces_to_add & 0xFFFFu);
-		*p_free_count = free_count;
-		*p_first = first;
 		*p_block = block;
 		return;
 	}
-	add_object_pieces(&spawned, &pieces_to_add, &free_stack, &first, &block);
+	add_object_pieces(&spawned, &pieces_to_add, p_free_count, p_first, &block);
 	*p_spawned = spawned;
 	*p_piece_count = (*p_piece_count & 0xFFFF0000u) | (pieces_to_add & 0xFFFFu);
-	*p_free_count = free_stack;
-	*p_first = first;
 	*p_block = block;
 }
 
@@ -585,9 +554,8 @@ void add_pieces_to_current_object(uint32_t *p_spawned, uint32_t *p_free_count, u
 void add_object_pieces(uint32_t *p_spawned, uint32_t *p_piece_count, uint32_t *p_free_count, uint32_t *p_first, uint32_t *p_block)
 {
 	uint16_t piece_count = (uint16_t)*p_piece_count;
-	uint32_t first = *p_first;
 	uint32_t block = *p_block;
-	uint32_t free_count = 0, free_stack = 0, ignored = 0, object = 0, pool_2_free = 0;
+	uint32_t ignored = 0, object = 0, pool_2_free = 0;
 	uint16_t free_blocks = 0;
 
 	spawn_first = block;
@@ -596,18 +564,17 @@ void add_object_pieces(uint32_t *p_spawned, uint32_t *p_piece_count, uint32_t *p
 	piece_count = (uint16_t)piece_count;
 	pool_2_free = LINKED(WORK_RAM, free_object_stack_2[0]);
 	free_blocks = pool_2_free;
-	free_count = (pool_2_free & ~0xFFFFu) | (uint16_t)(free_blocks - piece_count);
+	*p_free_count = (pool_2_free & ~0xFFFFu) | (uint16_t)(free_blocks - piece_count);
 	if (free_blocks < piece_count)
 	{
 		current_object = object_cursor;
 		*p_piece_count = (*p_piece_count & 0xFFFF0000u) | piece_count;
-		*p_free_count = free_count;
 		return;
 	}
 	spawn_count = piece_count;
 	do
 	{
-		allocate_object_2(&ignored, &free_stack, &block);
+		allocate_object_2(&ignored, p_free_count, &block);
 		init_object_2(block);
 		object = spawn_last;
 		spawn_last_link = block;
@@ -616,12 +583,10 @@ void add_object_pieces(uint32_t *p_spawned, uint32_t *p_piece_count, uint32_t *p
 		OBJECT(block)->child = 0xFFFFu;
 		spawn_count--;
 	} while (spawn_count != 0u);
-	first = spawn_first;
+	*p_first = spawn_first;
 	*p_spawned = 1u;
 	current_object = object_cursor;
 	*p_piece_count = (*p_piece_count & 0xFFFF0000u) | piece_count;
-	*p_free_count = free_stack;
-	*p_first = first;
 	*p_block = block;
 }
 
@@ -630,7 +595,6 @@ void add_object_pieces(uint32_t *p_spawned, uint32_t *p_piece_count, uint32_t *p
    free_object_stack holds fewer than spawn_count (spawned 0). */
 void spawn_objects(uint32_t return_address, uint32_t *p_spawned, uint32_t *p_first, uint32_t *p_block)
 {
-	uint32_t spawned = *p_spawned;
 	uint32_t block = *p_block;
 	uint32_t ignored = 0;
 
@@ -643,12 +607,11 @@ void spawn_objects(uint32_t return_address, uint32_t *p_spawned, uint32_t *p_fir
 	free_objects = free_object_stack_ADDRESS;
 	first_object = first_object_address;
 	last_object = last_object_address;
-	spawned = 0u;
+	*p_spawned = 0u;
 	if ((uint16_t)free_object_stack < spawn_count)
 	{
 		*p_first = spawn_first;
 		current_object = object_cursor;
-		*p_spawned = spawned;
 		return;
 	}
 	allocate_object(&ignored, &block);
@@ -662,7 +625,7 @@ void spawn_objects(uint32_t return_address, uint32_t *p_spawned, uint32_t *p_fir
 	{
 		spawn_last = block;
 		spawn_count--;
-		spawned = 1u;
+		*p_spawned = 1u;
 		if (spawn_count == 0u)
 			break;
 		allocate_object(&ignored, &block);
@@ -674,7 +637,6 @@ void spawn_objects(uint32_t return_address, uint32_t *p_spawned, uint32_t *p_fir
 	}
 	*p_first = spawn_first;
 	current_object = object_cursor;
-	*p_spawned = spawned;
 	*p_block = block;
 }
 
@@ -1308,7 +1270,6 @@ void explosion_animate(void)
    never checks that a ring was made. */
 void drop_rings(uint32_t shadow, uint32_t *p_allocated, uint32_t *p_random_value, uint32_t *p_ring)
 {
-	uint32_t random_value = *p_random_value;
 	uint32_t ring = *p_ring;
 	uint32_t count = 0, ignored = 0, new_ring = 0, random_bits = 0;
 
@@ -1320,7 +1281,7 @@ void drop_rings(uint32_t shadow, uint32_t *p_allocated, uint32_t *p_random_value
 		if (released_rings_random != 0u)
 		{
 			next_random(&shadow, &ignored, &ignored);
-			random_value = shadow;
+			*p_random_value = shadow;
 		}
 		count = 1u;
 		scatter_rings_random(shadow, count, p_allocated, &ring);
@@ -1339,7 +1300,7 @@ void drop_rings(uint32_t shadow, uint32_t *p_allocated, uint32_t *p_random_value
 		r14 = (uint16_t)(r14 + 0x10u);
 		if (released_rings_random != 0u)
 		{
-			random_bits = random_value & 0x7Fu;
+			random_bits = *p_random_value & 0x7Fu;
 			OBJECT(new_ring)->speed += random_bits;
 			OBJECT(new_ring)->direction += (random_bits & 0x3Fu) * 2u;
 			OBJECT(new_ring)->direction -= 0x40u;
@@ -1362,7 +1323,6 @@ void drop_rings(uint32_t shadow, uint32_t *p_allocated, uint32_t *p_random_value
 		}
 		rings_to_release--;
 	} while ((int16_t)rings_to_release >= 1);
-	*p_random_value = random_value;
 	*p_ring = ring;
 }
 
@@ -1714,7 +1674,6 @@ void spawn_object_groups_no_depth_step(uint32_t record, uint32_t *p_list_offset,
 void spawn_object_groups_build_group(uint32_t record, uint32_t *p_list_offset, uint32_t *p_slope_z, uint32_t *p_count, uint32_t *p_object)
 {
 	uint16_t list_offset = (uint16_t)*p_list_offset;
-	uint32_t slope_z = *p_slope_z;
 	uint32_t count = *p_count;
 	uint32_t object = *p_object;
 	uint32_t floor_block_record = 0, free_count = 0, member_record = 0, slope_number = 0, slope_record = 0, slot_cursor = 0;
@@ -1724,7 +1683,6 @@ void spawn_object_groups_build_group(uint32_t record, uint32_t *p_list_offset, u
 	{
 		group_spawn_cursor += 0x18u;
 		*p_list_offset = (*p_list_offset & 0xFFFF0000u) | list_offset;
-		*p_slope_z = slope_z;
 		*p_count = count;
 		*p_object = object;
 		return;
@@ -1772,7 +1730,6 @@ void spawn_object_groups_build_group(uint32_t record, uint32_t *p_list_offset, u
 		if (free_count == 0u)
 		{
 			*p_list_offset = (*p_list_offset & 0xFFFF0000u) | list_offset;
-			*p_slope_z = slope_z;
 			*p_count = count;
 			*p_object = object;
 			return;
@@ -1830,11 +1787,11 @@ void spawn_object_groups_build_group(uint32_t record, uint32_t *p_list_offset, u
 			slope_number = FLOOR_BLOCK(floor_block_record)->slope;
 			slope_record = floor_slopes_ADDRESS + (uint16_t)(slope_number * 2u) * 4u;
 			if ((ROM32(slope_record) & 2u) == 0u)
-				slope_z = (uint32_t)OBJECT(object)->y - FLOOR_BLOCK(floor_block_record)->y_min;
+				*p_slope_z = (uint32_t)OBJECT(object)->y - FLOOR_BLOCK(floor_block_record)->y_min;
 			else
-				slope_z = (uint32_t)OBJECT(object)->x - FLOOR_BLOCK(floor_block_record)->x_min;
-			slope_z = ((int32_t)slope_z >> 16) * ROM32(slope_record + 2u);
-			OBJECT(object)->floor_z += slope_z;
+				*p_slope_z = (uint32_t)OBJECT(object)->x - FLOOR_BLOCK(floor_block_record)->x_min;
+			*p_slope_z = ((int32_t)*p_slope_z >> 16) * ROM32(slope_record + 2u);
+			OBJECT(object)->floor_z += *p_slope_z;
 		}
 		OBJECT(object)->z = OBJECT(object)->floor_z;
 		members_left = group_member_count;
@@ -1842,7 +1799,6 @@ void spawn_object_groups_build_group(uint32_t record, uint32_t *p_list_offset, u
 	} while ((int16_t)members_left > 1);
 	group_spawn_cursor += 0x18u;
 	*p_list_offset = (*p_list_offset & 0xFFFF0000u) | list_offset;
-	*p_slope_z = slope_z;
 	*p_count = count;
 	*p_object = object;
 }
@@ -2086,12 +2042,11 @@ void crumbling_floor_draw(void)
 void spawn_group_leader(uint32_t record, uint32_t *p_spawned, uint32_t *p_leader)
 {
 	uint32_t leader = *p_leader;
-	uint32_t free_count = 0, leader_index = 0, spawned = 0;
+	uint32_t leader_index = 0;
 
-	allocate_object_outside_loop(&free_count, &leader);
-	if (free_count == 0u)
+	allocate_object_outside_loop(p_spawned, &leader);
+	if (*p_spawned == 0u)
 	{
-		*p_spawned = free_count;
 		*p_leader = leader;
 		return;
 	}
@@ -2119,8 +2074,7 @@ void spawn_group_leader(uint32_t record, uint32_t *p_spawned, uint32_t *p_leader
 	OBJECT(leader)->group_leader_move.wait_timer = 1;
 	if (group_leaders_1_3_held != 0u || group_leader_0_held != 0u)
 		OBJECT(leader)->handler = group_leader_wait_ADDRESS;
-	spawned = 0xFFFFFFFFu;
-	*p_spawned = spawned;
+	*p_spawned = 0xFFFFFFFFu;
 	*p_leader = leader;
 }
 
@@ -2573,10 +2527,9 @@ void spawn_object_groups_2_pick_bridge(uint32_t record, uint32_t *p_list_offset,
    bridge_0/1_last_plank. Free objects are never checked. */
 void spawn_object_groups_2_build_group(uint32_t record, uint32_t plank_count_var, uint32_t *p_list_offset, uint32_t *p_count, uint32_t *p_object)
 {
-	uint32_t list_offset = *p_list_offset;
 	uint32_t count = *p_count;
 	uint32_t object = *p_object;
-	uint32_t floor_block_record = 0, floor_type_record = 0, ignored = 0, last_plank_var = 0, member_record = 0, odd_member_animation = 0, slot_cursor = 0;
+	uint32_t floor_block_record = 0, floor_type_record = 0, ignored = 0, last_plank_var = 0, member_record = 0, slot_cursor = 0;
 	uint8_t slot_taken = 0;
 	uint16_t members_left = 0;
 
@@ -2641,10 +2594,10 @@ void spawn_object_groups_2_build_group(uint32_t record, uint32_t plank_count_var
 		member_record += 4u;
 		OBJECT(object)->animation = STAGE_OBJECT_RECORD_2(member_record - 0xAu)->animation;
 		member_record += 4u;
-		odd_member_animation = STAGE_OBJECT_RECORD_2(member_record - 0xEu)->odd_member_animation;
+		*p_list_offset = STAGE_OBJECT_RECORD_2(member_record - 0xEu)->odd_member_animation;
 		member_record += 4u;
 		if ((group_member_number & 1u) != 0u)
-			OBJECT(object)->animation = odd_member_animation;
+			OBJECT(object)->animation = *p_list_offset;
 		OBJECT(object)->hitbox_size_x = STAGE_OBJECT_RECORD_2(member_record - 0x12u)->hitbox_size_x;
 		member_record += 2u;
 		OBJECT(object)->hitbox_size_y = STAGE_OBJECT_RECORD_2(member_record - 0x14u)->hitbox_size_y;
@@ -2682,7 +2635,6 @@ void spawn_object_groups_2_build_group(uint32_t record, uint32_t plank_count_var
 		last_plank_var = bridge_1_last_plank_ADDRESS;
 	mem_write16(last_plank_var, object);
 	group_spawn_cursor_2 += 0x18u;
-	*p_list_offset = odd_member_animation;
 	*p_count = count;
 	*p_object = object;
 }
@@ -2757,16 +2709,13 @@ void reset_object_list(void)
    free_count is how many were free (0: none, object left as it was). */
 void take_free_object(uint32_t *p_free_count, uint32_t *p_object)
 {
-	uint32_t object = *p_object;
-
 	*p_free_count = mem_read16(free_objects);
 	if (*p_free_count == 0u)
 	{
 		return;
 	}
-	object = 0x200000u | mem_read16(free_objects + *p_free_count * 2u);
+	*p_object = 0x200000u | mem_read16(free_objects + *p_free_count * 2u);
 	mem_write16(free_objects, mem_read16(free_objects) - 1u);
-	*p_object = object;
 }
 
 /* allocate_object, or when object_count is 0 pops a block and starts the list with it: first_object and
@@ -2793,17 +2742,14 @@ uint32_t allocate_object_or_start_list(uint32_t object)
    0x200000 | its entry. free_count is how many were free; 0 means none, and object is left as it was. */
 void allocate_object(uint32_t *p_free_count, uint32_t *p_object)
 {
-	uint32_t object = *p_object;
-
 	*p_free_count = mem_read16(free_objects);
 	if (*p_free_count == 0u)
 	{
 		return;
 	}
-	object = 0x200000u | mem_read16(free_objects + *p_free_count * 2u);
+	*p_object = 0x200000u | mem_read16(free_objects + *p_free_count * 2u);
 	mem_write16(free_objects, mem_read16(free_objects) - 1u);
-	link_object(object);
-	*p_object = object;
+	link_object(*p_object);
 }
 
 /* Links object at the end of the circular list, between last_object and first_object (previous and
@@ -2952,7 +2898,6 @@ void reset_object_pool_2_alt(void)
    it into the list; free_count is how many were free (0: none, object left as it was). */
 void allocate_object_2(uint32_t *p_free_count, uint32_t *p_free_stack, uint32_t *p_object)
 {
-	uint32_t object = *p_object;
 	uint32_t free_count = 0, free_stack = 0;
 
 	free_stack = free_object_stack_2_ADDRESS;
@@ -2963,11 +2908,10 @@ void allocate_object_2(uint32_t *p_free_count, uint32_t *p_free_stack, uint32_t 
 		*p_free_stack = free_stack;
 		return;
 	}
-	object = 0x200000u | (uint16_t)free_object_stack_2[free_count];
+	*p_object = 0x200000u | (uint16_t)free_object_stack_2[free_count];
 	free_object_stack_2[0]--;
 	*p_free_count = free_count;
 	*p_free_stack = free_stack;
-	*p_object = object;
 }
 
 /* Pushes object back on free_object_stack_2 (pool 2 blocks are never linked into the list). */

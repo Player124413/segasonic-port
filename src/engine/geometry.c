@@ -3,7 +3,7 @@
  *    Description: between the map and the screen: projecting objects, the floor under a point, unprojecting a screen point; square roots, angles and BCD
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    17-10-2026
+ *    Modified:    19-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -414,10 +414,9 @@ void find_floor_no_block(uint32_t *p_x, uint32_t *p_slope_height, uint32_t *p_cu
    >> 4. */
 void find_floor_set_floor_z(uint32_t block, uint32_t *p_x, uint32_t *p_slope_height, uint32_t *p_cursor)
 {
-	uint32_t x = *p_x;
 	uint32_t cursor = *p_cursor;
 	uint32_t carry = 0;
-	uint32_t slope_factor = 0, slope_height = 0, slope_index = 0;
+	uint32_t slope_height = 0, slope_index = 0;
 
 	OBJECT(current_object)->floor_z_int = FLOOR_BLOCK(block)->height;
 	OBJECT(current_object)->floor_z_fraction = 0u;
@@ -435,15 +434,14 @@ void find_floor_set_floor_z(uint32_t block, uint32_t *p_x, uint32_t *p_slope_hei
 	else
 		slope_height = (uint32_t)OBJECT(current_object)->x - FLOOR_BLOCK(block)->x_min;
 	cursor += 2u;
-	slope_factor = ROM32(cursor);
+	*p_x = ROM32(cursor);
 	carry = (slope_height >> 11) & 1u;
 	slope_height = (int32_t)slope_height >> 12;
 	cursor += 4u;
 	if (carry)
 		slope_height++;
-	slope_height = (int32_t)(slope_height * slope_factor) >> 4;
+	slope_height = (int32_t)(slope_height * *p_x) >> 4;
 	OBJECT(current_object)->floor_z += slope_height;
-	*p_x = slope_factor;
 	*p_slope_height = slope_height;
 	*p_cursor = cursor;
 }
@@ -453,7 +451,6 @@ void find_floor_set_floor_z(uint32_t block, uint32_t *p_x, uint32_t *p_slope_hei
    16 times the floor_slopes factor. With no block nearby floor_z is left alone. */
 void get_floor_z_at_point(uint32_t x, uint32_t y, uint32_t *p_floor_z, uint32_t *p_block)
 {
-	uint32_t floor_z = *p_floor_z;
 	uint32_t block = 0, block_offset = 0, blocks_left = 0, bounds = 0, cursor = 0, slope = 0, slope_distance = 0, slope_record = 0, test_x = 0, test_y = 0;
 	uint32_t x_min = 0, x_max = 0, y_min = 0;
 
@@ -496,10 +493,9 @@ void get_floor_z_at_point(uint32_t x, uint32_t y, uint32_t *p_floor_z, uint32_t 
 			break;
 		}
 	}
-	floor_z = (uint32_t)(uint16_t)FLOOR_BLOCK(block)->height << 16;
+	*p_floor_z = (uint32_t)(uint16_t)FLOOR_BLOCK(block)->height << 16;
 	if (FLOOR_BLOCK(block)->slope == 0u)
 	{
-		*p_floor_z = floor_z;
 		*p_block = block;
 		return;
 	}
@@ -509,8 +505,7 @@ void get_floor_z_at_point(uint32_t x, uint32_t y, uint32_t *p_floor_z, uint32_t 
 		slope_distance = y - FLOOR_BLOCK(block)->y_min;
 	else
 		slope_distance = x - FLOOR_BLOCK(block)->x_min;
-	floor_z += (slope_distance >> 16) * ROM32(slope_record + 2u);
-	*p_floor_z = floor_z;
+	*p_floor_z += (slope_distance >> 16) * ROM32(slope_record + 2u);
 	*p_block = block;
 }
 
@@ -763,13 +758,11 @@ void convert_to_bcd(uint32_t *p_value, uint32_t *p_digit)
    first into bcd_high, number_high and number_low. */
 void convert_64_to_bcd(uint32_t *p_number_low, uint32_t *p_number_high, uint32_t *p_bcd_high)
 {
-	uint32_t number_low = *p_number_low;
-	uint32_t number_high = *p_number_high;
 	uint8_t digit_pair = 0;
-	uint32_t bcd_low = 0, bcd_middle = 0, cursor = 0, dividend = 0, pairs_left = 0, remainder = 0, value_high = 0, value_low = 0;
+	uint32_t cursor = 0, dividend = 0, pairs_left = 0, remainder = 0, value_high = 0, value_low = 0;
 
-	value_low = number_low;
-	value_high = number_high;
+	value_low = *p_number_low;
+	value_high = *p_number_high;
 	cursor = stack_pointer;
 	pairs_left = 0xAu;
 	do
@@ -815,10 +808,8 @@ void convert_64_to_bcd(uint32_t *p_number_low, uint32_t *p_number_high, uint32_t
 	} while (pairs_left != 0u);
 	*p_bcd_high = byte_swap32(mem_read32(cursor));
 	cursor += 4u;
-	bcd_middle = byte_swap32(mem_read32(cursor));
+	*p_number_high = byte_swap32(mem_read32(cursor));
 	cursor += 4u;
-	bcd_low = byte_swap32(mem_read32(cursor));
+	*p_number_low = byte_swap32(mem_read32(cursor));
 	stack_pointer = cursor + 4u;
-	*p_number_low = bcd_low;
-	*p_number_high = bcd_middle;
 }

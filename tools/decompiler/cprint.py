@@ -433,6 +433,10 @@ class Printer:
             return Value(f"{text} >= {first} && {text} <= {last}", LOGICAL_AND, True, "int")
         return Value(f"{text} < {first} || {text} > {last}", LOGICAL_OR, True, "int")
 
+    def constant_name(self, node):
+        """The name a constant compared as a signed number has (a table's address), or None."""
+        return None
+
     def signed_compare(self, node):
         name, (left_node, right_node) = node.name, node.args
         width = left_node.bits
@@ -440,6 +444,9 @@ class Printer:
 
         def side(operand):
             if isinstance(operand, ir.Const):
+                named = self.constant_name(operand)
+                if named is not None:
+                    return f"({SIGNED[width]}){named}"    # (an address compared as a signed number)
                 return signed_literal(operand.value, width)
             value = self.any(operand)
             if value.signed == width:

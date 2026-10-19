@@ -3,7 +3,7 @@
  *    Description: stage A's objects, the sand: the cactus, the centipede, the wall pieces, the shaking blocks, the sand rock, the sand arch, the stepped wall, the tornado and the whirlwinds it throws, quicksand, sinkholes, the collapsing sand blocks
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    17-10-2026
+ *    Modified:    19-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -517,21 +517,18 @@ uint32_t centipede_follow_path(void)
    z. */
 void centipede_hop(uint32_t *p_height, uint32_t *p_z)
 {
-	uint32_t height = *p_height;
-	uint32_t fall_height = 0, ignored = 0;
+	uint32_t ignored = 0;
 
 	if (OBJECT(current_object)->centipede.hop_timer == 0u)
 	{
-		fall_to_floor(&fall_height, &ignored, p_z);
+		fall_to_floor(p_height, &ignored, p_z);
 		OBJECT(current_object)->speed_z -= 0x4000u;
 		if (OBJECT(current_object)->z < 8)
 		{
-			*p_height = fall_height;
 			return;
 		}
 		OBJECT(current_object)->speed_z = 0;
 		OBJECT(current_object)->centipede.hop_timer = 0x5Au;
-		*p_height = fall_height;
 		return;
 	}
 	OBJECT(current_object)->centipede.hop_timer--;
@@ -2337,12 +2334,10 @@ void rimmed_sinkhole_edge_zone_update(void)
 void spawn_sand_block_leader(uint32_t record, uint32_t *p_spawned, uint32_t *p_leader)
 {
 	uint32_t leader = *p_leader;
-	uint32_t free_count = 0, spawned = 0;
 
-	allocate_object_outside_loop(&free_count, &leader);
-	if (free_count == 0u)
+	allocate_object_outside_loop(p_spawned, &leader);
+	if (*p_spawned == 0u)
 	{
-		*p_spawned = free_count;
 		*p_leader = leader;
 		return;
 	}
@@ -2369,8 +2364,7 @@ void spawn_sand_block_leader(uint32_t record, uint32_t *p_spawned, uint32_t *p_l
 	sand_block_leader_active = 0xFFu;
 	if (group_leader_0_held != 0u)
 		OBJECT(leader)->handler = sand_block_leader_wait_ADDRESS;
-	spawned = 0xFFFFFFFFu;
-	*p_spawned = spawned;
+	*p_spawned = 0xFFFFFFFFu;
 	*p_leader = leader;
 }
 

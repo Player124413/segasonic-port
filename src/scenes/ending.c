@@ -3,7 +3,7 @@
  *    Description: stage 0x11, the ending: the runners, the tower and the explosions, the flash to white, the credits (portraits, name plates, scrolling blocks), Eggman flying away and the three running across
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    17-10-2026
+ *    Modified:    19-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -17,7 +17,6 @@
    and 3 do nothing. */
 void build_ending_scene(uint32_t *p_write_index_address, uint32_t *p_tile_bank_bits, uint32_t *p_color, uint32_t *p_row_pairs_left, uint32_t *p_blocks_per_row, uint32_t *p_scene_actor)
 {
-	uint32_t color = *p_color;
 	uint32_t scene_actor = *p_scene_actor;
 	uint8_t is_8bpp = 0, sound_id = 0;
 	uint32_t dest = 0, ignored = 0, script = 0;
@@ -30,9 +29,9 @@ void build_ending_scene(uint32_t *p_write_index_address, uint32_t *p_tile_bank_b
 		io_cnt_bits = mem_read8(io_cnt);
 		mem_write8(io_cnt, io_cnt_bits & ~2u);
 		display_off_frames = 0x10u;
-		color = set_stage_layer_mixing();
+		*p_color = set_stage_layer_mixing();
 		clear_sprite_buckets();
-		clear_bitmap_layer(is_8bpp, &ignored, &color, &ignored, p_row_pairs_left, p_blocks_per_row, &ignored);
+		clear_bitmap_layer(is_8bpp, &ignored, p_color, &ignored, p_row_pairs_left, p_blocks_per_row, &ignored);
 		init_video_registers();
 		load_stage_palette_set(p_tile_bank_bits, &dest);
 		sound_id = 0x94u;
@@ -92,7 +91,6 @@ void build_ending_scene(uint32_t *p_write_index_address, uint32_t *p_tile_bank_b
 		nbg0_pages = 0x8080707u;
 		nbg1_pages = 0x1010101u;
 		nbg2_pages = 0x5050505u;
-		*p_color = color;
 		*p_scene_actor = dest;
 		return;
 	case 1:

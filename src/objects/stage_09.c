@@ -3,7 +3,7 @@
  *    Description: stage 9's objects, the ice: the handle rod between two posts, the spear traps, the ice cube launcher, the padded wall, the snow mound, the ice blocks and the moving ice platform, the crumbling ice floor, the icicles
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    17-10-2026
+ *    Modified:    19-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -1131,12 +1131,10 @@ void spawn_ice_platform_leader(uint32_t record, uint32_t *p_spawned, uint32_t *p
 	uint16_t travel = (uint16_t)*p_travel;
 	uint32_t leader = *p_leader;
 	uint16_t reference_x = 0;
-	uint32_t free_count = 0, spawned = 0;
 
-	allocate_object_outside_loop(&free_count, &leader);
-	if (free_count == 0u)
+	allocate_object_outside_loop(p_spawned, &leader);
+	if (*p_spawned == 0u)
 	{
-		*p_spawned = free_count;
 		*p_leader = leader;
 		return;
 	}
@@ -1163,8 +1161,7 @@ void spawn_ice_platform_leader(uint32_t record, uint32_t *p_spawned, uint32_t *p
 	OBJECT(leader)->sprite_offset_x = 0;
 	OBJECT(leader)->sprite_offset_y = 0;
 	moving_floor_object = leader;
-	spawned = 0xFFFFFFFFu;
-	*p_spawned = spawned;
+	*p_spawned = 0xFFFFFFFFu;
 	*p_travel = (*p_travel & 0xFFFF0000u) | travel;
 	*p_leader = leader;
 }

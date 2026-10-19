@@ -3,7 +3,7 @@
  *    Description: the stage's background: the palettes animated per stage, the palette sets and the backdrop, and the tilemap layers NBG0-NBG3 (pictures, mixing, per-stage scroll)
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    17-10-2026
+ *    Modified:    19-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -17,7 +17,6 @@
    two palette cycles started at random. */
 void update_stage_06_background(uint32_t random_value, uint32_t dest, uint32_t *p_rolls_left, uint32_t *p_words_left, uint32_t *p_source)
 {
-	uint32_t rolls_left = *p_rolls_left;
 	uint32_t source = *p_source;
 	uint8_t sound_id = 0;
 	uint16_t shake_y = 0;
@@ -161,33 +160,29 @@ void update_stage_06_background(uint32_t random_value, uint32_t dest, uint32_t *
 		{
 			source = cycle_palette_set_0(source);
 			source = cycle_palette_set_1(source);
-			*p_rolls_left = rolls_left;
 			*p_source = source;
 			return;
 		}
 		if (palette_cycle_set_1_frame != 0u)
 		{
 			source = cycle_palette_set_1(source);
-			*p_rolls_left = rolls_left;
 			*p_source = source;
 			return;
 		}
-		rolls_left = 2u;
+		*p_rolls_left = 2u;
 		do
 		{
 			next_random(&random_value, p_words_left, &source);
 			random_value &= 0xFu;
 			if ((int8_t)random_value > 2)
 			{
-				*p_rolls_left = rolls_left;
 				*p_source = source;
 				return;
 			}
-			rolls_left--;
-		} while (rolls_left != 0u);
+			(*p_rolls_left)--;
+		} while (*p_rolls_left != 0u);
 		source = cycle_palette_set_0(source);
 		source = cycle_palette_set_1(source);
-		*p_rolls_left = rolls_left;
 		*p_source = source;
 		return;
 	case 7:
@@ -436,8 +431,6 @@ void animate_palette_stage_04(uint32_t *p_copy_offset, uint32_t *p_copy_entry, u
 void cycle_palette(uint32_t cycle, uint16_t halfwords, uint32_t *p_copy_offset, uint32_t *p_copy_entry, uint32_t *p_palette_count, uint32_t *p_source, uint32_t *p_dest)
 {
 	uint32_t copy_entry = *p_copy_entry;
-	uint32_t palette_count = *p_palette_count;
-	uint32_t dest = *p_dest;
 	uint32_t copy_offset = 0, frame_offset = 0;
 
 	frame_offset = (uint32_t)(uint8_t)PALETTE_CYCLE(cycle)->frame << 5;
@@ -451,26 +444,22 @@ void cycle_palette(uint32_t cycle, uint16_t halfwords, uint32_t *p_copy_offset, 
 	do
 	{
 		PALETTE_CYCLE(cycle)->timer = PALETTE_CYCLE(cycle)->delay;
-		queue_vblank_copy(*p_source, dest, halfwords, &copy_offset, &copy_entry);
-		dest += 0x20u;
-		palette_count--;
-	} while (palette_count != 0u);
+		queue_vblank_copy(*p_source, *p_dest, halfwords, &copy_offset, &copy_entry);
+		*p_dest += 0x20u;
+		(*p_palette_count)--;
+	} while (*p_palette_count != 0u);
 	PALETTE_CYCLE(cycle)->frame++;
 	if (PALETTE_CYCLE(cycle)->frame < PALETTE_CYCLE(cycle)->frame_count)
 	{
 		PALETTE_CYCLE(cycle)->timer--;
 		*p_copy_offset = copy_offset;
 		*p_copy_entry = copy_entry;
-		*p_palette_count = palette_count;
-		*p_dest = dest;
 		return;
 	}
 	PALETTE_CYCLE(cycle)->frame = 0;
 	PALETTE_CYCLE(cycle)->timer--;
 	*p_copy_offset = copy_offset;
 	*p_copy_entry = copy_entry;
-	*p_palette_count = palette_count;
-	*p_dest = dest;
 }
 
 /* cycle_palette_set on the first record (palette_cycle_set = 0x209090), for update_stage_06_background. */
@@ -1204,10 +1193,8 @@ void set_nbg3_page_5_flags(uint32_t *p_count, uint32_t *p_dest)
 void update_nbg3_scroll(uint32_t *p_scroll_y, uint32_t *p_quadrants, uint32_t *p_speed_value, uint32_t *p_next_scroll_position, uint32_t *p_quadrant_cursor)
 {
 	uint32_t scroll_y = *p_scroll_y;
-	uint32_t speed_value = *p_speed_value;
-	uint32_t next_scroll_position = *p_next_scroll_position;
 	uint16_t half_view_y = 0, layer_scroll_y = 0;
-	uint32_t block_pages = 0, byte_mask = 0, shift = 0;
+	uint32_t block_pages = 0;
 
 	switch (stage)
 	{
@@ -1268,10 +1255,8 @@ void update_nbg3_scroll(uint32_t *p_scroll_y, uint32_t *p_quadrants, uint32_t *p
 	nbg3_scroll_x = (int16_t)view_x >> 1;
 	nbg3_scroll_y = half_view_y;
 	nbg3_scroll_y += 0x80u;
-	select_nbg3_pages(&block_pages, p_quadrants, &byte_mask, &shift, p_quadrant_cursor);
+	select_nbg3_pages(&block_pages, p_quadrants, p_speed_value, p_next_scroll_position, p_quadrant_cursor);
 	*p_scroll_y = block_pages;
-	*p_speed_value = byte_mask;
-	*p_next_scroll_position = shift;
 }
 
 /* Sets nbg3_pages from the stage's stage_nbg3_block_maps: the pages of the 2 x 2 blocks at NBG3's scroll

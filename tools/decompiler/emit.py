@@ -237,6 +237,9 @@ class Printer(cprint.Printer):
         super().__init__(Names(writer))
         self.writer = writer
 
+    def constant_name(self, node):
+        return self.writer.rom_address_name(node)
+
     def emit(self, node):
         if isinstance(node, ir.Op) and node.name == "stack_address":
             raise EmitError(f"{self.writer.function.name}: a stack address is used as a value")
@@ -1253,9 +1256,10 @@ class FunctionWriter:
         whose variable the function itself never reads or sets, only passes to calls by pointer and copies back
         as they left it ("update(&count); ... *p_count = count; return;"), goes straight through: the caller's
         pointer is passed on (update(p_count)), with no copy of its own and nothing to copy back at each
-        return. A result every way out copies back from the same variable (the one it came in, if it comes in
-        at all), and that the function uses no more than twice for each copy back, is that variable: the
-        function works on it through its pointer ("*p_count += 2u;"), with no copy in or back. Neither is
+        return. A result the ways out copy back from the variables of the register's values (and that comes in
+        in its own), joined into one, that the function uses no more than twice for each copy back, is that
+        variable: the function works on it through its pointer ("*p_count += 2u;"), with no copy in or back.
+        A way out the register reaches unchanged copies nothing back either way. Neither is
         done for a result some call hands the same variable as another one (results nobody reads all go to
         the caller's 'ignored'): writing one through its pointer would change the other. The names of those
         variables go into self.forwarded (declarations leaves them out)."""
@@ -1277,16 +1281,20 @@ class FunctionWriter:
                     self.forwarded.add(entry)
                     continue
             copies = [line for line in body if re.fullmatch(rf"\t+\*p_{param} = [^;]*;", line)]
-            names = {re.fullmatch(rf"\t+\*p_{param} = (\w+);", line).group(1) if re.fullmatch(
-                rf"\t+\*p_{param} = (\w+);", line) else None for line in copies}
-            if len(names) != 1 or None in names:
-                continue    # (none, a part of the register, or several variables)
-            name = names.pop()
-            entry = self.vars.entry_name(value[1]) if self.vars.entry_live(value[1]) else None
-            if (entry is not None and entry != name) or self.widths.get(name, 32) != 32 or name in self.params:
+            sources = [re.fullmatch(rf"\t+\*p_{param} = (\w+);", line) for line in copies]
+            if not copies or None in sources:
+                continue    # (none, or a part of the register)
+            sources = [found.group(1) for found in sources]
+            # the variables of the values of the register the ways out hand back, and the one it comes in in,
+            # are one variable (they never hold a value at the same time)
+            names = sorted(set(sources) | ({entry} if entry is not None else set()), key=sources.count, reverse=True)
+            name = entry if entry is not None else names[0]
+            if any(self.widths.get(each, 32) != 32 or each in self.params for each in names):
                 continue
-            copy_back = rf"\t+\*p_{param} = {name};"
-            rest = [line for line in body if not re.fullmatch(copy_back, line)]
+            rest = [line for line in body if line not in copies]
+            for other in names:
+                if other != name:
+                    rest = [re.sub(rf"(?<![\w.>]){other}\b", name, line) for line in rest]
             uses = sum(len(re.findall(rf"(?<![\w.>]){name}\b", line)) for line in rest)
             if uses == 0:
                 continue
@@ -1298,7 +1306,7 @@ class FunctionWriter:
                 body = [through_pointer(line, name, param) for line in rest]
             else:
                 continue
-            self.forwarded.add(name)
+            self.forwarded.update(names)
         return body
 
     def name_controls(self, body):
@@ -1864,7 +1872,7 @@ class FunctionWriter:
         for value in self.results:
             name, text = self.emitter.param_name(self.entry, value), self.out_value(value)
             if value[0] == "r" and isinstance(self.current, ir.Return) and self.vars.unchanged(self.current, value[1]):
-                self.not_copied.add(value)
+                # (nothing on the way here wrote the register: through its pointer nothing would be written either)
                 continue    # as it came in: the caller's variable already holds it (after a tail call it may not)
             if value[0] == "r":
                 mask = self.emitter.written_mask(self.entry, value[1])
