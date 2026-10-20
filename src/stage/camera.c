@@ -3,7 +3,7 @@
  *    Description: the stage view, the scroll and the camera: the view set-up and the tile sets around it, the scroll modes and the screen edges the players push, the camera's speeds, shake and path along the sections, the fades between stages, the start section of the demos and the unused scroll skip panel
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    19-10-2026
+ *    Modified:    20-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -2778,7 +2778,7 @@ uint32_t update_camera_with_shake(void)
 /* NBG0's scroll from the camera's pixels (x & 0x3FF, y & 0x1FF) and the camera's place in the stage's
    block map: tile_block_column = camera_x_pixels / 0x200, tile_block_row = camera_y_pixels / 0x100 *
    stage_block_map_width. Hands back scroll_x with camera_x_pixels in its low half. */
-uint32_t set_nbg0_scroll_from_camera(uint32_t scroll_x)
+uint32_t CONSOLE_ORIGINAL(set_nbg0_scroll_from_camera)(uint32_t scroll_x)
 {
 	uint16_t layer_scroll_y = 0;
 	uint16_t block_column = 0, block_row = 0;

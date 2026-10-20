@@ -139,6 +139,15 @@ if(SONIC_DECOMPILED)
 		add_executable(SegaSonic WIN32 ports/sdl2/main.c ports/sdl2/settings.c ports/sdl2/actions.c)
 		target_link_libraries(SegaSonic PRIVATE sonic_game_console sonic_data SDL2::SDL2 SDL2::SDL2main)
 		if(WIN32)
+			# the executable's icon: Sonic's, Mighty's and Ray's heads from the player's ROM set
+			# (tools/make_icon.py), in the build folder only, as the game's data
+			add_custom_command(OUTPUT ${SONIC_DATA_DIR}/segasonic.rc ${SONIC_DATA_DIR}/segasonic.ico
+				COMMAND Python3::Interpreter ${CMAKE_SOURCE_DIR}/tools/make_icon.py ${SONIC_ROM} ${SONIC_DATA_DIR}
+				DEPENDS ${SONIC_ROM_FILES} ${CMAKE_SOURCE_DIR}/tools/make_icon.py ${CMAKE_SOURCE_DIR}/tools/sonic_rom.py
+					${CMAKE_SOURCE_DIR}/tools/asset_formats.py
+				COMMENT "Making the executable's icon from the ROM set")
+			set_source_files_properties(${SONIC_DATA_DIR}/segasonic.rc PROPERTIES OBJECT_DEPENDS ${SONIC_DATA_DIR}/segasonic.ico)
+			target_sources(SegaSonic PRIVATE ${SONIC_DATA_DIR}/segasonic.rc)
 			add_custom_command(TARGET SegaSonic POST_BUILD
 				COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:SDL2::SDL2> $<TARGET_FILE_DIR:SegaSonic>)
 		endif()

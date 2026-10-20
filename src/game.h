@@ -1896,6 +1896,7 @@ void update_stage_00_exit_scene(uint32_t dest, uint32_t *p_speed_value, uint32_t
 void clamp_colour_offsets(void);
 uint32_t update_camera_with_shake(void);
 uint32_t set_nbg0_scroll_from_camera(uint32_t scroll_x);
+uint32_t CONSOLE_ORIGINAL(set_nbg0_scroll_from_camera)(uint32_t scroll_x);
 uint32_t update_camera_view(void);
 uint32_t update_camera_view_y(uint32_t y);
 uint32_t move_camera_along_path(uint32_t speed);

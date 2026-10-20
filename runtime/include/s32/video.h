@@ -33,6 +33,13 @@ extern "C" {
    game/data.h holds them; the video keeps pointers to them. Hooks the video to s32_board. */
 void s32_video_init(const uint8_t *tiles, size_t tiles_size, const uint8_t *sprites, size_t sprites_size);
 
+/* A wider picture than the board's, for a port that wants one (the arcade's is never wide): a 320-pixel
+   frame drawn 416 wide, its own picture in the middle (S32_VIDEO_WIDE_SIDE more pixels of the tilemaps,
+   the bitmap and the sprites at each side; the text layer only where it was, so the HUD stays); a frame
+   the board draws 416 wide stays as it is */
+#define S32_VIDEO_WIDE_SIDE  48
+void s32_video_set_wide(bool wide);
+
 /* What the board calls (s32_video_init sets them): the sprite commands, and the start of VBLANK */
 void s32_video_sprites(bool erase, bool draw);
 void s32_video_draw_frame(void);

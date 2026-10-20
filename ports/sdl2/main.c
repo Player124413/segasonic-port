@@ -167,6 +167,18 @@ static void load_eeprom(void)
 /* The frame in the window, as large as it fits with the game's proportions. Sharp pixels: the picture
    scaled straight up, each pixel a block. Smooth ones ("sharp bilinear"): first a whole number of times with
    sharp pixels into 'scaled', then that softened the rest of the way, so only the pixels' edges blend */
+#define WIDE_WIDTH  398    /* 16:9 at 224 rows: the video's 416 less 9 at each side */
+
+/* The window's picture, in the game's pixels: 320, or 16:9 with WIDE */
+static int picture_width(void)
+{
+#ifdef SEGASONIC_CONSOLE
+	if (settings.wide)
+		return WIDE_WIDTH;
+#endif
+	return 320;
+}
+
 static void present(const uint32_t *pixels, int width)
 {
 	SDL_Rect source = { 0, 0, width, S32_VIDEO_HEIGHT };
@@ -175,6 +187,12 @@ static void present(const uint32_t *pixels, int width)
 	double scale;
 
 	SDL_UpdateTexture(texture, NULL, pixels, S32_VIDEO_MAX_WIDTH * (int)sizeof(uint32_t));
+	if (width > picture_width())
+	{
+		/* a 416-pixel frame in a narrower picture: its middle (16:9: 9 pixels off each side) */
+		source.x = (width - picture_width()) / 2;
+		source.w = width = picture_width();
+	}
 	SDL_GetRendererOutputSize(renderer, &out_width, &out_height);
 	scale = SDL_min((double)out_width / width, (double)out_height / S32_VIDEO_HEIGHT);
 	shown.w = (int)(width * scale);
@@ -447,6 +465,7 @@ static void tell_console_settings(void)
 	console_window_settings.full_screen = settings.full_screen;
 	console_window_settings.smooth = settings.smooth;
 	console_window_settings.bilinear = settings.bilinear;
+	console_window_settings.wide = settings.wide;
 	console_window_settings.volume = (int)lround(settings.volume * 5.0);
 	console_window_settings.title_music = (int)settings.title_music;
 	console_window_settings.continues = (int)settings.continues;
@@ -464,7 +483,7 @@ static void apply_settings(void)
 	if (settings.window_scale != shown_scale)
 	{
 		shown_scale = settings.window_scale;
-		SDL_SetWindowSize(window, (int)(320 * shown_scale), (int)(S32_VIDEO_HEIGHT * shown_scale));
+		SDL_SetWindowSize(window, (int)(picture_width() * shown_scale), (int)(S32_VIDEO_HEIGHT * shown_scale));
 	}
 	show_mouse_speed();
 #ifdef SEGASONIC_CONSOLE
@@ -602,6 +621,7 @@ static void on_controls_update(void)
 	if (!console_in_game() && (actions_pressed() & ACTION_BIT(ACTION_BACK)))
 		console_back();
 	console_actions(actions_pressed(), actions_held());
+	s32_video_set_wide(console_wide_now());    /* (this frame's sprites and picture) */
 #endif
 	controls.service = keys[SDL_SCANCODE_9] != 0;
 	controls.test = keys[SDL_SCANCODE_F2] != 0;
@@ -819,6 +839,7 @@ static void on_frame_done(void)
 		settings.full_screen = console_window_settings.full_screen;
 		settings.smooth = console_window_settings.smooth;
 		settings.bilinear = console_window_settings.bilinear;
+		settings.wide = console_window_settings.wide;
 		settings.volume = console_window_settings.volume / 5.0;
 		settings.title_music = console_window_settings.title_music;
 		settings.continues = console_window_settings.continues;
@@ -890,8 +911,25 @@ int main(int argc, char **argv)
 #endif
 	shown_scale = settings.window_scale;
 	window = SDL_CreateWindow("SegaSonic The Hedgehog", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-		(int)(320 * shown_scale), (int)(S32_VIDEO_HEIGHT * shown_scale),
+		(int)(picture_width() * shown_scale), (int)(S32_VIDEO_HEIGHT * shown_scale),
 		SDL_WINDOW_RESIZABLE | (settings.full_screen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0));
+#ifdef SEGASONIC_CONSOLE
+	if (window)
+	{
+		/* the window's icon: the three characters' heads, from the player's ROM (console_window_icon) */
+		static uint32_t icon_pixels[CONSOLE_ICON_SIZE * CONSOLE_ICON_SIZE];
+		SDL_Surface *icon = NULL;
+
+		if (console_window_icon(icon_pixels, game_sprite_rom, GAME_SPRITE_ROM_SIZE, game_program_rom))
+			icon = SDL_CreateRGBSurfaceWithFormatFrom(icon_pixels, CONSOLE_ICON_SIZE, CONSOLE_ICON_SIZE, 32,
+				CONSOLE_ICON_SIZE * 4, SDL_PIXELFORMAT_ARGB8888);
+		if (icon)
+		{
+			SDL_SetWindowIcon(window, icon);
+			SDL_FreeSurface(icon);
+		}
+	}
+#endif
 #ifdef _WIN32
 	SDL_SetHint(SDL_HINT_RENDER_DRIVER, "direct3d11");    /* (SDL tries Direct3D 9 first; the others if 11 fails) */
 #endif

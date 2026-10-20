@@ -16,6 +16,7 @@
  */
 #include "game.h"
 #include "console.h"
+#include "s32/video.h"
 
 #include <string.h>
 
@@ -100,6 +101,7 @@ static void run_options(void);
 static void open_menu(void);
 static void give_game_credits(void);
 static void end_game_credits(void);
+static void wide_how_to_play(void);
 
 /* ---- the SEGA logo's jingle: two chords through the sound driver's own MIDI queue ---- */
 
@@ -479,6 +481,7 @@ enum
 	OPTION_WINDOW,
 	OPTION_FULL_SCREEN,
 	OPTION_PIXELS,
+	OPTION_WIDE,
 	OPTION_VOLUME,
 	OPTION_CONTROLS,
 	OPTION_SOUND_TEST,
@@ -488,7 +491,7 @@ enum
 };
 
 static const char *const option_names[OPTION_COUNT] = {
-	"DIFFICULTY", "VITALITY", "CONTINUES", "VIDEO", "WINDOW", "FULL SCREEN", "PIXELS", "VOLUME", "CONTROLS",
+	"DIFFICULTY", "VITALITY", "CONTINUES", "VIDEO", "WINDOW", "FULL SCREEN", "PIXELS", "WIDE", "VOLUME", "CONTROLS",
 	"SOUND TEST", "STAGE SELECT", "BACK"
 };
 
@@ -497,7 +500,7 @@ static const int main_options[] = {
 	OPTION_DIFFICULTY, OPTION_VITALITY, OPTION_CONTINUES, OPTION_VIDEO, OPTION_CONTROLS, OPTION_VOLUME,
 	OPTION_SOUND_TEST, OPTION_STAGE_SELECT, OPTION_BACK
 };
-static const int video_options[] = { OPTION_WINDOW, OPTION_FULL_SCREEN, OPTION_PIXELS, OPTION_BACK };
+static const int video_options[] = { OPTION_WINDOW, OPTION_FULL_SCREEN, OPTION_PIXELS, OPTION_WIDE, OPTION_BACK };
 
 #define MAIN_OPTIONS  ((int)(sizeof(main_options) / sizeof(main_options[0])))
 #define VIDEO_OPTIONS ((int)(sizeof(video_options) / sizeof(video_options[0])))
@@ -511,7 +514,7 @@ static bool video_open;    /* the VIDEO page is on screen, in OPTIONS' place */
 #define WINDOW_SCALE_MOST   6
 #define VOLUME_MOST         10
 
-console_window console_window_settings = { 3, false, false, false, 5, 0x01, 3, false };
+console_window console_window_settings = { 3, false, false, false, false, 5, 0x01, 3, false };
 
 static int option_choice;    /* the line chosen on the page shown */
 static int option_travel, option_wait, value_travel, value_wait;
@@ -568,6 +571,9 @@ static void option_value(int option, char *text)
 		break;
 	case OPTION_FULL_SCREEN:
 		strcpy(text, console_window_settings.full_screen ? "< ON  >" : "< OFF >");
+		return;
+	case OPTION_WIDE:
+		strcpy(text, console_window_settings.wide ? "< 16:9 >" : "< OFF >");
 		return;
 	case OPTION_PIXELS:
 		strcpy(text, console_window_settings.bilinear ? "< BILINEAR >"
@@ -698,6 +704,10 @@ static void change_option(int option, int step)
 		break;
 	case OPTION_FULL_SCREEN:
 		console_window_settings.full_screen = !console_window_settings.full_screen;
+		console_window_settings.changed = true;
+		break;
+	case OPTION_WIDE:
+		console_window_settings.wide = !console_window_settings.wide;
 		console_window_settings.changed = true;
 		break;
 	case OPTION_PIXELS:
@@ -1197,6 +1207,63 @@ void run_game_mode(uint32_t pressed, uint32_t position, uint32_t speed, uint16_t
 	original_run_game_mode(pressed, position, speed, next_scroll_position, object, p_speed_value, p_count, p_cycle,
 		p_list_cursor);
 	note_level_reached();
+	wide_how_to_play();
+}
+
+/* ---- WIDE in the game ---- */
+
+#define BLOCK_WIDTH          0x200u    /* stage_block_maps' blocks: 512 x 256 pixels */
+#define PANEL_FRAME          0x71F0u   /* the how to play's control panel strip (how_to_play_panel_start) */
+#define PANEL_PALETTE        0x8780u
+#define PANEL_FLAGS          0x100Au
+#define PANEL_WIDTH          320
+#define PANEL_Y              0x88
+
+/* The camera's tile sets come from the 2 x 2 blocks from the one the screen's left edge is in, which
+   covers its 320 pixels however it lies on them; WIDE shows S32_VIDEO_WIDE_SIDE more at each side, so
+   the blocks start from the wide left edge (2 blocks of 512 still cover the 320 and both sides) */
+uint32_t set_nbg0_scroll_from_camera(uint32_t scroll_x)
+{
+	uint16_t block_column = 0;
+
+	scroll_x = original_set_nbg0_scroll_from_camera(scroll_x);
+	if (!console_wide_now() || (uint16_t)camera_x_pixels < S32_VIDEO_WIDE_SIDE)
+		return scroll_x;
+	block_column = (uint16_t)(((uint16_t)camera_x_pixels - S32_VIDEO_WIDE_SIDE) & ~(BLOCK_WIDTH - 1u));
+	tile_block_column = ((uint32_t)block_column << 7) | (block_column >> 9);
+	return scroll_x;
+}
+
+static bool panel_sides_shown;
+
+/* The how to play's panel strip at the sides too: a copy on each side, of which a wide picture shows the
+   plain ends (the strip's middle has the title); as the strip, they go when the stage is no longer 7
+   (how_to_play_panel_show) */
+static void wide_how_to_play(void)
+{
+	uint32_t free_count = 0, panel = 0;
+	int side;
+
+	if (stage != 7u || game_mode != 1u)
+	{
+		panel_sides_shown = false;
+		return;
+	}
+	if (panel_sides_shown)
+		return;
+	panel_sides_shown = true;
+	for (side = -1; side <= 1; side += 2)
+	{
+		allocate_object_outside_loop(&free_count, &panel);
+		if ((uint8_t)free_count == 0u)
+			return;
+		OBJECT(panel)->sprite_flags = PANEL_FLAGS;
+		OBJECT(panel)->sprite_frame = PANEL_FRAME;
+		OBJECT(panel)->sprite_palette = PANEL_PALETTE;
+		OBJECT(panel)->screen_x = (int16_t)(side * PANEL_WIDTH);
+		OBJECT(panel)->screen_y = PANEL_Y;
+		OBJECT(panel)->handler = how_to_play_panel_show_ADDRESS;
+	}
 }
 
 /* ---- the captions in English: the game's own English boxes, which its (Japanese) program never shows ---- */
@@ -1461,6 +1528,53 @@ void console_prepare_sprites(uint8_t *sprites, size_t size, const uint8_t *progr
 		write_unboxed(sprites, &line);
 }
 
+/* ---- the window's icon: the three characters' heads, from the player's ROM ---- */
+
+#define HEAD_SIZE            32
+static const struct
+{
+	uint16_t frame;      /* join_chooser_portraits' head (32 x 32, its end code drawn: an opaque frame) */
+	uint32_t palette;    /* its colours in the program ROM (sprite_palettes.json) */
+	int x, y;            /* where in the icon */
+} icon_heads[] = {
+	{ 0x90C8u, 0x10738Eu, 0, 0 },                  /* Sonic */
+	{ 0x90D0u, 0x1073AEu, HEAD_SIZE, 0 },          /* Mighty */
+	{ 0x90D8u, 0x1073CEu, HEAD_SIZE / 2, HEAD_SIZE },    /* Ray */
+};
+
+/* A palette entry of the program ROM (the palette window's alternate format: the low bit of blue, green
+   and red in bits 14-12) as 0xAARRGGBB, opaque */
+static uint32_t rom_color(const uint8_t *program, uint32_t address)
+{
+	const uint32_t value = program_word(program, address);
+	const uint32_t red = ((value >> 12) & 1u) | ((value << 1) & 0x1Eu);
+	const uint32_t green = ((value >> 13) & 1u) | ((value >> 3) & 0x1Eu);
+	const uint32_t blue = ((value >> 14) & 1u) | ((value >> 7) & 0x1Eu);
+
+	return 0xFF000000u | (red * 255u / 31u) << 16 | (green * 255u / 31u) << 8 | blue * 255u / 31u;
+}
+
+bool console_window_icon(uint32_t *pixels, const uint8_t *sprites, size_t size, const uint8_t *program)
+{
+	static line_frame head;
+	size_t i;
+	int x, y;
+
+	memset(pixels, 0, CONSOLE_ICON_SIZE * CONSOLE_ICON_SIZE * sizeof(pixels[0]));
+	for (i = 0; i < sizeof(icon_heads) / sizeof(icon_heads[0]); i++)
+	{
+		if (!read_line_frame(sprites, size, program, icon_heads[i].frame, &head)
+			|| head.width != HEAD_SIZE || head.height != HEAD_SIZE)
+			return false;
+		for (y = 0; y < HEAD_SIZE; y++)
+			for (x = 0; x < HEAD_SIZE; x++)
+				if (head.pens[y][x] != 0u)    /* (pen 0 see-through) */
+					pixels[(icon_heads[i].y + y) * CONSOLE_ICON_SIZE + icon_heads[i].x + x] =
+						rom_color(program, icon_heads[i].palette + head.pens[y][x] * 2u);
+	}
+	return true;
+}
+
 /* ---- the players' start prompts ---- */
 
 /* A player's start prompt (to join, or a continue's count): drawn this frame or the last, it says that
@@ -1604,6 +1718,13 @@ bool console_controls_defaults(void)
 
 	controls_defaults_asked = false;
 	return asked;
+}
+
+bool console_wide_now(void)
+{
+	/* a stage, or the how to play (its panel goes on at the sides: wide_how_to_play) */
+	return console_window_settings.wide
+		&& (console_in_game() || (system_mode == MODE_GAME && (int8_t)game_in_progress < 0 && game_mode == 1u));
 }
 
 bool console_in_game(void)

@@ -23,6 +23,7 @@ typedef struct
 	bool full_screen;
 	bool smooth;          /* smooth pixels (sharp bilinear), or sharp ones */
 	bool bilinear;        /* plain bilinear pixels, softer than smooth ones (over smooth) */
+	bool wide;            /* a 16:9 picture: the stages wider (console_wide_now), the rest between bars */
 	int volume;           /* 0-10: 5 is the game's own */
 	int title_music;      /* the sound id of the song the title plays (SOUND TEST picks it) */
 	int continues;        /* a game's continues, 0-9, or -1: free play (CONTINUES) */
@@ -72,6 +73,16 @@ bool console_start_prompted(int player);
    English lines without their red box, white letters with a dark outline ('program': the program ROM, for
    the frames' records) */
 void console_prepare_sprites(uint8_t *sprites, size_t size, const uint8_t *program);
+
+/* WIDE draws this frame wider: a stage is played (its tilemaps and objects go on past the sides); the
+   other screens' pictures end at their 320 pixels, so they keep them, between black bars */
+bool console_wide_now(void);
+
+/* The window's icon, CONSOLE_ICON_SIZE x CONSOLE_ICON_SIZE pixels 0xAARRGGBB: Sonic's, Mighty's and Ray's
+   heads (the join chooser's), from the player's sprite graphics and program ROM; false when they are not
+   there */
+#define CONSOLE_ICON_SIZE 64
+bool console_window_icon(uint32_t *pixels, const uint8_t *sprites, size_t size, const uint8_t *program);
 
 /* True while a stage is played in a game (not the intro, player select, the map, the scenes, nor the
    attract mode's demos): start pauses it */

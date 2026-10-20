@@ -43,16 +43,22 @@ Done:
   The join chooser in a stage (a continue) turns at a touch, as player select's does.
 - The 3-player cabinet: with the 2-player one the original draws player 3's start prompt in the middle
   of the stage (it reads past start_prompt_positions_2p).
+- WIDE (VIDEO, segasonic.ini, off at first): a 16:9 window (the video's 416 pixels less 9 at each side).
+  The stages and the how to play drawn wider (s32_video_set_wide: 48 more pixels of the tilemaps, the
+  bitmap and the sprites at each side, the text layer and so the HUD where they were); their tile sets
+  from the blocks of the wide left edge on (set_nbg0_scroll_from_camera); the how to play's panel strip
+  copied at the sides. The screens with 320-pixel pictures (the title, menus, player select, the scenes)
+  between bars.
+- The icon: Sonic's, Mighty's and Ray's heads (the join chooser's) from the player's ROM: the window's at
+  run time (console_window_icon), the .exe's at build time (tools/make_icon.py, in the build folder).
 
 Next (in this order unless Sebas says otherwise):
-1. Wide (16:9): the HUD where it is, only the view wider at the sides (the board's 416-pixel mode).
-2. A CRT filter as a third PIXELS choice (in VIDEO).
-3. Time Attack: a clock on screen, records per stage.
-4. Achievements: our own, defined on the game's memory as RetroAchievements does (the work RAM is the
+1. A CRT filter as a third PIXELS choice (in VIDEO).
+2. Time Attack: a clock on screen, records per stage.
+3. Achievements: our own, defined on the game's memory as RetroAchievements does (the work RAM is the
    original's, byte for byte); RetroAchievements itself only runs in the emulators it approves.
-5. The icon: the window's from the player's own ROM (a sprite of the game's, taken from the extracted
-   assets at run time); the .exe's own, ours, with no art of the game in it (the release carries none).
-6. One SegaSonic.exe with SDL2 inside; first run asks for the player's ROM set and extracts the assets;
-   the port's README (crediting Kenney's Input Prompts); a release for Quiver Launcher.
+4. One SegaSonic.exe with SDL2 inside; first run asks for the player's ROM set and extracts the assets;
+   the port's README (crediting Kenney's Input Prompts); a release for Quiver Launcher. The released
+   .exe carries no ROM, so no icon from it: a neutral one of ours (the window's still comes from the ROM).
 
 For the port's README: docs/screenshots/console_menu.png (the menu over the title, 640 x 448 like the others).

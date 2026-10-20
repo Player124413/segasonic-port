@@ -109,6 +109,9 @@ static struct
 	uint32_t sprite_banks;                  /* of 4 MB */
 
 	area visible;                           /* 320 or 416 x 224 */
+	bool wide;                              /* s32_video_set_wide */
+	int side;                               /* this frame's: S32_VIDEO_WIDE_SIDE when wide, else 0 */
+	int sprite_side;                        /* the sprite list's: every sprite that much to the right */
 	layer layers[LAYERS];                   /* the sprites' entry is unused: they have their own buffers */
 	uint16_t sprites[2][HEIGHT][WIDTH];     /* frame buffers: one is shown, the list draws into the other */
 	int shown_sprites;
@@ -230,8 +233,13 @@ static void window_of(int number, bool flip, area *window)
 
 	if (!flip)
 	{
-		window->left = left;
-		window->right = right;
+		window->left = left + video.side;
+		window->right = right + video.side;
+		if (video.side && left == 0 && right >= 320)
+		{
+			window->left = 0;
+			window->right = video.visible.right + 1;
+		}
 		window->top = top;
 		window->bottom = bottom;
 	}
@@ -297,8 +305,13 @@ static void line_window(int number, int line, bool flip, uint32_t table, const a
 		*crossing &= ~(1 << number);
 	else if (!flip)
 	{
-		window->left = left & 0x1ff;
-		window->right = (right & 0x1ff) + 1;
+		window->left = (left & 0x1ff) + video.side;
+		window->right = (right & 0x1ff) + 1 + video.side;
+		if (video.side && (left & 0x1ff) == 0 && (right & 0x1ff) + 1 >= 320)
+		{
+			window->left = 0;
+			window->right = video.visible.right + 1;
+		}
 	}
 	else
 	{
@@ -476,7 +489,7 @@ static void draw_zoomed(int number)
 	source_y += (uint32_t)(video_register(scroll + 4) & 0xfe00) << 4;
 	x_start -= (uint32_t)sign_extend(video_register(center), x_zoom != 0x200 ? 10 : 9) * x_step;
 	source_y -= (uint32_t)sign_extend(video_register(center + 2), y_zoom != 0x200 ? 10 : 9) * y_step;
-	x_start += (uint32_t)video.visible.left * x_step;
+	x_start += (uint32_t)(video.visible.left - video.side) * x_step;
 	source_y += (uint32_t)video.visible.top * y_step;
 	if (flip_y)
 	{
@@ -541,7 +554,7 @@ static void draw_scrolled(int number)
 		int source_y = y_scroll + line;
 		scrolled_row row;
 
-		row.x_start = (flip_x ? video.visible.right : video.visible.left) + x_scroll;
+		row.x_start = (flip_x ? video.visible.right : video.visible.left) + x_scroll - video.side;
 		row.x_step = flip_x ? -1 : 1;
 		if (row_scroll)
 			row.x_start += video_word(table + (uint32_t)line) & 0x3ff;
@@ -563,7 +576,14 @@ static void draw_text(void)
 
 	for (int y = video.visible.top; y <= video.visible.bottom; y++)
 		for (int x = video.visible.left; x <= video.visible.right; x++)
-			video.layers[LAYER_TEXT].pixels[y][x] = flip ? text_pixel(255 - y, 511 - x) : text_pixel(y, x);
+		{
+			const int column = x - video.side;
+
+			if (column < 0 || column >= (video.side ? 320 : video.visible.right + 1))
+				video.layers[LAYER_TEXT].pixels[y][x] = 0;
+			else
+				video.layers[LAYER_TEXT].pixels[y][x] = flip ? text_pixel(255 - y, 511 - column) : text_pixel(y, column);
+		}
 }
 
 typedef struct bitmap_row
@@ -577,7 +597,7 @@ typedef struct bitmap_row
 static uint16_t bitmap_pixel(const void *source, int x)
 {
 	const bitmap_row *row = (const bitmap_row *)source;
-	const int column = (x + row->x_scroll) & 0x1ff;
+	const int column = (x - video.side + row->x_scroll) & 0x1ff;
 	int pixel;
 
 	if (row->bits8)
@@ -855,7 +875,7 @@ static int draw_sprite(uint32_t entry, int x_offset, int y_offset, const area *i
 	y_zoom = (source_height << 16) / height;
 
 	/* place it: the list's offset, then its alignment (0 or 3 centered, 1 by the far edge, 2 by the near) */
-	x = sign_extend(sprite_word(entry + 5), 12) + (bit(flags, 4) ? x_offset : 0);
+	x = sign_extend(sprite_word(entry + 5), 12) + (bit(flags, 4) ? x_offset : 0) + video.sprite_side;
 	y = sign_extend(sprite_word(entry + 4), 12) + (bit(flags, 5) ? y_offset : 0);
 	switch (flags & 3)
 	{
@@ -922,10 +942,14 @@ static int draw_sprite(uint32_t entry, int x_offset, int y_offset, const area *i
    bit 13, set the offset sprites can add), or end. */
 static void draw_sprite_list(void)
 {
-	const area screen = { 0, bit(s32_board.sprite_control_latched[6], 0) ? 415 : 319, 0, HEIGHT - 1 };
+	const bool wide = video.wide && !bit(s32_board.sprite_control_latched[6], 0);
+	const int side = wide ? S32_VIDEO_WIDE_SIDE : 0;
+	const area screen = { 0, wide || bit(s32_board.sprite_control_latched[6], 0) ? 415 : 319, 0, HEIGHT - 1 };
 	area inside = screen;
 	area outside = { 0, -1, 0, -1 };
 	int x_offset = 0;
+
+	video.sprite_side = side;
 	int y_offset = 0;
 	int number = 0;
 
@@ -946,12 +970,19 @@ static void draw_sprite_list(void)
 					inside.right = sign_extend(sprite_word(entry + 3), 12);
 					inside.top = sign_extend(command, 12);
 					inside.bottom = sign_extend(sprite_word(entry + 1), 12);
+					if (wide && inside.left <= 0 && inside.right >= 319)
+						inside.right = screen.right;    /* (the whole screen: the wide one) */
+					else
+					{
+						inside.left += side;
+						inside.right += side;
+					}
 					clip_area(&inside, &screen);
 				}
 				if (bit(command, 13))
 				{
-					outside.left = sign_extend(sprite_word(entry + 6), 12);
-					outside.right = sign_extend(sprite_word(entry + 7), 12);
+					outside.left = sign_extend(sprite_word(entry + 6), 12) + side;
+					outside.right = sign_extend(sprite_word(entry + 7), 12) + side;
 					outside.top = sign_extend(sprite_word(entry + 4), 12);
 					outside.bottom = sign_extend(sprite_word(entry + 5), 12);
 				}
@@ -1230,8 +1261,10 @@ static void mix(int drawn)
 
 void s32_video_draw_frame(void)
 {
-	const int width = bit(video_register(0x00), 15) ? 416 : 320;
+	const bool board_wide = bit(video_register(0x00), 15);
+	const int width = board_wide || video.wide ? 416 : 320;
 
+	video.side = video.wide && !board_wide ? S32_VIDEO_WIDE_SIDE : 0;
 	video.visible.left = 0;
 	video.visible.right = width - 1;
 	video.visible.top = 0;
@@ -1259,6 +1292,11 @@ void s32_video_init(const uint8_t *tiles, size_t tiles_size, const uint8_t *spri
 	video.visible.bottom = HEIGHT - 1;
 	s32_board.sprites_due = s32_video_sprites;
 	s32_board.frame_shown = s32_video_draw_frame;
+}
+
+void s32_video_set_wide(bool wide)
+{
+	video.wide = wide;
 }
 
 const uint32_t *s32_video_frame(int *width)

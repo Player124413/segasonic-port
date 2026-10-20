@@ -11,7 +11,7 @@
  *    license:BSD-3-Clause
  *    Usage: sonic_headless [--frames N] [--hashes FILE] [--script FILE]
  *                          [--dump-frame N --dump-dir DIR] [--video-hashes FILE] [--video-dump N ... --video-dir DIR]
- *                          [--sound-hashes FILE]
+ *                          [--sound-hashes FILE] [--wide]
  *    The game's data is the one the executable carries (game/data.h).
  *    --dump-frame saves the board's memories at the end of that frame, in the files tools/reference/s32ref
  *    writes, so the two compare byte by byte. --video-hashes and --video-dump draw every frame with the
@@ -38,12 +38,13 @@
 
 #define USAGE "Usage: sonic_headless [--frames N] [--hashes FILE] [--script FILE]" \
 	" [--dump-frame N --dump-dir DIR] [--video-hashes FILE] [--video-dump N ... --video-dir DIR]" \
-	" [--sound-hashes FILE] [--sprite-census FILE] [--tile-census FILE] [--memory-census FILE]\n"
+	" [--sound-hashes FILE] [--sprite-census FILE] [--tile-census FILE] [--memory-census FILE] [--wide]\n"
 #define MAX_VIDEO_DUMPS 64
 #define CENSUS_SLOTS (1u << 20)
 
 static jmp_buf finished;
 static uint64_t frames_wanted = 600;
+static bool wide_video;    /* --wide: the video's wide picture (s32_video_set_wide) */
 static FILE *hashes;
 static s32_script *script;
 static uint64_t dump_frame = UINT64_MAX;
@@ -229,6 +230,10 @@ static void on_controls_update(void)
 {
 	/* VBLANK of the board's frame is starting */
 	s32_script_apply(script, s32_board.frame);
+#ifdef SEGASONIC_CONSOLE
+	if (wide_video)
+		s32_video_set_wide(console_wide_now());    /* (as the console's port does: the stages wider) */
+#endif
 }
 
 int main(int argc, char **argv)
@@ -261,6 +266,8 @@ int main(int argc, char **argv)
 			video_hashes_path = argv[++index];
 		else if (strcmp(argv[index], "--video-dump") == 0 && index + 1 < argc && video_dump_count < MAX_VIDEO_DUMPS)
 			video_dumps[video_dump_count++] = strtoull(argv[++index], NULL, 10);
+		else if (strcmp(argv[index], "--wide") == 0)
+			wide_video = true;
 		else if (strcmp(argv[index], "--video-dir") == 0 && index + 1 < argc)
 			video_dir = argv[++index];
 		else if (strcmp(argv[index], "--sound-hashes") == 0 && index + 1 < argc)
@@ -304,6 +311,11 @@ int main(int argc, char **argv)
 		s32_video_init(game_tile_rom, GAME_TILE_ROM_SIZE, console_sprites, GAME_SPRITE_ROM_SIZE);
 #else
 		s32_video_init(game_tile_rom, GAME_TILE_ROM_SIZE, game_sprite_rom, GAME_SPRITE_ROM_SIZE);
+#endif
+#ifdef SEGASONIC_CONSOLE
+		console_window_settings.wide = wide_video;
+#else
+		s32_video_set_wide(wide_video);
 #endif
 		if (video_hashes_path)
 			video_hashes = fopen(video_hashes_path, "w");
