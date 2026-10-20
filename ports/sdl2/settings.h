@@ -28,6 +28,7 @@ typedef struct port_settings
 	double sega_jingle_program;    /* the console's SEGA logo jingle: the sound driver's program (0-36) */
 	double sega_jingle_layer;      /* ... and the layer an octave under it (-1: none) */
 	double title_music;            /* the console's title: the sound id of its song */
+	double continues;              /* the console's games: their continues (-1: free play) */
 } port_settings;
 
 extern port_settings settings;

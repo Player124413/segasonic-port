@@ -98,6 +98,8 @@ static void write_centered(uint32_t row, const char *text, uint8_t attribute)
 static void run_menu(void);
 static void run_options(void);
 static void open_menu(void);
+static void give_game_credits(void);
+static void end_game_credits(void);
 
 /* ---- the SEGA logo's jingle: two chords through the sound driver's own MIDI queue ---- */
 
@@ -219,6 +221,8 @@ void advance_attract_screen(void)
 {
 	uint32_t next_step = 0;
 
+	if (game_in_progress == 0u)
+		end_game_credits();    /* (game over, or the ending, goes on to the attract mode) */
 	if (menu_open)
 		return;    /* (the title stays under the menu) */
 
@@ -304,6 +308,26 @@ void draw_credit_count_now(uint32_t credit_block, uint32_t *p_credits, uint32_t 
 		return;
 	}
 	original_draw_credit_count_now(credit_block, p_credits, p_coins_per_credit, p_text, p_text_position);
+}
+
+/* A start prompt, every 16th frame: the console has no coins, so with fewer credits than a start takes
+   (CONTINUES' spent) it shows none, not "Insert coin", and the count beside it says 0 (the "Push start
+   button" it showed before is erased) */
+void blink_start_prompt(uint32_t credit_block, uint32_t prompt_texts, uint32_t *p_blink_bit, uint32_t *p_text,
+	uint32_t *p_text_position)
+{
+	uint32_t text = 0;
+
+	if (free_play == 0u && CREDIT_BLOCK(credit_block)->credits < credits_per_start)
+	{
+		if ((frame_counter & 0xFu) != 0u)
+			return;
+		text = prompt_texts + ROM16(prompt_texts);
+		erase_text_lines(&text, p_text_position);
+		*p_text = text;
+		return;
+	}
+	original_blink_start_prompt(credit_block, prompt_texts, p_blink_bit, p_text, p_text_position);
 }
 
 /* ---- the menu ---- */
@@ -428,6 +452,7 @@ static void run_menu(void)
 	case 0:    /* START GAME: as the game's own start does */
 		menu_open = false;
 		erase_menu();
+		give_game_credits();
 		system_mode = MODE_GAME;
 		game_mode = 0u;
 		system_mode_step = 0u;
@@ -449,6 +474,8 @@ enum
 {
 	OPTION_DIFFICULTY,
 	OPTION_VITALITY,
+	OPTION_CONTINUES,
+	OPTION_VIDEO,
 	OPTION_WINDOW,
 	OPTION_FULL_SCREEN,
 	OPTION_PIXELS,
@@ -461,20 +488,32 @@ enum
 };
 
 static const char *const option_names[OPTION_COUNT] = {
-	"DIFFICULTY", "VITALITY", "WINDOW", "FULL SCREEN", "PIXELS", "VOLUME", "CONTROLS", "SOUND TEST", "STAGE SELECT", "BACK"
+	"DIFFICULTY", "VITALITY", "CONTINUES", "VIDEO", "WINDOW", "FULL SCREEN", "PIXELS", "VOLUME", "CONTROLS",
+	"SOUND TEST", "STAGE SELECT", "BACK"
 };
+
+/* The pages: OPTIONS, and VIDEO under it (its BACK goes back to OPTIONS) */
+static const int main_options[] = {
+	OPTION_DIFFICULTY, OPTION_VITALITY, OPTION_CONTINUES, OPTION_VIDEO, OPTION_CONTROLS, OPTION_VOLUME,
+	OPTION_SOUND_TEST, OPTION_STAGE_SELECT, OPTION_BACK
+};
+static const int video_options[] = { OPTION_WINDOW, OPTION_FULL_SCREEN, OPTION_PIXELS, OPTION_BACK };
+
+#define MAIN_OPTIONS  ((int)(sizeof(main_options) / sizeof(main_options[0])))
+#define VIDEO_OPTIONS ((int)(sizeof(video_options) / sizeof(video_options[0])))
+
+static bool video_open;    /* the VIDEO page is on screen, in OPTIONS' place */
 
 #define OPTIONS_TITLE_ROW   4u
 #define OPTIONS_FIRST_ROW   8u      /* then a line every two rows */
 #define OPTION_NAME_COLUMN  8u
 #define OPTION_VALUE_COLUMN 24u
-#define OPTIONS_LAST_ROW    (OPTIONS_FIRST_ROW + 2u * OPTION_COUNT - 2u)
 #define WINDOW_SCALE_MOST   6
 #define VOLUME_MOST         10
 
-console_window console_window_settings = { 3, false, false, 5, 0x01, false };
+console_window console_window_settings = { 3, false, false, 5, 0x01, 3, false };
 
-static int option_choice;
+static int option_choice;    /* the line chosen on the page shown */
 static int option_travel, option_wait, value_travel, value_wait;
 static bool game_settings_changed;
 
@@ -494,6 +533,9 @@ static int song_choice;
 static bool stage_select_pending;    /* STAGE SELECT: the stage select (game mode 8), then player select */
 static int stage_select_phase;       /* 0 before the stage select, 1 in it */
 
+/* The difficulties' names (the test mode shows them as 1-4, its bar longer the harder) */
+static const char *const difficulty_names[4] = { "VERY EASY", "EASY", "NORMAL", "HARD" };
+
 /* The value of an option as its line shows it: "< 2 >", "< ON  >"; nothing for the ones that are picked */
 static void option_value(int option, char *text)
 {
@@ -502,10 +544,20 @@ static void option_value(int option, char *text)
 	switch (option)
 	{
 	case OPTION_DIFFICULTY:
-		value = setting_difficulty + 1;
-		break;
+		strcpy(text, "< ");
+		strcat(text, difficulty_names[setting_difficulty & 3u]);
+		strcat(text, " >");
+		return;
 	case OPTION_VITALITY:
 		value = setting_initial_vitality + 1;
+		break;
+	case OPTION_CONTINUES:
+		if (console_window_settings.continues < 0)
+		{
+			strcpy(text, "< FREE >");
+			return;
+		}
+		value = console_window_settings.continues;
 		break;
 	case OPTION_WINDOW:
 		value = console_window_settings.window_scale;
@@ -538,35 +590,85 @@ static void option_value(int option, char *text)
 	text[7] = 0;
 }
 
+/* The page shown: its options, and how many */
+static const int *page_options(int *count)
+{
+	*count = video_open ? VIDEO_OPTIONS : MAIN_OPTIONS;
+	return video_open ? video_options : main_options;
+}
+
 static void draw_options(void)
 {
 	char value[24];
-	int option;
+	int count = 0, line;
+	const int *options = page_options(&count);
 
-	write_centered(OPTIONS_TITLE_ROW, "OPTIONS", MENU_CHOSEN);
-	for (option = 0; option < OPTION_COUNT; option++)
+	write_centered(OPTIONS_TITLE_ROW, video_open ? "VIDEO" : "OPTIONS", MENU_CHOSEN);
+	for (line = 0; line < count; line++)
 	{
-		const uint32_t row = OPTIONS_FIRST_ROW + 2u * (uint32_t)option;
-		const uint8_t attribute = option == option_choice ? MENU_CHOSEN : MENU_TEXT;
+		const uint32_t row = OPTIONS_FIRST_ROW + 2u * (uint32_t)line;
+		const uint8_t attribute = line == option_choice ? MENU_CHOSEN : MENU_TEXT;
 
 		erase_line(row);
-		write_text(OPTION_NAME_COLUMN, row, option_names[option], attribute);
-		option_value(option, value);
+		write_text(OPTION_NAME_COLUMN, row, option_names[options[line]], attribute);
+		option_value(options[line], value);
 		write_text(OPTION_VALUE_COLUMN, row, value, attribute);
 	}
 }
 
+/* Either page off the screen (OPTIONS has the more lines) */
 static void erase_options(void)
 {
 	uint32_t row;
 
-	for (row = OPTIONS_TITLE_ROW; row < OPTIONS_FIRST_ROW + 2u * OPTION_COUNT; row++)
+	for (row = OPTIONS_TITLE_ROW; row < OPTIONS_FIRST_ROW + 2u * (uint32_t)MAIN_OPTIONS; row++)
 		erase_line(row);
+}
+
+/* VIDEO in OPTIONS' place, and back: OPTIONS with VIDEO chosen */
+static void open_video(void)
+{
+	erase_options();
+	video_open = true;
+	option_choice = 0;
+	option_wait = MENU_PAUSE;
+}
+
+static void close_video(void)
+{
+	int line;
+
+	erase_options();
+	video_open = false;
+	for (line = 0; line < MAIN_OPTIONS; line++)
+		if (main_options[line] == OPTION_VIDEO)
+			option_choice = line;
+	option_wait = MENU_PAUSE;
 }
 
 static int clamp(int value, int least, int most)
 {
 	return value < least ? least : value > most ? most : value;
+}
+
+#define CONTINUES_MOST 9
+
+/* A game the menu starts: CONTINUES' FREE is the game's own free play; a number, free play off and the
+   shared credits (cabinet_config 1) the start's and the continues', which joining and continuing take
+   (pay_and_join: a player who joins later takes them too) */
+static void give_game_credits(void)
+{
+	if (console_window_settings.continues < 0)
+		return;
+	free_play = 0u;
+	p1_credits = (uint8_t)(credits_per_start + (uint32_t)console_window_settings.continues);
+}
+
+/* Out of a game: free play again (the console has no coins) and no credits left over */
+static void end_game_credits(void)
+{
+	free_play = 1u;
+	p1_credits = 0u;
 }
 
 static void change_option(int option, int step)
@@ -580,6 +682,10 @@ static void change_option(int option, int step)
 	case OPTION_VITALITY:
 		setting_initial_vitality = (uint8_t)clamp(setting_initial_vitality + step, 0, 3);
 		game_settings_changed = true;
+		break;
+	case OPTION_CONTINUES:
+		console_window_settings.continues = clamp(console_window_settings.continues + step, -1, CONTINUES_MOST);
+		console_window_settings.changed = true;
 		break;
 	case OPTION_WINDOW:
 		console_window_settings.window_scale = clamp(console_window_settings.window_scale + step, 1,
@@ -617,6 +723,7 @@ static void open_options(void)
 			song_choice = song;
 	menu_open = false;
 	options_open = true;
+	video_open = false;
 	option_choice = 0;
 	option_travel = value_travel = 0;
 	option_wait = value_wait = MENU_PAUSE;
@@ -797,12 +904,13 @@ static void run_controls(void)
 		close_controls();
 }
 
-/* The options: up and down choose a line, left and right change its value; SOUND TEST (it plays the song,
-   which the title plays from then on),
-   STAGE SELECT and BACK are picked; the action back is BACK */
+/* The options: up and down choose a line, left and right change its value; VIDEO and CONTROLS (their
+   pages), SOUND TEST (it plays the song, which the title plays from then on), STAGE SELECT and BACK are
+   picked; the action back is BACK */
 static void run_options(void)
 {
-	int step = 0;
+	int count = 0, option, step = 0;
+	const int *options = page_options(&count);
 
 	if (controls_open)
 	{
@@ -810,16 +918,19 @@ static void run_options(void)
 		return;
 	}
 	step = cursor_step(&option_travel, &option_wait, (int16_t)trackball_1_y, ACTION_UP, ACTION_DOWN);
-	option_choice = (option_choice + step + OPTION_COUNT) % OPTION_COUNT;
+	option_choice = (option_choice + step + count) % count;
+	option = options[option_choice];
 	step = cursor_step(&value_travel, &value_wait, (int16_t)trackball_1_x, ACTION_LEFT, ACTION_RIGHT);
 	if (step != 0)
-		change_option(option_choice, step);
+		change_option(option, step);
 	draw_options();
 	if (!picked())
 		return;
-	if (option_choice == OPTION_CONTROLS)
+	if (option == OPTION_VIDEO)
+		open_video();
+	else if (option == OPTION_CONTROLS)
 		open_controls();
-	else if (option_choice == OPTION_SOUND_TEST)
+	else if (option == OPTION_SOUND_TEST)
 	{
 		uint32_t write_index = 0, write_index_address = 0;
 
@@ -827,11 +938,14 @@ static void run_options(void)
 		console_window_settings.title_music = songs[song_choice].sound;    /* the title's from now on) */
 		console_window_settings.changed = true;
 	}
-	else if (option_choice == OPTION_BACK)
+	else if (option == OPTION_BACK && video_open)
+		close_video();
+	else if (option == OPTION_BACK)
 		close_options();
-	else if (option_choice == OPTION_STAGE_SELECT)
+	else if (option == OPTION_STAGE_SELECT)
 	{
 		close_options();
+		give_game_credits();
 		menu_after_title = false;
 		stage_select_pending = true;
 		stage_select_phase = 0;
@@ -976,6 +1090,7 @@ static void leave_map(void)
 	map_open = false;
 	stage_select_pending = false;
 	game_in_progress = 0u;
+	end_game_credits();
 	stage_init_flags &= ~0x8040u;
 	mixer_text_blend &= 0xBFFFu;
 	mixer_nbg0_blend &= 0xBFFFu;
@@ -1165,6 +1280,11 @@ void console_back(void)
 	}
 	if (controls_open)
 		return;    /* (CONTROLS reads the action back itself) */
+	if (options_open && video_open)
+	{
+		close_video();
+		return;
+	}
 	if (options_open)
 	{
 		close_options();

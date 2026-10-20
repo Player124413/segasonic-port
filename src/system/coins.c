@@ -3,7 +3,7 @@
  *    Description: coins and credits: the coin inputs and counters, the credits and start prompts drawn outside a game
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    19-10-2026
+ *    Modified:    20-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -470,7 +470,7 @@ void erase_attract_credits(void)
    cleared) while bit 5 - frames_per_wait of frame_counter is set; else "Push start button" with
    free_play or enough credits, "Insert coin" with nothing in, or "Insert more coin" ("2 credits start"
    by turns when 2 are needed). Its cabinet_config test changes nothing. */
-void blink_start_prompt(uint32_t credit_block, uint32_t prompt_texts, uint32_t *p_blink_bit, uint32_t *p_text, uint32_t *p_text_position)
+void CONSOLE_ORIGINAL(blink_start_prompt)(uint32_t credit_block, uint32_t prompt_texts, uint32_t *p_blink_bit, uint32_t *p_text, uint32_t *p_text_position)
 {
 	uint32_t blink_bit = *p_blink_bit;
 	uint32_t text = *p_text;

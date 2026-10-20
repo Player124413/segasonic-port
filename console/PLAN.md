@@ -12,11 +12,16 @@ Done:
   channels B and C (an octave under), instruments from segasonic.ini; it stays (no recorded voice).
 - (C) SEGA 1992 on the title and its menu only.
 
-- OPTIONS, a page of its own over the ranking's drifting Sonic faces: DIFFICULTY, VITALITY (the EEPROM,
-  as the test mode keeps them), WINDOW, FULL SCREEN, PIXELS (sharp, or smooth as sharp bilinear), VOLUME
+- OPTIONS, a page of its own over the ranking's drifting Sonic faces: DIFFICULTY (VERY EASY, EASY,
+  NORMAL, HARD: the test mode's 1-4) and VITALITY (the EEPROM, as the test mode keeps them), CONTINUES,
+  VIDEO (a page: WINDOW, FULL SCREEN, PIXELS, sharp or smooth as sharp bilinear), CONTROLS, VOLUME
   (segasonic.ini), SOUND TEST (the game's ten songs; the one played becomes the title's music,
   title_music in segasonic.ini, stage 3's at first), STAGE SELECT (the island map, then player select),
   BACK. Direct3D 11 on Windows.
+- CONTINUES (segasonic.ini, 3 at first): a game starts with the credits of its start and that many
+  continues, shared (a player who joins takes them too), free play off until it ends; FREE is the game's
+  own free play. With too few credits the start prompt shows nothing, not "Insert coin": the credit
+  count beside it says 0.
 - STAGE SELECT on the island map (game mode 8): the map as the map screen fades it in, every level open
   (the opening, Eggman blinking for it, then the 7 markers, each one's number and name blinking); the
   levels cleared in this session's games in the map's own cleared colours, in memory only (no file: it is
@@ -32,17 +37,15 @@ Done:
   of the stage (it reads past start_prompt_positions_2p).
 
 Next (in this order unless Sebas says otherwise):
-1. Credits as continues: a game starts with the 3 lives a coin gives and then 3 continues (credits),
-   instead of endless free play.
-2. The Japanese texts in English, drawn to fit, in the game's own font (the how to play screen...).
-3. Wide (16:9): the HUD where it is, only the view wider at the sides (the board's 416-pixel mode).
-4. A CRT filter as a third PIXELS choice.
-5. Time Attack: a clock on screen, records per stage.
-6. Achievements: our own, defined on the game's memory as RetroAchievements does (the work RAM is the
+1. The Japanese texts in English, drawn to fit, in the game's own font (the how to play screen...).
+2. Wide (16:9): the HUD where it is, only the view wider at the sides (the board's 416-pixel mode).
+3. A CRT filter as a third PIXELS choice (in VIDEO).
+4. Time Attack: a clock on screen, records per stage.
+5. Achievements: our own, defined on the game's memory as RetroAchievements does (the work RAM is the
    original's, byte for byte); RetroAchievements itself only runs in the emulators it approves.
-7. The icon: the window's from the player's own ROM (a sprite of the game's, taken from the extracted
+6. The icon: the window's from the player's own ROM (a sprite of the game's, taken from the extracted
    assets at run time); the .exe's own, ours, with no art of the game in it (the release carries none).
-8. One SegaSonic.exe with SDL2 inside; first run asks for the player's ROM set and extracts the assets;
+7. One SegaSonic.exe with SDL2 inside; first run asks for the player's ROM set and extracts the assets;
    the port's README (crediting Kenney's Input Prompts); a release for Quiver Launcher.
 
 For the port's README: docs/screenshots/console_menu.png (the menu over the title, 640 x 448 like the others).

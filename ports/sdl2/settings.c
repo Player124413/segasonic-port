@@ -39,6 +39,7 @@ port_settings settings = {
 	.sega_jingle_program = 13.0,
 	.sega_jingle_layer = 2.0,
 	.title_music = 1.0,
+	.continues = 3.0,
 };
 
 /* A setting's place in the file and what it takes */
@@ -96,6 +97,9 @@ static const entry entries[] = {
 	{ "sound", "title_music",
 		"the song of the title and its menu, by the game's sound id (1 stage 3's; OPTIONS' SOUND TEST sets it)",
 		&settings.title_music, NULL, 0.0, 255.0 },
+	{ "game", "continues",
+		"a game's continues after its start, 0 to 9, or -1 for free play (OPTIONS' CONTINUES sets it)",
+		&settings.continues, NULL, -1.0, 9.0 },
 #endif
 };
 

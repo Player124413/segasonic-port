@@ -23,6 +23,7 @@ typedef struct
 	bool smooth;          /* smooth pixels, or sharp ones */
 	int volume;           /* 0-10: 5 is the game's own */
 	int title_music;      /* the sound id of the song the title plays (SOUND TEST picks it) */
+	int continues;        /* a game's continues, 0-9, or -1: free play (CONTINUES) */
 	bool changed;
 } console_window;
 

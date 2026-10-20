@@ -3,6 +3,7 @@
 attract_warning          # no licence screen: straight on to the title
 advance_attract_screen   # the attract mode's screens in the console's order
 draw_credit_count_now    # no "Free play" line: the console has no coins
+blink_start_prompt       # no "Insert coin" without credits: the count beside it says 0
 play_sound               # every sound and the music in the attract mode too
 attract_title            # the title with music
 run_frame_start_game     # a start button outside a game opens the menu (or goes back to the title)
