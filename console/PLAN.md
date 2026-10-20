@@ -64,13 +64,19 @@ Done:
   in segasonic.times. Players not in the run when its clock starts cannot join it, nor see its prompt.
 - WIDE in every mode of a game or a demo (not the opening's scenes and cage room, nor the island maps).
 - A player out of play has no ring count on screen (player select leaves them with the 3-player cabinet).
+- WIDE's sides of a stage: the stages are drawn as far as the board's camera looks (past it they end, or
+  keep a piece of somewhere else). Each cell of the map no camera place on the stage's path shows (the
+  sections' starts, straight from one to the next; the last on and on) is drawn, while the frame is,
+  as the repeat of its row (straight or along the isometric slopes) that also holds for the cells beside
+  and above it; else as the one above it. The video RAM is the game's again once the frame is drawn
+  (console_draw_frame, the ports' frame_shown).
+- Start pauses the stage's events too (the scenes the game plays in it: the seesaw's, ...).
+- Debug: F7 and F8 move the camera to the stage's section before or after (the game's unused scroll skip).
 
 Next (in this order unless Sebas says otherwise):
-1. WIDE: where a stage's drawn part ends inside the wide picture (a block of the map left empty, as at
-   stage 8's right), the neighbour block's edge tiles copied into the empty one; the pieces adjusted by hand.
-2. Achievements: our own, defined on the game's memory as RetroAchievements does (the work RAM is the
+1. Achievements: our own, defined on the game's memory as RetroAchievements does (the work RAM is the
    original's, byte for byte); RetroAchievements itself only runs in the emulators it approves.
-3. One SegaSonic.exe with SDL2 inside; first run asks for the player's ROM set and extracts the assets;
+2. One SegaSonic.exe with SDL2 inside; first run asks for the player's ROM set and extracts the assets;
    the port's README (crediting Kenney's Input Prompts); a release for Quiver Launcher. The released
    .exe carries no ROM, so no icon from it: a neutral one of ours (the window's still comes from the ROM).
 

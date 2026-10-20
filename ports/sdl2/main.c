@@ -33,6 +33,7 @@
  *      F3                             smooth or sharp pixels
  *      F4                             the mouse's ball rolls on, or stops with the mouse
  *      F5, F6                         the mouse slower, faster (the window's title says how fast)
+ *      F7, F8                         (the console build) debug: the stage's section before, after
  *    Game controllers, one per player: the left stick is the trackball, A the button, Start the start,
  *    Back a coin.
  */
@@ -433,12 +434,22 @@ static const uint32_t *with_controls(const uint32_t *pixels)
 }
 #endif
 
+/* The board's frame drawn (the console's draws WIDE's sides of a stage's map too) */
+static void draw_frame(void)
+{
+#ifdef SEGASONIC_CONSOLE
+	console_draw_frame();
+#else
+	s32_video_draw_frame();
+#endif
+}
+
 static void on_frame_shown(void)
 {
 	int width;
 	const uint32_t *pixels;
 
-	s32_video_draw_frame();
+	draw_frame();
 	pixels = s32_video_frame(&width);
 #ifdef SEGASONIC_CONSOLE
 	if (prompt_sheet && console_controls_row(0) >= 0)
@@ -643,6 +654,10 @@ static void read_events(void)
 					toggle_smooth();
 				if (event.key.keysym.sym == SDLK_F4)
 					toggle_ball_rolls_on();
+#ifdef SEGASONIC_CONSOLE
+				if (event.key.keysym.sym == SDLK_F7 || event.key.keysym.sym == SDLK_F8)
+					console_debug_section(event.key.keysym.sym == SDLK_F8 ? 1 : -1);
+#endif
 				if (event.key.keysym.sym == SDLK_F5 || event.key.keysym.sym == SDLK_F6)
 					change_mouse_speed(event.key.keysym.sym == SDLK_F6);
 				break;
@@ -854,11 +869,11 @@ static void draw_pause_picture(int *width)
 {
 	const uint32_t *pixels;
 
-	s32_video_draw_frame();
+	draw_frame();
 	pixels = s32_video_frame(width);
 	memcpy(pause_picture, pixels, sizeof(pause_picture));
 	console_pause_text(true);
-	s32_video_draw_frame();
+	draw_frame();
 	pixels = s32_video_frame(width);
 	for (size_t i = 0; i < sizeof(pause_picture) / sizeof(pause_picture[0]); i++)
 	{
@@ -874,7 +889,7 @@ static void draw_pause_picture(int *width)
 		pause_picture[i] = 0xFF000000u | (grey << 16) | (grey << 8) | grey;
 	}
 	console_pause_text(false);
-	s32_video_draw_frame();
+	draw_frame();
 }
 
 /* The actions start or back in a stage: the game stops, its sound too, until one of them is pressed

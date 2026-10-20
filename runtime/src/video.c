@@ -1280,9 +1280,31 @@ void s32_video_draw_frame(void)
 	mix(draw_layers());
 }
 
+#define BLANK_TILES_MOST 0x8000    /* 4 banks of 8192 tiles */
+
+static uint8_t blank_tiles[BLANK_TILES_MOST];    /* by tile: 0 not looked at yet, 1 blank, 2 drawn */
+
+bool s32_video_cell_blank(uint16_t cell)
+{
+	const uint32_t bank = (s32_board.tilebank_external & 1) << 1 | ((video_register(0x00) >> 10) & 1);
+	const uint32_t tile = (bank << 13 | (cell & 0x1fff)) % video.tile_count % BLANK_TILES_MOST;
+
+	if (blank_tiles[tile] == 0)
+	{
+		const uint8_t *bytes = &video.tiles[(size_t)tile * 128];
+		int index = 0;
+
+		while (index < 128 && bytes[index] == 0)
+			index++;
+		blank_tiles[tile] = index == 128 ? 1 : 2;
+	}
+	return blank_tiles[tile] == 1;
+}
+
 void s32_video_init(const uint8_t *tiles, size_t tiles_size, const uint8_t *sprites, size_t sprites_size)
 {
 	memset(&video, 0, sizeof(video));
+	memset(blank_tiles, 0, sizeof(blank_tiles));
 	video.tiles = tiles;
 	video.tile_count = (uint32_t)(tiles_size / 128);
 	video.sprite_rom = sprites;

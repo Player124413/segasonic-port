@@ -43,6 +43,10 @@ void s32_video_set_wide(bool wide);
 /* How far right the last frame drew the board's picture: S32_VIDEO_WIDE_SIDE when it was wide, else 0 */
 int s32_video_side(void);
 
+/* A tilemap cell (as the pages hold it: tile number, color, flips) draws nothing: its tile, in the bank
+   the tilemaps use now, has no pen but 0 */
+bool s32_video_cell_blank(uint16_t cell);
+
 /* What the board calls (s32_video_init sets them): the sprite commands, and the start of VBLANK */
 void s32_video_sprites(bool erase, bool draw);
 void s32_video_draw_frame(void);

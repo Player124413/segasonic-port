@@ -18,6 +18,7 @@
 #include "console.h"
 #include "s32/video.h"
 
+#include <math.h>
 #include <string.h>
 
 /* System modes (run_frame) */
@@ -113,6 +114,7 @@ static uint8_t time_attack_players; /* the players in play when its clock starte
 static int time_attack_level = -1; /* the level the map picked: 0, Eggman's, the whole game */
 static void end_game_credits(void);
 static void wide_how_to_play(void);
+static void debug_sections(void);
 
 /* ---- the SEGA logo's jingle: two chords through the sound driver's own MIDI queue ---- */
 
@@ -1218,6 +1220,388 @@ void game_mode_stage_select(uint32_t *p_count, uint32_t *p_list_cursor)
 	stage_select_phase = 2;
 }
 
+/* ---- WIDE: the stage's map at the sides, where the board's camera never looks ---- */
+
+#define VIDEO_REGISTERS    (VIDEO_RAM + 0x1FF00u)
+#define BOARD_WIDTH        320
+#define BOARD_HEIGHT       224
+#define CELL_PIXELS        16
+#define LAYER_CELLS_X      64       /* a tilemap: 2 x 2 pages of 32 x 16 cells, 1024 x 512 pixels */
+#define LAYER_CELLS_Y      32
+#define PAGE_CELLS_X       32
+#define PAGE_CELLS_Y       16
+#define MAP_LAYERS         2        /* NBG0 and NBG1 draw the stage's map (NBG2 and NBG3 its backgrounds) */
+#define NORMAL_ZOOM        0x200
+#define PERIOD_MOST        8        /* the widest repeat of a row's cells a side goes on with */
+#define REPEATS            16       /* the repeats tried: 1 to 8 cells across, and along the slopes */
+#define STRIP_ROWS         16       /* a side's cells: the picture's rows (15 at most) */
+#define STRIP_CELLS        4        /* and the columns its 48 pixels touch */
+#define FILLED_MOST        1024
+#define SCROLL_TRAIL       64       /* the most a map layer's scroll is from the camera */
+#define SECTIONS_END       0xFFFFu  /* stage_section_ends past a stage's last section */
+#define SECTIONS_MOST      64u
+
+typedef struct
+{
+	int pages[4];
+	int base_x, base_y;    /* the layer's pixel at the board's picture's top left, unwrapped (from 1024 on) */
+	int map_x, map_y;      /* the map's there: the camera's */
+} map_layer;
+
+static uint32_t filled_cells[FILLED_MOST];    /* the cells the frame draws its own way */
+static uint16_t filled_words[FILLED_MOST];    /* what they held, theirs again after it */
+static int filled_count;
+
+/* A cell that draws nothing (the stages leave some blank with a tile of no pens) */
+static bool cell_blank(uint32_t cell)
+{
+	return s32_video_cell_blank(mem_read16(cell));
+}
+
+static uint16_t video_register_word(uint32_t offset)
+{
+	return mem_read16(VIDEO_REGISTERS + offset);
+}
+
+/* A cell of the layer by its unwrapped column and row */
+static uint32_t layer_cell(const map_layer *layer, int column, int row)
+{
+	const unsigned x = (unsigned)column & (LAYER_CELLS_X - 1u), y = (unsigned)row & (LAYER_CELLS_Y - 1u);
+	const unsigned page = (unsigned)layer->pages[(y / PAGE_CELLS_Y) * 2u + x / PAGE_CELLS_X];
+
+	return VIDEO_RAM + ((page * PAGE_CELLS_X * PAGE_CELLS_Y) + (y % PAGE_CELLS_Y) * PAGE_CELLS_X + x % PAGE_CELLS_X) * 2u;
+}
+
+/* Narrows [low, high] to the t with a + d t < k; false when none is left */
+static bool narrow(double a, double d, double k, double *low, double *high)
+{
+	if (d == 0.0)
+		return a < k;
+	if (d > 0.0)
+		*high = (k - a) / d < *high ? (k - a) / d : *high;
+	else
+		*low = (k - a) / d > *low ? (k - a) / d : *low;
+	return *low < *high;
+}
+
+/* The board's picture, from the camera somewhere on the straight run from a to a + d (high 1) or past it
+   (high HUGE_VAL), shows some of the map's cell at x, y */
+static bool run_shows(double ax, double ay, double dx, double dy, double high, int x, int y)
+{
+	double low = 0.0;
+
+	return narrow(ax, dx, x + CELL_PIXELS, &low, &high) && narrow(-ax, -dx, BOARD_WIDTH - x, &low, &high)
+		&& narrow(ay, dy, y + CELL_PIXELS, &low, &high) && narrow(-ay, -dy, BOARD_HEIGHT - y, &low, &high);
+}
+
+/* The board's picture shows some of the map's cell at x, y from somewhere on the stage's camera path: each
+   section from its start (stage_section_limits_x/_y, from camera_origin_x/_y, as load_camera_start_section
+   puts the camera) straight to the next's; the last (the next section's end, stage_section_ends, is
+   SECTIONS_END) has no limit: its direction (stage_section_directions_x/_y) on and on */
+static bool cell_ever_shown(int x, int y)
+{
+	const uint32_t xs = stage_section_limits_x_ADDRESS + stage_section_limits_x[stage];
+	const uint32_t ys = stage_section_limits_y_ADDRESS + stage_section_limits_y[stage];
+	const uint32_t ends = stage_section_ends_ADDRESS + stage_section_ends[stage];
+	uint32_t section;
+
+	for (section = 0; section < SECTIONS_MOST; section++)
+	{
+		const double ax = (uint16_t)(ROM16(xs + 2u * section) + camera_origin_x);
+		const double ay = (uint16_t)(ROM16(ys + 2u * section) + camera_origin_y);
+
+		if (ROM16(ends + 2u * section + 2u) == SECTIONS_END)
+			return run_shows(ax, ay,
+				(int16_t)ROM16(stage_section_directions_x_ADDRESS + stage_section_directions_x[stage] + 2u * section),
+				(int16_t)ROM16(stage_section_directions_y_ADDRESS + stage_section_directions_y[stage] + 2u * section),
+				HUGE_VAL, x, y);
+		if (run_shows(ax, ay, (uint16_t)(ROM16(xs + 2u * section + 2u) + camera_origin_x) - ax,
+				(uint16_t)(ROM16(ys + 2u * section + 2u) + camera_origin_y) - ay, 1.0, x, y))
+			return true;
+	}
+	return false;
+}
+
+/* A cell the board's picture never shows (nor this frame's) */
+static bool cell_hidden(const map_layer *layer, int column, int row)
+{
+	const int x = column * CELL_PIXELS - layer->base_x + layer->map_x;
+	const int y = row * CELL_PIXELS - layer->base_y + layer->map_y;
+
+	return (x >= layer->map_x + BOARD_WIDTH || x + CELL_PIXELS <= layer->map_x) && !cell_ever_shown(x, y);
+}
+
+/* The picture's sides on a layer: each side's cells (its first column, and the step outward: right 1, left
+   -1), hidden or not, and which hidden ones the frame has drawn its own way so far */
+enum { CELL_SHOWN, CELL_HIDDEN, CELL_DRAWN };
+
+typedef struct
+{
+	const map_layer *layer;
+	int top_row, rows;
+	int first[2], step[2];
+	uint8_t state[STRIP_ROWS][2][STRIP_CELLS];
+} side_strips;
+
+/* A repeat: a cell takes the one 'across' cells toward the picture, and up (-1) or down (1) half as many
+   along the isometric slopes */
+static const int8_t repeats[REPEATS][2] = {
+	{ 1, 0 }, { 2, 0 }, { 2, -1 }, { 2, 1 }, { 3, 0 }, { 4, 0 }, { 4, -2 }, { 4, 2 },
+	{ 5, 0 }, { 6, 0 }, { 6, -3 }, { 6, 3 }, { 7, 0 }, { 8, 0 }, { 8, -4 }, { 8, 4 }
+};
+
+static uint8_t *strip_state(side_strips *strips, int column, int row)
+{
+	int side, cell;
+
+	if (row < strips->top_row || row >= strips->top_row + strips->rows)
+		return NULL;
+	for (side = 0; side < 2; side++)
+	{
+		cell = (column - strips->first[side]) * strips->step[side];
+		if (cell >= 0 && cell < STRIP_CELLS)
+			return &strips->state[row - strips->top_row][side][cell];
+	}
+	return NULL;
+}
+
+/* A cell whose word is what the frame shows: not hidden, or drawn already */
+static bool cell_known(side_strips *strips, int column, int row)
+{
+	const uint8_t *state = strip_state(strips, column, row);
+
+	return state ? *state != CELL_HIDDEN : !cell_hidden(strips->layer, column, row);
+}
+
+/* Two cells look alike: the same word, or both blank */
+static bool cells_alike(uint32_t one, uint32_t other)
+{
+	return mem_read16(one) == mem_read16(other) || (cell_blank(one) && cell_blank(other));
+}
+
+/* The repeats of a row's side, best first: how many drawn cells each holds for, where the row meets the
+   side (from the cell at 'from' toward the picture, with the rows above and below) */
+static void rank_repeats(const map_layer *layer, int row, int from, int step, int *ranked)
+{
+	int scores[REPEATS];
+	int repeat, line, cell, index;
+
+	for (repeat = 0; repeat < REPEATS; repeat++)
+	{
+		scores[repeat] = 0;
+		for (line = row - 1; line <= row + 1; line++)
+			for (cell = 0; cell < PERIOD_MOST; cell++)
+			{
+				const uint32_t here = layer_cell(layer, from - step * cell, line);
+
+				scores[repeat] += !cell_blank(here) && mem_read16(here)
+					== mem_read16(layer_cell(layer, from - step * (cell + repeats[repeat][0]), line + repeats[repeat][1]));
+			}
+		for (index = repeat; index > 0 && scores[ranked[index - 1]] < scores[repeat]; index--)
+			ranked[index] = ranked[index - 1];
+		ranked[index] = repeat;
+	}
+}
+
+/* What a hidden cell shows: the cell its row's best repeat takes that holds for the cell beside it toward
+   the picture, and for the one above it when that is known; else the one above it again, or the one
+   beside it */
+static uint16_t hidden_word(side_strips *strips, int column, int row, int step, const int *ranked)
+{
+	const map_layer *layer = strips->layer;
+	const int inner = column - step;
+	const bool above_known = cell_known(strips, column, row - 1);
+	int index;
+
+	for (index = 0; index < REPEATS; index++)
+	{
+		const int across = -step * repeats[ranked[index]][0];
+		const int down = repeats[ranked[index]][1];
+
+		if (!cell_known(strips, column + across, row + down) || !cell_known(strips, inner + across, row + down)
+			|| !cells_alike(layer_cell(layer, inner, row), layer_cell(layer, inner + across, row + down)))
+			continue;
+		if (above_known && (!cell_known(strips, column + across, row - 1 + down)
+				|| !cells_alike(layer_cell(layer, column, row - 1), layer_cell(layer, column + across, row - 1 + down))))
+			continue;
+		return mem_read16(layer_cell(layer, column + across, row + down));
+	}
+	/* (none: the cell beside it is one of a kind, as a structure's end the board shows; what is above goes
+	   on down, else the cell beside it) */
+	return mem_read16(layer_cell(layer, above_known ? column : inner, above_known ? row - 1 : row));
+}
+
+/* A layer's sides: row by row from the top, each side's hidden cells outward take hidden_word; the cells
+   drawn are kept, with what they held, for after the frame */
+static void fill_sides(const map_layer *layer)
+{
+	side_strips strips;
+	int ranked[REPEATS];
+	int row, side, cell, first_hidden;
+
+	memset(&strips, 0, sizeof(strips));
+	strips.layer = layer;
+	strips.top_row = layer->base_y / CELL_PIXELS;
+	strips.rows = (layer->base_y + BOARD_HEIGHT - 1) / CELL_PIXELS - strips.top_row + 1;
+	strips.first[0] = (layer->base_x + BOARD_WIDTH) / CELL_PIXELS;
+	strips.step[0] = 1;
+	strips.first[1] = (layer->base_x - 1) / CELL_PIXELS;
+	strips.step[1] = -1;
+	for (row = 0; row < strips.rows; row++)
+		for (side = 0; side < 2; side++)
+			for (cell = 0; cell < STRIP_CELLS; cell++)
+				strips.state[row][side][cell] = cell_hidden(layer, strips.first[side] + strips.step[side] * cell,
+					strips.top_row + row) ? CELL_HIDDEN : CELL_SHOWN;
+	for (row = 0; row < strips.rows; row++)
+		for (side = 0; side < 2; side++)
+		{
+			const int step = strips.step[side];
+
+			for (first_hidden = 0; first_hidden < STRIP_CELLS && strips.state[row][side][first_hidden] != CELL_HIDDEN;
+				first_hidden++)
+				;
+			if (first_hidden == STRIP_CELLS)
+				continue;
+			rank_repeats(layer, strips.top_row + row, strips.first[side] + step * (first_hidden - 1), step, ranked);
+			for (cell = first_hidden; cell < STRIP_CELLS && filled_count < FILLED_MOST; cell++)
+			{
+				const int column = strips.first[side] + step * cell;
+				const uint32_t address = layer_cell(layer, column, strips.top_row + row);
+				uint16_t word = 0;
+
+				if (strips.state[row][side][cell] != CELL_HIDDEN)
+					continue;
+				word = hidden_word(&strips, column, strips.top_row + row, step, ranked);
+				filled_cells[filled_count] = address;
+				filled_words[filled_count++] = mem_read16(address);
+				mem_write16(address, word);
+				strips.state[row][side][cell] = CELL_DRAWN;
+			}
+		}
+}
+
+/* Tilemap 'number' (NBG0 or NBG1) shows the stage's map when it scrolls with the camera, unzoomed and
+   unflipped */
+static bool map_layer_of(int number, map_layer *layer)
+{
+	const uint16_t control = video_register_word(0x00u);
+	const uint16_t upper = video_register_word(0x40u + 4u * (uint32_t)number);
+	const uint16_t lower = video_register_word(0x42u + 4u * (uint32_t)number);
+	const int scroll_x = video_register_word(0x12u + 8u * (uint32_t)number) & 0x3FF;
+	const int scroll_y = video_register_word(0x16u + 8u * (uint32_t)number) & 0x1FF;
+	const int center_x = (int)((video_register_word(0x30u + 4u * (uint32_t)number) & 0x1FFu) ^ 0x100u) - 0x100;
+	const int center_y = (int)((video_register_word(0x32u + 4u * (uint32_t)number) & 0x1FFu) ^ 0x100u) - 0x100;
+	int offset_x = 0, offset_y = 0;
+
+	if ((control & (0x0200u | (1u << number))) != 0u
+		|| (video_register_word(0x50u + 4u * (uint32_t)number) & 0xFFFu) != NORMAL_ZOOM
+		|| ((control & 0x4000u) != 0u && (video_register_word(0x52u + 4u * (uint32_t)number) & 0xFFFu) != NORMAL_ZOOM))
+		return false;
+	layer->pages[0] = upper & 0x7F;
+	layer->pages[1] = (upper >> 8) & 0x7F;
+	layer->pages[2] = lower & 0x7F;
+	layer->pages[3] = (lower >> 8) & 0x7F;
+	layer->base_x = ((scroll_x - center_x) & 0x3FF) + 1024;
+	layer->base_y = ((scroll_y - center_y) & 0x1FF) + 1024;
+	/* (the stage's blocks go in the pages by their place in the map: a layer's pixel is the map's at the
+	   same place, wrapped; its scroll can trail the camera a little) */
+	offset_x = ((layer->base_x - (uint16_t)camera_x_pixels + 512) & 0x3FF) - 512;
+	offset_y = ((layer->base_y - (uint16_t)camera_y_pixels + 256) & 0x1FF) - 256;
+	layer->map_x = (uint16_t)camera_x_pixels + offset_x;
+	layer->map_y = (uint16_t)camera_y_pixels + offset_y;
+	return offset_x > -SCROLL_TRAIL && offset_x < SCROLL_TRAIL && offset_y > -SCROLL_TRAIL && offset_y < SCROLL_TRAIL;
+}
+
+/* A stage drawn, in any mode of a game or a demo (played, its events, scenes and transitions), but stage
+   6, the opening's scenes (pictures 320 pixels wide), and 5, its cage room (the camera stays, its walls
+   end past the 320 pixels; its switch scene is stage 0); not the island maps (game modes 4 and 8): their
+   pictures end at their sides */
+static bool stage_drawn(void)
+{
+	return stage != 6u && stage != 5u && game_mode != 4u && game_mode != 8u
+		&& ((system_mode == MODE_GAME && (int8_t)game_in_progress < 0) || system_mode == MODE_DEMO_1
+			|| system_mode == MODE_DEMO_2);
+}
+
+/* A stage's map on screen, wider: a stage drawn but the test corridor (the how to play's, player
+   select's) and the ending */
+static bool stage_map_shown(void)
+{
+	return console_window_settings.wide && stage_drawn() && stage < 0x11u && stage != 7u;
+}
+
+/* The frame, with each side's cells of the map the board's camera never shows going on as the cells beside
+   them: the stages are drawn as far as it looks, past it they end, or keep a piece of somewhere else. The
+   video RAM is as the game left it again once it is drawn */
+void console_draw_frame(void)
+{
+	map_layer layer;
+	int number, index;
+
+	filled_count = 0;
+	for (number = 0; number < MAP_LAYERS && stage_map_shown(); number++)
+		if (map_layer_of(number, &layer))
+			fill_sides(&layer);
+	s32_video_draw_frame();
+	for (index = filled_count - 1; index >= 0; index--)
+		mem_write16(filled_cells[index], filled_words[index]);
+	filled_count = 0;
+}
+
+/* ---- debug: a stage's sections, as the game's own scroll skip mode (unused) moves the camera ---- */
+
+#define SECTION_ROW        3u
+#define SECTION_SHOWN      120     /* frames "SECTION n/last" stays */
+
+static int debug_section_step;
+static int debug_section_frames;
+
+void console_debug_section(int step)
+{
+	debug_section_step += step;
+}
+
+/* The section the camera is in: load_camera_start_section leaves section_limit_x_list two entries past it */
+static int current_section(void)
+{
+	const uint32_t first = stage_section_limits_x_ADDRESS + stage_section_limits_x[stage];
+
+	return (int)(section_limit_x_list - first) / 2 - 2;
+}
+
+/* F7 and F8 (the port): the camera at the start of the section before or after, as the scroll skip
+   mode's CALL does (move_camera_to_start_section, stage_start_section kept at most
+   scroll_skip_last_points[stage]); its number shown a moment */
+static void debug_sections(void)
+{
+	uint32_t ignored = 0;
+	char text[24] = "SECTION ";
+	int section, last, at;
+
+	if (debug_section_step != 0 && console_in_game())
+	{
+		last = scroll_skip_last_points[stage];
+		section = clamp(current_section() + debug_section_step, 0, last);
+		stage_start_section = (uint16_t)section;
+		move_camera_to_start_section(&ignored, &ignored, &ignored);
+		at = 8;
+		if (section >= 10)
+			text[at++] = (char)('0' + section / 10);
+		text[at++] = (char)('0' + section % 10);
+		text[at++] = '/';
+		if (last >= 10)
+			text[at++] = (char)('0' + last / 10);
+		text[at++] = (char)('0' + last % 10);
+		text[at] = 0;
+		erase_line(SECTION_ROW);
+		write_centered(SECTION_ROW, text, MENU_CHOSEN);
+		debug_section_frames = SECTION_SHOWN;
+	}
+	debug_section_step = 0;
+	if (debug_section_frames > 0 && --debug_section_frames == 0)
+		erase_line(SECTION_ROW);
+}
+
 /* ---- the players out of play ---- */
 
 static const uint8_t player_start_bits[3] = { 0x10u, 0x20u, 0x80u };
@@ -1581,6 +1965,7 @@ void run_game_mode(uint32_t pressed, uint32_t position, uint32_t speed, uint16_t
 		p_list_cursor);
 	note_level_reached();
 	wide_how_to_play();
+	debug_sections();
 	time_attack_frame();
 }
 
@@ -2165,18 +2550,11 @@ bool console_controls_defaults(void)
 
 bool console_wide_now(void)
 {
-	/* every mode of a game or a demo (the stages, their scenes and transitions), but stage 6, the opening's
-	   scenes (pictures 320 pixels wide), and 5, its cage room (the camera stays, its walls end past the 320
-	   pixels; its switch scene is stage 0); the how to play (its panel goes on at the sides:
-	   wide_how_to_play), the SEGA logo and the title (their sky and sea go on), the ranking, OPTIONS and
-	   player select (their faces). Not the island maps (game modes 4 and 8): their pictures end at their
-	   sides */
-	const bool stage_drawn = stage != 6u && stage != 5u && game_mode != 4u && game_mode != 8u
-		&& ((system_mode == MODE_GAME && (int8_t)game_in_progress < 0) || system_mode == MODE_DEMO_1
-			|| system_mode == MODE_DEMO_2);
-
+	/* a stage drawn (stage_drawn); the how to play (its panel goes on at the sides: wide_how_to_play), the
+	   SEGA logo and the title (their sky and sea go on), the ranking, OPTIONS and player select (their
+	   faces) */
 	return console_window_settings.wide
-		&& (stage_drawn
+		&& (stage_drawn()
 			|| (system_mode == MODE_GAME && (int8_t)game_in_progress < 0 && (game_mode == 1u || game_mode == 0x1Bu))
 			|| system_mode == MODE_TITLE || system_mode == MODE_RANKING || system_mode == MODE_OPTIONS);
 }
@@ -2185,9 +2563,14 @@ bool console_in_game(void)
 {
 	if (system_mode != MODE_GAME || (int8_t)game_in_progress >= 0)
 		return false;
-	/* a stage being played (game_mode_play_stage: modes 3, 5 and 6; the screen wipe that opens one, 0x11);
-	   not the intro, player select, the how to play, the map or the scenes, where start is start */
-	return game_mode == 3u || game_mode == 5u || game_mode == 6u || game_mode == 0x11u;
+	/* a stage being played (game_mode_play_stage: modes 3, 5 and 6; the screen wipe that opens one, 0x11) or
+	   one of its events, the scenes the game plays in it (modes 9 to 0x0D, 0x0F, 0x10, 0x12 to 0x16, 0x18 to
+	   0x1A, 0x1C, 0x1F); not the intro, player select, the how to play, the map, the continue, the stage
+	   clear or its results, where start is start */
+	return game_mode == 3u || game_mode == 5u || game_mode == 6u || game_mode == 0x11u
+		|| (game_mode >= 0x09u && game_mode <= 0x0Du) || game_mode == 0x0Fu || game_mode == 0x10u
+		|| (game_mode >= 0x12u && game_mode <= 0x16u) || (game_mode >= 0x18u && game_mode <= 0x1Au)
+		|| game_mode == 0x1Cu || game_mode == 0x1Fu;
 }
 
 void console_pause_text(bool shown)

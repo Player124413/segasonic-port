@@ -79,6 +79,10 @@ void console_prepare_sprites(uint8_t *sprites, size_t size, const uint8_t *progr
    other screens' pictures end at their 320 pixels, so they keep them, between black bars */
 bool console_wide_now(void);
 
+/* The board's frame drawn (the port's s32_board.frame_shown): s32_video_draw_frame, with WIDE's sides of a
+   stage's map gone on where the board's camera never looks */
+void console_draw_frame(void);
+
 /* The window's icon, CONSOLE_ICON_SIZE x CONSOLE_ICON_SIZE pixels 0xAARRGGBB: Sonic's, Mighty's and Ray's
    heads (the join chooser's), from the player's sprite graphics and program ROM; false when they are not
    there */
@@ -100,8 +104,12 @@ typedef struct
 
 extern console_times console_best_times;
 
-/* True while a stage is played in a game (not the intro, player select, the map, the scenes, nor the
-   attract mode's demos): start pauses it */
+/* Debug (the port's F7 and F8): the camera to the stage's section before (-1) or after (+1) the one it is
+   in, as the game's own unused scroll skip mode does */
+void console_debug_section(int step);
+
+/* True while a stage is played in a game, its events too (not the intro, player select, the map, the
+   continue, the stage clear, nor the attract mode's demos): start pauses it */
 bool console_in_game(void);
 
 /* "PAUSE" on the text layer's top (shown), or the cells it covered back as they were */

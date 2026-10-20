@@ -309,6 +309,7 @@ int main(int argc, char **argv)
 		memcpy(console_sprites, game_sprite_rom, GAME_SPRITE_ROM_SIZE);
 		console_prepare_sprites(console_sprites, GAME_SPRITE_ROM_SIZE, game_program_rom);
 		s32_video_init(game_tile_rom, GAME_TILE_ROM_SIZE, console_sprites, GAME_SPRITE_ROM_SIZE);
+		s32_board.frame_shown = console_draw_frame;    /* (WIDE's sides of a stage's map too) */
 #else
 		s32_video_init(game_tile_rom, GAME_TILE_ROM_SIZE, game_sprite_rom, GAME_SPRITE_ROM_SIZE);
 #endif
