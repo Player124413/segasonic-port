@@ -32,7 +32,9 @@ Next (in this order unless Sebas says otherwise):
 7. Time Attack: a clock on screen, records per stage.
 8. Achievements: our own, defined on the game's memory as RetroAchievements does (the work RAM is the
    original's, byte for byte); RetroAchievements itself only runs in the emulators it approves.
-9. One SegaSonic.exe with SDL2 inside; first run asks for the player's ROM set and extracts the assets;
-   the port's README; a release for Quiver Launcher.
+9. The icon: the window's from the player's own ROM (a sprite of the game's, taken from the extracted
+   assets at run time); the .exe's own, ours, with no art of the game in it (the release carries none).
+10. One SegaSonic.exe with SDL2 inside; first run asks for the player's ROM set and extracts the assets;
+    the port's README; a release for Quiver Launcher.
 
 For the port's README: docs/screenshots/console_menu.png (the menu over the title, 640 x 448 like the others).
