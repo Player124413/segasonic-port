@@ -278,6 +278,9 @@ static void apply_settings(void)
 		SDL_SetWindowSize(window, (int)(320 * shown_scale), (int)(S32_VIDEO_HEIGHT * shown_scale));
 	}
 	show_mouse_speed();
+#ifdef SEGASONIC_CONSOLE
+	console_jingle_program((int)settings.sega_jingle_program, (int)settings.sega_jingle_layer);
+#endif
 }
 
 static void read_events(void)
@@ -621,6 +624,9 @@ int main(int argc, char **argv)
 	snprintf(eeprom_path, sizeof(eeprom_path), "%s" FILE_NAME ".eeprom", base ? base : "");
 	SDL_free(base);
 	settings_open(settings_path);
+#ifdef SEGASONIC_CONSOLE
+	console_jingle_program((int)settings.sega_jingle_program, (int)settings.sega_jingle_layer);
+#endif
 	shown_scale = settings.window_scale;
 	window = SDL_CreateWindow("SegaSonic The Hedgehog", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
 		(int)(320 * shown_scale), (int)(S32_VIDEO_HEIGHT * shown_scale),

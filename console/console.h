@@ -17,6 +17,10 @@
 /* The actions newly pressed this frame (ACTION_BIT), before the game's frame: the menus read them */
 void console_actions(uint32_t pressed);
 
+/* The instruments (the sound driver's programs, 0-36) of the SEGA logo's jingle: its voice, and the layer an
+   octave under it (-1: none) */
+void console_jingle_program(int program, int layer);
+
 /* True once the menu's EXIT was picked: the port closes the game */
 bool console_quit_requested(void);
 

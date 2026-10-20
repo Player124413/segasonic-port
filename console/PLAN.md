@@ -7,6 +7,12 @@ Done:
 - The attract mode with every sound and the music (the arcade's lets some effects through, and only with
   ADVERTISE SOUND on); the title plays a song (stage 00's for now; the arcade's title has none).
 
+- The title menu, PRESS START, player select by a touch, pause in grey, actions instead of keys.
+- The SEGA logo's jingle: two notes (G, E) through the sound driver's own MIDI queue on the effects'
+  channels B and C (an octave under), instruments from segasonic.ini; it sounds like a handheld's, so a
+  recorded voice of our own (sega.wav, played by the port) may take its place later.
+- (C) SEGA 1992 on the title and its menu only.
+
 Next (in this order unless Sebas says otherwise):
 1. The title with a blinking PRESS START (the game's menu font); start opens a small menu over SegaSonic's
    logo with the three characters on a blue layer (Sonic 1's title): START GAME, OPTIONS, EXIT.

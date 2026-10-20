@@ -31,6 +31,7 @@
 #define TITLE_MUSIC        0x00u    /* the sound the title starts (the arcade's title has none): stage 00's music */
 #define PRESS_START_ROW    25u      /* under the emblem's ribbon */
 #define MENU_ROW           24u      /* the menu's first line, under the logo */
+#define COPYRIGHT_ROW      27u      /* the title's (C) SEGA 1992 line */
 #define MENU_TRAVEL        48       /* the trackball's y travel that moves the cursor one line, */
 #define MENU_PAUSE         16       /* and the frames before it moves again */
 #define SEGA_LOGO_LAST     0x3C     /* sega_logo_timer at the end of its last step (run_sega_logo, step 6) */
@@ -90,6 +91,87 @@ static void write_centered(uint32_t row, const char *text, uint8_t attribute)
 
 static void run_menu(void);
 
+/* ---- the SEGA logo's jingle: two notes through the sound driver's own MIDI queue ---- */
+
+/* The sound driver plays its sequences by putting their MIDI messages in a queue in the sound RAM the main
+   CPU shares (E100-E1FF there, 0x700100 here), for its MIDI parts to play with the game's instruments: two
+   notes put there play like a song of the game's. MIDI channel B plays them: one of the effects' parts,
+   at full volume whatever music_volume says (fixed_volume) and with no transpose, with the program the
+   port's settings name; its own program comes back after them. */
+#define JINGLE_CHANNEL     0x0Bu
+#define LAYER_CHANNEL      0x0Cu    /* the layer under it: an octave down, another instrument */
+#define MIDI_QUEUE         (SOUND_RAM + 0x100u)
+#define MIDI_QUEUE_WRITE   (SOUND_RAM + 0x758u)
+#define MIDI_QUEUE_COUNT   (SOUND_RAM + 0x759u)
+#define JINGLE_STEP        4u       /* sega_logo_step when the logo has come together */
+#define JINGLE_NOTE_FRAMES 37       /* each note: 0.6 seconds */
+#define JINGLE_FIRST       79u      /* G, then */
+#define JINGLE_SECOND      76u      /* E: "SE-GA" */
+
+static int jingle_frame = -1;     /* frames since the jingle began, -1: none */
+static int jingle_program = 13;   /* the instrument (the port's settings: sega_jingle_program) */
+static int jingle_layer = 2;      /* the layer's (sega_jingle_layer; -1: no layer) */
+
+static void midi_message(uint8_t status, uint8_t first, uint8_t second, int bytes)
+{
+	uint8_t write = mem_read8(MIDI_QUEUE_WRITE);
+	const uint8_t message[3] = { status, first, second };
+	int i;
+
+	for (i = 0; i < bytes; i++)
+	{
+		mem_write8(MIDI_QUEUE + write, message[i]);
+		write++;
+	}
+	mem_write8(MIDI_QUEUE_WRITE, write);
+	mem_write8(MIDI_QUEUE_COUNT, (uint8_t)(mem_read8(MIDI_QUEUE_COUNT) + 1u));
+}
+
+/* One voice of the jingle on 'channel': at 'frame' of it, its note on or off ('shift' semitones away) */
+static void jingle_voice(uint8_t channel, int program, int shift)
+{
+	const uint8_t first = (uint8_t)(JINGLE_FIRST + shift), second = (uint8_t)(JINGLE_SECOND + shift);
+
+	if (program < 0)
+		return;
+	if (jingle_frame == 0)
+	{
+		midi_message(0xB0u | channel, 7u, 0x7Fu, 3);    /* CC 7, the volume: all of it */
+		midi_message(0xC0u | channel, (uint8_t)program, 0u, 2);
+		midi_message(0x90u | channel, first, 0x7Fu, 3);
+	}
+	else if (jingle_frame == JINGLE_NOTE_FRAMES)
+	{
+		midi_message(0x80u | channel, first, 0u, 3);
+		midi_message(0x90u | channel, second, 0x7Fu, 3);
+	}
+	else if (jingle_frame == 2 * JINGLE_NOTE_FRAMES)
+	{
+		midi_message(0x80u | channel, second, 0u, 3);
+		midi_message(0xC0u | channel, 0u, 0u, 2);    /* the part's own program again */
+	}
+}
+
+static void play_jingle(void)
+{
+	if (jingle_frame < 0)
+		return;
+	jingle_voice(JINGLE_CHANNEL, jingle_program, 0);
+	jingle_voice(LAYER_CHANNEL, jingle_layer, -12);
+	if (jingle_frame == 2 * JINGLE_NOTE_FRAMES)
+	{
+		jingle_frame = -2;    /* (done) */
+		return;
+	}
+	jingle_frame++;
+}
+
+void console_jingle_program(int program, int layer)
+{
+	jingle_program = program;
+	jingle_layer = layer;
+}
+
 /* ---- the attract mode ---- */
 
 /* The title shows SegaSonic's emblem: its timer runs (title_emblem_animate), the SEGA logo is over */
@@ -143,10 +225,13 @@ void attract_title(uint32_t *p_color, uint32_t *p_row_pairs_left, uint32_t *p_bl
 
 	if (system_mode_step == 0u)
 	{
-		queue_sound(TITLE_MUSIC, &write_index, &write_index_address);
 		title_frames = 0;
 		title_timer = 0;    /* (left from the last title until this one builds its emblem) */
+		jingle_frame = -1;
 	}
+	if (system_mode == MODE_TITLE && !sega_logo_shown && sega_logo_step >= JINGLE_STEP && jingle_frame == -1)
+		jingle_frame = 0;    /* the SEGA logo is up: its jingle */
+	play_jingle();
 	if (menu_open && title_timer > TITLE_HOLD)
 		title_timer = TITLE_HOLD;    /* (at 0x258 the title frees its logo and ends: not under the menu) */
 	original_attract_title(p_color, p_row_pairs_left, p_blocks_per_row, p_text);
@@ -157,8 +242,12 @@ void attract_title(uint32_t *p_color, uint32_t *p_row_pairs_left, uint32_t *p_bl
 		sega_logo_step = 6u;
 		sega_logo_timer = SEGA_LOGO_LAST;
 	}
+	if (system_mode == MODE_TITLE && !title_logo_up())
+		erase_line(COPYRIGHT_ROW);    /* the (C) SEGA 1992 line: on the title and its menu, not the SEGA logo */
 	if (system_mode != MODE_TITLE || !title_logo_up())
 		return;
+	if (title_frames == 0u)
+		queue_sound(TITLE_MUSIC, &write_index, &write_index_address);    /* the emblem: its music */
 	sega_logo_shown = true;
 	if (menu_open)
 	{

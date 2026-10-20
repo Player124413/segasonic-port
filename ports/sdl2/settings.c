@@ -36,6 +36,8 @@ port_settings settings = {
 	.full_screen = false,
 	.smooth = false,
 	.volume = 1.0,
+	.sega_jingle_program = 13.0,
+	.sega_jingle_layer = 2.0,
 };
 
 /* A setting's place in the file and what it takes */
@@ -83,6 +85,14 @@ static const entry entries[] = {
 	{ "sound", "volume",
 		"the game's sound, from 0 (none) to 2 (twice as loud)",
 		&settings.volume, NULL, 0.0, 2.0 },
+#ifdef SEGASONIC_CONSOLE
+	{ "sound", "sega_jingle_program",
+		"the instrument of the SEGA logo's two notes: one of the sound program's 37 (0 to 36)",
+		&settings.sega_jingle_program, NULL, 0.0, 36.0 },
+	{ "sound", "sega_jingle_layer",
+		"the instrument of the same two notes an octave under them, to give them body (-1: none)",
+		&settings.sega_jingle_layer, NULL, -1.0, 36.0 },
+#endif
 };
 
 #define ENTRIES (sizeof(entries) / sizeof(entries[0]))

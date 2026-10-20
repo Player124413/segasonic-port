@@ -25,6 +25,8 @@ typedef struct port_settings
 	bool full_screen;
 	bool smooth;              /* smooth pixels, or sharp ones */
 	double volume;            /* of the game's sound */
+	double sega_jingle_program;    /* the console's SEGA logo jingle: the sound driver's program (0-36) */
+	double sega_jingle_layer;      /* ... and the layer an octave under it (-1: none) */
 } port_settings;
 
 extern port_settings settings;
