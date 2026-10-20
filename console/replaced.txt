@@ -8,5 +8,7 @@ attract_title            # the title with music
 run_frame_start_game     # a start button outside a game opens the menu (or goes back to the title)
 run_game_mode            # the game the menu starts sees player 1's start, as the arcade's start frame does
 character_chooser_wait   # player select: a touch of left or right turns at once
-read_trackball_step      # the stage select: a stage a touch, as the menus move
+join_character_chooser_update # a continue's character chooser: a touch of left or right turns at once
+game_mode_stage_select   # the stage select is the island map: a level a marker, every one open
+draw_player_start_prompt # a player's start prompt is up: their start joins, it does not pause
 system_mode_idle         # system mode 1 is the console's OPTIONS page

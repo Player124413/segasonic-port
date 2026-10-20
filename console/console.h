@@ -46,17 +46,24 @@ void console_back(void);
    there), or -1 */
 int console_controls_row(int action);
 
+/* The player whose controls CONTROLS shows (0-2): the port draws theirs, and binds and puts back theirs */
+int console_controls_player(void);
+
 /* The action CONTROLS waits for a new key or button for, or -1: the port takes the next one pressed, binds it
    (Escape: leaves it) and says so */
 int console_controls_waiting(void);
 void console_controls_bound(void);
 
-/* DEFAULTS was picked on CONTROLS (true once): the port puts every key and button back */
+/* DEFAULTS was picked on CONTROLS (true once): the port puts the shown player's keys and buttons back */
 bool console_controls_defaults(void);
 
 #define CONSOLE_CONTROLS_KEYS_X     120    /* where the port draws an action's keys, in pixels, */
 #define CONSOLE_CONTROLS_SECOND_X   160    /* its second key, */
 #define CONSOLE_CONTROLS_BUTTON_X   224    /* and its game controller button */
+
+/* A player's start prompt is up (to join, or a continue's count): their start is the board's start then,
+   even in a stage, where it is otherwise the pause */
+bool console_start_prompted(int player);
 
 /* True while a stage is played in a game (not the intro, player select, the map, the scenes, nor the
    attract mode's demos): start pauses it */

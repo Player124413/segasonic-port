@@ -15,28 +15,34 @@ Done:
 - OPTIONS, a page of its own over the ranking's drifting Sonic faces: DIFFICULTY, VITALITY (the EEPROM,
   as the test mode keeps them), WINDOW, FULL SCREEN, PIXELS (sharp, or smooth as sharp bilinear), VOLUME
   (segasonic.ini), SOUND TEST (the game's ten songs; the one played becomes the title's music,
-  title_music in segasonic.ini, stage 3's at first), STAGE SELECT (the stage first, then player select;
-  a stage a touch), BACK. Direct3D 11 on Windows.
-- CONTROLS in OPTIONS: each action's first two keys and its game controller button, drawn with Kenney's
-  Input Prompts Pixel (CC0, ports/sdl2/prompts); a line picked waits for the new key or button (Escape
-  leaves it), DEFAULTS puts them all back; kept in controls.ini beside the executable. JUMP is an action
-  too, so the board's button follows it.
+  title_music in segasonic.ini, stage 3's at first), STAGE SELECT (the island map, then player select),
+  BACK. Direct3D 11 on Windows.
+- STAGE SELECT on the island map (game mode 8): the map as the map screen fades it in, every level open
+  (the opening, Eggman blinking for it, then the 7 markers, each one's number and name blinking); the
+  levels cleared in this session's games in the map's own cleared colours, in memory only (no file: it is
+  not a continue). A pick starts the level's first stage as the original's stage select does.
+- CONTROLS in OPTIONS, for players 1-3 (PLAYER < 1 >): each action's first two keys and its game
+  controller button, drawn with Kenney's Input Prompts Pixel (CC0, ports/sdl2/prompts); a line picked waits
+  for the new key or button (Escape leaves it), DEFAULTS puts that player's back; kept in controls.ini
+  beside the executable, a section a player. Each player rolls and jumps with their own keys and game
+  controller (plugged in in their turn); the menus take any player's.
+- A player's start prompt up (to join, or a continue's count): their start joins, it does not pause.
+  The join chooser in a stage (a continue) turns at a touch, as player select's does.
+- The 3-player cabinet: with the 2-player one the original draws player 3's start prompt in the middle
+  of the stage (it reads past start_prompt_positions_2p).
 
 Next (in this order unless Sebas says otherwise):
-1. Stage select on the island map (scenes/map.c), with the stages already cleared marked: a progress file
-   (which stages were cleared) kept beside the EEPROM; until then STAGE SELECT is the original's debug
-   screen, a stage a touch.
-2. Credits as continues: a game starts with the 3 lives a coin gives and then 3 continues (credits),
+1. Credits as continues: a game starts with the 3 lives a coin gives and then 3 continues (credits),
    instead of endless free play.
-3. The Japanese texts in English, drawn to fit, in the game's own font (the how to play screen...).
-4. Wide (16:9): the HUD where it is, only the view wider at the sides (the board's 416-pixel mode).
-5. A CRT filter as a third PIXELS choice.
-6. Time Attack: a clock on screen, records per stage.
-7. Achievements: our own, defined on the game's memory as RetroAchievements does (the work RAM is the
+2. The Japanese texts in English, drawn to fit, in the game's own font (the how to play screen...).
+3. Wide (16:9): the HUD where it is, only the view wider at the sides (the board's 416-pixel mode).
+4. A CRT filter as a third PIXELS choice.
+5. Time Attack: a clock on screen, records per stage.
+6. Achievements: our own, defined on the game's memory as RetroAchievements does (the work RAM is the
    original's, byte for byte); RetroAchievements itself only runs in the emulators it approves.
-8. The icon: the window's from the player's own ROM (a sprite of the game's, taken from the extracted
+7. The icon: the window's from the player's own ROM (a sprite of the game's, taken from the extracted
    assets at run time); the .exe's own, ours, with no art of the game in it (the release carries none).
-9. One SegaSonic.exe with SDL2 inside; first run asks for the player's ROM set and extracts the assets;
+8. One SegaSonic.exe with SDL2 inside; first run asks for the player's ROM set and extracts the assets;
    the port's README (crediting Kenney's Input Prompts); a release for Quiver Launcher.
 
 For the port's README: docs/screenshots/console_menu.png (the menu over the title, 640 x 448 like the others).

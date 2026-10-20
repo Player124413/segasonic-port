@@ -1,10 +1,10 @@
 /**
  *    Name:        actions.h
- *    Description: the keys and game controller buttons of each of the console's actions (console/console_actions.h),
+ *    Description: the keys and game controller buttons of each player's actions (console/console_actions.h),
  *                 which are held and pressed this frame, and controls.ini
  *    Version:     0.1.0
  *    Created:     19-10-2026
- *    Modified:    19-10-2026
+ *    Modified:    20-10-2026
  *    Author:      Sebastian Toyos
  */
 #ifndef SEGASONIC_PORT_ACTIONS_H
@@ -16,6 +16,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#define ACTION_PLAYERS  3
 #define ACTION_KEYS     4
 #define ACTION_BUTTONS  2
 
@@ -26,29 +27,33 @@ typedef struct
 	SDL_GameControllerButton buttons[ACTION_BUTTONS];  /* SDL_CONTROLLER_BUTTON_INVALID: none */
 } action_binding;
 
-extern action_binding action_bindings[ACTIONS];
+/* Each player's: their keys, and the buttons of their own game controller (the first one plugged in is
+   player 1's, the second player 2's...) */
+extern action_binding action_bindings[ACTION_PLAYERS][ACTIONS];
 
 /* controls.ini at 'path': read (the defaults where it says nothing), or written when there is none */
 void actions_open(const char *path);
 void actions_save(void);
-void actions_defaults(void);    /* (and saved) */
+void actions_defaults(int player);    /* (and saved) */
 
-/* The key or the game controller button the player pressed for 'action' on the CONTROLS screen: its first
+/* The key or the game controller button pressed for a player's 'action' on the CONTROLS screen: its first
    one now (and saved) */
-void actions_bind_key(int action, SDL_Scancode key);
-void actions_bind_button(int action, SDL_GameControllerButton button);
+void actions_bind_key(int player, int action, SDL_Scancode key);
+void actions_bind_button(int player, int action, SDL_GameControllerButton button);
 
-/* Once a frame (and while paused): the actions held now, and the ones newly held */
-void actions_read(SDL_GameController *const *controllers, int count);
-uint32_t actions_held(void);
+/* Once a frame (and while paused): the actions held now and the ones newly held, each player's with their
+   keys, their game controller's buttons and its left stick (controllers[player], ACTION_PLAYERS of them) */
+void actions_read(SDL_GameController *const *controllers);
+uint32_t actions_held(void);       /* any player's: the menus' */
+uint32_t actions_pressed(void);
+uint32_t actions_player_held(int player);
+uint32_t actions_player_pressed(int player);
 
-/* The action's keys alone (one held), or one game controller's buttons alone: for the game's own
+/* A player's keys and game controller buttons alone (one held), without the stick: for the board's own
    controls, which take the sticks apart */
-bool actions_keys_hold(int action);
-bool actions_pad_holds(SDL_GameController *pad, int action);
+bool actions_holds(int player, SDL_GameController *pad, int action);
 
 /* What was pressed this frame counts no more (a key the CONTROLS screen just took for an action) */
 void actions_forget_pressed(void);
-uint32_t actions_pressed(void);
 
 #endif

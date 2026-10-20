@@ -3,7 +3,7 @@
  *    Description: around the players: the skid dust, the HUD (gauge, portrait, ring count, start prompt, messages), the ride of game mode 0x1C, joining with a character select, the result bonus, the climb zone splash, the intro marker
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    19-10-2026
+ *    Modified:    20-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -381,7 +381,7 @@ void player_hud_update(uint32_t *p_digit_attribute, uint32_t *p_text_position)
 /* Blinks the start prompt (blink_start_prompt, start_prompt_texts) at the player's
    start_prompt_positions entry, with the credits of p1_coins, or of the player's own credit block when
    cabinet_config is 2 or 3; hands back the text position. */
-uint32_t draw_player_start_prompt(void)
+uint32_t CONSOLE_ORIGINAL(draw_player_start_prompt)(void)
 {
 	uint32_t credit_block = 0, ignored = 0, player = 0, prompt_position = 0, prompt_texts = 0;
 

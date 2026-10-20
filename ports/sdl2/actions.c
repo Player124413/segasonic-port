@@ -1,15 +1,16 @@
 /**
  *    Name:        actions.c
- *    Description: the keys and game controller buttons of each of the console's actions, which are held and
- *                 pressed this frame, and the file that keeps them (controls.ini)
+ *    Description: the keys and game controller buttons of each player's actions, which are held and pressed
+ *                 this frame, and the file that keeps them (controls.ini)
  *    Version:     0.1.0
  *    Created:     19-10-2026
  *    Modified:    20-10-2026
  *    Author:      Sebastian Toyos
  *
  *    The defaults below; controls.ini, beside the executable, keeps what the console's CONTROLS screen
- *    changes, a line an action: "jump = Z, Space | a" (SDL's names of the keys, then of the buttons). A game
- *    controller's left stick counts as its directional pad.
+ *    changes: a section a player, "[player 1]", and a line an action, "jump = Z, Space | a" (SDL's names of
+ *    the keys, then of the buttons). A player's game controller is the one plugged in in their turn; its
+ *    left stick counts as its directional pad.
  */
 #include "actions.h"
 
@@ -21,29 +22,63 @@
 #define STICK_DEAD 16000    /* how far the left stick goes before it counts as a direction */
 #define LINE_SIZE  256
 
-static const action_binding defaults[ACTIONS] = {
-	[ACTION_UP] = { "up", { SDL_SCANCODE_UP, SDL_SCANCODE_W, NO_KEY, NO_KEY },
-		{ SDL_CONTROLLER_BUTTON_DPAD_UP, NO_BUTTON } },
-	[ACTION_DOWN] = { "down", { SDL_SCANCODE_DOWN, SDL_SCANCODE_S, NO_KEY, NO_KEY },
-		{ SDL_CONTROLLER_BUTTON_DPAD_DOWN, NO_BUTTON } },
-	[ACTION_LEFT] = { "left", { SDL_SCANCODE_LEFT, SDL_SCANCODE_A, NO_KEY, NO_KEY },
-		{ SDL_CONTROLLER_BUTTON_DPAD_LEFT, NO_BUTTON } },
-	[ACTION_RIGHT] = { "right", { SDL_SCANCODE_RIGHT, SDL_SCANCODE_D, NO_KEY, NO_KEY },
-		{ SDL_CONTROLLER_BUTTON_DPAD_RIGHT, NO_BUTTON } },
-	[ACTION_ACCEPT] = { "accept", { SDL_SCANCODE_RETURN, SDL_SCANCODE_KP_ENTER, SDL_SCANCODE_Z, SDL_SCANCODE_SPACE },
-		{ SDL_CONTROLLER_BUTTON_A, NO_BUTTON } },
-	[ACTION_BACK] = { "back", { SDL_SCANCODE_ESCAPE, SDL_SCANCODE_BACKSPACE, NO_KEY, NO_KEY },
-		{ SDL_CONTROLLER_BUTTON_B, NO_BUTTON } },
-	[ACTION_START] = { "start", { SDL_SCANCODE_RETURN, SDL_SCANCODE_KP_ENTER, SDL_SCANCODE_P, NO_KEY },
-		{ SDL_CONTROLLER_BUTTON_START, NO_BUTTON } },
-	[ACTION_JUMP] = { "jump", { SDL_SCANCODE_Z, SDL_SCANCODE_SPACE, NO_KEY, NO_KEY },
-		{ SDL_CONTROLLER_BUTTON_A, NO_BUTTON } },
+/* The actions' names in controls.ini */
+static const char *const action_names[ACTIONS] = {
+	[ACTION_UP] = "up", [ACTION_DOWN] = "down", [ACTION_LEFT] = "left", [ACTION_RIGHT] = "right",
+	[ACTION_ACCEPT] = "accept", [ACTION_BACK] = "back", [ACTION_START] = "start", [ACTION_JUMP] = "jump",
 };
 
-action_binding action_bindings[ACTIONS];
+/* Player 1 the arrows (or WASD), Z or Space and Enter; player 2 IJKL, U and 2; player 3 the keypad's 8456,
+   0 and 3; every one their game controller's pad, A, B and Start */
+static const SDL_Scancode default_keys[ACTION_PLAYERS][ACTIONS][ACTION_KEYS] = {
+	{
+		[ACTION_UP] = { SDL_SCANCODE_UP, SDL_SCANCODE_W }, [ACTION_DOWN] = { SDL_SCANCODE_DOWN, SDL_SCANCODE_S },
+		[ACTION_LEFT] = { SDL_SCANCODE_LEFT, SDL_SCANCODE_A }, [ACTION_RIGHT] = { SDL_SCANCODE_RIGHT, SDL_SCANCODE_D },
+		[ACTION_ACCEPT] = { SDL_SCANCODE_RETURN, SDL_SCANCODE_KP_ENTER, SDL_SCANCODE_Z, SDL_SCANCODE_SPACE },
+		[ACTION_BACK] = { SDL_SCANCODE_ESCAPE, SDL_SCANCODE_BACKSPACE },
+		[ACTION_START] = { SDL_SCANCODE_RETURN, SDL_SCANCODE_KP_ENTER, SDL_SCANCODE_P },
+		[ACTION_JUMP] = { SDL_SCANCODE_Z, SDL_SCANCODE_SPACE },
+	},
+	{
+		[ACTION_UP] = { SDL_SCANCODE_I }, [ACTION_DOWN] = { SDL_SCANCODE_K },
+		[ACTION_LEFT] = { SDL_SCANCODE_J }, [ACTION_RIGHT] = { SDL_SCANCODE_L },
+		[ACTION_ACCEPT] = { SDL_SCANCODE_U }, [ACTION_BACK] = { SDL_SCANCODE_O },
+		[ACTION_START] = { SDL_SCANCODE_2 }, [ACTION_JUMP] = { SDL_SCANCODE_U },
+	},
+	{
+		[ACTION_UP] = { SDL_SCANCODE_KP_8 }, [ACTION_DOWN] = { SDL_SCANCODE_KP_5 },
+		[ACTION_LEFT] = { SDL_SCANCODE_KP_4 }, [ACTION_RIGHT] = { SDL_SCANCODE_KP_6 },
+		[ACTION_ACCEPT] = { SDL_SCANCODE_KP_0 }, [ACTION_BACK] = { SDL_SCANCODE_KP_PERIOD },
+		[ACTION_START] = { SDL_SCANCODE_3 }, [ACTION_JUMP] = { SDL_SCANCODE_KP_0 },
+	},
+};
 
-static uint32_t held, pressed;
+static const SDL_GameControllerButton default_buttons[ACTIONS] = {
+	[ACTION_UP] = SDL_CONTROLLER_BUTTON_DPAD_UP, [ACTION_DOWN] = SDL_CONTROLLER_BUTTON_DPAD_DOWN,
+	[ACTION_LEFT] = SDL_CONTROLLER_BUTTON_DPAD_LEFT, [ACTION_RIGHT] = SDL_CONTROLLER_BUTTON_DPAD_RIGHT,
+	[ACTION_ACCEPT] = SDL_CONTROLLER_BUTTON_A, [ACTION_BACK] = SDL_CONTROLLER_BUTTON_B,
+	[ACTION_START] = SDL_CONTROLLER_BUTTON_START, [ACTION_JUMP] = SDL_CONTROLLER_BUTTON_A,
+};
+
+action_binding action_bindings[ACTION_PLAYERS][ACTIONS];
+
+static uint32_t held, pressed, player_held[ACTION_PLAYERS], player_pressed[ACTION_PLAYERS];
 static char file_path[1024];
+
+static void set_defaults(int player)
+{
+	for (int action = 0; action < ACTIONS; action++)
+	{
+		action_binding *binding = &action_bindings[player][action];
+
+		binding->name = action_names[action];
+		for (int key = 0; key < ACTION_KEYS; key++)
+			binding->keys[key] = default_keys[player][action][key];    /* (0 is SDL_SCANCODE_UNKNOWN: none) */
+		binding->buttons[0] = default_buttons[action];
+		for (int button = 1; button < ACTION_BUTTONS; button++)
+			binding->buttons[button] = NO_BUTTON;
+	}
+}
 
 static bool stick_says(SDL_GameController *pad, int action)
 {
@@ -60,57 +95,46 @@ static bool stick_says(SDL_GameController *pad, int action)
 	}
 }
 
-void actions_read(SDL_GameController *const *controllers, int count)
+bool actions_holds(int player, SDL_GameController *pad, int action)
 {
 	const Uint8 *keys = SDL_GetKeyboardState(NULL);
+	const action_binding *binding = &action_bindings[player][action];
+
+	for (int key = 0; key < ACTION_KEYS; key++)
+		if (binding->keys[key] != NO_KEY && keys[binding->keys[key]])
+			return true;
+	for (int button = 0; pad && button < ACTION_BUTTONS; button++)
+		if (binding->buttons[button] != NO_BUTTON && SDL_GameControllerGetButton(pad, binding->buttons[button]))
+			return true;
+	return false;
+}
+
+void actions_read(SDL_GameController *const *controllers)
+{
 	const bool alt = (SDL_GetModState() & KMOD_ALT) != 0;    /* (Alt+Enter is full screen, not an action) */
 	uint32_t now = 0;
 
-	for (int action = 0; action < ACTIONS; action++)
+	for (int player = 0; player < ACTION_PLAYERS; player++)
 	{
-		const action_binding *binding = &action_bindings[action];
-		bool on = false;
+		uint32_t mine = 0;
 
-		for (int key = 0; key < ACTION_KEYS && !on; key++)
-			on = binding->keys[key] != NO_KEY && keys[binding->keys[key]] && !alt;
-		for (int pad = 0; pad < count && !on; pad++)
-		{
-			if (!controllers[pad])
-				continue;
-			for (int button = 0; button < ACTION_BUTTONS && !on; button++)
-				on = binding->buttons[button] != NO_BUTTON
-					&& SDL_GameControllerGetButton(controllers[pad], binding->buttons[button]);
-			on = on || stick_says(controllers[pad], action);
-		}
-		if (on)
-			now |= ACTION_BIT(action);
+		for (int action = 0; action < ACTIONS && !alt; action++)
+			if (actions_holds(player, controllers[player], action)
+				|| (controllers[player] && stick_says(controllers[player], action)))
+				mine |= ACTION_BIT(action);
+		player_pressed[player] = mine & ~player_held[player];
+		player_held[player] = mine;
+		now |= mine;
 	}
 	pressed = now & ~held;
 	held = now;
 }
 
-bool actions_keys_hold(int action)
-{
-	const Uint8 *keys = SDL_GetKeyboardState(NULL);
-
-	for (int key = 0; key < ACTION_KEYS; key++)
-		if (action_bindings[action].keys[key] != NO_KEY && keys[action_bindings[action].keys[key]])
-			return true;
-	return false;
-}
-
-bool actions_pad_holds(SDL_GameController *pad, int action)
-{
-	for (int button = 0; button < ACTION_BUTTONS; button++)
-		if (action_bindings[action].buttons[button] != NO_BUTTON
-			&& SDL_GameControllerGetButton(pad, action_bindings[action].buttons[button]))
-			return true;
-	return false;
-}
-
 void actions_forget_pressed(void)
 {
 	pressed = 0;
+	for (int player = 0; player < ACTION_PLAYERS; player++)
+		player_pressed[player] = 0;
 }
 
 uint32_t actions_held(void)
@@ -121,6 +145,16 @@ uint32_t actions_held(void)
 uint32_t actions_pressed(void)
 {
 	return pressed;
+}
+
+uint32_t actions_player_held(int player)
+{
+	return player_held[player];
+}
+
+uint32_t actions_player_pressed(int player)
+{
+	return player_pressed[player];
 }
 
 /* ---- controls.ini ---- */
@@ -137,35 +171,38 @@ static char *trimmed(char *text)
 	return text;
 }
 
-/* One line "name = Key, Key | button, button": the action it names takes those, in place of its own */
-static void read_line(char *line)
+/* One line "name = Key, Key | button, button": the player's action it names takes those, in place of its
+   own */
+static void read_line(int player, char *line)
 {
 	char *equals = strchr(line, '='), *bar, *part, *next;
 	const char *name;
+	action_binding *binding;
 	int action, slot;
 
 	if (line[0] == ';' || line[0] == '#' || !equals)
 		return;
 	*equals = 0;
 	name = trimmed(line);
-	for (action = 0; action < ACTIONS && strcmp(action_bindings[action].name, name) != 0; action++)
+	for (action = 0; action < ACTIONS && strcmp(action_names[action], name) != 0; action++)
 		;
 	if (action == ACTIONS)
 		return;
+	binding = &action_bindings[player][action];
 	bar = strchr(equals + 1, '|');
 	if (bar)
 		*bar = 0;
 	for (slot = 0; slot < ACTION_KEYS; slot++)
-		action_bindings[action].keys[slot] = NO_KEY;
+		binding->keys[slot] = NO_KEY;
 	for (slot = 0; slot < ACTION_BUTTONS; slot++)
-		action_bindings[action].buttons[slot] = NO_BUTTON;
+		binding->buttons[slot] = NO_BUTTON;
 	for (part = equals + 1, slot = 0; part && slot < ACTION_KEYS; part = next)
 	{
 		next = strchr(part, ',');
 		if (next)
 			*next++ = 0;
 		if (*trimmed(part))
-			action_bindings[action].keys[slot++] = SDL_GetScancodeFromName(trimmed(part));
+			binding->keys[slot++] = SDL_GetScancodeFromName(trimmed(part));
 	}
 	for (part = bar ? bar + 1 : NULL, slot = 0; part && slot < ACTION_BUTTONS; part = next)
 	{
@@ -173,7 +210,7 @@ static void read_line(char *line)
 		if (next)
 			*next++ = 0;
 		if (*trimmed(part))
-			action_bindings[action].buttons[slot++] = SDL_GameControllerGetButtonFromString(trimmed(part));
+			binding->buttons[slot++] = SDL_GameControllerGetButtonFromString(trimmed(part));
 	}
 }
 
@@ -181,8 +218,10 @@ void actions_open(const char *path)
 {
 	FILE *file;
 	char line[LINE_SIZE];
+	int player = 0, number = 0;
 
-	memcpy(action_bindings, defaults, sizeof(action_bindings));
+	for (int each = 0; each < ACTION_PLAYERS; each++)
+		set_defaults(each);
 	SDL_strlcpy(file_path, path, sizeof(file_path));
 	file = fopen(file_path, "r");
 	if (!file)
@@ -191,7 +230,13 @@ void actions_open(const char *path)
 		return;
 	}
 	while (fgets(line, sizeof(line), file))
-		read_line(line);
+	{
+		/* "[player N]" starts that player's lines (the lines before any are player 1's) */
+		if (sscanf(trimmed(line), "[player %d]", &number) == 1)
+			player = number >= 1 && number <= ACTION_PLAYERS ? number - 1 : -1;
+		else if (player >= 0)
+			read_line(player, line);
+	}
 	fclose(file);
 }
 
@@ -201,45 +246,49 @@ void actions_save(void)
 
 	if (!file)
 		return;
-	fputs("; The console's controls: an action a line, its keys (SDL's names), then after | its game\n"
-		"; controller buttons. OPTIONS > CONTROLS writes this file; it can be changed by hand too.\n", file);
-	for (int action = 0; action < ACTIONS; action++)
+	fputs("; The console's controls, a section a player: an action a line, its keys (SDL's names), then after |\n"
+		"; its game controller buttons. OPTIONS > CONTROLS writes this file; it can be changed by hand too.\n", file);
+	for (int player = 0; player < ACTION_PLAYERS; player++)
 	{
-		const action_binding *binding = &action_bindings[action];
-		bool first = true;
+		fprintf(file, "\n[player %d]\n", player + 1);
+		for (int action = 0; action < ACTIONS; action++)
+		{
+			const action_binding *binding = &action_bindings[player][action];
+			bool first = true;
 
-		fprintf(file, "%s =", binding->name);
-		for (int key = 0; key < ACTION_KEYS; key++)
-			if (binding->keys[key] != NO_KEY)
-			{
-				fprintf(file, "%s %s", first ? "" : ",", SDL_GetScancodeName(binding->keys[key]));
-				first = false;
-			}
-		fputs(" |", file);
-		first = true;
-		for (int button = 0; button < ACTION_BUTTONS; button++)
-			if (binding->buttons[button] != NO_BUTTON)
-			{
-				fprintf(file, "%s %s", first ? "" : ",",
-					SDL_GameControllerGetStringForButton(binding->buttons[button]));
-				first = false;
-			}
-		fputs("\n", file);
+			fprintf(file, "%s =", binding->name);
+			for (int key = 0; key < ACTION_KEYS; key++)
+				if (binding->keys[key] != NO_KEY)
+				{
+					fprintf(file, "%s %s", first ? "" : ",", SDL_GetScancodeName(binding->keys[key]));
+					first = false;
+				}
+			fputs(" |", file);
+			first = true;
+			for (int button = 0; button < ACTION_BUTTONS; button++)
+				if (binding->buttons[button] != NO_BUTTON)
+				{
+					fprintf(file, "%s %s", first ? "" : ",",
+						SDL_GameControllerGetStringForButton(binding->buttons[button]));
+					first = false;
+				}
+			fputs("\n", file);
+		}
 	}
 	fclose(file);
 }
 
-void actions_defaults(void)
+void actions_defaults(int player)
 {
-	memcpy(action_bindings, defaults, sizeof(action_bindings));
+	set_defaults(player);
 	actions_save();
 }
 
 /* The key or button the player pressed for 'action': its first one, the one it had before moving on to the
    second (a key that was already the action's moves to the front) */
-void actions_bind_key(int action, SDL_Scancode key)
+void actions_bind_key(int player, int action, SDL_Scancode key)
 {
-	action_binding *binding = &action_bindings[action];
+	action_binding *binding = &action_bindings[player][action];
 	int slot;
 
 	for (slot = 0; slot < ACTION_KEYS - 1 && binding->keys[slot] != key; slot++)
@@ -249,9 +298,9 @@ void actions_bind_key(int action, SDL_Scancode key)
 	actions_save();
 }
 
-void actions_bind_button(int action, SDL_GameControllerButton button)
+void actions_bind_button(int player, int action, SDL_GameControllerButton button)
 {
-	action_binding *binding = &action_bindings[action];
+	action_binding *binding = &action_bindings[player][action];
 
 	if (binding->buttons[0] != button)
 		binding->buttons[1] = binding->buttons[0];

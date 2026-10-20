@@ -55,9 +55,6 @@
 static bool pause_requested;
 static bool bound_now;              /* CONTROLS took a key or button this frame */
 static void run_pause(void);
-#define in_console_game() console_in_game()
-#else
-#define in_console_game() false
 #endif
 
 #include <SDL.h>
@@ -312,9 +309,11 @@ static void draw_prompt(const prompt *icon, int x, int y)
 		}
 }
 
-/* The frame with each action's first two keys and its first button on its line */
+/* The frame with each of the shown player's actions' first two keys and first button on its line */
 static const uint32_t *with_controls(const uint32_t *pixels)
 {
+	const action_binding *bindings = action_bindings[console_controls_player()];
+
 	memcpy(controls_picture, pixels, sizeof(controls_picture));
 	for (int action = 0; action < ACTIONS; action++)
 	{
@@ -324,13 +323,13 @@ static const uint32_t *with_controls(const uint32_t *pixels)
 
 		for (int key = 0; key < ACTION_KEYS && shown < 2; key++)
 		{
-			icon = find_prompt(key_prompts, SDL_arraysize(key_prompts), action_bindings[action].keys[key]);
+			icon = find_prompt(key_prompts, SDL_arraysize(key_prompts), bindings[action].keys[key]);
 			if (!icon || (first && first->row == icon->row && first->column == icon->column))
 				continue;    /* (no picture, or the first key's: Enter and the keypad's) */
 			draw_prompt(icon, shown++ ? CONSOLE_CONTROLS_SECOND_X : CONSOLE_CONTROLS_KEYS_X, y);
 			first = first ? first : icon;
 		}
-		if ((icon = find_prompt(button_prompts, SDL_arraysize(button_prompts), action_bindings[action].buttons[0])) != NULL)
+		if ((icon = find_prompt(button_prompts, SDL_arraysize(button_prompts), bindings[action].buttons[0])) != NULL)
 			draw_prompt(icon, CONSOLE_CONTROLS_BUTTON_X, y);
 	}
 	return controls_picture;
@@ -489,7 +488,7 @@ static void read_events(void)
 				{
 					/* CONTROLS waits for a key: this one (Escape leaves the action as it was) */
 					if (event.key.keysym.sym != SDLK_ESCAPE)
-						actions_bind_key(console_controls_waiting(), event.key.keysym.scancode);
+						actions_bind_key(console_controls_player(), console_controls_waiting(), event.key.keysym.scancode);
 					console_controls_bound();
 					bound_now = true;
 					break;
@@ -513,7 +512,8 @@ static void read_events(void)
 			case SDL_CONTROLLERBUTTONDOWN:
 				if (console_controls_waiting() >= 0)
 				{
-					actions_bind_button(console_controls_waiting(), (SDL_GameControllerButton)event.cbutton.button);
+					actions_bind_button(console_controls_player(), console_controls_waiting(),
+						(SDL_GameControllerButton)event.cbutton.button);
 					console_controls_bound();
 					bound_now = true;
 				}
@@ -551,39 +551,47 @@ static void on_controls_update(void)
 
 	read_events();
 	roll_ball((mouse & SDL_BUTTON_RMASK) != 0);
-#ifdef SEGASONIC_CONSOLE
-	/* the console: the keys of the actions (controls.ini) roll the trackball and press the button */
-	controls.roll_x[0] += (actions_keys_hold(ACTION_LEFT) - actions_keys_hold(ACTION_RIGHT)) * (int)lround(settings.key_roll);
-	controls.roll_y[0] += (actions_keys_hold(ACTION_DOWN) - actions_keys_hold(ACTION_UP)) * (int)lround(settings.key_roll);
-	controls.button[0] = actions_keys_hold(ACTION_JUMP) || (mouse & SDL_BUTTON_LMASK);
-#else
+#ifndef SEGASONIC_CONSOLE
 	controls.roll_x[0] += (keys[SDL_SCANCODE_LEFT] - keys[SDL_SCANCODE_RIGHT]) * (int)lround(settings.key_roll);
 	controls.roll_y[0] += (keys[SDL_SCANCODE_DOWN] - keys[SDL_SCANCODE_UP]) * (int)lround(settings.key_roll);
 	controls.button[0] = keys[SDL_SCANCODE_Z] || keys[SDL_SCANCODE_SPACE] || (mouse & SDL_BUTTON_LMASK);
-#endif
 	controls.button[1] = controls.button[2] = false;
+#endif
 	for (int player = 0; player < PLAYERS; player++)
 	{
 		controls.coin[player] = keys[SDL_SCANCODE_5 + player] != 0;
 		controls.start[player] = keys[SDL_SCANCODE_1 + player] != 0;
 	}
 #ifdef SEGASONIC_CONSOLE
-	/* the console's actions: start is player 1's start, but in a stage start and back pause it; back on
-	   the title closes its menu (Escape never closes the console's window) */
-	actions_read(controllers, PLAYERS);
+	/* the console: each player's keys and game controller (controls.ini) roll their trackball and press
+	   their button. Start is their start, but in a stage start and back pause it, unless the player's start
+	   prompt is up (to join, or a continue's count); back elsewhere goes back (the title's menu, OPTIONS:
+	   Escape never closes the console's window) */
+	actions_read(controllers);
 	if (console_controls_defaults())
-		actions_defaults();
+		actions_defaults(console_controls_player());
 	if (bound_now)
 	{
 		bound_now = false;
 		actions_forget_pressed();    /* (the key the CONTROLS screen took acts no more this frame) */
 	}
-	if (console_in_game() && (actions_pressed() & (ACTION_BIT(ACTION_START) | ACTION_BIT(ACTION_BACK))))
-		pause_requested = true;
-	else if (!console_in_game() && (actions_pressed() & ACTION_BIT(ACTION_BACK)))
+	for (int player = 0; player < PLAYERS; player++)
+	{
+		SDL_GameController *pad = controllers[player];
+
+		controls.roll_x[player] += (actions_holds(player, pad, ACTION_LEFT) - actions_holds(player, pad, ACTION_RIGHT))
+			* (int)lround(settings.key_roll);
+		controls.roll_y[player] += (actions_holds(player, pad, ACTION_DOWN) - actions_holds(player, pad, ACTION_UP))
+			* (int)lround(settings.key_roll);
+		controls.button[player] = actions_holds(player, pad, ACTION_JUMP);
+		if (!console_in_game() || console_start_prompted(player))
+			controls.start[player] |= (actions_player_held(player) & ACTION_BIT(ACTION_START)) != 0;
+		else if (actions_player_pressed(player) & (ACTION_BIT(ACTION_START) | ACTION_BIT(ACTION_BACK)))
+			pause_requested = true;
+	}
+	controls.button[0] |= (mouse & SDL_BUTTON_LMASK) != 0;
+	if (!console_in_game() && (actions_pressed() & ACTION_BIT(ACTION_BACK)))
 		console_back();
-	if (!console_in_game() && (actions_held() & ACTION_BIT(ACTION_START)))
-		controls.start[0] = true;
 	console_actions(actions_pressed(), actions_held());
 #endif
 	controls.service = keys[SDL_SCANCODE_9] != 0;
@@ -596,18 +604,11 @@ static void on_controls_update(void)
 			continue;
 		controls.roll_x[player] -= (int)lround(SDL_GameControllerGetAxis(pad, SDL_CONTROLLER_AXIS_LEFTX) / 32767.0 * settings.stick_roll);
 		controls.roll_y[player] += (int)lround(SDL_GameControllerGetAxis(pad, SDL_CONTROLLER_AXIS_LEFTY) / 32767.0 * settings.stick_roll);
-#ifdef SEGASONIC_CONSOLE
-		controls.button[player] |= actions_pad_holds(pad, ACTION_JUMP);
-		controls.roll_x[player] += (actions_pad_holds(pad, ACTION_LEFT) - actions_pad_holds(pad, ACTION_RIGHT))
-			* (int)lround(settings.key_roll);
-		controls.roll_y[player] += (actions_pad_holds(pad, ACTION_DOWN) - actions_pad_holds(pad, ACTION_UP))
-			* (int)lround(settings.key_roll);
-#else
+#ifndef SEGASONIC_CONSOLE
 		controls.button[player] |= SDL_GameControllerGetButton(pad, SDL_CONTROLLER_BUTTON_A) != 0;
-#endif
-		controls.start[player] |= SDL_GameControllerGetButton(pad, SDL_CONTROLLER_BUTTON_START) != 0
-			&& !in_console_game();
+		controls.start[player] |= SDL_GameControllerGetButton(pad, SDL_CONTROLLER_BUTTON_START) != 0;
 		controls.coin[player] |= SDL_GameControllerGetButton(pad, SDL_CONTROLLER_BUTTON_BACK) != 0;
+#endif
 	}
 
 	/* the board's ports are active low: a cleared bit is a pressed button */
@@ -765,7 +766,7 @@ static void run_pause(void)
 			if (event.type == SDL_WINDOWEVENT)
 				present(pause_picture, width);
 		}
-		actions_read(controllers, PLAYERS);
+		actions_read(controllers);
 		if (actions_pressed() & (ACTION_BIT(ACTION_START) | ACTION_BIT(ACTION_BACK)))
 			paused = false;
 		SDL_Delay(16);

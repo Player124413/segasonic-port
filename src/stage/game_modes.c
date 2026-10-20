@@ -3,7 +3,7 @@
  *    Description: the game modes (run_game_mode) and what a stage frame runs: starting a stage, layer blending, the stage clear check, the player summary, stage slots and events, restart points, the player objects, the GAME OVER banner and the demo prompt
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    19-10-2026
+ *    Modified:    20-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -1127,7 +1127,7 @@ void check_stage_select_buttons(void)
    3, its texts, and video RAM from 0xE000 cleared; player 1's trackball steps stage through 0-0x11,
    drawn at text cell (24, 21); start 1 takes cleared_stages from stage_select_cleared_values[stage] and
    starts it (game_mode 2, stage_start_kind 1). */
-void game_mode_stage_select(uint32_t *p_count, uint32_t *p_list_cursor)
+void CONSOLE_ORIGINAL(game_mode_stage_select)(uint32_t *p_count, uint32_t *p_list_cursor)
 {
 	uint16_t cell = 0;
 	uint32_t attribute = 0, clear_dest = 0, fill_word = 0, ignored = 0, new_stage = 0, player_number = 0, text_position = 0, value = 0;
@@ -2593,7 +2593,7 @@ void reset_trackball_step(uint32_t player_number)
 /* Adds player_number's trackball x motion to trackball_step_sums (restarting the sum when the direction
    changes) and hands back in player_number a step: 1 each 0x40 counts one way, -1 the other, else 0;
    trackball comes back as the address of the trackball's motion. */
-void CONSOLE_ORIGINAL(read_trackball_step)(uint32_t *p_player_number, uint32_t *p_trackball)
+void read_trackball_step(uint32_t *p_player_number, uint32_t *p_trackball)
 {
 	uint32_t player_number = *p_player_number;
 	uint16_t step = 0;

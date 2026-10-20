@@ -3,7 +3,7 @@
  *    Description: choosing a character: the PLAYER SELECT chooser at a new game and the chooser of a player joining
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    19-10-2026
+ *    Modified:    20-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -542,7 +542,7 @@ uint32_t start_join_character_chooser(void)
    seconds on both sides of the portrait; the trackball steps through the free characters (taken ones
    skipped), and the button, joining_closed or the end of the countdown takes the one shown
    (join_character_chooser_take_character). Drawn on top. */
-void join_character_chooser_update(uint32_t text_x)
+void CONSOLE_ORIGINAL(join_character_chooser_update)(uint32_t text_x)
 {
 	uint8_t left_steps = 0, right_turns = 0, turn = 0;
 	uint16_t trackball_x = 0, y = 0;

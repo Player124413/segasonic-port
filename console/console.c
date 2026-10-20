@@ -204,6 +204,11 @@ void attract_warning(uint32_t *p_pixels, uint32_t *p_text)
 	(void)p_pixels;
 	(void)p_text;
 	free_play = 1u;
+	/* the 3-player cabinet (the test mode's cabinet type): with the 2-player one the game looks player 3's
+	   start prompt up past start_prompt_positions_2p's two, and draws it in the middle of the stage */
+	setting_cabinet_type = 1u;
+	setting_cabinet_config = (uint8_t)(1u | ((uint32_t)setting_coin_chute_type << 1));
+	cabinet_config = setting_cabinet_config;
 	attract_step = 0u;
 	system_mode = attract_order[0];
 	system_mode_step = 0u;
@@ -675,13 +680,16 @@ void system_mode_idle(void)
 
 /* ---- CONTROLS: the actions, their keys and buttons (the port draws them, Kenney's Input Prompts) ---- */
 
-#define CONTROLS_TITLE_ROW  3u
-#define CONTROLS_FIRST_ROW  6u      /* then a line every two rows */
+#define CONTROLS_TITLE_ROW  2u
+#define CONTROLS_FIRST_ROW  5u      /* then a line every two rows */
 #define CONTROLS_NAME_COLUMN 4u
-#define CONTROLS_DEFAULTS   ACTIONS          /* the lines after the actions' */
-#define CONTROLS_BACK       (ACTIONS + 1)
-#define CONTROLS_LINES      (ACTIONS + 2)
-#define CONTROLS_MESSAGE_ROW 26u
+#define CONTROLS_VALUE_COLUMN 15u    /* the player's number (CONSOLE_CONTROLS_KEYS_X) */
+#define CONTROLS_PLAYER     0                /* the first line, then the actions' */
+#define CONTROLS_DEFAULTS   (ACTIONS + 1)    /* the lines after the actions' */
+#define CONTROLS_BACK       (ACTIONS + 2)
+#define CONTROLS_LINES      (ACTIONS + 3)
+#define CONTROLS_MESSAGE_ROW 27u
+#define CONTROLS_PLAYERS    3
 
 static const char *const action_names[ACTIONS] = {
 	"UP", "DOWN", "LEFT", "RIGHT", "ACCEPT", "BACK", "START", "JUMP"
@@ -689,6 +697,8 @@ static const char *const action_names[ACTIONS] = {
 
 static bool controls_open;
 static int controls_choice;
+static int controls_player;            /* whose controls are shown (0-2) */
+static int start_prompt_frames[CONTROLS_PLAYERS];    /* a player's start prompt up: 2 frames from its drawing */
 static int controls_waiting = -1;      /* the action waiting for its new key or button */
 static bool controls_defaults_asked;
 
@@ -707,8 +717,16 @@ static void draw_controls(void)
 		const uint8_t attribute = line == controls_choice ? MENU_CHOSEN : MENU_TEXT;
 
 		erase_line(controls_row(line));
-		if (line < ACTIONS)
-			write_text(CONTROLS_NAME_COLUMN, controls_row(line), action_names[line], attribute);
+		if (line == CONTROLS_PLAYER)
+		{
+			char value[] = "< 1 >";
+
+			value[2] = (char)('1' + controls_player);
+			write_text(CONTROLS_NAME_COLUMN, controls_row(line), "PLAYER", attribute);
+			write_text(CONTROLS_VALUE_COLUMN, controls_row(line), value, attribute);
+		}
+		else if (line <= ACTIONS)
+			write_text(CONTROLS_NAME_COLUMN, controls_row(line), action_names[line - 1], attribute);
 		else
 			write_text(CONTROLS_NAME_COLUMN, controls_row(line), line == CONTROLS_DEFAULTS ? "DEFAULTS" : "BACK",
 				attribute);
@@ -742,9 +760,9 @@ static void close_controls(void)
 	option_wait = MENU_PAUSE;
 }
 
-/* CONTROLS: up and down choose a line; on an action's, accept waits for the key or button that takes its
-   place (the port takes it, Escape leaves it as it was); DEFAULTS puts every one back; BACK or the action
-   back return to OPTIONS */
+/* CONTROLS: up and down choose a line; on PLAYER, left and right choose whose controls are shown; on an
+   action's, accept waits for the key or button that takes its place (the port takes it, Escape leaves it as
+   it was); DEFAULTS puts that player's back; BACK or the action back return to OPTIONS */
 static void run_controls(void)
 {
 	int step = 0;
@@ -756,6 +774,11 @@ static void run_controls(void)
 	}
 	step = cursor_step(&option_travel, &option_wait, (int16_t)trackball_1_y, ACTION_UP, ACTION_DOWN);
 	controls_choice = (controls_choice + step + CONTROLS_LINES) % CONTROLS_LINES;
+	if (controls_choice == CONTROLS_PLAYER)
+	{
+		step = cursor_step(&value_travel, &value_wait, (int16_t)trackball_1_x, ACTION_LEFT, ACTION_RIGHT);
+		controls_player = (controls_player + step + CONTROLS_PLAYERS) % CONTROLS_PLAYERS;
+	}
 	draw_controls();
 	if ((actions & ACTION_BIT(ACTION_BACK)) != 0u)
 	{
@@ -764,8 +787,10 @@ static void run_controls(void)
 	}
 	if (!picked())
 		return;
-	if (controls_choice < ACTIONS)
-		controls_waiting = controls_choice;
+	if (controls_choice == CONTROLS_PLAYER)
+		controls_player = (controls_player + 1) % CONTROLS_PLAYERS;
+	else if (controls_choice <= ACTIONS)
+		controls_waiting = controls_choice - 1;
 	else if (controls_choice == CONTROLS_DEFAULTS)
 		controls_defaults_asked = true;
 	else
@@ -818,24 +843,202 @@ static void run_options(void)
 	}
 }
 
-/* ---- the stage select (game mode 8) ---- */
+/* ---- STAGE SELECT: the island map (game mode 8), a level a marker, the ones cleared this session marked ---- */
 
-static int stage_travel, stage_wait;
+#define LEVELS            8          /* the opening (Eggman's trap: it has no marker), then the 7 markers' */
+#define MARKERS           7
+#define MAP_LAYOUT_SIZE   12u        /* map_marker_layouts: the markers, then their number badges */
+#define MAP_NAMES         0x096C6Fu  /* map_marker_blink records: a level's name beside its marker */
+#define MAP_NAME_SIZE     10u
+#define MAP_SPRITE_BLOCKS 0x209102u  /* the blocks the map's markers are queued from (draw_map_stage_markers) */
+#define MAP_SPRITE_BLOCK  0x30u
+#define MAP_BLINK         8u         /* the chosen level's number and name blink every 8 frames */
+#define MAP_EGGMAN        0x5760u    /* Eggman from behind (map_eggman_update): the opening's picture */
+#define MAP_EGGMAN_X      0xB7
+#define MAP_EGGMAN_Y      0xDF
+#define MAP_EGGMAN_PALETTE 0x680u
+#define FADED_IN          0x3Fu      /* color_offset_red at the end of the map's fade in */
 
-/* A step of the trackball (+1, -1 or 0): in the stage select, as the menus move (a stage a touch of left or
-   right, held it repeats slowly); the game's own everywhere else */
-void read_trackball_step(uint32_t *p_player_number, uint32_t *p_trackball)
+/* Each level's first stage, in the game's order (stage_order): the opening (6, Eggman's tower at night, then
+   5, the cage), then the markers' (the map comes after a level, so stage_map_markers gives each stage the
+   markers cleared with it). Stage 7, first in stage_order, is a test corridor: a game starts with 6 */
+static const uint8_t level_first_stage[LEVELS] = { 0x06u, 0x08u, 0x09u, 0x0Au, 0x03u, 0x04u, 0x10u, 0x0Cu };
+
+/* Each stage's level (stages 0-0x11): -1 for the ones that are not a level's (0, stage 5's switch scene, 1,
+   2 and the test corridor, 7) */
+static const int8_t stage_level[] = { -1, -1, -1, 4, 5, 0, 0, -1, 1, 2, 3, 7, 7, 7, 7, 7, 6, 7 };
+
+static int levels_reached = 1;    /* by this session's games (1: the first level) */
+
+static bool map_open;
+static int map_step;        /* 0 its first frame, 1 its layers on, 2 fading in, 3 choosing */
+static int map_choice;
+static int map_travel_x, map_wait_x, map_travel_y, map_wait_y;
+static uint8_t map_blink;
+
+/* A stage played in a game: its level counts as reached */
+static void note_level_reached(void)
+{
+	int level;
+
+	if (!console_in_game() || stage >= sizeof(stage_level))
+		return;
+	level = stage_level[stage];
+	if (level + 1 > levels_reached)
+		levels_reached = level + 1;
+}
+
+/* The map's first frame, as the map screen loads it (map_intro_update, step 4): the island and Eggman's
+   head, then the fade in */
+static void build_map(void)
+{
+	uint32_t dest = 0, ignored = 0, palette_list = tile_bank_0_palette_list_ADDRESS, script = 0;
+	uint8_t io_cnt_value = mem_read8(io_cnt);
+
+	mem_write8(io_cnt, io_cnt_value & ~2u);
+	display_off_frames = 2u;
+	nbg0_scroll_x_int = 0u;
+	nbg0_scroll_y_int = 0u;
+	mem_write16(video_layer_disable, mem_read16(video_layer_disable) | 0x2Fu);
+	mem_write16(backdrop_color, 0u);
+	mem_write32(video_control, mem_read32(video_control) & ~0x400u);
+	vblank_copies_pending = 0u;
+	vblank_copy_count = 0u;
+	load_palette_list(palette_list, &ignored, &dest);
+	script = map_monitor_script_ADDRESS;
+	run_vram_script(&ignored, &script, &dest);
+	script = map_eggman_head_script_ADDRESS;
+	nbg2_scroll_x = 0u;
+	nbg2_scroll_y = 0u;
+	run_vram_script(&ignored, &script, &dest);
+	nbg0_pages = 0x1010101u;
+	nbg2_pages = 0u;
+	fade_kind = 2;
+	fade_speed = 1u;
+	fade_step = 0u;
+	mixer_nbg0_blend |= 0x4000u;
+	mixer_nbg3_blend |= 0x4000u;
+	update_fade(ignored);
+}
+
+/* A sprite of the map from a block of its own */
+static void queue_map_sprite(uint32_t block, uint16_t flags, uint16_t layer, int16_t x, int16_t y, uint16_t frame,
+	uint16_t palette)
+{
+	current_object = block;
+	OBJECT(block)->sprite_flags = flags;
+	OBJECT(block)->sprite_scale = 0x100u;
+	OBJECT(block)->sprite_layer = layer;
+	OBJECT(block)->screen_x = x;
+	OBJECT(block)->screen_y = y;
+	OBJECT(block)->sprite_frame = frame;
+	OBJECT(block)->sprite_palette = palette;
+	queue_sprite_in_layer();
+}
+
+/* The markers and their numbers, a level cleared (a later one reached) in its cleared colours; the chosen
+   level's number and name blink, or Eggman for the opening (it has neither) */
+static void draw_map(void)
+{
+	const uint32_t object = current_object;
+	uint32_t layout = map_marker_layouts_ADDRESS, block = MAP_SPRITE_BLOCKS;
+	int group, marker;
+
+	map_blink++;
+	for (group = 0; group < 2; group++)
+		for (marker = 0; marker < MARKERS; marker++, layout += MAP_LAYOUT_SIZE, block += MAP_SPRITE_BLOCK)
+		{
+			const struct map_marker_layout *entry = MAP_MARKER_LAYOUT(layout);
+
+			if (group == 1 && marker + 1 == map_choice && (map_blink & MAP_BLINK) != 0u)
+				continue;
+			queue_map_sprite(block, 0xAu, entry->sprite_layer, entry->screen_x, entry->screen_y, entry->sprite_frame,
+				marker + 2 < levels_reached ? entry->cleared_palette : entry->sprite_palette);
+		}
+	if ((map_blink & MAP_BLINK) != 0u)
+		;
+	else if (map_choice > 0)
+	{
+		const struct map_marker_blink *name =
+			MAP_MARKER_BLINK(MAP_NAMES + (uint32_t)(map_choice - 1) * MAP_NAME_SIZE);
+
+		queue_map_sprite(block, 0xAu, name->sprite_layer, name->screen_x, name->screen_y, name->sprite_frame,
+			name->sprite_palette);
+	}
+	else
+		queue_map_sprite(block, 0x107u, 1u, MAP_EGGMAN_X, MAP_EGGMAN_Y, MAP_EGGMAN, MAP_EGGMAN_PALETTE);
+	current_object = object;
+}
+
+/* Back on the map: the game ends before it began (as game over ends one), back to OPTIONS */
+static void leave_map(void)
+{
+	map_open = false;
+	stage_select_pending = false;
+	game_in_progress = 0u;
+	stage_init_flags &= ~0x8040u;
+	mixer_text_blend &= 0xBFFFu;
+	mixer_nbg0_blend &= 0xBFFFu;
+	mixer_nbg1_blend &= 0xBFFFu;
+	mixer_nbg2_blend &= 0xBFFFu;
+	mixer_nbg3_blend &= 0xBFFFu;
+	mixer_bitmap_blend &= 0xBFFFu;
+	open_options();
+}
+
+/* Game mode 8, STAGE SELECT: the island map (as the map screen fades it in), then left and right (or up and
+   down) go through every level (the cursor starts on the last one this session reached), and a pick starts the chosen one's first stage as the original's
+   stage select does (cleared_stages from stage_select_cleared_values, game mode 2, stage_start_kind 1) */
+void game_mode_stage_select(uint32_t *p_count, uint32_t *p_list_cursor)
 {
 	int step = 0;
 
-	if (game_mode != 8u)
+	(void)p_count;
+	(void)p_list_cursor;
+	if ((stage_init_flags & 0x40u) == 0u)
 	{
-		original_read_trackball_step(p_player_number, p_trackball);
-		return;
+		stage_init_flags |= 0x40u;
+		map_open = true;
+		map_step = 0;
+		map_choice = clamp(levels_reached - 1, 0, LEVELS - 1);
+		map_travel_x = map_travel_y = 0;
+		map_wait_x = map_wait_y = MENU_PAUSE;
 	}
-	*p_trackball = trackball_1_x_ADDRESS + *p_player_number * 4u;
-	step = cursor_step(&stage_travel, &stage_wait, (int16_t)trackball_1_x, ACTION_LEFT, ACTION_RIGHT);
-	*p_player_number = (*p_player_number & 0xFFFF0000u) | (step < 0 ? 0xFFFFu : (uint32_t)step);
+	switch (map_step)
+	{
+	case 0:
+		build_map();
+		map_step++;
+		return;
+	case 1:
+		mem_write16(video_layer_disable, mem_read16(video_layer_disable) | 0xEu);
+		mem_write16(video_layer_disable, mem_read16(video_layer_disable) & ~5u);
+		map_step++;
+		return;
+	case 2:
+		update_fade(0u);
+		draw_map();
+		if (color_offset_red != FADED_IN)
+			return;
+		mixer_nbg0_blend &= 0xBFFFu;
+		mixer_nbg1_blend &= 0xBFFFu;
+		map_step++;
+		return;
+	default:
+		break;
+	}
+	step = cursor_step(&map_travel_x, &map_wait_x, (int16_t)trackball_1_x, ACTION_LEFT, ACTION_RIGHT);
+	step += cursor_step(&map_travel_y, &map_wait_y, (int16_t)trackball_1_y, ACTION_UP, ACTION_DOWN);
+	map_choice = clamp(map_choice + step, 0, LEVELS - 1);
+	draw_map();
+	if (!picked())
+		return;
+	map_open = false;
+	stage = level_first_stage[map_choice];
+	mem_write16(cleared_stages_ADDRESS, stage_select_cleared_values[stage]);
+	game_mode = 2u;
+	stage_init_flags &= ~0x40u;
+	stage_start_kind = 1u;
 }
 
 /* The game's modes: the first frame of a game the menu started sees player 1's start pressed, as the
@@ -861,8 +1064,25 @@ void run_game_mode(uint32_t pressed, uint32_t position, uint32_t speed, uint16_t
 		game_mode = 0x1Bu;
 		stage_select_pending = false;
 	}
+	for (int player = 0; player < CONTROLS_PLAYERS; player++)
+		if (start_prompt_frames[player] > 0)
+			start_prompt_frames[player]--;
 	original_run_game_mode(pressed, position, speed, next_scroll_position, object, p_speed_value, p_count, p_cycle,
 		p_list_cursor);
+	note_level_reached();
+}
+
+/* ---- the players' start prompts ---- */
+
+/* A player's start prompt (to join, or a continue's count): drawn this frame or the last, it says that
+   player's start is the board's start (console_start_prompted), not the pause */
+uint32_t draw_player_start_prompt(void)
+{
+	const uint32_t player = OBJECT(current_object)->player;
+
+	if (player < CONTROLS_PLAYERS)
+		start_prompt_frames[player] = 2;
+	return original_draw_player_start_prompt();
 }
 
 /* ---- player select ---- */
@@ -897,6 +1117,33 @@ void character_chooser_wait(void)
 	original_character_chooser_wait();
 }
 
+static bool join_chooser_rolling[CHOOSERS];
+
+/* A joining player's chooser in a stage (a continue, or a player who joins): it turns as player select's
+   does, once every 32 frames the trackball keeps moving (spawn_arg_1 counts right, spawn_arg_2 left, a
+   turn at each carry); the first frame of a move turns at once here too */
+void join_character_chooser_update(uint32_t text_x)
+{
+	const uint32_t player = OBJECT(object_cursor)->player;
+	uint32_t block = 0;
+	int16_t trackball_x = 0;
+
+	if (player < CHOOSERS && (players_in_join_chooser & (1u << player)) != 0u)
+	{
+		block = join_chooser_blocks[player];
+		trackball_x = (int16_t)RAM16(GAME_VARIABLES + chooser_trackball_offsets[OBJECT(block)->kind]);
+		if (trackball_x != 0 && !join_chooser_rolling[player])
+		{
+			if (trackball_x < 0)
+				OBJECT(block)->spawn_arg_2 = (uint16_t)((OBJECT(block)->spawn_arg_2 & 0xFF00u) | TURN_NOW);
+			else
+				OBJECT(block)->spawn_arg_1 = (uint16_t)((OBJECT(block)->spawn_arg_1 & 0xFF00u) | TURN_NOW);
+		}
+		join_chooser_rolling[player] = trackball_x != 0;
+	}
+	original_join_character_chooser_update(text_x);
+}
+
 /* ---- for the port ---- */
 
 #define PAUSE_ROW          2u
@@ -911,6 +1158,11 @@ void console_actions(uint32_t pressed, uint32_t held)
 
 void console_back(void)
 {
+	if (map_open)
+	{
+		leave_map();
+		return;
+	}
 	if (controls_open)
 		return;    /* (CONTROLS reads the action back itself) */
 	if (options_open)
@@ -929,7 +1181,17 @@ int console_controls_row(int action)
 {
 	if (!options_open || !controls_open || system_mode != MODE_OPTIONS || action < 0 || action >= ACTIONS)
 		return -1;
-	return (int)controls_row(action);
+	return (int)controls_row(action + 1);
+}
+
+int console_controls_player(void)
+{
+	return controls_player;
+}
+
+bool console_start_prompted(int player)
+{
+	return player >= 0 && player < CONTROLS_PLAYERS && start_prompt_frames[player] > 0;
 }
 
 int console_controls_waiting(void)

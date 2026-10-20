@@ -3,7 +3,7 @@
  *    Description: prototypes of the game's functions and the addresses of the code it keeps in memory slots
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    19-10-2026
+ *    Modified:    20-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -1477,6 +1477,7 @@ void player_hud_init(void);
 void player_hud_start(void);
 void player_hud_update(uint32_t *p_digit_attribute, uint32_t *p_text_position);
 uint32_t draw_player_start_prompt(void);
+uint32_t CONSOLE_ORIGINAL(draw_player_start_prompt)(void);
 void animate_hud_palette(uint32_t *p_list_index, uint32_t *p_wrapped);
 void animate_hud_tiles(uint32_t *p_list_index, uint32_t *p_wrapped);
 uint32_t blink_player_hud_message(uint32_t text, uint32_t text_position);
@@ -1699,6 +1700,7 @@ void character_chooser_chosen(void);
 void character_select_countdown_update(void);
 uint32_t start_join_character_chooser(void);
 void join_character_chooser_update(uint32_t text_x);
+void CONSOLE_ORIGINAL(join_character_chooser_update)(uint32_t text_x);
 void join_character_chooser_take_character(void);
 void count_free_characters(uint32_t *p_characters_left, uint32_t *p_character, uint32_t *p_taken_bit);
 
@@ -1976,6 +1978,7 @@ void game_mode_stage_change_fade(uint32_t delta, uint32_t position, uint32_t in_
 void game_mode_you_failed(uint32_t box_edge, uint32_t position, uint32_t in_play_count, uint32_t object, uint32_t *p_speed_value, uint32_t *p_count, uint32_t *p_cycle, uint32_t *p_list_cursor);
 void check_stage_select_buttons(void);
 void game_mode_stage_select(uint32_t *p_count, uint32_t *p_list_cursor);
+void CONSOLE_ORIGINAL(game_mode_stage_select)(uint32_t *p_count, uint32_t *p_list_cursor);
 void game_mode_event_09(uint32_t speed, uint32_t object, uint32_t *p_speed_value, uint32_t *p_count, uint32_t *p_cycle, uint32_t *p_list_cursor);
 void game_mode_event_0A(uint32_t pressed, uint32_t position, uint32_t speed, uint16_t next_scroll_position, uint32_t object, uint32_t *p_speed_value, uint32_t *p_count, uint32_t *p_cycle, uint32_t *p_list_cursor);
 void game_mode_event_0C(uint32_t position, uint32_t speed, uint32_t object, uint32_t *p_speed_value, uint32_t *p_count, uint32_t *p_cycle, uint32_t *p_list_cursor);
@@ -2008,7 +2011,6 @@ void load_stage_map_pointers(uint32_t *p_table_offset, uint32_t *p_bounds_list);
 void run_stage_events(uint32_t *p_table_offset, uint32_t *p_event);
 void reset_trackball_step(uint32_t player_number);
 void read_trackball_step(uint32_t *p_player_number, uint32_t *p_trackball);
-void CONSOLE_ORIGINAL(read_trackball_step)(uint32_t *p_player_number, uint32_t *p_trackball);
 uint32_t update_restart_point(uint32_t position);
 uint32_t start_player_objects_alt(uint32_t object);
 uint32_t start_player_objects(uint32_t object);
