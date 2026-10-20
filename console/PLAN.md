@@ -8,7 +8,7 @@ Done:
   ADVERTISE SOUND on); the title plays a song (stage 00's for now; the arcade's title has none).
 
 - The title menu, PRESS START, player select by a touch, pause in grey, actions instead of keys.
-- The SEGA logo's jingle: two notes (G, E) through the sound driver's own MIDI queue on the effects'
+- The SEGA logo's jingle: two chords of our own (E flat major, C major) through the sound driver's own MIDI queue on the effects'
   channels B and C (an octave under), instruments from segasonic.ini; it sounds like a handheld's, so a
   recorded voice of our own (sega.wav, played by the port) may take its place later.
 - (C) SEGA 1992 on the title and its menu only.

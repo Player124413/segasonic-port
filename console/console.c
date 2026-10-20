@@ -91,11 +91,11 @@ static void write_centered(uint32_t row, const char *text, uint8_t attribute)
 
 static void run_menu(void);
 
-/* ---- the SEGA logo's jingle: two notes through the sound driver's own MIDI queue ---- */
+/* ---- the SEGA logo's jingle: two chords through the sound driver's own MIDI queue ---- */
 
 /* The sound driver plays its sequences by putting their MIDI messages in a queue in the sound RAM the main
    CPU shares (E100-E1FF there, 0x700100 here), for its MIDI parts to play with the game's instruments: two
-   notes put there play like a song of the game's. MIDI channel B plays them: one of the effects' parts,
+   chords put there play like a song of the game's. MIDI channel B plays them: one of the effects' parts,
    at full volume whatever music_volume says (fixed_volume) and with no transpose, with the program the
    port's settings name; its own program comes back after them. */
 #define JINGLE_CHANNEL     0x0Bu
@@ -104,9 +104,13 @@ static void run_menu(void);
 #define MIDI_QUEUE_WRITE   (SOUND_RAM + 0x758u)
 #define MIDI_QUEUE_COUNT   (SOUND_RAM + 0x759u)
 #define JINGLE_STEP        4u       /* sega_logo_step when the logo has come together */
-#define JINGLE_NOTE_FRAMES 37       /* each note: 0.6 seconds */
-#define JINGLE_FIRST       79u      /* G, then */
-#define JINGLE_SECOND      76u      /* E: "SE-GA" */
+#define JINGLE_FIRST_FRAMES 36      /* "SE": 0.6 seconds, */
+#define JINGLE_END_FRAMES  108      /* "GA": 1.2 more */
+#define CHORD_NOTES        3
+
+/* "SE-GA": E flat major, then C major (our own two chords) */
+static const uint8_t chord_se[CHORD_NOTES] = { 63u, 67u, 75u };
+static const uint8_t chord_ga[CHORD_NOTES] = { 60u, 64u, 72u };
 
 static int jingle_frame = -1;     /* frames since the jingle began, -1: none */
 static int jingle_program = 13;   /* the instrument (the port's settings: sega_jingle_program) */
@@ -127,10 +131,10 @@ static void midi_message(uint8_t status, uint8_t first, uint8_t second, int byte
 	mem_write8(MIDI_QUEUE_COUNT, (uint8_t)(mem_read8(MIDI_QUEUE_COUNT) + 1u));
 }
 
-/* One voice of the jingle on 'channel': at 'frame' of it, its note on or off ('shift' semitones away) */
+/* One voice of the jingle on 'channel', 'shift' semitones away: at this frame of it, its chords on or off */
 static void jingle_voice(uint8_t channel, int program, int shift)
 {
-	const uint8_t first = (uint8_t)(JINGLE_FIRST + shift), second = (uint8_t)(JINGLE_SECOND + shift);
+	int note;
 
 	if (program < 0)
 		return;
@@ -138,16 +142,21 @@ static void jingle_voice(uint8_t channel, int program, int shift)
 	{
 		midi_message(0xB0u | channel, 7u, 0x7Fu, 3);    /* CC 7, the volume: all of it */
 		midi_message(0xC0u | channel, (uint8_t)program, 0u, 2);
-		midi_message(0x90u | channel, first, 0x7Fu, 3);
+		for (note = 0; note < CHORD_NOTES; note++)
+			midi_message(0x90u | channel, (uint8_t)(chord_se[note] + shift), 0x7Fu, 3);
 	}
-	else if (jingle_frame == JINGLE_NOTE_FRAMES)
+	else if (jingle_frame == JINGLE_FIRST_FRAMES)
 	{
-		midi_message(0x80u | channel, first, 0u, 3);
-		midi_message(0x90u | channel, second, 0x7Fu, 3);
+		for (note = 0; note < CHORD_NOTES; note++)
+		{
+			midi_message(0x80u | channel, (uint8_t)(chord_se[note] + shift), 0u, 3);
+			midi_message(0x90u | channel, (uint8_t)(chord_ga[note] + shift), 0x7Fu, 3);
+		}
 	}
-	else if (jingle_frame == 2 * JINGLE_NOTE_FRAMES)
+	else if (jingle_frame == JINGLE_END_FRAMES)
 	{
-		midi_message(0x80u | channel, second, 0u, 3);
+		for (note = 0; note < CHORD_NOTES; note++)
+			midi_message(0x80u | channel, (uint8_t)(chord_ga[note] + shift), 0u, 3);
 		midi_message(0xC0u | channel, 0u, 0u, 2);    /* the part's own program again */
 	}
 }
@@ -158,7 +167,7 @@ static void play_jingle(void)
 		return;
 	jingle_voice(JINGLE_CHANNEL, jingle_program, 0);
 	jingle_voice(LAYER_CHANNEL, jingle_layer, -12);
-	if (jingle_frame == 2 * JINGLE_NOTE_FRAMES)
+	if (jingle_frame == JINGLE_END_FRAMES)
 	{
 		jingle_frame = -2;    /* (done) */
 		return;
