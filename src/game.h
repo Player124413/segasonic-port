@@ -1959,6 +1959,7 @@ void start_escape_alarm_flash(uint32_t flash);
 
 /* stage/game_modes.c: the game modes (run_game_mode) and what a stage frame runs: starting a stage, layer blending, the stage clear check, the player summary, stage slots and events, restart points, the player objects, the GAME OVER banner and the demo prompt */
 void run_game_mode(uint32_t pressed, uint32_t position, uint32_t speed, uint16_t next_scroll_position, uint32_t object, uint32_t *p_speed_value, uint32_t *p_count, uint32_t *p_cycle, uint32_t *p_list_cursor);
+void CONSOLE_ORIGINAL(run_game_mode)(uint32_t pressed, uint32_t position, uint32_t speed, uint16_t next_scroll_position, uint32_t object, uint32_t *p_speed_value, uint32_t *p_count, uint32_t *p_cycle, uint32_t *p_list_cursor);
 void game_mode_start_game(uint32_t *p_count, uint32_t *p_list_cursor);
 void start_stage(uint32_t stage_offset, uint32_t *p_write_index_address, uint32_t *p_floor_block, uint32_t *p_bounds_offset, uint32_t *p_corners_left, uint32_t *p_palette_record, uint32_t *p_source, uint32_t *p_object);
 void game_mode_play_stage(uint32_t pressed, uint32_t position, uint32_t in_play_count, uint32_t next_scroll_position, uint32_t object, uint32_t *p_speed_value, uint32_t *p_count, uint32_t *p_cycle, uint32_t *p_list_cursor);
@@ -2070,6 +2071,7 @@ void blink_start_prompt(uint32_t credit_block, uint32_t prompt_texts, uint32_t *
 void erase_start_prompt(uint32_t text_position, uint32_t prompt_texts);
 void draw_credit_count(uint32_t credit_block, uint32_t *p_credits, uint32_t *p_coins_per_credit, uint32_t *p_text, uint32_t *p_text_position);
 void draw_credit_count_now(uint32_t credit_block, uint32_t *p_credits, uint32_t *p_coins_per_credit, uint32_t *p_text, uint32_t *p_text_position);
+void CONSOLE_ORIGINAL(draw_credit_count_now)(uint32_t credit_block, uint32_t *p_credits, uint32_t *p_coins_per_credit, uint32_t *p_text, uint32_t *p_text_position);
 void build_fraction_glyph(uint32_t numerator, uint32_t denominator, uint32_t *p_numerator_top_rows, uint32_t *p_numerator_bottom_rows, uint32_t *p_denominator_top_rows, uint32_t *p_denominator_bottom_rows);
 void erase_credit_count(uint32_t text_position);
 uint32_t add_to_credit_pool(uint32_t credits_to_add);
@@ -2080,11 +2082,14 @@ void boot(void);
 void run_frame(uint32_t pressed, uint32_t released, uint32_t input_cursor, uint32_t count, uint32_t trackball_port, uint32_t trackball_cursor, uint32_t *p_scale, uint32_t *p_cursor, uint32_t *p_height);
 void run_frame_check_p2_start(uint32_t credits, uint32_t blink_bit, uint32_t credits_needed, uint32_t count, uint32_t message_text, uint32_t text_position, uint32_t *p_scale, uint32_t *p_cursor, uint32_t *p_height);
 void run_frame_start_game(uint32_t credits, uint32_t blink_bit, uint32_t credits_needed, uint32_t count, uint32_t message_text, uint32_t text_position, uint32_t *p_scale, uint32_t *p_cursor, uint32_t *p_height);
+void CONSOLE_ORIGINAL(run_frame_start_game)(uint32_t credits, uint32_t blink_bit, uint32_t credits_needed, uint32_t count, uint32_t message_text, uint32_t text_position, uint32_t *p_scale, uint32_t *p_cursor, uint32_t *p_height);
 void attract_title(uint32_t *p_color, uint32_t *p_row_pairs_left, uint32_t *p_blocks_per_row, uint32_t *p_text);
+void CONSOLE_ORIGINAL(attract_title)(uint32_t *p_color, uint32_t *p_row_pairs_left, uint32_t *p_blocks_per_row, uint32_t *p_text);
 void attract_ranking(uint32_t *p_rows, uint32_t *p_source);
 void attract_demo_1(uint32_t pressed, uint32_t released, uint32_t input_cursor, uint16_t cursor, uint32_t trackball_cursor, uint32_t *p_scale, uint32_t *p_count, uint32_t *p_height, uint32_t *p_trackball_port);
 void attract_demo_2(uint32_t pressed, uint32_t released, uint32_t input_cursor, uint16_t cursor, uint32_t trackball_cursor, uint32_t *p_scale, uint32_t *p_count, uint32_t *p_height, uint32_t *p_trackball_port);
 void advance_attract_screen(void);
+void CONSOLE_ORIGINAL(advance_attract_screen)(void);
 void init_system(uint32_t *p_polynomial, uint32_t *p_words_left);
 void init_mixer(void);
 void init_io_ports(void);
@@ -2099,6 +2104,7 @@ void play_demo_trackballs(uint32_t *p_count, uint32_t *p_demo_cursor, uint32_t *
 void pause_on_start_3(void);
 void split_frame_count(uint32_t frames, uint32_t frames_high, uint32_t *p_seconds, uint32_t *p_minutes, uint32_t *p_hours, uint32_t *p_days);
 void attract_warning(uint32_t *p_pixels, uint32_t *p_text);
+void CONSOLE_ORIGINAL(attract_warning)(uint32_t *p_pixels, uint32_t *p_text);
 void system_mode_idle(void);
 void wait_attract_timer(void);
 void irq_vblank_start(void);
@@ -2148,6 +2154,7 @@ uint32_t init_sound(void);
 void set_port_d_bit_3_if_sound_allowed(void);
 void queue_coin_sound(void);
 void play_sound(uint8_t sound_id, uint32_t *p_write_index, uint32_t *p_write_index_address);
+void CONSOLE_ORIGINAL(play_sound)(uint8_t sound_id, uint32_t *p_write_index, uint32_t *p_write_index_address);
 void queue_sound(uint8_t sound_id, uint32_t *p_write_index, uint32_t *p_write_index_address);
 
 /* system/test_mode.c: the test mode: the menu, the memory, input and sound tests, the CRT test, the game and coin assignments, the bookkeeping screen, the backup clear, the output test, the exit */

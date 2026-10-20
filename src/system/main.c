@@ -379,7 +379,7 @@ void run_frame_check_p2_start(uint32_t credits, uint32_t blink_bit, uint32_t cre
 /* A start pressed with credits: system_mode 6 (the game), game_mode 0, system_mode_step 0,
    game_in_progress 0xFF; then the rest of the frame: run_game_mode, run_objects, build_sprite_list,
    draw_queued_strings. */
-void run_frame_start_game(uint32_t credits, uint32_t blink_bit, uint32_t credits_needed, uint32_t count, uint32_t message_text, uint32_t text_position, uint32_t *p_scale, uint32_t *p_cursor, uint32_t *p_height)
+void CONSOLE_ORIGINAL(run_frame_start_game)(uint32_t credits, uint32_t blink_bit, uint32_t credits_needed, uint32_t count, uint32_t message_text, uint32_t text_position, uint32_t *p_scale, uint32_t *p_cursor, uint32_t *p_height)
 {
 	uint16_t cursor = (uint16_t)*p_cursor;
 	uint32_t sprite_entry = 0, string_cursor = 0;
@@ -426,7 +426,7 @@ void run_frame_start_game(uint32_t credits, uint32_t blink_bit, uint32_t credits
 /* System mode 3, the title: once, the display off for 2 frames, screen mode 0, the text layer and the
    objects cleared, the title's state reset and current_screen 3; then every frame the (C) SEGA 1992 line
    and run_title_screen, until title_done sends it on to the next attract screen. */
-void attract_title(uint32_t *p_color, uint32_t *p_row_pairs_left, uint32_t *p_blocks_per_row, uint32_t *p_text)
+void CONSOLE_ORIGINAL(attract_title)(uint32_t *p_color, uint32_t *p_row_pairs_left, uint32_t *p_blocks_per_row, uint32_t *p_text)
 {
 	uint8_t mode = 0;
 	uint32_t ignored = 0, text_position = 0;
@@ -568,7 +568,7 @@ void attract_demo_2(uint32_t pressed, uint32_t released, uint32_t input_cursor, 
 
 /* Moves the attract mode to its next screen: attract_step + 1 (wrapping after 8), system_mode =
    attract_sequence[attract_step], system_mode_step 0. */
-void advance_attract_screen(void)
+void CONSOLE_ORIGINAL(advance_attract_screen)(void)
 {
 	uint32_t next_step = 0;
 
@@ -949,7 +949,7 @@ void split_frame_count(uint32_t frames, uint32_t frames_high, uint32_t *p_second
    off for 3 frames, loads the font, video registers and sprites, screen mode 1 (wide), init_sound, and
    prints warning_screen_text; step 1 waits for attract_timer (wait_attract_timer); step 2 goes on to the
    next attract screen. */
-void attract_warning(uint32_t *p_pixels, uint32_t *p_text)
+void CONSOLE_ORIGINAL(attract_warning)(uint32_t *p_pixels, uint32_t *p_text)
 {
 	uint8_t new_mode = 0;
 	uint32_t ignored = 0;

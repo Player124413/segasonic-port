@@ -59,7 +59,7 @@ void queue_coin_sound(void)
 
 /* Asks for sound sound_id: during a game (game_in_progress) always through queue_sound; outside one only
    when setting_advertise_sound is on and sound_id's bit is set in attract_sound_mask. */
-void play_sound(uint8_t sound_id, uint32_t *p_write_index, uint32_t *p_write_index_address)
+void CONSOLE_ORIGINAL(play_sound)(uint8_t sound_id, uint32_t *p_write_index, uint32_t *p_write_index_address)
 {
 	uint32_t write_index = *p_write_index;
 	uint32_t write_index_address = *p_write_index_address;

@@ -13,7 +13,7 @@
 
 /* One frame of the game: runs the mode game_mode names (0x21, past the table, runs game_mode_start_game
    too). A mode that changes game_mode runs the new one in the same frame (run_game_mode again). */
-void run_game_mode(uint32_t pressed, uint32_t position, uint32_t speed, uint16_t next_scroll_position, uint32_t object, uint32_t *p_speed_value, uint32_t *p_count, uint32_t *p_cycle, uint32_t *p_list_cursor)
+void CONSOLE_ORIGINAL(run_game_mode)(uint32_t pressed, uint32_t position, uint32_t speed, uint16_t next_scroll_position, uint32_t object, uint32_t *p_speed_value, uint32_t *p_count, uint32_t *p_cycle, uint32_t *p_list_cursor)
 {
 	switch (game_mode)
 	{

@@ -228,6 +228,15 @@ uint32_t search_bits_up(uint32_t address, uint32_t offset, uint32_t length, uint
 void divx_pair(uint32_t divisor, uint32_t *low, uint32_t *high);
 void divux_pair(uint32_t divisor, uint32_t *low, uint32_t *high);
 
+/* A function of the game the console build (console/, SEGASONIC_CONSOLE) puts its own in place of: there the
+   game's is original_NAME, which the console's can call; elsewhere it is the game's, as it was. The functions
+   are listed in console/replaced.txt (tools/decompile.py). */
+#ifdef SEGASONIC_CONSOLE
+#define CONSOLE_ORIGINAL(name) original_##name
+#else
+#define CONSOLE_ORIGINAL(name) name
+#endif
+
 #ifdef __cplusplus
 }
 #endif

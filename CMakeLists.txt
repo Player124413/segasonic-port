@@ -108,6 +108,23 @@ if(SONIC_DECOMPILED)
 	add_executable(sonic_game_headless ports/headless/main.c)
 	target_link_libraries(sonic_game_headless PRIVATE sonic_game sonic_data)
 
+	# The console build: the same game with the console's own versions of the functions console/replaced.txt
+	# lists (console/*.c), in SegaSonic.exe
+	file(GLOB SONIC_CONSOLE_SOURCES CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/console/*.c)
+	add_library(sonic_game_console STATIC runtime/src/game.c runtime/src/sound_cpu.c ${SONIC_DECOMPILED}
+		${SONIC_CONSOLE_SOURCES})
+	target_include_directories(sonic_game_console PUBLIC runtime/include ${SONIC_DECOMPILED_DIR}
+		${SONIC_DECOMPILED_DIR}/sound console)
+	target_compile_definitions(sonic_game_console PUBLIC SEGASONIC_CONSOLE)
+	target_link_libraries(sonic_game_console PUBLIC s32runtime)
+	add_executable(segasonic_console_headless ports/headless/main.c)
+	target_link_libraries(segasonic_console_headless PRIVATE sonic_game_console sonic_data)
+	if(MSVC)
+		target_compile_options(sonic_game_console PRIVATE /bigobj)
+	else()
+		target_compile_options(sonic_game_console PRIVATE -fno-strict-aliasing)
+	endif()
+
 	# The game in a window (ports/sdl2): SDL2 from the system, or the development package unpacked in
 	# build/downloads/sdl2 (SDL2_DIR picks another)
 	file(GLOB SONIC_SDL2_UNPACKED ${CMAKE_SOURCE_DIR}/build/downloads/sdl2/SDL2-*/cmake)
@@ -118,6 +135,12 @@ if(SONIC_DECOMPILED)
 		if(WIN32)
 			add_custom_command(TARGET sonic POST_BUILD
 				COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:SDL2::SDL2> $<TARGET_FILE_DIR:sonic>)
+		endif()
+		add_executable(SegaSonic WIN32 ports/sdl2/main.c ports/sdl2/settings.c)
+		target_link_libraries(SegaSonic PRIVATE sonic_game_console sonic_data SDL2::SDL2 SDL2::SDL2main)
+		if(WIN32)
+			add_custom_command(TARGET SegaSonic POST_BUILD
+				COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:SDL2::SDL2> $<TARGET_FILE_DIR:SegaSonic>)
 		endif()
 	else()
 		message(STATUS "No SDL2: the window port (sonic) is not built")

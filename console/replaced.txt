@@ -1,0 +1,9 @@
+# The game's functions the console build puts its own in place of (console/*.c): tools/decompile.py writes
+# their definitions as CONSOLE_ORIGINAL(name), which is original_name there and the game's own elsewhere.
+attract_warning          # no licence screen: straight on to the title
+advance_attract_screen   # the attract mode's screens in the console's order
+draw_credit_count_now    # no "Free play" line: the console has no coins
+play_sound               # every sound and the music in the attract mode too
+attract_title            # the title with music
+run_frame_start_game     # a start button outside a game opens the menu (or goes back to the title)
+run_game_mode            # the game the menu starts sees player 1's start, as the arcade's start frame does

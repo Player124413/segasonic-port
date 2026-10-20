@@ -25,7 +25,7 @@
  *      mouse, or the arrow keys       trackball (the mouse's ball rolls on when the mouse stops;
  *                                     the right button holds it)
  *      left button, Z or space        the button
- *      5, 6, 7                        coins 1-3        1, 2, 3   starts 1-3
+ *      5, 6, 7                        coins 1-3        1, 2, 3   starts 1-3 (Enter: start 1)
  *      9                              service          F2        test (the operator's menu: 9 moves
  *                                                                  its cursor, F2 picks)
  *      Escape                         quit             F11 or Alt+Enter   full screen
@@ -42,6 +42,12 @@
 #include "sound/chips.h"
 
 #include "settings.h"
+#ifdef SEGASONIC_CONSOLE
+#include "console.h"
+#define FILE_NAME "segasonic"    /* the console build: SegaSonic.exe, segasonic.ini, segasonic.eeprom */
+#else
+#define FILE_NAME "sonic"
+#endif
 
 #include <SDL.h>
 
@@ -330,6 +336,9 @@ static void on_controls_update(void)
 		controls.coin[player] = keys[SDL_SCANCODE_5 + player] != 0;
 		controls.start[player] = keys[SDL_SCANCODE_1 + player] != 0;
 	}
+	/* Enter is player 1's start too (not with Alt: Alt+Enter is full screen) */
+	if ((keys[SDL_SCANCODE_RETURN] || keys[SDL_SCANCODE_KP_ENTER]) && !(SDL_GetModState() & KMOD_ALT))
+		controls.start[0] = true;
 	controls.service = keys[SDL_SCANCODE_9] != 0;
 	controls.test = keys[SDL_SCANCODE_F2] != 0;
 	for (int player = 0; player < PLAYERS; player++)
@@ -458,6 +467,10 @@ static void wait_for_frame(void)
 static void on_frame_done(void)
 {
 	play_frame();
+#ifdef SEGASONIC_CONSOLE
+	if (console_quit_requested())
+		longjmp(finished, 1);
+#endif
 	if (program_frames() % 600 == 0)
 		save_eeprom();
 	if (program_frames() % 30 == 0 && settings_reread())
@@ -498,8 +511,8 @@ int main(int argc, char **argv)
 		return fail("SDL could not start.", SDL_GetError());
 	/* what the game keeps goes beside the executable */
 	base = SDL_GetBasePath();
-	snprintf(settings_path, sizeof(settings_path), "%ssonic.ini", base ? base : "");
-	snprintf(eeprom_path, sizeof(eeprom_path), "%ssonic.eeprom", base ? base : "");
+	snprintf(settings_path, sizeof(settings_path), "%s" FILE_NAME ".ini", base ? base : "");
+	snprintf(eeprom_path, sizeof(eeprom_path), "%s" FILE_NAME ".eeprom", base ? base : "");
 	SDL_free(base);
 	settings_open(settings_path);
 	shown_scale = settings.window_scale;

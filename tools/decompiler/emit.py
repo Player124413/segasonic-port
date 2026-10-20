@@ -302,9 +302,10 @@ def shared_results(texts):
     or a pointer it was itself given twice): {function name: {"p_released", ...}}."""
     params = {}
     for text in texts:
-        for match in re.finditer(r"^\w[\w ]*?\b(\w+)\(([^)\n]*)\)\n\{", text, re.M):
-            params[match.group(1)] = [part.split()[-1].lstrip("*") for part in match.group(2).split(", ")
-                                      if part != "void"]
+        # (a definition the console build replaces reads "void CONSOLE_ORIGINAL(name)(...)")
+        for match in re.finditer(r"^\w[\w ]*?(?:\bCONSOLE_ORIGINAL\((\w+)\)|\b(\w+))\(([^)\n]*)\)\n\{", text, re.M):
+            params[match.group(1) or match.group(2)] = [part.split()[-1].lstrip("*")
+                                                        for part in match.group(3).split(", ") if part != "void"]
     shared = {}
     for text in texts:
         for match in re.finditer(r"\b(\w+)\(", text):
@@ -2020,7 +2021,7 @@ class FunctionWriter:
         if body and body[-1] == "\treturn;":
             body.pop()    # running off the end returns as well
         said = self.emitter.comments.get(self.emitter.names.get(self.entry, self.function.name))
-        text = (comment_lines(said) if said else []) + [self.prototype(), "{"]
+        text = (comment_lines(said) if said else []) + [self.emitter.definition(self.entry), "{"]
         # the names the code mentions, fields (after "->" or ".") aside: an unused variable z is not
         # declared because some OBJECT(...)->z is read
         declarations = self.declarations(set(re.findall(r"(?<![\w.>])[A-Za-z_]\w*", "\n".join(body))))
@@ -2097,6 +2098,7 @@ class Emitter:
         self.data_labels = {}       # program ROM address -> name of the data label symbols.txt puts there
         self.code_labels = {}       # address -> name of the code label symbols.txt puts there
         self.comments = {}          # function name -> what the C says above it (symbols.txt comment lines)
+        self.replaceable = set()    # names of the functions the console build puts its own in place of
         self.shared_results = {}    # function name -> its result pointers some call gives the same variable as
                                     # another one (shared_results)
         self.raw_addresses = {}     # ROM address printed as a number -> the functions that use it
@@ -2382,6 +2384,15 @@ class Emitter:
         returned = self.returned(entry)
         kind = "void" if returned is None else cprint.UNSIGNED[register_bits(returned[1]) if returned[0] == "r" else 32]
         return f"{kind} {self.names[entry]}({', '.join(params) if params else 'void'})"
+
+    def definition(self, entry):
+        """The prototype a function's definition opens with: a function the console build replaces
+        (console/replaced.txt) is CONSOLE_ORIGINAL(name) there (game/support.h)."""
+        prototype = self.prototype(entry)
+        name = self.names[entry]
+        if name not in self.replaceable:
+            return prototype
+        return prototype.replace(f" {name}(", f" CONSOLE_ORIGINAL({name})(", 1)
 
     def wrapper(self, entry):
         """A function of no parameters that calls 'entry' with zeros, for call_code()."""

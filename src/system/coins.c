@@ -592,7 +592,7 @@ void draw_credit_count(uint32_t credit_block, uint32_t *p_credits, uint32_t *p_c
    free_play; else "credit" ("credits" from 2), the count as two BCD digits (one below 10), then the
    coins toward the next credit as a small fraction over credit_coin_cost (draw_fraction), cleared when
    none or when a credit costs 1 coin. */
-void draw_credit_count_now(uint32_t credit_block, uint32_t *p_credits, uint32_t *p_coins_per_credit, uint32_t *p_text, uint32_t *p_text_position)
+void CONSOLE_ORIGINAL(draw_credit_count_now)(uint32_t credit_block, uint32_t *p_credits, uint32_t *p_coins_per_credit, uint32_t *p_text, uint32_t *p_text_position)
 {
 	uint32_t credits = *p_credits;
 	uint32_t coins_per_credit = *p_coins_per_credit;
