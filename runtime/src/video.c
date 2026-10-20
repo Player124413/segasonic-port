@@ -1299,6 +1299,11 @@ void s32_video_set_wide(bool wide)
 	video.wide = wide;
 }
 
+int s32_video_side(void)
+{
+	return video.side;
+}
+
 const uint32_t *s32_video_frame(int *width)
 {
 	if (width)

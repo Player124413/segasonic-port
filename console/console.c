@@ -1723,14 +1723,15 @@ bool console_controls_defaults(void)
 bool console_wide_now(void)
 {
 	/* a stage (in a game or a demo), the how to play (its panel goes on at the sides: wide_how_to_play), the
-	   SEGA logo and the title (their sky and sea go on), the ranking (its faces) */
+	   SEGA logo and the title (their sky and sea go on), the ranking, OPTIONS and player select (their
+	   faces) */
 	const bool demo_stage = (system_mode == MODE_DEMO_1 || system_mode == MODE_DEMO_2)
 		&& (game_mode == 3u || game_mode == 5u || game_mode == 6u || game_mode == 0x11u);
 
 	return console_window_settings.wide
 		&& (console_in_game() || demo_stage
-			|| (system_mode == MODE_GAME && (int8_t)game_in_progress < 0 && game_mode == 1u)
-			|| system_mode == MODE_TITLE || system_mode == MODE_RANKING);
+			|| (system_mode == MODE_GAME && (int8_t)game_in_progress < 0 && (game_mode == 1u || game_mode == 0x1Bu))
+			|| system_mode == MODE_TITLE || system_mode == MODE_RANKING || system_mode == MODE_OPTIONS);
 }
 
 bool console_in_game(void)

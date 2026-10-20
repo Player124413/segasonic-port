@@ -40,6 +40,9 @@ void s32_video_init(const uint8_t *tiles, size_t tiles_size, const uint8_t *spri
 #define S32_VIDEO_WIDE_SIDE  48
 void s32_video_set_wide(bool wide);
 
+/* How far right the last frame drew the board's picture: S32_VIDEO_WIDE_SIDE when it was wide, else 0 */
+int s32_video_side(void);
+
 /* What the board calls (s32_video_init sets them): the sprite commands, and the start of VBLANK */
 void s32_video_sprites(bool erase, bool draw);
 void s32_video_draw_frame(void);

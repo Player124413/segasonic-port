@@ -370,11 +370,11 @@ static const uint32_t *with_controls(const uint32_t *pixels)
 			icon = find_prompt(key_prompts, SDL_arraysize(key_prompts), bindings[action].keys[key]);
 			if (!icon || (first && first->row == icon->row && first->column == icon->column))
 				continue;    /* (no picture, or the first key's: Enter and the keypad's) */
-			draw_prompt(icon, shown++ ? CONSOLE_CONTROLS_SECOND_X : CONSOLE_CONTROLS_KEYS_X, y);
+			draw_prompt(icon, s32_video_side() + (shown++ ? CONSOLE_CONTROLS_SECOND_X : CONSOLE_CONTROLS_KEYS_X), y);
 			first = first ? first : icon;
 		}
 		if ((icon = find_prompt(button_prompts, SDL_arraysize(button_prompts), bindings[action].buttons[0])) != NULL)
-			draw_prompt(icon, CONSOLE_CONTROLS_BUTTON_X, y);
+			draw_prompt(icon, s32_video_side() + CONSOLE_CONTROLS_BUTTON_X, y);
 	}
 	return controls_picture;
 }
