@@ -38,6 +38,7 @@ port_settings settings = {
 	.volume = 1.0,
 	.sega_jingle_program = 13.0,
 	.sega_jingle_layer = 2.0,
+	.title_music = 3.0,
 };
 
 /* A setting's place in the file and what it takes */
@@ -92,6 +93,9 @@ static const entry entries[] = {
 	{ "sound", "sega_jingle_layer",
 		"the instrument of the same two notes an octave under them, to give them body (-1: none)",
 		&settings.sega_jingle_layer, NULL, -1.0, 36.0 },
+	{ "sound", "title_music",
+		"the song of the title and its menu, by the game's sound id (3 the map's; OPTIONS' SOUND TEST sets it)",
+		&settings.title_music, NULL, 0.0, 255.0 },
 #endif
 };
 

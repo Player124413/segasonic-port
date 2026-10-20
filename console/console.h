@@ -22,6 +22,7 @@ typedef struct
 	bool full_screen;
 	bool smooth;          /* smooth pixels, or sharp ones */
 	int volume;           /* 0-10: 5 is the game's own */
+	int title_music;      /* the sound id of the song the title plays (SOUND TEST picks it) */
 	bool changed;
 } console_window;
 

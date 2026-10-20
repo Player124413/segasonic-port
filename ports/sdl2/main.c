@@ -312,6 +312,7 @@ static void tell_console_settings(void)
 	console_window_settings.full_screen = settings.full_screen;
 	console_window_settings.smooth = settings.smooth;
 	console_window_settings.volume = (int)lround(settings.volume * 5.0);
+	console_window_settings.title_music = (int)settings.title_music;
 	console_window_settings.changed = false;
 }
 #endif
@@ -636,6 +637,7 @@ static void on_frame_done(void)
 		settings.full_screen = console_window_settings.full_screen;
 		settings.smooth = console_window_settings.smooth;
 		settings.volume = console_window_settings.volume / 5.0;
+		settings.title_music = console_window_settings.title_music;
 		apply_settings();
 		settings_save();
 	}

@@ -31,7 +31,6 @@
 #define PRESSED_START_1    0x10u
 #define PRESSED_BUTTON_1   0x10000u
 
-#define TITLE_MUSIC        0x03u    /* the sound the title starts (the arcade's title has none): the map's music */
 #define PRESS_START_ROW    25u      /* under the emblem's ribbon */
 #define MENU_ROW           24u      /* the menu's first line, under the logo */
 #define COPYRIGHT_ROW      27u      /* the title's (C) SEGA 1992 line */
@@ -268,7 +267,8 @@ void attract_title(uint32_t *p_color, uint32_t *p_row_pairs_left, uint32_t *p_bl
 	if (!title_music_started)
 	{
 		title_music_started = true;    /* (once: asked again, the song starts over every frame) */
-		queue_sound(TITLE_MUSIC, &write_index, &write_index_address);    /* the emblem: its music */
+		/* the emblem: its music (the arcade's title has none; segasonic.ini's title_music, the map's at first) */
+		queue_sound((uint8_t)console_window_settings.title_music, &write_index, &write_index_address);
 	}
 	sega_logo_shown = true;
 	if (menu_after_title && !menu_open)
@@ -466,7 +466,7 @@ static const char *const option_names[OPTION_COUNT] = {
 #define WINDOW_SCALE_MOST   6
 #define VOLUME_MOST         10
 
-console_window console_window_settings = { 3, false, false, 5, false };
+console_window console_window_settings = { 3, false, false, 5, 0x03, false };
 
 static int option_choice;
 static int option_travel, option_wait, value_travel, value_wait;
@@ -604,6 +604,11 @@ static uint32_t options_backdrop;    /* the object that drifts the faces (rankin
 
 static void open_options(void)
 {
+	int song;
+
+	for (song = 0; song < SONGS; song++)    /* (SOUND TEST shows the title's song) */
+		if (songs[song].sound == console_window_settings.title_music)
+			song_choice = song;
 	menu_open = false;
 	options_open = true;
 	option_choice = 0;
@@ -667,7 +672,8 @@ void system_mode_idle(void)
 	run_options();
 }
 
-/* The options: up and down choose a line, left and right change its value; SOUND TEST (it plays the song),
+/* The options: up and down choose a line, left and right change its value; SOUND TEST (it plays the song,
+   which the title plays from then on),
    STAGE SELECT and BACK are picked; the action back is BACK */
 static void run_options(void)
 {
@@ -685,7 +691,9 @@ static void run_options(void)
 	{
 		uint32_t write_index = 0, write_index_address = 0;
 
-		queue_sound(songs[song_choice].sound, &write_index, &write_index_address);    /* (it plays the song) */
+		queue_sound(songs[song_choice].sound, &write_index, &write_index_address);    /* (it plays the song, */
+		console_window_settings.title_music = songs[song_choice].sound;    /* the title's from now on) */
+		console_window_settings.changed = true;
 	}
 	else if (option_choice == OPTION_BACK)
 		close_options();
