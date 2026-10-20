@@ -448,6 +448,7 @@ enum
 	OPTION_FULL_SCREEN,
 	OPTION_PIXELS,
 	OPTION_VOLUME,
+	OPTION_CONTROLS,
 	OPTION_SOUND_TEST,
 	OPTION_STAGE_SELECT,
 	OPTION_BACK,
@@ -455,7 +456,7 @@ enum
 };
 
 static const char *const option_names[OPTION_COUNT] = {
-	"DIFFICULTY", "VITALITY", "WINDOW", "FULL SCREEN", "PIXELS", "VOLUME", "SOUND TEST", "STAGE SELECT", "BACK"
+	"DIFFICULTY", "VITALITY", "WINDOW", "FULL SCREEN", "PIXELS", "VOLUME", "CONTROLS", "SOUND TEST", "STAGE SELECT", "BACK"
 };
 
 #define OPTIONS_TITLE_ROW   4u
@@ -672,6 +673,105 @@ void system_mode_idle(void)
 	run_options();
 }
 
+/* ---- CONTROLS: the actions, their keys and buttons (the port draws them, Kenney's Input Prompts) ---- */
+
+#define CONTROLS_TITLE_ROW  3u
+#define CONTROLS_FIRST_ROW  6u      /* then a line every two rows */
+#define CONTROLS_NAME_COLUMN 4u
+#define CONTROLS_DEFAULTS   ACTIONS          /* the lines after the actions' */
+#define CONTROLS_BACK       (ACTIONS + 1)
+#define CONTROLS_LINES      (ACTIONS + 2)
+#define CONTROLS_MESSAGE_ROW 26u
+
+static const char *const action_names[ACTIONS] = {
+	"UP", "DOWN", "LEFT", "RIGHT", "ACCEPT", "BACK", "START", "JUMP"
+};
+
+static bool controls_open;
+static int controls_choice;
+static int controls_waiting = -1;      /* the action waiting for its new key or button */
+static bool controls_defaults_asked;
+
+static uint32_t controls_row(int line)
+{
+	return CONTROLS_FIRST_ROW + 2u * (uint32_t)line;
+}
+
+static void draw_controls(void)
+{
+	int line;
+
+	write_centered(CONTROLS_TITLE_ROW, "CONTROLS", MENU_CHOSEN);
+	for (line = 0; line < CONTROLS_LINES; line++)
+	{
+		const uint8_t attribute = line == controls_choice ? MENU_CHOSEN : MENU_TEXT;
+
+		erase_line(controls_row(line));
+		if (line < ACTIONS)
+			write_text(CONTROLS_NAME_COLUMN, controls_row(line), action_names[line], attribute);
+		else
+			write_text(CONTROLS_NAME_COLUMN, controls_row(line), line == CONTROLS_DEFAULTS ? "DEFAULTS" : "BACK",
+				attribute);
+	}
+	erase_line(CONTROLS_MESSAGE_ROW);
+	if (controls_waiting >= 0)
+		write_centered(CONTROLS_MESSAGE_ROW, "PRESS A KEY OR BUTTON", MENU_CHOSEN);
+}
+
+static void erase_controls(void)
+{
+	uint32_t row;
+
+	for (row = CONTROLS_TITLE_ROW; row <= CONTROLS_MESSAGE_ROW; row++)
+		erase_line(row);
+}
+
+static void open_controls(void)
+{
+	erase_options();
+	controls_open = true;
+	controls_choice = 0;
+	controls_waiting = -1;
+	option_wait = MENU_PAUSE;
+}
+
+static void close_controls(void)
+{
+	erase_controls();
+	controls_open = false;
+	option_wait = MENU_PAUSE;
+}
+
+/* CONTROLS: up and down choose a line; on an action's, accept waits for the key or button that takes its
+   place (the port takes it, Escape leaves it as it was); DEFAULTS puts every one back; BACK or the action
+   back return to OPTIONS */
+static void run_controls(void)
+{
+	int step = 0;
+
+	if (controls_waiting >= 0)
+	{
+		draw_controls();    /* (the port is waiting for the key) */
+		return;
+	}
+	step = cursor_step(&option_travel, &option_wait, (int16_t)trackball_1_y, ACTION_UP, ACTION_DOWN);
+	controls_choice = (controls_choice + step + CONTROLS_LINES) % CONTROLS_LINES;
+	draw_controls();
+	if ((actions & ACTION_BIT(ACTION_BACK)) != 0u)
+	{
+		close_controls();
+		return;
+	}
+	if (!picked())
+		return;
+	if (controls_choice < ACTIONS)
+		controls_waiting = controls_choice;
+	else if (controls_choice == CONTROLS_DEFAULTS)
+		controls_defaults_asked = true;
+	else
+		close_controls();
+}
+
 /* The options: up and down choose a line, left and right change its value; SOUND TEST (it plays the song,
    which the title plays from then on),
    STAGE SELECT and BACK are picked; the action back is BACK */
@@ -679,6 +779,11 @@ static void run_options(void)
 {
 	int step = 0;
 
+	if (controls_open)
+	{
+		run_controls();
+		return;
+	}
 	step = cursor_step(&option_travel, &option_wait, (int16_t)trackball_1_y, ACTION_UP, ACTION_DOWN);
 	option_choice = (option_choice + step + OPTION_COUNT) % OPTION_COUNT;
 	step = cursor_step(&value_travel, &value_wait, (int16_t)trackball_1_x, ACTION_LEFT, ACTION_RIGHT);
@@ -687,7 +792,9 @@ static void run_options(void)
 	draw_options();
 	if (!picked())
 		return;
-	if (option_choice == OPTION_SOUND_TEST)
+	if (option_choice == OPTION_CONTROLS)
+		open_controls();
+	else if (option_choice == OPTION_SOUND_TEST)
 	{
 		uint32_t write_index = 0, write_index_address = 0;
 
@@ -804,6 +911,8 @@ void console_actions(uint32_t pressed, uint32_t held)
 
 void console_back(void)
 {
+	if (controls_open)
+		return;    /* (CONTROLS reads the action back itself) */
 	if (options_open)
 	{
 		close_options();
@@ -814,6 +923,31 @@ void console_back(void)
 	menu_open = false;
 	erase_menu();
 	title_frames = 0;    /* (PRESS START again, from its shown half) */
+}
+
+int console_controls_row(int action)
+{
+	if (!options_open || !controls_open || system_mode != MODE_OPTIONS || action < 0 || action >= ACTIONS)
+		return -1;
+	return (int)controls_row(action);
+}
+
+int console_controls_waiting(void)
+{
+	return controls_waiting;
+}
+
+void console_controls_bound(void)
+{
+	controls_waiting = -1;
+}
+
+bool console_controls_defaults(void)
+{
+	const bool asked = controls_defaults_asked;
+
+	controls_defaults_asked = false;
+	return asked;
 }
 
 bool console_in_game(void)

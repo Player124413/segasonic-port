@@ -142,6 +142,10 @@ if(SONIC_DECOMPILED)
 			add_custom_command(TARGET SegaSonic POST_BUILD
 				COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:SDL2::SDL2> $<TARGET_FILE_DIR:SegaSonic>)
 		endif()
+		# the CONTROLS screen's key and button pictures (Kenney's Input Prompts Pixel, CC0)
+		add_custom_command(TARGET SegaSonic POST_BUILD
+			COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_SOURCE_DIR}/ports/sdl2/prompts/input_prompts.bmp
+				$<TARGET_FILE_DIR:SegaSonic>)
 	else()
 		message(STATUS "No SDL2: the window port (sonic) is not built")
 	endif()

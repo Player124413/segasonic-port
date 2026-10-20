@@ -42,6 +42,22 @@ bool console_quit_requested(void);
 /* Escape outside a game: the title's menu closes (back to PRESS START) */
 void console_back(void);
 
+/* OPTIONS > CONTROLS on screen: the text row of 'action''s line (the port draws its keys and buttons
+   there), or -1 */
+int console_controls_row(int action);
+
+/* The action CONTROLS waits for a new key or button for, or -1: the port takes the next one pressed, binds it
+   (Escape: leaves it) and says so */
+int console_controls_waiting(void);
+void console_controls_bound(void);
+
+/* DEFAULTS was picked on CONTROLS (true once): the port puts every key and button back */
+bool console_controls_defaults(void);
+
+#define CONSOLE_CONTROLS_KEYS_X     120    /* where the port draws an action's keys, in pixels, */
+#define CONSOLE_CONTROLS_SECOND_X   160    /* its second key, */
+#define CONSOLE_CONTROLS_BUTTON_X   224    /* and its game controller button */
+
 /* True while a stage is played in a game (not the intro, player select, the map, the scenes, nor the
    attract mode's demos): start pauses it */
 bool console_in_game(void);

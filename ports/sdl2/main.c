@@ -53,6 +53,7 @@
 
 #ifdef SEGASONIC_CONSOLE
 static bool pause_requested;
+static bool bound_now;              /* CONTROLS took a key or button this frame */
 static void run_pause(void);
 #define in_console_game() console_in_game()
 #else
@@ -212,6 +213,130 @@ static void present(const uint32_t *pixels, int width)
 	SDL_RenderPresent(renderer);
 }
 
+#ifdef SEGASONIC_CONSOLE
+/* ---- the CONTROLS screen's keys and buttons: Kenney's Input Prompts Pixel (CC0), 16 x 16 tiles ---- */
+
+typedef struct
+{
+	int what;      /* an SDL_Scancode or an SDL_GameControllerButton */
+	uint8_t row, column, tiles;    /* where in the sheet, and how many tiles wide */
+} prompt;
+
+static const prompt key_prompts[] = {
+	{ SDL_SCANCODE_ESCAPE, 0, 17, 1 }, { SDL_SCANCODE_F1, 0, 18, 1 }, { SDL_SCANCODE_F2, 0, 19, 1 },
+	{ SDL_SCANCODE_F3, 0, 20, 1 }, { SDL_SCANCODE_F4, 0, 21, 1 }, { SDL_SCANCODE_F5, 0, 22, 1 },
+	{ SDL_SCANCODE_F6, 0, 23, 1 }, { SDL_SCANCODE_F7, 0, 24, 1 }, { SDL_SCANCODE_F8, 0, 25, 1 },
+	{ SDL_SCANCODE_F9, 0, 26, 1 }, { SDL_SCANCODE_F10, 0, 27, 1 }, { SDL_SCANCODE_F11, 0, 28, 1 },
+	{ SDL_SCANCODE_F12, 0, 29, 1 },
+	{ SDL_SCANCODE_1, 1, 17, 1 }, { SDL_SCANCODE_2, 1, 18, 1 }, { SDL_SCANCODE_3, 1, 19, 1 },
+	{ SDL_SCANCODE_4, 1, 20, 1 }, { SDL_SCANCODE_5, 1, 21, 1 }, { SDL_SCANCODE_6, 1, 22, 1 },
+	{ SDL_SCANCODE_7, 1, 23, 1 }, { SDL_SCANCODE_8, 1, 24, 1 }, { SDL_SCANCODE_9, 1, 25, 1 },
+	{ SDL_SCANCODE_0, 1, 26, 1 }, { SDL_SCANCODE_MINUS, 1, 27, 1 }, { SDL_SCANCODE_EQUALS, 1, 29, 1 },
+	{ SDL_SCANCODE_BACKSPACE, 1, 32, 2 },
+	{ SDL_SCANCODE_Q, 2, 17, 1 }, { SDL_SCANCODE_W, 2, 18, 1 }, { SDL_SCANCODE_E, 2, 19, 1 },
+	{ SDL_SCANCODE_R, 2, 20, 1 }, { SDL_SCANCODE_T, 2, 21, 1 }, { SDL_SCANCODE_Y, 2, 22, 1 },
+	{ SDL_SCANCODE_U, 2, 23, 1 }, { SDL_SCANCODE_I, 2, 24, 1 }, { SDL_SCANCODE_O, 2, 25, 1 },
+	{ SDL_SCANCODE_P, 2, 26, 1 }, { SDL_SCANCODE_LEFTBRACKET, 2, 27, 1 }, { SDL_SCANCODE_RIGHTBRACKET, 2, 28, 1 },
+	{ SDL_SCANCODE_BACKSLASH, 2, 31, 1 },
+	{ SDL_SCANCODE_A, 3, 18, 1 }, { SDL_SCANCODE_S, 3, 19, 1 }, { SDL_SCANCODE_D, 3, 20, 1 },
+	{ SDL_SCANCODE_F, 3, 21, 1 }, { SDL_SCANCODE_G, 3, 22, 1 }, { SDL_SCANCODE_H, 3, 23, 1 },
+	{ SDL_SCANCODE_J, 3, 24, 1 }, { SDL_SCANCODE_K, 3, 25, 1 }, { SDL_SCANCODE_L, 3, 26, 1 },
+	{ SDL_SCANCODE_APOSTROPHE, 3, 27, 1 }, { SDL_SCANCODE_SEMICOLON, 3, 30, 1 },
+	{ SDL_SCANCODE_RETURN, 3, 32, 2 }, { SDL_SCANCODE_KP_ENTER, 3, 32, 2 },
+	{ SDL_SCANCODE_Z, 4, 19, 1 }, { SDL_SCANCODE_X, 4, 20, 1 }, { SDL_SCANCODE_C, 4, 21, 1 },
+	{ SDL_SCANCODE_V, 4, 22, 1 }, { SDL_SCANCODE_B, 4, 23, 1 }, { SDL_SCANCODE_N, 4, 24, 1 },
+	{ SDL_SCANCODE_M, 4, 25, 1 }, { SDL_SCANCODE_COMMA, 4, 26, 1 }, { SDL_SCANCODE_PERIOD, 4, 27, 1 },
+	{ SDL_SCANCODE_SLASH, 4, 29, 1 },
+	{ SDL_SCANCODE_UP, 4, 30, 1 }, { SDL_SCANCODE_RIGHT, 4, 31, 1 }, { SDL_SCANCODE_DOWN, 4, 32, 1 },
+	{ SDL_SCANCODE_LEFT, 4, 33, 1 },
+	{ SDL_SCANCODE_LALT, 5, 17, 2 }, { SDL_SCANCODE_RALT, 5, 17, 2 }, { SDL_SCANCODE_TAB, 5, 19, 2 },
+	{ SDL_SCANCODE_DELETE, 5, 21, 2 }, { SDL_SCANCODE_END, 5, 23, 2 },
+	{ SDL_SCANCODE_LCTRL, 6, 17, 2 }, { SDL_SCANCODE_RCTRL, 6, 17, 2 }, { SDL_SCANCODE_CAPSLOCK, 6, 19, 2 },
+	{ SDL_SCANCODE_HOME, 6, 21, 2 }, { SDL_SCANCODE_PAGEUP, 6, 23, 2 }, { SDL_SCANCODE_PAGEDOWN, 6, 25, 2 },
+	{ SDL_SCANCODE_SPACE, 6, 32, 2 },
+	{ SDL_SCANCODE_LSHIFT, 7, 17, 2 }, { SDL_SCANCODE_RSHIFT, 7, 17, 2 }, { SDL_SCANCODE_INSERT, 7, 19, 2 },
+	{ SDL_SCANCODE_PAUSE, 7, 25, 2 },
+};
+
+static const prompt button_prompts[] = {
+	{ SDL_CONTROLLER_BUTTON_A, 0, 4, 1 }, { SDL_CONTROLLER_BUTTON_B, 0, 5, 1 },
+	{ SDL_CONTROLLER_BUTTON_X, 0, 6, 1 }, { SDL_CONTROLLER_BUTTON_Y, 0, 7, 1 },
+	{ SDL_CONTROLLER_BUTTON_DPAD_UP, 1, 1, 1 }, { SDL_CONTROLLER_BUTTON_DPAD_RIGHT, 1, 2, 1 },
+	{ SDL_CONTROLLER_BUTTON_DPAD_DOWN, 1, 3, 1 }, { SDL_CONTROLLER_BUTTON_DPAD_LEFT, 1, 4, 1 },
+	{ SDL_CONTROLLER_BUTTON_BACK, 18, 4, 1 }, { SDL_CONTROLLER_BUTTON_START, 18, 5, 1 },
+	{ SDL_CONTROLLER_BUTTON_LEFTSHOULDER, 18, 7, 1 }, { SDL_CONTROLLER_BUTTON_RIGHTSHOULDER, 18, 8, 1 },
+};
+
+#define PROMPT_SIZE  16
+#define PROMPT_CLEAR 0xFFFF00FFu    /* magenta: the sheet's see-through */
+
+static SDL_Surface *prompt_sheet;    /* input_prompts.bmp beside the executable, as ARGB */
+static uint32_t controls_picture[S32_VIDEO_MAX_WIDTH * S32_VIDEO_HEIGHT];
+
+static void load_prompts(const char *base)
+{
+	char path[1024];
+	SDL_Surface *loaded;
+
+	snprintf(path, sizeof(path), "%sinput_prompts.bmp", base);
+	loaded = SDL_LoadBMP(path);
+	if (!loaded)
+		return;    /* (CONTROLS then shows the names alone) */
+	prompt_sheet = SDL_ConvertSurfaceFormat(loaded, SDL_PIXELFORMAT_ARGB8888, 0);
+	SDL_FreeSurface(loaded);
+}
+
+static const prompt *find_prompt(const prompt *list, size_t count, int what)
+{
+	for (size_t i = 0; i < count; i++)
+		if (list[i].what == what)
+			return &list[i];
+	return NULL;
+}
+
+/* One prompt into the picture, its top left at (x, y) */
+static void draw_prompt(const prompt *icon, int x, int y)
+{
+	const uint32_t *sheet = (const uint32_t *)prompt_sheet->pixels;
+	const int pitch = prompt_sheet->pitch / 4;
+
+	for (int row = 0; row < PROMPT_SIZE; row++)
+		for (int column = 0; column < PROMPT_SIZE * icon->tiles; column++)
+		{
+			const uint32_t color = sheet[(icon->row * PROMPT_SIZE + row) * pitch + icon->column * PROMPT_SIZE + column];
+
+			if ((color | 0xFF000000u) == PROMPT_CLEAR || y + row < 0 || y + row >= S32_VIDEO_HEIGHT
+				|| x + column >= S32_VIDEO_MAX_WIDTH)
+				continue;
+			controls_picture[(y + row) * S32_VIDEO_MAX_WIDTH + x + column] = color | 0xFF000000u;
+		}
+}
+
+/* The frame with each action's first two keys and its first button on its line */
+static const uint32_t *with_controls(const uint32_t *pixels)
+{
+	memcpy(controls_picture, pixels, sizeof(controls_picture));
+	for (int action = 0; action < ACTIONS; action++)
+	{
+		const int y = console_controls_row(action) * 8 - 4;
+		const prompt *icon, *first = NULL;
+		int shown = 0;
+
+		for (int key = 0; key < ACTION_KEYS && shown < 2; key++)
+		{
+			icon = find_prompt(key_prompts, SDL_arraysize(key_prompts), action_bindings[action].keys[key]);
+			if (!icon || (first && first->row == icon->row && first->column == icon->column))
+				continue;    /* (no picture, or the first key's: Enter and the keypad's) */
+			draw_prompt(icon, shown++ ? CONSOLE_CONTROLS_SECOND_X : CONSOLE_CONTROLS_KEYS_X, y);
+			first = first ? first : icon;
+		}
+		if ((icon = find_prompt(button_prompts, SDL_arraysize(button_prompts), action_bindings[action].buttons[0])) != NULL)
+			draw_prompt(icon, CONSOLE_CONTROLS_BUTTON_X, y);
+	}
+	return controls_picture;
+}
+#endif
+
 static void on_frame_shown(void)
 {
 	int width;
@@ -219,6 +344,10 @@ static void on_frame_shown(void)
 
 	s32_video_draw_frame();
 	pixels = s32_video_frame(&width);
+#ifdef SEGASONIC_CONSOLE
+	if (prompt_sheet && console_controls_row(0) >= 0)
+		pixels = with_controls(pixels);
+#endif
 	present(pixels, width);
 }
 
@@ -355,6 +484,17 @@ static void read_events(void)
 			case SDL_KEYDOWN:
 				if (event.key.repeat)
 					break;
+#ifdef SEGASONIC_CONSOLE
+				if (console_controls_waiting() >= 0)
+				{
+					/* CONTROLS waits for a key: this one (Escape leaves the action as it was) */
+					if (event.key.keysym.sym != SDLK_ESCAPE)
+						actions_bind_key(console_controls_waiting(), event.key.keysym.scancode);
+					console_controls_bound();
+					bound_now = true;
+					break;
+				}
+#endif
 #ifndef SEGASONIC_CONSOLE
 				if (event.key.keysym.sym == SDLK_ESCAPE)
 					longjmp(finished, 1);    /* (the console's back and pause are actions: actions.c) */
@@ -369,6 +509,16 @@ static void read_events(void)
 				if (event.key.keysym.sym == SDLK_F5 || event.key.keysym.sym == SDLK_F6)
 					change_mouse_speed(event.key.keysym.sym == SDLK_F6);
 				break;
+#ifdef SEGASONIC_CONSOLE
+			case SDL_CONTROLLERBUTTONDOWN:
+				if (console_controls_waiting() >= 0)
+				{
+					actions_bind_button(console_controls_waiting(), (SDL_GameControllerButton)event.cbutton.button);
+					console_controls_bound();
+					bound_now = true;
+				}
+				break;
+#endif
 			case SDL_CONTROLLERDEVICEADDED:
 				for (int player = 0; player < PLAYERS; player++)
 					if (!controllers[player])
@@ -401,9 +551,16 @@ static void on_controls_update(void)
 
 	read_events();
 	roll_ball((mouse & SDL_BUTTON_RMASK) != 0);
+#ifdef SEGASONIC_CONSOLE
+	/* the console: the keys of the actions (controls.ini) roll the trackball and press the button */
+	controls.roll_x[0] += (actions_keys_hold(ACTION_LEFT) - actions_keys_hold(ACTION_RIGHT)) * (int)lround(settings.key_roll);
+	controls.roll_y[0] += (actions_keys_hold(ACTION_DOWN) - actions_keys_hold(ACTION_UP)) * (int)lround(settings.key_roll);
+	controls.button[0] = actions_keys_hold(ACTION_JUMP) || (mouse & SDL_BUTTON_LMASK);
+#else
 	controls.roll_x[0] += (keys[SDL_SCANCODE_LEFT] - keys[SDL_SCANCODE_RIGHT]) * (int)lround(settings.key_roll);
 	controls.roll_y[0] += (keys[SDL_SCANCODE_DOWN] - keys[SDL_SCANCODE_UP]) * (int)lround(settings.key_roll);
 	controls.button[0] = keys[SDL_SCANCODE_Z] || keys[SDL_SCANCODE_SPACE] || (mouse & SDL_BUTTON_LMASK);
+#endif
 	controls.button[1] = controls.button[2] = false;
 	for (int player = 0; player < PLAYERS; player++)
 	{
@@ -414,6 +571,13 @@ static void on_controls_update(void)
 	/* the console's actions: start is player 1's start, but in a stage start and back pause it; back on
 	   the title closes its menu (Escape never closes the console's window) */
 	actions_read(controllers, PLAYERS);
+	if (console_controls_defaults())
+		actions_defaults();
+	if (bound_now)
+	{
+		bound_now = false;
+		actions_forget_pressed();    /* (the key the CONTROLS screen took acts no more this frame) */
+	}
 	if (console_in_game() && (actions_pressed() & (ACTION_BIT(ACTION_START) | ACTION_BIT(ACTION_BACK))))
 		pause_requested = true;
 	else if (!console_in_game() && (actions_pressed() & ACTION_BIT(ACTION_BACK)))
@@ -432,7 +596,15 @@ static void on_controls_update(void)
 			continue;
 		controls.roll_x[player] -= (int)lround(SDL_GameControllerGetAxis(pad, SDL_CONTROLLER_AXIS_LEFTX) / 32767.0 * settings.stick_roll);
 		controls.roll_y[player] += (int)lround(SDL_GameControllerGetAxis(pad, SDL_CONTROLLER_AXIS_LEFTY) / 32767.0 * settings.stick_roll);
+#ifdef SEGASONIC_CONSOLE
+		controls.button[player] |= actions_pad_holds(pad, ACTION_JUMP);
+		controls.roll_x[player] += (actions_pad_holds(pad, ACTION_LEFT) - actions_pad_holds(pad, ACTION_RIGHT))
+			* (int)lround(settings.key_roll);
+		controls.roll_y[player] += (actions_pad_holds(pad, ACTION_DOWN) - actions_pad_holds(pad, ACTION_UP))
+			* (int)lround(settings.key_roll);
+#else
 		controls.button[player] |= SDL_GameControllerGetButton(pad, SDL_CONTROLLER_BUTTON_A) != 0;
+#endif
 		controls.start[player] |= SDL_GameControllerGetButton(pad, SDL_CONTROLLER_BUTTON_START) != 0
 			&& !in_console_game();
 		controls.coin[player] |= SDL_GameControllerGetButton(pad, SDL_CONTROLLER_BUTTON_BACK) != 0;
@@ -687,6 +859,15 @@ int main(int argc, char **argv)
 	base = SDL_GetBasePath();
 	snprintf(settings_path, sizeof(settings_path), "%s" FILE_NAME ".ini", base ? base : "");
 	snprintf(eeprom_path, sizeof(eeprom_path), "%s" FILE_NAME ".eeprom", base ? base : "");
+#ifdef SEGASONIC_CONSOLE
+	{
+		char controls_path[1024];
+
+		snprintf(controls_path, sizeof(controls_path), "%scontrols.ini", base ? base : "");
+		actions_open(controls_path);
+		load_prompts(base ? base : "");
+	}
+#endif
 	SDL_free(base);
 	settings_open(settings_path);
 #ifdef SEGASONIC_CONSOLE

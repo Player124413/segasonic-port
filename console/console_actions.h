@@ -19,6 +19,7 @@ typedef enum
 	ACTION_ACCEPT,     /* picks in a menu */
 	ACTION_BACK,       /* leaves a menu; pauses a stage */
 	ACTION_START,      /* player 1's start; pauses a stage */
+	ACTION_JUMP,       /* player 1's button: the jump, the spin */
 	ACTIONS
 } console_action;
 
