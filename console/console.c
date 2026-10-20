@@ -267,7 +267,7 @@ void attract_title(uint32_t *p_color, uint32_t *p_row_pairs_left, uint32_t *p_bl
 	if (!title_music_started)
 	{
 		title_music_started = true;    /* (once: asked again, the song starts over every frame) */
-		/* the emblem: its music (the arcade's title has none; segasonic.ini's title_music, the map's at first) */
+		/* the emblem: its music (the arcade's title has none; segasonic.ini's title_music, stage 3's at first) */
 		queue_sound((uint8_t)console_window_settings.title_music, &write_index, &write_index_address);
 	}
 	sega_logo_shown = true;
@@ -466,7 +466,7 @@ static const char *const option_names[OPTION_COUNT] = {
 #define WINDOW_SCALE_MOST   6
 #define VOLUME_MOST         10
 
-console_window console_window_settings = { 3, false, false, 5, 0x03, false };
+console_window console_window_settings = { 3, false, false, 5, 0x01, false };
 
 static int option_choice;
 static int option_travel, option_wait, value_travel, value_wait;

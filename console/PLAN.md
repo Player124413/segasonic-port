@@ -16,7 +16,7 @@ Done:
 - OPTIONS, a page of its own over the ranking's drifting Sonic faces: DIFFICULTY, VITALITY (the EEPROM,
   as the test mode keeps them), WINDOW, FULL SCREEN, PIXELS (sharp, or smooth as sharp bilinear), VOLUME
   (segasonic.ini), SOUND TEST (the game's ten songs; the one played becomes the title's music,
-  title_music in segasonic.ini), STAGE SELECT (the stage first, then player select;
+  title_music in segasonic.ini, stage 3's at first), STAGE SELECT (the stage first, then player select;
   a stage a touch), BACK. Direct3D 11 on Windows.
 
 Next (in this order unless Sebas says otherwise):
