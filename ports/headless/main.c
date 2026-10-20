@@ -26,6 +26,9 @@
 #include "sound/chips.h"
 #include "game/data.h"
 #include "s32/bus.h"
+#ifdef SEGASONIC_CONSOLE
+#include "console.h"
+#endif
 
 #include <inttypes.h>
 #include <setjmp.h>
@@ -291,7 +294,17 @@ int main(int argc, char **argv)
 		hashes = fopen(hashes_path, "w");
 	if (video_hashes_path || video_dump_count || sprite_census_path || tile_census_path)
 	{
+#ifdef SEGASONIC_CONSOLE
+		uint8_t *console_sprites = malloc(GAME_SPRITE_ROM_SIZE);    /* (console_prepare_sprites changes it) */
+
+		if (!console_sprites)
+			return 1;
+		memcpy(console_sprites, game_sprite_rom, GAME_SPRITE_ROM_SIZE);
+		console_prepare_sprites(console_sprites, GAME_SPRITE_ROM_SIZE, game_program_rom);
+		s32_video_init(game_tile_rom, GAME_TILE_ROM_SIZE, console_sprites, GAME_SPRITE_ROM_SIZE);
+#else
 		s32_video_init(game_tile_rom, GAME_TILE_ROM_SIZE, game_sprite_rom, GAME_SPRITE_ROM_SIZE);
+#endif
 		if (video_hashes_path)
 			video_hashes = fopen(video_hashes_path, "w");
 	}

@@ -13,3 +13,4 @@ join_character_chooser_update # a continue's character chooser: a touch of left 
 game_mode_stage_select   # the stage select is the island map: a level a marker, every one open
 draw_player_start_prompt # a player's start prompt is up: their start joins, it does not pause
 system_mode_idle         # system mode 1 is the console's OPTIONS page
+place_message_box        # Eggman's lines and the how to play's captions: the game's own English boxes

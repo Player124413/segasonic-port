@@ -1955,6 +1955,7 @@ void stage_06_lightning_animate(void);
 uint32_t spawn_message_box(uint16_t screen_x, uint16_t screen_y, uint16_t kind, uint16_t frames, uint32_t box);
 void spawn_message_box_2(uint16_t screen_x, uint16_t screen_y, uint16_t kind, uint16_t frames, uint32_t box);
 void place_message_box(uint16_t screen_x, uint16_t screen_y, uint32_t kind, uint16_t frames, uint32_t box);
+void CONSOLE_ORIGINAL(place_message_box)(uint16_t screen_x, uint16_t screen_y, uint32_t kind, uint16_t frames, uint32_t box);
 void message_box_show(void);
 void start_escape_countdown(uint32_t *p_free_stack, uint32_t *p_count, uint32_t *p_digit);
 void update_escape_countdown(void);

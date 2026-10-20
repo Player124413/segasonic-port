@@ -181,7 +181,14 @@ static void present(const uint32_t *pixels, int width)
 	shown.h = (int)(S32_VIDEO_HEIGHT * scale);
 	shown.x = (out_width - shown.w) / 2;
 	shown.y = (out_height - shown.h) / 2;
-	if (settings.smooth)
+	/* plain bilinear: the picture straight to the window, softened all the way */
+	SDL_SetTextureScaleMode(texture, settings.bilinear ? SDL_ScaleModeLinear : SDL_ScaleModeNearest);
+	if (settings.bilinear)
+	{
+		SDL_RenderClear(renderer);
+		SDL_RenderCopy(renderer, texture, &source, &shown);
+	}
+	else if (settings.smooth)
 	{
 		const int times = SDL_max(1, (int)scale);
 		SDL_Rect whole = { 0, 0, width * times, S32_VIDEO_HEIGHT * times };
@@ -439,6 +446,7 @@ static void tell_console_settings(void)
 	console_window_settings.window_scale = (int)lround(settings.window_scale);
 	console_window_settings.full_screen = settings.full_screen;
 	console_window_settings.smooth = settings.smooth;
+	console_window_settings.bilinear = settings.bilinear;
 	console_window_settings.volume = (int)lround(settings.volume * 5.0);
 	console_window_settings.title_music = (int)settings.title_music;
 	console_window_settings.continues = (int)settings.continues;
@@ -810,6 +818,7 @@ static void on_frame_done(void)
 		settings.window_scale = console_window_settings.window_scale;
 		settings.full_screen = console_window_settings.full_screen;
 		settings.smooth = console_window_settings.smooth;
+		settings.bilinear = console_window_settings.bilinear;
 		settings.volume = console_window_settings.volume / 5.0;
 		settings.title_music = console_window_settings.title_music;
 		settings.continues = console_window_settings.continues;
@@ -916,7 +925,21 @@ int main(int argc, char **argv)
 	s32_board.log = on_log;
 	s32_board.frame_timing = true;
 	s32_board.sound_rom = game_sound_rom;
+#ifdef SEGASONIC_CONSOLE
+	{
+		/* the console draws from a copy of the sprite graphics it changes (console_prepare_sprites) */
+		static uint8_t *console_sprites;
+
+		console_sprites = malloc(GAME_SPRITE_ROM_SIZE);
+		if (!console_sprites)
+			return fail("The game could not start.", "");
+		memcpy(console_sprites, game_sprite_rom, GAME_SPRITE_ROM_SIZE);
+		console_prepare_sprites(console_sprites, GAME_SPRITE_ROM_SIZE, game_program_rom);
+		s32_video_init(game_tile_rom, GAME_TILE_ROM_SIZE, console_sprites, GAME_SPRITE_ROM_SIZE);
+	}
+#else
 	s32_video_init(game_tile_rom, GAME_TILE_ROM_SIZE, game_sprite_rom, GAME_SPRITE_ROM_SIZE);
+#endif
 	s32_board.frame_shown = on_frame_shown;
 	sound_chips_attach();
 	sound_cpu_attach();

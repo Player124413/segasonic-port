@@ -3,7 +3,7 @@
  *    Description: the scripted game modes run_game_mode jumps into and what they spawn: platforms, rocks, lightning, message boxes, the escape alarm and countdown
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    19-10-2026
+ *    Modified:    20-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -1015,7 +1015,7 @@ void spawn_message_box_2(uint16_t screen_x, uint16_t screen_y, uint16_t kind, ui
    message_box_kinds[kind] its sprite, palette, full width (speed_x_int) and height (sprite_height);
    sprite_flags 0x9000, width 0, handler message_box_show, and sprite_scale = the word at +6 of its
    frame's record (sprite_frames). */
-void place_message_box(uint16_t screen_x, uint16_t screen_y, uint32_t kind, uint16_t frames, uint32_t box)
+void CONSOLE_ORIGINAL(place_message_box)(uint16_t screen_x, uint16_t screen_y, uint32_t kind, uint16_t frames, uint32_t box)
 {
 	OBJECT(box)->screen_x = screen_x;
 	OBJECT(box)->screen_y = screen_y;

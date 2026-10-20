@@ -12,6 +12,7 @@
 #include "console_actions.h"
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 
 /* The window's settings the console's OPTIONS show and change: the port fills them in (and again when its
@@ -20,7 +21,8 @@ typedef struct
 {
 	int window_scale;     /* 1-6: the window, in times the game's picture */
 	bool full_screen;
-	bool smooth;          /* smooth pixels, or sharp ones */
+	bool smooth;          /* smooth pixels (sharp bilinear), or sharp ones */
+	bool bilinear;        /* plain bilinear pixels, softer than smooth ones (over smooth) */
 	int volume;           /* 0-10: 5 is the game's own */
 	int title_music;      /* the sound id of the song the title plays (SOUND TEST picks it) */
 	int continues;        /* a game's continues, 0-9, or -1: free play (CONTINUES) */
@@ -65,6 +67,11 @@ bool console_controls_defaults(void);
 /* A player's start prompt is up (to join, or a continue's count): their start is the board's start then,
    even in a stage, where it is otherwise the pause */
 bool console_start_prompted(int player);
+
+/* The console's changes to the sprite graphics, on the port's copy before the board draws any: Eggman's
+   English lines without their red box, white letters with a dark outline ('program': the program ROM, for
+   the frames' records) */
+void console_prepare_sprites(uint8_t *sprites, size_t size, const uint8_t *program);
 
 /* True while a stage is played in a game (not the intro, player select, the map, the scenes, nor the
    attract mode's demos): start pauses it */

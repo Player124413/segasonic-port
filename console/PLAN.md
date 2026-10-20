@@ -14,7 +14,7 @@ Done:
 
 - OPTIONS, a page of its own over the ranking's drifting Sonic faces: DIFFICULTY (VERY EASY, EASY,
   NORMAL, HARD: the test mode's 1-4) and VITALITY (the EEPROM, as the test mode keeps them), CONTINUES,
-  VIDEO (a page: WINDOW, FULL SCREEN, PIXELS, sharp or smooth as sharp bilinear), CONTROLS, VOLUME
+  VIDEO (a page: WINDOW, FULL SCREEN, PIXELS: sharp, smooth as sharp bilinear, or plain bilinear), CONTROLS, VOLUME
   (segasonic.ini), SOUND TEST (the game's ten songs; the one played becomes the title's music,
   title_music in segasonic.ini, stage 3's at first), STAGE SELECT (the island map, then player select),
   BACK. Direct3D 11 on Windows.
@@ -22,6 +22,14 @@ Done:
   continues, shared (a player who joins takes them too), free play off until it ends; FREE is the game's
   own free play. With too few credits the start prompt shows nothing, not "Insert coin": the credit
   count beside it says 0.
+- STAGE SELECT's level starts after player select, in the how to play's place (player select runs with
+  stage 7, as in a game, so the chosen stage's objects do not run behind it).
+- The Japanese captions in English: the game's own English boxes, which its program never shows
+  (place_message_box). The how to play: CONTROLS in its box and the line in yellow, their outlines dark
+  as the Japanese ones' (a pen of their palettes). Eggman's lines without their red box: white letters
+  with a dark outline, made at start on the port's copy of the sprite graphics (console_prepare_sprites).
+  "haaa!!" (kind 0x12), which has no English box, is "Huh!" in its frame's place: h, u and ! cut from the
+  English lines, an H of their strokes.
 - STAGE SELECT on the island map (game mode 8): the map as the map screen fades it in, every level open
   (the opening, Eggman blinking for it, then the 7 markers, each one's number and name blinking); the
   levels cleared in this session's games in the map's own cleared colours, in memory only (no file: it is
@@ -37,15 +45,14 @@ Done:
   of the stage (it reads past start_prompt_positions_2p).
 
 Next (in this order unless Sebas says otherwise):
-1. The Japanese texts in English, drawn to fit, in the game's own font (the how to play screen...).
-2. Wide (16:9): the HUD where it is, only the view wider at the sides (the board's 416-pixel mode).
-3. A CRT filter as a third PIXELS choice (in VIDEO).
-4. Time Attack: a clock on screen, records per stage.
-5. Achievements: our own, defined on the game's memory as RetroAchievements does (the work RAM is the
+1. Wide (16:9): the HUD where it is, only the view wider at the sides (the board's 416-pixel mode).
+2. A CRT filter as a third PIXELS choice (in VIDEO).
+3. Time Attack: a clock on screen, records per stage.
+4. Achievements: our own, defined on the game's memory as RetroAchievements does (the work RAM is the
    original's, byte for byte); RetroAchievements itself only runs in the emulators it approves.
-6. The icon: the window's from the player's own ROM (a sprite of the game's, taken from the extracted
+5. The icon: the window's from the player's own ROM (a sprite of the game's, taken from the extracted
    assets at run time); the .exe's own, ours, with no art of the game in it (the release carries none).
-7. One SegaSonic.exe with SDL2 inside; first run asks for the player's ROM set and extracts the assets;
+6. One SegaSonic.exe with SDL2 inside; first run asks for the player's ROM set and extracts the assets;
    the port's README (crediting Kenney's Input Prompts); a release for Quiver Launcher.
 
 For the port's README: docs/screenshots/console_menu.png (the menu over the title, 640 x 448 like the others).

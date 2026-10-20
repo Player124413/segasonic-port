@@ -511,7 +511,7 @@ static bool video_open;    /* the VIDEO page is on screen, in OPTIONS' place */
 #define WINDOW_SCALE_MOST   6
 #define VOLUME_MOST         10
 
-console_window console_window_settings = { 3, false, false, 5, 0x01, 3, false };
+console_window console_window_settings = { 3, false, false, false, 5, 0x01, 3, false };
 
 static int option_choice;    /* the line chosen on the page shown */
 static int option_travel, option_wait, value_travel, value_wait;
@@ -531,7 +531,8 @@ static const struct
 
 static int song_choice;
 static bool stage_select_pending;    /* STAGE SELECT: the stage select (game mode 8), then player select */
-static int stage_select_phase;       /* 0 before the stage select, 1 in it */
+static int stage_select_phase;       /* 0 before the stage select, 1 in it, 2 in player select after it */
+static uint16_t stage_select_stage;  /* the stage the map picked, started once player select is over */
 
 /* The difficulties' names (the test mode shows them as 1-4, its bar longer the harder) */
 static const char *const difficulty_names[4] = { "VERY EASY", "EASY", "NORMAL", "HARD" };
@@ -569,7 +570,8 @@ static void option_value(int option, char *text)
 		strcpy(text, console_window_settings.full_screen ? "< ON  >" : "< OFF >");
 		return;
 	case OPTION_PIXELS:
-		strcpy(text, console_window_settings.smooth ? "< SMOOTH >" : "< SHARP  >");
+		strcpy(text, console_window_settings.bilinear ? "< BILINEAR >"
+			: console_window_settings.smooth ? "< SMOOTH >" : "< SHARP >");
 		return;
 	case OPTION_SOUND_TEST:
 		strcpy(text, "< ");
@@ -673,6 +675,8 @@ static void end_game_credits(void)
 
 static void change_option(int option, int step)
 {
+	int pixels = 0;
+
 	switch (option)
 	{
 	case OPTION_DIFFICULTY:
@@ -697,7 +701,11 @@ static void change_option(int option, int step)
 		console_window_settings.changed = true;
 		break;
 	case OPTION_PIXELS:
-		console_window_settings.smooth = !console_window_settings.smooth;
+		/* SHARP, SMOOTH, BILINEAR, round */
+		pixels = console_window_settings.bilinear ? 2 : console_window_settings.smooth ? 1 : 0;
+		pixels = (pixels + step + 3) % 3;
+		console_window_settings.smooth = pixels == 1;
+		console_window_settings.bilinear = pixels == 2;
 		console_window_settings.changed = true;
 		break;
 	case OPTION_VOLUME:
@@ -1149,11 +1157,11 @@ void game_mode_stage_select(uint32_t *p_count, uint32_t *p_list_cursor)
 	if (!picked())
 		return;
 	map_open = false;
-	stage = level_first_stage[map_choice];
-	mem_write16(cleared_stages_ADDRESS, stage_select_cleared_values[stage]);
-	game_mode = 2u;
+	stage_select_stage = level_first_stage[map_choice];
+	stage = 7u;    /* (player select's, as in a game the menu starts: the chosen stage's objects would run there) */
 	stage_init_flags &= ~0x40u;
-	stage_start_kind = 1u;
+	game_mode = 0x1Bu;
+	stage_select_phase = 2;
 }
 
 /* The game's modes: the first frame of a game the menu started sees player 1's start pressed, as the
@@ -1167,17 +1175,21 @@ void run_game_mode(uint32_t pressed, uint32_t position, uint32_t speed, uint16_t
 		game_sees_start = false;
 		inputs_pressed |= PRESSED_START_1;
 	}
-	/* STAGE SELECT: the stage first (the original's stage select, game mode 8, where player select would
-	   begin), then player select (where the stage select would start the stage), then the stage */
+	/* STAGE SELECT: the map first (game mode 8, where player select would begin), then player select, then
+	   in the how to play's place the chosen stage, as the original's stage select starts one (cleared_stages
+	   from stage_select_cleared_values, game mode 2, stage_start_kind 1) */
 	if (stage_select_pending && stage_select_phase == 0 && game_mode == 0x1Bu)
 	{
 		game_mode = 8u;
 		stage_select_phase = 1;
 	}
-	else if (stage_select_pending && stage_select_phase == 1 && game_mode == 2u)
+	else if (stage_select_pending && stage_select_phase == 2 && game_mode != 0x1Bu)
 	{
-		game_mode = 0x1Bu;
 		stage_select_pending = false;
+		stage = stage_select_stage;
+		mem_write16(cleared_stages_ADDRESS, stage_select_cleared_values[stage]);
+		stage_start_kind = 1u;
+		game_mode = 2u;
 	}
 	for (int player = 0; player < CONTROLS_PLAYERS; player++)
 		if (start_prompt_frames[player] > 0)
@@ -1185,6 +1197,268 @@ void run_game_mode(uint32_t pressed, uint32_t position, uint32_t speed, uint16_t
 	original_run_game_mode(pressed, position, speed, next_scroll_position, object, p_speed_value, p_count, p_cycle,
 		p_list_cursor);
 	note_level_reached();
+}
+
+/* ---- the captions in English: the game's own English boxes, which its (Japanese) program never shows ---- */
+
+typedef struct
+{
+	uint8_t kind;              /* message_box_kinds' */
+	uint16_t frame;            /* the English box (sprite_sheets.txt: 9F28-9F88, 9F90, 9FF8, A1B8) */
+	uint16_t width, height;    /* its full size */
+	uint16_t palette;          /* 0: the Japanese one's */
+	uint8_t pen, from_pen;     /* in its palette, pen takes from_pen's colour (none when they are equal) */
+} english_box;
+
+/* By kind, what each Japanese line says in the English boxes (0x0E is never drawn; 0x12, "haaa!!", has none:
+   its own frame becomes "Huh!", console_prepare_sprites). Eggman's are drawn without their box */
+static const english_box english_boxes[] = {
+	{ 0x00, 0x9F58u, 304u, 32u },    /* "Try to get through this!" (this time, like this!) */
+	{ 0x09, 0x9F58u, 304u, 32u },
+	/* the how to play: 'Press button while spinning control ball for "Spin Jump".', in kind 0x0C's yellow
+	   (0x0B's pens grey it), its outline (pen 1, white there) black as the Japanese line's (pen 2) */
+	{ 0x0B, 0x9F90u, 304u, 24u, 0x89F0u, 1u, 2u },
+	{ 0x0C, 0x9F90u, 304u, 24u, 0x89F0u, 1u, 2u },    /* (both of its lines) */
+	{ 0x0D, 0x9FF8u, 120u, 32u, 0u, 11u, 1u },    /* "CONTROLS" (how to play): its letters' outline (pen 11,
+	                                               white) dark as the Japanese title's (pen 1) */
+	{ 0x0F, 0x9F50u, 304u, 32u },    /* "I'll get you." (drop dead, Sonic!!) */
+	{ 0x10, 0x9F30u, 304u, 56u },    /* "Can you escape from Eggman's island of traps?" */
+	{ 0x11, 0x9F48u, 304u, 56u },    /* "I'll show you what terror really means." */
+	{ 0x13, 0x9F88u, 304u, 32u },    /* "This is just the beginning!" (don't think it's over) */
+	{ 0x14, 0x9F70u, 304u, 32u },    /* "You'll never escape!" (not yet) */
+	{ 0x15, 0x9F80u, 304u, 32u },    /* "I'll blow you away!" */
+	{ 0x16, 0xA1B8u, 304u, 32u },    /* "Doggonit!" */
+	{ 0x17, 0x9F78u, 304u, 32u },    /* "This is the end." */
+	{ 0x18, 0x9F80u, 304u, 32u },    /* "I'll blow you away!" (with the tower) */
+	{ 0x19, 0x9F50u, 304u, 32u },    /* "I'll get you." (drop dead, Sonic!!) */
+	{ 0x1A, 0x9F50u, 304u, 32u },    /* (drop dead, Ray!!) */
+	{ 0x1B, 0x9F50u, 304u, 32u },    /* (drop dead, Mighty!!) */
+};
+
+#define PALETTE_RAM          0x600000u
+#define SPRITE_PALETTE_BASE  0xC00u    /* the sprite groups' (mixer registers 0x00-0x1E: 0x3n, 0x30 << 6) */
+/* The how to play's English boxes outline their letters with a pen that is white in their palettes: while
+   one is up, its 'pen' takes 'from_pen''s colour in its palette (dark, as the Japanese ones' outline) */
+static uint32_t palette_pen(uint16_t palette, uint32_t pen)
+{
+	return PALETTE_RAM + (SPRITE_PALETTE_BASE + (palette & 0x7FF0u) + pen) * 2u;
+}
+
+/* A message box as the game sets it up, then its English box in the Japanese one's place: its own frame and
+   size (and the scale its frame's record gives, as place_message_box takes it), the same palette unless it
+   names one */
+void place_message_box(uint16_t screen_x, uint16_t screen_y, uint32_t kind, uint16_t frames, uint32_t box)
+{
+	size_t entry;
+
+	original_place_message_box(screen_x, screen_y, kind, frames, box);
+	for (entry = 0; entry < sizeof(english_boxes) / sizeof(english_boxes[0]); entry++)
+		if (english_boxes[entry].kind == (uint16_t)kind)
+		{
+			OBJECT(box)->sprite_frame = english_boxes[entry].frame;
+			OBJECT(box)->speed_x_int = english_boxes[entry].width;
+			OBJECT(box)->sprite_height = english_boxes[entry].height;
+			OBJECT(box)->sprite_scale = mem_read16(((sprite_frames & ~0xFFFFu) | english_boxes[entry].frame) + 6u);
+			if (english_boxes[entry].palette != 0u)
+				OBJECT(box)->sprite_palette = english_boxes[entry].palette;
+			if (english_boxes[entry].pen != english_boxes[entry].from_pen)
+				mem_write16(palette_pen(OBJECT(box)->sprite_palette, english_boxes[entry].pen),
+					mem_read16(palette_pen(OBJECT(box)->sprite_palette, english_boxes[entry].from_pen)));
+			return;
+		}
+}
+
+/* ---- Eggman's English lines without their red box: the sprite graphics' copy the port draws from ---- */
+
+#define ENGLISH_LINES_FIRST  0x9F28u    /* the English speech boxes (sprite_sheets.txt), 8 apart ... */
+#define ENGLISH_LINES_LAST   0x9F88u
+#define ENGLISH_DOGGONIT     0xA1B8u    /* ... and one more */
+#define LINE_BOX_PEN         4u         /* the box's red */
+#define LINE_TEXT_PEN        2u         /* the letters (black in the box's palettes) */
+#define LINE_FILL_PEN        1u         /* white there: the letters' fill now */
+#define LINE_OUTLINE_PEN     2u         /* black: their outline */
+#define LINE_MOST_WIDTH      304
+#define LINE_MOST_HEIGHT     56
+
+/* A pixel's pen in a 4-bit frame: 32-bit big-endian words of 8 pens, the first in the high nibble */
+static uint8_t *pen_byte(uint8_t *sprites, uint32_t word, int words, int x, int y)
+{
+	return &sprites[((size_t)word + (size_t)y * (size_t)words + (size_t)(x >> 3)) * 4u + (size_t)((x & 7) >> 1)];
+}
+
+/* A halfword of the program ROM (the V60's byte order) */
+static uint32_t program_word(const uint8_t *program, uint32_t address)
+{
+	return (uint32_t)program[address] | (uint32_t)program[address + 1u] << 8;
+}
+
+typedef struct
+{
+	uint32_t word;     /* where its pens start in the sprite graphics (32-bit words) */
+	int width, height;
+	uint8_t pens[LINE_MOST_HEIGHT][LINE_MOST_WIDTH];
+} line_frame;
+
+/* A frame's record (the V60's byte order) and its pens; false when it is not a 4-bit frame that fits */
+static bool read_line_frame(const uint8_t *sprites, size_t size, const uint8_t *program, uint16_t frame,
+	line_frame *line)
+{
+	const uint32_t record = sprite_frame_records_ADDRESS + frame;
+	const uint32_t bank_bits = program_word(program, record + 4u);
+	int x, y;
+
+	line->width = (int)program_word(program, record);
+	line->height = (int)(program_word(program, record + 2u) & 0xFFu);
+	line->word = ((bank_bits & 0x0800u) >> 11 | (bank_bits & 0x4000u) >> 13) << 20
+		| (program_word(program, record + 2u) & 0xF000u) << 4 | program_word(program, record + 6u);
+	if (line->width > LINE_MOST_WIDTH || line->height > LINE_MOST_HEIGHT
+		|| ((size_t)line->word + (size_t)line->height * (size_t)(line->width >> 3)) * 4u > size)
+		return false;
+	for (y = 0; y < line->height; y++)
+		for (x = 0; x < line->width; x++)
+		{
+			const uint8_t byte = *pen_byte((uint8_t *)sprites, line->word, line->width >> 3, x, y);
+
+			line->pens[y][x] = (x & 1) ? (byte & 0x0Fu) : (byte >> 4);
+		}
+	return true;
+}
+
+/* A line's pens back into its frame: its letters (LINE_TEXT_PEN) white, a dark outline around them where
+   the box was (LINE_BOX_PEN), the rest of the box see-through (pen 0); its corners' end codes stay */
+static void write_unboxed(uint8_t *sprites, const line_frame *line)
+{
+	const int words = line->width >> 3, width = line->width, height = line->height;
+	int x, y;
+
+	for (y = 0; y < height; y++)
+		for (x = 0; x < width; x++)
+		{
+			uint8_t *byte = pen_byte(sprites, line->word, words, x, y);
+			uint8_t pen = line->pens[y][x];
+			int dx, dy;
+
+			if (pen == LINE_TEXT_PEN)
+				pen = LINE_FILL_PEN;
+			else if (pen == LINE_BOX_PEN)
+			{
+				pen = 0u;
+				for (dy = -1; dy <= 1; dy++)
+					for (dx = -1; dx <= 1; dx++)
+						if (y + dy >= 0 && y + dy < height && x + dx >= 0 && x + dx < width
+							&& line->pens[y + dy][x + dx] == LINE_TEXT_PEN)
+							pen = LINE_OUTLINE_PEN;
+			}
+			*byte = (x & 1) ? (uint8_t)((*byte & 0xF0u) | pen) : (uint8_t)((*byte & 0x0Fu) | (uint8_t)(pen << 4));
+		}
+}
+
+/* The columns of a line's 'index'th letter (letters lie apart by empty columns; an "!" and its dot are one) */
+static bool find_letter(const line_frame *line, int index, int *first, int *after)
+{
+	int x = 0, y, letter = -1;
+	bool inked = false, was_inked = false;
+
+	for (x = 0; x <= line->width; x++)
+	{
+		inked = false;
+		for (y = 0; x < line->width && y < line->height; y++)
+			inked = inked || line->pens[y][x] == LINE_TEXT_PEN;
+		if (inked && !was_inked && ++letter == index)
+			*first = x;
+		if (!inked && was_inked && letter == index)
+		{
+			*after = x;
+			return true;
+		}
+		was_inked = inked;
+	}
+	return false;
+}
+
+/* The first and last rows with letters in a line (its cap height and descenders) */
+static void letter_rows(const line_frame *line, int *top)
+{
+	int x, y;
+
+	for (y = 0; y < line->height; y++)
+		for (x = 0; x < line->width; x++)
+			if (line->pens[y][x] == LINE_TEXT_PEN)
+			{
+				*top = y;
+				return;
+			}
+	*top = 0;
+}
+
+#define HUH_FRAME        0x65F0u    /* kind 0x12's Japanese box, "haaa!!" (128 x 24): "Huh!" in its place */
+#define LETTER_GAP       2          /* between letters, as the English lines have them */
+#define STROKE           3          /* the letters' upright strokes */
+#define CAP_HEIGHT       15         /* the capitals' rows */
+#define H_WIDTH          9          /* an H of two strokes and a bar, as wide as the u and h */
+#define H_BAR_ROW        7          /* its bar, a row (as the e's) */
+
+/* Copies a letter of 'from' into 'to' at x, the rows lined up by their tops (to_top, from_top) */
+static int paste_letter(line_frame *to, int x, int to_top, const line_frame *from, int from_top, int first,
+	int after)
+{
+	int column, y;
+
+	for (column = first; column < after && x < to->width; column++, x++)
+		for (y = 0; y + from_top < from->height && y + to_top < to->height; y++)
+			if (from->pens[y + from_top][column] == LINE_TEXT_PEN)
+				to->pens[y + to_top][x] = LINE_TEXT_PEN;
+	return x;
+}
+
+/* "Huh!" for kind 0x12, which has no English line: h from "This is only the beginning.", u from
+   "I'll get you.", ! from "Doggonit!", and an H of the u's strokes and the e's bar, centred on its frame */
+static void make_huh(uint8_t *sprites, size_t size, const uint8_t *program)
+{
+	static line_frame huh, this_line, you_line, doggonit_line;
+	int this_top = 0, you_top = 0, doggonit_top = 0, top, x, y, width;
+	int h_first, h_after, u_first, u_after, mark_first, mark_after;
+
+	if (!read_line_frame(sprites, size, program, HUH_FRAME, &huh)
+		|| !read_line_frame(sprites, size, program, 0x9F28u, &this_line)
+		|| !read_line_frame(sprites, size, program, 0x9F50u, &you_line)
+		|| !read_line_frame(sprites, size, program, ENGLISH_DOGGONIT, &doggonit_line)
+		|| !find_letter(&this_line, 1, &h_first, &h_after)        /* T h */
+		|| !find_letter(&you_line, 9, &u_first, &u_after)         /* I ' l l g e t y o u */
+		|| !find_letter(&doggonit_line, 8, &mark_first, &mark_after))    /* D o g g o n i t ! */
+		return;
+	letter_rows(&this_line, &this_top);
+	letter_rows(&you_line, &you_top);
+	letter_rows(&doggonit_line, &doggonit_top);
+	for (y = 0; y < huh.height; y++)
+		for (x = 0; x < huh.width; x++)
+			huh.pens[y][x] = LINE_BOX_PEN;    /* (all of it becomes see-through, or the outline) */
+	width = H_WIDTH + LETTER_GAP + (u_after - u_first) + LETTER_GAP + (h_after - h_first) + LETTER_GAP
+		+ (mark_after - mark_first);
+	x = (huh.width - width) / 2;
+	top = (huh.height - (CAP_HEIGHT + 3)) / 2;
+	for (y = 0; y < CAP_HEIGHT; y++)
+		for (int column = 0; column < H_WIDTH; column++)
+			if (column < STROKE || column >= H_WIDTH - STROKE || y == H_BAR_ROW)
+				huh.pens[top + y][x + column] = LINE_TEXT_PEN;
+	x += H_WIDTH + LETTER_GAP;
+	x = paste_letter(&huh, x, top, &you_line, you_top, u_first, u_after) + LETTER_GAP;
+	x = paste_letter(&huh, x, top, &this_line, this_top, h_first, h_after) + LETTER_GAP;
+	paste_letter(&huh, x, top, &doggonit_line, doggonit_top, mark_first, mark_after);
+	write_unboxed(sprites, &huh);
+}
+
+void console_prepare_sprites(uint8_t *sprites, size_t size, const uint8_t *program)
+{
+	static line_frame line;
+	uint16_t frame;
+
+	make_huh(sprites, size, program);    /* (first: it cuts its letters from the lines as they are) */
+	for (frame = ENGLISH_LINES_FIRST; frame <= ENGLISH_LINES_LAST; frame += 8u)
+		if (read_line_frame(sprites, size, program, frame, &line))
+			write_unboxed(sprites, &line);
+	if (read_line_frame(sprites, size, program, ENGLISH_DOGGONIT, &line))
+		write_unboxed(sprites, &line);
 }
 
 /* ---- the players' start prompts ---- */
