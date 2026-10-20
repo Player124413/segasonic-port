@@ -78,6 +78,8 @@ static jmp_buf finished;
 static SDL_Window *window;
 static SDL_Renderer *renderer;
 static SDL_Texture *texture;
+static SDL_Texture *scaled;           /* smooth pixels: the picture a whole number of times its size */
+static int scaled_times;
 static SDL_AudioDeviceID audio;
 static SDL_GameController *controllers[PLAYERS];
 static double mouse_rest[2];          /* the fractions of a count the mouse has moved and not handed on */
@@ -164,18 +166,49 @@ static void load_eeprom(void)
 
 /* ---- the picture ---- */
 
+/* The frame in the window, as large as it fits with the game's proportions. Sharp pixels: the picture
+   scaled straight up, each pixel a block. Smooth ones ("sharp bilinear"): first a whole number of times with
+   sharp pixels into 'scaled', then that softened the rest of the way, so only the pixels' edges blend */
 static void present(const uint32_t *pixels, int width)
 {
-	SDL_Rect source;
+	SDL_Rect source = { 0, 0, width, S32_VIDEO_HEIGHT };
+	SDL_Rect shown;
+	int out_width = 0, out_height = 0;
+	double scale;
 
 	SDL_UpdateTexture(texture, NULL, pixels, S32_VIDEO_MAX_WIDTH * (int)sizeof(uint32_t));
-	source.x = 0;
-	source.y = 0;
-	source.w = width;
-	source.h = S32_VIDEO_HEIGHT;
-	SDL_RenderSetLogicalSize(renderer, width, S32_VIDEO_HEIGHT);
-	SDL_RenderClear(renderer);
-	SDL_RenderCopy(renderer, texture, &source, NULL);
+	SDL_GetRendererOutputSize(renderer, &out_width, &out_height);
+	scale = SDL_min((double)out_width / width, (double)out_height / S32_VIDEO_HEIGHT);
+	shown.w = (int)(width * scale);
+	shown.h = (int)(S32_VIDEO_HEIGHT * scale);
+	shown.x = (out_width - shown.w) / 2;
+	shown.y = (out_height - shown.h) / 2;
+	if (settings.smooth)
+	{
+		const int times = SDL_max(1, (int)scale);
+		SDL_Rect whole = { 0, 0, width * times, S32_VIDEO_HEIGHT * times };
+
+		if (!scaled || scaled_times != times)
+		{
+			if (scaled)
+				SDL_DestroyTexture(scaled);
+			SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "linear");
+			scaled = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_TARGET,
+				S32_VIDEO_MAX_WIDTH * times, S32_VIDEO_HEIGHT * times);
+			SDL_SetTextureScaleMode(scaled, SDL_ScaleModeLinear);
+			scaled_times = times;
+		}
+		SDL_SetRenderTarget(renderer, scaled);
+		SDL_RenderCopy(renderer, texture, &source, &whole);
+		SDL_SetRenderTarget(renderer, NULL);
+		SDL_RenderClear(renderer);
+		SDL_RenderCopy(renderer, scaled, &whole, &shown);
+	}
+	else
+	{
+		SDL_RenderClear(renderer);
+		SDL_RenderCopy(renderer, texture, &source, &shown);
+	}
 	SDL_RenderPresent(renderer);
 }
 
@@ -196,10 +229,16 @@ static void toggle_full_screen(void)
 	settings_save();
 }
 
+/* Smooth or sharp pixels (present) */
+static void set_smooth(bool smooth)
+{
+	(void)smooth;    /* (present picks the way each frame: the game's texture stays sharp) */
+}
+
 static void toggle_smooth(void)
 {
 	settings.smooth = !settings.smooth;
-	SDL_SetTextureScaleMode(texture, settings.smooth ? SDL_ScaleModeLinear : SDL_ScaleModeNearest);
+	set_smooth(settings.smooth);
 	settings_save();
 }
 
@@ -265,11 +304,23 @@ static void change_mouse_speed(bool faster)
 }
 
 /* the settings the picture shows, as the file has them after it was read again */
+#ifdef SEGASONIC_CONSOLE
+/* The console's OPTIONS show the window's settings as they are */
+static void tell_console_settings(void)
+{
+	console_window_settings.window_scale = (int)lround(settings.window_scale);
+	console_window_settings.full_screen = settings.full_screen;
+	console_window_settings.smooth = settings.smooth;
+	console_window_settings.volume = (int)lround(settings.volume * 5.0);
+	console_window_settings.changed = false;
+}
+#endif
+
 static void apply_settings(void)
 {
 	const bool full = (SDL_GetWindowFlags(window) & SDL_WINDOW_FULLSCREEN_DESKTOP) != 0;
 
-	SDL_SetTextureScaleMode(texture, settings.smooth ? SDL_ScaleModeLinear : SDL_ScaleModeNearest);
+	set_smooth(settings.smooth);
 	if (full != settings.full_screen)
 		SDL_SetWindowFullscreen(window, settings.full_screen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
 	if (settings.window_scale != shown_scale)
@@ -280,6 +331,7 @@ static void apply_settings(void)
 	show_mouse_speed();
 #ifdef SEGASONIC_CONSOLE
 	console_jingle_program((int)settings.sega_jingle_program, (int)settings.sega_jingle_layer);
+	tell_console_settings();
 #endif
 }
 
@@ -367,7 +419,7 @@ static void on_controls_update(void)
 		console_back();
 	if (!console_in_game() && (actions_held() & ACTION_BIT(ACTION_START)))
 		controls.start[0] = true;
-	console_actions(actions_pressed());
+	console_actions(actions_pressed(), actions_held());
 #endif
 	controls.service = keys[SDL_SCANCODE_9] != 0;
 	controls.test = keys[SDL_SCANCODE_F2] != 0;
@@ -440,6 +492,7 @@ static void drop_used(resampler *chip)
 
 /* the frame's samples of the three chips, mixed as MAME's routes do (each YM3438 at 0.30, the RF5C68
    at 0.40) at 48 kHz, at the settings' volume */
+
 static void play_frame(void)
 {
 	static int16_t mix[OUTPUT_RATE / 20 * 2];
@@ -577,6 +630,16 @@ static void on_frame_done(void)
 #ifdef SEGASONIC_CONSOLE
 	if (console_quit_requested())
 		longjmp(finished, 1);
+	if (console_window_settings.changed)
+	{
+		settings.window_scale = console_window_settings.window_scale;
+		settings.full_screen = console_window_settings.full_screen;
+		settings.smooth = console_window_settings.smooth;
+		settings.volume = console_window_settings.volume / 5.0;
+		apply_settings();
+		settings_save();
+	}
+	tell_console_settings();    /* (F11 and F3 change them too) */
 	if (pause_requested)
 		run_pause();
 #endif
@@ -627,19 +690,26 @@ int main(int argc, char **argv)
 #ifdef SEGASONIC_CONSOLE
 	console_jingle_program((int)settings.sega_jingle_program, (int)settings.sega_jingle_layer);
 #endif
+#ifdef SEGASONIC_CONSOLE
+	tell_console_settings();
+#endif
 	shown_scale = settings.window_scale;
 	window = SDL_CreateWindow("SegaSonic The Hedgehog", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
 		(int)(320 * shown_scale), (int)(S32_VIDEO_HEIGHT * shown_scale),
 		SDL_WINDOW_RESIZABLE | (settings.full_screen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0));
+#ifdef _WIN32
+	SDL_SetHint(SDL_HINT_RENDER_DRIVER, "direct3d11");    /* (SDL tries Direct3D 9 first; the others if 11 fails) */
+#endif
 	renderer = window ? SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED) : NULL;
 	if (window && !renderer)
 		renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_SOFTWARE);
+	SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "nearest");
 	texture = renderer ? SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING,
 		S32_VIDEO_MAX_WIDTH, S32_VIDEO_HEIGHT) : NULL;
 	if (!texture)
 		return fail("The window could not be opened.", SDL_GetError());
 	SDL_RenderSetIntegerScale(renderer, SDL_FALSE);
-	SDL_SetTextureScaleMode(texture, settings.smooth ? SDL_ScaleModeLinear : SDL_ScaleModeNearest);
+	SDL_SetTextureScaleMode(texture, SDL_ScaleModeNearest);
 	SDL_SetRelativeMouseMode(SDL_TRUE);
 	show_mouse_speed();
 

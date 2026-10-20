@@ -2008,6 +2008,7 @@ void load_stage_map_pointers(uint32_t *p_table_offset, uint32_t *p_bounds_list);
 void run_stage_events(uint32_t *p_table_offset, uint32_t *p_event);
 void reset_trackball_step(uint32_t player_number);
 void read_trackball_step(uint32_t *p_player_number, uint32_t *p_trackball);
+void CONSOLE_ORIGINAL(read_trackball_step)(uint32_t *p_player_number, uint32_t *p_trackball);
 uint32_t update_restart_point(uint32_t position);
 uint32_t start_player_objects_alt(uint32_t object);
 uint32_t start_player_objects(uint32_t object);
@@ -2107,6 +2108,7 @@ void split_frame_count(uint32_t frames, uint32_t frames_high, uint32_t *p_second
 void attract_warning(uint32_t *p_pixels, uint32_t *p_text);
 void CONSOLE_ORIGINAL(attract_warning)(uint32_t *p_pixels, uint32_t *p_text);
 void system_mode_idle(void);
+void CONSOLE_ORIGINAL(system_mode_idle)(void);
 void wait_attract_timer(void);
 void irq_vblank_start(void);
 void irq_vblank_end(void);

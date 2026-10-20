@@ -987,7 +987,7 @@ void CONSOLE_ORIGINAL(attract_warning)(uint32_t *p_pixels, uint32_t *p_text)
 }
 
 /* System mode 1, which attract_sequence never holds: only clears system_mode_step. */
-void system_mode_idle(void)
+void CONSOLE_ORIGINAL(system_mode_idle)(void)
 {
 	system_mode_step = 0u;
 }

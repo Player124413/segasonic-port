@@ -2593,7 +2593,7 @@ void reset_trackball_step(uint32_t player_number)
 /* Adds player_number's trackball x motion to trackball_step_sums (restarting the sum when the direction
    changes) and hands back in player_number a step: 1 each 0x40 counts one way, -1 the other, else 0;
    trackball comes back as the address of the trackball's motion. */
-void read_trackball_step(uint32_t *p_player_number, uint32_t *p_trackball)
+void CONSOLE_ORIGINAL(read_trackball_step)(uint32_t *p_player_number, uint32_t *p_trackball)
 {
 	uint32_t player_number = *p_player_number;
 	uint16_t step = 0;

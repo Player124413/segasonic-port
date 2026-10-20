@@ -17,7 +17,10 @@
 #include "game.h"
 #include "console.h"
 
+#include <string.h>
+
 /* System modes (run_frame) */
+#define MODE_OPTIONS   1u    /* never in the arcade's attract sequence: the console's OPTIONS */
 #define MODE_RANKING   2u
 #define MODE_TITLE     3u
 #define MODE_DEMO_1    4u
@@ -28,7 +31,7 @@
 #define PRESSED_START_1    0x10u
 #define PRESSED_BUTTON_1   0x10000u
 
-#define TITLE_MUSIC        0x00u    /* the sound the title starts (the arcade's title has none): stage 00's music */
+#define TITLE_MUSIC        0x03u    /* the sound the title starts (the arcade's title has none): the map's music */
 #define PRESS_START_ROW    25u      /* under the emblem's ribbon */
 #define MENU_ROW           24u      /* the menu's first line, under the logo */
 #define COPYRIGHT_ROW      27u      /* the title's (C) SEGA 1992 line */
@@ -50,14 +53,18 @@ static const char *const menu_items[] = { "START GAME", "OPTIONS", "EXIT" };
 
 static uint32_t title_frames;     /* frames the title has shown its logo (PRESS START blinks by them) */
 static bool sega_logo_shown;      /* the SEGA logo has been shown (once, at power-on) */
+static bool title_music_started;  /* this title's music has been asked for */
 static bool menu_open;            /* the menu is over the title */
+static bool options_open;         /* OPTIONS is on screen (system mode 1) */
+static bool menu_after_title;     /* back from OPTIONS: the title opens its menu */
 static bool menu_opening;         /* its first frame */
 static int menu_choice;
 static int menu_travel;
 static int menu_wait;             /* frames before the cursor moves again */
 static bool quit_requested;
 static bool game_sees_start;      /* the menu started a game: its first frame sees player 1's start */
-static uint32_t actions;          /* the port's actions newly pressed this frame */
+static uint32_t actions;          /* the port's actions newly pressed this frame, */
+static uint32_t actions_held;     /* and held */
 
 /* ---- text in the game's own font (the text layer: a cell is attribute << 8 | character) ---- */
 
@@ -90,6 +97,8 @@ static void write_centered(uint32_t row, const char *text, uint8_t attribute)
 }
 
 static void run_menu(void);
+static void run_options(void);
+static void open_menu(void);
 
 /* ---- the SEGA logo's jingle: two chords through the sound driver's own MIDI queue ---- */
 
@@ -235,6 +244,7 @@ void attract_title(uint32_t *p_color, uint32_t *p_row_pairs_left, uint32_t *p_bl
 	if (system_mode_step == 0u)
 	{
 		title_frames = 0;
+		title_music_started = false;
 		title_timer = 0;    /* (left from the last title until this one builds its emblem) */
 		jingle_frame = -1;
 	}
@@ -255,9 +265,18 @@ void attract_title(uint32_t *p_color, uint32_t *p_row_pairs_left, uint32_t *p_bl
 		erase_line(COPYRIGHT_ROW);    /* the (C) SEGA 1992 line: on the title and its menu, not the SEGA logo */
 	if (system_mode != MODE_TITLE || !title_logo_up())
 		return;
-	if (title_frames == 0u)
+	if (!title_music_started)
+	{
+		title_music_started = true;    /* (once: asked again, the song starts over every frame) */
 		queue_sound(TITLE_MUSIC, &write_index, &write_index_address);    /* the emblem: its music */
+	}
 	sega_logo_shown = true;
+	if (menu_after_title && !menu_open)
+	{
+		menu_after_title = false;    /* (back from OPTIONS: the menu again, on OPTIONS) */
+		open_menu();
+		menu_choice = 1;
+	}
 	if (menu_open)
 	{
 		run_menu();
@@ -330,6 +349,8 @@ void run_frame_start_game(uint32_t credits, uint32_t blink_bit, uint32_t credits
 			open_menu();
 		attract_title(p_scale, &count, p_height, &message_text);    /* the title, and the menu over it */
 	}
+	else if (system_mode == MODE_OPTIONS)
+		system_mode_idle();    /* (OPTIONS reads the button itself) */
 	else
 	{
 		attract_step = 0u;
@@ -343,33 +364,59 @@ void run_frame_start_game(uint32_t credits, uint32_t blink_bit, uint32_t credits
 	*p_cursor = string_cursor;
 }
 
+/* A move of a cursor: -1, +1 or none, from player 1's trackball along one axis ('trackball', travelled up to
+   MENU_TRAVEL, then MENU_PAUSE frames before the next) or the actions 'minus' and 'plus' */
+static int cursor_step(int *travel, int *wait, int16_t trackball, console_action minus, console_action plus)
+{
+	const uint32_t both = ACTION_BIT(minus) | ACTION_BIT(plus);
+
+	if (*wait > 0)
+	{
+		(*wait)--;
+		*travel = 0;
+	}
+	else if (actions_held & both)
+		/* held, it repeats; the trackball does not count then (an arrow key held rolls it too) */
+		*travel = (actions_held & ACTION_BIT(plus)) ? MENU_TRAVEL : -MENU_TRAVEL;
+	else
+		*travel += trackball;
+	if (actions & ACTION_BIT(minus))
+		*travel = -MENU_TRAVEL;
+	if (actions & ACTION_BIT(plus))
+		*travel = MENU_TRAVEL;
+	if (*travel > -MENU_TRAVEL && *travel < MENU_TRAVEL)
+		return 0;
+	*wait = MENU_PAUSE;
+	if (*travel > 0)
+	{
+		*travel = 0;
+		return 1;
+	}
+	*travel = 0;
+	return -1;
+}
+
+/* A pick: player 1's start or button, or the actions accept and start */
+static bool picked(void)
+{
+	return (inputs_pressed & (PRESSED_START_1 | PRESSED_BUTTON_1)) != 0u
+		|| (actions & (ACTION_BIT(ACTION_ACCEPT) | ACTION_BIT(ACTION_START))) != 0u;
+}
+
+static void open_options(void);
+
 /* The menu over the title: the cursor follows player 1's trackball up and down (or the actions up and
    down), the start button, the button or the actions accept and start pick */
 static void run_menu(void)
 {
 	bool opening = menu_opening;
+	int step = 0;
 
 	menu_opening = false;
-	if (menu_wait > 0)
-	{
-		menu_wait--;
-		menu_travel = 0;
-	}
-	else
-		menu_travel += (int16_t)trackball_1_y;
-	if (actions & ACTION_BIT(ACTION_UP))
-		menu_travel = -MENU_TRAVEL;
-	if (actions & ACTION_BIT(ACTION_DOWN))
-		menu_travel = MENU_TRAVEL;
-	if (menu_travel <= -MENU_TRAVEL || menu_travel >= MENU_TRAVEL)
-	{
-		menu_choice = (menu_choice + (menu_travel > 0 ? 1 : MENU_ITEMS - 1)) % MENU_ITEMS;
-		menu_travel = 0;
-		menu_wait = MENU_PAUSE;
-	}
+	step = cursor_step(&menu_travel, &menu_wait, (int16_t)trackball_1_y, ACTION_UP, ACTION_DOWN);
+	menu_choice = (menu_choice + step + MENU_ITEMS) % MENU_ITEMS;
 	draw_menu();
-	if (opening || ((inputs_pressed & (PRESSED_START_1 | PRESSED_BUTTON_1)) == 0u
-		&& (actions & (ACTION_BIT(ACTION_ACCEPT) | ACTION_BIT(ACTION_START))) == 0u))
+	if (opening || !picked())
 		return;    /* (the press that opened the menu picks nothing) */
 	switch (menu_choice)
 	{
@@ -382,12 +429,298 @@ static void run_menu(void)
 		game_in_progress = 0xFFu;
 		game_sees_start = true;
 		break;
-	case 1:    /* OPTIONS: not yet */
+	case 1:    /* OPTIONS */
+		open_options();
 		break;
 	default:   /* EXIT */
 		quit_requested = true;
 		break;
 	}
+}
+
+/* ---- OPTIONS: a page of its own (system mode 1) over the ranking's drifting Sonic faces ---- */
+
+enum
+{
+	OPTION_DIFFICULTY,
+	OPTION_VITALITY,
+	OPTION_WINDOW,
+	OPTION_FULL_SCREEN,
+	OPTION_PIXELS,
+	OPTION_VOLUME,
+	OPTION_SOUND_TEST,
+	OPTION_STAGE_SELECT,
+	OPTION_BACK,
+	OPTION_COUNT
+};
+
+static const char *const option_names[OPTION_COUNT] = {
+	"DIFFICULTY", "VITALITY", "WINDOW", "FULL SCREEN", "PIXELS", "VOLUME", "SOUND TEST", "STAGE SELECT", "BACK"
+};
+
+#define OPTIONS_TITLE_ROW   4u
+#define OPTIONS_FIRST_ROW   8u      /* then a line every two rows */
+#define OPTION_NAME_COLUMN  8u
+#define OPTION_VALUE_COLUMN 24u
+#define OPTIONS_LAST_ROW    (OPTIONS_FIRST_ROW + 2u * OPTION_COUNT - 2u)
+#define WINDOW_SCALE_MOST   6
+#define VOLUME_MOST         10
+
+console_window console_window_settings = { 3, false, false, 5, false };
+
+static int option_choice;
+static int option_travel, option_wait, value_travel, value_wait;
+static bool game_settings_changed;
+
+/* SOUND TEST: the game's songs, by the sound id that plays each (sound_commands, group 81) */
+static const struct
+{
+	uint8_t sound;
+	const char *name;
+} songs[] = {
+	{ 0x03u, "MAP" }, { 0x01u, "STAGE 3" }, { 0x02u, "STAGES 4 8" }, { 0x04u, "STAGES 5 6" },
+	{ 0x81u, "STAGES 9 10" }, { 0x7Du, "STAGE A" }, { 0x00u, "STAGES B-F" }, { 0x7Cu, "ESCAPE" },
+	{ 0x7Bu, "STAGE CLEAR" }, { 0x82u, "ENDING" },
+};
+#define SONGS ((int)(sizeof(songs) / sizeof(songs[0])))
+
+static int song_choice;
+static bool stage_select_pending;    /* STAGE SELECT: the stage select (game mode 8), then player select */
+static int stage_select_phase;       /* 0 before the stage select, 1 in it */
+
+/* The value of an option as its line shows it: "< 2 >", "< ON  >"; nothing for the ones that are picked */
+static void option_value(int option, char *text)
+{
+	int value = 0;
+
+	switch (option)
+	{
+	case OPTION_DIFFICULTY:
+		value = setting_difficulty + 1;
+		break;
+	case OPTION_VITALITY:
+		value = setting_initial_vitality + 1;
+		break;
+	case OPTION_WINDOW:
+		value = console_window_settings.window_scale;
+		break;
+	case OPTION_VOLUME:
+		value = console_window_settings.volume;
+		break;
+	case OPTION_FULL_SCREEN:
+		strcpy(text, console_window_settings.full_screen ? "< ON  >" : "< OFF >");
+		return;
+	case OPTION_PIXELS:
+		strcpy(text, console_window_settings.smooth ? "< SMOOTH >" : "< SHARP  >");
+		return;
+	case OPTION_SOUND_TEST:
+		strcpy(text, "< ");
+		strcat(text, songs[song_choice].name);
+		strcat(text, " >");
+		return;
+	default:
+		text[0] = 0;
+		return;
+	}
+	text[0] = '<';
+	text[1] = ' ';
+	text[2] = (char)(value >= 10 ? '1' : ' ');
+	text[3] = (char)('0' + value % 10);
+	text[4] = option == OPTION_WINDOW ? 'X' : ' ';
+	text[5] = ' ';
+	text[6] = '>';
+	text[7] = 0;
+}
+
+static void draw_options(void)
+{
+	char value[24];
+	int option;
+
+	write_centered(OPTIONS_TITLE_ROW, "OPTIONS", MENU_CHOSEN);
+	for (option = 0; option < OPTION_COUNT; option++)
+	{
+		const uint32_t row = OPTIONS_FIRST_ROW + 2u * (uint32_t)option;
+		const uint8_t attribute = option == option_choice ? MENU_CHOSEN : MENU_TEXT;
+
+		erase_line(row);
+		write_text(OPTION_NAME_COLUMN, row, option_names[option], attribute);
+		option_value(option, value);
+		write_text(OPTION_VALUE_COLUMN, row, value, attribute);
+	}
+}
+
+static void erase_options(void)
+{
+	uint32_t row;
+
+	for (row = OPTIONS_TITLE_ROW; row < OPTIONS_FIRST_ROW + 2u * OPTION_COUNT; row++)
+		erase_line(row);
+}
+
+static int clamp(int value, int least, int most)
+{
+	return value < least ? least : value > most ? most : value;
+}
+
+static void change_option(int option, int step)
+{
+	switch (option)
+	{
+	case OPTION_DIFFICULTY:
+		setting_difficulty = (uint8_t)clamp(setting_difficulty + step, 0, 3);
+		game_settings_changed = true;
+		break;
+	case OPTION_VITALITY:
+		setting_initial_vitality = (uint8_t)clamp(setting_initial_vitality + step, 0, 3);
+		game_settings_changed = true;
+		break;
+	case OPTION_WINDOW:
+		console_window_settings.window_scale = clamp(console_window_settings.window_scale + step, 1,
+			WINDOW_SCALE_MOST);
+		console_window_settings.changed = true;
+		break;
+	case OPTION_FULL_SCREEN:
+		console_window_settings.full_screen = !console_window_settings.full_screen;
+		console_window_settings.changed = true;
+		break;
+	case OPTION_PIXELS:
+		console_window_settings.smooth = !console_window_settings.smooth;
+		console_window_settings.changed = true;
+		break;
+	case OPTION_VOLUME:
+		console_window_settings.volume = clamp(console_window_settings.volume + step, 0, VOLUME_MOST);
+		console_window_settings.changed = true;
+		break;
+	case OPTION_SOUND_TEST:
+		song_choice = (song_choice + step + SONGS) % SONGS;
+		break;
+	default:
+		break;
+	}
+}
+
+static uint32_t options_backdrop;    /* the object that drifts the faces (ranking_display_hold) */
+
+static void open_options(void)
+{
+	menu_open = false;
+	options_open = true;
+	option_choice = 0;
+	option_travel = value_travel = 0;
+	option_wait = value_wait = MENU_PAUSE;
+	game_settings_changed = false;
+	system_mode = MODE_OPTIONS;
+	system_mode_step = 0u;
+}
+
+/* The page's first frame: as the ranking sets itself up (attract_ranking, start_ranking_display), but with
+   no table: the NBG0 picture of Sonic faces, and the object that drifts it */
+static void build_options_page(void)
+{
+	uint32_t ignored = 0, display = 0, rows = 0, source = 0;
+	uint8_t mode = 0u;
+
+	set_screen_mode(mode);
+	clear_text_layer(&ignored, &ignored, &ignored);
+	display = clear_page_0_and_scroll();
+	reset_objects(&ignored, &ignored);
+	current_screen = 2u;
+	display = allocate_object_or_start_list(display);
+	OBJECT(display)->parent = object_cursor;
+	OBJECT(display)->child = 0xFFFFu;
+	init_object(display);
+	show_nbg0_picture(&ignored, &rows, &source, &ignored);
+	OBJECT(display)->handler = ranking_display_hold_ADDRESS;
+	options_backdrop = display;
+}
+
+/* Back to the title and its menu: the game's own settings (difficulty, vitality) worked out again and kept
+   in the EEPROM as the test mode keeps them */
+static void close_options(void)
+{
+	uint32_t command = 0, words_left = 0;
+
+	erase_options();
+	options_open = false;
+	menu_after_title = true;
+	attract_step = 0u;
+	system_mode = MODE_TITLE;
+	system_mode_step = 0u;
+	if (!game_settings_changed)
+		return;
+	apply_settings();
+	free_play = 1u;
+	eeprom_save_and_lock(&command, &words_left);
+}
+
+/* System mode 1, OPTIONS: its page on the first frame, then its lines; the faces never stop drifting (the
+   backdrop's hold timer stays at 0) */
+void system_mode_idle(void)
+{
+	if (system_mode_step == 0u)
+	{
+		system_mode_step = 1u;
+		build_options_page();
+	}
+	OBJECT(options_backdrop)->ranking_display.hold_timer = 0;
+	run_options();
+}
+
+/* The options: up and down choose a line, left and right change its value; SOUND TEST (it plays the song),
+   STAGE SELECT and BACK are picked; the action back is BACK */
+static void run_options(void)
+{
+	int step = 0;
+
+	step = cursor_step(&option_travel, &option_wait, (int16_t)trackball_1_y, ACTION_UP, ACTION_DOWN);
+	option_choice = (option_choice + step + OPTION_COUNT) % OPTION_COUNT;
+	step = cursor_step(&value_travel, &value_wait, (int16_t)trackball_1_x, ACTION_LEFT, ACTION_RIGHT);
+	if (step != 0)
+		change_option(option_choice, step);
+	draw_options();
+	if (!picked())
+		return;
+	if (option_choice == OPTION_SOUND_TEST)
+	{
+		uint32_t write_index = 0, write_index_address = 0;
+
+		queue_sound(songs[song_choice].sound, &write_index, &write_index_address);    /* (it plays the song) */
+	}
+	else if (option_choice == OPTION_BACK)
+		close_options();
+	else if (option_choice == OPTION_STAGE_SELECT)
+	{
+		close_options();
+		menu_after_title = false;
+		stage_select_pending = true;
+		stage_select_phase = 0;
+		system_mode = MODE_GAME;
+		game_mode = 0u;
+		system_mode_step = 0u;
+		game_in_progress = 0xFFu;
+		game_sees_start = true;
+	}
+}
+
+/* ---- the stage select (game mode 8) ---- */
+
+static int stage_travel, stage_wait;
+
+/* A step of the trackball (+1, -1 or 0): in the stage select, as the menus move (a stage a touch of left or
+   right, held it repeats slowly); the game's own everywhere else */
+void read_trackball_step(uint32_t *p_player_number, uint32_t *p_trackball)
+{
+	int step = 0;
+
+	if (game_mode != 8u)
+	{
+		original_read_trackball_step(p_player_number, p_trackball);
+		return;
+	}
+	*p_trackball = trackball_1_x_ADDRESS + *p_player_number * 4u;
+	step = cursor_step(&stage_travel, &stage_wait, (int16_t)trackball_1_x, ACTION_LEFT, ACTION_RIGHT);
+	*p_player_number = (*p_player_number & 0xFFFF0000u) | (step < 0 ? 0xFFFFu : (uint32_t)step);
 }
 
 /* The game's modes: the first frame of a game the menu started sees player 1's start pressed, as the
@@ -400,6 +733,18 @@ void run_game_mode(uint32_t pressed, uint32_t position, uint32_t speed, uint16_t
 	{
 		game_sees_start = false;
 		inputs_pressed |= PRESSED_START_1;
+	}
+	/* STAGE SELECT: the stage first (the original's stage select, game mode 8, where player select would
+	   begin), then player select (where the stage select would start the stage), then the stage */
+	if (stage_select_pending && stage_select_phase == 0 && game_mode == 0x1Bu)
+	{
+		game_mode = 8u;
+		stage_select_phase = 1;
+	}
+	else if (stage_select_pending && stage_select_phase == 1 && game_mode == 2u)
+	{
+		game_mode = 0x1Bu;
+		stage_select_pending = false;
 	}
 	original_run_game_mode(pressed, position, speed, next_scroll_position, object, p_speed_value, p_count, p_cycle,
 		p_list_cursor);
@@ -443,13 +788,19 @@ void character_chooser_wait(void)
 
 static uint16_t pause_saved[40];
 
-void console_actions(uint32_t pressed)
+void console_actions(uint32_t pressed, uint32_t held)
 {
 	actions = pressed;
+	actions_held = held;
 }
 
 void console_back(void)
 {
+	if (options_open)
+	{
+		close_options();
+		return;
+	}
 	if (!menu_open)
 		return;
 	menu_open = false;
@@ -485,3 +836,4 @@ bool console_quit_requested(void)
 {
 	return quit_requested;
 }
+

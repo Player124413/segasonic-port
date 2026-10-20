@@ -14,8 +14,22 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-/* The actions newly pressed this frame (ACTION_BIT), before the game's frame: the menus read them */
-void console_actions(uint32_t pressed);
+/* The window's settings the console's OPTIONS show and change: the port fills them in (and again when its
+   settings change), and applies and saves them when OPTIONS sets 'changed' */
+typedef struct
+{
+	int window_scale;     /* 1-6: the window, in times the game's picture */
+	bool full_screen;
+	bool smooth;          /* smooth pixels, or sharp ones */
+	int volume;           /* 0-10: 5 is the game's own */
+	bool changed;
+} console_window;
+
+extern console_window console_window_settings;
+
+/* The actions newly pressed this frame and the ones held (ACTION_BIT), before the game's frame: the
+   menus read them */
+void console_actions(uint32_t pressed, uint32_t held);
 
 /* The instruments (the sound driver's programs, 0-36) of the SEGA logo's jingle: its voice, and the layer an
    octave under it (-1: none) */
