@@ -136,7 +136,7 @@ if(SONIC_DECOMPILED)
 			add_custom_command(TARGET sonic POST_BUILD
 				COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:SDL2::SDL2> $<TARGET_FILE_DIR:sonic>)
 		endif()
-		add_executable(SegaSonic WIN32 ports/sdl2/main.c ports/sdl2/settings.c)
+		add_executable(SegaSonic WIN32 ports/sdl2/main.c ports/sdl2/settings.c ports/sdl2/actions.c)
 		target_link_libraries(SegaSonic PRIVATE sonic_game_console sonic_data SDL2::SDL2 SDL2::SDL2main)
 		if(WIN32)
 			add_custom_command(TARGET SegaSonic POST_BUILD

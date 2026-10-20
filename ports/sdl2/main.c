@@ -28,7 +28,8 @@
  *      5, 6, 7                        coins 1-3        1, 2, 3   starts 1-3 (Enter: start 1)
  *      9                              service          F2        test (the operator's menu: 9 moves
  *                                                                  its cursor, F2 picks)
- *      Escape                         quit             F11 or Alt+Enter   full screen
+ *      Escape                         quit (the console: pause in a game, the menu closes on the title)
+ *                                     F11 or Alt+Enter   full screen
  *      F3                             smooth or sharp pixels
  *      F4                             the mouse's ball rolls on, or stops with the mouse
  *      F5, F6                         the mouse slower, faster (the window's title says how fast)
@@ -44,9 +45,18 @@
 #include "settings.h"
 #ifdef SEGASONIC_CONSOLE
 #include "console.h"
+#include "actions.h"
 #define FILE_NAME "segasonic"    /* the console build: SegaSonic.exe, segasonic.ini, segasonic.eeprom */
 #else
 #define FILE_NAME "sonic"
+#endif
+
+#ifdef SEGASONIC_CONSOLE
+static bool pause_requested;
+static void run_pause(void);
+#define in_console_game() console_in_game()
+#else
+#define in_console_game() false
 #endif
 
 #include <SDL.h>
@@ -154,14 +164,10 @@ static void load_eeprom(void)
 
 /* ---- the picture ---- */
 
-static void on_frame_shown(void)
+static void present(const uint32_t *pixels, int width)
 {
-	int width;
-	const uint32_t *pixels;
 	SDL_Rect source;
 
-	s32_video_draw_frame();
-	pixels = s32_video_frame(&width);
 	SDL_UpdateTexture(texture, NULL, pixels, S32_VIDEO_MAX_WIDTH * (int)sizeof(uint32_t));
 	source.x = 0;
 	source.y = 0;
@@ -171,6 +177,16 @@ static void on_frame_shown(void)
 	SDL_RenderClear(renderer);
 	SDL_RenderCopy(renderer, texture, &source, NULL);
 	SDL_RenderPresent(renderer);
+}
+
+static void on_frame_shown(void)
+{
+	int width;
+	const uint32_t *pixels;
+
+	s32_video_draw_frame();
+	pixels = s32_video_frame(&width);
+	present(pixels, width);
 }
 
 static void toggle_full_screen(void)
@@ -283,8 +299,10 @@ static void read_events(void)
 			case SDL_KEYDOWN:
 				if (event.key.repeat)
 					break;
+#ifndef SEGASONIC_CONSOLE
 				if (event.key.keysym.sym == SDLK_ESCAPE)
-					longjmp(finished, 1);
+					longjmp(finished, 1);    /* (the console's back and pause are actions: actions.c) */
+#endif
 				if (event.key.keysym.sym == SDLK_F11
 					|| (event.key.keysym.sym == SDLK_RETURN && (event.key.keysym.mod & KMOD_ALT)))
 					toggle_full_screen();
@@ -336,9 +354,18 @@ static void on_controls_update(void)
 		controls.coin[player] = keys[SDL_SCANCODE_5 + player] != 0;
 		controls.start[player] = keys[SDL_SCANCODE_1 + player] != 0;
 	}
-	/* Enter is player 1's start too (not with Alt: Alt+Enter is full screen) */
-	if ((keys[SDL_SCANCODE_RETURN] || keys[SDL_SCANCODE_KP_ENTER]) && !(SDL_GetModState() & KMOD_ALT))
+#ifdef SEGASONIC_CONSOLE
+	/* the console's actions: start is player 1's start, but in a stage start and back pause it; back on
+	   the title closes its menu (Escape never closes the console's window) */
+	actions_read(controllers, PLAYERS);
+	if (console_in_game() && (actions_pressed() & (ACTION_BIT(ACTION_START) | ACTION_BIT(ACTION_BACK))))
+		pause_requested = true;
+	else if (!console_in_game() && (actions_pressed() & ACTION_BIT(ACTION_BACK)))
+		console_back();
+	if (!console_in_game() && (actions_held() & ACTION_BIT(ACTION_START)))
 		controls.start[0] = true;
+	console_actions(actions_pressed());
+#endif
 	controls.service = keys[SDL_SCANCODE_9] != 0;
 	controls.test = keys[SDL_SCANCODE_F2] != 0;
 	for (int player = 0; player < PLAYERS; player++)
@@ -350,7 +377,8 @@ static void on_controls_update(void)
 		controls.roll_x[player] -= (int)lround(SDL_GameControllerGetAxis(pad, SDL_CONTROLLER_AXIS_LEFTX) / 32767.0 * settings.stick_roll);
 		controls.roll_y[player] += (int)lround(SDL_GameControllerGetAxis(pad, SDL_CONTROLLER_AXIS_LEFTY) / 32767.0 * settings.stick_roll);
 		controls.button[player] |= SDL_GameControllerGetButton(pad, SDL_CONTROLLER_BUTTON_A) != 0;
-		controls.start[player] |= SDL_GameControllerGetButton(pad, SDL_CONTROLLER_BUTTON_START) != 0;
+		controls.start[player] |= SDL_GameControllerGetButton(pad, SDL_CONTROLLER_BUTTON_START) != 0
+			&& !in_console_game();
 		controls.coin[player] |= SDL_GameControllerGetButton(pad, SDL_CONTROLLER_BUTTON_BACK) != 0;
 	}
 
@@ -446,6 +474,82 @@ static void play_frame(void)
 		SDL_QueueAudio(audio, mix, (Uint32)(made * 2 * sizeof(int16_t)));
 }
 
+#ifdef SEGASONIC_CONSOLE
+/* ---- the console's pause ---- */
+
+static uint32_t pause_picture[S32_VIDEO_MAX_WIDTH * S32_VIDEO_HEIGHT];
+
+/* The frame as it stands in grey, with "PAUSE" in the game's font in colour on top: the frame is drawn
+   again with the word on the text layer, and the pixels that change are the word's */
+static void draw_pause_picture(int *width)
+{
+	const uint32_t *pixels;
+
+	s32_video_draw_frame();
+	pixels = s32_video_frame(width);
+	memcpy(pause_picture, pixels, sizeof(pause_picture));
+	console_pause_text(true);
+	s32_video_draw_frame();
+	pixels = s32_video_frame(width);
+	for (size_t i = 0; i < sizeof(pause_picture) / sizeof(pause_picture[0]); i++)
+	{
+		const uint32_t color = pause_picture[i];
+		uint32_t grey;
+
+		if (pixels[i] != color)
+		{
+			pause_picture[i] = pixels[i];
+			continue;
+		}
+		grey = ((((color >> 16) & 0xFF) * 77 + ((color >> 8) & 0xFF) * 150 + (color & 0xFF) * 29) >> 8) * 3 / 4;
+		pause_picture[i] = 0xFF000000u | (grey << 16) | (grey << 8) | grey;
+	}
+	console_pause_text(false);
+	s32_video_draw_frame();
+}
+
+/* The actions start or back in a stage: the game stops, its sound too, until one of them is pressed
+   again */
+static void run_pause(void)
+{
+	int width;
+	SDL_Event event;
+	bool paused = true;
+
+	pause_requested = false;
+	if (audio)
+		SDL_PauseAudioDevice(audio, 1);
+	draw_pause_picture(&width);
+	present(pause_picture, width);
+	while (paused)
+	{
+		while (SDL_PollEvent(&event))
+		{
+			if (event.type == SDL_QUIT)
+				longjmp(finished, 1);
+			if (event.type == SDL_KEYDOWN && !event.key.repeat && (event.key.keysym.sym == SDLK_F11
+				|| (event.key.keysym.sym == SDLK_RETURN && (event.key.keysym.mod & KMOD_ALT))))
+			{
+				toggle_full_screen();
+				present(pause_picture, width);
+			}
+			if (event.type == SDL_WINDOWEVENT)
+				present(pause_picture, width);
+		}
+		actions_read(controllers, PLAYERS);
+		if (actions_pressed() & (ACTION_BIT(ACTION_START) | ACTION_BIT(ACTION_BACK)))
+			paused = false;
+		SDL_Delay(16);
+	}
+	if (audio)
+	{
+		SDL_ClearQueuedAudio(audio);
+		SDL_PauseAudioDevice(audio, 0);
+	}
+	next_frame = SDL_GetPerformanceCounter();    /* (the time paused is not owed) */
+}
+#endif
+
 /* ---- the frame ---- */
 
 static void wait_for_frame(void)
@@ -470,6 +574,8 @@ static void on_frame_done(void)
 #ifdef SEGASONIC_CONSOLE
 	if (console_quit_requested())
 		longjmp(finished, 1);
+	if (pause_requested)
+		run_pause();
 #endif
 	if (program_frames() % 600 == 0)
 		save_eeprom();

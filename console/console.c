@@ -56,6 +56,7 @@ static int menu_travel;
 static int menu_wait;             /* frames before the cursor moves again */
 static bool quit_requested;
 static bool game_sees_start;      /* the menu started a game: its first frame sees player 1's start */
+static uint32_t actions;          /* the port's actions newly pressed this frame */
 
 /* ---- text in the game's own font (the text layer: a cell is attribute << 8 | character) ---- */
 
@@ -244,8 +245,8 @@ void run_frame_start_game(uint32_t credits, uint32_t blink_bit, uint32_t credits
 	*p_cursor = string_cursor;
 }
 
-/* The menu over the title: the cursor follows player 1's trackball up and down, the start button or the
-   button picks */
+/* The menu over the title: the cursor follows player 1's trackball up and down (or the actions up and
+   down), the start button, the button or the actions accept and start pick */
 static void run_menu(void)
 {
 	bool opening = menu_opening;
@@ -258,6 +259,10 @@ static void run_menu(void)
 	}
 	else
 		menu_travel += (int16_t)trackball_1_y;
+	if (actions & ACTION_BIT(ACTION_UP))
+		menu_travel = -MENU_TRAVEL;
+	if (actions & ACTION_BIT(ACTION_DOWN))
+		menu_travel = MENU_TRAVEL;
 	if (menu_travel <= -MENU_TRAVEL || menu_travel >= MENU_TRAVEL)
 	{
 		menu_choice = (menu_choice + (menu_travel > 0 ? 1 : MENU_ITEMS - 1)) % MENU_ITEMS;
@@ -265,7 +270,8 @@ static void run_menu(void)
 		menu_wait = MENU_PAUSE;
 	}
 	draw_menu();
-	if (opening || (inputs_pressed & (PRESSED_START_1 | PRESSED_BUTTON_1)) == 0u)
+	if (opening || ((inputs_pressed & (PRESSED_START_1 | PRESSED_BUTTON_1)) == 0u
+		&& (actions & (ACTION_BIT(ACTION_ACCEPT) | ACTION_BIT(ACTION_START))) == 0u))
 		return;    /* (the press that opened the menu picks nothing) */
 	switch (menu_choice)
 	{
@@ -299,6 +305,82 @@ void run_game_mode(uint32_t pressed, uint32_t position, uint32_t speed, uint16_t
 	}
 	original_run_game_mode(pressed, position, speed, next_scroll_position, object, p_speed_value, p_count, p_cycle,
 		p_list_cursor);
+}
+
+/* ---- player select ---- */
+
+#define CHOOSERS           3
+#define TURN_NOW           0xF8u    /* a count's low byte one frame (+ 8) short of a turn */
+
+static bool chooser_rolling[CHOOSERS];
+
+/* A player's character chooser: the game turns once every 32 frames the trackball keeps moving (+ 8 a
+   frame into the count's low byte, a turn at each carry); the first frame of a move turns at once, so a
+   touch of left or right turns one character, and holding it goes on as the game does */
+void character_chooser_wait(void)
+{
+	uint32_t kind = OBJECT(current_object)->kind;
+	int16_t trackball_x = 0;
+
+	if (kind < CHOOSERS)
+	{
+		trackball_x = (int16_t)RAM16(GAME_VARIABLES + chooser_trackball_offsets[kind]);
+		if (trackball_x != 0 && !chooser_rolling[kind])
+		{
+			if (trackball_x < 0)
+				OBJECT(current_object)->character_chooser.left_count =
+					(uint16_t)((OBJECT(current_object)->character_chooser.left_count & 0xFF00u) | TURN_NOW);
+			else
+				OBJECT(current_object)->character_chooser.right_count =
+					(uint16_t)((OBJECT(current_object)->character_chooser.right_count & 0xFF00u) | TURN_NOW);
+		}
+		chooser_rolling[kind] = trackball_x != 0;
+	}
+	original_character_chooser_wait();
+}
+
+/* ---- for the port ---- */
+
+#define PAUSE_ROW          2u
+
+static uint16_t pause_saved[40];
+
+void console_actions(uint32_t pressed)
+{
+	actions = pressed;
+}
+
+void console_back(void)
+{
+	if (!menu_open)
+		return;
+	menu_open = false;
+	erase_menu();
+	title_frames = 0;    /* (PRESS START again, from its shown half) */
+}
+
+bool console_in_game(void)
+{
+	if (system_mode != MODE_GAME || (int8_t)game_in_progress >= 0)
+		return false;
+	/* a stage being played (game_mode_play_stage: modes 3, 5 and 6; the screen wipe that opens one, 0x11);
+	   not the intro, player select, the how to play, the map or the scenes, where start is start */
+	return game_mode == 3u || game_mode == 5u || game_mode == 6u || game_mode == 0x11u;
+}
+
+void console_pause_text(bool shown)
+{
+	uint32_t column;
+
+	if (shown)
+	{
+		for (column = 0; column < 40u; column++)
+			pause_saved[column] = mem_read16(TEXT_CELL(column, PAUSE_ROW));
+		write_centered(PAUSE_ROW, "PAUSE", MENU_CHOSEN);
+		return;
+	}
+	for (column = 0; column < 40u; column++)
+		mem_write16(TEXT_CELL(column, PAUSE_ROW), pause_saved[column]);
 }
 
 bool console_quit_requested(void)

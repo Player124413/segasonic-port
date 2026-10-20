@@ -7,3 +7,4 @@ play_sound               # every sound and the music in the attract mode too
 attract_title            # the title with music
 run_frame_start_game     # a start button outside a game opens the menu (or goes back to the title)
 run_game_mode            # the game the menu starts sees player 1's start, as the arcade's start frame does
+character_chooser_wait   # player select: a touch of left or right turns at once

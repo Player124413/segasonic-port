@@ -133,7 +133,7 @@ void start_character_chooser(uint32_t block)
    character left or with character_select_timer below 0x1E. Trackball x adds 8 a frame to right_count or
    left_count; when their high bytes (taken and cleared each frame) differ it turns that way
    (character_chooser_turn), else character_chooser_idle. */
-void character_chooser_wait(void)
+void CONSOLE_ORIGINAL(character_chooser_wait)(void)
 {
 	uint8_t left_turns = 0, right_turns = 0, turn = 0;
 	uint16_t trackball_x = 0;

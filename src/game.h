@@ -1690,6 +1690,7 @@ void player_state_bouncing(void);
 void reset_character_select(void);
 void start_character_chooser(uint32_t block);
 void character_chooser_wait(void);
+void CONSOLE_ORIGINAL(character_chooser_wait)(void);
 void character_chooser_confirm(void);
 void character_chooser_idle(void);
 void draw_character_chooser_labels(void);
