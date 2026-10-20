@@ -20,22 +20,21 @@ Done:
   a stage a touch), BACK. Direct3D 11 on Windows.
 
 Next (in this order unless Sebas says otherwise):
-1. The title with a blinking PRESS START (the game's menu font); start opens a small menu over SegaSonic's
-   logo with the three characters on a blue layer (Sonic 1's title): START GAME, OPTIONS, EXIT.
-2. Pause: start in play freezes the game, everything turns grey, "PAUSE" on top in the game's font.
-3. OPTIONS: GAME (difficulty, initial vitality, attract sound), SCREEN (window size or resolution, full
-   screen or window, filters: smooth pixels, maybe a CRT one), SOUND (volume), CONTROLS, EXTRAS (the
-   original's hidden Stage Select, game mode 8).
-4. Stage select on the island map (scenes/map.c), with the stages already cleared marked: a progress file
-   (which stages were cleared) kept beside the EEPROM; until then OPTIONS' STAGE SELECT is the original's
-   debug screen, a stage a touch.
-5. Credits as continues: a game starts with the 3 lives a coin gives and then 3 continues (credits), instead
-   of endless free play.
-5. The Japanese texts in English, drawn to fit (the screens that have them).
-6. Time Attack: a clock on screen, records per stage.
-7. Achievements: our own, defined on the game's memory as RetroAchievements does (the work RAM is the
+1. CONTROLS in OPTIONS: the actions' keys and buttons changed from the menu (ports/sdl2/actions.c's table,
+   kept in segasonic.ini), shown with Kenney's Input Prompts (CC0; ask before downloading it).
+2. Stage select on the island map (scenes/map.c), with the stages already cleared marked: a progress file
+   (which stages were cleared) kept beside the EEPROM; until then STAGE SELECT is the original's debug
+   screen, a stage a touch.
+3. Credits as continues: a game starts with the 3 lives a coin gives and then 3 continues (credits),
+   instead of endless free play.
+4. The Japanese texts in English, drawn to fit, in the game's own font (the how to play screen...).
+5. Wide (16:9): the HUD where it is, only the view wider at the sides (the board's 416-pixel mode).
+6. A CRT filter as a third PIXELS choice.
+7. Time Attack: a clock on screen, records per stage.
+8. Achievements: our own, defined on the game's memory as RetroAchievements does (the work RAM is the
    original's, byte for byte); RetroAchievements itself only runs in the emulators it approves.
-8. One SegaSonic.exe with SDL2 inside; first run asks for the player's ROM set and extracts the assets;
-   a release for Quiver Launcher.
+9. The SEGA logo: a recorded voice of our own (sega.wav) in place of the chords, if Sebas records one.
+10. One SegaSonic.exe with SDL2 inside; first run asks for the player's ROM set and extracts the assets;
+    the port's README; a release for Quiver Launcher.
 
 For the port's README: docs/screenshots/console_menu.png (the menu over the title, 640 x 448 like the others).
