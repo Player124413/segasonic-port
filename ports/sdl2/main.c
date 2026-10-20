@@ -86,6 +86,7 @@ static bool hand_moved;
 static double ball[2];                /* counts a frame the ball turns */
 static uint64_t next_frame;           /* performance counter value the next frame waits for */
 static double shown_scale;            /* the window's scale as it was last set */
+static int shown_width;               /* ... and its picture's width (picture_width) */
 static char eeprom_path[1024];
 
 /* What the controls say, gathered between frames */
@@ -177,6 +178,24 @@ static int picture_width(void)
 		return WIDE_WIDTH;
 #endif
 	return 320;
+}
+
+#define WINDOW_EDGES 64    /* room left on the screen for the window's title bar and borders */
+
+/* The window's scale: settings.window_scale, or the largest whole one under it at which the picture fits
+   the screen (a 16:9 picture at a scale that does not fit would be cut down to 4:3 by the system) */
+static double window_scale_that_fits(void)
+{
+	SDL_Rect usable;
+	double scale = settings.window_scale;
+	const int display = window ? SDL_GetWindowDisplayIndex(window) : 0;
+
+	if (SDL_GetDisplayUsableBounds(display < 0 ? 0 : display, &usable) != 0)
+		return scale;
+	while (scale > 1.0 && (picture_width() * scale > usable.w - WINDOW_EDGES
+		|| S32_VIDEO_HEIGHT * scale > usable.h - WINDOW_EDGES))
+		scale -= 1.0;
+	return scale;
 }
 
 static void present(const uint32_t *pixels, int width)
@@ -480,10 +499,12 @@ static void apply_settings(void)
 	set_smooth(settings.smooth);
 	if (full != settings.full_screen)
 		SDL_SetWindowFullscreen(window, settings.full_screen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
-	if (settings.window_scale != shown_scale)
+	if (settings.window_scale != shown_scale || picture_width() != shown_width)
 	{
 		shown_scale = settings.window_scale;
-		SDL_SetWindowSize(window, (int)(picture_width() * shown_scale), (int)(S32_VIDEO_HEIGHT * shown_scale));
+		shown_width = picture_width();
+		SDL_SetWindowSize(window, (int)(picture_width() * window_scale_that_fits()),
+			(int)(S32_VIDEO_HEIGHT * window_scale_that_fits()));
 	}
 	show_mouse_speed();
 #ifdef SEGASONIC_CONSOLE
@@ -910,8 +931,9 @@ int main(int argc, char **argv)
 	tell_console_settings();
 #endif
 	shown_scale = settings.window_scale;
+	shown_width = picture_width();
 	window = SDL_CreateWindow("SegaSonic The Hedgehog", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-		(int)(picture_width() * shown_scale), (int)(S32_VIDEO_HEIGHT * shown_scale),
+		(int)(picture_width() * window_scale_that_fits()), (int)(S32_VIDEO_HEIGHT * window_scale_that_fits()),
 		SDL_WINDOW_RESIZABLE | (settings.full_screen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0));
 #ifdef SEGASONIC_CONSOLE
 	if (window)

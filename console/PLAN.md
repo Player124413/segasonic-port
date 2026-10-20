@@ -47,8 +47,9 @@ Done:
   The stages and the how to play drawn wider (s32_video_set_wide: 48 more pixels of the tilemaps, the
   bitmap and the sprites at each side, the text layer and so the HUD where they were); their tile sets
   from the blocks of the wide left edge on (set_nbg0_scroll_from_camera); the how to play's panel strip
-  copied at the sides. The screens with 320-pixel pictures (the title, menus, player select, the scenes)
-  between bars.
+  copied at the sides; the SEGA logo, the title, the ranking and the attract demos too. The other screens
+  with 320-pixel pictures (player select, the scenes) between bars. The window takes the largest whole
+  scale under WINDOW at which it fits the screen, so a 16:9 one stays 16:9.
 - The icon: Sonic's, Mighty's and Ray's heads (the join chooser's) from the player's ROM: the window's at
   run time (console_window_icon), the .exe's at build time (tools/make_icon.py, in the build folder).
 
