@@ -23,6 +23,7 @@ typedef struct
 	bool full_screen;
 	bool smooth;          /* smooth pixels (sharp bilinear), or sharp ones */
 	bool bilinear;        /* plain bilinear pixels, softer than smooth ones (over smooth) */
+	bool crt;             /* a CRT's look: scanlines and a phosphor mask over smooth pixels (over both) */
 	bool wide;            /* a 16:9 picture: the stages wider (console_wide_now), the rest between bars */
 	int volume;           /* 0-10: 5 is the game's own */
 	int title_music;      /* the sound id of the song the title plays (SOUND TEST picks it) */
@@ -83,6 +84,21 @@ bool console_wide_now(void);
    there */
 #define CONSOLE_ICON_SIZE 64
 bool console_window_icon(uint32_t *pixels, const uint8_t *sprites, size_t size, const uint8_t *program);
+
+/* TIME ATTACK's best times, in the board's frames (0: none yet), by the map's levels (the opening, then its 7
+   markers'): each level played alone (the opening is never alone: Eggman on the map is the whole game),
+   and the best whole game, its time at each level's end (the last is the whole time); the port keeps
+   them, and changed says they have changed since */
+#define CONSOLE_LEVELS 8
+
+typedef struct
+{
+	uint32_t levels[CONSOLE_LEVELS];
+	uint32_t run[CONSOLE_LEVELS];
+	bool changed;
+} console_times;
+
+extern console_times console_best_times;
 
 /* True while a stage is played in a game (not the intro, player select, the map, the scenes, nor the
    attract mode's demos): start pauses it */

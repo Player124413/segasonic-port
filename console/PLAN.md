@@ -54,12 +54,23 @@ Done:
 - The icon: Sonic's, Mighty's and Ray's heads (the join chooser's) from the player's ROM: the window's at
   run time (console_window_icon), the .exe's at build time (tools/make_icon.py, in the build folder).
 
+- PIXELS' CRT: scanlines, a soft RGB phosphor mask and a little vignette over smooth pixels (a
+  multiplying overlay the size the picture is shown at).
+- TIME ATTACK (the title's menu): the map picks what is timed, Eggman's place (ALL GAME, a label made of
+  the map labels' own letters in the unused ROBOTNIK'S TOWER label) the whole game, a marker its level.
+  The clock on top runs through stages, scenes and continues; a level stops at its stage clear banner, the
+  whole game at the ending, with a split at each level's end. BEST TIMES after a level (each level's best
+  alone and the best whole game), BEST RUN after the whole game (its splits beside the best run's); kept
+  in segasonic.times. Players not in the run when its clock starts cannot join it, nor see its prompt.
+- WIDE in every mode of a game or a demo (not the opening's scenes and cage room, nor the island maps).
+- A player out of play has no ring count on screen (player select leaves them with the 3-player cabinet).
+
 Next (in this order unless Sebas says otherwise):
-1. A CRT filter as a third PIXELS choice (in VIDEO).
-2. Time Attack: a clock on screen, records per stage.
-3. Achievements: our own, defined on the game's memory as RetroAchievements does (the work RAM is the
+1. WIDE: where a stage's drawn part ends inside the wide picture (a block of the map left empty, as at
+   stage 8's right), the neighbour block's edge tiles copied into the empty one; the pieces adjusted by hand.
+2. Achievements: our own, defined on the game's memory as RetroAchievements does (the work RAM is the
    original's, byte for byte); RetroAchievements itself only runs in the emulators it approves.
-4. One SegaSonic.exe with SDL2 inside; first run asks for the player's ROM set and extracts the assets;
+3. One SegaSonic.exe with SDL2 inside; first run asks for the player's ROM set and extracts the assets;
    the port's README (crediting Kenney's Input Prompts); a release for Quiver Launcher. The released
    .exe carries no ROM, so no icon from it: a neutral one of ours (the window's still comes from the ROM).
 

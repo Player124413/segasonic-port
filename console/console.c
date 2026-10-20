@@ -33,7 +33,7 @@
 #define PRESSED_BUTTON_1   0x10000u
 
 #define PRESS_START_ROW    25u      /* under the emblem's ribbon */
-#define MENU_ROW           24u      /* the menu's first line, under the logo */
+#define MENU_ROW           23u      /* the menu's first line, under the logo */
 #define COPYRIGHT_ROW      27u      /* the title's (C) SEGA 1992 line */
 #define MENU_TRAVEL        48       /* the trackball's y travel that moves the cursor one line, */
 #define MENU_PAUSE         16       /* and the frames before it moves again */
@@ -48,8 +48,8 @@ static const uint8_t attract_order[8] = {
 	MODE_TITLE, MODE_RANKING, MODE_DEMO_1, MODE_TITLE, MODE_RANKING, MODE_DEMO_2, MODE_TITLE, MODE_RANKING
 };
 
-static const char *const menu_items[] = { "START GAME", "OPTIONS", "EXIT" };
-#define MENU_ITEMS  3
+static const char *const menu_items[] = { "START GAME", "TIME ATTACK", "OPTIONS", "EXIT" };
+#define MENU_ITEMS  4
 
 static uint32_t title_frames;     /* frames the title has shown its logo (PRESS START blinks by them) */
 static bool sega_logo_shown;      /* the SEGA logo has been shown (once, at power-on) */
@@ -100,6 +100,17 @@ static void run_menu(void);
 static void run_options(void);
 static void open_menu(void);
 static void give_game_credits(void);
+static void start_time_attack(void);
+static void time_attack_frame(void);
+static void run_times(void);
+static void close_times(void);
+static void open_times(void);
+static bool time_attack;           /* this game is TIME ATTACK's */
+static bool times_open;            /* the BEST TIMES page is on screen (system mode 1, OPTIONS' place) */
+static bool times_pending;         /* the run is over: BEST TIMES once its results begin, or the game ends */
+static bool clock_running;
+static uint8_t time_attack_players; /* the players in play when its clock started (a bit each) */
+static int time_attack_level = -1; /* the level the map picked: 0, Eggman's, the whole game */
 static void end_game_credits(void);
 static void wide_how_to_play(void);
 
@@ -225,6 +236,12 @@ void advance_attract_screen(void)
 
 	if (game_in_progress == 0u)
 		end_game_credits();    /* (game over, or the ending, goes on to the attract mode) */
+	if (times_pending)
+	{
+		times_pending = false;    /* (a TIME ATTACK run that reached the ending: its times) */
+		open_times();
+		return;
+	}
 	if (menu_open)
 		return;    /* (the title stays under the menu) */
 
@@ -314,13 +331,15 @@ void draw_credit_count_now(uint32_t credit_block, uint32_t *p_credits, uint32_t 
 
 /* A start prompt, every 16th frame: the console has no coins, so with fewer credits than a start takes
    (CONTINUES' spent) it shows none, not "Insert coin", and the count beside it says 0 (the "Push start
-   button" it showed before is erased) */
+   button" it showed before is erased); none either for a player TIME ATTACK keeps out (not in its run) */
 void blink_start_prompt(uint32_t credit_block, uint32_t prompt_texts, uint32_t *p_blink_bit, uint32_t *p_text,
 	uint32_t *p_text_position)
 {
 	uint32_t text = 0;
+	const uint32_t player = OBJECT(current_object)->player;
+	const bool kept_out = time_attack && clock_running && player < 3u && (time_attack_players & (1u << player)) == 0u;
 
-	if (free_play == 0u && CREDIT_BLOCK(credit_block)->credits < credits_per_start)
+	if (kept_out || (free_play == 0u && CREDIT_BLOCK(credit_block)->credits < credits_per_start))
 	{
 		if ((frame_counter & 0xFu) != 0u)
 			return;
@@ -461,7 +480,10 @@ static void run_menu(void)
 		game_in_progress = 0xFFu;
 		game_sees_start = true;
 		break;
-	case 1:    /* OPTIONS */
+	case 1:    /* TIME ATTACK: the map, then the level picked, timed */
+		start_time_attack();
+		break;
+	case 2:    /* OPTIONS */
 		open_options();
 		break;
 	default:   /* EXIT */
@@ -514,7 +536,7 @@ static bool video_open;    /* the VIDEO page is on screen, in OPTIONS' place */
 #define WINDOW_SCALE_MOST   6
 #define VOLUME_MOST         10
 
-console_window console_window_settings = { 3, false, false, false, false, 5, 0x01, 3, false };
+console_window console_window_settings = { 3, false, false, false, false, false, 5, 0x01, 3, false };
 
 static int option_choice;    /* the line chosen on the page shown */
 static int option_travel, option_wait, value_travel, value_wait;
@@ -576,7 +598,7 @@ static void option_value(int option, char *text)
 		strcpy(text, console_window_settings.wide ? "< 16:9 >" : "< OFF >");
 		return;
 	case OPTION_PIXELS:
-		strcpy(text, console_window_settings.bilinear ? "< BILINEAR >"
+		strcpy(text, console_window_settings.crt ? "< CRT >" : console_window_settings.bilinear ? "< BILINEAR >"
 			: console_window_settings.smooth ? "< SMOOTH >" : "< SHARP >");
 		return;
 	case OPTION_SOUND_TEST:
@@ -711,11 +733,13 @@ static void change_option(int option, int step)
 		console_window_settings.changed = true;
 		break;
 	case OPTION_PIXELS:
-		/* SHARP, SMOOTH, BILINEAR, round */
-		pixels = console_window_settings.bilinear ? 2 : console_window_settings.smooth ? 1 : 0;
-		pixels = (pixels + step + 3) % 3;
+		/* SHARP, SMOOTH, BILINEAR, CRT, round */
+		pixels = console_window_settings.crt ? 3 : console_window_settings.bilinear ? 2
+			: console_window_settings.smooth ? 1 : 0;
+		pixels = (pixels + step + 4) % 4;
 		console_window_settings.smooth = pixels == 1;
 		console_window_settings.bilinear = pixels == 2;
+		console_window_settings.crt = pixels == 3;
 		console_window_settings.changed = true;
 		break;
 	case OPTION_VOLUME:
@@ -800,7 +824,10 @@ void system_mode_idle(void)
 		build_options_page();
 	}
 	OBJECT(options_backdrop)->ranking_display.hold_timer = 0;
-	run_options();
+	if (times_open)
+		run_times();
+	else
+		run_options();
 }
 
 /* ---- CONTROLS: the actions, their keys and buttons (the port draws them, Kenney's Input Prompts) ---- */
@@ -990,6 +1017,10 @@ static void run_options(void)
 #define MAP_EGGMAN_Y      0xDF
 #define MAP_EGGMAN_PALETTE 0x680u
 #define FADED_IN          0x3Fu      /* color_offset_red at the end of the map's fade in */
+#define ALL_GAME_FRAME    0x9FD0u    /* the unused ROBOTNIK'S TOWER label: "ALL GAME" (console_prepare_sprites) */
+#define ALL_GAME_X        0x80       /* TIME ATTACK's first place, the whole game, over Eggman's place */
+#define ALL_GAME_Y        0xA6
+#define MAP_NAME_PALETTE  0x670u     /* the labels' (map_marker_blink) */
 
 /* Each level's first stage, in the game's order (stage_order): the opening (6, Eggman's tower at night, then
    5, the cage), then the markers' (the map comes after a level, so stage_map_markers gives each stage the
@@ -1097,6 +1128,8 @@ static void draw_map(void)
 		queue_map_sprite(block, 0xAu, name->sprite_layer, name->screen_x, name->screen_y, name->sprite_frame,
 			name->sprite_palette);
 	}
+	else if (time_attack)
+		queue_map_sprite(block, 0xAu, 0u, ALL_GAME_X, ALL_GAME_Y, ALL_GAME_FRAME, MAP_NAME_PALETTE);    /* (the whole game) */
 	else
 		queue_map_sprite(block, 0x107u, 1u, MAP_EGGMAN_X, MAP_EGGMAN_Y, MAP_EGGMAN, MAP_EGGMAN_PALETTE);
 	current_object = object;
@@ -1116,7 +1149,16 @@ static void leave_map(void)
 	mixer_nbg2_blend &= 0xBFFFu;
 	mixer_nbg3_blend &= 0xBFFFu;
 	mixer_bitmap_blend &= 0xBFFFu;
-	open_options();
+	if (!time_attack)
+	{
+		open_options();
+		return;
+	}
+	time_attack = false;    /* (TIME ATTACK's map: back to the title and its menu) */
+	menu_after_title = true;
+	attract_step = 0u;
+	system_mode = MODE_TITLE;
+	system_mode_step = 0u;
 }
 
 /* Game mode 8, STAGE SELECT: the island map (as the map screen fades it in), then left and right (or up and
@@ -1168,10 +1210,340 @@ void game_mode_stage_select(uint32_t *p_count, uint32_t *p_list_cursor)
 		return;
 	map_open = false;
 	stage_select_stage = level_first_stage[map_choice];
+	if (time_attack)
+		time_attack_level = map_choice;
 	stage = 7u;    /* (player select's, as in a game the menu starts: the chosen stage's objects would run there) */
 	stage_init_flags &= ~0x40u;
 	game_mode = 0x1Bu;
 	stage_select_phase = 2;
+}
+
+/* ---- the players out of play ---- */
+
+static const uint8_t player_start_bits[3] = { 0x10u, 0x20u, 0x80u };
+
+/* In play, as player_select_character counts them: player_status with bit 7, 1 or 4 (choosing) */
+static bool player_in_play(int player)
+{
+	const uint8_t status = player_status[player];
+
+	return (int8_t)status < 0 || status == 1u || status == 4u;
+}
+
+/* Each frame of a game: a player out of play has no ring count on screen (player select, with the 3-player
+   cabinet, draws them, and the stage never erases them); while TIME ATTACK's clock runs, a player who was
+   not in its run when it started cannot join (their start is not seen) */
+static void keep_idle_players_out(void)
+{
+	int player, cell;
+
+	if (system_mode != MODE_GAME && system_mode != MODE_DEMO_1 && system_mode != MODE_DEMO_2)
+		return;
+	for (player = 0; player < 3; player++)
+	{
+		if (player_in_play(player))
+			continue;
+		for (cell = 0; cell < 4; cell++)
+			mem_write16((0x310000u | hud_ring_count_positions_3p[player]) + 2u * (uint32_t)cell, (uint16_t)' ');
+		if (time_attack && clock_running && (time_attack_players & (1u << player)) == 0u)
+			inputs_pressed &= ~(uint32_t)player_start_bits[player];
+	}
+}
+
+/* ---- TIME ATTACK ---- */
+
+#define CLOCK_ROW          1u
+#define TIMES_TITLE_ROW    2u
+#define TIMES_HEADER_ROW   5u
+#define TIMES_FIRST_ROW    7u       /* then a level every two rows */
+#define TIMES_TOTAL_ROW    24u      /* the whole game's */
+#define WHOLE_GAME         0        /* the map's place for the whole game: Eggman's (the opening) */
+#define TIMES_NAME_COLUMN  2u
+#define TIMES_TIME_COLUMN  20u
+#define TIMES_RUN_COLUMN   30u
+#define TIMES_RECORD_ROW   26u
+#define TIMES_BLINK        16u      /* the new record blinks every 16 frames */
+#define FRAMES_A_SECOND    60u
+
+/* The map's names of the levels (map_marker_blink's labels), the opening's ours */
+static const char *const level_names[LEVELS] = {
+	"OPENING", "VOLCANIC VAULT", "ICY ISLE", "DESERT DODGE", "TRAP TOWER", "LANDSLIDE LIMBO", "WILD WATER WAY",
+	"EGGMAN'S TOWER"
+};
+
+console_times console_best_times;
+
+static uint32_t clock_frames;
+#define ENDING_STAGE       0x11u    /* the ending: the run's end */
+
+static bool new_record;               /* the run that just ended is the best */
+static bool shown_whole;              /* the page shows a whole game's run (else a level's) */
+static int shown_level = -1;          /* the level the run that just ended timed alone */
+static uint32_t last_run_frames;      /* its whole time (0: no run to show) */
+static uint32_t run_splits[LEVELS];   /* its time at each level's end */
+static int run_level;
+static uint8_t times_blink;
+
+/* frames as M'SS"HH (minutes as many digits as they take) */
+static void format_time(uint32_t frames, char *text)
+{
+	const uint32_t hundredths = frames * 100u / FRAMES_A_SECOND;
+	const uint32_t minutes = hundredths / 6000u, seconds = hundredths / 100u % 60u;
+	char digits[12];
+	int count = 0, at = 0;
+	uint32_t left = minutes;
+
+	do
+	{
+		digits[count++] = (char)('0' + left % 10u);
+		left /= 10u;
+	} while (left != 0u);
+	while (count > 0)
+		text[at++] = digits[--count];
+	text[at++] = '\'';
+	text[at++] = (char)('0' + seconds / 10u);
+	text[at++] = (char)('0' + seconds % 10u);
+	text[at++] = '"';
+	text[at++] = (char)('0' + hundredths % 100u / 10u);
+	text[at++] = (char)('0' + hundredths % 10u);
+	text[at] = 0;
+}
+
+static void draw_clock(void)
+{
+	char text[24] = "TIME ";
+
+	format_time(clock_frames, text + 5);
+	erase_line(CLOCK_ROW);
+	write_centered(CLOCK_ROW, text, MENU_CHOSEN);
+}
+
+/* From the title's menu: as STAGE SELECT starts a game (the map, then player select), timed: Eggman's
+   place the whole game, a marker its level */
+static void start_time_attack(void)
+{
+	int level;
+
+	menu_open = false;
+	erase_menu();
+	give_game_credits();
+	time_attack = true;
+	time_attack_level = -1;
+	clock_running = false;
+	times_pending = false;
+	for (level = 0; level < LEVELS; level++)
+		run_splits[level] = 0u;
+	menu_after_title = false;
+	stage_select_pending = true;
+	stage_select_phase = 0;
+	system_mode = MODE_GAME;
+	game_mode = 0u;
+	system_mode_step = 0u;
+	game_in_progress = 0xFFu;
+	game_sees_start = true;
+}
+
+/* The run is over: its time, kept when it beats the best (a whole game by its whole time) */
+static void stop_clock(void)
+{
+	const bool whole = time_attack_level == WHOLE_GAME;
+	int level;
+
+	clock_running = false;
+	erase_line(CLOCK_ROW);
+	last_run_frames = clock_frames;
+	shown_whole = whole;
+	shown_level = time_attack_level;
+	if (whole)
+	{
+		run_splits[LEVELS - 1] = clock_frames;
+		new_record = console_best_times.run[LEVELS - 1] == 0u || clock_frames < console_best_times.run[LEVELS - 1];
+		if (new_record)
+			for (level = 0; level < LEVELS; level++)
+				console_best_times.run[level] = run_splits[level];
+	}
+	else
+	{
+		new_record = console_best_times.levels[time_attack_level] == 0u
+			|| clock_frames < console_best_times.levels[time_attack_level];
+		if (new_record)
+			console_best_times.levels[time_attack_level] = clock_frames;
+	}
+	console_best_times.changed = console_best_times.changed || new_record;
+	times_pending = true;
+}
+
+/* A level's run is over at its results: the game ends as game over ends one, then BEST TIMES */
+static void end_timed_game(void)
+{
+	time_attack = false;
+	times_pending = false;
+	game_in_progress = 0u;
+	end_game_credits();
+	stage_init_flags &= ~0x8040u;
+	mixer_text_blend &= 0xBFFFu;
+	mixer_nbg0_blend &= 0xBFFFu;
+	mixer_nbg1_blend &= 0xBFFFu;
+	mixer_nbg2_blend &= 0xBFFFu;
+	mixer_nbg3_blend &= 0xBFFFu;
+	mixer_bitmap_blend &= 0xBFFFu;
+	open_times();
+}
+
+/* Each frame of a TIME ATTACK game: the clock starts with the picked level's first stage played and runs
+   through its stages, scenes and continues (not in the pause: no game frames). A whole game runs on to
+   the ending (stage 0x11), each level's end leaving its split, and BEST TIMES shows after the ending; a
+   level stops at its stage clear banner (game mode 0x17; the tower at the ending) and BEST TIMES shows
+   when its results begin. A game over ends the run with no time */
+static void time_attack_frame(void)
+{
+	const int level = stage < sizeof(stage_level) ? stage_level[stage] : -1;
+	const bool whole = time_attack_level == WHOLE_GAME;
+
+	if (!time_attack)
+		return;
+	if (system_mode != MODE_GAME || (int8_t)game_in_progress >= 0)
+	{
+		time_attack = false;    /* (the game is over) */
+		clock_running = false;
+		erase_line(CLOCK_ROW);
+		return;
+	}
+	if (times_pending)
+	{
+		if (!whole && (game_mode == 0x1Du || game_mode == 4u || (level >= 0 && level != time_attack_level)))
+			end_timed_game();
+		return;
+	}
+	if (!clock_running)
+	{
+		if (time_attack_level >= 0 && level == time_attack_level && console_in_game())
+		{
+			clock_running = true;
+			clock_frames = 0u;
+			run_level = level;
+			time_attack_players = 0u;
+			for (int player = 0; player < 3; player++)
+				if (player_in_play(player))
+					time_attack_players |= (uint8_t)(1u << player);
+		}
+		return;
+	}
+	if (stage == ENDING_STAGE || (!whole && (game_mode == 0x17u || (level >= 0 && level != time_attack_level))))
+	{
+		stop_clock();
+		return;
+	}
+	if (whole && level > run_level)
+	{
+		run_splits[run_level] = clock_frames;    /* (the level before is over) */
+		run_level = level;
+	}
+	clock_frames++;
+	draw_clock();
+}
+
+/* ---- BEST TIMES: OPTIONS' page with the levels' best times ---- */
+
+static uint32_t times_row(int level)
+{
+	return TIMES_FIRST_ROW + 2u * (uint32_t)level;
+}
+
+static void open_times(void)
+{
+	menu_open = false;
+	times_open = true;
+	times_blink = 0u;
+	option_wait = MENU_PAUSE;
+	system_mode = MODE_OPTIONS;
+	system_mode_step = 0u;
+}
+
+/* A time, or dashes for none */
+static void time_or_dashes(uint32_t frames, char *text)
+{
+	if (frames != 0u)
+		format_time(frames, text);
+	else
+		strcpy(text, "-'--\"--");
+}
+
+/* After a whole game: the best run's splits and whole time, and the run's beside them. Else the levels'
+   best times alone and the best whole game, the run's level with its time beside (a new best blinks) */
+static void draw_times(void)
+{
+	char text[24];
+	int level;
+	const bool blinking = new_record && (times_blink & TIMES_BLINK) != 0u;
+
+	times_blink++;
+	write_centered(TIMES_TITLE_ROW, shown_whole ? "BEST RUN" : "BEST TIMES", MENU_CHOSEN);
+	write_text(TIMES_TIME_COLUMN, TIMES_HEADER_ROW, "BEST", MENU_CHOSEN);
+	if (last_run_frames != 0u)
+		write_text(TIMES_RUN_COLUMN, TIMES_HEADER_ROW, "THIS RUN", MENU_CHOSEN);
+	for (level = 0; level <= LEVELS; level++)
+	{
+		const bool total = level == LEVELS;
+		const uint32_t row = total ? TIMES_TOTAL_ROW : times_row(level);
+		const bool this_one = last_run_frames != 0u && (shown_whole ? total : level == shown_level);
+		uint32_t best = 0u, run = 0u;
+
+		if (shown_whole)
+		{
+			best = console_best_times.run[total ? LEVELS - 1 : level];
+			run = total ? last_run_frames : run_splits[level];
+		}
+		else
+		{
+			best = total ? console_best_times.run[LEVELS - 1] : level == WHOLE_GAME ? 0u : console_best_times.levels[level];
+			run = this_one ? last_run_frames : 0u;
+		}
+		erase_line(row);
+		write_text(TIMES_NAME_COLUMN, row, total ? "WHOLE GAME" : level_names[level],
+			this_one || total ? MENU_CHOSEN : MENU_TEXT);
+		if (!(this_one && blinking))
+		{
+			time_or_dashes(best, text);
+			write_text(TIMES_TIME_COLUMN, row, text, this_one && new_record ? MENU_CHOSEN : MENU_TEXT);
+		}
+		if (last_run_frames != 0u && (shown_whole || this_one))
+		{
+			time_or_dashes(run, text);
+			write_text(TIMES_RUN_COLUMN, row, text, MENU_TEXT);
+		}
+	}
+	if (new_record && last_run_frames != 0u)
+		write_centered(TIMES_RECORD_ROW, "NEW RECORD", MENU_CHOSEN);
+}
+
+static void close_times(void)
+{
+	uint32_t row;
+
+	for (row = TIMES_TITLE_ROW; row <= TIMES_RECORD_ROW; row++)
+		erase_line(row);
+	times_open = false;
+	last_run_frames = 0u;
+	new_record = false;
+	menu_after_title = true;
+	attract_step = 0u;
+	system_mode = MODE_TITLE;
+	system_mode_step = 0u;
+}
+
+/* BEST TIMES: a pick or back goes back to the title (after a moment, so the press that ended the level
+   does not leave it at once) */
+static void run_times(void)
+{
+	draw_times();
+	if (option_wait > 0)
+	{
+		option_wait--;
+		return;
+	}
+	if (picked() || (actions & ACTION_BIT(ACTION_BACK)) != 0u)
+		close_times();
 }
 
 /* The game's modes: the first frame of a game the menu started sees player 1's start pressed, as the
@@ -1204,10 +1576,12 @@ void run_game_mode(uint32_t pressed, uint32_t position, uint32_t speed, uint16_t
 	for (int player = 0; player < CONTROLS_PLAYERS; player++)
 		if (start_prompt_frames[player] > 0)
 			start_prompt_frames[player]--;
+	keep_idle_players_out();
 	original_run_game_mode(pressed, position, speed, next_scroll_position, object, p_speed_value, p_count, p_cycle,
 		p_list_cursor);
 	note_level_reached();
 	wide_how_to_play();
+	time_attack_frame();
 }
 
 /* ---- WIDE in the game ---- */
@@ -1515,11 +1889,75 @@ static void make_huh(uint8_t *sprites, size_t size, const uint8_t *program)
 	write_unboxed(sprites, &huh);
 }
 
+/* A frame's pens back as they are */
+static void write_pens(uint8_t *sprites, const line_frame *line)
+{
+	int x, y;
+
+	for (y = 0; y < line->height; y++)
+		for (x = 0; x < line->width; x++)
+		{
+			uint8_t *byte = pen_byte(sprites, line->word, line->width >> 3, x, y);
+			const uint8_t pen = line->pens[y][x];
+
+			*byte = (x & 1) ? (uint8_t)((*byte & 0xF0u) | pen) : (uint8_t)((*byte & 0x0Fu) | (uint8_t)(pen << 4));
+		}
+}
+
+#define LABEL_ROWS       8          /* the map labels' letters (pen 1, their shadow pen 2) */
+#define LABEL_SPACE      8
+#define LABEL_LINE_ROW   9          /* their underline: a row of pen 1 over one of pen 2 */
+
+/* "ALL GAME" for TIME ATTACK's first place on the map, in the unused ROBOTNIK'S TOWER label's frame:
+   A and L from VOLCANIC VAULT (9F98), G, M and E from EGGMAN'S TOWER (9FC8), their columns as those
+   labels have them, then the labels' underline under them */
+static void make_all_game(uint8_t *sprites, size_t size, const uint8_t *program)
+{
+	static line_frame label, volcanic, eggman;
+	static const struct
+	{
+		char letter;
+		const line_frame *from;
+		int first, after;
+	} letters[] = {
+		{ 'A', &volcanic, 32, 40 }, { 'L', &volcanic, 16, 24 }, { 'L', &volcanic, 16, 24 }, { ' ', NULL, 0, LABEL_SPACE },
+		{ 'G', &eggman, 24, 32 }, { 'A', &volcanic, 32, 40 }, { 'M', &eggman, 40, 49 }, { 'E', &eggman, 16, 24 },
+	};
+	size_t i;
+	int x = 0, y, column;
+
+	if (!read_line_frame(sprites, size, program, ALL_GAME_FRAME, &label)
+		|| !read_line_frame(sprites, size, program, 0x9F98u, &volcanic)
+		|| !read_line_frame(sprites, size, program, 0x9FC8u, &eggman))
+		return;
+	for (y = 0; y < label.height; y++)
+		for (column = 0; column < label.width; column++)
+			label.pens[y][column] = 0u;
+	for (i = 0; i < sizeof(letters) / sizeof(letters[0]); i++)
+	{
+		for (column = letters[i].first; letters[i].from && column < letters[i].after; column++)
+			for (y = 0; y < LABEL_ROWS; y++)
+			{
+				const uint8_t pen = letters[i].from->pens[y][column];
+
+				label.pens[y][x + column - letters[i].first] = pen == 1u || pen == 2u ? pen : 0u;
+			}
+		x += letters[i].after - letters[i].first;
+	}
+	for (column = 0; column < x && column < label.width; column++)
+	{
+		label.pens[LABEL_LINE_ROW][column] = 1u;
+		label.pens[LABEL_LINE_ROW + 1][column] = 2u;
+	}
+	write_pens(sprites, &label);
+}
+
 void console_prepare_sprites(uint8_t *sprites, size_t size, const uint8_t *program)
 {
 	static line_frame line;
 	uint16_t frame;
 
+	make_all_game(sprites, size, program);
 	make_huh(sprites, size, program);    /* (first: it cuts its letters from the lines as they are) */
 	for (frame = ENGLISH_LINES_FIRST; frame <= ENGLISH_LINES_LAST; frame += 8u)
 		if (read_line_frame(sprites, size, program, frame, &line))
@@ -1666,6 +2104,11 @@ void console_back(void)
 		leave_map();
 		return;
 	}
+	if (times_open)
+	{
+		close_times();
+		return;
+	}
 	if (controls_open)
 		return;    /* (CONTROLS reads the action back itself) */
 	if (options_open && video_open)
@@ -1722,14 +2165,18 @@ bool console_controls_defaults(void)
 
 bool console_wide_now(void)
 {
-	/* a stage (in a game or a demo), the how to play (its panel goes on at the sides: wide_how_to_play), the
-	   SEGA logo and the title (their sky and sea go on), the ranking, OPTIONS and player select (their
-	   faces) */
-	const bool demo_stage = (system_mode == MODE_DEMO_1 || system_mode == MODE_DEMO_2)
-		&& (game_mode == 3u || game_mode == 5u || game_mode == 6u || game_mode == 0x11u);
+	/* every mode of a game or a demo (the stages, their scenes and transitions), but stage 6, the opening's
+	   scenes (pictures 320 pixels wide), and 5, its cage room (the camera stays, its walls end past the 320
+	   pixels; its switch scene is stage 0); the how to play (its panel goes on at the sides:
+	   wide_how_to_play), the SEGA logo and the title (their sky and sea go on), the ranking, OPTIONS and
+	   player select (their faces). Not the island maps (game modes 4 and 8): their pictures end at their
+	   sides */
+	const bool stage_drawn = stage != 6u && stage != 5u && game_mode != 4u && game_mode != 8u
+		&& ((system_mode == MODE_GAME && (int8_t)game_in_progress < 0) || system_mode == MODE_DEMO_1
+			|| system_mode == MODE_DEMO_2);
 
 	return console_window_settings.wide
-		&& (console_in_game() || demo_stage
+		&& (stage_drawn
 			|| (system_mode == MODE_GAME && (int8_t)game_in_progress < 0 && (game_mode == 1u || game_mode == 0x1Bu))
 			|| system_mode == MODE_TITLE || system_mode == MODE_RANKING || system_mode == MODE_OPTIONS);
 }

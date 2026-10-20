@@ -198,6 +198,53 @@ static double window_scale_that_fits(void)
 	return scale;
 }
 
+/* ---- CRT: a multiplying overlay on smooth pixels, the size the picture is shown at ---- */
+
+#define CRT_SCANLINE_DARK  0.45    /* how much the scanlines' edges darken (their middles keep it all) */
+#define CRT_MASK           0.80    /* the other two channels in a phosphor column */
+#define CRT_VIGNETTE       0.18    /* how much the corners darken */
+
+static SDL_Texture *crt_overlay;
+static int crt_width, crt_height;
+
+/* For each pixel of the shown picture: its game row's scanline (bright in the middle, dark at the edges),
+   the column's phosphor (red, green, blue in turn), and the vignette toward the edges */
+static void make_crt_overlay(int width, int height)
+{
+	uint32_t *pixels;
+	int pitch = 0;
+
+	if (crt_overlay && crt_width == width && crt_height == height)
+		return;
+	if (crt_overlay)
+		SDL_DestroyTexture(crt_overlay);
+	crt_overlay = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, width, height);
+	crt_width = width;
+	crt_height = height;
+	if (!crt_overlay || SDL_LockTexture(crt_overlay, NULL, (void **)&pixels, &pitch) != 0)
+		return;
+	for (int y = 0; y < height; y++)
+	{
+		const double row = (y + 0.5) * S32_VIDEO_HEIGHT / height;
+		const double scan = 1.0 - CRT_SCANLINE_DARK * (1.0 - sin(3.14159265358979 * (row - floor(row))));
+		const double dy = (2.0 * y / height - 1.0);
+
+		for (int x = 0; x < width; x++)
+		{
+			const double dx = (2.0 * x / width - 1.0);
+			const double light = scan * (1.0 - CRT_VIGNETTE * (dx * dx * dy * dy));
+			const int phosphor = x % 3;
+			const int red = (int)(255.0 * light * (phosphor == 0 ? 1.0 : CRT_MASK));
+			const int green = (int)(255.0 * light * (phosphor == 1 ? 1.0 : CRT_MASK));
+			const int blue = (int)(255.0 * light * (phosphor == 2 ? 1.0 : CRT_MASK));
+
+			pixels[y * (pitch / 4) + x] = 0xFF000000u | (uint32_t)red << 16 | (uint32_t)green << 8 | (uint32_t)blue;
+		}
+	}
+	SDL_UnlockTexture(crt_overlay);
+	SDL_SetTextureBlendMode(crt_overlay, SDL_BLENDMODE_MOD);
+}
+
 static void present(const uint32_t *pixels, int width)
 {
 	SDL_Rect source = { 0, 0, width, S32_VIDEO_HEIGHT };
@@ -219,13 +266,13 @@ static void present(const uint32_t *pixels, int width)
 	shown.x = (out_width - shown.w) / 2;
 	shown.y = (out_height - shown.h) / 2;
 	/* plain bilinear: the picture straight to the window, softened all the way */
-	SDL_SetTextureScaleMode(texture, settings.bilinear ? SDL_ScaleModeLinear : SDL_ScaleModeNearest);
-	if (settings.bilinear)
+	SDL_SetTextureScaleMode(texture, settings.bilinear && !settings.crt ? SDL_ScaleModeLinear : SDL_ScaleModeNearest);
+	if (settings.bilinear && !settings.crt)
 	{
 		SDL_RenderClear(renderer);
 		SDL_RenderCopy(renderer, texture, &source, &shown);
 	}
-	else if (settings.smooth)
+	else if (settings.smooth || settings.crt)
 	{
 		const int times = SDL_max(1, (int)scale);
 		SDL_Rect whole = { 0, 0, width * times, S32_VIDEO_HEIGHT * times };
@@ -245,6 +292,12 @@ static void present(const uint32_t *pixels, int width)
 		SDL_SetRenderTarget(renderer, NULL);
 		SDL_RenderClear(renderer);
 		SDL_RenderCopy(renderer, scaled, &whole, &shown);
+		if (settings.crt)
+		{
+			make_crt_overlay(shown.w, shown.h);
+			if (crt_overlay)
+				SDL_RenderCopy(renderer, crt_overlay, NULL, &shown);
+		}
 	}
 	else
 	{
@@ -477,6 +530,41 @@ static void change_mouse_speed(bool faster)
 
 /* the settings the picture shows, as the file has them after it was read again */
 #ifdef SEGASONIC_CONSOLE
+static char times_path[1024];    /* segasonic.times: TIME ATTACK's best times, written by the game */
+
+static void load_times(void)
+{
+	FILE *input = fopen(times_path, "r");
+	int level = 0;
+	unsigned long frames = 0;
+	char line[128];
+
+	if (!input)
+		return;
+	while (fgets(line, sizeof(line), input))
+		if (sscanf(line, " level %d = %lu", &level, &frames) == 2 && level >= 0 && level < CONSOLE_LEVELS)
+			console_best_times.levels[level] = (uint32_t)frames;
+		else if (sscanf(line, " run %d = %lu", &level, &frames) == 2 && level >= 0 && level < CONSOLE_LEVELS)
+			console_best_times.run[level] = (uint32_t)frames;
+	fclose(input);
+}
+
+static void save_times(void)
+{
+	FILE *output = fopen(times_path, "w");
+
+	console_best_times.changed = false;
+	if (!output)
+		return;
+	fputs("; TIME ATTACK's best times, in the board's frames (60 a second): the game writes this file.\n"
+		"; level: each level alone; run: the best whole game, its time at each level's end\n", output);
+	for (int level = 0; level < CONSOLE_LEVELS; level++)
+		fprintf(output, "level %d = %lu\n", level, (unsigned long)console_best_times.levels[level]);
+	for (int level = 0; level < CONSOLE_LEVELS; level++)
+		fprintf(output, "run %d = %lu\n", level, (unsigned long)console_best_times.run[level]);
+	fclose(output);
+}
+
 /* The console's OPTIONS show the window's settings as they are */
 static void tell_console_settings(void)
 {
@@ -484,6 +572,7 @@ static void tell_console_settings(void)
 	console_window_settings.full_screen = settings.full_screen;
 	console_window_settings.smooth = settings.smooth;
 	console_window_settings.bilinear = settings.bilinear;
+	console_window_settings.crt = settings.crt;
 	console_window_settings.wide = settings.wide;
 	console_window_settings.volume = (int)lround(settings.volume * 5.0);
 	console_window_settings.title_music = (int)settings.title_music;
@@ -860,6 +949,7 @@ static void on_frame_done(void)
 		settings.full_screen = console_window_settings.full_screen;
 		settings.smooth = console_window_settings.smooth;
 		settings.bilinear = console_window_settings.bilinear;
+		settings.crt = console_window_settings.crt;
 		settings.wide = console_window_settings.wide;
 		settings.volume = console_window_settings.volume / 5.0;
 		settings.title_music = console_window_settings.title_music;
@@ -868,6 +958,8 @@ static void on_frame_done(void)
 		settings_save();
 	}
 	tell_console_settings();    /* (F11 and F3 change them too) */
+	if (console_best_times.changed)
+		save_times();
 	if (pause_requested)
 		run_pause();
 #endif
@@ -920,6 +1012,8 @@ int main(int argc, char **argv)
 		snprintf(controls_path, sizeof(controls_path), "%scontrols.ini", base ? base : "");
 		actions_open(controls_path);
 		load_prompts(base ? base : "");
+		snprintf(times_path, sizeof(times_path), "%s" FILE_NAME ".times", base ? base : "");
+		load_times();
 	}
 #endif
 	SDL_free(base);
