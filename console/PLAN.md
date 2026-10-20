@@ -9,8 +9,7 @@ Done:
 
 - The title menu, PRESS START, player select by a touch, pause in grey, actions instead of keys.
 - The SEGA logo's jingle: two chords of our own (E flat major, C major) through the sound driver's own MIDI queue on the effects'
-  channels B and C (an octave under), instruments from segasonic.ini; it sounds like a handheld's, so a
-  recorded voice of our own (sega.wav, played by the port) may take its place later.
+  channels B and C (an octave under), instruments from segasonic.ini; it stays (no recorded voice).
 - (C) SEGA 1992 on the title and its menu only.
 
 - OPTIONS, a page of its own over the ranking's drifting Sonic faces: DIFFICULTY, VITALITY (the EEPROM,
@@ -33,8 +32,7 @@ Next (in this order unless Sebas says otherwise):
 7. Time Attack: a clock on screen, records per stage.
 8. Achievements: our own, defined on the game's memory as RetroAchievements does (the work RAM is the
    original's, byte for byte); RetroAchievements itself only runs in the emulators it approves.
-9. The SEGA logo: a recorded voice of our own (sega.wav) in place of the chords, if Sebas records one.
-10. One SegaSonic.exe with SDL2 inside; first run asks for the player's ROM set and extracts the assets;
-    the port's README; a release for Quiver Launcher.
+9. One SegaSonic.exe with SDL2 inside; first run asks for the player's ROM set and extracts the assets;
+   the port's README; a release for Quiver Launcher.
 
 For the port's README: docs/screenshots/console_menu.png (the menu over the title, 640 x 448 like the others).
