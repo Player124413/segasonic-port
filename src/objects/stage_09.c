@@ -3,7 +3,7 @@
  *    Description: stage 9's objects, the ice: the handle rod between two posts, the spear traps, the ice cube launcher, the padded wall, the snow mound, the ice blocks and the moving ice platform, the crumbling ice floor, the icicles
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    19-10-2026
+ *    Modified:    21-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -668,12 +668,12 @@ void ice_launcher_update(void)
 	frame_index = ice_launcher_frames[(uint8_t)OBJECT(current_object)->ice_launcher.step];
 	OBJECT(current_object)->sprite_frame = ice_launcher_sprites[frame_index];
 	size_record = ice_launcher_hitbox_sizes_ADDRESS + frame_index * 4u;
-	OBJECT(current_object)->hitbox_size_x = ROM16(size_record);
-	OBJECT(current_object)->hitbox_size_y = ROM16(size_record + 2u);
+	OBJECT(current_object)->hitbox_size_x = HITBOX_SIZE_PAIR(size_record)->size_x;
+	OBJECT(current_object)->hitbox_size_y = HITBOX_SIZE_PAIR(size_record)->size_y;
 	offset_record = ice_launcher_hitbox_offsets_ADDRESS + frame_index * 2u;
-	OBJECT(current_object)->hitbox_offset_x = ROM8(offset_record);
+	OBJECT(current_object)->hitbox_offset_x = HITBOX_OFFSET_PAIR(offset_record)->x;
 	offset_record++;
-	OBJECT(current_object)->hitbox_offset_y = ROM8(offset_record);
+	OBJECT(current_object)->hitbox_offset_y = HITBOX_OFFSET_PAIR(offset_record - 0x1u)->y;
 	duration_index_or_spawned = OBJECT(current_object)->ice_launcher.step_duration_index;
 	OBJECT(current_object)->ice_launcher.step_timer = ice_launcher_frame_durations[duration_index_or_spawned];
 	if ((uint8_t)OBJECT(current_object)->ice_launcher.step != 0xCu)
@@ -1398,20 +1398,20 @@ void icicle_dropper_start(void)
 		return;
 	icicle_dropper_ready = 0u;
 	dropper_record = icicle_dropper_records_ADDRESS + icicle_dropper_records[OBJECT(current_object)->sprite_frame];
-	OBJECT(current_object)->x_int = ROM16(dropper_record);
+	OBJECT(current_object)->x_int = ICICLE_DROPPER_RECORD(dropper_record)->x;
 	OBJECT(current_object)->x_fraction = 0u;
 	dropper_record += 2u;
-	OBJECT(current_object)->y_int = ROM16(dropper_record);
+	OBJECT(current_object)->y_int = ICICLE_DROPPER_RECORD(dropper_record - 0x2u)->y;
 	OBJECT(current_object)->y_fraction = 0u;
 	dropper_record += 2u;
-	OBJECT(current_object)->z_int = ROM16(dropper_record);
+	OBJECT(current_object)->z_int = ICICLE_DROPPER_RECORD(dropper_record - 0x4u)->z;
 	OBJECT(current_object)->z_fraction = 0u;
 	OBJECT(current_object)->floor_z = OBJECT(current_object)->z;
 	dropper_record += 2u;
-	OBJECT(current_object)->direction = ROM16(dropper_record);
+	OBJECT(current_object)->direction = ICICLE_DROPPER_RECORD(dropper_record - 0x6u)->direction;
 	dropper_record += 2u;
-	OBJECT(current_object)->var_96 = ROM16(dropper_record);
-	OBJECT(current_object)->icicle_dropper.path = icicle_dropper_scripts_ADDRESS + ROM16(dropper_record + 2u);
+	OBJECT(current_object)->var_96 = ICICLE_DROPPER_RECORD(dropper_record - 0x8u)->flags;
+	OBJECT(current_object)->icicle_dropper.path = icicle_dropper_scripts_ADDRESS + ICICLE_DROPPER_RECORD(dropper_record - 0x8u)->script;
 	OBJECT(current_object)->handler = icicle_dropper_move_ADDRESS;
 	OBJECT(current_object)->sprite_offset_x = 0;
 	OBJECT(current_object)->sprite_offset_y = 0;
@@ -1469,7 +1469,7 @@ void icicle_dropper_move(void)
 	path = OBJECT(current_object)->icicle_dropper.path;
 	if (OBJECT(current_object)->icicle_dropper.rides_platform != 0u)
 	{
-		if (OBJECT(current_object)->icicle_dropper.platform_offset_int < (int16_t)ROM16(path - 2u))
+		if (OBJECT(current_object)->icicle_dropper.platform_offset_int < ICICLE_DROPPER_STEP(path)[-1].end_coordinate)
 		{
 			icicle_dropper_check_scroll_position(path);
 			return;
@@ -1489,7 +1489,7 @@ void icicle_dropper_move(void)
 	switch (direction >> 8)
 	{
 	case 0:
-		if (OBJECT(current_object)->y_int <= (int16_t)ROM16(path - 2u))
+		if (OBJECT(current_object)->y_int <= ICICLE_DROPPER_STEP(path)[-1].end_coordinate)
 		{
 			icicle_dropper_coordinate_reached(path);
 			return;
@@ -1497,7 +1497,7 @@ void icicle_dropper_move(void)
 		icicle_dropper_check_scroll_position(path);
 		return;
 	case 1:
-		if ((int16_t)ROM16(path - 2u) <= OBJECT(current_object)->x_int)
+		if (ICICLE_DROPPER_STEP(path)[-1].end_coordinate <= OBJECT(current_object)->x_int)
 		{
 			icicle_dropper_coordinate_reached(path);
 			return;
@@ -1506,7 +1506,7 @@ void icicle_dropper_move(void)
 		return;
 	case 2:
 	case 4:
-		if ((int16_t)ROM16(path - 2u) <= OBJECT(current_object)->y_int)
+		if (ICICLE_DROPPER_STEP(path)[-1].end_coordinate <= OBJECT(current_object)->y_int)
 		{
 			icicle_dropper_coordinate_reached(path);
 			return;
@@ -1514,7 +1514,7 @@ void icicle_dropper_move(void)
 		icicle_dropper_check_scroll_position(path);
 		return;
 	case 3:
-		if ((int16_t)ROM16(path - 2u) < OBJECT(current_object)->x_int)
+		if (ICICLE_DROPPER_STEP(path)[-1].end_coordinate < OBJECT(current_object)->x_int)
 		{
 			icicle_dropper_check_scroll_position(path);
 			return;
@@ -1540,7 +1540,7 @@ void icicle_dropper_check_scroll_position(uint32_t path_cursor)
 {
 	uint16_t record_scroll = 0;
 
-	record_scroll = ROM16(path_cursor);
+	record_scroll = ICICLE_DROPPER_STEP(path_cursor)->position;
 	path_cursor += 2u;
 	if (scroll_position < record_scroll)
 	{
@@ -1555,7 +1555,7 @@ void icicle_dropper_check_scroll_position(uint32_t path_cursor)
    dropper: icicle_dropper_finish). */
 void icicle_dropper_load_record(uint32_t path_cursor)
 {
-	if ((int16_t)ROM16(path_cursor + 2u) < 0)
+	if (ICICLE_DROPPER_STEP(path_cursor - 0x2u)->catch_up_factor < 0)
 	{
 		icicle_dropper_ready = 0xFFu;
 		if (OBJECT(current_object)->icicle_dropper.last_dropper != 0u)
@@ -1568,13 +1568,13 @@ void icicle_dropper_load_record(uint32_t path_cursor)
 		delete_current_object();
 		return;
 	}
-	OBJECT(current_object)->icicle_dropper.screen_threshold = ROM16(path_cursor);
+	OBJECT(current_object)->icicle_dropper.screen_threshold = ICICLE_DROPPER_STEP(path_cursor - 0x2u)->screen_threshold;
 	path_cursor += 2u;
-	OBJECT(current_object)->icicle_dropper.catch_up_factor = ROM16(path_cursor);
+	OBJECT(current_object)->icicle_dropper.catch_up_factor = ICICLE_DROPPER_STEP(path_cursor - 0x4u)->catch_up_factor;
 	path_cursor += 2u;
-	OBJECT(current_object)->icicle_dropper.base_speed = ROM16(path_cursor);
+	OBJECT(current_object)->icicle_dropper.base_speed = ICICLE_DROPPER_STEP(path_cursor - 0x6u)->base_speed;
 	path_cursor += 2u;
-	OBJECT(current_object)->icicle_dropper.wait_timer = ROM16(path_cursor);
+	OBJECT(current_object)->icicle_dropper.wait_timer = ICICLE_DROPPER_STEP(path_cursor - 0x8u)->wait;
 	OBJECT(current_object)->icicle_dropper.path = path_cursor + 4u;
 	icicle_dropper_move_step();
 }
@@ -1849,7 +1849,7 @@ void drop_icicle_row(uint32_t random_value, uint32_t block)
 		icicle_row_offset += 0x48u;
 		if (OBJECT(block)->icicle_update.rides_platform == 0u)
 		{
-			end_coordinate = ROM16(OBJECT(current_object)->drop_icicle_row.path - 2u);
+			end_coordinate = (uint16_t)ICICLE_DROPPER_STEP(OBJECT(current_object)->drop_icicle_row.path)[-1].end_coordinate;
 			line_coordinate = (uint16_t)end_coordinate;
 			direction = OBJECT(current_object)->direction;
 			switch (direction >> 8)
@@ -1860,7 +1860,7 @@ void drop_icicle_row(uint32_t random_value, uint32_t block)
 					OBJECT(block)->y_int = line_coordinate + 0x20u;
 					OBJECT(block)->flags |= 1u;
 					OBJECT(current_object)->flags |= 1u;
-					OBJECT(block)->icicle_update.line_coordinate = ROM16(OBJECT(current_object)->drop_icicle_row.path - 2u);
+					OBJECT(block)->icicle_update.line_coordinate = ICICLE_DROPPER_STEP(OBJECT(current_object)->drop_icicle_row.path)[-1].end_coordinate;
 				}
 				break;
 			case 1:
@@ -1869,7 +1869,7 @@ void drop_icicle_row(uint32_t random_value, uint32_t block)
 					OBJECT(block)->x_int = line_coordinate - 0x20u;
 					OBJECT(block)->flags |= 1u;
 					OBJECT(current_object)->flags |= 1u;
-					OBJECT(block)->icicle_update.line_coordinate = ROM16(OBJECT(current_object)->drop_icicle_row.path - 2u);
+					OBJECT(block)->icicle_update.line_coordinate = ICICLE_DROPPER_STEP(OBJECT(current_object)->drop_icicle_row.path)[-1].end_coordinate;
 				}
 				break;
 			case 2:
@@ -1879,7 +1879,7 @@ void drop_icicle_row(uint32_t random_value, uint32_t block)
 					OBJECT(block)->y_int = line_coordinate - 0x20u;
 					OBJECT(block)->flags |= 1u;
 					OBJECT(current_object)->flags |= 1u;
-					OBJECT(block)->icicle_update.line_coordinate = ROM16(OBJECT(current_object)->drop_icicle_row.path - 2u);
+					OBJECT(block)->icicle_update.line_coordinate = ICICLE_DROPPER_STEP(OBJECT(current_object)->drop_icicle_row.path)[-1].end_coordinate;
 				}
 				break;
 			case 3:
@@ -1888,7 +1888,7 @@ void drop_icicle_row(uint32_t random_value, uint32_t block)
 					OBJECT(block)->x_int = line_coordinate + 0x20u;
 					OBJECT(block)->flags |= 1u;
 					OBJECT(current_object)->flags |= 1u;
-					OBJECT(block)->icicle_update.line_coordinate = ROM16(OBJECT(current_object)->drop_icicle_row.path - 2u);
+					OBJECT(block)->icicle_update.line_coordinate = ICICLE_DROPPER_STEP(OBJECT(current_object)->drop_icicle_row.path)[-1].end_coordinate;
 				}
 				break;
 			default:

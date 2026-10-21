@@ -69,10 +69,14 @@ decompiled game plays the scenarios of <code>tests/controls/</code>.</sub></p>
       type an object is: its own, one it gives a handler, one a typed link leads to); local variables have
       the names `symbols.txt` gives them by the instructions that write them, or take the name of what they
       hold, the field they were read from or the parameter they are passed as. Every byte of the program
-      ROM is code or named data. The records the code walks are structures: 46 in the game (floor blocks,
-      object templates, animation steps, text records in the ROM; ranking records, palette cycles, sprite
-      part lists in the work RAM) and 7 in the sound program (instruments, drum notes, songs...). The
-      original's quirks found along the way are noted next to the code they are in
+      ROM is code or named data. The records the code walks are structures: 200 in the game (180 in the
+      program ROM: floor blocks and slopes, spawn lists, the chasers' paths, animations, texts and VRAM
+      scripts, the ending's timed frames...; 20 in the work RAM: ranking records, palette cycles, sprite
+      part lists...) and 12 in the sound program (instruments, register pairs, songs...), with 58 + 10
+      kinds of values the code walks one at a time (a text's characters, a list of sprite frames) and
+      47 + 9 tables of records read by index. The C reads the program's data by these names, never by
+      its address (but 30 reads, below). The original's quirks found along the way are noted next to the
+      code they are in
 - [x] Readable C: no `goto`, a comment above every function (1,783), and what is left of the CPU counted
       by `tools/noise_report.py` and explained under "What is left, and why" below
 - [x] The game's source: the decompiled C is in `src/`, and the game builds from it
@@ -416,10 +420,18 @@ memory is in `runtime/include/game/support.h`.
   with the family (a button box's `parent` is Eggman's scene object:
   `OBJECT(LINKED(current_object, OBJECT(current_object)->parent))->eggman_scene.phase`); elsewhere those
   bytes keep their generic names (`var_80`). The records the code walks through pointers are structures
-  too: in the program ROM, read only, the stage's floor blocks (`FLOOR_BLOCK(block)->slope`), the object
-  templates, the animation steps, the text records; in the work RAM, the ranking records, the palette
-  cycles, the sprite part lists. A pointer into the program ROM that walks no fixed record (a script, a
-  text) reads it as `ROM16(p)`. What the code reads or writes through any other address it computes goes
+  too: in the work RAM, the ranking records, the palette cycles, the sprite part lists; in the program
+  ROM, read only, every record the code reads through a pointer, from the stage's floor blocks
+  (`FLOOR_BLOCK(block)->slope`) and spawn lists to the chasers' paths, the ending's timed frames and the
+  sound driver's register pairs. A record by its number from a pointer is `STRUCT(p)[i].field` (the one
+  after the pointer's, `[1]`; the one before, `[-1]`), and a table of records at a fixed place is read by
+  its name (`hud_gauge_positions_3p[kind].y`). A field can be an array, in the record
+  (`shocked_palettes[kind].palettes[frame]`, `crawler_walk_steps[variant].steps[step]`) or after it, as an
+  animation's frames follow its last frame's number
+  (`FRAME_ANIMATION(OBJECT(o)->animation)->frames[frame]`). Values a pointer walks one at a time, a text's
+  characters, a list of words, a script's bytes, are arrays of their kind
+  (`SPRITE_FRAME_NUMBERS(frame_list)[frame]`, `VRAM_SCRIPT(script)[0]`). What the code reads or writes
+  through any other address it computes goes
   through the board's bus: `mem_read16(p)`, `mem_write8(io_cnt, x)` (the board registers are addresses):
   the routines that fill, copy or draw into the board's memories wherever they are told, the memory tests.
   A part of a variable or field with no name of its own
@@ -493,21 +505,17 @@ of them can go without the C doing something the original does not:
 |---|---:|---|
 | `goto`, functions or memory named after an address (`sub_`, `unk_`), functions without a comment | 0 | |
 | Results copied back at each `return` (`*p_x = x;`) | 1500 | a caller hands two results the same variable (`ignored`), so writing one through its pointer would change the other; or the function works on the variable much more than it copies it back; or the copy is a part of the register |
-| Memory through a computed address (`mem_read16`, `mem_write32`) | 1192 | the board's memories and registers (video RAM, palette RAM, the I/O ports) and the generic routines that fill, copy and draw wherever they are told |
+| Memory through a computed address (`mem_read16`, `mem_write32`) | 1188 | the board's memories and registers (video RAM, palette RAM, the I/O ports) and the generic routines that fill, copy and draw wherever they are told |
 | Partial writes of a variable (`(x & ~0xFFFFu) \| y`) | 727 | the original writes the low byte or halfword of a register and keeps the rest |
 | `default: invalid_jump(...)` | 243 | the original never checks a jump table's index; the C stops where it would leave the table |
-| Parameters and locals named after a register (`r1`, `p_r4`) | 99 | a value one routine leaves in a register and another reads several calls later, whose meaning changes with the caller |
+| Parameters and locals named after a register (`r1`, `p_r4`) | 98 | a value one routine leaves in a register and another reads several calls later, whose meaning changes with the caller |
 | Several fields at once (`AS16`, `AT8`) | 67 | the original reads or writes two fields as one long |
 | Object fields without a name (`var_80`) | 48 | read through an object whose type the code does not show |
 | Numbers in the ROM's range left as numbers | 10 | most are not addresses (the checksum's bounds, values written into a ranking record, constants); one is `fraction_digit_font` + 3, the font's fourth byte (`build/decompile/unnamed_addresses.txt` lists them) |
 | Functions with `bool` control variables | 10 | jumps that cross in a way blocks cannot (see Control flow) |
 | Functions the board puts its own in place of (`runtime/replaced.txt`, `BOARD_ORIGINAL`) | 1 | `check_rom_checksums`, the MEMORY TEST's ROM part: it measures ROM chips, and the decompiled game has none (it finds no error, as a board with good chips does) |
 | Bytes of the code the game also reads as data (`assets.json`, `read_as_data`) | 999 | the original reads them through a null pointer or past a table's end: a structure or a text at a null pointer (the program's first 512 bytes, and the frames of its characters past `text_frames`), the map trail and marker of a stage with none, a rope bridge's sag. Each piece takes all a pointer or an index can reach there; the assets hold them, and no other byte of the code |
-
-Still to do, so the decompilation is not finished: the C reads its data through ROM addresses (`ROM8`,
-`ROM16`, `ROM32`, `SOUND_ROM8`...: 1137 reads, `rom_reads` in the count above), by a table's name, by a
-bare number and, most of them, through pointers that walk records, scripts and texts. They become tables
-and structures with names and types over the loaded assets, as the work RAM's variables are.
+| Data read through its address (`ROM16(...)`, `SOUND_ROM8(...)`) | 30 | of the 1,137 there were, the rest read by name (see Memory). These are a table's address plus a byte offset the game keeps (an object's `floor_attribute` into `floor_types`, which is also read by type number; a roller's `event_offset`; a sprite number or a marker's offset used as one: 12), which no record number says; an index the original works out in 16 bits (a halfword shift or multiply: 10), which an element number would not wrap the same way; a pointer to different kinds of data on different paths (an animation of frames or of flagged steps, a camera list of limits or of ends, a HUD animation of palettes or of frames) or brought back from the stack (7); and a sound header's second byte, a playlist's first song or an effect's first event (1) |
 
 ## How the port works
 

@@ -3,7 +3,7 @@
  *    Description: the game's variables, tables, board registers and structures
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    19-10-2026
+ *    Modified:    21-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -1377,6 +1377,8 @@
 #define unused_drift_byte RAM8(unused_drift_byte_ADDRESS)
 #define icicle_row_offset_ADDRESS 0x20F0EAu
 #define icicle_row_offset RAM16(icicle_row_offset_ADDRESS)
+#define demo_input_ADDRESS 0x20E5CEu
+#define demo_input RAM32(demo_input_ADDRESS)
 #define geysers_left_ADDRESS 0x20F0EAu
 #define geysers_left RAM16S(geysers_left_ADDRESS)
 #define geyser_y_ADDRESS 0x20F0ECu
@@ -1539,6 +1541,8 @@
 #define banner_letters_left RAM16S(banner_letters_left_ADDRESS)
 #define player_handler_list_ADDRESS 0x20F0EAu
 #define player_handler_list RAM32(player_handler_list_ADDRESS)
+#define demo_input_ADDRESS 0x20E5CEu
+#define demo_input RAM32(demo_input_ADDRESS)
 #define trackball_1_quadrants_ADDRESS 0x20906Bu
 #define trackball_1_quadrants RAM8(trackball_1_quadrants_ADDRESS)
 #define trackball_2_quadrants_ADDRESS 0x20906Cu
@@ -1601,18 +1605,12 @@
 #define spike_panel_frame_sequence ((const uint8_t *)rom(spike_panel_frame_sequence_ADDRESS))
 #define spike_panel_step_durations_ADDRESS 0x00F474u
 #define spike_panel_step_durations ((const uint16_t *)rom(spike_panel_step_durations_ADDRESS))
-#define spike_panel_head_offsets_ADDRESS 0x00F486u
-#define spike_panel_head_offsets ROM16S(spike_panel_head_offsets_ADDRESS)
 #define spike_panel_head_sprites_ADDRESS 0x00F49Eu
 #define spike_panel_head_sprites ((const uint16_t *)rom(spike_panel_head_sprites_ADDRESS))
-#define spike_panel_part_1_offsets_ADDRESS 0x00F4DAu
-#define spike_panel_part_1_offsets ROM16S(spike_panel_part_1_offsets_ADDRESS)
 #define spike_panel_part_1_sprite_flags_ADDRESS 0x00F4FEu
 #define spike_panel_part_1_sprite_flags ((const uint16_t *)rom(spike_panel_part_1_sprite_flags_ADDRESS))
 #define spike_panel_part_1_sprites_ADDRESS 0x00F50Au
 #define spike_panel_part_1_sprites ((const uint16_t *)rom(spike_panel_part_1_sprites_ADDRESS))
-#define spike_panel_part_2_offsets_ADDRESS 0x00F516u
-#define spike_panel_part_2_offsets ROM16S(spike_panel_part_2_offsets_ADDRESS)
 #define spike_panel_part_2_sprites_ADDRESS 0x00F52Eu
 #define spike_panel_part_2_sprites ((const uint16_t *)rom(spike_panel_part_2_sprites_ADDRESS))
 #define electric_pole_rise_frames_ADDRESS 0x00F736u
@@ -1639,8 +1637,6 @@
 #define flame_machine_hit_palettes ((const uint16_t *)rom(flame_machine_hit_palettes_ADDRESS))
 #define flame_machine_rod_sprites_ADDRESS 0x010196u
 #define flame_machine_rod_sprites ((const uint16_t *)rom(flame_machine_rod_sprites_ADDRESS))
-#define flame_machine_back_wall_offsets_ADDRESS 0x0101A0u
-#define flame_machine_back_wall_offsets ROM16S(flame_machine_back_wall_offsets_ADDRESS)
 #define flame_machine_back_wall_frames_ADDRESS 0x0101B8u
 #define flame_machine_back_wall_frames ((const uint8_t *)rom(flame_machine_back_wall_frames_ADDRESS))
 #define flame_machine_arm_sprites_ADDRESS 0x010351u
@@ -1649,12 +1645,8 @@
 #define flame_machine_arm_part_sprites ((const uint16_t *)rom(flame_machine_arm_part_sprites_ADDRESS))
 #define flame_machine_arm_frames_ADDRESS 0x010385u
 #define flame_machine_arm_frames ((const uint8_t *)rom(flame_machine_arm_frames_ADDRESS))
-#define flame_machine_arm_sway_offsets_ADDRESS 0x01039Eu
-#define flame_machine_arm_sway_offsets ROM8S(flame_machine_arm_sway_offsets_ADDRESS)
 #define flame_machine_cannon_hit_palettes_ADDRESS 0x01042Du
 #define flame_machine_cannon_hit_palettes ((const uint16_t *)rom(flame_machine_cannon_hit_palettes_ADDRESS))
-#define flame_machine_flame_offsets_ADDRESS 0x010575u
-#define flame_machine_flame_offsets ROM16S(flame_machine_flame_offsets_ADDRESS)
 #define flame_machine_flame_frames_ADDRESS 0x01057Du
 #define flame_machine_flame_frames ((const uint8_t *)rom(flame_machine_flame_frames_ADDRESS))
 #define flame_machine_flame_sprites_ADDRESS 0x0105F4u
@@ -1665,8 +1657,6 @@
 #define flame_machine_flame_directions ((const uint16_t *)rom(flame_machine_flame_directions_ADDRESS))
 #define spiked_disc_sprites_ADDRESS 0x0107AFu
 #define spiked_disc_sprites ((const uint16_t *)rom(spiked_disc_sprites_ADDRESS))
-#define spiked_disc_hold_offsets_ADDRESS 0x0107B7u
-#define spiked_disc_hold_offsets ROM16S(spiked_disc_hold_offsets_ADDRESS)
 #define treadmill_belt_sprites_ADDRESS 0x010B84u
 #define treadmill_belt_sprites ((const uint16_t *)rom(treadmill_belt_sprites_ADDRESS))
 #define treadmill_lift_forces_ADDRESS 0x010B94u
@@ -1693,10 +1683,6 @@
 #define ice_cube_speeds ((const uint16_t *)rom(ice_cube_speeds_ADDRESS))
 #define ice_launcher_frames_ADDRESS 0x011E48u
 #define ice_launcher_frames ((const uint8_t *)rom(ice_launcher_frames_ADDRESS))
-#define ice_launcher_hitbox_sizes_ADDRESS 0x011E57u
-#define ice_launcher_hitbox_sizes ROM16(ice_launcher_hitbox_sizes_ADDRESS)
-#define ice_launcher_hitbox_offsets_ADDRESS 0x011E8Fu
-#define ice_launcher_hitbox_offsets ROM8(ice_launcher_hitbox_offsets_ADDRESS)
 #define wall_pad_frames_ADDRESS 0x01205Bu
 #define wall_pad_frames ((const uint8_t *)rom(wall_pad_frames_ADDRESS))
 #define wall_pad_sprites_ADDRESS 0x012066u
@@ -1717,18 +1703,8 @@
 #define crawler_head_frames ((const uint16_t *)rom(crawler_head_frames_ADDRESS))
 #define crawler_tail_frames_ADDRESS 0x012AD4u
 #define crawler_tail_frames ((const uint16_t *)rom(crawler_tail_frames_ADDRESS))
-#define crawler_walk_steps_ADDRESS 0x012AD8u
-#define crawler_walk_steps ROM8(crawler_walk_steps_ADDRESS)
 #define crawler_segment_frames_ADDRESS 0x012AE4u
 #define crawler_segment_frames ((const uint16_t *)rom(crawler_segment_frames_ADDRESS))
-#define crawler_collision_boxes_ADDRESS 0x012AF4u
-#define crawler_collision_boxes ROM16(crawler_collision_boxes_ADDRESS)
-#define crawler_segment_offsets_ADDRESS 0x012B00u
-#define crawler_segment_offsets ROM16S(crawler_segment_offsets_ADDRESS)
-#define crawler_tail_offsets_ADDRESS 0x012B14u
-#define crawler_tail_offsets ROM16S(crawler_tail_offsets_ADDRESS)
-#define crawler_head_offsets_ADDRESS 0x012B1Cu
-#define crawler_head_offsets ROM16S(crawler_head_offsets_ADDRESS)
 #define eggman_booth_frames_ADDRESS 0x012C35u
 #define eggman_booth_frames ((const uint16_t *)rom(eggman_booth_frames_ADDRESS))
 #define eggman_booth_frame_durations_ADDRESS 0x012C53u
@@ -1737,12 +1713,8 @@
 #define eggman_booth_steps ((const uint8_t *)rom(eggman_booth_steps_ADDRESS))
 #define wall_piece_frames_ADDRESS 0x012CFCu
 #define wall_piece_frames ((const uint16_t *)rom(wall_piece_frames_ADDRESS))
-#define wall_piece_boxes_ADDRESS 0x012D08u
-#define wall_piece_boxes ROM16(wall_piece_boxes_ADDRESS)
 #define shaking_block_frames_ADDRESS 0x012E3Cu
 #define shaking_block_frames ((const uint16_t *)rom(shaking_block_frames_ADDRESS))
-#define shaking_block_boxes_ADDRESS 0x012E48u
-#define shaking_block_boxes ROM16(shaking_block_boxes_ADDRESS)
 #define sand_rock_crumble_frames_ADDRESS 0x012F9Du
 #define sand_rock_crumble_frames ((const uint16_t *)rom(sand_rock_crumble_frames_ADDRESS))
 #define snow_mound_burst_frames_ADDRESS 0x0131E9u
@@ -1763,16 +1735,8 @@
 #define eggman_teleport_durations ((const uint16_t *)rom(eggman_teleport_durations_ADDRESS))
 #define sand_arch_spray_frames_ADDRESS 0x0138BDu
 #define sand_arch_spray_frames ((const uint16_t *)rom(sand_arch_spray_frames_ADDRESS))
-#define fence_post_offsets_ADDRESS 0x013A65u
-#define fence_post_offsets ROM16S(fence_post_offsets_ADDRESS)
-#define fence_post_boxes_ADDRESS 0x013A75u
-#define fence_post_boxes ROM16(fence_post_boxes_ADDRESS)
-#define fence_post_box_offsets_ADDRESS 0x013A85u
-#define fence_post_box_offsets ROM8S(fence_post_box_offsets_ADDRESS)
 #define fence_arc_flags_ADDRESS 0x013A8Du
 #define fence_arc_flags ((const uint16_t *)rom(fence_arc_flags_ADDRESS))
-#define fence_arc_offsets_ADDRESS 0x013A95u
-#define fence_arc_offsets ROM16S(fence_arc_offsets_ADDRESS)
 #define fence_arc_frames_ADDRESS 0x013AA5u
 #define fence_arc_frames ((const uint16_t *)rom(fence_arc_frames_ADDRESS))
 #define mine_bubble_frames_ADDRESS 0x013B3Fu
@@ -1894,7 +1858,7 @@
 #define stage_tile_sets_ADDRESS 0x01A695u
 #define stage_tile_sets ((const uint32_t *)rom(stage_tile_sets_ADDRESS))
 #define scroll_skip_value_lists_ADDRESS 0x01AD04u
-#define scroll_skip_value_lists ROM32(scroll_skip_value_lists_ADDRESS)
+#define scroll_skip_value_lists ((const uint32_t *)rom(scroll_skip_value_lists_ADDRESS))
 #define scroll_skip_last_points_ADDRESS 0x01AD10u
 #define scroll_skip_last_points ((const uint16_t *)rom(scroll_skip_last_points_ADDRESS))
 #define stage_palette_sets_ADDRESS 0x01B174u
@@ -1951,8 +1915,6 @@
 #define spiked_roller_part_frames ROM8(spiked_roller_part_frames_ADDRESS)
 #define catapult_launch_delays_ADDRESS 0x08224Au
 #define catapult_launch_delays ((const uint16_t *)rom(catapult_launch_delays_ADDRESS))
-#define stage_03_floor_block_kinds_ADDRESS 0x082284u
-#define stage_03_floor_block_kinds ROM16(stage_03_floor_block_kinds_ADDRESS)
 #define spiked_roller_frames_ADDRESS 0x0822D2u
 #define spiked_roller_frames ((const uint16_t *)rom(spiked_roller_frames_ADDRESS))
 #define spiked_roller_animation_speeds_ADDRESS 0x0822E4u
@@ -1963,8 +1925,6 @@
 #define spiked_roller_events ((const uint16_t *)rom(spiked_roller_events_ADDRESS))
 #define roller_wall_fragment_count_ADDRESS 0x08234Cu
 #define roller_wall_fragment_count ROM16(roller_wall_fragment_count_ADDRESS)
-#define roller_wall_fragments_ADDRESS 0x08234Eu
-#define roller_wall_fragments ROM16(roller_wall_fragments_ADDRESS)
 #define spiked_roller_rumble_delays_ADDRESS 0x082396u
 #define spiked_roller_rumble_delays ((const uint8_t *)rom(spiked_roller_rumble_delays_ADDRESS))
 #define fireball_emitter_lists_ADDRESS 0x083185u
@@ -1973,8 +1933,6 @@
 #define fireball_types ROM16(fireball_types_ADDRESS)
 #define door_fragments_ADDRESS 0x08334Fu
 #define door_fragments ROM16(door_fragments_ADDRESS)
-#define door_roller_layout_ADDRESS 0x0833EFu
-#define door_roller_layout ROM16(door_roller_layout_ADDRESS)
 #define object_steps_ADDRESS 0x08340Du
 #define object_steps ((const uint16_t *)rom(object_steps_ADDRESS))
 #define floor_sign_sprites_ADDRESS 0x084FA7u
@@ -1993,8 +1951,6 @@
 #define eggman_speech_scripts ((const uint16_t *)rom(eggman_speech_scripts_ADDRESS))
 #define ram_target_debris_count_ADDRESS 0x085ED3u
 #define ram_target_debris_count ROM16(ram_target_debris_count_ADDRESS)
-#define ram_target_debris_ADDRESS 0x085ED5u
-#define ram_target_debris ROM16(ram_target_debris_ADDRESS)
 #define group_leader_hold_records_ADDRESS 0x085F4Du
 #define group_leader_hold_records ((const uint16_t *)rom(group_leader_hold_records_ADDRESS))
 #define burning_boulder_roll_rates_ADDRESS 0x087B79u
@@ -2017,8 +1973,6 @@
 #define tornado_column_top_frames ((const uint16_t *)rom(tornado_column_top_frames_ADDRESS))
 #define tornado_records_ADDRESS 0x08A6C0u
 #define tornado_records ((const uint16_t *)rom(tornado_records_ADDRESS))
-#define sink_swirl_effects_ADDRESS 0x08A80Eu
-#define sink_swirl_effects ROM16(sink_swirl_effects_ADDRESS)
 #define fire_front_paths_ADDRESS 0x08BDA1u
 #define fire_front_paths ((const uint16_t *)rom(fire_front_paths_ADDRESS))
 #define biting_head_paths_ADDRESS 0x08BE25u
@@ -2093,8 +2047,6 @@
 #define chooser_trackball_offsets ((const uint16_t *)rom(chooser_trackball_offsets_ADDRESS))
 #define chooser_button_bits_ADDRESS 0x090351u
 #define chooser_button_bits ((const uint8_t *)rom(chooser_button_bits_ADDRESS))
-#define character_taken_bits_ADDRESS 0x090354u
-#define character_taken_bits ((const uint8_t *)rom(character_taken_bits_ADDRESS))
 #define chooser_player_labels_ADDRESS 0x090357u
 #define chooser_player_labels ((const uint16_t *)rom(chooser_player_labels_ADDRESS))
 #define character_name_sprites_ADDRESS 0x09035Du
@@ -2103,8 +2055,6 @@
 #define join_chooser_portraits ((const uint16_t *)rom(join_chooser_portraits_ADDRESS))
 #define join_chooser_palettes_ADDRESS 0x090369u
 #define join_chooser_palettes ((const uint16_t *)rom(join_chooser_palettes_ADDRESS))
-#define chooser_voice_sounds_ADDRESS 0x09036Fu
-#define chooser_voice_sounds ROM8(chooser_voice_sounds_ADDRESS)
 #define player_select_title_palettes_ADDRESS 0x09037Bu
 #define player_select_title_palettes ((const uint16_t *)rom(player_select_title_palettes_ADDRESS))
 #define join_chooser_blocks_ADDRESS 0x090395u
@@ -2203,10 +2153,6 @@
 #define video_register_defaults ROM16(video_register_defaults_ADDRESS)
 #define attract_sound_mask_ADDRESS 0x09A692u
 #define attract_sound_mask ((const uint32_t *)rom(attract_sound_mask_ADDRESS))
-#define sprite_buffer_swaps_ADDRESS 0x09A6CCu
-#define sprite_buffer_swaps ROM16(sprite_buffer_swaps_ADDRESS)
-#define line_direction_steps_ADDRESS 0x09C4D2u
-#define line_direction_steps ROM16S(line_direction_steps_ADDRESS)
 #define eeprom_defaults_ADDRESS 0x09C580u
 #define eeprom_defaults ROM8(eeprom_defaults_ADDRESS)
 #define ram_test_patterns_ADDRESS 0x09ED5Cu
@@ -2255,8 +2201,6 @@
 #define fraction_slash_top_rows ROM32(fraction_slash_top_rows_ADDRESS)
 #define fraction_slash_bottom_rows_ADDRESS 0x104BCEu
 #define fraction_slash_bottom_rows ROM32(fraction_slash_bottom_rows_ADDRESS)
-#define stage_palettes_ADDRESS 0x108CD0u
-#define stage_palettes ROM32(stage_palettes_ADDRESS)
 #define stage_floor_blocks_ADDRESS 0x10B6CCu
 #define stage_floor_blocks ((const uint16_t *)rom(stage_floor_blocks_ADDRESS))
 #define floor_slope_factors_ADDRESS 0x10DF46u
@@ -2271,8 +2215,6 @@
 #define floor_attribute_wall_heights ((const uint16_t *)rom(floor_attribute_wall_heights_ADDRESS))
 #define stage_floor_block_bounds_ADDRESS 0x10E29Cu
 #define stage_floor_block_bounds ((const uint16_t *)rom(stage_floor_block_bounds_ADDRESS))
-#define teetering_animations_ADDRESS 0x1128AEu
-#define teetering_animations ROM16(teetering_animations_ADDRESS)
 #define sonic_bounce_records_ADDRESS 0x1139E8u
 #define sonic_bounce_records ((const uint16_t *)rom(sonic_bounce_records_ADDRESS))
 #define ray_bounce_records_ADDRESS 0x113A28u
@@ -2287,8 +2229,6 @@
 #define mighty_stuck_struggle_animations ROM32(mighty_stuck_struggle_animations_ADDRESS)
 #define ledge_recover_headings_ADDRESS 0x113CD1u
 #define ledge_recover_headings ((const uint16_t *)rom(ledge_recover_headings_ADDRESS))
-#define floor_type_player_states_ADDRESS 0x113CD9u
-#define floor_type_player_states ROM8(floor_type_player_states_ADDRESS)
 #define screen_edge_scroll_carry_flags_ADDRESS 0x113CE7u
 #define screen_edge_scroll_carry_flags ROM8S(screen_edge_scroll_carry_flags_ADDRESS)
 #define player_palette_lists_ADDRESS 0x113D59u
@@ -2297,34 +2237,16 @@
 #define floor_block_side_codes ((const uint8_t *)rom(floor_block_side_codes_ADDRESS))
 #define heading_speed_factors_ADDRESS 0x113EC0u
 #define heading_speed_factors ((const uint16_t *)rom(heading_speed_factors_ADDRESS))
-#define screen_edge_push_directions_ADDRESS 0x113EE0u
-#define screen_edge_push_directions ROM16(screen_edge_push_directions_ADDRESS)
 #define max_health_by_setting_ADDRESS 0x113EF2u
 #define max_health_by_setting ((const uint16_t *)rom(max_health_by_setting_ADDRESS))
-#define hud_gauge_positions_3p_ADDRESS 0x113F10u
-#define hud_gauge_positions_3p ROM16(hud_gauge_positions_3p_ADDRESS)
-#define hud_gauge_positions_3p_y_ADDRESS 0x113F12u
-#define hud_gauge_positions_3p_y ROM16(hud_gauge_positions_3p_y_ADDRESS)
-#define hud_gauge_positions_2p_ADDRESS 0x113F1Cu
-#define hud_gauge_positions_2p ROM16(hud_gauge_positions_2p_ADDRESS)
-#define hud_portrait_positions_3p_ADDRESS 0x113F24u
-#define hud_portrait_positions_3p ROM16(hud_portrait_positions_3p_ADDRESS)
-#define hud_portrait_positions_2p_ADDRESS 0x113F30u
-#define hud_portrait_positions_2p ROM16(hud_portrait_positions_2p_ADDRESS)
-#define hud_portrait_sprites_ADDRESS 0x113F38u
-#define hud_portrait_sprites ROM16(hud_portrait_sprites_ADDRESS)
 #define hud_stage_rings_positions_ADDRESS 0x113F44u
 #define hud_stage_rings_positions ((const uint16_t *)rom(hud_stage_rings_positions_ADDRESS))
 #define floor_1_facing_bases_ADDRESS 0x113F4Au
 #define floor_1_facing_bases ((const uint8_t *)rom(floor_1_facing_bases_ADDRESS))
-#define shocked_palettes_ADDRESS 0x113F4Fu
-#define shocked_palettes ROM16(shocked_palettes_ADDRESS)
 #define fall_sprite_priorities_ADDRESS 0x113F7Fu
 #define fall_sprite_priorities ROM8S(fall_sprite_priorities_ADDRESS)
 #define hop_speeds_by_speed_ADDRESS 0x113F9Fu
 #define hop_speeds_by_speed ((const int16_t *)rom(hop_speeds_by_speed_ADDRESS))
-#define shrink_away_positions_ADDRESS 0x113FABu
-#define shrink_away_positions ROM16S(shrink_away_positions_ADDRESS)
 #define hud_prompt_positions_3p_ADDRESS 0x113FB7u
 #define hud_prompt_positions_3p ((const uint16_t *)rom(hud_prompt_positions_3p_ADDRESS))
 #define hud_prompt_positions_2p_ADDRESS 0x113FBDu
@@ -2365,8 +2287,6 @@
 #define ray_trap_struggle_animations ROM32(ray_trap_struggle_animations_ADDRESS)
 #define mighty_trap_struggle_animations_ADDRESS 0x114AC0u
 #define mighty_trap_struggle_animations ROM32(mighty_trap_struggle_animations_ADDRESS)
-#define edge_voice_scroll_ranges_ADDRESS 0x114B38u
-#define edge_voice_scroll_ranges ROM16(edge_voice_scroll_ranges_ADDRESS)
 #define stage_restart_points_ADDRESS 0x114B84u
 #define stage_restart_points ((const uint16_t *)rom(stage_restart_points_ADDRESS))
 #define player_path_offsets_ADDRESS 0x115528u
@@ -2411,8 +2331,6 @@
 #define coin_setting_texts_individual ((const uint32_t *)rom(coin_setting_texts_individual_ADDRESS))
 #define individual_coin_setting_numbers_ADDRESS 0x1167B5u
 #define individual_coin_setting_numbers ((const uint8_t *)rom(individual_coin_setting_numbers_ADDRESS))
-#define coin_setting_values_ADDRESS 0x116EC5u
-#define coin_setting_values ROM8(coin_setting_values_ADDRESS)
 #define chute_1_credit_cell_positions_ADDRESS 0x116F2Du
 #define chute_1_credit_cell_positions ROM8(chute_1_credit_cell_positions_ADDRESS)
 #define chute_2_credit_cell_positions_ADDRESS 0x116F3Fu
@@ -2808,7 +2726,6 @@
 #define blank_fireball_animation_ADDRESS 0x083329u
 #define boulder_animation_ADDRESS 0x083335u
 #define roller_back_zone_limits_ADDRESS 0x08341Fu
-#define screen_sign_kinds_ADDRESS 0x084FA9u
 #define object_kinds_ADDRESS 0x084FB5u
 #define sign_palette_lists_ADDRESS 0x08514Du
 #define cage_bar_animation_ADDRESS 0x085171u
@@ -2896,8 +2813,6 @@
 #define river_raft_fall_animation_ADDRESS 0x08DAC6u
 #define river_raft_foam_animation_ADDRESS 0x08DAD2u
 #define river_raft_unused_animation_2_ADDRESS 0x08DADAu
-#define stone_block_positions_ADDRESS 0x08DAF0u
-#define geyser_line_starts_ADDRESS 0x08DB10u
 #define geyser_line_scripts_ADDRESS 0x08DB20u
 #define geyser_burst_animation_ADDRESS 0x08DB50u
 #define geyser_burst_spray_animation_ADDRESS 0x08DB62u
@@ -2905,7 +2820,6 @@
 #define propeller_machine_animation_ADDRESS 0x08DBC6u
 #define propeller_machine_path_ADDRESS 0x08DBD8u
 #define barred_gate_animation_ADDRESS 0x08DC10u
-#define scene_anchor_positions_ADDRESS 0x08DC1Cu
 #define railing_parts_ADDRESS 0x08DC24u
 #define ranking_rank_texts_ADDRESS 0x08EFF8u
 #define countdown_second_texts_ADDRESS 0x08F08Eu
@@ -3041,7 +2955,6 @@
 #define stage_0c_0e_floor_blocks_ADDRESS 0x10D6A2u
 #define stage_0d_0f_floor_blocks_ADDRESS 0x10D846u
 #define stage_10_floor_blocks_ADDRESS 0x10D93Au
-#define floor_slopes_ADDRESS 0x10DF44u
 #define slope_speed_direction_pairs_ADDRESS 0x10DFCCu
 #define stage_00_floor_block_bounds_ADDRESS 0x10E2C2u
 #define stage_01_02_03_07_floor_block_bounds_ADDRESS 0x10E2D4u
@@ -5811,6 +5724,33 @@ struct object
 		} player_effect;
 		struct
 		{
+			uint8_t pad_10[0x38];
+			uint32_t animation;
+			uint8_t pad_4C[0x34];
+			uint32_t palette_list;
+		} player_object_climb;
+		struct
+		{
+			uint8_t pad_10[0x38];
+			uint32_t animation;
+		} player_state_bouncing;
+		struct
+		{
+			uint8_t pad_10[0x38];
+			uint32_t animation;
+		} player_state_dropping;
+		struct
+		{
+			uint8_t pad_10[0x38];
+			uint32_t animation;
+		} player_stuck_jump_out;
+		struct
+		{
+			uint8_t pad_10[0x38];
+			uint32_t animation;
+		} player_stuck_on_object_jump_out;
+		struct
+		{
 			uint8_t pad_10[0x70];
 			uint32_t path;
 			int16_t screen_threshold;
@@ -6323,6 +6263,11 @@ struct object
 			uint8_t pad_10[0x58];
 			uint32_t next_listed_geyser;
 		} spawn_listed_geyser;
+		struct
+		{
+			uint8_t pad_10[0x38];
+			uint32_t animation;
+		} spawn_slip_piece;
 		struct
 		{
 			uint8_t pad_10[0x72];
@@ -6979,6 +6924,717 @@ struct player
 	uint8_t pad_1DA[0x26];
 };
 
+struct object_type_record
+{
+	uint32_t part_count;
+	uint32_t handler;
+};
+
+struct type_spawn_record
+{
+	uint16_t position;
+	uint16_t projected_x;
+	int16_t projected_y;
+	int16_t z;
+	uint16_t object_type;
+	uint16_t spawn_arg_1;
+	uint16_t spawn_arg_2;
+};
+
+struct handler_spawn_record
+{
+	uint16_t position;
+	uint16_t x;
+	uint16_t y;
+	uint16_t handler_arg;
+	uint32_t handler;
+};
+
+struct object_start_list
+{
+	uint16_t count;
+};
+
+struct machine_fireball_spawns
+{
+	uint16_t count;
+};
+
+struct machine_fireball_spawn
+{
+	int16_t x;
+	int16_t y;
+	int16_t target_x;
+	int16_t target_y;
+	int16_t z;
+	uint32_t next_handler;
+};
+
+struct ring_row
+{
+	uint16_t position;
+	uint16_t template_offset;
+	int16_t ring_count;
+	uint16_t x;
+	uint16_t y;
+	int8_t dx;
+	int8_t dy;
+};
+
+struct group_spawn_record
+{
+	uint16_t position;
+	uint8_t kind;
+	uint8_t leader;
+	uint8_t takes_slot;
+	uint8_t pad_05[0x1];
+	uint32_t floor_block;
+	uint16_t member_count;
+	uint16_t step_x;
+	uint16_t step_y;
+	uint16_t direction;
+	uint16_t member_x;
+	uint16_t member_y;
+	uint16_t member_template;
+};
+
+struct sprite_buffer_swap
+{
+	uint16_t back_buffer_offset;
+	uint16_t list_jump;
+};
+
+struct sine_and_cosine
+{
+	uint16_t sine;
+	uint8_t pad_02[0x1FE];
+	uint16_t cosine;
+};
+
+struct floor_block_type
+{
+	uint8_t floor_type;
+	uint8_t pad_01[0x1];
+	uint16_t floor_attribute;
+};
+
+struct floor_outline_list
+{
+	uint16_t count;
+};
+
+struct floor_outline
+{
+	int16_t left_x;
+	int16_t left_y;
+	int16_t right_x;
+	int16_t right_y;
+	int16_t top_x;
+	int16_t top_y;
+	int16_t bottom_x;
+	int16_t bottom_y;
+};
+
+struct floor_outline_corner
+{
+	uint16_t x;
+	uint16_t y;
+};
+
+struct stage_event
+{
+	uint16_t position;
+	uint8_t next_game_mode;
+	uint8_t pad_03[0x1];
+};
+
+struct stage_link_point
+{
+	uint16_t from_block;
+	uint16_t to_block;
+};
+
+struct layer_blend_list
+{
+	uint8_t count;
+};
+
+struct layer_blend_record
+{
+	uint8_t blend_mask;
+	uint8_t layer_bit;
+	uint16_t shadow_offset;
+	uint16_t blend_factor;
+};
+
+struct restart_point_record
+{
+	uint16_t position;
+	uint8_t pad_02[0x6];
+};
+
+struct stage_palette
+{
+	uint32_t source;
+	uint32_t halfword_count;
+};
+
+struct stage_name_banner
+{
+	uint16_t screen_x;
+	uint16_t screen_y;
+};
+
+struct scroll_mode_step
+{
+	uint16_t mode;
+	uint16_t duration;
+};
+
+struct event_0f_message
+{
+	int16_t show_time;
+	uint16_t screen_x;
+	uint16_t screen_y;
+	uint16_t kind;
+	uint16_t frames;
+};
+
+struct message_box_kind
+{
+	uint16_t sprite_frame;
+	uint16_t palette;
+	uint16_t width;
+	uint16_t height;
+};
+
+struct stage_06_lightning_strike
+{
+	int16_t strike_time;
+	uint16_t screen_x;
+	uint16_t screen_y;
+	uint32_t animation;
+};
+
+struct event_1a_scroll_step
+{
+	uint16_t position;
+	uint16_t mode;
+	uint16_t speed;
+};
+
+struct stage_03_floor_block_kind
+{
+	uint16_t shape;
+	uint16_t fall_flag;
+};
+
+struct stage_03_floor_block_shape
+{
+	int8_t sprite_offset_x;
+	int8_t sprite_offset_y;
+	uint16_t depth_offset;
+};
+
+struct stage_03_floor_block_animation
+{
+	uint16_t last_frame;
+	uint16_t first_frame;
+	uint8_t pad_04[0x4];
+};
+
+struct rock_debris_piece
+{
+	uint16_t sprite_flags;
+	uint16_t offset_x;
+	uint16_t offset_y;
+	uint16_t speed_x;
+	uint16_t speed_y;
+	uint16_t animation_offset;
+};
+
+struct spiked_roller_kind
+{
+	uint8_t part_count;
+	uint16_t layout;
+	uint16_t first_state;
+	uint16_t back_zone;
+};
+
+struct spiked_roller_chase_step
+{
+	uint16_t position;
+	int16_t screen_threshold;
+	int16_t catch_up_factor;
+	int16_t base_speed;
+	uint16_t wait;
+};
+
+struct spiked_roller_layout
+{
+	int8_t step_x;
+	int8_t step_y;
+	uint8_t pad_02[0xE];
+};
+
+struct spiked_roller_part
+{
+	uint16_t sprite_flags;
+	uint16_t hitbox_size_x;
+	uint16_t hitbox_size_y;
+	uint16_t path_direction;
+	uint32_t flags;
+	int8_t hitbox_offset_x;
+	int8_t hitbox_offset_y;
+};
+
+struct spiked_roller_event
+{
+	uint16_t position;
+	uint16_t test;
+	int16_t coordinate;
+	uint16_t state;
+};
+
+struct door_roller_spawn
+{
+	int16_t x;
+	int16_t y;
+	uint8_t first_frame;
+	uint8_t pad_05[0x1];
+};
+
+struct door_fragment
+{
+	uint8_t pad_00[0x8];
+	uint16_t animation;
+};
+
+struct fireball_emitter_list
+{
+	int16_t x;
+	int16_t y;
+	int16_t floor_z;
+};
+
+struct fireball_type
+{
+	uint16_t sprite_flags;
+	uint16_t sprite_palette;
+	uint16_t sprite_scale;
+	uint16_t hitbox_height;
+	uint16_t hitbox_size_x;
+	int8_t sprite_offset_x;
+	int8_t sprite_offset_y;
+	int8_t hitbox_centre_x;
+	int8_t hitbox_centre_y;
+	uint16_t animation;
+};
+
+struct machine_fire_script_step
+{
+	int16_t height;
+	int16_t screen_threshold;
+	int16_t catch_up_factor;
+	int16_t base_speed;
+	uint16_t wait;
+};
+
+struct cage_bar_animation
+{
+	uint16_t last_frame;
+	uint8_t pad_02[0x4];
+	uint16_t broken_frame;
+};
+
+struct fire_vent_spawn
+{
+	uint16_t position;
+	int16_t x;
+	int16_t y;
+	int16_t z;
+	int16_t blast_delay;
+};
+
+struct icicle_dropper_record
+{
+	int16_t x;
+	int16_t y;
+	int16_t z;
+	uint16_t direction;
+	uint16_t flags;
+	uint16_t script;
+};
+
+struct icicle_dropper_step
+{
+	uint16_t position;
+	int16_t screen_threshold;
+	int16_t catch_up_factor;
+	int16_t base_speed;
+	uint16_t wait;
+	int16_t end_coordinate;
+};
+
+struct sink_swirl_effect
+{
+	int16_t depth_offset;
+	uint32_t streak_animation;
+	uint32_t puff_animation;
+};
+
+struct object_start_place
+{
+	int16_t x;
+	int16_t y;
+	int16_t floor_z;
+	uint16_t end_position;
+};
+
+struct river_raft_entry
+{
+	int16_t distance;
+	uint16_t speed;
+	uint32_t floor_block;
+};
+
+struct geyser_front_record
+{
+	int16_t start_z;
+	int16_t top_height;
+	uint16_t geyser_list;
+};
+
+struct chase_step_at_scroll
+{
+	uint16_t position;
+	int16_t screen_threshold;
+	int16_t catch_up_factor;
+	int16_t base_speed;
+	uint16_t wait;
+};
+
+struct listed_geyser
+{
+	uint16_t position;
+	uint16_t x;
+	uint16_t y;
+	uint16_t z;
+	uint16_t erupt_position;
+};
+
+struct stone_block_position
+{
+	int16_t x;
+	int16_t y;
+	int16_t z;
+	int16_t depth_offset;
+};
+
+struct geyser_line_start
+{
+	int16_t x;
+	int16_t y;
+	int16_t z;
+	uint16_t script;
+};
+
+struct geyser_line_step
+{
+	uint16_t position;
+	int16_t y_limit;
+	int16_t speed;
+	int16_t wait;
+};
+
+struct propeller_machine_animation_step
+{
+	uint16_t parts_6_9_frame;
+	uint16_t part_4_frame;
+};
+
+struct rope_bridge_rope_offset
+{
+	int16_t dx;
+	int16_t dy;
+};
+
+struct spike_panel_screen_offset
+{
+	int16_t dx;
+	int16_t dy;
+};
+
+struct spike_panel_part_offset
+{
+	int16_t dx;
+	int16_t dy;
+	int16_t dz;
+};
+
+struct flame_machine_offset
+{
+	int16_t dx;
+	int16_t dy;
+};
+
+struct flame_machine_arm_sway
+{
+	int8_t dx;
+	int8_t dy;
+};
+
+struct spiked_disc_hold_offset
+{
+	int16_t dx;
+	int16_t dz;
+};
+
+struct hitbox_size_pair
+{
+	uint16_t size_x;
+	uint16_t size_y;
+};
+
+struct hitbox_offset_pair
+{
+	int8_t x;
+	int8_t y;
+};
+
+struct crawler_walk_row
+{
+	uint8_t steps[0x6];
+};
+
+struct hitbox_size_and_offset
+{
+	uint16_t size_x;
+	uint16_t size_y;
+	int8_t offset_x;
+	int8_t offset_y;
+};
+
+struct crawler_piece_offset
+{
+	int16_t dx;
+	int16_t dy;
+};
+
+struct fence_offset
+{
+	uint16_t dx;
+	uint16_t dy;
+};
+
+struct fence_post_box
+{
+	uint16_t size_x;
+	uint16_t size_y;
+};
+
+struct fence_post_box_offset
+{
+	int8_t x;
+	int8_t y;
+};
+
+struct sprite_palette_cycle
+{
+	uint16_t last_index;
+	uint16_t palettes[];
+};
+
+struct eggman_speech_step
+{
+	int16_t delay;
+	uint16_t command;
+	uint16_t arguments[];
+};
+
+struct how_to_play_button_press
+{
+	uint16_t press_time;
+	uint16_t frame;
+};
+
+struct coin_setting_value
+{
+	uint8_t coins_per_credit;
+	uint8_t bonus_coins;
+	uint8_t chute_1_coin_value;
+	uint8_t chute_2_coin_value;
+};
+
+struct ending_tower_frame
+{
+	int16_t end_time;
+	uint16_t sprite_frame;
+	uint16_t sprite_palette;
+};
+
+struct ending_explosion_frame
+{
+	uint16_t sprite_frame;
+	uint16_t sprite_flags;
+};
+
+struct ending_music_cue
+{
+	int16_t time;
+	uint16_t sound_id;
+};
+
+struct ending_timed_frame
+{
+	int16_t end_time;
+	uint16_t sprite_frame;
+};
+
+struct ending_timed_palette
+{
+	int16_t end_time;
+	uint16_t sprite_palette;
+};
+
+struct scenery_kind_record
+{
+	uint16_t sprite_flags;
+	uint16_t sprite_frame;
+	uint16_t sprite_palette;
+	int16_t depth_offset;
+	uint32_t handler;
+};
+
+struct group_leader_hold_record
+{
+	uint8_t leader;
+	uint8_t direction;
+	int16_t coordinate;
+	uint16_t end_position;
+	uint16_t which_flag;
+};
+
+struct tornado_start_record
+{
+	uint16_t x;
+	uint16_t y;
+	uint16_t hazard_list_offset;
+	uint16_t whirlwind_list_offset;
+};
+
+struct tornado_path_step
+{
+	uint16_t position;
+	int16_t coordinate;
+	int16_t screen_threshold;
+	int16_t catch_up_factor;
+	int16_t base_speed;
+	uint16_t wait;
+	uint16_t direction;
+};
+
+struct default_ranking_record
+{
+	uint16_t rings;
+	uint16_t character_and_stages;
+	uint8_t first_letter;
+	uint8_t second_letter;
+	uint8_t third_letter;
+	uint8_t letters_pad;
+};
+
+struct wall_kind_offsets
+{
+	int8_t hitbox_offset_x;
+	int8_t hitbox_offset_y;
+	int8_t sprite_offset_x;
+	int8_t sprite_offset_y;
+	uint8_t direction;
+	uint8_t pad_05[0x1];
+};
+
+struct wall_kind_parts
+{
+	uint16_t size_x;
+	uint16_t size_y;
+	uint16_t palette;
+	uint8_t part_step_x;
+	uint8_t part_step_y;
+	int16_t part_sprite;
+	uint8_t second_offset_x;
+	uint8_t second_offset_y;
+	int16_t second_sprite;
+};
+
+struct timed_spawn
+{
+	int16_t time;
+	uint16_t handler_offset;
+};
+
+struct crt_test_color_bar_row
+{
+	uint16_t x;
+	uint16_t y;
+	uint8_t first_color;
+};
+
+struct sound_command_bytes
+{
+	uint8_t group;
+	uint8_t number;
+};
+
+struct chooser_voice_row
+{
+	uint8_t sounds[0x4];
+};
+
+struct map_icon_position
+{
+	uint16_t x;
+	uint16_t y;
+};
+
+struct crt_test_line
+{
+	uint16_t start_x;
+	uint16_t start_y;
+	uint16_t end_x;
+	uint16_t end_y;
+};
+
+struct screen_sign_kind
+{
+	uint16_t sprite_frame;
+	uint16_t duration;
+	uint16_t palette_list_offset;
+};
+
+struct ram_target_damage_step
+{
+	int8_t hits;
+	uint8_t pad_01[0x1];
+	uint16_t animation;
+};
+
+struct falling_rock
+{
+	uint16_t x;
+	uint16_t y;
+	uint16_t z;
+	int16_t speed_x;
+	int16_t speed_y;
+	uint32_t animation;
+};
+
+struct line_direction_step
+{
+	int16_t row_step;
+	int16_t column_step;
+};
+
 struct flood_fill_record
 {
 	uint16_t direction_and_y;
@@ -7074,6 +7730,12 @@ struct sprite_part
 	uint16_t palette;
 };
 
+struct frame_animation
+{
+	uint16_t last_frame;
+	uint16_t frames[];
+};
+
 struct animation_step
 {
 	uint16_t frame;
@@ -7094,6 +7756,24 @@ struct back_zone_record
 {
 	uint16_t limit;
 	uint32_t handler;
+};
+
+struct metal_wall_part_offset
+{
+	int8_t dx;
+	int8_t dy;
+};
+
+struct wall_spawn
+{
+	uint16_t position;
+	uint16_t end_position;
+	uint16_t x;
+	uint16_t y;
+	uint16_t z;
+	uint16_t kind;
+	uint8_t part_count;
+	uint8_t depth_from_next;
 };
 
 struct object_pair_template
@@ -7217,6 +7897,155 @@ struct flagged_step
 	uint16_t frame;
 };
 
+struct player_palette_list
+{
+	uint16_t last_index;
+	uint16_t normal_palette;
+	uint8_t pad_04[0x4];
+};
+
+struct edge_voice_scroll_range
+{
+	uint16_t start;
+	uint16_t length;
+};
+
+struct screen_edge_push
+{
+	uint16_t limit_direction;
+	uint16_t push_direction;
+};
+
+struct slope_speed_pair
+{
+	uint16_t speed_factor;
+	uint16_t direction;
+};
+
+struct floor_type_player_state
+{
+	uint8_t state;
+};
+
+struct teeter_record
+{
+	uint16_t first_frame;
+};
+
+struct teeter_animation_offsets
+{
+	uint16_t offsets[0x2];
+};
+
+struct shocked_palette_row
+{
+	uint16_t palettes[0x8];
+};
+
+struct edge_hang_animations
+{
+	uint8_t pad_00[0x36];
+	uint16_t hold_frame;
+	uint16_t let_go_frame;
+	uint16_t slip_piece_frame;
+};
+
+struct player_bounce_record
+{
+	uint16_t direction;
+	uint16_t sprite_flags;
+	uint16_t animation_offset;
+};
+
+struct knocked_out_entry
+{
+	uint16_t sprite_flags;
+	uint16_t animation_offset;
+};
+
+struct restart_point
+{
+	uint16_t until;
+	uint8_t kind;
+	uint8_t screen_y;
+	uint16_t x;
+	uint16_t y_or_height;
+};
+
+struct stage_start_point
+{
+	uint16_t spacing_shift;
+	uint16_t x;
+	uint16_t y;
+};
+
+struct stage_goal
+{
+	uint16_t position;
+	uint16_t direction;
+	uint16_t line;
+	uint8_t exit_path;
+	uint8_t pad_07[0x5];
+};
+
+struct stage_goal_line_range
+{
+	uint16_t line_min;
+	uint16_t line_max;
+};
+
+struct climb_wall_attribute
+{
+	uint8_t axis;
+	uint8_t pad_01[0x3];
+	int16_t x_per_rise;
+	int16_t height;
+	int16_t top_z;
+	uint16_t along_min;
+	uint16_t along_length;
+	uint16_t rise;
+};
+
+struct floor_push_attribute
+{
+	uint16_t push_x;
+	uint16_t push_y;
+};
+
+struct player_path_step
+{
+	int16_t speed;
+	uint16_t x_or_wait;
+	uint16_t y;
+	uint16_t flags;
+};
+
+struct hud_portrait_sprite
+{
+	uint16_t frame;
+	uint16_t palette;
+};
+
+struct hud_palette_cycle
+{
+	uint16_t last_index;
+};
+
+struct floor_slope
+{
+	uint8_t flags;
+	uint8_t pad_01[0x1];
+	int32_t factor;
+	uint16_t direction_table;
+};
+
+struct sand_block_part_list
+{
+	uint16_t count;
+	uint8_t pad_02[0x6];
+	uint16_t first_palette;
+};
+
 struct debris_path_step
 {
 	int16_t end_time;
@@ -7290,10 +8119,22 @@ struct ranking_record
 	};
 };
 
+struct ranking_row_number
+{
+	uint8_t tens_code;
+	uint8_t units_code;
+};
+
 struct ring_tally_portrait
 {
 	uint16_t sprite_palette;
 	uint16_t sprite_frame;
+	uint16_t no_bonus_frame;
+	uint16_t bonus_frame;
+};
+
+struct ring_tally_result_faces
+{
 	uint16_t no_bonus_frame;
 	uint16_t bonus_frame;
 };
@@ -7373,6 +8214,13 @@ struct saved_bitmap_rect
 	uint32_t rows;
 };
 
+struct demo_header
+{
+	uint16_t stage_number;
+	uint16_t start_section;
+	uint8_t pad_04[0xC];
+};
+
 struct vblank_copy
 {
 	uint32_t source;
@@ -7405,6 +8253,62 @@ struct queued_string
 	uint32_t text;
 };
 
+struct placed_text
+{
+	uint16_t position;
+	uint8_t string[];
+};
+
+struct tilemap_skip
+{
+	int8_t cells;
+};
+
+struct tilemap_long_skip
+{
+	int16_t cells;
+};
+
+struct vram_script_address
+{
+	uint16_t cell;
+};
+
+struct vram_script_cell_run
+{
+	uint8_t count;
+	uint16_t cell;
+};
+
+struct vram_script_byte_cells
+{
+	uint8_t count;
+	uint8_t high_byte;
+};
+
+struct vram_script_word_cells
+{
+	uint8_t count;
+};
+
+struct vram_script_page_clear
+{
+	uint16_t cell;
+	uint8_t pages;
+};
+
+struct video_register_defaults_tail
+{
+	uint32_t text_backdrop_control;
+	uint32_t bitmap_scroll;
+	uint32_t bitmap_control;
+};
+
+struct palette_load_list
+{
+	uint16_t entry_count;
+};
+
 struct palette_list_entry
 {
 	uint32_t source;
@@ -7412,10 +8316,252 @@ struct palette_list_entry
 	uint16_t copy_mode;
 };
 
+struct palette_pens_1_15
+{
+	uint32_t pens_1_2;
+	uint32_t pens_3_4;
+	uint32_t pens_5_6;
+	uint32_t pens_7_8;
+	uint32_t pens_9_10;
+	uint32_t pens_11_12;
+	uint32_t pens_13_14;
+	uint16_t pen_15;
+};
+
+struct palette_repeat_source
+{
+	uint32_t palettes;
+};
+
+struct chase_step_with_limit
+{
+	uint16_t position;
+	int16_t limit;
+	int16_t screen_threshold;
+	int16_t catch_up_factor;
+	int16_t base_speed;
+	uint16_t wait;
+};
+
+struct biting_head_path_entry
+{
+	uint16_t position;
+	int16_t limit;
+	int16_t screen_threshold;
+	int16_t catch_up_factor;
+	int16_t base_speed;
+	uint16_t wait;
+	uint16_t direction;
+};
+
+struct bridge_fire_script_entry
+{
+	int16_t height;
+	uint16_t position;
+	int16_t screen_threshold;
+	int16_t catch_up_factor;
+	int16_t base_speed;
+	uint16_t wait;
+};
+
+struct fire_front_path_start
+{
+	int16_t x;
+	int16_t y;
+	int16_t floor_z;
+	uint16_t direction;
+};
+
+struct biting_head_path_start
+{
+	int16_t x;
+	int16_t y;
+};
+
+struct rising_saw_path_start
+{
+	int16_t x;
+	int16_t y;
+	int16_t z;
+};
+
+struct brick_wall_brick
+{
+	uint16_t sprite_flags;
+	uint16_t offset_x;
+	uint16_t offset_y;
+	uint16_t speed_x;
+	uint16_t speed_y;
+	uint16_t look;
+};
+
+struct brick_look
+{
+	uint16_t palette;
+};
+
+struct brick_dust_puff
+{
+	uint16_t sprite_flags;
+	uint16_t offset_x;
+	uint16_t offset_y;
+	uint16_t delay;
+};
+
+struct biting_head_bite_step
+{
+	uint16_t jaw_frame;
+	uint8_t hold;
+	uint8_t pad_03[0x1];
+};
+
+struct grate_step_debris_list
+{
+	int16_t count;
+};
+
+struct burning_boulder_record
+{
+	int16_t x;
+	int16_t start_delay;
+	uint32_t path;
+};
+
+struct burning_boulder_flame_offset
+{
+	int16_t dx;
+	int16_t dy;
+	uint16_t animation;
+};
+
+struct falling_ember_speed
+{
+	int16_t speed_z;
+	int16_t speed_y;
+};
+
+struct scene_carrier_record
+{
+	int16_t x;
+	int16_t y;
+	int16_t z;
+	int32_t speed_x;
+	int32_t speed_y;
+	int32_t speed_z;
+	uint16_t end_position;
+};
+
+struct lava_steam_puff_offset
+{
+	int16_t dx;
+	int16_t dy;
+};
+
+struct group_slot_trigger_record
+{
+	uint16_t position;
+	int16_t slot;
+	uint16_t delay;
+};
+
 #pragma pack(pop)
 
 _Static_assert(sizeof(struct object) == 0xA0, "struct object has the size of the game's blocks");
 _Static_assert(sizeof(struct player) == 0x200, "struct player has the size of the game's blocks");
+_Static_assert(sizeof(struct object_type_record) == 0x8, "struct object_type_record has the size of the program ROM's records");
+_Static_assert(sizeof(struct type_spawn_record) == 0xE, "struct type_spawn_record has the size of the program ROM's records");
+_Static_assert(sizeof(struct handler_spawn_record) == 0xC, "struct handler_spawn_record has the size of the program ROM's records");
+_Static_assert(sizeof(struct object_start_list) == 0x2, "struct object_start_list has the size of the program ROM's records");
+_Static_assert(sizeof(struct machine_fireball_spawns) == 0x2, "struct machine_fireball_spawns has the size of the program ROM's records");
+_Static_assert(sizeof(struct machine_fireball_spawn) == 0xE, "struct machine_fireball_spawn has the size of the program ROM's records");
+_Static_assert(sizeof(struct ring_row) == 0xC, "struct ring_row has the size of the program ROM's records");
+_Static_assert(sizeof(struct group_spawn_record) == 0x18, "struct group_spawn_record has the size of the program ROM's records");
+_Static_assert(sizeof(struct sprite_buffer_swap) == 0x4, "struct sprite_buffer_swap has the size of the program ROM's records");
+_Static_assert(sizeof(struct sine_and_cosine) == 0x202, "struct sine_and_cosine has the size of the program ROM's records");
+_Static_assert(sizeof(struct floor_block_type) == 0x4, "struct floor_block_type has the size of the program ROM's records");
+_Static_assert(sizeof(struct floor_outline_list) == 0x2, "struct floor_outline_list has the size of the program ROM's records");
+_Static_assert(sizeof(struct floor_outline) == 0x10, "struct floor_outline has the size of the program ROM's records");
+_Static_assert(sizeof(struct floor_outline_corner) == 0x4, "struct floor_outline_corner has the size of the program ROM's records");
+_Static_assert(sizeof(struct stage_event) == 0x4, "struct stage_event has the size of the program ROM's records");
+_Static_assert(sizeof(struct stage_link_point) == 0x4, "struct stage_link_point has the size of the program ROM's records");
+_Static_assert(sizeof(struct layer_blend_list) == 0x1, "struct layer_blend_list has the size of the program ROM's records");
+_Static_assert(sizeof(struct layer_blend_record) == 0x6, "struct layer_blend_record has the size of the program ROM's records");
+_Static_assert(sizeof(struct restart_point_record) == 0x8, "struct restart_point_record has the size of the program ROM's records");
+_Static_assert(sizeof(struct stage_palette) == 0x8, "struct stage_palette has the size of the program ROM's records");
+_Static_assert(sizeof(struct stage_name_banner) == 0x4, "struct stage_name_banner has the size of the program ROM's records");
+_Static_assert(sizeof(struct scroll_mode_step) == 0x4, "struct scroll_mode_step has the size of the program ROM's records");
+_Static_assert(sizeof(struct event_0f_message) == 0xA, "struct event_0f_message has the size of the program ROM's records");
+_Static_assert(sizeof(struct message_box_kind) == 0x8, "struct message_box_kind has the size of the program ROM's records");
+_Static_assert(sizeof(struct stage_06_lightning_strike) == 0xA, "struct stage_06_lightning_strike has the size of the program ROM's records");
+_Static_assert(sizeof(struct event_1a_scroll_step) == 0x6, "struct event_1a_scroll_step has the size of the program ROM's records");
+_Static_assert(sizeof(struct stage_03_floor_block_kind) == 0x4, "struct stage_03_floor_block_kind has the size of the program ROM's records");
+_Static_assert(sizeof(struct stage_03_floor_block_shape) == 0x4, "struct stage_03_floor_block_shape has the size of the program ROM's records");
+_Static_assert(sizeof(struct stage_03_floor_block_animation) == 0x8, "struct stage_03_floor_block_animation has the size of the program ROM's records");
+_Static_assert(sizeof(struct rock_debris_piece) == 0xC, "struct rock_debris_piece has the size of the program ROM's records");
+_Static_assert(sizeof(struct spiked_roller_kind) == 0x7, "struct spiked_roller_kind has the size of the program ROM's records");
+_Static_assert(sizeof(struct spiked_roller_chase_step) == 0xA, "struct spiked_roller_chase_step has the size of the program ROM's records");
+_Static_assert(sizeof(struct spiked_roller_layout) == 0x10, "struct spiked_roller_layout has the size of the program ROM's records");
+_Static_assert(sizeof(struct spiked_roller_part) == 0xE, "struct spiked_roller_part has the size of the program ROM's records");
+_Static_assert(sizeof(struct spiked_roller_event) == 0x8, "struct spiked_roller_event has the size of the program ROM's records");
+_Static_assert(sizeof(struct door_roller_spawn) == 0x6, "struct door_roller_spawn has the size of the program ROM's records");
+_Static_assert(sizeof(struct door_fragment) == 0xA, "struct door_fragment has the size of the program ROM's records");
+_Static_assert(sizeof(struct fireball_emitter_list) == 0x6, "struct fireball_emitter_list has the size of the program ROM's records");
+_Static_assert(sizeof(struct fireball_type) == 0x10, "struct fireball_type has the size of the program ROM's records");
+_Static_assert(sizeof(struct machine_fire_script_step) == 0xA, "struct machine_fire_script_step has the size of the program ROM's records");
+_Static_assert(sizeof(struct cage_bar_animation) == 0x8, "struct cage_bar_animation has the size of the program ROM's records");
+_Static_assert(sizeof(struct fire_vent_spawn) == 0xA, "struct fire_vent_spawn has the size of the program ROM's records");
+_Static_assert(sizeof(struct icicle_dropper_record) == 0xC, "struct icicle_dropper_record has the size of the program ROM's records");
+_Static_assert(sizeof(struct icicle_dropper_step) == 0xC, "struct icicle_dropper_step has the size of the program ROM's records");
+_Static_assert(sizeof(struct sink_swirl_effect) == 0xA, "struct sink_swirl_effect has the size of the program ROM's records");
+_Static_assert(sizeof(struct object_start_place) == 0x8, "struct object_start_place has the size of the program ROM's records");
+_Static_assert(sizeof(struct river_raft_entry) == 0x8, "struct river_raft_entry has the size of the program ROM's records");
+_Static_assert(sizeof(struct geyser_front_record) == 0x6, "struct geyser_front_record has the size of the program ROM's records");
+_Static_assert(sizeof(struct chase_step_at_scroll) == 0xA, "struct chase_step_at_scroll has the size of the program ROM's records");
+_Static_assert(sizeof(struct listed_geyser) == 0xA, "struct listed_geyser has the size of the program ROM's records");
+_Static_assert(sizeof(struct stone_block_position) == 0x8, "struct stone_block_position has the size of the program ROM's records");
+_Static_assert(sizeof(struct geyser_line_start) == 0x8, "struct geyser_line_start has the size of the program ROM's records");
+_Static_assert(sizeof(struct geyser_line_step) == 0x8, "struct geyser_line_step has the size of the program ROM's records");
+_Static_assert(sizeof(struct propeller_machine_animation_step) == 0x4, "struct propeller_machine_animation_step has the size of the program ROM's records");
+_Static_assert(sizeof(struct rope_bridge_rope_offset) == 0x4, "struct rope_bridge_rope_offset has the size of the program ROM's records");
+_Static_assert(sizeof(struct spike_panel_screen_offset) == 0x4, "struct spike_panel_screen_offset has the size of the program ROM's records");
+_Static_assert(sizeof(struct spike_panel_part_offset) == 0x6, "struct spike_panel_part_offset has the size of the program ROM's records");
+_Static_assert(sizeof(struct flame_machine_offset) == 0x4, "struct flame_machine_offset has the size of the program ROM's records");
+_Static_assert(sizeof(struct flame_machine_arm_sway) == 0x2, "struct flame_machine_arm_sway has the size of the program ROM's records");
+_Static_assert(sizeof(struct spiked_disc_hold_offset) == 0x4, "struct spiked_disc_hold_offset has the size of the program ROM's records");
+_Static_assert(sizeof(struct hitbox_size_pair) == 0x4, "struct hitbox_size_pair has the size of the program ROM's records");
+_Static_assert(sizeof(struct hitbox_offset_pair) == 0x2, "struct hitbox_offset_pair has the size of the program ROM's records");
+_Static_assert(sizeof(struct crawler_walk_row) == 0x6, "struct crawler_walk_row has the size of the program ROM's records");
+_Static_assert(sizeof(struct hitbox_size_and_offset) == 0x6, "struct hitbox_size_and_offset has the size of the program ROM's records");
+_Static_assert(sizeof(struct crawler_piece_offset) == 0x4, "struct crawler_piece_offset has the size of the program ROM's records");
+_Static_assert(sizeof(struct fence_offset) == 0x4, "struct fence_offset has the size of the program ROM's records");
+_Static_assert(sizeof(struct fence_post_box) == 0x4, "struct fence_post_box has the size of the program ROM's records");
+_Static_assert(sizeof(struct fence_post_box_offset) == 0x2, "struct fence_post_box_offset has the size of the program ROM's records");
+_Static_assert(sizeof(struct sprite_palette_cycle) == 0x2, "struct sprite_palette_cycle has the size of the program ROM's records");
+_Static_assert(sizeof(struct eggman_speech_step) == 0x4, "struct eggman_speech_step has the size of the program ROM's records");
+_Static_assert(sizeof(struct how_to_play_button_press) == 0x4, "struct how_to_play_button_press has the size of the program ROM's records");
+_Static_assert(sizeof(struct coin_setting_value) == 0x4, "struct coin_setting_value has the size of the program ROM's records");
+_Static_assert(sizeof(struct ending_tower_frame) == 0x6, "struct ending_tower_frame has the size of the program ROM's records");
+_Static_assert(sizeof(struct ending_explosion_frame) == 0x4, "struct ending_explosion_frame has the size of the program ROM's records");
+_Static_assert(sizeof(struct ending_music_cue) == 0x4, "struct ending_music_cue has the size of the program ROM's records");
+_Static_assert(sizeof(struct ending_timed_frame) == 0x4, "struct ending_timed_frame has the size of the program ROM's records");
+_Static_assert(sizeof(struct ending_timed_palette) == 0x4, "struct ending_timed_palette has the size of the program ROM's records");
+_Static_assert(sizeof(struct scenery_kind_record) == 0xC, "struct scenery_kind_record has the size of the program ROM's records");
+_Static_assert(sizeof(struct group_leader_hold_record) == 0x8, "struct group_leader_hold_record has the size of the program ROM's records");
+_Static_assert(sizeof(struct tornado_start_record) == 0x8, "struct tornado_start_record has the size of the program ROM's records");
+_Static_assert(sizeof(struct tornado_path_step) == 0xE, "struct tornado_path_step has the size of the program ROM's records");
+_Static_assert(sizeof(struct default_ranking_record) == 0x8, "struct default_ranking_record has the size of the program ROM's records");
+_Static_assert(sizeof(struct wall_kind_offsets) == 0x6, "struct wall_kind_offsets has the size of the program ROM's records");
+_Static_assert(sizeof(struct wall_kind_parts) == 0xE, "struct wall_kind_parts has the size of the program ROM's records");
+_Static_assert(sizeof(struct timed_spawn) == 0x4, "struct timed_spawn has the size of the program ROM's records");
+_Static_assert(sizeof(struct crt_test_color_bar_row) == 0x5, "struct crt_test_color_bar_row has the size of the program ROM's records");
+_Static_assert(sizeof(struct sound_command_bytes) == 0x2, "struct sound_command_bytes has the size of the program ROM's records");
+_Static_assert(sizeof(struct chooser_voice_row) == 0x4, "struct chooser_voice_row has the size of the program ROM's records");
+_Static_assert(sizeof(struct map_icon_position) == 0x4, "struct map_icon_position has the size of the program ROM's records");
+_Static_assert(sizeof(struct crt_test_line) == 0x8, "struct crt_test_line has the size of the program ROM's records");
+_Static_assert(sizeof(struct screen_sign_kind) == 0x6, "struct screen_sign_kind has the size of the program ROM's records");
+_Static_assert(sizeof(struct ram_target_damage_step) == 0x4, "struct ram_target_damage_step has the size of the program ROM's records");
+_Static_assert(sizeof(struct falling_rock) == 0xE, "struct falling_rock has the size of the program ROM's records");
+_Static_assert(sizeof(struct line_direction_step) == 0x4, "struct line_direction_step has the size of the program ROM's records");
 _Static_assert(sizeof(struct flood_fill_record) == 0x1A, "struct flood_fill_record has the size of the game's blocks");
 _Static_assert(sizeof(struct floor_block) == 0x16, "struct floor_block has the size of the program ROM's records");
 _Static_assert(sizeof(struct bridge_load) == 0x50, "struct bridge_load has the size of the game's blocks");
@@ -7424,9 +8570,12 @@ _Static_assert(sizeof(struct stage_object_record_2) == 0x18, "struct stage_objec
 _Static_assert(sizeof(struct stage_object_template) == 0x1A, "struct stage_object_template has the size of the program ROM's records");
 _Static_assert(sizeof(struct sprite_part_list) == 0x82, "struct sprite_part_list has the size of the game's blocks");
 _Static_assert(sizeof(struct sprite_part) == 0x8, "struct sprite_part has the size of the game's blocks");
+_Static_assert(sizeof(struct frame_animation) == 0x2, "struct frame_animation has the size of the program ROM's records");
 _Static_assert(sizeof(struct animation_step) == 0x4, "struct animation_step has the size of the program ROM's records");
 _Static_assert(sizeof(struct sign_kind) == 0xC, "struct sign_kind has the size of the program ROM's records");
 _Static_assert(sizeof(struct back_zone_record) == 0x6, "struct back_zone_record has the size of the program ROM's records");
+_Static_assert(sizeof(struct metal_wall_part_offset) == 0x2, "struct metal_wall_part_offset has the size of the program ROM's records");
+_Static_assert(sizeof(struct wall_spawn) == 0xE, "struct wall_spawn has the size of the program ROM's records");
 _Static_assert(sizeof(struct object_pair_template) == 0x1A, "struct object_pair_template has the size of the program ROM's records");
 _Static_assert(sizeof(struct fireball_shot) == 0xC, "struct fireball_shot has the size of the program ROM's records");
 _Static_assert(sizeof(struct tornado_hazard) == 0x4, "struct tornado_hazard has the size of the program ROM's records");
@@ -7440,6 +8589,28 @@ _Static_assert(sizeof(struct ice_leader_spawn) == 0xB, "struct ice_leader_spawn 
 _Static_assert(sizeof(struct credit_block) == 0x4, "struct credit_block has the size of the game's blocks");
 _Static_assert(sizeof(struct trackball_motion) == 0x4, "struct trackball_motion has the size of the game's blocks");
 _Static_assert(sizeof(struct flagged_step) == 0x4, "struct flagged_step has the size of the program ROM's records");
+_Static_assert(sizeof(struct player_palette_list) == 0x8, "struct player_palette_list has the size of the program ROM's records");
+_Static_assert(sizeof(struct edge_voice_scroll_range) == 0x4, "struct edge_voice_scroll_range has the size of the program ROM's records");
+_Static_assert(sizeof(struct screen_edge_push) == 0x4, "struct screen_edge_push has the size of the program ROM's records");
+_Static_assert(sizeof(struct slope_speed_pair) == 0x4, "struct slope_speed_pair has the size of the program ROM's records");
+_Static_assert(sizeof(struct floor_type_player_state) == 0x1, "struct floor_type_player_state has the size of the program ROM's records");
+_Static_assert(sizeof(struct teeter_record) == 0x2, "struct teeter_record has the size of the program ROM's records");
+_Static_assert(sizeof(struct teeter_animation_offsets) == 0x4, "struct teeter_animation_offsets has the size of the program ROM's records");
+_Static_assert(sizeof(struct shocked_palette_row) == 0x10, "struct shocked_palette_row has the size of the program ROM's records");
+_Static_assert(sizeof(struct edge_hang_animations) == 0x3C, "struct edge_hang_animations has the size of the program ROM's records");
+_Static_assert(sizeof(struct player_bounce_record) == 0x6, "struct player_bounce_record has the size of the program ROM's records");
+_Static_assert(sizeof(struct knocked_out_entry) == 0x4, "struct knocked_out_entry has the size of the program ROM's records");
+_Static_assert(sizeof(struct restart_point) == 0x8, "struct restart_point has the size of the program ROM's records");
+_Static_assert(sizeof(struct stage_start_point) == 0x6, "struct stage_start_point has the size of the program ROM's records");
+_Static_assert(sizeof(struct stage_goal) == 0xC, "struct stage_goal has the size of the program ROM's records");
+_Static_assert(sizeof(struct stage_goal_line_range) == 0x4, "struct stage_goal_line_range has the size of the program ROM's records");
+_Static_assert(sizeof(struct climb_wall_attribute) == 0x10, "struct climb_wall_attribute has the size of the program ROM's records");
+_Static_assert(sizeof(struct floor_push_attribute) == 0x4, "struct floor_push_attribute has the size of the program ROM's records");
+_Static_assert(sizeof(struct player_path_step) == 0x8, "struct player_path_step has the size of the program ROM's records");
+_Static_assert(sizeof(struct hud_portrait_sprite) == 0x4, "struct hud_portrait_sprite has the size of the program ROM's records");
+_Static_assert(sizeof(struct hud_palette_cycle) == 0x2, "struct hud_palette_cycle has the size of the program ROM's records");
+_Static_assert(sizeof(struct floor_slope) == 0x8, "struct floor_slope has the size of the program ROM's records");
+_Static_assert(sizeof(struct sand_block_part_list) == 0xA, "struct sand_block_part_list has the size of the program ROM's records");
 _Static_assert(sizeof(struct debris_path_step) == 0x8, "struct debris_path_step has the size of the program ROM's records");
 _Static_assert(sizeof(struct dust_cloud_frame) == 0x4, "struct dust_cloud_frame has the size of the program ROM's records");
 _Static_assert(sizeof(struct credit_part) == 0x8, "struct credit_part has the size of the program ROM's records");
@@ -7448,7 +8619,9 @@ _Static_assert(sizeof(struct map_marker_layout) == 0xC, "struct map_marker_layou
 _Static_assert(sizeof(struct map_marker_blink) == 0xA, "struct map_marker_blink has the size of the program ROM's records");
 _Static_assert(sizeof(struct wipe_window) == 0x6, "struct wipe_window has the size of the program ROM's records");
 _Static_assert(sizeof(struct ranking_record) == 0x8, "struct ranking_record has the size of the game's blocks");
+_Static_assert(sizeof(struct ranking_row_number) == 0x2, "struct ranking_row_number has the size of the program ROM's records");
 _Static_assert(sizeof(struct ring_tally_portrait) == 0x8, "struct ring_tally_portrait has the size of the program ROM's records");
+_Static_assert(sizeof(struct ring_tally_result_faces) == 0x4, "struct ring_tally_result_faces has the size of the program ROM's records");
 _Static_assert(sizeof(struct geyser_rise_step) == 0x4, "struct geyser_rise_step has the size of the program ROM's records");
 _Static_assert(sizeof(struct palette_set_cycle) == 0x10, "struct palette_set_cycle has the size of the game's blocks");
 _Static_assert(sizeof(struct palette_cycle) == 0x5, "struct palette_cycle has the size of the game's blocks");
@@ -7458,14 +8631,171 @@ _Static_assert(sizeof(struct polygon_span) == 0x6, "struct polygon_span has the 
 _Static_assert(sizeof(struct quad_vertex) == 0x4, "struct quad_vertex has the size of the game's blocks");
 _Static_assert(sizeof(struct picture_colour_slot) == 0x3, "struct picture_colour_slot has the size of the game's blocks");
 _Static_assert(sizeof(struct saved_bitmap_rect) == 0x8, "struct saved_bitmap_rect has the size of the game's blocks");
+_Static_assert(sizeof(struct demo_header) == 0x10, "struct demo_header has the size of the program ROM's records");
 _Static_assert(sizeof(struct vblank_copy) == 0xA, "struct vblank_copy has the size of the game's blocks");
 _Static_assert(sizeof(struct sprite_frame_record) == 0x8, "struct sprite_frame_record has the size of the program ROM's records");
 _Static_assert(sizeof(struct string_record) == 0x8, "struct string_record has the size of the program ROM's records");
 _Static_assert(sizeof(struct queued_string) == 0xC, "struct queued_string has the size of the game's blocks");
+_Static_assert(sizeof(struct placed_text) == 0x2, "struct placed_text has the size of the program ROM's records");
+_Static_assert(sizeof(struct tilemap_skip) == 0x1, "struct tilemap_skip has the size of the program ROM's records");
+_Static_assert(sizeof(struct tilemap_long_skip) == 0x2, "struct tilemap_long_skip has the size of the program ROM's records");
+_Static_assert(sizeof(struct vram_script_address) == 0x2, "struct vram_script_address has the size of the program ROM's records");
+_Static_assert(sizeof(struct vram_script_cell_run) == 0x3, "struct vram_script_cell_run has the size of the program ROM's records");
+_Static_assert(sizeof(struct vram_script_byte_cells) == 0x2, "struct vram_script_byte_cells has the size of the program ROM's records");
+_Static_assert(sizeof(struct vram_script_word_cells) == 0x1, "struct vram_script_word_cells has the size of the program ROM's records");
+_Static_assert(sizeof(struct vram_script_page_clear) == 0x3, "struct vram_script_page_clear has the size of the program ROM's records");
+_Static_assert(sizeof(struct video_register_defaults_tail) == 0xC, "struct video_register_defaults_tail has the size of the program ROM's records");
+_Static_assert(sizeof(struct palette_load_list) == 0x2, "struct palette_load_list has the size of the program ROM's records");
 _Static_assert(sizeof(struct palette_list_entry) == 0x8, "struct palette_list_entry has the size of the program ROM's records");
+_Static_assert(sizeof(struct palette_pens_1_15) == 0x1E, "struct palette_pens_1_15 has the size of the program ROM's records");
+_Static_assert(sizeof(struct palette_repeat_source) == 0x4, "struct palette_repeat_source has the size of the program ROM's records");
+_Static_assert(sizeof(struct chase_step_with_limit) == 0xC, "struct chase_step_with_limit has the size of the program ROM's records");
+_Static_assert(sizeof(struct biting_head_path_entry) == 0xE, "struct biting_head_path_entry has the size of the program ROM's records");
+_Static_assert(sizeof(struct bridge_fire_script_entry) == 0xC, "struct bridge_fire_script_entry has the size of the program ROM's records");
+_Static_assert(sizeof(struct fire_front_path_start) == 0x8, "struct fire_front_path_start has the size of the program ROM's records");
+_Static_assert(sizeof(struct biting_head_path_start) == 0x4, "struct biting_head_path_start has the size of the program ROM's records");
+_Static_assert(sizeof(struct rising_saw_path_start) == 0x6, "struct rising_saw_path_start has the size of the program ROM's records");
+_Static_assert(sizeof(struct brick_wall_brick) == 0xC, "struct brick_wall_brick has the size of the program ROM's records");
+_Static_assert(sizeof(struct brick_look) == 0x2, "struct brick_look has the size of the program ROM's records");
+_Static_assert(sizeof(struct brick_dust_puff) == 0x8, "struct brick_dust_puff has the size of the program ROM's records");
+_Static_assert(sizeof(struct biting_head_bite_step) == 0x4, "struct biting_head_bite_step has the size of the program ROM's records");
+_Static_assert(sizeof(struct grate_step_debris_list) == 0x2, "struct grate_step_debris_list has the size of the program ROM's records");
+_Static_assert(sizeof(struct burning_boulder_record) == 0x8, "struct burning_boulder_record has the size of the program ROM's records");
+_Static_assert(sizeof(struct burning_boulder_flame_offset) == 0x6, "struct burning_boulder_flame_offset has the size of the program ROM's records");
+_Static_assert(sizeof(struct falling_ember_speed) == 0x4, "struct falling_ember_speed has the size of the program ROM's records");
+_Static_assert(sizeof(struct scene_carrier_record) == 0x14, "struct scene_carrier_record has the size of the program ROM's records");
+_Static_assert(sizeof(struct lava_steam_puff_offset) == 0x4, "struct lava_steam_puff_offset has the size of the program ROM's records");
+_Static_assert(sizeof(struct group_slot_trigger_record) == 0x6, "struct group_slot_trigger_record has the size of the program ROM's records");
 
 #define OBJECT(address) ((struct object *)ram(address))
 #define PLAYER(address) ((struct player *)ram(address))
+#define OBJECT_TYPE_RECORD(address) ((const struct object_type_record *)rom(address))
+#define TYPE_SPAWN_RECORD(address) ((const struct type_spawn_record *)rom(address))
+#define HANDLER_SPAWN_RECORD(address) ((const struct handler_spawn_record *)rom(address))
+#define OBJECT_START_LIST(address) ((const struct object_start_list *)rom(address))
+#define OBJECT_START_HANDLERS(address) ((const uint32_t *)rom(address))
+#define MACHINE_FIREBALL_SPAWNS(address) ((const struct machine_fireball_spawns *)rom(address))
+#define MACHINE_FIREBALL_SPAWN(address) ((const struct machine_fireball_spawn *)rom(address))
+#define ROM_CHIP_CHECKSUMS(address) ((const uint16_t *)rom(address))
+#define RING_ROW(address) ((const struct ring_row *)rom(address))
+#define GROUP_SPAWN_RECORD(address) ((const struct group_spawn_record *)rom(address))
+#define SPRITE_CONTROL_SETTINGS(address) ((const uint8_t *)rom(address))
+#define SPRITE_BUFFER_SWAP(address) ((const struct sprite_buffer_swap *)rom(address))
+#define SINE_AND_COSINE(address) ((const struct sine_and_cosine *)rom(address))
+#define FLOOR_BLOCK_TYPE(address) ((const struct floor_block_type *)rom(address))
+#define FLOOR_OUTLINE_LIST(address) ((const struct floor_outline_list *)rom(address))
+#define FLOOR_OUTLINE(address) ((const struct floor_outline *)rom(address))
+#define FLOOR_OUTLINE_CORNER(address) ((const struct floor_outline_corner *)rom(address))
+#define STAGE_EVENT(address) ((const struct stage_event *)rom(address))
+#define STAGE_LINK_POINT(address) ((const struct stage_link_point *)rom(address))
+#define LAYER_BLEND_LIST(address) ((const struct layer_blend_list *)rom(address))
+#define LAYER_BLEND_RECORD(address) ((const struct layer_blend_record *)rom(address))
+#define RESTART_POINT_RECORD(address) ((const struct restart_point_record *)rom(address))
+#define STAGE_PALETTE(address) ((const struct stage_palette *)rom(address))
+#define STAGE_NAME_BANNER(address) ((const struct stage_name_banner *)rom(address))
+#define SECTION_SCROLL_SPEEDS(address) ((const uint8_t *)rom(address))
+#define SECTION_FOLLOW_SPEEDS(address) ((const uint8_t *)rom(address))
+#define SECTION_CAMERA_LIMITS(address) ((const int16_t *)rom(address))
+#define SECTION_DIRECTIONS(address) ((const int16_t *)rom(address))
+#define SECTION_END_POSITIONS(address) ((const uint16_t *)rom(address))
+#define SCROLL_MODE_STEP(address) ((const struct scroll_mode_step *)rom(address))
+#define FAST_SCROLL_STARTS(address) ((const uint16_t *)rom(address))
+#define SCROLL_QUADRANT_SINES(address) ((const int16_t *)rom(address))
+#define STAGE_START_TILE_SETS(address) ((const uint32_t *)rom(address))
+#define BLOCK_TILE_SETS(address) ((const uint8_t *)rom(address))
+#define TILE_SET_VRAM_SCRIPTS(address) ((const uint32_t *)rom(address))
+#define STAGE_SECTION_LIST_OFFSETS(address) ((const uint16_t *)rom(address))
+#define NBG_LAYER_PRIORITIES(address) ((const uint8_t *)rom(address))
+#define NBG3_BLOCK_PAGES(address) ((const uint8_t *)rom(address))
+#define NBG3_QUADRANTS(address) ((const uint8_t *)rom(address))
+#define BRIDGE_SAG_DEPTHS(address) ((const uint8_t *)rom(address))
+#define TILE_BANK_SELECTS(address) ((const uint8_t *)rom(address))
+#define EVENT_0F_MESSAGE(address) ((const struct event_0f_message *)rom(address))
+#define MESSAGE_BOX_KIND(address) ((const struct message_box_kind *)rom(address))
+#define STAGE_06_LIGHTNING_STRIKE(address) ((const struct stage_06_lightning_strike *)rom(address))
+#define EVENT_1A_SCROLL_STEP(address) ((const struct event_1a_scroll_step *)rom(address))
+#define STAGE_03_FLOOR_BLOCK_KIND(address) ((const struct stage_03_floor_block_kind *)rom(address))
+#define STAGE_03_FLOOR_BLOCK_SHAPE(address) ((const struct stage_03_floor_block_shape *)rom(address))
+#define STAGE_03_FLOOR_BLOCK_ANIMATION(address) ((const struct stage_03_floor_block_animation *)rom(address))
+#define SPIKED_ROLLER_START_FRAMES(address) ((const uint8_t *)rom(address))
+#define ROCK_DEBRIS_PIECE(address) ((const struct rock_debris_piece *)rom(address))
+#define SPIKED_ROLLER_KIND(address) ((const struct spiked_roller_kind *)rom(address))
+#define SPIKED_ROLLER_CHASE_STEP(address) ((const struct spiked_roller_chase_step *)rom(address))
+#define SPIKED_ROLLER_LAYOUT(address) ((const struct spiked_roller_layout *)rom(address))
+#define SPIKED_ROLLER_PART(address) ((const struct spiked_roller_part *)rom(address))
+#define SPIKED_ROLLER_EVENT(address) ((const struct spiked_roller_event *)rom(address))
+#define DOOR_ROLLER_SPAWN(address) ((const struct door_roller_spawn *)rom(address))
+#define DOOR_FRAGMENT(address) ((const struct door_fragment *)rom(address))
+#define FIREBALL_EMITTER_LIST(address) ((const struct fireball_emitter_list *)rom(address))
+#define FIREBALL_TYPE(address) ((const struct fireball_type *)rom(address))
+#define MACHINE_FIRE_SCRIPT_STEP(address) ((const struct machine_fire_script_step *)rom(address))
+#define CAGE_BAR_ANIMATION(address) ((const struct cage_bar_animation *)rom(address))
+#define FIRE_VENT_SPAWN(address) ((const struct fire_vent_spawn *)rom(address))
+#define ICICLE_DROPPER_RECORD(address) ((const struct icicle_dropper_record *)rom(address))
+#define ICICLE_DROPPER_STEP(address) ((const struct icicle_dropper_step *)rom(address))
+#define SINK_SWIRL_EFFECT(address) ((const struct sink_swirl_effect *)rom(address))
+#define OBJECT_START_PLACE(address) ((const struct object_start_place *)rom(address))
+#define RIVER_RAFT_ENTRY(address) ((const struct river_raft_entry *)rom(address))
+#define GEYSER_FRONT_RECORD(address) ((const struct geyser_front_record *)rom(address))
+#define CHASE_STEP_AT_SCROLL(address) ((const struct chase_step_at_scroll *)rom(address))
+#define GEYSER_ROW_DELAY_CHOICE(address) ((const uint8_t *)rom(address))
+#define LISTED_GEYSER(address) ((const struct listed_geyser *)rom(address))
+#define STONE_BLOCK_POSITION(address) ((const struct stone_block_position *)rom(address))
+#define GEYSER_LINE_START(address) ((const struct geyser_line_start *)rom(address))
+#define GEYSER_LINE_STEP(address) ((const struct geyser_line_step *)rom(address))
+#define PROPELLER_MACHINE_ANIMATION_STEP(address) ((const struct propeller_machine_animation_step *)rom(address))
+#define ROPE_BRIDGE_ROPE_OFFSET(address) ((const struct rope_bridge_rope_offset *)rom(address))
+#define SPIKE_PANEL_SCREEN_OFFSET(address) ((const struct spike_panel_screen_offset *)rom(address))
+#define SPIKE_PANEL_PART_OFFSET(address) ((const struct spike_panel_part_offset *)rom(address))
+#define FLAME_MACHINE_OFFSET(address) ((const struct flame_machine_offset *)rom(address))
+#define FLAME_MACHINE_ARM_SWAY(address) ((const struct flame_machine_arm_sway *)rom(address))
+#define SPIKED_DISC_HOLD_OFFSET(address) ((const struct spiked_disc_hold_offset *)rom(address))
+#define HITBOX_SIZE_PAIR(address) ((const struct hitbox_size_pair *)rom(address))
+#define HITBOX_OFFSET_PAIR(address) ((const struct hitbox_offset_pair *)rom(address))
+#define CRAWLER_WALK_ROW(address) ((const struct crawler_walk_row *)rom(address))
+#define HITBOX_SIZE_AND_OFFSET(address) ((const struct hitbox_size_and_offset *)rom(address))
+#define CRAWLER_PIECE_OFFSET(address) ((const struct crawler_piece_offset *)rom(address))
+#define FENCE_OFFSET(address) ((const struct fence_offset *)rom(address))
+#define FENCE_POST_BOX(address) ((const struct fence_post_box *)rom(address))
+#define FENCE_POST_BOX_OFFSET(address) ((const struct fence_post_box_offset *)rom(address))
+#define RANKING_PORTRAIT_FRAME_LIST(address) ((const uint16_t *)rom(address))
+#define CHARACTER_BIT_NUMBERS(address) ((const uint8_t *)rom(address))
+#define SPRITE_PALETTE_CYCLE(address) ((const struct sprite_palette_cycle *)rom(address))
+#define SPRITE_CYCLE_PALETTES(address) ((const uint16_t *)rom(address))
+#define DEMO_TRACKBALL_DELTAS(address) ((const int8_t *)rom(address))
+#define EGGMAN_SPEECH_STEP(address) ((const struct eggman_speech_step *)rom(address))
+#define EGGMAN_SPEECH_ARGUMENTS(address) ((const uint16_t *)rom(address))
+#define HOW_TO_PLAY_BUTTON_PRESS(address) ((const struct how_to_play_button_press *)rom(address))
+#define MAP_EGGMAN_GESTURES(address) ((const int8_t *)rom(address))
+#define COIN_SETTING_VALUE(address) ((const struct coin_setting_value *)rom(address))
+#define ENDING_TOWER_FRAME(address) ((const struct ending_tower_frame *)rom(address))
+#define ENDING_EXPLOSION_FRAME(address) ((const struct ending_explosion_frame *)rom(address))
+#define ENDING_MUSIC_CUE(address) ((const struct ending_music_cue *)rom(address))
+#define ENDING_TIMED_FRAME(address) ((const struct ending_timed_frame *)rom(address))
+#define ENDING_TIMED_PALETTE(address) ((const struct ending_timed_palette *)rom(address))
+#define SCENERY_KIND_RECORD(address) ((const struct scenery_kind_record *)rom(address))
+#define GROUP_LEADER_HOLD_RECORD(address) ((const struct group_leader_hold_record *)rom(address))
+#define TORNADO_START_RECORD(address) ((const struct tornado_start_record *)rom(address))
+#define TORNADO_PATH_STEP(address) ((const struct tornado_path_step *)rom(address))
+#define DEFAULT_RANKING_RECORD(address) ((const struct default_ranking_record *)rom(address))
+#define WALL_KIND_OFFSETS(address) ((const struct wall_kind_offsets *)rom(address))
+#define WALL_KIND_PARTS(address) ((const struct wall_kind_parts *)rom(address))
+#define TITLE_SONIC_LOOP_CODES(address) ((const uint8_t *)rom(address))
+#define TIMED_SPAWN(address) ((const struct timed_spawn *)rom(address))
+#define TITLE_SMOKE_PUFF_SPRITES(address) ((const uint16_t *)rom(address))
+#define INPUT_TEST_BIT_NUMBERS(address) ((const uint8_t *)rom(address))
+#define CRT_TEST_COLOR_BAR_ROW(address) ((const struct crt_test_color_bar_row *)rom(address))
+#define SOUND_COMMAND_BYTES(address) ((const struct sound_command_bytes *)rom(address))
+#define RAM_TEST_PATTERN_BYTES(address) ((const uint8_t *)rom(address))
+#define RAM_TEST_PATTERN_WORDS(address) ((const uint16_t *)rom(address))
+#define CHOOSER_VOICE_ROW(address) ((const struct chooser_voice_row *)rom(address))
+#define MAP_ICON_POSITION(address) ((const struct map_icon_position *)rom(address))
+#define MEMORY_TEST_RESULT_OFFSETS(address) ((const uint16_t *)rom(address))
+#define CRT_TEST_LINE(address) ((const struct crt_test_line *)rom(address))
+#define SCREEN_SIGN_KIND(address) ((const struct screen_sign_kind *)rom(address))
+#define RAM_TARGET_DAMAGE_STEP(address) ((const struct ram_target_damage_step *)rom(address))
+#define FALLING_ROCK(address) ((const struct falling_rock *)rom(address))
+#define LINE_DIRECTION_STEP(address) ((const struct line_direction_step *)rom(address))
 #define FLOOD_FILL_RECORD(address) ((struct flood_fill_record *)ram(address))
 #define FLOOR_BLOCK(address) ((const struct floor_block *)rom(address))
 #define BRIDGE_LOAD(address) ((struct bridge_load *)ram(address))
@@ -7474,9 +8804,15 @@ _Static_assert(sizeof(struct palette_list_entry) == 0x8, "struct palette_list_en
 #define STAGE_OBJECT_TEMPLATE(address) ((const struct stage_object_template *)rom(address))
 #define SPRITE_PART_LIST(address) ((struct sprite_part_list *)ram(address))
 #define SPRITE_PART(address) ((struct sprite_part *)ram(address))
+#define FRAME_ANIMATION(address) ((const struct frame_animation *)rom(address))
+#define SPRITE_FRAME_NUMBERS(address) ((const uint16_t *)rom(address))
+#define PART_LIST_OFFSETS(address) ((const uint16_t *)rom(address))
 #define ANIMATION_STEP(address) ((const struct animation_step *)rom(address))
 #define SIGN_KIND(address) ((const struct sign_kind *)rom(address))
 #define BACK_ZONE_RECORD(address) ((const struct back_zone_record *)rom(address))
+#define METAL_WALL_PART_OFFSET(address) ((const struct metal_wall_part_offset *)rom(address))
+#define METAL_WALL_PART_SPRITES(address) ((const uint16_t *)rom(address))
+#define WALL_SPAWN(address) ((const struct wall_spawn *)rom(address))
 #define OBJECT_PAIR_TEMPLATE(address) ((const struct object_pair_template *)rom(address))
 #define FIREBALL_SHOT(address) ((const struct fireball_shot *)rom(address))
 #define TORNADO_HAZARD(address) ((const struct tornado_hazard *)rom(address))
@@ -7490,6 +8826,33 @@ _Static_assert(sizeof(struct palette_list_entry) == 0x8, "struct palette_list_en
 #define CREDIT_BLOCK(address) ((struct credit_block *)ram(address))
 #define TRACKBALL_MOTION(address) ((struct trackball_motion *)ram(address))
 #define FLAGGED_STEP(address) ((const struct flagged_step *)rom(address))
+#define PLAYER_PALETTE_LIST(address) ((const struct player_palette_list *)rom(address))
+#define EDGE_VOICE_SCROLL_RANGE(address) ((const struct edge_voice_scroll_range *)rom(address))
+#define SCREEN_EDGE_PUSH(address) ((const struct screen_edge_push *)rom(address))
+#define SLOPE_SPEED_PAIR(address) ((const struct slope_speed_pair *)rom(address))
+#define PLAYER_FACING_ANIMATION_OFFSETS(address) ((const uint16_t *)rom(address))
+#define FLOOR_TYPE_PLAYER_STATE(address) ((const struct floor_type_player_state *)rom(address))
+#define TEETER_RECORD(address) ((const struct teeter_record *)rom(address))
+#define TEETER_ANIMATION_OFFSETS(address) ((const struct teeter_animation_offsets *)rom(address))
+#define SHOCKED_PALETTE_ROW(address) ((const struct shocked_palette_row *)rom(address))
+#define EDGE_HANG_ANIMATIONS(address) ((const struct edge_hang_animations *)rom(address))
+#define PLAYER_BOUNCE_RECORD(address) ((const struct player_bounce_record *)rom(address))
+#define KNOCKED_OUT_ENTRY(address) ((const struct knocked_out_entry *)rom(address))
+#define STRUGGLE_ANIMATION_POINTERS(address) ((const uint32_t *)rom(address))
+#define RESTART_POINT(address) ((const struct restart_point *)rom(address))
+#define STAGE_START_POINT(address) ((const struct stage_start_point *)rom(address))
+#define STAGE_GOAL(address) ((const struct stage_goal *)rom(address))
+#define STAGE_GOAL_LINE_RANGE(address) ((const struct stage_goal_line_range *)rom(address))
+#define FALL_SPRITE_PRIORITY_SIDES(address) ((const int8_t *)rom(address))
+#define CLIMB_WALL_ATTRIBUTE(address) ((const struct climb_wall_attribute *)rom(address))
+#define FLOOR_PUSH_ATTRIBUTE(address) ((const struct floor_push_attribute *)rom(address))
+#define PLAYER_PATH_STEP(address) ((const struct player_path_step *)rom(address))
+#define HUD_PORTRAIT_SPRITE(address) ((const struct hud_portrait_sprite *)rom(address))
+#define HUD_PALETTE_CYCLE(address) ((const struct hud_palette_cycle *)rom(address))
+#define HUD_CYCLE_PALETTES(address) ((const uint16_t *)rom(address))
+#define FLOOR_SLOPE(address) ((const struct floor_slope *)rom(address))
+#define SAND_BLOCK_PART_LIST(address) ((const struct sand_block_part_list *)rom(address))
+#define ENDING_SPRITE_FRAMES(address) ((const uint16_t *)rom(address))
 #define DEBRIS_PATH_STEP(address) ((const struct debris_path_step *)rom(address))
 #define DUST_CLOUD_FRAME(address) ((const struct dust_cloud_frame *)rom(address))
 #define CREDIT_PART(address) ((const struct credit_part *)rom(address))
@@ -7498,20 +8861,165 @@ _Static_assert(sizeof(struct palette_list_entry) == 0x8, "struct palette_list_en
 #define MAP_MARKER_BLINK(address) ((const struct map_marker_blink *)rom(address))
 #define WIPE_WINDOW(address) ((const struct wipe_window *)rom(address))
 #define RANKING_RECORD(address) ((struct ranking_record *)ram(address))
+#define RANKING_ROW_NUMBER(address) ((const struct ranking_row_number *)rom(address))
 #define RING_TALLY_PORTRAIT(address) ((const struct ring_tally_portrait *)rom(address))
+#define RING_TALLY_RESULT_FACES(address) ((const struct ring_tally_result_faces *)rom(address))
+#define TITLE_WAVE_SINES(address) ((const uint16_t *)rom(address))
 #define GEYSER_RISE_STEP(address) ((const struct geyser_rise_step *)rom(address))
 #define PALETTE_SET_CYCLE(address) ((struct palette_set_cycle *)ram(address))
 #define PALETTE_CYCLE(address) ((struct palette_cycle *)ram(address))
 #define COIN_COUNTER(address) ((struct coin_counter *)ram(address))
+#define START_PROMPT_TEXT_OFFSETS(address) ((const uint16_t *)rom(address))
+#define FRACTION_FONT_ROW_LONGS(address) ((const uint32_t *)rom(address))
 #define TEXT_CELL_POSITION(address) ((const struct text_cell_position *)rom(address))
 #define POLYGON_SPAN(address) ((struct polygon_span *)ram(address))
 #define QUAD_VERTEX(address) ((struct quad_vertex *)ram(address))
 #define PICTURE_COLOUR_SLOT(address) ((struct picture_colour_slot *)ram(address))
 #define SAVED_BITMAP_RECT(address) ((struct saved_bitmap_rect *)ram(address))
+#define BOOT_REGISTER_VALUES(address) ((const uint8_t *)rom(address))
+#define DEMO_HEADER(address) ((const struct demo_header *)rom(address))
+#define ROM_CHECK_BYTES(address) ((const uint8_t *)rom(address))
+#define INPUT_TEST_TEXTS(address) ((const uint32_t *)rom(address))
+#define INPUT_TEST_CURSOR_LIMITS(address) ((const int16_t *)rom(address))
+#define TEST_CURSOR_CHARACTERS(address) ((const uint8_t *)rom(address))
 #define VBLANK_COPY(address) ((struct vblank_copy *)ram(address))
 #define SPRITE_FRAME_RECORD(address) ((const struct sprite_frame_record *)rom(address))
 #define STRING_RECORD(address) ((const struct string_record *)rom(address))
+#define SPRITE_STRING_CHARS(address) ((const uint8_t *)rom(address))
 #define QUEUED_STRING(address) ((struct queued_string *)ram(address))
+#define PLACED_TEXT(address) ((const struct placed_text *)rom(address))
+#define TEXT_LAYER_STRING(address) ((const uint8_t *)rom(address))
+#define FORMATTED_TEXT(address) ((const uint8_t *)rom(address))
+#define TILEMAP_SKIP(address) ((const struct tilemap_skip *)rom(address))
+#define TILEMAP_LONG_SKIP(address) ((const struct tilemap_long_skip *)rom(address))
+#define FONT_ROWS_1BPP(address) ((const uint8_t *)rom(address))
+#define FONT_ROWS_2BPP(address) ((const uint16_t *)rom(address))
+#define VRAM_SCRIPT(address) ((const uint8_t *)rom(address))
+#define VRAM_SCRIPT_ADDRESS(address) ((const struct vram_script_address *)rom(address))
+#define VRAM_SCRIPT_CELL_RUN(address) ((const struct vram_script_cell_run *)rom(address))
+#define VRAM_SCRIPT_BYTE_CELLS(address) ((const struct vram_script_byte_cells *)rom(address))
+#define VRAM_SCRIPT_LOW_BYTES(address) ((const uint8_t *)rom(address))
+#define VRAM_SCRIPT_WORD_CELLS(address) ((const struct vram_script_word_cells *)rom(address))
+#define VRAM_SCRIPT_CELLS(address) ((const uint16_t *)rom(address))
+#define VRAM_SCRIPT_PAGE_CLEAR(address) ((const struct vram_script_page_clear *)rom(address))
+#define VIDEO_REGISTER_DEFAULTS_TAIL(address) ((const struct video_register_defaults_tail *)rom(address))
+#define PALETTE_LOAD_LIST(address) ((const struct palette_load_list *)rom(address))
 #define PALETTE_LIST_ENTRY(address) ((const struct palette_list_entry *)rom(address))
+#define PALETTE_PENS_1_15(address) ((const struct palette_pens_1_15 *)rom(address))
+#define PALETTE_REPEAT_SOURCE(address) ((const struct palette_repeat_source *)rom(address))
+#define PALETTE_REPEAT_COUNTS(address) ((const uint16_t *)rom(address))
+#define CHASE_STEP_WITH_LIMIT(address) ((const struct chase_step_with_limit *)rom(address))
+#define BITING_HEAD_PATH_ENTRY(address) ((const struct biting_head_path_entry *)rom(address))
+#define BRIDGE_FIRE_SCRIPT_ENTRY(address) ((const struct bridge_fire_script_entry *)rom(address))
+#define FIRE_FRONT_PATH_START(address) ((const struct fire_front_path_start *)rom(address))
+#define BITING_HEAD_PATH_START(address) ((const struct biting_head_path_start *)rom(address))
+#define RISING_SAW_PATH_START(address) ((const struct rising_saw_path_start *)rom(address))
+#define BRICK_WALL_BRICK(address) ((const struct brick_wall_brick *)rom(address))
+#define BRICK_LOOK(address) ((const struct brick_look *)rom(address))
+#define BRICK_DUST_PUFF(address) ((const struct brick_dust_puff *)rom(address))
+#define BITING_HEAD_BITE_STEP(address) ((const struct biting_head_bite_step *)rom(address))
+#define GRATE_STEP_DEBRIS_LIST(address) ((const struct grate_step_debris_list *)rom(address))
+#define BURNING_BOULDER_RECORD(address) ((const struct burning_boulder_record *)rom(address))
+#define BURNING_BOULDER_FLAME_OFFSET(address) ((const struct burning_boulder_flame_offset *)rom(address))
+#define FALLING_EMBER_SPEED(address) ((const struct falling_ember_speed *)rom(address))
+#define SCENE_CARRIER_RECORD(address) ((const struct scene_carrier_record *)rom(address))
+#define LAVA_STEAM_PUFF_OFFSET(address) ((const struct lava_steam_puff_offset *)rom(address))
+#define GROUP_SLOT_TRIGGER_RECORD(address) ((const struct group_slot_trigger_record *)rom(address))
+
+/* the program ROM's tables of records, by name: name[i].field */
+#define spike_panel_head_offsets_ADDRESS 0x00F486u
+#define spike_panel_head_offsets ((const struct spike_panel_screen_offset *)rom(spike_panel_head_offsets_ADDRESS))
+#define spike_panel_part_1_offsets_ADDRESS 0x00F4DAu
+#define spike_panel_part_1_offsets ((const struct spike_panel_part_offset *)rom(spike_panel_part_1_offsets_ADDRESS))
+#define spike_panel_part_2_offsets_ADDRESS 0x00F516u
+#define spike_panel_part_2_offsets ((const struct spike_panel_screen_offset *)rom(spike_panel_part_2_offsets_ADDRESS))
+#define flame_machine_back_wall_offsets_ADDRESS 0x0101A0u
+#define flame_machine_back_wall_offsets ((const struct flame_machine_offset *)rom(flame_machine_back_wall_offsets_ADDRESS))
+#define flame_machine_arm_sway_offsets_ADDRESS 0x01039Eu
+#define flame_machine_arm_sway_offsets ((const struct flame_machine_arm_sway *)rom(flame_machine_arm_sway_offsets_ADDRESS))
+#define flame_machine_flame_offsets_ADDRESS 0x010575u
+#define flame_machine_flame_offsets ((const struct flame_machine_offset *)rom(flame_machine_flame_offsets_ADDRESS))
+#define spiked_disc_hold_offsets_ADDRESS 0x0107B7u
+#define spiked_disc_hold_offsets ((const struct spiked_disc_hold_offset *)rom(spiked_disc_hold_offsets_ADDRESS))
+#define ice_launcher_hitbox_sizes_ADDRESS 0x011E57u
+#define ice_launcher_hitbox_sizes ((const struct hitbox_size_pair *)rom(ice_launcher_hitbox_sizes_ADDRESS))
+#define ice_launcher_hitbox_offsets_ADDRESS 0x011E8Fu
+#define ice_launcher_hitbox_offsets ((const struct hitbox_offset_pair *)rom(ice_launcher_hitbox_offsets_ADDRESS))
+#define crawler_walk_steps_ADDRESS 0x012AD8u
+#define crawler_walk_steps ((const struct crawler_walk_row *)rom(crawler_walk_steps_ADDRESS))
+#define crawler_collision_boxes_ADDRESS 0x012AF4u
+#define crawler_collision_boxes ((const struct hitbox_size_and_offset *)rom(crawler_collision_boxes_ADDRESS))
+#define crawler_segment_offsets_ADDRESS 0x012B00u
+#define crawler_segment_offsets ((const struct crawler_piece_offset *)rom(crawler_segment_offsets_ADDRESS))
+#define crawler_tail_offsets_ADDRESS 0x012B14u
+#define crawler_tail_offsets ((const struct crawler_piece_offset *)rom(crawler_tail_offsets_ADDRESS))
+#define crawler_head_offsets_ADDRESS 0x012B1Cu
+#define crawler_head_offsets ((const struct crawler_piece_offset *)rom(crawler_head_offsets_ADDRESS))
+#define wall_piece_boxes_ADDRESS 0x012D08u
+#define wall_piece_boxes ((const struct hitbox_size_and_offset *)rom(wall_piece_boxes_ADDRESS))
+#define shaking_block_boxes_ADDRESS 0x012E48u
+#define shaking_block_boxes ((const struct hitbox_size_and_offset *)rom(shaking_block_boxes_ADDRESS))
+#define fence_post_offsets_ADDRESS 0x013A65u
+#define fence_post_offsets ((const struct fence_offset *)rom(fence_post_offsets_ADDRESS))
+#define fence_post_boxes_ADDRESS 0x013A75u
+#define fence_post_boxes ((const struct fence_post_box *)rom(fence_post_boxes_ADDRESS))
+#define fence_post_box_offsets_ADDRESS 0x013A85u
+#define fence_post_box_offsets ((const struct fence_post_box_offset *)rom(fence_post_box_offsets_ADDRESS))
+#define fence_arc_offsets_ADDRESS 0x013A95u
+#define fence_arc_offsets ((const struct fence_offset *)rom(fence_arc_offsets_ADDRESS))
+#define stage_03_floor_block_kinds_ADDRESS 0x082284u
+#define stage_03_floor_block_kinds ((const struct stage_03_floor_block_kind *)rom(stage_03_floor_block_kinds_ADDRESS))
+#define roller_wall_fragments_ADDRESS 0x08234Eu
+#define roller_wall_fragments ((const struct rock_debris_piece *)rom(roller_wall_fragments_ADDRESS))
+#define door_roller_layout_ADDRESS 0x0833EFu
+#define door_roller_layout ((const struct door_roller_spawn *)rom(door_roller_layout_ADDRESS))
+#define screen_sign_kinds_ADDRESS 0x084FA9u
+#define screen_sign_kinds ((const struct screen_sign_kind *)rom(screen_sign_kinds_ADDRESS))
+#define ram_target_debris_ADDRESS 0x085ED5u
+#define ram_target_debris ((const struct rock_debris_piece *)rom(ram_target_debris_ADDRESS))
+#define sink_swirl_effects_ADDRESS 0x08A80Eu
+#define sink_swirl_effects ((const struct sink_swirl_effect *)rom(sink_swirl_effects_ADDRESS))
+#define stone_block_positions_ADDRESS 0x08DAF0u
+#define stone_block_positions ((const struct stone_block_position *)rom(stone_block_positions_ADDRESS))
+#define geyser_line_starts_ADDRESS 0x08DB10u
+#define geyser_line_starts ((const struct geyser_line_start *)rom(geyser_line_starts_ADDRESS))
+#define scene_anchor_positions_ADDRESS 0x08DC1Cu
+#define scene_anchor_positions ((const struct object_start_place *)rom(scene_anchor_positions_ADDRESS))
+#define character_taken_bits_ADDRESS 0x090354u
+#define character_taken_bits ((const uint8_t *)rom(character_taken_bits_ADDRESS))
+#define chooser_voice_sounds_ADDRESS 0x09036Fu
+#define chooser_voice_sounds ((const struct chooser_voice_row *)rom(chooser_voice_sounds_ADDRESS))
+#define sprite_buffer_swaps_ADDRESS 0x09A6CCu
+#define sprite_buffer_swaps ((const struct sprite_buffer_swap *)rom(sprite_buffer_swaps_ADDRESS))
+#define line_direction_steps_ADDRESS 0x09C4D2u
+#define line_direction_steps ((const struct line_direction_step *)rom(line_direction_steps_ADDRESS))
+#define stage_palettes_ADDRESS 0x108CD0u
+#define stage_palettes ((const struct stage_palette *)rom(stage_palettes_ADDRESS))
+#define floor_slopes_ADDRESS 0x10DF44u
+#define floor_slopes ((const struct floor_slope *)rom(floor_slopes_ADDRESS))
+#define teetering_animations_ADDRESS 0x1128AEu
+#define teetering_animations ((const struct teeter_animation_offsets *)rom(teetering_animations_ADDRESS))
+#define floor_type_player_states_ADDRESS 0x113CD9u
+#define floor_type_player_states ((const struct floor_type_player_state *)rom(floor_type_player_states_ADDRESS))
+#define screen_edge_push_directions_ADDRESS 0x113EE0u
+#define screen_edge_push_directions ((const struct screen_edge_push *)rom(screen_edge_push_directions_ADDRESS))
+#define hud_gauge_positions_3p_ADDRESS 0x113F10u
+#define hud_gauge_positions_3p ((const struct screen_point *)rom(hud_gauge_positions_3p_ADDRESS))
+#define hud_gauge_positions_2p_ADDRESS 0x113F1Cu
+#define hud_gauge_positions_2p ((const struct screen_point *)rom(hud_gauge_positions_2p_ADDRESS))
+#define hud_portrait_positions_3p_ADDRESS 0x113F24u
+#define hud_portrait_positions_3p ((const struct screen_point *)rom(hud_portrait_positions_3p_ADDRESS))
+#define hud_portrait_positions_2p_ADDRESS 0x113F30u
+#define hud_portrait_positions_2p ((const struct screen_point *)rom(hud_portrait_positions_2p_ADDRESS))
+#define hud_portrait_sprites_ADDRESS 0x113F38u
+#define hud_portrait_sprites ((const struct hud_portrait_sprite *)rom(hud_portrait_sprites_ADDRESS))
+#define shocked_palettes_ADDRESS 0x113F4Fu
+#define shocked_palettes ((const struct shocked_palette_row *)rom(shocked_palettes_ADDRESS))
+#define shrink_away_positions_ADDRESS 0x113FABu
+#define shrink_away_positions ((const struct screen_point *)rom(shrink_away_positions_ADDRESS))
+#define edge_voice_scroll_ranges_ADDRESS 0x114B38u
+#define edge_voice_scroll_ranges ((const struct edge_voice_scroll_range *)rom(edge_voice_scroll_ranges_ADDRESS))
+#define coin_setting_values_ADDRESS 0x116EC5u
+#define coin_setting_values ((const struct coin_setting_value *)rom(coin_setting_values_ADDRESS))
 
 #endif

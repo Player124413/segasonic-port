@@ -3,7 +3,7 @@
  *    Description: the bitmap layer: clearing it, its address, scroll and window, pixels, lines, spans and rectangles; an unused packed picture decoder and LZ unpacker
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    19-10-2026
+ *    Modified:    21-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -893,8 +893,8 @@ void draw_line(uint32_t end_x, uint32_t end_y, uint32_t *p_start_x, uint32_t *p_
 	}
 	start_y = ((uint32_t)(int16_t)start_y << 9) + start_x + bitmap_address;
 	step_record = line_direction_steps_ADDRESS + direction_index * 4u;
-	minor_step = (int16_t)ROM16(step_record);
-	major_step = (int16_t)ROM16(step_record + 2u);
+	minor_step = LINE_DIRECTION_STEP(step_record)->row_step;
+	major_step = LINE_DIRECTION_STEP(step_record)->column_step;
 	if ((uint16_t)steps_left == (uint16_t)slope)
 	{
 		minor_step += major_step;
@@ -1417,8 +1417,8 @@ void draw_dotted_line_8bpp(uint32_t start_x, uint32_t start_y, uint32_t end_x, u
 	}
 	start_y = ((uint32_t)(uint16_t)start_y << 9) + start_x + bitmap_address;
 	step_record = line_direction_steps_ADDRESS + direction_index * 4u;
-	minor_step = (int16_t)ROM16(step_record);
-	major_step = (int16_t)ROM16(step_record + 2u);
+	minor_step = LINE_DIRECTION_STEP(step_record)->row_step;
+	major_step = LINE_DIRECTION_STEP(step_record)->column_step;
 	if ((uint16_t)steps_left == (uint16_t)dy)
 	{
 		minor_step = (minor_step + major_step) * 2u;

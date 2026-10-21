@@ -5,7 +5,7 @@ Name:        emit.py
 Description: writes the sound program's functions as C, through the decompiler's writer
 Version:     0.1.0
 Created:     13-10-2026
-Modified:    16-10-2026
+Modified:    21-10-2026
 Author:      Sebastian Toyos
 
 The decompiler's FunctionWriter does the work (decompiler/emit.py); this gives it the Z80's memory and
@@ -63,6 +63,10 @@ def use_memory_map(names, arrays):
     pointers.ARRAYS = dict(arrays)
     pointers.STRUCT_FUNCTION = "sound_ram_at"
     pointers.ROM_STRUCTS = set(names.rom_structs)    # records of the sound program's ROM: read only
+    pointers.RUNS = set(names.rom_structs)           # ... one after another wherever a pointer starts
+    pointers.ELEMENTS = dict(names.arrays)           # its values a pointer walks ("elements" lines)
+    pointers.RECORD_TABLES = dict(names.record_tables)    # its tables of records, by name
+    pointers.FIELD_ARRAYS = {key: (int(names.fields[key][1][1:]), count) for key, count in names.field_arrays.items()}
     pointers.ROM_FUNCTION = "sound_rom_at"
     pointers.CONSTANTS = True
     pointers.PAGED = True    # the sequence players, one per page from E900

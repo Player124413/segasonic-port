@@ -3,7 +3,7 @@
  *    Description: the voices: the RF5C68's sample voices (starting a sample, refilling its pages, stopping it) and the YM3438's FM voices (note off, release with the sustain pedal, volumes, patches, the vibrato)
  *    Version:     0.1.0
  *    Created:     13-10-2026
- *    Modified:    19-10-2026
+ *    Modified:    21-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the Z80 sound program decompiled into C by
@@ -503,10 +503,10 @@ void apply_fm_music_volume(uint8_t chip_channel, uint16_t level, uint16_t part)
 		z80_block(63);
 		saved_operators_left = operators_left;
 		saved_part_channel = part_channel;
-		register_number = SOUND_ROM8(register_list) + part_channel;
+		register_number = FM_REGISTER_NUMBERS(register_list)[0] + part_channel;
 		register_list++;
 		level_register = register_number;
-		operator_level = SOUND_ROM8(patch_levels);
+		operator_level = FM_PATCH_BYTES(patch_levels)[0];
 		patch_levels++;
 		if (operator_level >> 7 == 0u)
 		{
@@ -567,10 +567,10 @@ void apply_fm_channel_volume(uint8_t chip_channel, uint16_t level, uint16_t part
 		z80_block(63);
 		saved_operators_left = operators_left;
 		saved_part_channel = part_channel;
-		register_number = SOUND_ROM8(register_list) + part_channel;
+		register_number = FM_REGISTER_NUMBERS(register_list)[0] + part_channel;
 		register_list++;
 		level_register = register_number;
-		operator_level = SOUND_ROM8(patch_levels);
+		operator_level = FM_PATCH_BYTES(patch_levels)[0];
 		patch_levels++;
 		if (operator_level >> 7 == 0u)
 		{
@@ -612,10 +612,10 @@ void load_fm_patch(uint16_t *p_channel_in_part, uint16_t *p_register_list, uint1
 		z80_block(62);
 		saved_registers_left = registers_left;
 		saved_part_channel = part_channel;
-		register_number = SOUND_ROM8(register_list) + part_channel;
+		register_number = FM_REGISTER_NUMBERS(register_list)[0] + part_channel;
 		register_list++;
 		patch_register = register_number;
-		patch_byte = SOUND_ROM8(patch_data);
+		patch_byte = FM_PATCH_BYTES(patch_data)[0];
 		patch_data++;
 		fm_register = patch_register;
 		write_fm_channel(fm_register, patch_byte);
@@ -667,8 +667,8 @@ void step_fm_vibrato(uint16_t voice)
 	value = FM_VOICE(voice)->note;
 	fnumber = fm_fnum_tables_ADDRESS + (uint8_t)((value & 0xFu) * 2u);
 	frequency = pitch_bend;
-	fnumber = SOUND_ROM16(fnumber) + frequency + frequency;
-	fnumber = SOUND_ROM16(fnumber);
+	fnumber = FM_FNUMBER_RUNS(fnumber)[0] + frequency + frequency;
+	fnumber = FM_FNUMBERS(fnumber)[0];
 	vibrato_center = fnumber;
 	fnumber = (fnumber & 0xFFu) | ((uint32_t)(uint8_t)(((value & 0x70u) >> 1) + (fnumber >> 8)) << 8);
 	if ((FM_VOICE(voice)->vibrato_phase & 1u) != 0u)

@@ -3,7 +3,7 @@
  *    Description: the MIDI messages of the queue for each part on their channel: note on and off, pitch bend, control and program changes, picking a sample voice, retuning, FM modulation; the unused MIDI port on an 8251 USART (ports F0 and F1)
  *    Version:     0.1.0
  *    Created:     13-10-2026
- *    Modified:    19-10-2026
+ *    Modified:    21-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the Z80 sound program decompiled into C by
@@ -216,7 +216,7 @@ void play_midi_message(uint8_t message_byte, uint16_t part)
 			}
 			z80_block(88);
 			velocity_index = velocity;
-			note_level = SOUND_ROM8(velocity_levels_ADDRESS + velocity_index);
+			note_level = velocity_levels[velocity_index];
 			program = MIDI_PART(part)->program;
 			if (program < 0xF0u)
 			{
@@ -364,10 +364,10 @@ void play_midi_message(uint8_t message_byte, uint16_t part)
 					saved_outer = z80_read16(bend_entry) + (detune_low | ((uint32_t)(uint8_t)(0u - carry) << 8));
 					fnum_table_entry = fm_fnum_tables_ADDRESS + (uint8_t)((voice_note & 0xFu) * 2u);
 					bend_index = saved_outer;
-					fnum_entry = SOUND_ROM16(fnum_table_entry) + bend_index;
+					fnum_entry = FM_FNUMBER_RUNS(fnum_table_entry)[0] + bend_index;
 					carry = (uint16_t)(fnum_entry + bend_index) < fnum_entry;
 					fnum_entry += bend_index;
-					fnum = SOUND_ROM16(fnum_entry);
+					fnum = FM_FNUMBERS(fnum_entry)[0];
 					fnum = (fnum & 0xFFu) | ((uint32_t)(uint8_t)((((voice_note >> 1) | (carry << 7)) & 0x38u) + (fnum >> 8)) << 8);
 					register_channel = (fm_channel & 3u) << 8;
 					register_value = (uint8_t)(fnum >> 8);
@@ -387,10 +387,10 @@ void play_midi_message(uint8_t message_byte, uint16_t part)
 						z80_block(63);
 						saved_count = operators_left;
 						saved_value = part_channel;
-						register_number = SOUND_ROM8(register_list) + part_channel;
+						register_number = FM_REGISTER_NUMBERS(register_list)[0] + part_channel;
 						register_list++;
 						level_register = register_number;
-						total_level = SOUND_ROM8(patch_levels);
+						total_level = FM_PATCH_BYTES(patch_levels)[0];
 						patch_levels++;
 						if (total_level >> 7 == 0u)
 						{
@@ -1484,8 +1484,8 @@ void allocate_sample_voice(uint8_t note_velocity, uint16_t part)
 		carry = sample_detune_byte >> 7;
 		saved_outer = z80_read16(bend_entry) + (detune_low | ((uint32_t)(uint8_t)(0u - carry) << 8));
 		pitch_table_entry = pcm_pitch_tables_ADDRESS + (uint8_t)((voice_note & 0xFu) * 2u);
-		pitch_entry = SOUND_ROM16(pitch_table_entry) + saved_outer + saved_outer;
-		pitch = SOUND_ROM16(pitch_entry);
+		pitch_entry = PCM_PITCH_RUNS(pitch_table_entry)[0] + saved_outer + saved_outer;
+		pitch = PCM_PITCH_STEPS(pitch_entry)[0];
 		octave_bits = voice_note & ~0xFu;
 		octave = octave_bits;
 		if (octave_bits != 0u)
@@ -1632,13 +1632,13 @@ uint16_t retune_voice(uint16_t loop_count, uint16_t part, uint16_t voice)
 		voice_note = note;
 		fnum_table_entry = fm_fnum_tables_ADDRESS + (uint8_t)((note & 0xFu) * 2u);
 		bend = pitch_bend;
-		fnum_entry = SOUND_ROM16(fnum_table_entry) + bend + bend;
+		fnum_entry = FM_FNUMBER_RUNS(fnum_table_entry)[0] + bend + bend;
 		fm_detune = MIDI_PART(part)->fm_detune;
 		detune_low = fm_detune;
 		detune_byte = fm_detune;
 		detune_sign = ((uint32_t)detune_byte << 1) | (detune_byte >> 7);
 		carry = detune_byte >> 7;
-		fnum = SOUND_ROM16(fnum_entry) + (detune_low | ((uint32_t)(uint8_t)(0u - carry) << 8));
+		fnum = FM_FNUMBERS(fnum_entry)[0] + (detune_low | ((uint32_t)(uint8_t)(0u - carry) << 8));
 		fnum = (fnum & 0xFFu) | ((uint32_t)(uint8_t)(((voice_note & ~0xFu) >> 1) + (fnum >> 8)) << 8);
 		register_channel = (fm_channel & 3u) << 8;
 		register_value = (uint8_t)(fnum >> 8);
@@ -1660,8 +1660,8 @@ uint16_t retune_voice(uint16_t loop_count, uint16_t part, uint16_t voice)
 	note = SAMPLE_VOICE(voice)->note;
 	pitch_table_entry = pcm_pitch_tables_ADDRESS + (uint8_t)((note & 0xFu) * 2u);
 	bend = pitch_bend;
-	pitch_entry = SOUND_ROM16(pitch_table_entry) + bend + bend;
-	pitch = SOUND_ROM16(pitch_entry);
+	pitch_entry = PCM_PITCH_RUNS(pitch_table_entry)[0] + bend + bend;
+	pitch = PCM_PITCH_STEPS(pitch_entry)[0];
 	octave_bits = note & ~0xFu;
 	octave = octave_bits;
 	if (octave_bits == 0u)

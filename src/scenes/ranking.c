@@ -3,7 +3,7 @@
  *    Description: the ranking: entering initials at game over, loading and resetting the table, the TOP15 display
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    19-10-2026
+ *    Modified:    21-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -395,29 +395,29 @@ uint32_t reset_ranking(void)
 	records_left = 0xFu;
 	do
 	{
-		RANKING_RECORD(write_cursor)->rings = ROM16(read_cursor);
+		RANKING_RECORD(write_cursor)->rings = DEFAULT_RANKING_RECORD(read_cursor)->rings;
 		write_cursor += 2u;
 		read_cursor += 2u;
-		AS16(RANKING_RECORD(write_cursor - 0x2u)->character) = ROM16(read_cursor);
+		AS16(RANKING_RECORD(write_cursor - 0x2u)->character) = DEFAULT_RANKING_RECORD(read_cursor - 0x2u)->character_and_stages;
 		write_cursor += 2u;
 		read_cursor += 2u;
-		letter = ROM8(read_cursor);
+		letter = DEFAULT_RANKING_RECORD(read_cursor - 0x4u)->first_letter;
 		read_cursor++;
 		letter = ascii_to_ranking_letter(letter);
 		RANKING_RECORD(write_cursor - 0x4u)->first_initial = letter;
-		second_letter = ROM8(read_cursor);
+		second_letter = DEFAULT_RANKING_RECORD(read_cursor - 0x5u)->second_letter;
 		read_cursor++;
 		letter = second_letter;
 		write_cursor++;
 		letter = ascii_to_ranking_letter(letter);
 		RANKING_RECORD(write_cursor - 0x5u)->second_initial = letter;
-		third_letter = ROM8(read_cursor);
+		third_letter = DEFAULT_RANKING_RECORD(read_cursor - 0x6u)->third_letter;
 		read_cursor++;
 		letter = third_letter;
 		write_cursor++;
 		letter = ascii_to_ranking_letter(letter);
 		RANKING_RECORD(write_cursor - 0x6u)->third_initial = letter;
-		last_byte = ROM8(read_cursor);
+		last_byte = DEFAULT_RANKING_RECORD(read_cursor - 0x7u)->letters_pad;
 		read_cursor++;
 		write_cursor++;
 		RANKING_RECORD(write_cursor - 0x7u)->initials_pad = last_byte;
@@ -511,13 +511,13 @@ void build_ranking_display(void)
 		spawn_object_with_pieces(0x08F28Bu, &ignored, &ignored, &free_count, &object, &block);
 		OBJECT(object)->screen_x = 0xC;
 		rank_label = ranking_row_numbers_ADDRESS + ((current_player & ~0xFFu) | (uint8_t)(current_player * 2u));
-		OBJECT(object)->sprite_frame = ranking_letter_sprites[ROM8(rank_label)];
+		OBJECT(object)->sprite_frame = ranking_letter_sprites[RANKING_ROW_NUMBER(rank_label)->tens_code];
 		OBJECT(object)->sprite_palette = 0x8AD0u;
 		OBJECT(object)->ranking_row.row = rows_left;
 		OBJECT(object)->handler = ranking_row_update_ADDRESS;
 		object = LINKED(object, OBJECT(object)->child);
 		OBJECT(object)->screen_x = 0x18;
-		label_second_char = ROM8(rank_label + 1u);
+		label_second_char = RANKING_ROW_NUMBER(rank_label)->units_code;
 		OBJECT(object)->sprite_frame = ranking_letter_sprites[label_second_char];
 		OBJECT(object)->sprite_palette = 0x8AD0u;
 		remainder = (uint16_t)RANKING_RECORD(record)->rings;
@@ -873,7 +873,7 @@ void ranking_row_update(void)
 		frame_index = (uint8_t)OBJECT(current_object)->piece_frame;
 		if (OBJECT(object_cursor)->ranking_row.row == 1u)
 			frame_index += 0x14u;
-		OBJECT(current_object)->sprite_frame = ROM16(portrait_frames + frame_index * 2u);
+		OBJECT(current_object)->sprite_frame = RANKING_PORTRAIT_FRAME_LIST(portrait_frames)[frame_index];
 		if (OBJECT(object_cursor)->ranking_row.animate != 0u && OBJECT(current_object)->piece_frame < 0x13)
 			OBJECT(current_object)->piece_frame++;
 	}
@@ -888,7 +888,7 @@ void ranking_row_update(void)
 			frame_index = (uint8_t)OBJECT(current_object)->piece_frame;
 			if (OBJECT(object_cursor)->ranking_row.row == 1u)
 				frame_index += 0x14u;
-			OBJECT(current_object)->sprite_frame = ROM16(portrait_frames + frame_index * 2u);
+			OBJECT(current_object)->sprite_frame = RANKING_PORTRAIT_FRAME_LIST(portrait_frames)[frame_index];
 			if (OBJECT(object_cursor)->ranking_row.animate != 0u && OBJECT(current_object)->piece_frame < 0x13)
 				OBJECT(current_object)->piece_frame++;
 		}

@@ -184,19 +184,19 @@
 00D8  port  IRQ_CONTROL_D8       # uncertain: sound_main writes 0B; the board ignores D8-DF
 
 # Variables, tables and the RF5C68's registers
-0273  table fm_global_init       u8   # init_fm_chips: 11 pairs register, value (22=0A 24=E6 25=01 26=FF 28=00..06 2B=00) for part I of both chips
-0289  table fm_operator_init     u8   # init_fm_chips: 36 pairs for all four parts (40-4E 7F, 80-8E FF, 90-9E 00)
-031B  table pcm_register_init   u8    # 29h pairs (register, value) 02D1 writes to the RF5C68 at init: register 8 = FFh (all off), then per channel: select, envelope 0, start N*20h, loop N*20h+10h (F0h for channel 6; an FFh mark: silent), loop low 0
-0387  table  voice_chip_channels  u8        # 0373 (init) copies these 20 bytes into the voices' chip_channel: 00-07, 80 81 82 84 85 86 88 89 8A 8C 8D 8E
+0273  table fm_global_init       register_value_pair   # init_fm_chips: 11 pairs register, value (22=0A 24=E6 25=01 26=FF 28=00..06 2B=00) for part I of both chips
+0289  table fm_operator_init     register_value_pair   # init_fm_chips: 36 pairs for all four parts (40-4E 7F, 80-8E FF, 90-9E 00)
+031B  table pcm_register_init   register_value_pair    # 29h pairs (register, value) 02D1 writes to the RF5C68 at init: register 8 = FFh (all off), then per channel: select, envelope 0, start N*20h, loop N*20h+10h (F0h for channel 6; an FFh mark: silent), loop low 0
+0387  table  voice_chip_channels  voice_chip_codes        # 0373 (init) copies these 20 bytes into the voices' chip_channel: 00-07, 80 81 82 84 85 86 88 89 8A 8C 8D 8E
 06F1  table  pcm_channel_bits  u8           # 01 02 04 ... 80: the bit of an RF5C68 channel in pcm_channels_on (0579, 06E0, 0D2B)
-134B  table  fm_patch_registers  u8         # 30-3C, 50-5C, 60-6C, 70-7C, 80-8C, B0: the registers load_fm_patch writes (+ the channel within the part)
-1360  table  fm_level_registers  u8         # 40 44 48 4C: the operators' total level registers (1161-117A, 12B5, 130D)
-137C  table  fm_fnum_tables  u16            # by semitone: where its run of YM3438 F-numbers starts (13D4 + 20h each), indexed by the pitch bend (1133, 120B, 6213)
+134B  table  fm_patch_registers  fm_register_numbers         # 30-3C, 50-5C, 60-6C, 70-7C, 80-8C, B0: the registers load_fm_patch writes (+ the channel within the part)
+1360  table  fm_level_registers  fm_register_numbers         # 40 44 48 4C: the operators' total level registers (1161-117A, 12B5, 130D)
+137C  table  fm_fnum_tables  fm_fnumber_runs            # by semitone: where its run of YM3438 F-numbers starts (13D4 + 20h each), indexed by the pitch bend (1133, 120B, 6213)
 1594  table  part_templates  u16            # by CC 20's value: 8 parts (48h bytes) copied to E300 (0AB8); 03B5 copies [1] there and the first 2Dh bytes of [0] (channels A-E) to E348 at init
 193B  table  instruments  u16               # by program (below F0): a 5-byte header (the pointers are 5 bytes apart): flags (bit 1: FM), sample or patch, a byte no one reads (00 in all of them), pan, sample detune (0510, 071A, 12A1)
 1A3E  table  note_codes  u8                 # by MIDI note number: semitone in the low nibble, octave in the high one (80-FB for notes 0-95, then 00-27): the RF5C68 FD shift (068D-06AE) and the YM3438 block (1142)
-1BFE  table  velocity_levels  u8            # by note on velocity 0-127: 00-FF on a curve (04B4)
-1E96  table  pcm_pitch_tables  u16          # by semitone: where its run of RF5C68 FD values starts (202E + 20h each: 16 steps per semitone), indexed by the pitch bend (067D, 07FF)
+1BFE  table  velocity_levels  note_levels            # by note on velocity 0-127: 00-FF on a curve (04B4)
+1E96  table  pcm_pitch_tables  pcm_pitch_runs          # by semitone: where its run of RF5C68 FD values starts (202E + 20h each: 16 steps per semitone), indexed by the pitch bend (067D, 07FF)
 232E  table  pitch_bend_steps  u8           # by the bend's distance from the middle (the 14-bit value >> 5, 0-FF): index / 8, 0-1F steps of the pitch tables (0799)
 242E  table  fm_patches  u16                # by patch number: 25 bytes: the 21 registers of fm_patch_registers, then 4 operator levels (bit 7: written as is, else added to note_level) (1332, 12A9)
 3F2E  table  drum_kits  u16                 # by program - F0: 4 bytes per note: RF5C68 FD low, high, pan, sample (FF none) (04C9)
@@ -863,6 +863,7 @@ local poll_sound_command 48E0,48EC,48EF,48F6,48FA,48FD,4924,492C,492F,494E,494F,
 local poll_sound_command 48EA,48F5,48FE,4928,4955,4979 r6 byte    # the group, the number, the header's flags and priority, the song number
 local poll_sound_command 48F7,48FD,4927,492B,4933,495F,4971,4982 r1 header    # E900, then the sound header
 local read_table_word 0401 r0 offset    # A, added twice
+local read_table_word 0404 r2 table table_words    # the table + 2 x the index (0403-0404): the entry
 local read_table_word 0408 r2 word    # the entry, handed back in HL
 local refill_pcm_voice 0BF4 r4 voice         # E027, then the next voice (0CF0)
 local refill_pcm_voice 0C0B,0C11,0C28 r2 progress  # refill_progress + pitch_step, bit 4 or 3 cleared once acted on
@@ -1170,6 +1171,19 @@ field pcm_sample_header 02 start_page u8    # the page of the bank window (A0-BF
 field pcm_sample_header 03 bank_step u8     # uncertain: copied to the voice's header_bank_step (0BCF-0BD0), which nothing reads; 0-7 in the data
 field pcm_sample_header 04 address_low u8   # uncertain: with byte 05 an address in A000-BFFF (in the data); copied to the voice's header_address_low (0BD4-0BD5), which nothing reads
 field pcm_sample_header 05 address_high u8  # uncertain: copied to header_address_high (0BD9-0BDA), which nothing reads
+struct register_value_pair 2 rom        # a register number and the value written to it: fm_global_init and fm_operator_init (init_fm_chips: LD C,(HL); INC HL; LD A,(HL); INC HL at 01DA-01DD and 0203-0206), pcm_register_init (init_pcm_chip 0315-0318); census ROM 0273-0386
+field register_value_pair 00 register_number u8   # the chip's register (YM3438: 22-2B, 30-9E; RF5C68: 0-8)
+field register_value_pair 01 value u8             # what is written to it
+elements voice_chip_codes u8            # voice_chip_channels: each of the 20 voices' chip_channel, the 8 sample voices' 00-07 then the 12 FM voices' 80-8E (init_track_channels 0376-037E: LD A,(DE); INC DE); census ROM 0387-039A
+elements note_levels u8                 # velocity_levels: by note-on velocity 0-127, the note's level 00-FF on a curve (play_midi_message 04B4: LD A,(HL) at velocity_levels + velocity); census ROM 1BFE-1C7D
+elements fm_fnumbers u16                # a semitone's run of YM3438 F-numbers (13D4 + 20h each), one per pitch bend step: play_midi_message 1133, retune_voice 120B, step_fm_vibrato 6213 read run + 2 x the bend
+elements fm_fnumber_runs u16 fm_fnumbers    # fm_fnum_tables: by semitone (note & 0F), the address of its run of F-numbers; census ROM 137C-1393
+elements pcm_pitch_steps u16            # a semitone's run of RF5C68 FD values (202E + 20h each), one per pitch bend step: play_midi_message 067D, retune_voice 07FF read run + 2 x the bend
+elements pcm_pitch_runs u16 pcm_pitch_steps  # pcm_pitch_tables: by semitone, the address of its run of FD values; census ROM 1E96-1EAD
+elements fm_register_numbers u8         # YM3438 register numbers the channel within its part is added to: fm_patch_registers (21, load_fm_patch 133F) and fm_level_registers (the 4 total levels: play_midi_message 1165, apply_fm_music_volume 12BA, apply_fm_channel_volume 1312); census ROM 134B-1363
+elements fm_patch_bytes u8              # an fm_patches entry (25 bytes): the values of the 21 registers of fm_patch_registers (load_fm_patch 1342), then the 4 operator levels (bit 7: written as is, else added to note_level: 1167, 12BD, 1315)
+elements playlist_bytes u8              # a playlist (4D66-4E53): song numbers to play one after another, and commands F0-FF (playlist_command: F0 a jump, FE stop...); step_player reads the next at 4883 (the player's playlist), playlist_command 46B9 the song after a jump
+elements table_words u16                # the words of a table read_table_word reads by index (HL + 2 x A at 0401-0404, the word at 0405-0408)
 struct sound_list 1 rom                 # a sound command group's list (sound_groups[group & 7F], 4A78: 4A80, 4A89, 4AC8, 4BCD): its last number, then by number the 16-bit addresses of the sounds' headers (read_table_word from the list + 1, 48F6-48FA)
 field sound_list 00 last_number u8      # the highest number of the group: a sound_command above it plays nothing (48F2-48F4)
 struct sound_header 2 rom               # a sound's header (the sound_list entries: 4D66-5D74): its flags pick the player and what follows (poll_sound_command 48FE-4916); a playlist header (flags 10 in the game) has its first song next and the playlist after it (4927-492C); a sequence header (8F, CF) has the sequence right after the flags (495F, 4982); with flags bit 5 a song_record (start_sequence)
@@ -1200,19 +1214,24 @@ local poll_sound_command 4971 r2 address sequence_player    # adds: what select_
 local playlist_command 46D1 r2 cleared_player sequence_player   # FE, IX through the stack (46CF-46D1): the player; LD (HL),A (46D9) zeroes its flags and the LDIR the 30h bytes after them
 param start_sequence de header song_record                 # start_song passes songs[song] (491F), poll_sound_command a sound header with flags bit 5 (490B); 4937-4944 read its bytes 01-03
 param select_channel_player de header rom                  # a sound header with flags bits 7 and 6 (4913); 49AA reads the byte after the flags, which for these headers is their sequence's first event (the status byte: its channel), not sound_header's first_song: read as the ROM's (poll_sound_command takes the header back as a sound_header at 4971)
-param read_table_word hl table rom                         # every caller passes a table of the program ROM (instruments 193B, drum_kits 3F2E, part_templates 1594, vibrato_presets 45E2, pcm_sample_headers 6429, fm_patches 242E, playlist_command_table 4706, sound_groups 4A78, songs 4C66) or a sound_list's entries (48F6-48FA): the game's data keeps every index inside its table (programs 00-1D and F0-F2, samples up to AE, CC 20 up to 0C); the word 0405-0408 reads is the ROM's
-local play_midi_message 0687 r2 pitch_entry rom            # pcm_pitch_tables[semitone] + 2 * (channel_pitch_bends[channel] + sample_detune) (067D-0687): an RF5C68 FD in the runs from 202E (pcm_pitch_tables' entries 202E-218E, +- the bend), read 0688-068B
-local retune_voice 080C r2 pitch_entry rom                 # pcm_pitch_tables[semitone] + 2 * pitch_bend (07FF-080C), read 080D-0810
-local retune_voice 1218 r2 fnum_entry rom                  # fm_fnum_tables[semitone] + 2 * pitch_bend (120B-1218): a YM3438 F-number in the runs from 13D4 (entries 13D4-1534), read 1219-121C
-local play_midi_message 113C,113D r2 fnum_entry rom        # FM note on, fm_fnum_tables[semitone] + 2 * (channel_pitch_bends[channel] + fm_detune) (1133-113D), read 113E-1141
-local step_fm_vibrato 6220 r2 fnumber rom                  # adds (to 'local step_fm_vibrato 006216,...,006414 hl fnumber'): fm_fnum_tables[note & 0F] + 2 * pitch_bend (6213-6220), read 6221-6224 into vibrato_center
-local play_midi_message 115E r1 register_list rom          # DE as load_fm_patch hands it back, fm_level_registers (1360): the operators' total level registers (1164, INC DE 1166)
-local play_midi_message 115E r2 patch_levels rom           # HL as load_fm_patch hands it back, the patch's last 4 bytes (fm_patches[patch] + 15h): its operators' levels (1168, INC HL 1169)
-local load_fm_patch 1332,1335,1343 r2 patch_data rom       # new (the C calls it hl): fm_patches (1332), then the patch (read_table_word at 1335): 1342 reads its first 21 bytes, one a pass (INC HL 1343); handed back past them (the param line's patch_data)
-local apply_fm_music_volume 12A9,12AC r2 patch_levels rom  # fm_patches, then the patch (12AC), + 15h (12AF-12B2): its 4 operator levels, read 12BD (INC HL 12BE)
-local apply_fm_channel_volume 1301,1304 r2 patch_levels rom    # the same for CC 7 (1304, 1307-130A, read 1315)
-local playlist_command 46B8 r2 playlist rom                # adds (the param line's playlist): F0 (playlist_jump), the 16-bit address after the command (46B5-46B8) where the playlist goes on; 46B9 reads the song there (the playlists and their jumps lie in 4D66-4E53)
-field sequence_player 20 playlist u16 rom                  # the next playlist byte, in the program ROM (the playlists 4D66-4E53 and their F0 jumps): step_player reads it at 4883-4889 (stored back at 4896); 48E0 sets it (492C) to the byte after the first song
+param read_table_word hl table table_words                         # every caller passes a table of the program ROM (instruments 193B, drum_kits 3F2E, part_templates 1594, vibrato_presets 45E2, pcm_sample_headers 6429, fm_patches 242E, playlist_command_table 4706, sound_groups 4A78, songs 4C66) or a sound_list's entries (48F6-48FA): the game's data keeps every index inside its table (programs 00-1D and F0-F2, samples up to AE, CC 20 up to 0C); the word 0405-0408 reads is the ROM's
+local play_midi_message 0687 r2 pitch_entry pcm_pitch_steps            # pcm_pitch_tables[semitone] + 2 * (channel_pitch_bends[channel] + sample_detune) (067D-0687): an RF5C68 FD in the runs from 202E (pcm_pitch_tables' entries 202E-218E, +- the bend), read 0688-068B
+local retune_voice 080C r2 pitch_entry pcm_pitch_steps                 # pcm_pitch_tables[semitone] + 2 * pitch_bend (07FF-080C), read 080D-0810
+local retune_voice 1218 r2 fnum_entry fm_fnumbers                  # fm_fnum_tables[semitone] + 2 * pitch_bend (120B-1218): a YM3438 F-number in the runs from 13D4 (entries 13D4-1534), read 1219-121C
+local play_midi_message 113C r2 fnum_entry rom        # the run + the bend;
+local play_midi_message 113D r2 fnum_entry fm_fnumbers        # FM note on, fm_fnum_tables[semitone] + 2 * (channel_pitch_bends[channel] + fm_detune) (1133-113D), read 113E-1141
+local step_fm_vibrato 6220 r2 fnumber fm_fnumbers                  # adds (to 'local step_fm_vibrato 006216,...,006414 hl fnumber'): fm_fnum_tables[note & 0F] + 2 * pitch_bend (6213-6220), read 6221-6224 into vibrato_center
+local play_midi_message 115E r1 register_list fm_register_numbers          # DE as load_fm_patch hands it back, fm_level_registers (1360): the operators' total level registers (1164, INC DE 1166)
+local play_midi_message 115E r2 patch_levels fm_patch_bytes           # HL as load_fm_patch hands it back, the patch's last 4 bytes (fm_patches[patch] + 15h): its operators' levels (1168, INC HL 1169)
+local load_fm_patch 1332 r2 patch_data rom       # fm_patches;
+local load_fm_patch 1335 r2 patch_data fm_patch_bytes       # the patch's bytes;
+local load_fm_patch 1343 r2 patch_data       # new (the C calls it hl): fm_patches (1332), then the patch (read_table_word at 1335): 1342 reads its first 21 bytes, one a pass (INC HL 1343); handed back past them (the param line's patch_data)
+local apply_fm_music_volume 12A9 r2 patch_levels rom  # fm_patches;
+local apply_fm_music_volume 12AC r2 patch_levels fm_patch_bytes  # fm_patches, then the patch (12AC), + 15h (12AF-12B2): its 4 operator levels, read 12BD (INC HL 12BE)
+local apply_fm_channel_volume 1301 r2 patch_levels rom    # fm_patches;
+local apply_fm_channel_volume 1304 r2 patch_levels fm_patch_bytes    # the same for CC 7 (1304, 1307-130A, read 1315)
+local playlist_command 46B8 r2 playlist playlist_bytes                # adds (the param line's playlist): F0 (playlist_jump), the 16-bit address after the command (46B5-46B8) where the playlist goes on; 46B9 reads the song there (the playlists and their jumps lie in 4D66-4E53)
+field sequence_player 20 playlist u16 playlist_bytes                  # the next playlist byte, in the program ROM (the playlists 4D66-4E53 and their F0 jumps): step_player reads it at 4883-4889 (stored back at 4896); 48E0 sets it (492C) to the byte after the first song
 
 # ======== what the C says above each function (build/naming/comments_1..8.txt) ========
 comment chain_next_event Hands back data_byte without bit 7, which marks it as chained: the player's flags bit 6 is set so step_player reads the next event at once, with no delta time between them.

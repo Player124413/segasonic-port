@@ -3,7 +3,7 @@
  *    Description: stage 4's objects: the vines, the catapults, arrow boards, pebbles, the propped board, boulders, the door wall at the start and the rollers behind it, the fireball emitter and the bouncing fireballs, the electric fence and the flame machine at the end
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    19-10-2026
+ *    Modified:    21-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -630,8 +630,8 @@ void flame_machine_back_wall_update(void)
 					current_object = LINKED(current_object, OBJECT(object_cursor)->parent);
 					OBJECT(object_cursor)->projected_x = OBJECT(current_object)->projected_x;
 					OBJECT(object_cursor)->projected_y = OBJECT(current_object)->projected_y;
-					OBJECT(object_cursor)->projected_x += ROM16(offset_record);
-					OBJECT(object_cursor)->projected_y_int += ROM16(offset_record + 2u);
+					OBJECT(object_cursor)->projected_x += FLAME_MACHINE_OFFSET(offset_record)->dx;
+					OBJECT(object_cursor)->projected_y_int += FLAME_MACHINE_OFFSET(offset_record)->dy;
 					if (wall_frame == 5u)
 					{
 						flame_machine_flags |= 0x10u;
@@ -786,8 +786,8 @@ void flame_machine_arm_draw(void)
 	current_object = object_cursor;
 	sway_offset = flame_machine_arm_sway_offsets_ADDRESS + OBJECT(current_object)->flame_machine_arm.sway_step * 2u;
 	side = (uint16_t)OBJECT(current_object)->flame_machine_arm.side;
-	sway_dy = (uint16_t)((uint32_t)(int8_t)ROM8(sway_offset + 1u) * side);
-	OBJECT(current_object)->projected_x += (uint32_t)(int8_t)ROM8(sway_offset) * side;
+	sway_dy = (uint16_t)((uint32_t)FLAME_MACHINE_ARM_SWAY(sway_offset)->dy * side);
+	OBJECT(current_object)->projected_x += (uint32_t)FLAME_MACHINE_ARM_SWAY(sway_offset)->dx * side;
 	OBJECT(current_object)->projected_y_int += sway_dy;
 	object = LINKED(WORK_RAM, OBJECT(current_object)->parent);
 	object = LINKED(object, OBJECT(object)->child);
@@ -829,8 +829,8 @@ void flame_machine_cannon_update(void)
 		spawn_arg_1 = OBJECT(current_object)->spawn_arg_1;
 		offset_record = flame_machine_flame_offsets_ADDRESS + spawn_arg_1 * 4u;
 		OBJECT(object)->direction = flame_machine_flame_directions[spawn_arg_1];
-		OBJECT(object)->projected_x += ROM16(offset_record);
-		OBJECT(object)->projected_y_int += ROM16(offset_record + 2u);
+		OBJECT(object)->projected_x += FLAME_MACHINE_OFFSET(offset_record)->dx;
+		OBJECT(object)->projected_y_int += FLAME_MACHINE_OFFSET(offset_record)->dy;
 		OBJECT(object)->sprite_frame = 0x6910u;
 		OBJECT(object)->sprite_palette = 0x7B0u;
 		OBJECT(object)->flags |= 2u;
@@ -941,8 +941,8 @@ void spiked_disc_hold(void)
 	arm_frame_index = OBJECT(current_object)->flame_machine_arm.frame_index;
 	OBJECT(object_cursor)->spiked_disc.arm_frame = arm_frame_index;
 	offset_record = spiked_disc_hold_offsets_ADDRESS + arm_frame_index * 4u;
-	OBJECT(object_cursor)->projected_x += ROM16(offset_record);
-	OBJECT(object_cursor)->z_int += ROM16(offset_record + 2u);
+	OBJECT(object_cursor)->projected_x += SPIKED_DISC_HOLD_OFFSET(offset_record)->dx;
+	OBJECT(object_cursor)->z_int += SPIKED_DISC_HOLD_OFFSET(offset_record)->dz;
 	current_object = object_cursor;
 	spiked_disc_draw_held();
 }
@@ -1122,11 +1122,11 @@ void fence_post_init(void)
 		OBJECT(current_object)->hitbox_height = 0x64u;
 		OBJECT(current_object)->kind = 0xEu;
 		rom_record = fence_post_boxes_ADDRESS + row_direction * 4u;
-		OBJECT(current_object)->hitbox_size_x = ROM16(rom_record);
-		OBJECT(current_object)->hitbox_size_y = ROM16(rom_record + 2u);
+		OBJECT(current_object)->hitbox_size_x = FENCE_POST_BOX(rom_record)->size_x;
+		OBJECT(current_object)->hitbox_size_y = FENCE_POST_BOX(rom_record)->size_y;
 		rom_record = fence_post_box_offsets_ADDRESS + row_direction * 2u;
-		OBJECT(current_object)->hitbox_offset_x = ROM8(rom_record);
-		OBJECT(current_object)->hitbox_offset_y = ROM8(rom_record + 1u);
+		OBJECT(current_object)->hitbox_offset_x = FENCE_POST_BOX_OFFSET(rom_record)->x;
+		OBJECT(current_object)->hitbox_offset_y = FENCE_POST_BOX_OFFSET(rom_record)->y;
 		OBJECT(current_object)->handler = fence_post_start_ADDRESS;
 		object = LINKED(WORK_RAM, OBJECT(current_object)->child);
 		OBJECT(object)->direction = arc_phase;
@@ -1150,8 +1150,8 @@ void fence_post_init(void)
 		OBJECT(object_2)->floor_z = OBJECT(current_player)->floor_z;
 		OBJECT(object_2)->spawn_arg_2 = OBJECT(current_player)->spawn_arg_2;
 		rom_record = fence_post_offsets_ADDRESS + row_direction * 4u;
-		OBJECT(object_2)->projected_x += ROM16(rom_record);
-		OBJECT(object_2)->projected_y_int += ROM16(rom_record + 2u);
+		OBJECT(object_2)->projected_x += FENCE_OFFSET(rom_record)->dx;
+		OBJECT(object_2)->projected_y_int += FENCE_OFFSET(rom_record)->dy;
 		current_object = object_2;
 	}
 }
@@ -1181,8 +1181,8 @@ void fence_post_update(void)
 	{
 		current_object = LINKED(current_object, OBJECT(current_object)->child);
 		arc_offset_record = fence_arc_offsets_ADDRESS + OBJECT(object_cursor)->fence_post.row_direction * 4u;
-		offset_x = ROM16(arc_offset_record);
-		offset_y = ROM16(arc_offset_record + 2u);
+		offset_x = FENCE_OFFSET(arc_offset_record)->dx;
+		offset_y = FENCE_OFFSET(arc_offset_record)->dy;
 		place_sprite_near_cursor(offset_x, offset_y);
 		OBJECT(current_object)->handler_low++;
 		odd_frame = OBJECT(current_object)->handler_low & 1u;
@@ -1212,8 +1212,8 @@ void fence_post_update(void)
 	OBJECT(current_object)->handler = fence_post_draw_ADDRESS;
 	current_object = LINKED(current_object, OBJECT(current_object)->child);
 	arc_offset_record = fence_arc_offsets_ADDRESS + OBJECT(object_cursor)->fence_post.row_direction * 4u;
-	offset_x = ROM16(arc_offset_record);
-	offset_y = ROM16(arc_offset_record + 2u);
+	offset_x = FENCE_OFFSET(arc_offset_record)->dx;
+	offset_y = FENCE_OFFSET(arc_offset_record)->dy;
 	place_sprite_near_cursor(offset_x, offset_y);
 	OBJECT(current_object)->handler_low++;
 	odd_frame = OBJECT(current_object)->handler_low & 1u;
@@ -1369,16 +1369,16 @@ void catapult_wait_for_platform_setup(uint32_t template_offset, uint32_t object)
 	OBJECT(object)->z = OBJECT(current_object)->z;
 	OBJECT(object)->hitbox_height = OBJECT(current_object)->hitbox_height;
 	template_cursor = catapult_pair_template + 0xCu;
-	OBJECT(object)->hitbox_size_x = ROM16(template_cursor);
+	OBJECT(object)->hitbox_size_x = OBJECT_PAIR_TEMPLATE(template_cursor - 0xCu)->base_hitbox_size_x;
 	template_cursor += 2u;
-	OBJECT(object)->hitbox_size_y = ROM16(template_cursor);
+	OBJECT(object)->hitbox_size_y = OBJECT_PAIR_TEMPLATE(template_cursor - 0xEu)->base_hitbox_size_y;
 	template_cursor += 2u;
-	OBJECT(object)->hitbox_offset_x = ROM8(template_cursor);
+	OBJECT(object)->hitbox_offset_x = OBJECT_PAIR_TEMPLATE(template_cursor - 0x10u)->base_hitbox_offset_x;
 	template_cursor++;
-	OBJECT(object)->hitbox_offset_y = ROM8(template_cursor);
+	OBJECT(object)->hitbox_offset_y = OBJECT_PAIR_TEMPLATE(template_cursor - 0x11u)->base_hitbox_offset_y;
 	template_cursor++;
-	OBJECT(object)->handler = ROM32(template_cursor);
-	OBJECT(object)->animation = ROM32(template_cursor + 4u);
+	OBJECT(object)->handler = OBJECT_PAIR_TEMPLATE(template_cursor - 0x12u)->base_handler;
+	OBJECT(object)->animation = OBJECT_PAIR_TEMPLATE(template_cursor - 0x12u)->base_animation;
 	OBJECT(object)->flags = 2u;
 	OBJECT(object)->kind = 5u;
 	OBJECT(object)->sprite_offset_x = 0;
@@ -2102,7 +2102,7 @@ void door_wall_wait_to_burst(void)
 		}
 		OBJECT(object)->speed_y_fraction = random_bits;
 		fragment_animation = OBJECT(current_object)->door_wall.fragment + 8u;
-		OBJECT(object)->animation = rock_debris_animations_ADDRESS + ROM16(fragment_animation);
+		OBJECT(object)->animation = rock_debris_animations_ADDRESS + DOOR_FRAGMENT(fragment_animation - 0x8u)->animation;
 		OBJECT(current_object)->door_wall.fragment = fragment_animation + 2u;
 		OBJECT(object)->sprite_flags = 0u;
 		OBJECT(object)->sprite_palette = 0x8240u;
@@ -2136,12 +2136,12 @@ void spawn_door_rollers(uint32_t *p_block_offset, uint32_t *p_slope_height, uint
 		}
 		current_object = *p_object;
 		layout_record = door_roller_layout_ADDRESS + (uint16_t)door_rollers_left * 3u * 2u;
-		OBJECT(current_object)->x_int = ROM16(layout_record);
+		OBJECT(current_object)->x_int = DOOR_ROLLER_SPAWN(layout_record)->x;
 		OBJECT(current_object)->x_fraction = 0u;
 		layout_record += 2u;
-		OBJECT(current_object)->y_int = ROM16(layout_record);
+		OBJECT(current_object)->y_int = DOOR_ROLLER_SPAWN(layout_record - 0x2u)->y;
 		OBJECT(current_object)->y_fraction = 0u;
-		OBJECT(current_object)->animation_frame = ROM8(layout_record + 2u);
+		OBJECT(current_object)->animation_frame = DOOR_ROLLER_SPAWN(layout_record - 0x2u)->first_frame;
 		OBJECT(current_object)->sprite_flags = 0x1004u;
 		OBJECT(current_object)->sprite_palette = 0x82F0u;
 		OBJECT(current_object)->hitbox_size_x = 0x10u;
@@ -2284,13 +2284,13 @@ void fireball_emitter_start(void)
 	uint32_t ignored = 0, list_cursor = 0;
 
 	list_cursor = fireball_emitter_lists[OBJECT(current_object)->sprite_frame] + fireball_emitter_lists_ADDRESS;
-	OBJECT(current_object)->x_int = ROM16(list_cursor);
+	OBJECT(current_object)->x_int = FIREBALL_EMITTER_LIST(list_cursor)->x;
 	OBJECT(current_object)->x_fraction = 0u;
 	list_cursor += 2u;
-	OBJECT(current_object)->y_int = ROM16(list_cursor);
+	OBJECT(current_object)->y_int = FIREBALL_EMITTER_LIST(list_cursor - 0x2u)->y;
 	OBJECT(current_object)->y_fraction = 0u;
 	list_cursor += 2u;
-	OBJECT(current_object)->floor_z_int = ROM16(list_cursor);
+	OBJECT(current_object)->floor_z_int = FIREBALL_EMITTER_LIST(list_cursor - 0x4u)->floor_z;
 	OBJECT(current_object)->floor_z_fraction = 0u;
 	OBJECT(current_object)->fireball_emitter.shot = list_cursor + 2u;
 	OBJECT(current_object)->flags = 0u;
@@ -2349,24 +2349,24 @@ void fireball_emitter_update(void)
 	list_record += 2u;
 	OBJECT(object)->speed_z = (uint32_t)FIREBALL_SHOT(list_record - 0x8u)->speed_z << 8;
 	type_record = FIREBALL_SHOT(list_record - 0x8u)->type + fireball_types_ADDRESS;
-	OBJECT(object)->sprite_flags = ROM16(type_record);
+	OBJECT(object)->sprite_flags = FIREBALL_TYPE(type_record)->sprite_flags;
 	type_record += 2u;
-	OBJECT(object)->sprite_palette = ROM16(type_record);
+	OBJECT(object)->sprite_palette = FIREBALL_TYPE(type_record - 0x2u)->sprite_palette;
 	type_record += 2u;
-	OBJECT(object)->sprite_scale = ROM16(type_record);
+	OBJECT(object)->sprite_scale = FIREBALL_TYPE(type_record - 0x4u)->sprite_scale;
 	type_record += 2u;
-	OBJECT(object)->hitbox_height = ROM16(type_record);
+	OBJECT(object)->hitbox_height = FIREBALL_TYPE(type_record - 0x6u)->hitbox_height;
 	type_record += 2u;
-	OBJECT(object)->hitbox_size_x = ROM16(type_record);
+	OBJECT(object)->hitbox_size_x = FIREBALL_TYPE(type_record - 0x8u)->hitbox_size_x;
 	type_record += 2u;
-	OBJECT(object)->sprite_offset_x = ROM8(type_record);
+	OBJECT(object)->sprite_offset_x = FIREBALL_TYPE(type_record - 0xAu)->sprite_offset_x;
 	type_record++;
-	OBJECT(object)->sprite_offset_y = ROM8(type_record);
+	OBJECT(object)->sprite_offset_y = FIREBALL_TYPE(type_record - 0xBu)->sprite_offset_y;
 	type_record++;
-	OBJECT(object)->hitbox_centre_x = ROM8(type_record);
+	OBJECT(object)->hitbox_centre_x = FIREBALL_TYPE(type_record - 0xCu)->hitbox_centre_x;
 	type_record++;
-	OBJECT(object)->hitbox_centre_y = ROM8(type_record);
-	OBJECT(object)->animation = ROM16(type_record + 1u) + blank_fireball_animation_ADDRESS;
+	OBJECT(object)->hitbox_centre_y = FIREBALL_TYPE(type_record - 0xDu)->hitbox_centre_y;
+	OBJECT(object)->animation = FIREBALL_TYPE(type_record - 0xDu)->animation + blank_fireball_animation_ADDRESS;
 	OBJECT(object)->animation_frame = 0u;
 	OBJECT(object)->animation_timer = 0;
 	OBJECT(object)->animation_speed = 4u;

@@ -3,7 +3,7 @@
  *    Description: objects several stages use: the signs, the scenery sprites, the walls players and objects bounce off, the zones behind the chasers, the pacer that keeps two players together, the hold on a group leader; object types 4 and 13; the crawler, which nothing spawns
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    19-10-2026
+ *    Modified:    21-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -26,14 +26,14 @@ void animate_sign(void)
 		return;
 	OBJECT(current_object)->animate_sign.palette_timer = OBJECT(current_object)->animate_sign.palette_delay;
 	palettes = OBJECT(current_object)->animate_sign.palette_list;
-	last_index = (uint8_t)ROM16(palettes);
+	last_index = (uint8_t)SPRITE_PALETTE_CYCLE(palettes)->last_index;
 	next_index = OBJECT(current_object)->animate_sign.palette_index;
 	next_index = (uint8_t)(next_index + 1u);
 	palettes += 2u;
 	if ((int8_t)last_index <= (int8_t)next_index && (int8_t)last_index < (int8_t)next_index)
 		next_index = 0u;
 	OBJECT(current_object)->animate_sign.palette_index = next_index;
-	OBJECT(current_object)->sprite_palette = ROM16(palettes + next_index * 2u);
+	OBJECT(current_object)->sprite_palette = SPRITE_CYCLE_PALETTES(palettes)[next_index];
 }
 
 /* Object type 13: unprojects itself, then place_sign makes it sign kind spawn_arg_1 at its own x, y, z,
@@ -75,8 +75,8 @@ void crawler_init(void)
 		spawn_object_with_pieces(0x01276Bu, &ignored, &ignored, &free_count, &object, &block);
 		copy_position_to(object);
 		offset_record = crawler_segment_offsets_ADDRESS + variant * 4u;
-		segment_x += ROM16(offset_record);
-		current_player = (current_player & ~0xFFFFu) | (uint16_t)(current_player + ROM16(offset_record + 2u));
+		segment_x += CRAWLER_PIECE_OFFSET(offset_record)->dx;
+		current_player = (current_player & ~0xFFFFu) | (uint16_t)(current_player + CRAWLER_PIECE_OFFSET(offset_record)->dy);
 		OBJECT(object)->projected_x += segment_x;
 		OBJECT(object)->projected_y_int += current_player;
 		segment_walk_step++;
@@ -108,35 +108,35 @@ void crawler_init(void)
 	OBJECT(current_object)->direction = 0x280u;
 	OBJECT(current_object)->crawler.walk_step = -1;
 	rom_record = crawler_tail_offsets_ADDRESS + variant * 4u;
-	OBJECT(current_object)->projected_x += ROM16(rom_record);
-	OBJECT(current_object)->projected_y_int += ROM16(rom_record + 2u);
+	OBJECT(current_object)->projected_x += CRAWLER_PIECE_OFFSET(rom_record)->dx;
+	OBJECT(current_object)->projected_y_int += CRAWLER_PIECE_OFFSET(rom_record)->dy;
 	OBJECT(current_object)->sprite_frame = crawler_tail_frames[variant];
 	OBJECT(current_object)->sprite_palette = 0x90C0u;
 	rom_record = crawler_collision_boxes_ADDRESS + variant * 6u;
-	OBJECT(current_object)->hitbox_size_x = ROM16(rom_record);
+	OBJECT(current_object)->hitbox_size_x = HITBOX_SIZE_AND_OFFSET(rom_record)->size_x;
 	rom_record += 2u;
-	OBJECT(current_object)->hitbox_size_y = ROM16(rom_record);
+	OBJECT(current_object)->hitbox_size_y = HITBOX_SIZE_AND_OFFSET(rom_record - 0x2u)->size_y;
 	rom_record += 2u;
-	OBJECT(current_object)->hitbox_offset_x = ROM8(rom_record);
-	OBJECT(current_object)->hitbox_offset_y = ROM8(rom_record + 1u);
+	OBJECT(current_object)->hitbox_offset_x = HITBOX_SIZE_AND_OFFSET(rom_record - 0x4u)->offset_x;
+	OBJECT(current_object)->hitbox_offset_y = HITBOX_SIZE_AND_OFFSET(rom_record - 0x4u)->offset_y;
 	OBJECT(current_object)->flags |= 2u;
 	OBJECT(current_object)->hitbox_height = 0x20u;
 	OBJECT(current_object)->kind = 0xDu;
 	OBJECT(current_object)->handler = crawler_segment_update_ADDRESS;
 	OBJECT(object_cursor)->parent = object_cursor;
 	rom_record = crawler_head_offsets_ADDRESS + variant * 4u;
-	OBJECT(object_cursor)->projected_x += ROM16(rom_record);
-	OBJECT(object_cursor)->projected_y_int += ROM16(rom_record + 2u);
+	OBJECT(object_cursor)->projected_x += CRAWLER_PIECE_OFFSET(rom_record)->dx;
+	OBJECT(object_cursor)->projected_y_int += CRAWLER_PIECE_OFFSET(rom_record)->dy;
 	OBJECT(object_cursor)->sprite_palette = 0x90B0u;
 	variant = OBJECT(object_cursor)->crawler.variant;
 	OBJECT(object_cursor)->sprite_frame = crawler_head_frames[variant];
 	rom_record = crawler_collision_boxes_ADDRESS + variant * 6u;
-	OBJECT(object_cursor)->hitbox_size_x = ROM16(rom_record);
+	OBJECT(object_cursor)->hitbox_size_x = HITBOX_SIZE_AND_OFFSET(rom_record)->size_x;
 	rom_record += 2u;
-	OBJECT(object_cursor)->hitbox_size_y = ROM16(rom_record);
+	OBJECT(object_cursor)->hitbox_size_y = HITBOX_SIZE_AND_OFFSET(rom_record - 0x2u)->size_y;
 	rom_record += 2u;
-	OBJECT(object_cursor)->hitbox_offset_x = ROM8(rom_record);
-	OBJECT(object_cursor)->hitbox_offset_y = ROM8(rom_record + 1u);
+	OBJECT(object_cursor)->hitbox_offset_x = HITBOX_SIZE_AND_OFFSET(rom_record - 0x4u)->offset_x;
+	OBJECT(object_cursor)->hitbox_offset_y = HITBOX_SIZE_AND_OFFSET(rom_record - 0x4u)->offset_y;
 	OBJECT(object_cursor)->hitbox_height = 0x20u;
 	OBJECT(object_cursor)->kind = 0xDu;
 	OBJECT(object_cursor)->flags |= 2u;
@@ -236,7 +236,7 @@ void crawler_segment_animate(void)
 	if (OBJECT(current_object)->crawler.frame_timer > 3)
 	{
 		OBJECT(current_object)->crawler.frame_timer = 0;
-		OBJECT(current_object)->sprite_frame = crawler_segment_frames[ROM8(crawler_walk_steps_ADDRESS + (OBJECT(current_object)->crawler.variant * 6u + (uint8_t)OBJECT(current_object)->crawler.walk_step))];
+		OBJECT(current_object)->sprite_frame = crawler_segment_frames[crawler_walk_steps[OBJECT(current_object)->crawler.variant].steps[OBJECT(current_object)->crawler.walk_step]];
 		OBJECT(current_object)->crawler.walk_step++;
 		if (OBJECT(current_object)->crawler.walk_step > 5)
 		{
@@ -988,10 +988,10 @@ void place_screen_sign(uint16_t screen_x, uint16_t screen_y, uint32_t kind, uint
 	OBJECT(sign)->screen_x = screen_x;
 	OBJECT(sign)->screen_y = screen_y;
 	kind = (uint16_t)kind * 6u + screen_sign_kinds_ADDRESS;
-	OBJECT(sign)->sprite_frame = ROM16(kind);
+	OBJECT(sign)->sprite_frame = SCREEN_SIGN_KIND(kind)->sprite_frame;
 	kind += 2u;
-	OBJECT(sign)->speed_x_fraction = ROM16(kind);
-	OBJECT(sign)->screen_sign.palette_list = ROM16(kind + 2u);
+	OBJECT(sign)->speed_x_fraction = SCREEN_SIGN_KIND(kind - 0x2u)->duration;
+	OBJECT(sign)->screen_sign.palette_list = SCREEN_SIGN_KIND(kind - 0x2u)->palette_list_offset;
 	OBJECT(sign)->screen_sign.palette_list += sign_palette_lists_ADDRESS;
 	OBJECT(sign)->sprite_flags = 0x1000u;
 	OBJECT(sign)->flags = 0u;
@@ -1064,14 +1064,14 @@ void scenery_sprite_start(void)
 	sprite_kind = OBJECT(current_object)->sprite_frame;
 	scenery_sprite_kind = sprite_kind;
 	kind_record = scenery_sprite_kinds[sprite_kind] + scenery_sprite_kinds_ADDRESS;
-	OBJECT(current_object)->sprite_flags = ROM16(kind_record);
+	OBJECT(current_object)->sprite_flags = SCENERY_KIND_RECORD(kind_record)->sprite_flags;
 	kind_record += 2u;
-	OBJECT(current_object)->sprite_frame = ROM16(kind_record);
+	OBJECT(current_object)->sprite_frame = SCENERY_KIND_RECORD(kind_record - 0x2u)->sprite_frame;
 	kind_record += 2u;
-	OBJECT(current_object)->sprite_palette = ROM16(kind_record);
+	OBJECT(current_object)->sprite_palette = SCENERY_KIND_RECORD(kind_record - 0x4u)->sprite_palette;
 	kind_record += 2u;
-	OBJECT(current_object)->scenery_sprite.depth_offset = ROM16(kind_record);
-	OBJECT(current_object)->handler = ROM32(kind_record + 2u);
+	OBJECT(current_object)->scenery_sprite.depth_offset = SCENERY_KIND_RECORD(kind_record - 0x6u)->depth_offset;
+	OBJECT(current_object)->handler = SCENERY_KIND_RECORD(kind_record - 0x6u)->handler;
 	OBJECT(current_object)->sprite_offset_x = 0;
 	OBJECT(current_object)->sprite_offset_y = 0;
 	OBJECT(current_object)->flags = 0u;
@@ -1187,14 +1187,14 @@ void group_leader_hold_start(void)
 	uint32_t held_flag = 0, hold_record = 0;
 
 	hold_record = group_leader_hold_records[OBJECT(current_object)->sprite_frame] + group_leader_hold_records_ADDRESS;
-	OBJECT(current_object)->group_leader_hold.leader = ROM8(hold_record);
+	OBJECT(current_object)->group_leader_hold.leader = GROUP_LEADER_HOLD_RECORD(hold_record)->leader;
 	hold_record++;
-	OBJECT(current_object)->direction = ROM8(hold_record);
+	OBJECT(current_object)->direction = GROUP_LEADER_HOLD_RECORD(hold_record - 0x1u)->direction;
 	hold_record++;
-	OBJECT(current_object)->group_leader_hold.coordinate = ROM16(hold_record);
+	OBJECT(current_object)->group_leader_hold.coordinate = GROUP_LEADER_HOLD_RECORD(hold_record - 0x2u)->coordinate;
 	hold_record += 2u;
-	OBJECT(current_object)->group_leader_hold.end_position = ROM16(hold_record);
-	OBJECT(current_object)->group_leader_hold.which_flag = ROM16(hold_record + 2u);
+	OBJECT(current_object)->group_leader_hold.end_position = GROUP_LEADER_HOLD_RECORD(hold_record - 0x4u)->end_position;
+	OBJECT(current_object)->group_leader_hold.which_flag = GROUP_LEADER_HOLD_RECORD(hold_record - 0x4u)->which_flag;
 	held_flag = group_leader_0_held_ADDRESS;
 	if ((uint8_t)OBJECT(current_object)->group_leader_hold.which_flag != 0u)
 		held_flag = group_leaders_1_3_held_ADDRESS;
@@ -1285,7 +1285,7 @@ void spawn_walls(uint32_t *p_spawns_offset, uint32_t *p_part_size, uint32_t *p_s
 		spawns_offset = wall_spawns[stage];
 		wall_spawn_cursor = wall_spawns_ADDRESS + spawns_offset;
 	}
-	spawn_position = ROM16(wall_spawn_cursor);
+	spawn_position = WALL_SPAWN(wall_spawn_cursor)->position;
 	current_scroll = scroll_position;
 	past_spawn = (uint16_t)(current_scroll - spawn_position);
 	if (current_scroll < spawn_position)
@@ -1310,22 +1310,22 @@ void spawn_walls(uint32_t *p_spawns_offset, uint32_t *p_part_size, uint32_t *p_s
 		return;
 	}
 	record = wall_spawn_cursor + 2u;
-	OBJECT(wall)->wall_update.end_position = ROM16(record);
+	OBJECT(wall)->wall_update.end_position = WALL_SPAWN(record - 0x2u)->end_position;
 	record += 2u;
-	OBJECT(wall)->x_int = ROM16(record);
+	OBJECT(wall)->x_int = WALL_SPAWN(record - 0x4u)->x;
 	OBJECT(wall)->x_fraction = 0u;
 	record += 2u;
-	OBJECT(wall)->y_int = ROM16(record);
+	OBJECT(wall)->y_int = WALL_SPAWN(record - 0x6u)->y;
 	OBJECT(wall)->y_fraction = 0u;
 	record += 2u;
-	OBJECT(wall)->z_int = ROM16(record);
+	OBJECT(wall)->z_int = WALL_SPAWN(record - 0x8u)->z;
 	OBJECT(wall)->z_fraction = 0u;
 	OBJECT(wall)->floor_z = OBJECT(wall)->z;
 	record += 2u;
-	OBJECT(wall)->sprite_frame = ROM16(record);
+	OBJECT(wall)->sprite_frame = WALL_SPAWN(record - 0xAu)->kind;
 	record += 2u;
-	OBJECT(wall)->speed_x_fraction = ROM8(record);
-	OBJECT(wall)->wall_update.depth_from_next = ROM8(record + 1u);
+	OBJECT(wall)->speed_x_fraction = WALL_SPAWN(record - 0xCu)->part_count;
+	OBJECT(wall)->wall_update.depth_from_next = WALL_SPAWN(record - 0xCu)->depth_from_next;
 	OBJECT(wall)->handler = wall_update_ADDRESS;
 	OBJECT(wall)->sprite_flags = 0x1004u;
 	OBJECT(wall)->hitbox_height = 0x100u;
@@ -1345,14 +1345,14 @@ void spawn_walls(uint32_t *p_spawns_offset, uint32_t *p_part_size, uint32_t *p_s
 	}
 	build_wall_parts(p_part_size, &second_sprite, &wall);
 	kind_record = OBJECT(current_object)->sprite_frame + wall_kinds_ADDRESS;
-	OBJECT(current_object)->hitbox_offset_x = ROM8(kind_record);
+	OBJECT(current_object)->hitbox_offset_x = WALL_KIND_OFFSETS(kind_record)->hitbox_offset_x;
 	kind_record++;
-	OBJECT(current_object)->hitbox_offset_y = ROM8(kind_record);
+	OBJECT(current_object)->hitbox_offset_y = WALL_KIND_OFFSETS(kind_record - 0x1u)->hitbox_offset_y;
 	kind_record++;
-	OBJECT(current_object)->sprite_offset_x = ROM8(kind_record);
+	OBJECT(current_object)->sprite_offset_x = WALL_KIND_OFFSETS(kind_record - 0x2u)->sprite_offset_x;
 	kind_record++;
-	OBJECT(current_object)->sprite_offset_y = ROM8(kind_record);
-	OBJECT(current_object)->direction = ROM8(kind_record + 1u);
+	OBJECT(current_object)->sprite_offset_y = WALL_KIND_OFFSETS(kind_record - 0x3u)->sprite_offset_y;
+	OBJECT(current_object)->direction = WALL_KIND_OFFSETS(kind_record - 0x3u)->direction;
 	project_object(&ignored, &ignored);
 	wall_corner_x = OBJECT(current_object)->x + ((uint32_t)OBJECT(current_object)->hitbox_size_x << 16);
 	wall_corner_y = OBJECT(current_object)->y + ((uint32_t)OBJECT(current_object)->hitbox_size_y << 16);
@@ -1629,9 +1629,9 @@ void build_wall_parts(uint32_t *p_part_size, uint32_t *p_second_sprite, uint32_t
 	uint32_t free_count = 0, free_stack = 0, object = 0, object_2 = 0, parts_left = 0, record = 0;
 
 	record = OBJECT(current_object)->sprite_frame + 0x90A78u;
-	OBJECT(current_object)->hitbox_size_x = ROM16(record);
+	OBJECT(current_object)->hitbox_size_x = WALL_KIND_PARTS(record)->size_x;
 	record += 2u;
-	OBJECT(current_object)->hitbox_size_y = ROM16(record);
+	OBJECT(current_object)->hitbox_size_y = WALL_KIND_PARTS(record - 0x2u)->size_y;
 	record += 2u;
 	if ((int16_t)OBJECT(current_object)->hitbox_size_x >= 0)
 	{
@@ -1649,13 +1649,13 @@ void build_wall_parts(uint32_t *p_part_size, uint32_t *p_second_sprite, uint32_t
 		OBJECT(current_object)->hitbox_size_x = OBJECT(current_object)->speed_x_fraction * part_size;
 	}
 	parts_left = OBJECT(current_object)->speed_x_fraction;
-	OBJECT(current_object)->sprite_palette = ROM16(record);
+	OBJECT(current_object)->sprite_palette = WALL_KIND_PARTS(record - 0x4u)->palette;
 	record += 2u;
-	part_step_x = ROM8(record);
+	part_step_x = WALL_KIND_PARTS(record - 0x6u)->part_step_x;
 	record++;
-	part_step_y = ROM8(record);
+	part_step_y = WALL_KIND_PARTS(record - 0x7u)->part_step_y;
 	record++;
-	part_sprite = ROM16(record);
+	part_sprite = (uint16_t)WALL_KIND_PARTS(record - 0x8u)->part_sprite;
 	OBJECT(current_object)->build_wall_parts.invisible = 0u;
 	record += 2u;
 	if ((int16_t)part_sprite < 0)
@@ -1668,10 +1668,10 @@ void build_wall_parts(uint32_t *p_part_size, uint32_t *p_second_sprite, uint32_t
 		*p_part = object;
 		return;
 	}
-	second_offset_x = ROM8(record);
+	second_offset_x = WALL_KIND_PARTS(record - 0xAu)->second_offset_x;
 	record++;
-	current_player = (current_player & ~0xFFu) | ROM8(record);
-	second_sprite = ROM16(record + 1u);
+	current_player = (current_player & ~0xFFu) | WALL_KIND_PARTS(record - 0xBu)->second_offset_y;
+	second_sprite = (uint16_t)WALL_KIND_PARTS(record - 0xBu)->second_sprite;
 	OBJECT(current_object)->build_wall_parts.no_second_sprite = 0xFFu;
 	if ((int16_t)second_sprite >= 0)
 		OBJECT(current_object)->build_wall_parts.no_second_sprite = 0u;

@@ -3,7 +3,7 @@
  *    Description: the player: starting, joining, resetting and placing a player, player_update, the movement (screen edges, trackball, turning, jumps, walls), the shadow, the floor checks, the restart point, the checks of every frame, and check_player_contacts (what touching each kind of object does)
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    19-10-2026
+ *    Modified:    21-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -252,7 +252,7 @@ void player_reset(void)
 	OBJECT(current_object)->animation = sonic_walking_animations_ADDRESS;
 	stage_index = stage;
 	OBJECT(current_object)->player_view.palette_list = ROM32((uint16_t)(stage_index * 0xCu) + player_palette_lists_ADDRESS + OBJECT(current_object)->kind * 4u);
-	OBJECT(current_object)->sprite_palette = ROM16(OBJECT(current_object)->player_view.palette_list + 2u);
+	OBJECT(current_object)->sprite_palette = PLAYER_PALETTE_LIST(OBJECT(current_object)->player_view.palette_list)->normal_palette;
 	if ((OBJECT(current_object)->flags & 0x2000000u) != 0u || current_game_mode == 0x1Bu)
 	{
 		player_place();
@@ -617,7 +617,7 @@ uint32_t keep_player_on_screen(uint32_t depth)
 	if ((PLAYER(current_player)->flags & 0x20u) == 0u)
 	{
 		voice_range = edge_voice_scroll_ranges_ADDRESS + stage * 4u;
-		if ((uint16_t)(scroll_position - ROM16(voice_range)) < ROM16(voice_range + 2u) && players_in_play >= 2)
+		if ((uint16_t)(scroll_position - EDGE_VOICE_SCROLL_RANGE(voice_range)->start) < EDGE_VOICE_SCROLL_RANGE(voice_range)->length && players_in_play >= 2)
 		{
 			sound_id = 0x39u;
 			if (OBJECT(current_object)->kind != 0u)
@@ -666,7 +666,7 @@ uint32_t push_player_from_screen_edge(void)
 	uint32_t push_cos = 0, push_record = 0, push_x = 0, push_y = 0;
 
 	push_record = screen_edge_push_directions_ADDRESS + PLAYER(current_player)->screen_edge * 4u;
-	relative_direction = (OBJECT(current_object)->direction - ROM16(push_record)) & 0x3FFu;
+	relative_direction = (OBJECT(current_object)->direction - SCREEN_EDGE_PUSH(push_record)->limit_direction) & 0x3FFu;
 	push_record += 2u;
 	if (relative_direction >= 0x101u)
 	{
@@ -675,7 +675,7 @@ uint32_t push_player_from_screen_edge(void)
 		OBJECT(current_object)->floor_block = OBJECT(current_object)->previous_floor_block;
 		OBJECT(current_object)->floor_z = OBJECT(current_object)->previous_floor_z;
 	}
-	push_x = ROM16(push_record);
+	push_x = SCREEN_EDGE_PUSH(push_record - 0x2u)->push_direction;
 	push_y = 0x200u;
 	polar_to_xy(&push_cos, &push_x, &push_y);
 	OBJECT(current_object)->x += push_x;
@@ -729,7 +729,7 @@ void compute_scroll_drift(uint32_t block, uint8_t drift_byte)
 	vx = vx * vx + vy * vy;
 	square_root(&vx, &ignored);
 	scroll_drift_speed = (vx & 0xFFFFu) << 13;
-	scroll_drift_direction = (uint32_t)ROM8(scroll_drift_block + 0x15u) << 8;
+	scroll_drift_direction = (uint32_t)FLOOR_BLOCK(scroll_drift_block)->travel_direction << 8;
 	scroll_angle = (int32_t)camera_velocity_x >> 5;
 	dy = (uint16_t)((int32_t)camera_velocity_y >> 5);
 	angle_of_vector(dy, &scroll_angle, &ignored);
@@ -938,7 +938,7 @@ void check_player_floor_edge(uint32_t *p_depth, uint32_t *p_block)
 				PLAYER(current_player)->ledge_pullback = 0;
 				PLAYER(current_player)->slip_distance = 0;
 				PLAYER(current_player)->control_lock = 0u;
-				OBJECT(current_object)->sprite_palette = ROM16(OBJECT(current_object)->check_player.palette_list + 2u);
+				OBJECT(current_object)->sprite_palette = PLAYER_PALETTE_LIST(OBJECT(current_object)->check_player.palette_list)->normal_palette;
 				OBJECT(current_object)->flags &= ~0x40u;
 				OBJECT(current_object)->flags &= ~0x20000u;
 				PLAYER(current_player)->flags |= 0x80u;
@@ -960,7 +960,7 @@ void check_player_floor_edge(uint32_t *p_depth, uint32_t *p_block)
 		PLAYER(current_player)->ledge_pullback = 0;
 		PLAYER(current_player)->slip_distance = 0;
 		PLAYER(current_player)->control_lock = 0u;
-		OBJECT(current_object)->sprite_palette = ROM16(OBJECT(current_object)->check_player.palette_list + 2u);
+		OBJECT(current_object)->sprite_palette = PLAYER_PALETTE_LIST(OBJECT(current_object)->check_player.palette_list)->normal_palette;
 		OBJECT(current_object)->flags &= ~0x40u;
 		OBJECT(current_object)->flags &= ~0x20000u;
 		PLAYER(current_player)->flags |= 0x80u;
@@ -1480,7 +1480,7 @@ void player_steer_turn_and_ground_speed(void)
 	floor_slope = OBJECT(current_object)->floor_slope;
 	direction = OBJECT(current_object)->direction;
 	slope_pair = slope_speed_direction_pairs_ADDRESS + floor_slope_direction_tables[(uint16_t)(floor_slope << 2)] + (direction >> 6) * 4u;
-	speed_factor = ROM16(slope_pair);
+	speed_factor = SLOPE_SPEED_PAIR(slope_pair)->speed_factor;
 	rounded_speed = PLAYER(current_player)->ground_speed;
 	carry = (rounded_speed >> 11) & 1u;
 	rounded_speed = rounded_speed >> 12;
@@ -1488,7 +1488,7 @@ void player_steer_turn_and_ground_speed(void)
 	if (carry)
 		rounded_speed++;
 	PLAYER(current_player)->ground_speed = rounded_speed * speed_factor;
-	OBJECT(current_object)->direction = ROM16(slope_pair);
+	OBJECT(current_object)->direction = SLOPE_SPEED_PAIR(slope_pair - 0x2u)->direction;
 }
 
 /* Sets facing_angle to the angle of the trackball (x, 1.5 y) when it moves; target_heading =
@@ -1638,7 +1638,7 @@ uint32_t compute_ground_speed(void)
 	r1 = floor_slope_direction_tables[(uint16_t)(floor_slope << 2)];
 	direction = OBJECT(current_object)->direction;
 	slope_pair = slope_speed_direction_pairs_ADDRESS + r1 + (direction >> 6) * 4u;
-	speed_factor = ROM16(slope_pair);
+	speed_factor = SLOPE_SPEED_PAIR(slope_pair)->speed_factor;
 	rounded_speed = PLAYER(current_player)->ground_speed;
 	carry = (rounded_speed >> 11) & 1u;
 	rounded_speed = rounded_speed >> 12;
@@ -1646,7 +1646,7 @@ uint32_t compute_ground_speed(void)
 	if (carry)
 		rounded_speed++;
 	PLAYER(current_player)->ground_speed = rounded_speed * speed_factor;
-	OBJECT(current_object)->direction = ROM16(slope_pair);
+	OBJECT(current_object)->direction = SLOPE_SPEED_PAIR(slope_pair - 0x2u)->direction;
 	return r1;
 }
 
@@ -1977,10 +1977,10 @@ void draw_attack_effect(uint32_t player)
 	effect_record = attack_power_3_effect_animations_ADDRESS;
 	if (PLAYER(player)->attack_power > 3)
 		effect_record = attack_power_4_effect_animations_ADDRESS;
-	facing_offset = ROM16(effect_record + PLAYER(player)->facing * 2u);
+	facing_offset = PLAYER_FACING_ANIMATION_OFFSETS(effect_record)[PLAYER(player)->facing];
 	effect_record = effect_record + facing_offset + 2u + OBJECT(current_player)->animation_frame * 2u * 2u;
-	OBJECT(object)->sprite_flags = (OBJECT(object)->sprite_flags & ~0xC0u) | ROM16(effect_record);
-	OBJECT(object)->sprite_frame = ROM16(effect_record + 2u);
+	OBJECT(object)->sprite_flags = (OBJECT(object)->sprite_flags & ~0xC0u) | FLAGGED_STEP(effect_record)->flags;
+	OBJECT(object)->sprite_frame = FLAGGED_STEP(effect_record)->frame;
 	palette = 0x8320u;
 	if (OBJECT(current_player)->kind != 0u)
 	{
@@ -2247,26 +2247,26 @@ uint32_t place_player_at_restart_point(void)
 	{
 		stage_index = stage;
 		record = stage_restart_points_ADDRESS + stage_restart_points[stage_index] - 6u;
-		offset_shift = (uint8_t)ROM16(record);
+		offset_shift = (uint8_t)STAGE_START_POINT(record)->spacing_shift;
 		record += 2u;
-		OBJECT(current_object)->x_int = ROM16(record);
+		OBJECT(current_object)->x_int = STAGE_START_POINT(record - 0x2u)->x;
 		player_offset = OBJECT(current_object)->player;
 		player_offset = shift_signed_by(player_offset, (uint8_t)offset_shift, 16);
 		OBJECT(current_object)->x_int += player_offset;
 		OBJECT(current_object)->x_fraction = 0u;
-		OBJECT(current_object)->y_int = ROM16(record + 2u);
+		OBJECT(current_object)->y_int = STAGE_START_POINT(record - 0x2u)->y;
 		OBJECT(current_object)->y_fraction = 0u;
 		return player_offset;
 	}
 	record = current_restart_point + 2u;
-	kind_offset = ROM8(record) * 3u;
+	kind_offset = RESTART_POINT(record - 0x2u)->kind * 3u;
 	record++;
 	switch (kind_offset)
 	{
 	case 0x0u:
 	case 0x6u:
 		record++;
-		OBJECT(current_object)->x_int = ROM16(record);
+		OBJECT(current_object)->x_int = RESTART_POINT(record - 0x4u)->x;
 		player_offset = OBJECT(current_object)->player;
 		record += 2u;
 		if (player_offset == 2u)
@@ -2274,14 +2274,14 @@ uint32_t place_player_at_restart_point(void)
 		player_offset = (uint16_t)(player_offset << 1);
 		OBJECT(current_object)->x_int += player_offset;
 		OBJECT(current_object)->x_fraction = 0u;
-		OBJECT(current_object)->y_int = ROM16(record);
+		OBJECT(current_object)->y_int = RESTART_POINT(record - 0x6u)->y_or_height;
 		OBJECT(current_object)->y_fraction = 0u;
 		return player_offset;
 	case 0x3u:
-		restart_y = ROM8(record);
+		restart_y = RESTART_POINT(record - 0x3u)->screen_y;
 		record++;
-		restart_x = ROM16(record);
-		z = (uint32_t)ROM16(record + 2u) << 16;
+		restart_x = RESTART_POINT(record - 0x4u)->x;
+		z = (uint32_t)RESTART_POINT(record - 0x4u)->y_or_height << 16;
 		screen_point_to_ground(z, &restart_x, &restart_y);
 		spacing_step = OBJECT(current_object)->player;
 		if (spacing_step == 2u)
@@ -2326,7 +2326,7 @@ void flash_hurt_palette(void)
 	if ((int8_t)flash_timer > 1)
 		return;
 	OBJECT(current_object)->flash_hurt_palette.flash_timer = OBJECT(current_object)->flash_hurt_palette.flash_period;
-	palette = ROM16(OBJECT(current_object)->flash_hurt_palette.palette_list + 2u);
+	palette = PLAYER_PALETTE_LIST(OBJECT(current_object)->flash_hurt_palette.palette_list)->normal_palette;
 	flashing = ~OBJECT(current_object)->flash_hurt_palette.flash_on;
 	OBJECT(current_object)->flash_hurt_palette.flash_on = flashing;
 	if (flashing != 0u)
@@ -2478,14 +2478,14 @@ void load_stage_goal(void)
 	uint32_t goal_record = 0;
 
 	goal_record = stage_goals[stage] + stage_goals_ADDRESS;
-	goal_scroll_position = ROM16(goal_record);
+	goal_scroll_position = STAGE_GOAL(goal_record)->position;
 	goal_record += 2u;
-	goal_direction = ROM16(goal_record);
+	goal_direction = STAGE_GOAL(goal_record - 0x2u)->direction;
 	goal_record += 2u;
-	goal_line = ROM16(goal_record);
+	goal_line = STAGE_GOAL(goal_record - 0x4u)->line;
 	goal_record = ((goal_record + 2u) & ~0xFFFFu) | (uint16_t)(goal_record + 2u + 2u);
-	goal_line_min = ROM16(goal_record);
-	goal_line_max = ROM16(goal_record + 2u);
+	goal_line_min = STAGE_GOAL_LINE_RANGE(goal_record)->line_min;
+	goal_line_max = STAGE_GOAL_LINE_RANGE(goal_record)->line_max;
 }
 
 /* Ends the stage for the player (state 0x21) once scroll_position reaches goal_scroll_position and it
@@ -2633,7 +2633,7 @@ void tumble_effect_update(void)
 		return;
 	}
 	animation_frame = OBJECT(object)->animation_frame;
-	OBJECT(current_object)->sprite_frame = ROM16(OBJECT(current_object)->animation + 2u + animation_frame * 2u);
+	OBJECT(current_object)->sprite_frame = FRAME_ANIMATION(OBJECT(current_object)->animation)->frames[animation_frame];
 	OBJECT(current_object)->screen_y += tumble_effect_y_offsets[animation_frame];
 	depth = (uint16_t)(PLAYER(player)->draw_depth - 0x10u + tumble_effect_depth_offsets[PLAYER(player)->facing]);
 	queue_sprite_at_depth(&ignored, &depth);
@@ -3008,7 +3008,7 @@ void set_fall_sprite_priority(void)
 			if ((int32_t)((((uint32_t)FLOOR_BLOCK(record)->x_max - FLOOR_BLOCK(record)->x_min) >> 1) + FLOOR_BLOCK(record)->x_min) <= OBJECT(current_object)->x)
 				side = 1u;
 			record = fall_sprite_priorities_ADDRESS + FLOOR_BLOCK(record)->fall_priorities * 4u;
-			priority = ROM8(record + side);
+			priority = (uint8_t)FALL_SPRITE_PRIORITY_SIDES(record)[side];
 			if ((int8_t)priority >= 0)
 			{
 				OBJECT(current_object)->sprite_palette &= 0x9FFFu;
@@ -3021,7 +3021,7 @@ void set_fall_sprite_priority(void)
 		if (side == 4u)
 			side = (uint8_t)PLAYER(current_player)->ledge_direction;
 	}
-	priority = ROM8(record + side);
+	priority = (uint8_t)FALL_SPRITE_PRIORITY_SIDES(record)[side];
 	if ((int8_t)priority >= 0)
 	{
 		OBJECT(current_object)->sprite_palette &= 0x9FFFu;
@@ -3053,10 +3053,10 @@ void start_climb_at_spawn(uint32_t climbed_height)
 	OBJECT(current_object)->animation_speed = 3u;
 	OBJECT(current_object)->animation_frame = 0xFFu;
 	attribute_record = OBJECT(current_object)->floor_attribute + floor_types_ADDRESS;
-	PLAYER(current_player)->climb_remaining = ROM16(attribute_record + 6u);
-	climbed_height = (climbed_height & ~0xFFFFu) | ROM16(attribute_record + 0xEu);
+	PLAYER(current_player)->climb_remaining = CLIMB_WALL_ATTRIBUTE(attribute_record)->height;
+	climbed_height = (climbed_height & ~0xFFFFu) | CLIMB_WALL_ATTRIBUTE(attribute_record)->rise;
 	block = floor_blocks + 2u + OBJECT(current_object)->floor_block;
-	if (ROM8(attribute_record) == 0u)
+	if (CLIMB_WALL_ATTRIBUTE(attribute_record)->axis == 0u)
 		distance = (uint32_t)OBJECT(current_object)->x - FLOOR_BLOCK(block)->x_min;
 	else
 		distance = (uint32_t)FLOOR_BLOCK(block)->y_max - OBJECT(current_object)->y;
@@ -3159,8 +3159,8 @@ void apply_floor_push(void)
 		if (PLAYER(current_player)->invulnerable_timer < 0 && ((OBJECT(current_object)->floor_type == 7u && OBJECT(current_object)->floor_attribute != 0u) || OBJECT(current_object)->floor_type == 0xBu || OBJECT(current_object)->floor_type == 4u || (OBJECT(current_object)->floor_type == 5u && PLAYER(current_player)->state != 0x17u)))
 		{
 			attribute_record = OBJECT(current_object)->floor_attribute + floor_types_ADDRESS;
-			PLAYER(current_player)->push_x += ROM16(attribute_record);
-			PLAYER(current_player)->push_y += ROM16(attribute_record + 2u);
+			PLAYER(current_player)->push_x += FLOOR_PUSH_ATTRIBUTE(attribute_record)->push_x;
+			PLAYER(current_player)->push_y += FLOOR_PUSH_ATTRIBUTE(attribute_record)->push_y;
 		}
 	}
 }
@@ -3178,7 +3178,7 @@ uint32_t spawn_slip_piece(uint32_t piece)
 	OBJECT(piece)->sprite_flags = 0x1004u;
 	if ((OBJECT(current_object)->sprite_flags & 0x40u) != 0u)
 		OBJECT(piece)->sprite_flags |= 0x40u;
-	OBJECT(piece)->sprite_frame = ROM16(OBJECT(current_object)->animation + 0x3Au);
+	OBJECT(piece)->sprite_frame = EDGE_HANG_ANIMATIONS(OBJECT(current_object)->animation)->slip_piece_frame;
 	OBJECT(piece)->sprite_palette = OBJECT(current_object)->sprite_palette;
 	OBJECT(piece)->sprite_offset_x = OBJECT(current_object)->sprite_offset_x;
 	OBJECT(piece)->sprite_offset_y = OBJECT(current_object)->sprite_offset_y;
@@ -3348,7 +3348,7 @@ uint32_t follow_player_path_start(void)
 	OBJECT(current_object)->z = OBJECT(current_object)->floor_z;
 	OBJECT(current_object)->speed_z = 0;
 	PLAYER(current_player)->state_timer = 0;
-	OBJECT(current_object)->sprite_palette = ROM16(OBJECT(current_object)->follow_player_path.palette_list + 2u);
+	OBJECT(current_object)->sprite_palette = PLAYER_PALETTE_LIST(OBJECT(current_object)->follow_player_path.palette_list)->normal_palette;
 	OBJECT(current_object)->flags &= ~0x40u;
 	OBJECT(current_object)->flags &= ~0x2000u;
 	PLAYER(current_player)->control_lock = 0u;
@@ -3370,12 +3370,12 @@ uint32_t follow_player_path_run(void)
 	if ((uint16_t)PLAYER(current_player)->path_wait == 0u)
 	{
 		point = PLAYER(current_player)->path_pointer;
-		if ((ROM32(point + 6u) & 2u) == 0u)
+		if ((PLAYER_PATH_STEP(point)->flags & 2u) == 0u)
 		{
 			point += 2u;
-			x_offset = (uint16_t)(OBJECT(current_object)->x_int - ROM16(point) + 8u);
+			x_offset = (uint16_t)(OBJECT(current_object)->x_int - PLAYER_PATH_STEP(point - 0x2u)->x_or_wait + 8u);
 			point += 2u;
-			if (x_offset >= 0x11u || (uint16_t)(OBJECT(current_object)->y_int - ROM16(point) + 8u) >= 0x11u)
+			if (x_offset >= 0x11u || (uint16_t)(OBJECT(current_object)->y_int - PLAYER_PATH_STEP(point - 0x4u)->y + 8u) >= 0x11u)
 				return follow_player_path_aim_at_point();
 		}
 		return follow_player_path_next_record();
@@ -3394,7 +3394,7 @@ uint32_t follow_player_path_run(void)
    (path = 0). */
 uint32_t follow_player_path_next_record(void)
 {
-	if ((int16_t)ROM16(PLAYER(current_player)->path_pointer + 8u) >= 0)
+	if (PLAYER_PATH_STEP(PLAYER(current_player)->path_pointer)[1].speed >= 0)
 	{
 		PLAYER(current_player)->path_pointer += 8u;
 		return follow_player_path_load_record();
@@ -3408,8 +3408,8 @@ uint32_t follow_player_path_next_record(void)
    the record's point (follow_player_path_aim_at_point). */
 uint32_t follow_player_path_load_record(void)
 {
-	PLAYER(current_player)->path_speed = ROM16(PLAYER(current_player)->path_pointer);
-	if ((ROM32(PLAYER(current_player)->path_pointer + 6u) & 1u) != 0u)
+	PLAYER(current_player)->path_speed = PLAYER_PATH_STEP(PLAYER(current_player)->path_pointer)->speed;
+	if ((PLAYER_PATH_STEP(PLAYER(current_player)->path_pointer)->flags & 1u) != 0u)
 	{
 		PLAYER(current_player)->state = 4u;
 		PLAYER(current_player)->substate = 0u;
@@ -3420,7 +3420,7 @@ uint32_t follow_player_path_load_record(void)
 		PLAYER(current_player)->path_wait = 0;
 		return follow_player_path_aim_at_point();
 	}
-	PLAYER(current_player)->path_wait = ROM16(PLAYER(current_player)->path_pointer + 2u);
+	PLAYER(current_player)->path_wait = PLAYER_PATH_STEP(PLAYER(current_player)->path_pointer)->x_or_wait;
 	return follow_player_path_target_speed();
 }
 
@@ -3434,8 +3434,8 @@ uint32_t follow_player_path_aim_at_point(void)
 	uint32_t flags = 0;
 
 	point = PLAYER(current_player)->path_pointer + 2u;
-	path_heading = (uint16_t)(ROM16(point) - OBJECT(current_object)->x_int);
-	dy = (uint16_t)(ROM16(point + 2u) - OBJECT(current_object)->y_int);
+	path_heading = (uint16_t)(PLAYER_PATH_STEP(point - 0x2u)->x_or_wait - OBJECT(current_object)->x_int);
+	dy = (uint16_t)(PLAYER_PATH_STEP(point - 0x2u)->y - OBJECT(current_object)->y_int);
 	angle_of_vector(dy, &path_heading, &ignored);
 	path_heading = (path_heading - 0x80u) & 0x3FFu;
 	PLAYER(current_player)->target_heading = path_heading;
@@ -3601,7 +3601,7 @@ void check_player_contacts(uint32_t *p_health_limit, uint32_t *p_cursor)
 				held_frame = 0x3678u;
 		}
 		OBJECT(current_object)->sprite_frame = held_frame;
-		OBJECT(current_object)->sprite_palette = ROM16(OBJECT(current_object)->check_player.palette_list + 2u);
+		OBJECT(current_object)->sprite_palette = PLAYER_PALETTE_LIST(OBJECT(current_object)->check_player.palette_list)->normal_palette;
 		OBJECT(current_object)->flags &= ~0x40u;
 		OBJECT(current_object)->flags &= ~0x2000u;
 		return;
@@ -3738,7 +3738,7 @@ void check_player_contacts(uint32_t *p_health_limit, uint32_t *p_cursor)
 				PLAYER(current_player)->state = 0u;
 				PLAYER(current_player)->state_timer = -1;
 				OBJECT(current_object)->flags &= ~0x2000u;
-				OBJECT(current_object)->sprite_palette = ROM16(OBJECT(current_object)->check_player.palette_list + 2u);
+				OBJECT(current_object)->sprite_palette = PLAYER_PALETTE_LIST(OBJECT(current_object)->check_player.palette_list)->normal_palette;
 				OBJECT(current_object)->flags &= ~0x40u;
 				OBJECT(current_object)->flags &= ~0x100000u;
 				OBJECT(current_object)->flags &= ~0x200000u;
@@ -3764,7 +3764,7 @@ void check_player_contacts(uint32_t *p_health_limit, uint32_t *p_cursor)
 		PLAYER(current_player)->state = 0u;
 		PLAYER(current_player)->state_timer = -1;
 		OBJECT(current_object)->flags &= ~0x2000u;
-		OBJECT(current_object)->sprite_palette = ROM16(OBJECT(current_object)->check_player.palette_list + 2u);
+		OBJECT(current_object)->sprite_palette = PLAYER_PALETTE_LIST(OBJECT(current_object)->check_player.palette_list)->normal_palette;
 		OBJECT(current_object)->flags &= ~0x40u;
 		OBJECT(current_object)->flags &= ~0x100000u;
 		OBJECT(current_object)->flags &= ~0x200000u;
@@ -3804,7 +3804,7 @@ void check_player_contacts(uint32_t *p_health_limit, uint32_t *p_cursor)
 		PLAYER(current_player)->slip_distance = 0;
 		PLAYER(current_player)->control_lock = 0u;
 		OBJECT(current_object)->flags &= ~0x100u;
-		OBJECT(current_object)->sprite_palette = ROM16(OBJECT(current_object)->check_player.palette_list + 2u);
+		OBJECT(current_object)->sprite_palette = PLAYER_PALETTE_LIST(OBJECT(current_object)->check_player.palette_list)->normal_palette;
 		OBJECT(current_object)->flags &= ~0x40u;
 		OBJECT(current_object)->flags &= ~0x2000u;
 		PLAYER(current_player)->heading = OBJECT(object)->direction;

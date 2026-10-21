@@ -3,7 +3,7 @@
  *    Description: the map screen between stages (game mode 4): the wipe, the island map, the trail, the markers, Eggman
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    19-10-2026
+ *    Modified:    21-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -442,8 +442,8 @@ void map_screen_update(void)
 		OBJECT(current_object)->sprite_flags = 0x10Au;
 		queue_sprite_in_layer();
 		marker_position = ((uint32_t)stage_map_markers[stage] << 2) + map_stage_positions_ADDRESS;
-		next_x = ROM16(marker_position);
-		next_y = ROM16(marker_position + 2u);
+		next_x = MAP_ICON_POSITION(marker_position)->x;
+		next_y = MAP_ICON_POSITION(marker_position)->y;
 		OBJECT(current_object)->map_screen.target_x = next_x;
 		OBJECT(current_object)->map_screen.target_y = next_y;
 		next_y = (int32_t)((next_y - (uint16_t)OBJECT(current_object)->map_screen.base_y) << 16) / 0x3C;
@@ -560,12 +560,12 @@ void map_eggman_update(void)
 		}
 		for (;;)
 		{
-			if ((uint8_t)(int8_t)ROM8(OBJECT(current_object)->map_eggman.gesture_list + OBJECT(current_object)->kind) == 7u)
+			if ((uint8_t)MAP_EGGMAN_GESTURES(OBJECT(current_object)->map_eggman.gesture_list)[OBJECT(current_object)->kind] == 7u)
 			{
 				sound_id = 0x21u;
 				queue_sound(sound_id, &ignored, &ignored);
 			}
-			gesture = (uint16_t)(int8_t)ROM8(OBJECT(current_object)->map_eggman.gesture_list + OBJECT(current_object)->kind);
+			gesture = (uint16_t)MAP_EGGMAN_GESTURES(OBJECT(current_object)->map_eggman.gesture_list)[OBJECT(current_object)->kind];
 			if ((int16_t)gesture >= 0)
 				break;
 			OBJECT(current_object)->kind--;

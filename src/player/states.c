@@ -3,7 +3,7 @@
  *    Description: the player's states in play: standing, walking, running, falling and jumping (player_move, player_animate), teetering on a ledge and going over it, dropping, falling into a pit, climbing a wall, skidding, hopping, dying, launched, hurt, bouncing
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    19-10-2026
+ *    Modified:    21-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -109,13 +109,13 @@ void player_move(uint32_t depth, uint32_t cursor)
 	if (OBJECT(current_object)->floor_type != 0u)
 	{
 		state_entry = floor_type_player_states_ADDRESS + OBJECT(current_object)->floor_type;
-		if (ROM8(state_entry) == 0u)
+		if (FLOOR_TYPE_PLAYER_STATE(state_entry)->state == 0u)
 		{
 			player_move_check_edge(sink_offset, cursor);
 			return;
 		}
 		PLAYER(current_player)->previous_state = PLAYER(current_player)->state;
-		PLAYER(current_player)->state = ROM8(state_entry);
+		PLAYER(current_player)->state = FLOOR_TYPE_PLAYER_STATE(state_entry)->state;
 		PLAYER(current_player)->saved_substate = PLAYER(current_player)->substate;
 		PLAYER(current_player)->substate = 0u;
 		PLAYER(current_player)->sequence_step = 0u;
@@ -284,7 +284,7 @@ void player_animate_standing(void)
 		if (OBJECT(current_object)->kind != 1u)
 			animation_table = mighty_standing_animations_ADDRESS;
 	}
-	OBJECT(current_object)->animation = animation_table + ROM16(animation_table + PLAYER(current_player)->facing * 2u);
+	OBJECT(current_object)->animation = animation_table + PLAYER_FACING_ANIMATION_OFFSETS(animation_table)[PLAYER(current_player)->facing];
 	animate_with_flags(&ignored, &ignored);
 	if ((uint8_t)OBJECT(current_object)->animation_timer == OBJECT(current_object)->animation_speed && PLAYER(current_player)->standing_started == 0u && OBJECT(current_object)->animation_frame != 2u && OBJECT(current_object)->animation_frame != 6u)
 		OBJECT(current_object)->animation_timer = 3;
@@ -336,7 +336,7 @@ void player_animate_walking(void)
 		if (OBJECT(current_object)->kind != 1u)
 			walking_animations = mighty_walking_animations_ADDRESS;
 	}
-	OBJECT(current_object)->animation = walking_animations + ROM16(walking_animations + PLAYER(current_player)->facing * 2u);
+	OBJECT(current_object)->animation = walking_animations + PLAYER_FACING_ANIMATION_OFFSETS(walking_animations)[PLAYER(current_player)->facing];
 	flags = OBJECT(current_object)->flags;
 	OBJECT(current_object)->flags = flags & ~0x4000u;
 	if ((flags & 0x4000u) != 0u)
@@ -479,7 +479,7 @@ void player_animate_run_from_table(uint32_t animation_table)
 		OBJECT(current_object)->animation_timer = 0;
 		OBJECT(current_object)->animation_frame = 2u;
 	}
-	OBJECT(current_object)->animation = animation_table + ROM16(animation_table + PLAYER(current_player)->facing * 2u);
+	OBJECT(current_object)->animation = animation_table + PLAYER_FACING_ANIMATION_OFFSETS(animation_table)[PLAYER(current_player)->facing];
 	flags = OBJECT(current_object)->flags;
 	OBJECT(current_object)->flags = flags & ~0x4000u;
 	if ((flags & 0x4000u) != 0u)
@@ -550,7 +550,7 @@ void player_animate_falling(void)
 		if (OBJECT(current_object)->kind != 1u)
 			running_animations = mighty_running_animations_ADDRESS;
 	}
-	OBJECT(current_object)->animation = running_animations + ROM16(running_animations + PLAYER(current_player)->facing * 2u);
+	OBJECT(current_object)->animation = running_animations + PLAYER_FACING_ANIMATION_OFFSETS(running_animations)[PLAYER(current_player)->facing];
 	animate_step_with_flags(&ignored, &ignored);
 	if (OBJECT(current_object)->floor_z_int >= 0x7FF && OBJECT(current_object)->previous_floor_z_int <= OBJECT(current_object)->floor_z_int)
 	{
@@ -688,7 +688,7 @@ void player_animate_jumping(uint32_t sign)
 	if (PLAYER(current_player)->attack_power < 1)
 		jump_animation = plain_jump_animations;
 	r0 = PLAYER(current_player)->facing;
-	jump_animation += ROM16(jump_animation + r0 * 2u);
+	jump_animation += PLAYER_FACING_ANIMATION_OFFSETS(jump_animation)[r0];
 	if ((int8_t)PLAYER(current_player)->substate < 0)
 		jump_animation += 4u;
 	else
@@ -696,10 +696,10 @@ void player_animate_jumping(uint32_t sign)
 		PLAYER(current_player)->substate = 0xFFu;
 		r0 = OBJECT(current_object)->sprite_flags;
 		r0 = r0 & ~0xC0u;
-		r0 = r0 | ROM16(jump_animation);
+		r0 = r0 | FLAGGED_STEP(jump_animation)->flags;
 		OBJECT(current_object)->sprite_flags = r0;
 		jump_animation += 2u;
-		OBJECT(current_object)->sprite_frame = ROM16(jump_animation);
+		OBJECT(current_object)->sprite_frame = FLAGGED_STEP(jump_animation - 0x2u)->frame;
 		PLAYER(current_player)->jump_first_tile = OBJECT(current_object)->sprite_frame;
 		jump_animation += 2u;
 	}
@@ -756,7 +756,7 @@ void player_animate_jumping_land(void)
 	OBJECT(current_object)->z = OBJECT(current_object)->floor_z;
 	PLAYER(current_player)->jump_delay = 0;
 	OBJECT(current_object)->flags &= ~0x2000u;
-	OBJECT(current_object)->sprite_palette = ROM16(OBJECT(current_object)->player_view.palette_list + 2u);
+	OBJECT(current_object)->sprite_palette = PLAYER_PALETTE_LIST(OBJECT(current_object)->player_view.palette_list)->normal_palette;
 	OBJECT(current_object)->flags &= ~0x40u;
 	OBJECT(current_object)->flags &= ~0x100000u;
 	OBJECT(current_object)->flags &= ~0x200000u;
@@ -887,8 +887,8 @@ void player_state_teetering(uint32_t cursor)
 			invalid_jump(0x3837u + side * 2u);
 		}
 		cursor = teetering_animations_ADDRESS;
-		teeter_animation = ROM16(teetering_animations_ADDRESS + OBJECT(current_object)->kind * 4u + teeter_variant * 2u) + teetering_animations_ADDRESS;
-		OBJECT(current_object)->sprite_frame = ROM16(teeter_animation);
+		teeter_animation = teetering_animations[OBJECT(current_object)->kind].offsets[teeter_variant] + teetering_animations_ADDRESS;
+		OBJECT(current_object)->sprite_frame = TEETER_RECORD(teeter_animation)->first_frame;
 		OBJECT(current_object)->animation = teeter_animation + 2u;
 		PLAYER(current_player)->state_timer = 0x3C;
 		if ((OBJECT(current_object)->flags & 4u) == 0u || OBJECT(LINKED(current_object, OBJECT(current_object)->touched_by))->kind != 0x19u)
@@ -1766,7 +1766,7 @@ void player_state_dropping(uint32_t cursor)
 	case 4:
 		OBJECT(current_object)->sprite_palette |= 0x8000u;
 		set_fall_sprite_priority();
-		OBJECT(current_object)->sprite_frame = ROM16(OBJECT(current_object)->animation + 0x36u);
+		OBJECT(current_object)->sprite_frame = EDGE_HANG_ANIMATIONS(OBJECT(current_object)->animation)->hold_frame;
 		PLAYER(current_player)->state_timer = 0x1E;
 		PLAYER(current_player)->substate++;
 		state_timer = PLAYER(current_player)->state_timer;
@@ -1842,7 +1842,7 @@ void player_state_dropping(uint32_t cursor)
 		OBJECT(cursor)->sprite_offset_x = OBJECT(current_object)->sprite_offset_x;
 		OBJECT(cursor)->sprite_offset_y = OBJECT(current_object)->sprite_offset_y;
 		OBJECT(cursor)->handler = slip_effect_update_ADDRESS;
-		OBJECT(current_object)->sprite_frame = ROM16(OBJECT(current_object)->animation + 0x38u);
+		OBJECT(current_object)->sprite_frame = EDGE_HANG_ANIMATIONS(OBJECT(current_object)->animation)->let_go_frame;
 		OBJECT(current_object)->speed_y = 0;
 		if (OBJECT(current_object)->kind == 2u)
 			cursor = spawn_slip_piece(cursor);
@@ -2127,7 +2127,7 @@ void player_state_climbing(uint32_t depth, uint32_t cursor)
 		invalid_jump(0x4755u + PLAYER(current_player)->substate * 3u);
 	}
 	PLAYER(current_player)->climb_from_top = 0u;
-	if (OBJECT(current_object)->z_int <= (int16_t)ROM16(attribute_record + 8u))
+	if (OBJECT(current_object)->z_int <= CLIMB_WALL_ATTRIBUTE(attribute_record)->top_z)
 		PLAYER(current_player)->climb_from_top = 0xFFu;
 	if (PLAYER(current_player)->climb_from_top == 0u || PLAYER(current_player)->previous_state != 4u)
 	{
@@ -2144,7 +2144,7 @@ void player_state_climbing(uint32_t depth, uint32_t cursor)
 void player_climbing_start(uint32_t cursor, uint32_t attribute_record)
 {
 	OBJECT(current_object)->flags &= ~0x40u;
-	OBJECT(current_object)->sprite_palette = ROM16(OBJECT(current_object)->player_view.palette_list + 2u);
+	OBJECT(current_object)->sprite_palette = PLAYER_PALETTE_LIST(OBJECT(current_object)->player_view.palette_list)->normal_palette;
 	OBJECT(current_object)->flags &= ~0x2000u;
 	OBJECT(current_object)->speed = 0;
 	PLAYER(current_player)->control_lock = 0u;
@@ -2162,9 +2162,9 @@ void player_climbing_grab_wall(uint32_t cursor, uint32_t attribute_record)
 	uint32_t along_wall = 0, climb_animation = 0, climb_over_animation = 0, floor_block_record = 0, ignored = 0;
 
 	along_wall = current_object + 0x50u;
-	if (ROM8(attribute_record) != 0u)
+	if (CLIMB_WALL_ATTRIBUTE(attribute_record)->axis != 0u)
 		along_wall = current_object + 0x4Cu;
-	wall_limit = ROM16(attribute_record + 0xAu);
+	wall_limit = CLIMB_WALL_ATTRIBUTE(attribute_record)->along_min;
 	if ((int16_t)mem_read16(along_wall + 2u) < (int16_t)wall_limit)
 	{
 		mem_write16(along_wall, 0u);
@@ -2172,7 +2172,7 @@ void player_climbing_grab_wall(uint32_t cursor, uint32_t attribute_record)
 	}
 	else
 	{
-		wall_limit += ROM16(attribute_record + 0xCu);
+		wall_limit += CLIMB_WALL_ATTRIBUTE(attribute_record)->along_length;
 		if ((int16_t)wall_limit < (int16_t)mem_read16(along_wall + 2u))
 		{
 			mem_write16(along_wall, 0u);
@@ -2181,7 +2181,7 @@ void player_climbing_grab_wall(uint32_t cursor, uint32_t attribute_record)
 	}
 	if (PLAYER(current_player)->climb_from_top == 0u)
 	{
-		PLAYER(current_player)->climb_remaining = ROM16(attribute_record + 6u);
+		PLAYER(current_player)->climb_remaining = CLIMB_WALL_ATTRIBUTE(attribute_record)->height;
 		OBJECT(current_object)->flags &= ~0x80u;
 		climb_animation = sonic_climb_animation_ADDRESS;
 		if (OBJECT(current_object)->kind != 0u)
@@ -2192,13 +2192,13 @@ void player_climbing_grab_wall(uint32_t cursor, uint32_t attribute_record)
 		}
 		OBJECT(current_object)->animation = climb_animation;
 		OBJECT(current_object)->sprite_flags |= 0x40u;
-		if (ROM8(attribute_record) != 0u)
+		if (CLIMB_WALL_ATTRIBUTE(attribute_record)->axis != 0u)
 			OBJECT(current_object)->sprite_flags &= 0xFFBFu;
 		OBJECT(current_object)->animation_timer = 0;
 		OBJECT(current_object)->animation_speed = 3u;
 		OBJECT(current_object)->animation_frame = 0xFFu;
 		floor_block_record = floor_blocks + 2u + OBJECT(current_object)->floor_block;
-		if (ROM8(attribute_record) == 0u)
+		if (CLIMB_WALL_ATTRIBUTE(attribute_record)->axis == 0u)
 			OBJECT(current_object)->x = FLOOR_BLOCK(floor_block_record)->x_min;
 		else
 			OBJECT(current_object)->y = FLOOR_BLOCK(floor_block_record)->y_max;
@@ -2398,17 +2398,17 @@ void player_climbing_side_step(uint32_t cos_speed, uint32_t cursor, uint32_t att
 	step_x = PLAYER(current_player)->screen_x + side_step;
 	side_step_screen_x = step_x;
 	side_step = (int32_t)side_step >> 1;
-	if (ROM8(attribute_record) != 0u)
+	if (CLIMB_WALL_ATTRIBUTE(attribute_record)->axis != 0u)
 		side_step = 0u - side_step;
 	side_step += OBJECT(current_object)->projected_y;
 	step_projected_y = side_step;
 	side_step = side_step * 2u;
 	unproject_point(&step_x, &side_step);
-	if (ROM8(attribute_record) != 0u)
+	if (CLIMB_WALL_ATTRIBUTE(attribute_record)->axis != 0u)
 		side_step = step_x;
 	side_step = (int32_t)side_step >> 16;
-	wall_start = ROM16(attribute_record + 0xAu);
-	if ((int16_t)side_step < (int16_t)wall_start || (int16_t)(wall_start + ROM16(attribute_record + 0xCu)) < (int16_t)side_step || (uint16_t)(((int32_t)((uint32_t)step_projected_y + OBJECT(current_object)->z + cos_speed) >> 16) - view_y - 0x10u) >= 0xC0u)
+	wall_start = CLIMB_WALL_ATTRIBUTE(attribute_record)->along_min;
+	if ((int16_t)side_step < (int16_t)wall_start || (int16_t)(wall_start + CLIMB_WALL_ATTRIBUTE(attribute_record)->along_length) < (int16_t)side_step || (uint16_t)(((int32_t)((uint32_t)step_projected_y + OBJECT(current_object)->z + cos_speed) >> 16) - view_y - 0x10u) >= 0xC0u)
 	{
 		player_climbing_update_position(cursor, attribute_record);
 		return;
@@ -2544,9 +2544,9 @@ void player_climbing_animate_vertical_step(uint32_t cursor, uint32_t attribute_r
 	PLAYER(current_player)->saved_climb_remaining = PLAYER(current_player)->climb_remaining;
 	PLAYER(current_player)->climb_remaining += z_step;
 	PLAYER(current_player)->saved_screen_x = PLAYER(current_player)->screen_x;
-	screen_shift = (int16_t)ROM16(attribute_record + 4u) * z_step;
+	screen_shift = CLIMB_WALL_ATTRIBUTE(attribute_record)->x_per_rise * z_step;
 	screen_x_shift = screen_shift;
-	if (ROM8(attribute_record) == 0u)
+	if (CLIMB_WALL_ATTRIBUTE(attribute_record)->axis == 0u)
 		screen_x_shift = 0u - screen_x_shift;
 	PLAYER(current_player)->screen_x += screen_x_shift;
 	OBJECT(current_object)->projected_x = PLAYER(current_player)->screen_x_int;
@@ -2582,10 +2582,10 @@ void player_climbing_update_position(uint32_t cursor, uint32_t attribute_record)
 		player_climbing_pull_up(attribute_record);
 		return;
 	}
-	if ((int16_t)ROM16(attribute_record + 6u) <= PLAYER(current_player)->climb_remaining)
+	if (CLIMB_WALL_ATTRIBUTE(attribute_record)->height <= PLAYER(current_player)->climb_remaining)
 	{
 		across_wall = current_object + 0x4Eu;
-		if (ROM8(attribute_record) != 0u)
+		if (CLIMB_WALL_ATTRIBUTE(attribute_record)->axis != 0u)
 			across_wall = current_object + 0x52u;
 		mem_write16(across_wall, mem_read16(across_wall) - 2u);
 		PLAYER(current_player)->substate = 0u;
@@ -2646,7 +2646,7 @@ void player_climbing_pull_up(uint32_t attribute_record)
 		ignored = queue_sprite(ignored);
 		return;
 	}
-	OBJECT(current_object)->z_int = ROM16(attribute_record + 8u);
+	OBJECT(current_object)->z_int = CLIMB_WALL_ATTRIBUTE(attribute_record)->top_z;
 	OBJECT(current_object)->z_fraction = 0u;
 	OBJECT(current_object)->floor_z = OBJECT(current_object)->z;
 	OBJECT(current_object)->flags &= ~0x80u;
@@ -2658,7 +2658,7 @@ void player_climbing_pull_up(uint32_t attribute_record)
 	OBJECT(current_object)->speed_y = 0;
 	PLAYER(current_player)->animation_speed = 0;
 	floor_block_record = floor_blocks + 2u + OBJECT(current_object)->floor_block;
-	if (ROM8(attribute_record) == 0u)
+	if (CLIMB_WALL_ATTRIBUTE(attribute_record)->axis == 0u)
 	{
 		OBJECT(current_object)->x = FLOOR_BLOCK(floor_block_record)->x_max;
 		OBJECT(current_object)->x_int += 0xAu;
@@ -2669,7 +2669,7 @@ void player_climbing_pull_up(uint32_t attribute_record)
 		OBJECT(current_object)->y_int -= 0xAu;
 	}
 	new_heading = 0x80u;
-	if (ROM8(attribute_record) != 0u)
+	if (CLIMB_WALL_ATTRIBUTE(attribute_record)->axis != 0u)
 		new_heading = 0x380u;
 	PLAYER(current_player)->target_heading = new_heading;
 	turn_player();
@@ -2745,7 +2745,7 @@ void player_animate_skidding(uint32_t depth, uint32_t cursor)
 		}
 		skid_facing = PLAYER(current_player)->facing;
 		skid_facing = (uint8_t)(skid_facing + 8u);
-		OBJECT(current_object)->animation = skid_animations + ROM16(skid_animations + (skid_facing & 0xFu) * 2u);
+		OBJECT(current_object)->animation = skid_animations + PLAYER_FACING_ANIMATION_OFFSETS(skid_animations)[skid_facing & 0xFu];
 		OBJECT(current_object)->animation_speed = 3u;
 		OBJECT(current_object)->animation_timer = 0;
 		OBJECT(current_object)->animation_frame = 0u;
@@ -2893,7 +2893,7 @@ void player_state_short_animation(void)
 		OBJECT(current_object)->animation_speed = 5u;
 		OBJECT(current_object)->animation_timer = 0;
 		PLAYER(current_player)->state_timer = 0x41;
-		OBJECT(current_object)->sprite_palette = ROM16(OBJECT(current_object)->player_view.palette_list + 2u);
+		OBJECT(current_object)->sprite_palette = PLAYER_PALETTE_LIST(OBJECT(current_object)->player_view.palette_list)->normal_palette;
 	}
 	if ((int8_t)OBJECT(current_object)->animation_frame >= 0)
 	{
@@ -2934,7 +2934,7 @@ void player_animate_hopping(void)
 			speed_int = (uint16_t)OBJECT(current_object)->speed_int;
 			OBJECT(current_object)->speed_z_int = hop_speeds_by_speed[speed_int >> 8];
 		}
-		OBJECT(current_object)->sprite_palette = ROM16(OBJECT(current_object)->player_view.palette_list + 2u);
+		OBJECT(current_object)->sprite_palette = PLAYER_PALETTE_LIST(OBJECT(current_object)->player_view.palette_list)->normal_palette;
 		OBJECT(current_object)->flags &= ~0x40u;
 		OBJECT(current_object)->animation_speed = 1u;
 		OBJECT(current_object)->animation_timer = 0;
@@ -2949,7 +2949,7 @@ void player_animate_hopping(void)
 		if (OBJECT(current_object)->kind != 1u)
 			running_animations = mighty_running_animations_ADDRESS;
 	}
-	OBJECT(current_object)->animation = running_animations + ROM16(running_animations + PLAYER(current_player)->facing * 2u);
+	OBJECT(current_object)->animation = running_animations + PLAYER_FACING_ANIMATION_OFFSETS(running_animations)[PLAYER(current_player)->facing];
 	animate_with_flags(&ignored, &ignored);
 	OBJECT(current_object)->speed_z += 0x6000u;
 	OBJECT(current_object)->z += OBJECT(current_object)->speed_z;
@@ -3021,7 +3021,7 @@ void player_state_dying(void)
 				character_frame = 0x36B8u;
 		}
 		OBJECT(current_object)->sprite_frame = character_frame;
-		OBJECT(current_object)->sprite_palette = ROM16(OBJECT(current_object)->player_view.palette_list + 2u);
+		OBJECT(current_object)->sprite_palette = PLAYER_PALETTE_LIST(OBJECT(current_object)->player_view.palette_list)->normal_palette;
 		OBJECT(current_object)->sprite_palette &= 0x9FFFu;
 		OBJECT(current_object)->flags |= 0x400u;
 		player_status[OBJECT(current_object)->player] = 1u;
@@ -3142,16 +3142,16 @@ void player_launch(void)
 		if (OBJECT(current_object)->kind != 1u)
 			animation_record = mighty_attack_jump_animations_ADDRESS;
 	}
-	animation_record += ROM16(animation_record + PLAYER(current_player)->facing * 2u);
-	OBJECT(current_object)->sprite_flags = (OBJECT(current_object)->sprite_flags & ~0xC0u) | ROM16(animation_record);
+	animation_record += PLAYER_FACING_ANIMATION_OFFSETS(animation_record)[PLAYER(current_player)->facing];
+	OBJECT(current_object)->sprite_flags = (OBJECT(current_object)->sprite_flags & ~0xC0u) | FLAGGED_STEP(animation_record)->flags;
 	animation_record += 2u;
-	OBJECT(current_object)->sprite_frame = ROM16(animation_record);
+	OBJECT(current_object)->sprite_frame = FLAGGED_STEP(animation_record - 0x2u)->frame;
 	OBJECT(current_object)->animation = animation_record + 2u;
 	OBJECT(current_object)->animation_speed = 3u;
 	OBJECT(current_object)->animation_timer = 0;
 	OBJECT(current_object)->animation_frame = 0u;
 	OBJECT(current_object)->flags &= ~0x40u;
-	OBJECT(current_object)->sprite_palette = ROM16(OBJECT(current_object)->player_view.palette_list + 2u);
+	OBJECT(current_object)->sprite_palette = PLAYER_PALETTE_LIST(OBJECT(current_object)->player_view.palette_list)->normal_palette;
 	OBJECT(current_object)->flags &= ~0x2000u;
 	PLAYER(current_player)->control_lock = 0u;
 	OBJECT(current_object)->flags |= 0x1000u;
@@ -3448,7 +3448,7 @@ void player_state_hurt(uint32_t depth, uint32_t cursor)
 			if (OBJECT(current_object)->kind != 1u)
 				shocked_animations = mighty_shocked_animations_ADDRESS;
 		}
-		depth = ROM16(shocked_animations + PLAYER(current_player)->facing * 2u);
+		depth = PLAYER_FACING_ANIMATION_OFFSETS(shocked_animations)[PLAYER(current_player)->facing];
 		OBJECT(current_object)->animation = shocked_animations + depth;
 		OBJECT(current_object)->animation_frame = 0u;
 		OBJECT(current_object)->animation_speed = 2u;
@@ -3471,13 +3471,13 @@ void player_state_hurt(uint32_t depth, uint32_t cursor)
 			if ((int16_t)state_timer_3 <= 1)
 			{
 				PLAYER(current_player)->substate = 2u;
-				OBJECT(current_object)->sprite_palette = ROM16(OBJECT(current_object)->player_view.palette_list + 2u);
+				OBJECT(current_object)->sprite_palette = PLAYER_PALETTE_LIST(OBJECT(current_object)->player_view.palette_list)->normal_palette;
 				player_hurt_set_animation(cursor);
 				return;
 			}
 		}
 		kind = OBJECT(current_object)->kind;
-		OBJECT(current_object)->sprite_palette = ROM16((uint16_t)(kind << 4) + shocked_palettes_ADDRESS + OBJECT(current_object)->animation_frame * 2u);
+		OBJECT(current_object)->sprite_palette = shocked_palettes[kind].palettes[OBJECT(current_object)->animation_frame];
 		update_screen_position(&ignored, &depth);
 		keep_player_on_screen(depth);
 		add_player_to_lists();
@@ -3492,13 +3492,13 @@ void player_state_hurt(uint32_t depth, uint32_t cursor)
 			if ((int16_t)state_timer_3 <= 1)
 			{
 				PLAYER(current_player)->substate = 2u;
-				OBJECT(current_object)->sprite_palette = ROM16(OBJECT(current_object)->player_view.palette_list + 2u);
+				OBJECT(current_object)->sprite_palette = PLAYER_PALETTE_LIST(OBJECT(current_object)->player_view.palette_list)->normal_palette;
 				player_hurt_set_animation(cursor);
 				return;
 			}
 		}
 		kind = OBJECT(current_object)->kind;
-		OBJECT(current_object)->sprite_palette = ROM16((uint16_t)(kind << 4) + shocked_palettes_ADDRESS + OBJECT(current_object)->animation_frame * 2u);
+		OBJECT(current_object)->sprite_palette = shocked_palettes[kind].palettes[OBJECT(current_object)->animation_frame];
 		update_screen_position(&ignored, &depth);
 		keep_player_on_screen(depth);
 		add_player_to_lists();
@@ -3594,7 +3594,7 @@ void player_hurt_set_animation(uint32_t cursor)
 		if (OBJECT(current_object)->kind != 1u)
 			hurt_animations = mighty_hurt_animations_ADDRESS;
 	}
-	facing_offset = ROM16(hurt_animations + PLAYER(current_player)->facing * 2u);
+	facing_offset = PLAYER_FACING_ANIMATION_OFFSETS(hurt_animations)[PLAYER(current_player)->facing];
 	OBJECT(current_object)->animation = hurt_animations + facing_offset;
 	OBJECT(current_object)->animation_frame = 0u;
 	step_record = OBJECT(current_object)->animation + 2u;
@@ -3709,7 +3709,7 @@ void player_hurt_get_up(void)
 	}
 	PLAYER(current_player)->substate++;
 	PLAYER(current_player)->mishap_flag = 0u;
-	OBJECT(current_object)->sprite_palette = ROM16(OBJECT(current_object)->player_view.palette_list + 2u);
+	OBJECT(current_object)->sprite_palette = PLAYER_PALETTE_LIST(OBJECT(current_object)->player_view.palette_list)->normal_palette;
 	set_floor_sprite_priority();
 	OBJECT(current_object)->player_view.hurt_flash_timer = 0x7Fu;
 	PLAYER(current_player)->state_timer = 0x1E;
@@ -3773,11 +3773,11 @@ void player_state_bouncing(void)
 				bounce_records = mighty_bounce_records_ADDRESS;
 		}
 		bounce_record = bounce_records + PLAYER(current_player)->bounce_direction * 3u * 2u;
-		OBJECT(current_object)->direction = ROM16(bounce_record);
+		OBJECT(current_object)->direction = PLAYER_BOUNCE_RECORD(bounce_record)->direction;
 		OBJECT(current_object)->sprite_flags &= ~0x40u;
 		bounce_record += 2u;
-		OBJECT(current_object)->sprite_flags |= ROM16(bounce_record);
-		OBJECT(current_object)->animation = ROM16(bounce_record + 2u) + bounce_records;
+		OBJECT(current_object)->sprite_flags |= PLAYER_BOUNCE_RECORD(bounce_record - 0x2u)->sprite_flags;
+		OBJECT(current_object)->animation = PLAYER_BOUNCE_RECORD(bounce_record - 0x2u)->animation_offset + bounce_records;
 		face_movement_direction(ignored);
 		OBJECT(current_object)->speed = 0x1000000;
 		OBJECT(current_object)->speed_z = -0x68000;
@@ -3785,7 +3785,7 @@ void player_state_bouncing(void)
 		PLAYER(current_player)->bounce_step = 0x34000;
 		PLAYER(current_player)->bounce_speed_z += PLAYER(current_player)->bounce_step;
 		set_speed_from_direction();
-		OBJECT(current_object)->sprite_frame = ROM16(OBJECT(current_object)->animation + 2u);
+		OBJECT(current_object)->sprite_frame = FRAME_ANIMATION(OBJECT(current_object)->animation)->frames[0];
 		OBJECT(current_object)->animation_frame = 0u;
 		OBJECT(current_object)->animation_timer = 3;
 		OBJECT(current_object)->animation_speed = 3u;
@@ -3820,7 +3820,7 @@ void player_state_bouncing(void)
 			if ((int8_t)OBJECT(current_object)->animation_frame < 6)
 			{
 				OBJECT(current_object)->animation_frame++;
-				OBJECT(current_object)->sprite_frame = ROM16(OBJECT(current_object)->animation + 2u + OBJECT(current_object)->animation_frame * 2u);
+				OBJECT(current_object)->sprite_frame = FRAME_ANIMATION(OBJECT(current_object)->animation)->frames[OBJECT(current_object)->animation_frame];
 			}
 			update_player_blink();
 			add_to_rider_list();
@@ -3837,7 +3837,7 @@ void player_state_bouncing(void)
 			if ((int8_t)OBJECT(current_object)->animation_frame < 6)
 			{
 				OBJECT(current_object)->animation_frame++;
-				OBJECT(current_object)->sprite_frame = ROM16(OBJECT(current_object)->animation + 2u + OBJECT(current_object)->animation_frame * 2u);
+				OBJECT(current_object)->sprite_frame = FRAME_ANIMATION(OBJECT(current_object)->animation)->frames[OBJECT(current_object)->animation_frame];
 			}
 		}
 		update_player_blink();

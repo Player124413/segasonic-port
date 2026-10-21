@@ -3,7 +3,7 @@
  *    Description: around the players: the skid dust, the HUD (gauge, portrait, ring count, start prompt, messages), the ride of game mode 0x1C, joining with a character select, the result bonus, the climb zone splash, the intro marker
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    19-10-2026
+ *    Modified:    21-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -27,7 +27,7 @@ void spawn_skid_dust(uint32_t dust)
 		OBJECT(dust)->animation_speed = 3u;
 		OBJECT(dust)->animation_timer = 3;
 		OBJECT(dust)->animation = skid_dust_animation_ADDRESS;
-		OBJECT(dust)->sprite_frame = ROM16(OBJECT(dust)->animation + 2u);
+		OBJECT(dust)->sprite_frame = FRAME_ANIMATION(OBJECT(dust)->animation)->frames[0];
 		OBJECT(dust)->projected_x = OBJECT(current_object)->projected_x;
 		OBJECT(dust)->projected_y = OBJECT(current_object)->projected_y;
 		OBJECT(dust)->z = OBJECT(current_object)->z;
@@ -75,8 +75,8 @@ void player_hud_init(void)
 	gauge_position = hud_gauge_positions_3p_ADDRESS + player_2 * 4u;
 	if ((cabinet_config & 1u) == 0u)
 		gauge_position = hud_gauge_positions_2p_ADDRESS + player_2 * 4u;
-	PLAYER(player - 0x142u)->hud_gauge_x = ROM16(gauge_position);
-	PLAYER(player - 0x142u)->hud_gauge_y = ROM16(gauge_position + 2u);
+	PLAYER(player - 0x142u)->hud_gauge_x = SCREEN_POINT(gauge_position)->x;
+	PLAYER(player - 0x142u)->hud_gauge_y = SCREEN_POINT(gauge_position)->y;
 	PLAYER(player - 0x142u)->hud_gauge_palette = 0x88E0u;
 	PLAYER(player - 0x142u)->hud_gauge_height = 8u;
 	PLAYER(current_player)->hud_gauge = player;
@@ -91,11 +91,11 @@ void player_hud_init(void)
 	portrait_position = hud_portrait_positions_3p_ADDRESS + player_2 * 4u;
 	if ((cabinet_config & 1u) == 0u)
 		portrait_position = hud_portrait_positions_2p_ADDRESS + player_2 * 4u;
-	PLAYER(player - 0x172u)->hud_portrait_x = ROM16(portrait_position);
-	PLAYER(player - 0x172u)->hud_portrait_y = ROM16(portrait_position + 2u);
+	PLAYER(player - 0x172u)->hud_portrait_x = SCREEN_POINT(portrait_position)->x;
+	PLAYER(player - 0x172u)->hud_portrait_y = SCREEN_POINT(portrait_position)->y;
 	portrait_sprite = hud_portrait_sprites_ADDRESS + OBJECT(current_object)->kind * 4u;
-	PLAYER(player - 0x172u)->hud_portrait_tile = ROM16(portrait_sprite);
-	PLAYER(player - 0x172u)->hud_portrait_palette = ROM16(portrait_sprite + 2u);
+	PLAYER(player - 0x172u)->hud_portrait_tile = HUD_PORTRAIT_SPRITE(portrait_sprite)->frame;
+	PLAYER(player - 0x172u)->hud_portrait_palette = HUD_PORTRAIT_SPRITE(portrait_sprite)->palette;
 	PLAYER(player - 0x172u)->hud_portrait_height = 0xAu;
 	PLAYER(current_player)->hud_portrait = player;
 	PLAYER(player - 0x172u)->hud_portrait_anim_delay = 3u;
@@ -134,8 +134,8 @@ void player_hud_start(void)
 
 	sprite_record = hud_portrait_sprites_ADDRESS + OBJECT(current_object)->kind * 4u;
 	object = LINKED(current_object, PLAYER(current_player)->hud_portrait);
-	OBJECT(object)->sprite_frame = ROM16(sprite_record);
-	OBJECT(object)->sprite_palette = ROM16(sprite_record + 2u);
+	OBJECT(object)->sprite_frame = HUD_PORTRAIT_SPRITE(sprite_record)->frame;
+	OBJECT(object)->sprite_palette = HUD_PORTRAIT_SPRITE(sprite_record)->palette;
 	player = OBJECT(current_object)->player;
 	if ((int8_t)player_status[player] >= 0 || player_status[player] == 0x82u)
 	{
@@ -432,7 +432,7 @@ void animate_hud_palette(uint32_t *p_list_index, uint32_t *p_wrapped)
 	}
 	OBJECT(current_object)->animate_hud.anim_timer = OBJECT(current_object)->animate_hud.anim_delay;
 	palettes = OBJECT(current_object)->animate_hud.anim;
-	last_frame = (uint8_t)ROM16(palettes);
+	last_frame = (uint8_t)HUD_PALETTE_CYCLE(palettes)->last_index;
 	list_index = OBJECT(current_object)->animate_hud.frame;
 	list_index = (uint8_t)(list_index + 1u);
 	palettes += 2u;
@@ -442,7 +442,7 @@ void animate_hud_palette(uint32_t *p_list_index, uint32_t *p_wrapped)
 		list_index = 0u;
 	}
 	OBJECT(current_object)->animate_hud.frame = list_index;
-	OBJECT(current_object)->sprite_palette = ROM16(palettes + list_index * 2u);
+	OBJECT(current_object)->sprite_palette = HUD_CYCLE_PALETTES(palettes)[list_index];
 	*p_list_index = list_index;
 }
 
@@ -465,12 +465,12 @@ void animate_hud_tiles(uint32_t *p_list_index, uint32_t *p_wrapped)
 	}
 	OBJECT(current_object)->animate_hud.anim_timer = OBJECT(current_object)->animate_hud.anim_delay;
 	frame_list = OBJECT(current_object)->animate_hud.anim;
-	last_frame = (uint8_t)ROM16(frame_list);
+	last_frame = (uint8_t)FRAME_ANIMATION(frame_list)->last_frame;
 	list_index = OBJECT(current_object)->animate_hud.frame;
 	list_index = (uint8_t)(list_index + 1u);
 	frame_list += 2u;
 	if ((int8_t)list_index <= (int8_t)last_frame)
-		OBJECT(current_object)->sprite_frame = ROM16(frame_list + list_index * 2u);
+		OBJECT(current_object)->sprite_frame = SPRITE_FRAME_NUMBERS(frame_list)[list_index];
 	else
 	{
 		*p_wrapped = 0xFFFFFFFFu;

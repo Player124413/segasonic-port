@@ -3,7 +3,7 @@ Name:        decompile.py
 Description: decompiles the game's V60 program into readable C, one C function per original function
 Version:     0.1.0
 Created:     11-10-2026
-Modified:    20-10-2026
+Modified:    21-10-2026
 Author:      Sebastian Toyos
 
 Usage: python tools/decompile.py [rom folder or .zip] [--check] [--trace] [--out DIR] [--symbols FILE]
@@ -608,9 +608,24 @@ def write_c(program, out_dir, trace=False, variables_path=None, split_webs=False
         live_after[entry] = after
         live_at_start[entry] = start
     known = disassemble.load_names(SYMBOLS)
+    # the variables, tables and registers are macros: a field by the same name would be taken for one of them
+    macros = {name for name, _ in list(known.variables.values()) + list(known.tables.values())
+              + list(known.hardware.values()) + list(known.record_tables.values())}
+    macros |= {name for (struct, _, _), (name, _) in known.overlays.items() if struct == "global"}
+    macros |= {name for (struct, _), found in known.scoped.items() if struct == "global" for name, _ in found.values()}
+    fields = {name for name, _ in known.fields.values()} | {name for (struct, _), found in known.scoped.items()
+                                                             if struct != "global" for name, _ in found.values()}
+    clashes = sorted((fields | set(known.structs)) & macros)
+    if clashes:
+        raise SystemExit(f"{SYMBOLS.name}: fields or structures named like a variable, table or register: "
+                         + ", ".join(clashes))
     # the structures: the object and the player, and any other symbols.txt declares (flood_fill_record)
     pointers.STRUCTS.update(known.structs)
     pointers.ROM_STRUCTS = set(known.rom_structs)
+    # the program ROM's arrays of plain values a pointer walks, and its tables of records by name
+    pointers.ELEMENTS = dict(known.arrays)
+    pointers.RECORD_TABLES = dict(known.record_tables)
+    pointers.FIELD_ARRAYS = {key: (int(known.fields[key][1][1:]), count) for key, count in known.field_arrays.items()}
     # records of their own (not the object's or the player's blocks) come one after another: the flood
     # fill's queue is walked a record at a time
     pointers.RUNS = set(known.structs) - {"object", "player"}
@@ -664,7 +679,8 @@ def write_c(program, out_dir, trace=False, variables_path=None, split_webs=False
     emitter.flow = flow
     emitter.split_webs = split_webs
     emitter.trampolines = trampolines(built)
-    emitter.data_labels = {address: name for address, name in data_names.items() if address not in named.tables}
+    emitter.data_labels = {address: name for address, name in data_names.items()
+                           if address not in named.tables and address not in known.record_tables}
     emitter.code_labels = {address: symbol.name for address, symbol in program.symbols.items() if symbol.kind == "code"}
     emitter.comments = dict(known.comments)
     emitter.replaced = replaced_functions([(ROOT / "runtime" / "replaced.txt", "BOARD_ORIGINAL")])

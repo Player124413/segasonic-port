@@ -3,7 +3,7 @@
  *    Description: the game modes (run_game_mode) and what a stage frame runs: starting a stage, layer blending, the stage clear check, the player summary, stage slots and events, restart points, the player objects, the GAME OVER banner and the demo prompt
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    19-10-2026
+ *    Modified:    21-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -138,7 +138,7 @@ void game_mode_start_game(uint32_t *p_count, uint32_t *p_list_cursor)
 		game_frames = 0u;
 	}
 	else
-		stage = ROM16(demo_input);
+		stage = DEMO_HEADER(demo_input)->stage_number;
 	stage_start_kind = 0u;
 	player_status[0] = 0u;
 	player_2_status = 0u;
@@ -247,7 +247,7 @@ void start_stage(uint32_t stage_offset, uint32_t *p_write_index_address, uint32_
 	start_stage_view(p_write_index_address, p_floor_block, p_bounds_offset, &ignored);
 	if ((int8_t)game_in_progress >= 0)
 	{
-		stage_start_section = ROM16(demo_input + 2u);
+		stage_start_section = DEMO_HEADER(demo_input)->start_section;
 		move_camera_to_start_section(p_write_index_address, p_floor_block, &ignored);
 		demo_input += 0x10u;
 	}
@@ -654,9 +654,9 @@ void game_mode_stage_clear(uint32_t position, uint32_t speed, uint32_t object, u
 			OBJECT(object)->flags = 0u;
 			OBJECT(object)->stage_clear_banner.sparkle_offset = 0x10u;
 			banner_record = stage_name_banners[(uint8_t)stage] + stage_name_banners_ADDRESS;
-			OBJECT(object)->screen_x = ROM16(banner_record);
+			OBJECT(object)->screen_x = STAGE_NAME_BANNER(banner_record)->screen_x;
 			banner_record += 2u;
-			OBJECT(object)->screen_y = ROM16(banner_record);
+			OBJECT(object)->screen_y = STAGE_NAME_BANNER(banner_record - 0x2u)->screen_y;
 			OBJECT(object)->animation = banner_record + 2u;
 			OBJECT(object)->animation_frame = 0xFFu;
 			OBJECT(object)->animation_speed = 4u;
@@ -1396,9 +1396,9 @@ void game_mode_event_1A(uint32_t pressed, uint32_t position, uint32_t in_play_co
 		return;
 	}
 	scroll_script = event_1a_scroll_script_ADDRESS + scene_step * 3u * 2u;
-	if (scroll_position < ROM16(scroll_script))
+	if (scroll_position < EVENT_1A_SCROLL_STEP(scroll_script)->position)
 	{
-		if ((int16_t)ROM16(scroll_script) < 0 && seesaw_launched != 0u)
+		if ((int16_t)EVENT_1A_SCROLL_STEP(scroll_script)->position < 0 && seesaw_launched != 0u)
 		{
 			event_1a_timer = scene_timer;
 			scene_timer = event_1a_timer - 1u;
@@ -1406,9 +1406,9 @@ void game_mode_event_1A(uint32_t pressed, uint32_t position, uint32_t in_play_co
 			{
 				scene_timer = 0;
 				scroll_script += 2u;
-				event_1a_scroll_mode = ROM16(scroll_script);
+				event_1a_scroll_mode = EVENT_1A_SCROLL_STEP(scroll_script - 0x2u)->mode;
 				scroll_script += 2u;
-				event_1a_scroll_speed = ROM16(scroll_script);
+				event_1a_scroll_speed = EVENT_1A_SCROLL_STEP(scroll_script - 0x4u)->speed;
 				scene_step++;
 				scroll_script += 2u;
 			}
@@ -1417,9 +1417,9 @@ void game_mode_event_1A(uint32_t pressed, uint32_t position, uint32_t in_play_co
 	else
 	{
 		scroll_script += 2u;
-		event_1a_scroll_mode = ROM16(scroll_script);
+		event_1a_scroll_mode = EVENT_1A_SCROLL_STEP(scroll_script - 0x2u)->mode;
 		scroll_script += 2u;
-		event_1a_scroll_speed = ROM16(scroll_script);
+		event_1a_scroll_speed = EVENT_1A_SCROLL_STEP(scroll_script - 0x4u)->speed;
 		scene_step++;
 		scroll_script += 2u;
 	}
@@ -2139,7 +2139,7 @@ void stage_clear_banner_hold(void)
 	}
 	sound_id = 0x1Bu;
 	play_sound(sound_id, &ignored, &ignored);
-	banner_letters_left = ROM16(OBJECT(current_object)->animation);
+	banner_letters_left = FRAME_ANIMATION(OBJECT(current_object)->animation)->last_frame;
 	banner_letter_offset_x = 8u;
 	object = current_object;
 	do
@@ -2273,26 +2273,26 @@ void apply_stage_layer_blending(uint32_t *p_layer_bit, uint32_t *p_count)
 		count--;
 	} while (count != 0u);
 	cursor = stage_layer_blending_ADDRESS + stage_layer_blending[stage];
-	if (ROM8(cursor) == 0u)
+	if (LAYER_BLEND_LIST(cursor)->count == 0u)
 	{
 		*p_count = count;
 		return;
 	}
-	count = ROM8(cursor);
+	count = LAYER_BLEND_LIST(cursor)->count;
 	cursor++;
 	do
 	{
-		blend_mask = ROM8(cursor);
+		blend_mask = LAYER_BLEND_RECORD(cursor)->blend_mask;
 		cursor++;
-		*p_layer_bit = ROM8(cursor);
+		*p_layer_bit = LAYER_BLEND_RECORD(cursor - 0x1u)->layer_bit;
 		cursor++;
-		layer_shadow = GAME_VARIABLES + ROM16(cursor);
+		layer_shadow = GAME_VARIABLES + LAYER_BLEND_RECORD(cursor - 0x2u)->shadow_offset;
 		mem_write16(layer_shadow, mem_read16(layer_shadow) & ~0x3Fu);
 		mem_write16(layer_shadow, mem_read16(layer_shadow) | blend_mask);
 		mem_write32(layer_shadow, mem_read32(layer_shadow) | shl32(1u, (int)(*p_layer_bit)));
 		mixer_blend &= ~0xF00u;
 		cursor += 2u;
-		mixer_blend |= ROM16(cursor);
+		mixer_blend |= LAYER_BLEND_RECORD(cursor - 0x4u)->blend_factor;
 		mixer_blend |= 0x800u;
 		count--;
 		cursor += 2u;
@@ -2440,7 +2440,7 @@ void update_player_summary(uint32_t *p_in_play_count, uint32_t *p_count, uint32_
 		if (player_dropping_in_before == 0u || scroll_mode != 0u)
 			saved_scroll_mode = scroll_mode;
 		scroll_mode = 0u;
-		if (ROM16(scroll_mode_script - 4u) != 0u)
+		if (SCROLL_MODE_STEP(scroll_mode_script)[-1].mode != 0u)
 			scroll_speed_low = 5;
 	}
 	player_dropping_in_before = player_dropping_in;
@@ -2507,20 +2507,20 @@ void continue_to_next_stage_slot(uint32_t *p_table_offset, uint32_t *p_link_reco
 	if (next_stage_slot_request == 0u)
 		return;
 	link_point = stage_link_points_ADDRESS + stage_link_points[stage];
-	from_block = ROM16(link_point);
+	from_block = STAGE_LINK_POINT(link_point)->from_block;
 	from_record = floor_blocks + 2u + from_block;
 	stage_link_from_block = from_block;
-	stage_link_from_x = ROM32(from_record);
-	stage_link_from_y = ROM32(from_record + 8u);
-	stage_link_from_height = ROM16(from_record + 0x10u);
+	stage_link_from_x = FLOOR_BLOCK(from_record)->x_min;
+	stage_link_from_y = FLOOR_BLOCK(from_record)->y_min;
+	stage_link_from_height = FLOOR_BLOCK(from_record)->height;
 	current_stage = stage;
 	block = stage_floor_blocks_ADDRESS + stage_floor_blocks[(uint16_t)(current_stage + 1u)];
-	to_block = ROM16(link_point + 2u);
+	to_block = STAGE_LINK_POINT(link_point)->to_block;
 	block = block + 2u + to_block;
 	stage_link_to_block = to_block;
-	stage_link_to_x = ROM32(block);
-	stage_link_to_y = ROM32(block + 8u);
-	stage_link_to_height = ROM16(block + 0x10u);
+	stage_link_to_x = FLOOR_BLOCK(block)->x_min;
+	stage_link_to_y = FLOOR_BLOCK(block)->y_min;
+	stage_link_to_height = FLOOR_BLOCK(block)->height;
 	stage++;
 	load_stage_map_pointers(&table_offset, &bounds_list);
 	stage_init_flags &= 0xFFFFFFF0u;
@@ -2563,16 +2563,16 @@ void run_stage_events(uint32_t *p_table_offset, uint32_t *p_event)
 		stage_event_cursor = stage_events_ADDRESS + *p_table_offset;
 	}
 	event = stage_event_cursor;
-	if (scroll_position < ROM16(event))
+	if (scroll_position < STAGE_EVENT(event)->position)
 	{
 		*p_event = event;
 		return;
 	}
-	distance_past = (uint16_t)(scroll_position - ROM16(event));
+	distance_past = (uint16_t)(scroll_position - STAGE_EVENT(event)->position);
 	event += 2u;
 	if (stage == 0x11u || distance_past < 0x100u)
 	{
-		game_mode = ROM8(event);
+		game_mode = STAGE_EVENT(event - 0x2u)->next_game_mode;
 		scene_step = 0u;
 		scene_timer = 0;
 	}
@@ -2633,7 +2633,7 @@ uint32_t update_restart_point(uint32_t position)
 	do
 	{
 		restart_point += 8u;
-	} while (ROM16(restart_point) <= (uint16_t)position);
+	} while (RESTART_POINT_RECORD(restart_point)->position <= (uint16_t)position);
 	current_restart_point = restart_point;
 	return position;
 }
@@ -2674,10 +2674,10 @@ void reset_objects_from_list(uint32_t object, uint32_t *p_player_number, uint32_
 	player_block_cursor = PLAYER_BLOCK(1);
 	reset_objects(&ignored, p_player_number);
 	handler_cursor = object_handler_list;
-	handlers_left = ROM16(handler_cursor);
+	handlers_left = OBJECT_START_LIST(handler_cursor)->count;
 	handler_cursor += 2u;
 	object = allocate_object_or_start_list(object);
-	OBJECT(object)->handler = ROM32(handler_cursor);
+	OBJECT(object)->handler = OBJECT_START_HANDLERS(handler_cursor)[0];
 	handler_cursor += 4u;
 	if (OBJECT(object)->handler == player_start_stage_ADDRESS)
 	{
@@ -2706,7 +2706,7 @@ void reset_objects_from_list(uint32_t object, uint32_t *p_player_number, uint32_
 			*p_handler_cursor = handler_cursor;
 			return;
 		}
-		OBJECT(object)->handler = ROM32(handler_cursor);
+		OBJECT(object)->handler = OBJECT_START_HANDLERS(handler_cursor)[0];
 		handler_cursor += 4u;
 		if (OBJECT(object)->handler == player_start_stage_ADDRESS)
 		{

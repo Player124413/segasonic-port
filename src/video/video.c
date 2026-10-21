@@ -3,7 +3,7 @@
  *    Description: the board's video: the video registers and the screen mode, block copies and fills, palette RAM and its copies at VBLANK, the VRAM scripts that build the tilemaps
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    19-10-2026
+ *    Modified:    21-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -31,7 +31,7 @@ void init_video_registers(void)
 	value = 0x200u;
 	count = 6u;
 	register_cursor = fill_halfwords(value, count, register_cursor);
-	mem_write32(register_cursor, ROM32(defaults_cursor));
+	mem_write32(register_cursor, VIDEO_REGISTER_DEFAULTS_TAIL(defaults_cursor)->text_backdrop_control);
 	register_cursor += 4u;
 	right_bottom = 0xDF013Fu;
 	rects_left = 5u;
@@ -44,8 +44,8 @@ void init_video_registers(void)
 		rects_left--;
 		register_cursor += 4u;
 	} while (rects_left != 0u);
-	mem_write32(register_cursor, ROM32(defaults_cursor));
-	mem_write32(register_cursor + 4u, ROM32(defaults_cursor + 4u));
+	mem_write32(register_cursor, VIDEO_REGISTER_DEFAULTS_TAIL(defaults_cursor - 0x4u)->bitmap_scroll);
+	mem_write32(register_cursor + 4u, VIDEO_REGISTER_DEFAULTS_TAIL(defaults_cursor - 0x4u)->bitmap_control);
 	mode = 0u;
 	set_screen_mode(mode);
 	ignored = clear_page_0_and_scroll();
@@ -187,7 +187,7 @@ void run_vram_script(uint32_t *p_count, uint32_t *p_script, uint32_t *p_dest)
 	dictionary_cursor = vram_script_dictionary_ADDRESS;
 	for (;;)
 	{
-		script_code = ROM8(*p_script);
+		script_code = VRAM_SCRIPT(*p_script)[0];
 		(*p_script)++;
 		if ((int8_t)script_code >= 0)
 		{
@@ -258,21 +258,21 @@ void vram_script_end(void)
 /* Command 0x80: dest = 0x300000 (video RAM) + the next halfword * 2. */
 void vram_script_set_address(uint32_t script_code, uint32_t *p_script, uint32_t *p_dest)
 {
-	*p_dest = 0x300000u + ((script_code & ~0xFFFFu) | ROM16(*p_script)) * 2u;
+	*p_dest = 0x300000u + ((script_code & ~0xFFFFu) | VRAM_SCRIPT_ADDRESS(*p_script)->cell) * 2u;
 	*p_script += 2u;
 }
 
 /* Command 0x83: dest moves by a signed byte of cells. */
 void vram_script_skip(uint32_t *p_script, uint32_t *p_dest)
 {
-	*p_dest += (int8_t)ROM8(*p_script) * 2u;
+	*p_dest += TILEMAP_SKIP(*p_script)->cells * 2u;
 	(*p_script)++;
 }
 
 /* Command 0xA7: dest moves by a signed halfword of cells. */
 void vram_script_skip_long(uint32_t *p_script, uint32_t *p_dest)
 {
-	*p_dest += (int16_t)ROM16(*p_script) * 2u;
+	*p_dest += TILEMAP_LONG_SKIP(*p_script)->cells * 2u;
 	*p_script += 2u;
 }
 
@@ -283,9 +283,9 @@ void vram_script_fill(uint32_t *p_count, uint32_t *p_script, uint32_t *p_dest)
 	uint16_t tile = 0;
 	uint32_t count = 0;
 
-	count = ROM8(script);
+	count = VRAM_SCRIPT_CELL_RUN(script)->count;
 	script++;
-	tile = ROM16(script);
+	tile = VRAM_SCRIPT_CELL_RUN(script - 0x1u)->cell;
 	script += 2u;
 	do
 	{
@@ -304,9 +304,9 @@ void vram_script_count_up(uint32_t *p_count, uint32_t *p_script, uint32_t *p_des
 	uint16_t tile = 0;
 	uint32_t count = 0;
 
-	count = ROM8(script);
+	count = VRAM_SCRIPT_CELL_RUN(script)->count;
 	script++;
-	tile = ROM16(script);
+	tile = VRAM_SCRIPT_CELL_RUN(script - 0x1u)->cell;
 	script += 2u;
 	do
 	{
@@ -326,9 +326,9 @@ void vram_script_count_down(uint32_t *p_count, uint32_t *p_script, uint32_t *p_d
 	uint16_t tile = 0;
 	uint32_t count = 0;
 
-	count = ROM8(script);
+	count = VRAM_SCRIPT_CELL_RUN(script)->count;
 	script++;
-	tile = ROM16(script);
+	tile = VRAM_SCRIPT_CELL_RUN(script - 0x1u)->cell;
 	script += 2u;
 	do
 	{
@@ -349,13 +349,13 @@ void vram_script_bytes(uint32_t *p_count, uint32_t *p_script, uint32_t *p_dest)
 	uint16_t tile = 0;
 	uint32_t count = 0;
 
-	count = ROM8(script);
+	count = VRAM_SCRIPT_BYTE_CELLS(script)->count;
 	script++;
-	tile = (uint16_t)((uint32_t)ROM8(script) << 8);
+	tile = (uint16_t)((uint32_t)VRAM_SCRIPT_BYTE_CELLS(script - 0x1u)->high_byte << 8);
 	script++;
 	do
 	{
-		tile = (uint16_t)((tile & ~0xFFu) | ROM8(script));
+		tile = (uint16_t)((tile & ~0xFFu) | VRAM_SCRIPT_LOW_BYTES(script)[0]);
 		mem_write16(*p_dest, tile);
 		*p_dest += 2u;
 		count--;
@@ -371,11 +371,11 @@ void vram_script_words(uint32_t *p_count, uint32_t *p_script, uint32_t *p_dest)
 	uint32_t script = *p_script;
 	uint32_t count = 0;
 
-	count = ROM8(script);
+	count = VRAM_SCRIPT_WORD_CELLS(script)->count;
 	script++;
 	do
 	{
-		mem_write16(*p_dest, ROM16(script));
+		mem_write16(*p_dest, VRAM_SCRIPT_CELLS(script)[0]);
 		*p_dest += 2u;
 		count--;
 		script += 2u;
@@ -393,11 +393,11 @@ void vram_script_words_to_dictionary(uint32_t *p_count, uint32_t *p_script, uint
 	uint16_t tile = 0;
 	uint32_t count = 0;
 
-	count = ROM8(script);
+	count = VRAM_SCRIPT_WORD_CELLS(script)->count;
 	script++;
 	do
 	{
-		tile = ROM16(script);
+		tile = VRAM_SCRIPT_CELLS(script)[0];
 		mem_write16(*p_dest, tile);
 		*p_dest += 2u;
 		mem_write16(dictionary_cursor, tile);
@@ -417,9 +417,9 @@ void vram_script_clear_pages(uint32_t *p_script, uint32_t *p_dest)
 	uint32_t script = *p_script;
 	uint32_t halfword_count = 0;
 
-	*p_dest = 0x300000u + ROM16(script) * 2u;
+	*p_dest = 0x300000u + VRAM_SCRIPT_PAGE_CLEAR(script)->cell * 2u;
 	script += 2u;
-	halfword_count = (uint32_t)ROM8(script) << 9;
+	halfword_count = (uint32_t)VRAM_SCRIPT_PAGE_CLEAR(script - 0x2u)->pages << 9;
 	fill_value = 0u;
 	script++;
 	set_halfwords(*p_dest, halfword_count, fill_value);
@@ -433,9 +433,9 @@ void vram_script_fill_down(uint32_t *p_count, uint32_t *p_script, uint32_t *p_de
 	uint16_t tile = 0;
 	uint32_t count = 0;
 
-	count = ROM8(script);
+	count = VRAM_SCRIPT_CELL_RUN(script)->count;
 	script++;
-	tile = ROM16(script);
+	tile = VRAM_SCRIPT_CELL_RUN(script - 0x1u)->cell;
 	script += 2u;
 	do
 	{
@@ -454,9 +454,9 @@ void vram_script_fill_up(uint32_t *p_count, uint32_t *p_script, uint32_t *p_dest
 	uint16_t tile = 0;
 	uint32_t count = 0;
 
-	count = ROM8(script);
+	count = VRAM_SCRIPT_CELL_RUN(script)->count;
 	script++;
-	tile = ROM16(script);
+	tile = VRAM_SCRIPT_CELL_RUN(script - 0x1u)->cell;
 	script += 2u;
 	do
 	{
@@ -476,9 +476,9 @@ void vram_script_fill_down_wide(uint32_t *p_count, uint32_t *p_script, uint32_t 
 	uint16_t tile = 0;
 	uint32_t count = 0;
 
-	count = ROM8(script);
+	count = VRAM_SCRIPT_CELL_RUN(script)->count;
 	script++;
-	tile = ROM16(script);
+	tile = VRAM_SCRIPT_CELL_RUN(script - 0x1u)->cell;
 	script += 2u;
 	do
 	{
@@ -498,9 +498,9 @@ void vram_script_repeat(uint32_t dest, uint32_t *p_count, uint32_t *p_script)
 	uint16_t tile = 0;
 	uint32_t count = 0;
 
-	count = ROM8(script);
+	count = VRAM_SCRIPT_CELL_RUN(script)->count;
 	script++;
-	tile = ROM16(script);
+	tile = VRAM_SCRIPT_CELL_RUN(script - 0x1u)->cell;
 	script += 2u;
 	do
 	{
@@ -521,7 +521,7 @@ void erase_vram_script(uint32_t script, uint32_t dest)
 	cell = 0u;
 	for (;;)
 	{
-		script_code = ROM8(script);
+		script_code = VRAM_SCRIPT(script)[0];
 		script++;
 		if ((int8_t)script_code >= 0)
 		{
@@ -593,7 +593,7 @@ void erase_vram_script_fill(uint16_t cell, uint32_t *p_script, uint32_t *p_dest)
 {
 	uint32_t count = 0;
 
-	count = ROM8(*p_script);
+	count = VRAM_SCRIPT_CELL_RUN(*p_script)->count;
 	*p_script += 3u;
 	do
 	{
@@ -610,7 +610,7 @@ void erase_vram_script_bytes(uint16_t cell, uint32_t *p_script, uint32_t *p_dest
 	uint32_t script = *p_script;
 	uint32_t count = 0;
 
-	count = ROM8(script);
+	count = VRAM_SCRIPT_BYTE_CELLS(script)->count;
 	script = script + 2u + count;
 	do
 	{
@@ -628,7 +628,7 @@ void erase_vram_script_words(uint16_t cell, uint32_t *p_script, uint32_t *p_dest
 	uint32_t script = *p_script;
 	uint32_t count = 0;
 
-	count = ROM8(script);
+	count = VRAM_SCRIPT_WORD_CELLS(script)->count;
 	script = script + 1u + count * 2u;
 	do
 	{
@@ -645,7 +645,7 @@ void erase_vram_script_fill_down(uint16_t cell, uint32_t *p_script, uint32_t *p_
 {
 	uint32_t count = 0;
 
-	count = ROM8(*p_script);
+	count = VRAM_SCRIPT_CELL_RUN(*p_script)->count;
 	*p_script += 3u;
 	do
 	{
@@ -660,7 +660,7 @@ void erase_vram_script_fill_up(uint16_t cell, uint32_t *p_script, uint32_t *p_de
 {
 	uint32_t count = 0;
 
-	count = ROM8(*p_script);
+	count = VRAM_SCRIPT_CELL_RUN(*p_script)->count;
 	*p_script += 3u;
 	do
 	{
@@ -675,7 +675,7 @@ void erase_vram_script_fill_down_wide(uint16_t cell, uint32_t *p_script, uint32_
 {
 	uint32_t count = 0;
 
-	count = ROM8(*p_script);
+	count = VRAM_SCRIPT_CELL_RUN(*p_script)->count;
 	*p_script += 3u;
 	do
 	{
@@ -690,7 +690,7 @@ uint32_t erase_vram_script_repeat(uint16_t cell, uint32_t script, uint32_t dest)
 {
 	uint32_t count = 0;
 
-	count = ROM8(script);
+	count = VRAM_SCRIPT_CELL_RUN(script)->count;
 	script += 3u;
 	do
 	{
@@ -721,7 +721,7 @@ void load_palette_list(uint32_t palette_list, uint32_t *p_source, uint32_t *p_de
 {
 	uint32_t copy_mode = 0, dest = 0, entries_left = 0, size = 0;
 
-	entries_left = ROM16(palette_list);
+	entries_left = PALETTE_LOAD_LIST(palette_list)->entry_count;
 	dest = 0x600000u;
 	palette_list += 2u;
 	do
@@ -768,35 +768,35 @@ void copy_palettes_with_pen_0(uint16_t pen_0_color, uint32_t size, uint32_t *p_s
 	do
 	{
 		mem_write16(dest, pen_0_color);
-		pens_1_2 = ROM32(source);
+		pens_1_2 = PALETTE_PENS_1_15(source)->pens_1_2;
 		source += 4u;
 		dest += 2u;
 		mem_write32(dest, pens_1_2);
-		pens_3_4 = ROM32(source);
+		pens_3_4 = PALETTE_PENS_1_15(source - 0x4u)->pens_3_4;
 		source += 4u;
 		dest += 4u;
 		mem_write32(dest, pens_3_4);
-		pens_5_6 = ROM32(source);
+		pens_5_6 = PALETTE_PENS_1_15(source - 0x8u)->pens_5_6;
 		source += 4u;
 		dest += 4u;
 		mem_write32(dest, pens_5_6);
-		pens_7_8 = ROM32(source);
+		pens_7_8 = PALETTE_PENS_1_15(source - 0xCu)->pens_7_8;
 		source += 4u;
 		dest += 4u;
 		mem_write32(dest, pens_7_8);
-		pens_9_10 = ROM32(source);
+		pens_9_10 = PALETTE_PENS_1_15(source - 0x10u)->pens_9_10;
 		source += 4u;
 		dest += 4u;
 		mem_write32(dest, pens_9_10);
-		pens_11_12 = ROM32(source);
+		pens_11_12 = PALETTE_PENS_1_15(source - 0x14u)->pens_11_12;
 		source += 4u;
 		dest += 4u;
 		mem_write32(dest, pens_11_12);
-		pens_13_14 = ROM32(source);
+		pens_13_14 = PALETTE_PENS_1_15(source - 0x18u)->pens_13_14;
 		source += 4u;
 		dest += 4u;
 		mem_write32(dest, pens_13_14);
-		pen_15 = ROM16(source);
+		pen_15 = PALETTE_PENS_1_15(source - 0x1Cu)->pen_15;
 		source += 2u;
 		dest += 4u;
 		mem_write16(dest, pen_15);
@@ -828,12 +828,12 @@ void repeat_palette_block(uint32_t size, uint32_t *p_source, uint32_t *p_dest, u
 	uint32_t dest_end = 0, repeat_counts = 0, repeats_left = 0, source_end = 0;
 
 	repeat_counts = source;
-	source = ROM32(*p_palette_list);
+	source = PALETTE_REPEAT_SOURCE(*p_palette_list)->palettes;
 	size = size >> 1;
 	*p_palette_list += 4u;
 	do
 	{
-		repeats_left = ROM16(repeat_counts);
+		repeats_left = PALETTE_REPEAT_COUNTS(repeat_counts)[0];
 		repeat_counts += 2u;
 		do
 		{

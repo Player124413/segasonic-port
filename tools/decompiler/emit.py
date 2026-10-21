@@ -4,7 +4,7 @@ Description: writes the decompiled functions as C: one C function per V60 functi
              variables, results through pointers
 Version:     0.1.0
 Created:     11-10-2026
-Modified:    20-10-2026
+Modified:    21-10-2026
 Author:      Sebastian Toyos
 
 Every function becomes "void name(parameters)", or returns the one value it hands back. Its parameters
@@ -505,7 +505,7 @@ class FunctionWriter:
         the access): the function's own for its object or the family of the handler it gives the object
         (family_through), else the family symbols.txt says the pointer leads to (object.eggman_scene); None
         if none."""
-        struct, _, base, base_offset, family = field
+        struct, _, base, base_offset, family = field[:5]
         found = self.family_through(base, statement) if not base_offset and struct == "object" else None
         return found if found is not None else family
 
@@ -954,7 +954,7 @@ class FunctionWriter:
         pieces = []
         field = self.fields.get(key)
         if field is not None and field[0] in pointers.STRUCTS:
-            struct, offset, base, base_offset, kind_family = field
+            struct, offset, base, base_offset, kind_family = field[:5]
             layouts = self.emitter.layouts
             family = self.field_family(field)
             position = offset
@@ -968,7 +968,7 @@ class FunctionWriter:
                     piece = layouts.fields.get(struct, {}).get(position)
                 if piece is None or position + piece // 8 > offset + size:
                     return None
-                text, signed = self.field_access((struct, position, base, base_offset, kind_family), piece)
+                text, signed = self.field_access((struct, position, base, base_offset, kind_family) + field[5:], piece)
                 self.signed_pieces[text] = signed
                 pieces.append((position - offset, piece, text))
                 position += piece // 8
@@ -1013,7 +1013,8 @@ class FunctionWriter:
             # the structures each web points at, from the fields read and written through it
             self._through = {}
             for hit in self.fields.values():
-                if hit[0] in pointers.STRUCTS and isinstance(hit[2], ir.Reg):
+                # (a run of values is no name for what walks it: the walk keeps its own)
+                if hit[0] in pointers.STRUCTS and hit[0] not in pointers.ELEMENTS and isinstance(hit[2], ir.Reg):
                     for definition in variables.uses.get(id(hit[2]), ()):
                         self._through.setdefault(variables.webs.find(definition), set()).add(hit[0])
         # a player's block set from its address: by the player's number (player_2), not the order
@@ -1167,33 +1168,49 @@ class FunctionWriter:
     def field_access(self, field, bits):
         """(C, signed) for an access of 'bits' to a field: by the name of the family's own field when the
         function's object is accessed, or the structure's; a name that holds exactly those bytes first."""
-        struct, offset, base, base_offset, _ = field
+        struct, offset, base, base_offset, _ = field[:5]
+        index = field[5] if len(field) > 5 else None
+        element_number = field[6] if len(field) > 6 else None    # (an element of a field that is an array)
         family = self.field_family(field)
         layouts = self.emitter.layouts
         if base_offset and isinstance(base, ir.Op) and base.name == "add" and isinstance(base.args[0], ir.Const):
             # a constant place in the structure plus the rest: the structure's own address plus the rest
             base = ir.op("add", (ir.Const((base.args[0].value - base_offset) & 0xFFFFFFFF), base.args[1]), 32)
             base_offset = 0
-        start = self.printer.any(base).text
-        pointer = f"{struct.upper()}({start})" if not base_offset else \
-            f"{struct.upper()}({start} - 0x{base_offset:X}u)"
+        table = pointers.record_table_name(base.value & 0xFFFFFF) if isinstance(base, ir.Const) else None
+        if table is not None:
+            # a table of records by its name: hud_gauge_positions_3p[player].y
+            pointer = table[0]
+        else:
+            start = self.printer.any(base).text
+            pointer = f"{struct.upper()}({start})" if not base_offset else \
+                f"{struct.upper()}({start} - 0x{base_offset:X}u)"
+        element = struct in pointers.ELEMENTS
+        if index is not None or element or table is not None:
+            # a record (or an element) by its number: STRUCT(p)[i].field, NAME(p)[i]
+            pointer = f"{pointer}[{self.record_number(index)}]"
+            member = "" if element else "."
+        else:
+            member = "->"
         found = layouts.lookup(struct, offset)
         if found is None:
             raise EmitError(f"{self.function.name}: no field of {struct} at {offset:X}")
         field_offset, field_bits = found
-        name = f"{pointer}->{layouts.names[struct][field_offset]}"
+        name = pointer if element else f"{pointer}{member}{layouts.names[struct][field_offset]}"
+        if element_number is not None:
+            name = f"{name}[{self.record_number(element_number)}]"
         overlay = layouts.overlay(struct, offset, bits) if field_offset == offset else None
         if field_offset == offset and field_bits == bits:
             generic = name, layouts.signed[struct][offset], True
         elif overlay is not None and field_bits != bits:
-            generic = f"{pointer}->{overlay[0]}", overlay[1], True
+            generic = f"{pointer}{member}{overlay[0]}", overlay[1], True
         else:
             generic = cprint.part(bits, name, offset - field_offset, field_bits), False, False
         if family is not None:
             scoped = layouts.scoped_field(struct, family, offset)
             if scoped is not None:
                 view, scoped_name, scoped_offset, scoped_bits, scoped_signed = scoped
-                text = f"{pointer}->{view}.{scoped_name}"
+                text = f"{pointer}{member}{view}.{scoped_name}"
                 if scoped_offset == offset and scoped_bits == bits:
                     if field_offset == offset and field_bits == bits and layouts.names[struct][offset] == scoped_name \
                             and layouts.signed[struct][offset] == scoped_signed:
@@ -1201,7 +1218,7 @@ class FunctionWriter:
                     return text, scoped_signed
                 overlay = layouts.scoped_overlay(struct, family, offset, bits) if scoped_offset == offset else None
                 if overlay is not None:
-                    return f"{pointer}->{view}.{overlay[0]}", overlay[1]
+                    return f"{pointer}{member}{view}.{overlay[0]}", overlay[1]
                 # bytes of the family's field: a part of it, whatever the structure calls them; an access
                 # that reaches past it is the structure's if the structure has a name for all of it
                 if generic[2] and (offset - scoped_offset) * 8 + bits > scoped_bits:
@@ -1209,6 +1226,21 @@ class FunctionWriter:
                 return cprint.part(bits, text, offset - scoped_offset, scoped_bits), False
         self.note_missing(struct, offset, bits, base, base_offset, generic)
         return generic[:2]
+
+    def record_number(self, index):
+        """C for the number of a record from a pointer (pointers.indexed_access): 0, 1, -1 for the one the
+        pointer is in, the next, the one before; an expression, signed when a record before is added to it
+        (so that a sum below 0 is a record before, as the pointer's arithmetic makes it)."""
+        if index is None:
+            return "0"
+        if isinstance(index, ir.Const):
+            value = index.value & 0xFFFFFFFF
+            return str(value) if value < 0x80000000 else f"-{0x100000000 - value}"
+        if isinstance(index, ir.Op) and index.name == "add" and isinstance(index.args[1], ir.Const) \
+                and index.args[1].value & 0xFFFFFFFF >= 0x80000000:
+            before = 0x100000000 - (index.args[1].value & 0xFFFFFFFF)
+            return f"(int32_t)({self.printer.any(index.args[0]).text} - {before}u)"
+        return self.printer.any(index).text
 
     def note_missing(self, struct, offset, bits, base, base_offset, generic):
         """Notes an access to the object types' own variables (from where the families' views start) that
@@ -1515,7 +1547,7 @@ class FunctionWriter:
         or None."""
         field = self.fields.get(key)
         if field is not None and field[0] in pointers.STRUCTS:
-            struct, offset, base, base_offset, kind_family = field
+            struct, offset, base, base_offset, kind_family = field[:5]
             layouts = self.emitter.layouts
             family = self.field_family(field)
             candidates = set()
@@ -1535,7 +1567,7 @@ class FunctionWriter:
                             candidates.add((start, overlay_bits))
             for start, width in sorted(candidates, key=lambda candidate: candidate[1]):
                 if start <= offset + low and offset + high <= start + width // 8:
-                    text = self.field_lvalue((struct, start, base, base_offset, kind_family), width)
+                    text = self.field_lvalue((struct, start, base, base_offset, kind_family) + field[5:], width)
                     if not text.startswith(("AS", "AT")):
                         return text, offset - start, width
             return None
@@ -2256,6 +2288,11 @@ class Emitter:
             item = self.memory.tables.get(canonical)
             if item is not None:
                 return f"{item.name}_ADDRESS", cprint.PRIMARY
+            table = pointers.record_table_name(canonical)
+            if table is not None:
+                # a table of records, or a column of its first record
+                return (f"{table[0]}_ADDRESS", cprint.PRIMARY) if not table[2] else \
+                    (f"{table[0]}_ADDRESS + 0x{table[2]:X}u", cprint.ADD)
             label = self.data_labels.get(canonical)
             return (f"{label}_ADDRESS", cprint.PRIMARY) if label is not None else None
         register = self.memory.register(address)

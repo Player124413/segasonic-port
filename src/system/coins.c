@@ -3,7 +3,7 @@
  *    Description: coins and credits: the coin inputs and counters, the credits and start prompts drawn outside a game
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    19-10-2026
+ *    Modified:    21-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -486,7 +486,7 @@ void blink_start_prompt(uint32_t credit_block, uint32_t prompt_texts, uint32_t *
 	{
 		port_d_bits = mem_read8(io_port_d);
 		mem_write8(io_port_d, port_d_bits & ~0xCu);
-		text = prompt_texts + ROM16(prompt_texts + prompt_index * 2u);
+		text = prompt_texts + START_PROMPT_TEXT_OFFSETS(prompt_texts)[prompt_index];
 		erase_text_lines(&text, p_text_position);
 		*p_blink_bit = frame_bit;
 		*p_text = text;
@@ -496,14 +496,14 @@ void blink_start_prompt(uint32_t credit_block, uint32_t prompt_texts, uint32_t *
 	{
 		if ((cabinet_config & 1u) != 0u || setting_moving_seat != 0u)
 		{
-			text = prompt_texts + ROM16(prompt_texts + prompt_index * 2u);
+			text = prompt_texts + START_PROMPT_TEXT_OFFSETS(prompt_texts)[prompt_index];
 			print_text_lines(&text, p_text_position);
 			*p_blink_bit = frame_bit;
 			*p_text = text;
 			return;
 		}
 		r14 = p1_coins_ADDRESS;
-		text = prompt_texts + ROM16(prompt_texts + prompt_index * 2u);
+		text = prompt_texts + START_PROMPT_TEXT_OFFSETS(prompt_texts)[prompt_index];
 		print_text_lines(&text, p_text_position);
 		*p_blink_bit = frame_bit;
 		*p_text = text;
@@ -514,14 +514,14 @@ void blink_start_prompt(uint32_t credit_block, uint32_t prompt_texts, uint32_t *
 	{
 		if ((cabinet_config & 1u) != 0u || setting_moving_seat != 0u)
 		{
-			text = prompt_texts + ROM16(prompt_texts + prompt_index * 2u);
+			text = prompt_texts + START_PROMPT_TEXT_OFFSETS(prompt_texts)[prompt_index];
 			print_text_lines(&text, p_text_position);
 			*p_blink_bit = frame_bit;
 			*p_text = text;
 			return;
 		}
 		r14 = p1_coins_ADDRESS;
-		text = prompt_texts + ROM16(prompt_texts + prompt_index * 2u);
+		text = prompt_texts + START_PROMPT_TEXT_OFFSETS(prompt_texts)[prompt_index];
 		print_text_lines(&text, p_text_position);
 		*p_blink_bit = frame_bit;
 		*p_text = text;
@@ -536,14 +536,14 @@ void blink_start_prompt(uint32_t credit_block, uint32_t prompt_texts, uint32_t *
 	}
 	if (CREDIT_BLOCK(credit_block)->coins != 0u || credits != 0u)
 	{
-		text = prompt_texts + ROM16(prompt_texts + prompt_index * 2u);
+		text = prompt_texts + START_PROMPT_TEXT_OFFSETS(prompt_texts)[prompt_index];
 		print_text_lines(&text, p_text_position);
 		*p_blink_bit = frame_bit;
 		*p_text = text;
 		return;
 	}
 	prompt_index = 2u;
-	text = prompt_texts + ROM16(prompt_texts + prompt_index * 2u);
+	text = prompt_texts + START_PROMPT_TEXT_OFFSETS(prompt_texts)[prompt_index];
 	print_text_lines(&text, p_text_position);
 	*p_blink_bit = frame_bit;
 	*p_text = text;
@@ -558,7 +558,7 @@ void erase_start_prompt(uint32_t text_position, uint32_t prompt_texts)
 
 	port_d_bits = mem_read8(io_port_d);
 	mem_write8(io_port_d, port_d_bits & ~0xCu);
-	text = prompt_texts + ROM16(prompt_texts + 2u);
+	text = prompt_texts + START_PROMPT_TEXT_OFFSETS(prompt_texts)[1];
 	erase_text_lines(&text, &text_position);
 }
 
@@ -672,11 +672,11 @@ void build_fraction_glyph(uint32_t numerator, uint32_t denominator, uint32_t *p_
 	uint32_t denominator_rows = 0;
 
 	numerator = 0x104B79u + numerator * 2u * 4u;
-	*p_numerator_top_rows = ROM32(numerator);
-	*p_numerator_bottom_rows = ROM32(numerator + 4u);
+	*p_numerator_top_rows = FRACTION_FONT_ROW_LONGS(numerator)[0];
+	*p_numerator_bottom_rows = FRACTION_FONT_ROW_LONGS(numerator)[1];
 	denominator_rows = fraction_digit_font_ADDRESS + denominator * 2u * 4u;
-	*p_denominator_top_rows = ROM32(denominator_rows) | fraction_slash_top_rows;
-	*p_denominator_bottom_rows = ROM32(denominator_rows + 4u) | fraction_slash_bottom_rows;
+	*p_denominator_top_rows = FRACTION_FONT_ROW_LONGS(denominator_rows)[0] | fraction_slash_top_rows;
+	*p_denominator_bottom_rows = FRACTION_FONT_ROW_LONGS(denominator_rows)[1] | fraction_slash_bottom_rows;
 }
 
 /* Unused: blanks the credit line at text_position: erase_text_here over credits_label_text ("credit "),

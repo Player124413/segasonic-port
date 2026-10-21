@@ -3,7 +3,7 @@
  *    Description: Eggman: his booth that slides in during his speeches, the speech scripts (stages 3, 8, A), his scene with the button box in stage B and the sliding door, his teleport (never spawned)
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    19-10-2026
+ *    Modified:    21-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -638,11 +638,11 @@ void eggman_speech_run(void)
 		return;
 	OBJECT(current_object)->eggman_speech.frame_count++;
 	script_cursor = OBJECT(current_object)->eggman_speech.script;
-	delay = ROM16(script_cursor);
+	delay = EGGMAN_SPEECH_STEP(script_cursor)->delay;
 	script_cursor += 2u;
 	if (OBJECT(current_object)->eggman_speech.frame_count < (int16_t)delay)
 		return;
-	command = ROM16(script_cursor) * 2u;
+	command = EGGMAN_SPEECH_STEP(script_cursor - 0x2u)->command * 2u;
 	script_cursor += 2u;
 	switch (command)
 	{
@@ -658,7 +658,7 @@ void eggman_speech_run(void)
 	case 0x4u:
 		break;
 	case 0x6u:
-		sound_id = (uint8_t)ROM16(script_cursor);
+		sound_id = (uint8_t)EGGMAN_SPEECH_ARGUMENTS(script_cursor)[0];
 		OBJECT(current_object)->eggman_speech.script = script_cursor + 2u;
 		OBJECT(current_object)->eggman_speech.frame_count = 0;
 		play_sound(sound_id, &ignored, &ignored);
@@ -668,13 +668,13 @@ void eggman_speech_run(void)
 	default:
 		invalid_jump(0x85794u + command);
 	}
-	screen_x = ROM16(script_cursor);
+	screen_x = EGGMAN_SPEECH_ARGUMENTS(script_cursor)[0];
 	script_cursor += 2u;
-	screen_y = ROM16(script_cursor);
+	screen_y = EGGMAN_SPEECH_ARGUMENTS(script_cursor)[0];
 	script_cursor += 2u;
-	kind = ROM16(script_cursor);
+	kind = EGGMAN_SPEECH_ARGUMENTS(script_cursor)[0];
 	script_cursor += 2u;
-	frames = ROM16(script_cursor);
+	frames = EGGMAN_SPEECH_ARGUMENTS(script_cursor)[0];
 	OBJECT(current_object)->eggman_speech.script = script_cursor + 2u;
 	OBJECT(current_object)->eggman_speech.frame_count = 0;
 	r11 = spawn_message_box(screen_x, screen_y, kind, frames, 0u);

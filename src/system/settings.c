@@ -3,7 +3,7 @@
  *    Description: what the board keeps when it is off: the settings in the 93C46 EEPROM and the bookkeeping in the backup RAM, with their checksums
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    19-10-2026
+ *    Modified:    21-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -568,7 +568,7 @@ uint32_t compute_crc16_alternate_bytes(uint32_t data, uint32_t count)
 	shift_register = 0xDEBDEB00u;
 	do
 	{
-		shift_register = (shift_register & ~0xFFu) | ROM8(data);
+		shift_register = (shift_register & ~0xFFu) | ROM_CHECK_BYTES(data)[0];
 		data = ((data + 1u) & ~0xFFu) | (uint8_t)(data + 1u + 1u);
 		bits_left = 8u;
 		do

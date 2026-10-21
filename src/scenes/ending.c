@@ -3,7 +3,7 @@
  *    Description: stage 0x11, the ending: the runners, the tower and the explosions, the flash to white, the credits (portraits, name plates, scrolling blocks), Eggman flying away and the three running across
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    19-10-2026
+ *    Modified:    21-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -158,9 +158,9 @@ void ending_tower_animate(void)
 	frame_record = ending_tower_frames_ADDRESS;
 	for (;;)
 	{
-		if (ROM16(frame_record) == 0xFFFFu)
+		if ((uint16_t)ENDING_TOWER_FRAME(frame_record)->end_time == 0xFFFFu)
 		{
-			if (ROM16(frame_record + 4u) != 0xFFFFu)
+			if (ENDING_TOWER_FRAME(frame_record)->sprite_palette != 0xFFFFu)
 			{
 				OBJECT(current_object)->timer++;
 				run_timed_spawns_2(r11);
@@ -169,14 +169,14 @@ void ending_tower_animate(void)
 			delete_current_object();
 			return;
 		}
-		if (OBJECT(current_object)->timer < (int16_t)ROM16(frame_record))
+		if (OBJECT(current_object)->timer < ENDING_TOWER_FRAME(frame_record)->end_time)
 			break;
 		frame_record += 6u;
 	}
-	OBJECT(current_object)->sprite_frame = ROM16(frame_record + 2u);
-	OBJECT(current_object)->sprite_palette = ROM16(frame_record + 4u);
+	OBJECT(current_object)->sprite_frame = ENDING_TOWER_FRAME(frame_record)->sprite_frame;
+	OBJECT(current_object)->sprite_palette = ENDING_TOWER_FRAME(frame_record)->sprite_palette;
 	queue_sprite_in_layer();
-	if (ROM16(frame_record + 4u) != 0xFFFFu)
+	if (ENDING_TOWER_FRAME(frame_record)->sprite_palette != 0xFFFFu)
 	{
 		OBJECT(current_object)->timer++;
 		run_timed_spawns_2(r11);
@@ -498,21 +498,21 @@ void ending_big_explosion(void)
 	current_object = object_cursor;
 	frame_record = ending_big_explosion_frames_ADDRESS + OBJECT(current_object)->ending.frame_index * 4u;
 	second_frame_record = ending_big_explosion_frames_2_ADDRESS + OBJECT(current_object)->ending.frame_index * 4u;
-	if (ROM16(frame_record) == 0xFFFFu)
+	if (ENDING_EXPLOSION_FRAME(frame_record)->sprite_frame == 0xFFFFu)
 	{
 		speed_x = (uint16_t)OBJECT(object_cursor)->speed_x;
 		free_object_2(speed_x);
 		delete_current_object();
 		return;
 	}
-	OBJECT(current_object)->sprite_frame = ROM16(frame_record);
-	OBJECT(current_object)->sprite_flags = ROM16(frame_record + 2u);
+	OBJECT(current_object)->sprite_frame = ENDING_EXPLOSION_FRAME(frame_record)->sprite_frame;
+	OBJECT(current_object)->sprite_flags = ENDING_EXPLOSION_FRAME(frame_record)->sprite_flags;
 	queue_sprite_in_layer();
-	if (ROM16(second_frame_record) != 0xFFFFu)
+	if (ENDING_EXPLOSION_FRAME(second_frame_record)->sprite_frame != 0xFFFFu)
 	{
 		current_object = OBJECT(current_object)->speed_x;
-		OBJECT(current_object)->sprite_frame = ROM16(second_frame_record);
-		OBJECT(current_object)->sprite_flags = ROM16(second_frame_record + 2u);
+		OBJECT(current_object)->sprite_frame = ENDING_EXPLOSION_FRAME(second_frame_record)->sprite_frame;
+		OBJECT(current_object)->sprite_flags = ENDING_EXPLOSION_FRAME(second_frame_record)->sprite_flags;
 		queue_sprite_in_layer();
 		current_object = object_cursor;
 	}
@@ -563,7 +563,7 @@ void animate_horizon_blast(void)
 	uint32_t frame_entry = 0;
 
 	frame_entry = ending_horizon_blast_frames_ADDRESS + OBJECT(current_object)->animate_horizon_blast.frame_index * 2u;
-	if (ROM16(frame_entry) != 0xFFFFu)
+	if (ENDING_SPRITE_FRAMES(frame_entry)[0] != 0xFFFFu)
 	{
 		draw_ending_blast_frame(frame_entry);
 		return;
@@ -574,7 +574,7 @@ void animate_horizon_blast(void)
 /* Unused: the same code as draw_ending_blast_frame. */
 void draw_ending_blast_frame_copy(uint32_t frame_entry)
 {
-	OBJECT(current_object)->sprite_frame = ROM16(frame_entry);
+	OBJECT(current_object)->sprite_frame = ENDING_SPRITE_FRAMES(frame_entry)[0];
 	OBJECT(current_object)->sprite_layer = 6u;
 	OBJECT(current_object)->sprite_flags = 0u;
 	OBJECT(current_object)->sprite_scale = 0x100u;
@@ -594,7 +594,7 @@ void animate_tower_blast(void)
 	uint32_t frame_entry = 0;
 
 	frame_entry = ending_tower_blast_frames_ADDRESS + OBJECT(current_object)->animate_tower_blast.frame_index * 2u;
-	if (ROM16(frame_entry) != 0xFFFFu)
+	if (ENDING_SPRITE_FRAMES(frame_entry)[0] != 0xFFFFu)
 	{
 		draw_ending_blast_frame(frame_entry);
 		return;
@@ -606,7 +606,7 @@ void animate_tower_blast(void)
    every 6 frames. */
 void draw_ending_blast_frame(uint32_t frame_entry)
 {
-	OBJECT(current_object)->sprite_frame = ROM16(frame_entry);
+	OBJECT(current_object)->sprite_frame = ENDING_SPRITE_FRAMES(frame_entry)[0];
 	OBJECT(current_object)->sprite_layer = 6u;
 	OBJECT(current_object)->sprite_flags = 0u;
 	OBJECT(current_object)->sprite_scale = 0x100u;
@@ -654,8 +654,8 @@ void run_timed_spawns_2(uint32_t object)
 	uint32_t ignored = 0, spawn_record = 0;
 
 	spawn_record = timed_spawns_2_ADDRESS + OBJECT(current_object)->run_timed_spawns.list_index * 4u;
-	OBJECT(current_object)->z = ROM16(spawn_record + 2u);
-	if (OBJECT(current_object)->z_fraction != 0xFFFFu && (int16_t)ROM16(spawn_record) <= OBJECT(current_object)->timer)
+	OBJECT(current_object)->z = TIMED_SPAWN(spawn_record)->handler_offset;
+	if (OBJECT(current_object)->z_fraction != 0xFFFFu && TIMED_SPAWN(spawn_record)->time <= OBJECT(current_object)->timer)
 	{
 		allocate_object_outside_loop(&ignored, &object);
 		OBJECT(current_object)->z += ending_debris_1_fly_ADDRESS;
@@ -958,14 +958,14 @@ void ending_music_play(void)
 		OBJECT(current_object)->ending.list_index = 0u;
 	}
 	cue_record = ending_music_cues_ADDRESS + OBJECT(current_object)->ending.list_index * 4u;
-	if (ROM16(cue_record) == 0xFFFFu)
+	if ((uint16_t)ENDING_MUSIC_CUE(cue_record)->time == 0xFFFFu)
 	{
 		delete_current_object();
 		return;
 	}
-	if ((int16_t)ROM16(cue_record) <= OBJECT(current_object)->timer)
+	if (ENDING_MUSIC_CUE(cue_record)->time <= OBJECT(current_object)->timer)
 	{
-		sound_id = (uint8_t)ROM16(cue_record + 2u);
+		sound_id = (uint8_t)ENDING_MUSIC_CUE(cue_record)->sound_id;
 		queue_sound(sound_id, &ignored, &ignored);
 		OBJECT(current_object)->ending.list_index++;
 	}
@@ -990,11 +990,11 @@ void ending_portrait_show(void)
 	OBJECT(current_object)->timer++;
 	timed_record = ending_portrait_frames_ADDRESS;
 	palette_record = ending_portrait_palettes_ADDRESS;
-	while ((int16_t)ROM16(timed_record) < OBJECT(current_object)->timer)
+	while (ENDING_TIMED_FRAME(timed_record)->end_time < OBJECT(current_object)->timer)
 	{
 		timed_record += 4u;
 		palette_record += 4u;
-		if (ROM16(timed_record) == 0xFFFFu)
+		if ((uint16_t)ENDING_TIMED_FRAME(timed_record)->end_time == 0xFFFFu)
 		{
 			speed_y = (uint16_t)OBJECT(current_object)->speed_y;
 			free_object_2(speed_y);
@@ -1002,8 +1002,8 @@ void ending_portrait_show(void)
 			return;
 		}
 	}
-	OBJECT(current_object)->sprite_frame = ROM16(timed_record + 2u);
-	OBJECT(current_object)->sprite_palette = ROM16(palette_record + 2u);
+	OBJECT(current_object)->sprite_frame = ENDING_TIMED_FRAME(timed_record)->sprite_frame;
+	OBJECT(current_object)->sprite_palette = ENDING_TIMED_PALETTE(palette_record)->sprite_palette;
 	OBJECT(current_object)->screen_x = 0xE8;
 	OBJECT(current_object)->screen_y = 0x4C;
 	OBJECT(current_object)->sprite_layer = 0u;
@@ -1011,15 +1011,15 @@ void ending_portrait_show(void)
 	OBJECT(current_object)->sprite_flags = 0u;
 	queue_sprite_in_layer();
 	timed_record = ending_portrait_backdrop_palettes_ADDRESS;
-	while ((int16_t)ROM16(timed_record) < OBJECT(current_object)->timer)
+	while (ENDING_TIMED_PALETTE(timed_record)->end_time < OBJECT(current_object)->timer)
 	{
 		timed_record += 4u;
-		if (ROM16(timed_record) == 0xFFFFu)
+		if ((uint16_t)ENDING_TIMED_PALETTE(timed_record)->end_time == 0xFFFFu)
 			return;
 	}
 	current_object = OBJECT(current_object)->speed_y;
 	OBJECT(current_object)->sprite_frame = 0x9880u;
-	OBJECT(current_object)->sprite_palette = ROM16(timed_record + 2u);
+	OBJECT(current_object)->sprite_palette = ENDING_TIMED_PALETTE(timed_record)->sprite_palette;
 	OBJECT(current_object)->screen_x = 0xE8;
 	OBJECT(current_object)->screen_y = 0x4C;
 	OBJECT(current_object)->sprite_layer = 0u;
@@ -1048,10 +1048,10 @@ void ending_name_plate_show(void)
 	}
 	OBJECT(current_object)->timer++;
 	frame_record = ending_name_plate_frames_ADDRESS;
-	while ((int16_t)ROM16(frame_record) < OBJECT(current_object)->timer)
+	while (ENDING_TIMED_FRAME(frame_record)->end_time < OBJECT(current_object)->timer)
 	{
 		frame_record += 4u;
-		if (ROM16(frame_record) == 0xFFFFu)
+		if ((uint16_t)ENDING_TIMED_FRAME(frame_record)->end_time == 0xFFFFu)
 		{
 			allocate_object_outside_loop(&ignored, &object);
 			OBJECT(object)->handler = ending_window_open_ADDRESS;
@@ -1061,7 +1061,7 @@ void ending_name_plate_show(void)
 		}
 	}
 	nbg0_scroll_x_int++;
-	OBJECT(current_object)->sprite_frame = ROM16(frame_record + 2u);
+	OBJECT(current_object)->sprite_frame = ENDING_TIMED_FRAME(frame_record)->sprite_frame;
 	OBJECT(current_object)->screen_x = 0xE8;
 	OBJECT(current_object)->screen_y = 0xA3;
 	OBJECT(current_object)->sprite_layer = 0u;
@@ -1622,13 +1622,13 @@ void run_timed_spawns_3(void)
 	uint32_t ignored = 0, object = 0, spawn_record = 0;
 
 	spawn_record = timed_spawns_3_ADDRESS + OBJECT(current_object)->run_timed_spawns.list_index * 4u;
-	OBJECT(current_object)->z = ROM16(spawn_record + 2u);
+	OBJECT(current_object)->z = TIMED_SPAWN(spawn_record)->handler_offset;
 	if (OBJECT(current_object)->z_fraction == 0xFFFFu)
 	{
 		delete_current_object();
 		return;
 	}
-	if ((int16_t)ROM16(spawn_record) <= OBJECT(current_object)->timer)
+	if (TIMED_SPAWN(spawn_record)->time <= OBJECT(current_object)->timer)
 	{
 		allocate_object_outside_loop(&ignored, &object);
 		OBJECT(current_object)->z += ending_credits_fade_in_ADDRESS;
@@ -1647,7 +1647,7 @@ void animate_ending_runner(uint32_t frame_entry)
 		delete_current_object();
 		return;
 	}
-	OBJECT(current_object)->sprite_frame = ROM16(frame_entry);
+	OBJECT(current_object)->sprite_frame = ENDING_SPRITE_FRAMES(frame_entry)[0];
 	OBJECT(current_object)->sprite_flags = 0x100u;
 	queue_sprite_in_layer();
 	OBJECT(current_object)->timer++;
@@ -1967,7 +1967,7 @@ void ending_eggman_turn(void)
 	}
 	OBJECT(current_object)->timer++;
 	frame_record = ending_eggman_turn_frames_ADDRESS + OBJECT(current_object)->step * 4u;
-	if (ROM16(frame_record) == 0xFFFFu)
+	if ((uint16_t)ENDING_TIMED_FRAME(frame_record)->end_time == 0xFFFFu)
 	{
 		allocate_object_outside_loop(&ignored, &object);
 		OBJECT(object)->ending.started = 0u;
@@ -1975,9 +1975,9 @@ void ending_eggman_turn(void)
 		delete_current_object();
 		return;
 	}
-	if ((int16_t)ROM16(frame_record) < OBJECT(current_object)->timer)
+	if (ENDING_TIMED_FRAME(frame_record)->end_time < OBJECT(current_object)->timer)
 		OBJECT(current_object)->step++;
-	OBJECT(current_object)->sprite_frame = ROM16(frame_record + 2u);
+	OBJECT(current_object)->sprite_frame = ENDING_TIMED_FRAME(frame_record)->sprite_frame;
 	queue_sprite_in_layer();
 }
 
@@ -2358,10 +2358,10 @@ void animate_ending_runner_across(void)
 	OBJECT(object_cursor)->timer &= 7u;
 	OBJECT(object_cursor)->cycle_count &= 3u;
 	second_frame_record = OBJECT(object_cursor)->animate_ending.leg_frames + OBJECT(object_cursor)->cycle_count * 2u;
-	OBJECT(current_object)->sprite_frame = ROM16(OBJECT(object_cursor)->animate_ending.body_frames + ((uint16_t)OBJECT(object_cursor)->timer >> 2) * 2u);
+	OBJECT(current_object)->sprite_frame = ENDING_SPRITE_FRAMES(OBJECT(object_cursor)->animate_ending.body_frames)[(uint16_t)OBJECT(object_cursor)->timer >> 2];
 	queue_sprite_in_layer();
 	current_object = OBJECT(object_cursor)->animate_ending.legs;
-	OBJECT(current_object)->sprite_frame = ROM16(second_frame_record);
+	OBJECT(current_object)->sprite_frame = ENDING_SPRITE_FRAMES(second_frame_record)[0];
 	queue_sprite_in_layer();
 	if (OBJECT(object_cursor)->screen_x >= 0x300)
 	{

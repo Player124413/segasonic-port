@@ -3,7 +3,7 @@
  *    Description: the player's states in scenes and stage events: out of the game, continue, entering and leaving a stage, tumbling, blown away, the intro and opening scenes, stunned, choosing a character, YOU FAILED, held, stuck
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    19-10-2026
+ *    Modified:    21-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -245,7 +245,7 @@ void player_state_in_zone(uint32_t depth, uint32_t cursor)
 		PLAYER(current_player)->substate++;
 		OBJECT(current_object)->z = OBJECT(current_object)->floor_z;
 		OBJECT(current_object)->flags &= ~0x40u;
-		OBJECT(current_object)->sprite_palette = ROM16(OBJECT(current_object)->player_view.palette_list + 2u);
+		OBJECT(current_object)->sprite_palette = PLAYER_PALETTE_LIST(OBJECT(current_object)->player_view.palette_list)->normal_palette;
 		OBJECT(current_object)->flags &= ~0x2000u;
 		PLAYER(current_player)->control_lock = 0u;
 		OBJECT(current_object)->direction = 0x100u;
@@ -504,7 +504,7 @@ void player_state_stage_exit(uint32_t depth, uint32_t cursor)
 			PLAYER(current_player)->state_timer = 0x168;
 			stage_exit_started = 0xFFu;
 			OBJECT(current_object)->z = OBJECT(current_object)->floor_z;
-			OBJECT(current_object)->sprite_palette = ROM16(OBJECT(current_object)->player_view.palette_list + 2u);
+			OBJECT(current_object)->sprite_palette = PLAYER_PALETTE_LIST(OBJECT(current_object)->player_view.palette_list)->normal_palette;
 			OBJECT(current_object)->flags &= ~0x40u;
 			OBJECT(current_object)->flags &= ~0x2000u;
 			OBJECT(current_object)->flags &= ~0x80000u;
@@ -584,7 +584,7 @@ void player_state_stage_exit(uint32_t depth, uint32_t cursor)
 void player_state_tumbling(uint32_t depth, uint32_t cursor)
 {
 	uint16_t r1 = 0;
-	uint32_t r11 = 0, at_last_step = 0, facing = 0, ignored = 0, knocked_out_animations = 0, sprite_depth = 0;
+	uint32_t at_last_step = 0, facing = 0, ignored = 0, knocked_out_animations = 0, knocked_out_entry = 0, sprite_depth = 0;
 	uint8_t hurt_contact_delay = 0, health = 0;
 	uint16_t state_timer = 0, state_timer_2 = 0;
 
@@ -728,7 +728,7 @@ void player_state_tumbling(uint32_t depth, uint32_t cursor)
 			PLAYER(current_player)->substate++;
 			OBJECT(current_object)->z = OBJECT(current_object)->floor_z;
 			PLAYER(current_player)->mishap_flag = 0u;
-			OBJECT(current_object)->sprite_palette = ROM16(OBJECT(current_object)->player_view.palette_list + 2u);
+			OBJECT(current_object)->sprite_palette = PLAYER_PALETTE_LIST(OBJECT(current_object)->player_view.palette_list)->normal_palette;
 			OBJECT(current_object)->player_view.hurt_flash_timer = 0x7Fu;
 			PLAYER(current_player)->state_timer = 0x1E;
 			if ((OBJECT(current_object)->flags & 0x1000000u) == 0u)
@@ -764,10 +764,10 @@ void player_state_tumbling(uint32_t depth, uint32_t cursor)
 			OBJECT(current_object)->sprite_palette &= ~0xFFFu;
 			OBJECT(current_object)->sprite_palette |= r1;
 			facing = PLAYER(current_player)->facing;
-			r11 = knocked_out_animations + (facing >> 2) * 4u;
+			knocked_out_entry = knocked_out_animations + (facing >> 2) * 4u;
 			OBJECT(current_object)->sprite_flags &= ~0x40u;
-			OBJECT(current_object)->sprite_flags |= ROM16(r11);
-			OBJECT(current_object)->animation = knocked_out_animations + ROM16(r11 + 2u);
+			OBJECT(current_object)->sprite_flags |= KNOCKED_OUT_ENTRY(knocked_out_entry)->sprite_flags;
+			OBJECT(current_object)->animation = knocked_out_animations + KNOCKED_OUT_ENTRY(knocked_out_entry)->animation_offset;
 			OBJECT(current_object)->animation_frame = 0xFFu;
 			OBJECT(current_object)->animation_timer = 0;
 			OBJECT(current_object)->animation_speed = 3u;
@@ -840,7 +840,7 @@ void player_state_tumbling(uint32_t depth, uint32_t cursor)
 		{
 			PLAYER(current_player)->state = 0x16u;
 			PLAYER(current_player)->substate = 0u;
-			OBJECT(current_object)->sprite_palette = ROM16(OBJECT(current_object)->player_view.palette_list + 2u);
+			OBJECT(current_object)->sprite_palette = PLAYER_PALETTE_LIST(OBJECT(current_object)->player_view.palette_list)->normal_palette;
 		}
 		project_object(&ignored, &ignored);
 		keep_player_on_screen(ignored);
@@ -959,11 +959,11 @@ void player_tumbling_launch(uint32_t toucher, uint32_t effect)
 		if (OBJECT(current_object)->kind != 1u)
 			tumble_animations = mighty_tumble_animations_ADDRESS;
 	}
-	OBJECT(current_object)->animation = tumble_animations + ROM16(tumble_animations + PLAYER(current_player)->facing * 2u);
+	OBJECT(current_object)->animation = tumble_animations + PLAYER_FACING_ANIMATION_OFFSETS(tumble_animations)[PLAYER(current_player)->facing];
 	OBJECT(current_object)->animation_frame = 0u;
 	OBJECT(current_object)->animation_timer = 0;
 	OBJECT(current_object)->animation_speed = 4u;
-	OBJECT(current_object)->sprite_palette = ROM16(OBJECT(current_object)->player_view.palette_list + 2u);
+	OBJECT(current_object)->sprite_palette = PLAYER_PALETTE_LIST(OBJECT(current_object)->player_view.palette_list)->normal_palette;
 	OBJECT(current_object)->player_view.hurt_flash_period = 3u;
 	OBJECT(current_object)->player_view.hurt_flash_timer = 3u;
 	OBJECT(current_object)->player_view.hurt_flash_on = 0u;
@@ -1060,7 +1060,7 @@ void player_state_blown_away(uint32_t cursor)
 			if (OBJECT(current_object)->kind != 1u)
 				tumble_animations = mighty_tumble_animations_ADDRESS;
 		}
-		OBJECT(current_object)->animation = tumble_animations + ROM16(tumble_animations + 4u);
+		OBJECT(current_object)->animation = tumble_animations + PLAYER_FACING_ANIMATION_OFFSETS(tumble_animations)[2];
 		OBJECT(current_object)->animation_frame = 0u;
 		OBJECT(current_object)->animation_speed = 4u;
 		OBJECT(current_object)->animation_timer = 0;
@@ -1255,7 +1255,7 @@ void player_state_opening_scene(void)
 		{
 			PLAYER(current_player)->scene_step_seen = scene_step;
 			OBJECT(current_object)->sprite_flags = 0u;
-			OBJECT(current_object)->sprite_palette = ROM16(OBJECT(current_object)->player_view.palette_list + 2u);
+			OBJECT(current_object)->sprite_palette = PLAYER_PALETTE_LIST(OBJECT(current_object)->player_view.palette_list)->normal_palette;
 			character_frame = 0x1B58u;
 			if (OBJECT(current_object)->kind != 0u)
 			{
@@ -1375,7 +1375,7 @@ void player_state_stage_scene(uint32_t depth, uint32_t cursor)
 			if (OBJECT(current_object)->kind != 1u)
 				standing_animations = mighty_standing_animations_ADDRESS;
 		}
-		OBJECT(current_object)->animation = standing_animations + ROM16(standing_animations + PLAYER(current_player)->facing * 2u);
+		OBJECT(current_object)->animation = standing_animations + PLAYER_FACING_ANIMATION_OFFSETS(standing_animations)[PLAYER(current_player)->facing];
 		OBJECT(current_object)->animation_frame = 0xFFu;
 		animate_step_with_flags(&ignored, &ignored);
 		project_object(&ignored, &ignored);
@@ -1401,7 +1401,7 @@ void player_state_stage_scene(uint32_t depth, uint32_t cursor)
 		OBJECT(current_object)->animation_frame = 0u;
 		OBJECT(current_object)->animation_speed = 4u;
 		OBJECT(current_object)->animation_timer = 0;
-		OBJECT(current_object)->sprite_palette = ROM16(OBJECT(current_object)->player_view.palette_list + 2u);
+		OBJECT(current_object)->sprite_palette = PLAYER_PALETTE_LIST(OBJECT(current_object)->player_view.palette_list)->normal_palette;
 		PLAYER(current_player)->scene_hop_z = 0;
 		OBJECT(current_object)->speed_z = -0x30000;
 		OBJECT(current_object)->x = 0x17D0000;
@@ -1478,8 +1478,8 @@ void player_state_stage_scene(uint32_t depth, uint32_t cursor)
 			OBJECT(current_object)->animation_speed = 4u;
 			OBJECT(current_object)->sprite_flags &= ~0xCu;
 			position_record = shrink_away_positions_ADDRESS + OBJECT(current_object)->kind * 4u;
-			PLAYER(current_player)->screen_x = (int16_t)(ROM16(position_record) - 0xA0u);
-			OBJECT(current_object)->projected_y = (int16_t)(ROM16(position_record + 2u) - 0x70u);
+			PLAYER(current_player)->screen_x = (int16_t)(SCREEN_POINT(position_record)->x - 0xA0u);
+			OBJECT(current_object)->projected_y = (int16_t)(SCREEN_POINT(position_record)->y - 0x70u);
 			PLAYER(current_player)->scene_zoom = 0;
 			PLAYER(current_player)->state_timer = OBJECT(current_object)->kind * 0x1Eu + 0x3Cu;
 		}
@@ -1551,7 +1551,7 @@ void player_state_stunned(uint32_t depth, uint32_t cursor)
 		PLAYER(current_player)->substate++;
 		OBJECT(current_object)->flags &= ~0x40u;
 		OBJECT(current_object)->sprite_flags &= 0xFFBFu;
-		OBJECT(current_object)->sprite_palette = ROM16(OBJECT(current_object)->player_view.palette_list + 2u);
+		OBJECT(current_object)->sprite_palette = PLAYER_PALETTE_LIST(OBJECT(current_object)->player_view.palette_list)->normal_palette;
 		OBJECT(current_object)->flags &= ~0x2000u;
 		OBJECT(current_object)->speed = 0;
 		PLAYER(current_player)->animation_speed = 0;
@@ -1802,7 +1802,7 @@ void player_stuck_begin(uint32_t object)
 	}
 	OBJECT(current_object)->sprite_frame = stuck_frame;
 	OBJECT(current_object)->sprite_flags &= 0xFFBFu;
-	OBJECT(current_object)->sprite_palette = ROM16(OBJECT(current_object)->player_view.palette_list + 2u);
+	OBJECT(current_object)->sprite_palette = PLAYER_PALETTE_LIST(OBJECT(current_object)->player_view.palette_list)->normal_palette;
 	OBJECT(current_object)->flags &= ~0x40u;
 	OBJECT(current_object)->flags &= ~0x2000u;
 	PLAYER(current_player)->control_lock = 0u;
@@ -1950,11 +1950,11 @@ void player_stuck_jump_out(void)
 			bounce_records = mighty_bounce_records_ADDRESS;
 	}
 	bounce_record = bounce_records + PLAYER(current_player)->bounce_direction * 3u * 2u;
-	OBJECT(current_object)->direction = ROM16(bounce_record);
+	OBJECT(current_object)->direction = PLAYER_BOUNCE_RECORD(bounce_record)->direction;
 	OBJECT(current_object)->sprite_flags &= ~0x40u;
 	bounce_record += 2u;
-	OBJECT(current_object)->sprite_flags |= ROM16(bounce_record);
-	OBJECT(current_object)->animation = ROM16(bounce_record + 2u) + bounce_records;
+	OBJECT(current_object)->sprite_flags |= PLAYER_BOUNCE_RECORD(bounce_record - 0x2u)->sprite_flags;
+	OBJECT(current_object)->animation = PLAYER_BOUNCE_RECORD(bounce_record - 0x2u)->animation_offset + bounce_records;
 	face_movement_direction(0u);
 	OBJECT(current_object)->speed = 0x4000000;
 	OBJECT(current_object)->speed_z = -0x34000;
@@ -1962,7 +1962,7 @@ void player_stuck_jump_out(void)
 	PLAYER(current_player)->bounce_step = 0x1A000;
 	PLAYER(current_player)->bounce_speed_z += PLAYER(current_player)->bounce_step;
 	set_speed_from_direction();
-	OBJECT(current_object)->sprite_frame = ROM16(OBJECT(current_object)->animation + 4u);
+	OBJECT(current_object)->sprite_frame = FRAME_ANIMATION(OBJECT(current_object)->animation)->frames[1];
 	OBJECT(current_object)->animation_frame = 0u;
 	OBJECT(current_object)->animation_timer = 3;
 	OBJECT(current_object)->animation_speed = 3u;
@@ -2115,7 +2115,7 @@ void player_state_stage_b_sequence(uint32_t depth, uint32_t cursor)
 			if (OBJECT(current_object)->kind != 1u)
 				standing_animations = mighty_standing_animations_ADDRESS;
 		}
-		OBJECT(current_object)->animation = standing_animations + ROM16(standing_animations + PLAYER(current_player)->facing * 2u);
+		OBJECT(current_object)->animation = standing_animations + PLAYER_FACING_ANIMATION_OFFSETS(standing_animations)[PLAYER(current_player)->facing];
 		PLAYER(current_player)->stage_b_path_done = 0xFFu;
 		OBJECT(current_object)->animation_frame = 0u;
 		animate_step_with_flags(&depth, &ignored);

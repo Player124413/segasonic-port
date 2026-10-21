@@ -3,7 +3,7 @@ Name:        disassemble.py
 Description: recursive-descent disassembly of the V60 program into a listing and a coverage report
 Version:     0.1.0
 Created:     11-10-2026
-Modified:    16-10-2026
+Modified:    21-10-2026
 Author:      Sebastian Toyos
 
 Usage: python tools/disassemble.py [rom folder or .zip] [--trace executed.txt ...]   (default ROM: rom/)
@@ -99,7 +99,7 @@ def parse_layout(attributes, where):
 
 
 NAME_KINDS = ("var", "io", "table", "struct", "field", "register", "scoped", "param", "result", "local", "port",
-              "file", "anchor", "comment")    # names for the decompiled C (load_names; file lines:
+              "file", "anchor", "comment", "elements")    # names for the decompiled C (load_names; file lines:
                                               # decompile.source_files)
 
 
@@ -160,6 +160,12 @@ class Names(NamedTuple):
     anchors: dict       # work RAM address -> (variable, offset): where a structure would be whose field at
                         # 'offset' is the variable (a list's head), as the code that walks the list starts there
     comments: dict      # function name -> what the C says above it (comment lines)
+    arrays: dict        # name -> element type: values of the program ROM a pointer walks one at a time
+                        # ("elements" lines: a structure of one field the C reads as an array, NAME(p)[i])
+    record_tables: dict  # program ROM address -> (name, structure or array): a table of records the code
+                         # reads by index (name[i].field)
+    field_arrays: dict  # (struct, offset) -> how many elements the field holds (TYPE[N]), or None for an
+                        # array that goes on past the record's end (TYPE[])
 
 
 def load_names(path, registers=None):
@@ -167,8 +173,16 @@ def load_names(path, registers=None):
         ADDRESS  var    NAME  TYPE [STRUCT]  a variable in work RAM (TYPE: u8 s8 u16 s16 u32 s32)
         ADDRESS  io     NAME  TYPE       a hardware register
         ADDRESS  table  NAME  TYPE [STRUCT]  data in the program ROM the code reads by index, TYPE per element
+        ADDRESS  table  NAME  STRUCT     a table of the program ROM's records (a structure or an array
+                                         "rom", or elements), read by index: name[i].field
         struct   NAME   SIZE             a structure in work RAM (SIZE in hexadecimal)
-        field    STRUCT OFFSET NAME TYPE [STRUCT]  one of its fields (OFFSET in hexadecimal)
+        struct   NAME   SIZE rom         a record of the program ROM (read through rom(), never written)
+        elements NAME   TYPE [STRUCT]    values of the program ROM a pointer walks (TYPE each): what is
+                                         read through one is NAME(p)[i] (STRUCT: what each value points at)
+        field    STRUCT OFFSET NAME TYPE [STRUCT]  one of its fields (OFFSET in hexadecimal); TYPE[N] (N in
+                                         hexadecimal) an array of N in the record, TYPE[] (a record of the
+                                         program ROM) one that goes on past the record's end, read
+                                         STRUCT(p)->name[i]
     A second var or field at the same place with another width names the first bytes of the wider one
     (x_fraction, the low half of the 16.16 x).
     A struct name after the type says the value points at one: a u32 its address, a u16 the low half of
@@ -200,7 +214,7 @@ def load_names(path, registers=None):
         comment  FUNCTION TEXT           what the C says about the function, in a /* */ block above it
     'registers' ({name: number}) lets param and local lines name a register by its name (hl, iy) on a
     processor whose registers have names; RN works on any."""
-    names = Names({}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, set(), {}, {}, {}, {})
+    names = Names({}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, set(), {}, {}, {}, {}, {}, {}, {})
     registers = registers or {}
 
     def register_number(text):
@@ -241,6 +255,18 @@ def load_names(path, registers=None):
             names.structs[parts[1]] = int(parts[2], 16)
             if len(parts) == 4:
                 names.rom_structs.add(parts[1])
+            continue
+        if parts[0] == "elements":
+            if len(parts) not in (3, 4) or not parts[1].isidentifier() or parts[2] not in VALUE_TYPES:
+                raise SystemExit(f"{where}: expected 'elements NAME TYPE [STRUCT]' with TYPE in {VALUE_TYPES}")
+            if parts[1] in names.structs:
+                raise SystemExit(f"{where}: '{parts[1]}' is a structure already")
+            names.structs[parts[1]] = int(parts[2][1:]) // 8
+            names.rom_structs.add(parts[1])
+            names.arrays[parts[1]] = parts[2]
+            names.fields[(parts[1], 0)] = ("element", parts[2])
+            if len(parts) == 4:
+                names.targets[(parts[1], 0)] = (parts[3], int(parts[2][1:]))
             continue
         if parts[0] == "scoped":
             if len(parts) not in (6, 7) or parts[5] not in VALUE_TYPES:
@@ -293,6 +319,10 @@ def load_names(path, registers=None):
             names.registers[int(parts[1][1:])] = parts[2]
             continue
         if parts[0] == "field":
+            array = re.fullmatch(r"(\w+)\[([0-9A-Fa-f]*)\]", parts[4]) if len(parts) in (5, 6) else None
+            if array is not None and array.group(1) in VALUE_TYPES:
+                parts[4] = array.group(1)
+                names.field_arrays[(parts[1], int(parts[2], 16))] = int(array.group(2), 16) if array.group(2) else None
             if len(parts) not in (5, 6) or parts[4] not in VALUE_TYPES:
                 raise SystemExit(f"{where}: expected 'field STRUCT OFFSET NAME TYPE [STRUCT]' with TYPE in {VALUE_TYPES}")
             declare(names.fields, (parts[1], int(parts[2], 16)), (parts[1], int(parts[2], 16)), parts[3], parts[4],
@@ -312,6 +342,10 @@ def load_names(path, registers=None):
             continue
         if len(parts) < 2 or parts[1] not in ("var", "io", "table"):
             continue
+        if parts[1] == "table" and len(parts) == 4 and parts[3] not in VALUE_TYPES:
+            # a table of records: checked against the structures once they are all read
+            names.record_tables[int(parts[0], 16)] = (parts[2], parts[3])
+            continue
         if len(parts) not in (4, 5) or parts[3] not in VALUE_TYPES or (len(parts) == 5 and parts[1] == "io"):
             raise SystemExit(f"{where}: expected 'ADDRESS {parts[1]} NAME TYPE' with TYPE in {VALUE_TYPES}")
         address = int(parts[0], 16)
@@ -326,6 +360,14 @@ def load_names(path, registers=None):
         """True for STRUCT or STRUCT.FAMILY."""
         struct, dot, family = pointed.partition(".")
         return struct in names.structs and (not dot or family.isidentifier())
+    for (struct, offset), count in names.field_arrays.items():
+        if count is None and (struct not in names.rom_structs or offset != names.structs.get(struct)):
+            raise SystemExit(f"{path.name}: {struct}'s array at {offset:X} goes on past the record: it has to be a "
+                             "record of the program ROM's, and start at its end")
+    for address, (name, record) in names.record_tables.items():
+        if record not in names.rom_structs:
+            raise SystemExit(f"{path.name}: the table {name} holds '{record}', which is no record of the program ROM "
+                             "(struct NAME SIZE rom, or elements)")
     for (pointed, _) in list(names.targets.values()) + list(names.scoped_targets.values()):
         if not structure(pointed) and pointed != "rom":
             raise SystemExit(f"{path.name}: points at '{pointed}', which is no struct (nor 'rom')")

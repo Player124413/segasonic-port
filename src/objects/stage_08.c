@@ -3,7 +3,7 @@
  *    Description: stage 8's objects, the lava: the treadmill that raises a gate, the flame jets, the rock wall, the collapsing log bridge, the burning boulders and embers, the carriers and the seesaw, the metal platform and the fire wall, the fire trenches, the lava flow under the hanging bridge, the rock slabs and the lava columns
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    19-10-2026
+ *    Modified:    21-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -857,11 +857,11 @@ void burning_boulder_start(void)
 	uint8_t flames_left_before = 0;
 
 	boulder_record = burning_boulder_records_ADDRESS + OBJECT(current_object)->sprite_frame * 2u * 4u;
-	OBJECT(current_object)->x_int = ROM16(boulder_record);
+	OBJECT(current_object)->x_int = BURNING_BOULDER_RECORD(boulder_record)->x;
 	OBJECT(current_object)->x_fraction = 0u;
 	boulder_record += 2u;
-	OBJECT(current_object)->burning_boulder.start_delay = ROM16(boulder_record);
-	OBJECT(current_object)->burning_boulder.path = ROM32(boulder_record + 2u);
+	OBJECT(current_object)->burning_boulder.start_delay = BURNING_BOULDER_RECORD(boulder_record - 0x2u)->start_delay;
+	OBJECT(current_object)->burning_boulder.path = BURNING_BOULDER_RECORD(boulder_record - 0x2u)->path;
 	OBJECT(current_object)->y = 0x3E00000;
 	OBJECT(current_object)->y_int -= OBJECT(current_object)->sprite_frame * 0x60u;
 	OBJECT(current_object)->sprite_flags = 0x1004u;
@@ -997,34 +997,34 @@ void burning_boulder_update(void)
 				{
 					OBJECT(current_object)->burning_boulder.wait_timer = 0;
 					path_cursor = OBJECT(current_object)->burning_boulder.path;
-					record_scroll = ROM16(path_cursor);
+					record_scroll = CHASE_STEP_WITH_LIMIT(path_cursor)->position;
 					path_cursor += 2u;
 					if (scroll_position < record_scroll)
 					{
-						record_y = ROM16(path_cursor);
+						record_y = CHASE_STEP_WITH_LIMIT(path_cursor - 0x2u)->limit;
 						path_cursor += 2u;
 						if ((int16_t)record_y <= OBJECT(current_object)->y_int)
 						{
-							OBJECT(current_object)->burning_boulder.screen_threshold = ROM16(path_cursor);
+							OBJECT(current_object)->burning_boulder.screen_threshold = CHASE_STEP_WITH_LIMIT(path_cursor - 0x4u)->screen_threshold;
 							path_cursor += 2u;
-							OBJECT(current_object)->burning_boulder.catch_up_factor = ROM16(path_cursor);
+							OBJECT(current_object)->burning_boulder.catch_up_factor = CHASE_STEP_WITH_LIMIT(path_cursor - 0x6u)->catch_up_factor;
 							path_cursor += 2u;
-							OBJECT(current_object)->burning_boulder.base_speed = ROM16(path_cursor);
+							OBJECT(current_object)->burning_boulder.base_speed = CHASE_STEP_WITH_LIMIT(path_cursor - 0x8u)->base_speed;
 							path_cursor += 2u;
-							OBJECT(current_object)->burning_boulder.wait_timer = ROM16(path_cursor);
+							OBJECT(current_object)->burning_boulder.wait_timer = CHASE_STEP_WITH_LIMIT(path_cursor - 0xAu)->wait;
 							OBJECT(current_object)->burning_boulder.path = path_cursor + 2u;
 						}
 					}
 					else
 					{
 						path_cursor += 2u;
-						OBJECT(current_object)->burning_boulder.screen_threshold = ROM16(path_cursor);
+						OBJECT(current_object)->burning_boulder.screen_threshold = CHASE_STEP_WITH_LIMIT(path_cursor - 0x4u)->screen_threshold;
 						path_cursor += 2u;
-						OBJECT(current_object)->burning_boulder.catch_up_factor = ROM16(path_cursor);
+						OBJECT(current_object)->burning_boulder.catch_up_factor = CHASE_STEP_WITH_LIMIT(path_cursor - 0x6u)->catch_up_factor;
 						path_cursor += 2u;
-						OBJECT(current_object)->burning_boulder.base_speed = ROM16(path_cursor);
+						OBJECT(current_object)->burning_boulder.base_speed = CHASE_STEP_WITH_LIMIT(path_cursor - 0x8u)->base_speed;
 						path_cursor += 2u;
-						OBJECT(current_object)->burning_boulder.wait_timer = ROM16(path_cursor);
+						OBJECT(current_object)->burning_boulder.wait_timer = CHASE_STEP_WITH_LIMIT(path_cursor - 0xAu)->wait;
 						OBJECT(current_object)->burning_boulder.path = path_cursor + 2u;
 					}
 				}
@@ -1250,10 +1250,10 @@ void burning_boulder_flame_start(void)
 	uint32_t layout_record = 0;
 
 	layout_record = OBJECT(current_object)->kind * 6u + burning_boulder_flame_layout_ADDRESS;
-	OBJECT(current_object)->burning_boulder_flame.offset_x = ROM16(layout_record);
+	OBJECT(current_object)->burning_boulder_flame.offset_x = BURNING_BOULDER_FLAME_OFFSET(layout_record)->dx;
 	layout_record += 2u;
-	OBJECT(current_object)->burning_boulder_flame.offset_y = ROM16(layout_record);
-	OBJECT(current_object)->animation = ROM16(layout_record + 2u) + burning_boulder_flame_animations_ADDRESS;
+	OBJECT(current_object)->burning_boulder_flame.offset_y = BURNING_BOULDER_FLAME_OFFSET(layout_record - 0x2u)->dy;
+	OBJECT(current_object)->animation = BURNING_BOULDER_FLAME_OFFSET(layout_record - 0x2u)->animation + burning_boulder_flame_animations_ADDRESS;
 	OBJECT(current_object)->animation_frame = 0xFFu;
 	OBJECT(current_object)->animation_speed = 1u;
 	OBJECT(current_object)->animation_timer = 0;
@@ -1432,8 +1432,8 @@ void ember_emitter_move(void)
 		random_bits = random_bits & 0x7Fu;
 		OBJECT(object)->y_int += random_bits;
 		speed_entry = falling_ember_speeds_ADDRESS + (random_low & 3u) * 4u;
-		OBJECT(object)->speed_z = (uint32_t)(int16_t)ROM16(speed_entry) << 8;
-		OBJECT(object)->speed_y = (uint32_t)(int16_t)ROM16(speed_entry + 2u) << 8;
+		OBJECT(object)->speed_z = (uint32_t)FALLING_EMBER_SPEED(speed_entry)->speed_z << 8;
+		OBJECT(object)->speed_y = (uint32_t)FALLING_EMBER_SPEED(speed_entry)->speed_y << 8;
 		OBJECT(object)->animation = falling_ember_animation_ADDRESS;
 		OBJECT(object)->animation_frame = 0xFFu;
 		OBJECT(object)->animation_speed = 2u;
@@ -1519,21 +1519,21 @@ void scene_carrier_start(void)
 	uint32_t carrier_record = 0, sprite_frame = 0;
 
 	carrier_record = scene_carrier_records[OBJECT(current_object)->sprite_frame] + scene_carrier_records_ADDRESS;
-	OBJECT(current_object)->x_int = ROM16(carrier_record);
+	OBJECT(current_object)->x_int = SCENE_CARRIER_RECORD(carrier_record)->x;
 	OBJECT(current_object)->x_fraction = 0u;
 	carrier_record += 2u;
-	OBJECT(current_object)->y_int = ROM16(carrier_record);
+	OBJECT(current_object)->y_int = SCENE_CARRIER_RECORD(carrier_record - 0x2u)->y;
 	OBJECT(current_object)->y_fraction = 0u;
 	carrier_record += 2u;
-	OBJECT(current_object)->z_int = ROM16(carrier_record);
+	OBJECT(current_object)->z_int = SCENE_CARRIER_RECORD(carrier_record - 0x4u)->z;
 	OBJECT(current_object)->z_fraction = 0u;
 	carrier_record += 2u;
-	OBJECT(current_object)->speed_x = ROM32(carrier_record);
+	OBJECT(current_object)->speed_x = SCENE_CARRIER_RECORD(carrier_record - 0x6u)->speed_x;
 	carrier_record += 4u;
-	OBJECT(current_object)->speed_y = ROM32(carrier_record);
+	OBJECT(current_object)->speed_y = SCENE_CARRIER_RECORD(carrier_record - 0xAu)->speed_y;
 	carrier_record += 4u;
-	OBJECT(current_object)->speed_z = ROM32(carrier_record);
-	OBJECT(current_object)->scene_carrier.end_position = ROM16(carrier_record + 4u);
+	OBJECT(current_object)->speed_z = SCENE_CARRIER_RECORD(carrier_record - 0xEu)->speed_z;
+	OBJECT(current_object)->scene_carrier.end_position = SCENE_CARRIER_RECORD(carrier_record - 0xEu)->end_position;
 	sprite_frame = OBJECT(current_object)->sprite_frame;
 	if ((uint8_t)sprite_frame != 0u)
 		player_carriers[(sprite_frame & ~0xFFu) | (uint8_t)(sprite_frame - 1u)] = current_object;
@@ -1615,12 +1615,12 @@ void seesaw_tilt(void)
 			next_step = OBJECT(current_object)->animation_frame;
 			next_step = (uint8_t)(next_step + 1u);
 			step_list = OBJECT(current_object)->animation;
-			last_step = ROM16(step_list);
+			last_step = FRAME_ANIMATION(step_list)->last_frame;
 			step_list += 2u;
 			if (next_step == last_step)
 				OBJECT(current_object)->animation_speed = 0xFFu;
 			OBJECT(current_object)->animation_frame = next_step;
-			mem_write16(OBJECT(current_object)->part_list + 0xAu, ROM16(step_list + next_step * 2u));
+			mem_write16(OBJECT(current_object)->part_list + 0xAu, SPRITE_FRAME_NUMBERS(step_list)[next_step]);
 		}
 	}
 	update_screen_position(&ignored, &ignored);
@@ -2094,28 +2094,28 @@ void bridge_fire_read_script(void)
 	uint16_t record_height = 0;
 
 	path_cursor = OBJECT(current_object)->bridge_fire.path;
-	record_height = ROM16(path_cursor);
+	record_height = BRIDGE_FIRE_SCRIPT_ENTRY(path_cursor)->height;
 	path_cursor += 2u;
-	if ((int16_t)record_height < (int16_t)(OBJECT(current_object)->z_int - OBJECT(current_object)->hitbox_height) && (ROM16(path_cursor) == 0u || scroll_position < (uint16_t)(ROM16(path_cursor) - OBJECT(current_object)->hitbox_height)))
+	if ((int16_t)record_height < (int16_t)(OBJECT(current_object)->z_int - OBJECT(current_object)->hitbox_height) && (BRIDGE_FIRE_SCRIPT_ENTRY(path_cursor - 0x2u)->position == 0u || scroll_position < (uint16_t)(BRIDGE_FIRE_SCRIPT_ENTRY(path_cursor - 0x2u)->position - OBJECT(current_object)->hitbox_height)))
 	{
 		bridge_fire_climb_step();
 		return;
 	}
 	path_cursor += 2u;
-	if ((int16_t)ROM16(path_cursor + 2u) < 0)
+	if (BRIDGE_FIRE_SCRIPT_ENTRY(path_cursor - 0x4u)->catch_up_factor < 0)
 	{
 		delete_current_object();
 		return;
 	}
-	if ((int16_t)ROM16(path_cursor) < 0)
+	if (BRIDGE_FIRE_SCRIPT_ENTRY(path_cursor - 0x4u)->screen_threshold < 0)
 		OBJECT(current_object)->bridge_fire.state = 7u;
-	OBJECT(current_object)->bridge_fire.screen_threshold = ROM16(path_cursor);
+	OBJECT(current_object)->bridge_fire.screen_threshold = BRIDGE_FIRE_SCRIPT_ENTRY(path_cursor - 0x4u)->screen_threshold;
 	path_cursor += 2u;
-	OBJECT(current_object)->bridge_fire.catch_up_factor = ROM16(path_cursor);
+	OBJECT(current_object)->bridge_fire.catch_up_factor = BRIDGE_FIRE_SCRIPT_ENTRY(path_cursor - 0x6u)->catch_up_factor;
 	path_cursor += 2u;
-	OBJECT(current_object)->bridge_fire.base_speed = ROM16(path_cursor);
+	OBJECT(current_object)->bridge_fire.base_speed = BRIDGE_FIRE_SCRIPT_ENTRY(path_cursor - 0x8u)->base_speed;
 	path_cursor += 2u;
-	OBJECT(current_object)->bridge_fire.wait_timer = ROM16(path_cursor);
+	OBJECT(current_object)->bridge_fire.wait_timer = BRIDGE_FIRE_SCRIPT_ENTRY(path_cursor - 0xAu)->wait;
 	OBJECT(current_object)->bridge_fire.path = path_cursor + 2u;
 	bridge_fire_climb_step();
 }
@@ -2378,28 +2378,28 @@ void lava_flow_read_script(void)
 	uint16_t record_scroll = 0;
 
 	path_cursor = OBJECT(current_object)->lava_flow.path;
-	record_scroll = ROM16(path_cursor);
+	record_scroll = CHASE_STEP_WITH_LIMIT(path_cursor)->position;
 	path_cursor += 2u;
-	if (scroll_position < record_scroll && (ROM16(path_cursor) == 0u || OBJECT(current_object)->x_int < (int16_t)ROM16(path_cursor)))
+	if (scroll_position < record_scroll && ((uint16_t)CHASE_STEP_WITH_LIMIT(path_cursor - 0x2u)->limit == 0u || OBJECT(current_object)->x_int < CHASE_STEP_WITH_LIMIT(path_cursor - 0x2u)->limit))
 	{
 		lava_flow_move_step();
 		return;
 	}
 	path_cursor += 2u;
-	if ((int16_t)ROM16(path_cursor + 2u) < 0)
+	if (CHASE_STEP_WITH_LIMIT(path_cursor - 0x4u)->catch_up_factor < 0)
 	{
 		part_list = (uint16_t)OBJECT(current_object)->part_list;
 		free_object_2(part_list);
 		delete_current_object();
 		return;
 	}
-	OBJECT(current_object)->lava_flow.screen_threshold = ROM16(path_cursor);
+	OBJECT(current_object)->lava_flow.screen_threshold = CHASE_STEP_WITH_LIMIT(path_cursor - 0x4u)->screen_threshold;
 	path_cursor += 2u;
-	OBJECT(current_object)->lava_flow.catch_up_factor = ROM16(path_cursor);
+	OBJECT(current_object)->lava_flow.catch_up_factor = CHASE_STEP_WITH_LIMIT(path_cursor - 0x6u)->catch_up_factor;
 	path_cursor += 2u;
-	OBJECT(current_object)->lava_flow.base_speed = ROM16(path_cursor);
+	OBJECT(current_object)->lava_flow.base_speed = CHASE_STEP_WITH_LIMIT(path_cursor - 0x8u)->base_speed;
 	path_cursor += 2u;
-	OBJECT(current_object)->lava_flow.wait_timer = ROM16(path_cursor);
+	OBJECT(current_object)->lava_flow.wait_timer = CHASE_STEP_WITH_LIMIT(path_cursor - 0xAu)->wait;
 	OBJECT(current_object)->lava_flow.path = path_cursor + 2u;
 	lava_flow_move_step();
 }
@@ -2693,9 +2693,9 @@ void spawn_lava_steam(void)
 		OBJECT(object)->animation_frame = 0xFFu;
 		OBJECT(object)->animation_timer = 0;
 		OBJECT(object)->animation_speed = 4u;
-		OBJECT(object)->anchor_x = ROM16(offset_cursor);
+		OBJECT(object)->anchor_x = LAVA_STEAM_PUFF_OFFSET(offset_cursor)->dx;
 		offset_cursor += 2u;
-		OBJECT(object)->anchor_y = ROM16(offset_cursor);
+		OBJECT(object)->anchor_y = LAVA_STEAM_PUFF_OFFSET(offset_cursor - 0x2u)->dy;
 		OBJECT(object)->parent = current_object;
 		offset_cursor += 2u;
 		puffs_left--;
@@ -3396,24 +3396,24 @@ void group_slot_trigger_update(void)
 	uint32_t slot_address = 0;
 
 	cursor = OBJECT(current_object)->group_slot_trigger.next_trigger;
-	trigger_scroll = ROM16(cursor);
+	trigger_scroll = GROUP_SLOT_TRIGGER_RECORD(cursor)->position;
 	cursor += 2u;
 	if (scroll_position < trigger_scroll)
 		return;
-	if ((int16_t)ROM16(cursor) >= 0)
+	if (GROUP_SLOT_TRIGGER_RECORD(cursor - 0x2u)->slot >= 0)
 	{
-		slot = ROM16(cursor);
+		slot = (uint16_t)GROUP_SLOT_TRIGGER_RECORD(cursor - 0x2u)->slot;
 		cursor += 2u;
 		if (group_slots[slot] != 0u)
 		{
-			group_slots[slot] = ROM16(cursor);
+			group_slots[slot] = GROUP_SLOT_TRIGGER_RECORD(cursor - 0x4u)->delay;
 			slot_address = group_slots_ADDRESS + slot * 2u;
 			mem_write16(slot_address, mem_read16(slot_address) | 0x8000u);
 			AS16(OBJECT(current_object)->group_slot_trigger.next_trigger) = cursor + 2u;
 		}
 		return;
 	}
-	if (ROM16(cursor) == 0x8000u)
+	if ((uint16_t)GROUP_SLOT_TRIGGER_RECORD(cursor - 0x2u)->slot == 0x8000u)
 		goal_unlocked = 0xFFu;
 	delete_current_object();
 }

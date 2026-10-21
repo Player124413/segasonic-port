@@ -3,7 +3,7 @@
  *    Description: the stage view, the scroll and the camera: the view set-up and the tile sets around it, the scroll modes and the screen edges the players push, the camera's speeds, shake and path along the sections, the fades between stages, the start section of the demos and the unused scroll skip panel
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    19-10-2026
+ *    Modified:    21-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -145,7 +145,7 @@ void init_stage_view(uint32_t *p_direction_y, uint32_t *p_direction_x, uint32_t 
 	tile_set_cursor += stage_initial_tile_sets_ADDRESS;
 	do
 	{
-		tile_set = ROM32(tile_set_cursor);
+		tile_set = STAGE_START_TILE_SETS(tile_set_cursor)[0];
 		loaded_tile_sets_low += tile_set;
 		unrotated_sets = loaded_tile_sets;
 		loaded_tile_sets = (unrotated_sets << 8) | (unrotated_sets >> 24);
@@ -228,33 +228,33 @@ void init_stage_view(uint32_t *p_direction_y, uint32_t *p_direction_x, uint32_t 
 	scroll_end = ROM16(stage_scroll_ends_ADDRESS + table_offset);
 	stage_number = stage;
 	list = stage_section_speeds[stage_number] + stage_section_speeds_ADDRESS;
-	scroll_speed = ROM8(list);
+	scroll_speed = SECTION_SCROLL_SPEEDS(list)[0];
 	section_speed_list = list + 1u;
 	list = stage_section_follow_speeds[stage_number] + stage_section_follow_speeds_ADDRESS;
-	follow_base_speed = ROM8(list);
+	follow_base_speed = SECTION_FOLLOW_SPEEDS(list)[0];
 	follow_base_speed_list = list + 1u;
 	section_end_list = stage_section_ends[stage_number] + stage_section_ends_ADDRESS;
 	section_end_list += 2u;
 	section_unused_cursor = stage_section_unused[stage_number];
 	list = stage_section_limits_x[stage_number] + stage_section_limits_x_ADDRESS;
 	list = (list & ~0xFFFFu) | (uint16_t)(list + 2u);
-	section_limit_x = ROM16(list);
+	section_limit_x = SECTION_CAMERA_LIMITS(list)[0];
 	section_limit_x_list = list + 2u;
 	list = stage_section_limits_y[stage_number] + stage_section_limits_y_ADDRESS;
 	list = (list & ~0xFFFFu) | (uint16_t)(list + 2u);
-	section_limit_y = ROM16(list);
+	section_limit_y = SECTION_CAMERA_LIMITS(list)[0];
 	section_limit_y_list = list + 2u;
 	list = stage_scroll_modes[stage_number] + stage_scroll_modes_ADDRESS;
-	scroll_mode = ROM16(list);
+	scroll_mode = SCROLL_MODE_STEP(list)->mode;
 	list += 2u;
-	scroll_mode_timer = ROM16(list);
+	scroll_mode_timer = SCROLL_MODE_STEP(list - 0x2u)->duration;
 	scroll_mode_duration = scroll_mode_timer;
 	scroll_ramp_speed = 1u;
 	scroll_mode_script = list + 2u;
 	direction_y_list = stage_section_directions_y[stage_number] + stage_section_directions_y_ADDRESS;
 	list = stage_section_directions_x[stage_number] + stage_section_directions_x_ADDRESS;
-	*p_direction_x = (int16_t)ROM16(list);
-	*p_direction_y = (int16_t)ROM16(direction_y_list);
+	*p_direction_x = SECTION_DIRECTIONS(list)[0];
+	*p_direction_y = SECTION_DIRECTIONS(direction_y_list)[0];
 	section_direction_x = *p_direction_x;
 	section_direction_y = *p_direction_y;
 	section_direction_x_list = list + 2u;
@@ -309,7 +309,7 @@ void update_stage_tile_layers(uint32_t *p_shifted_tile_set, uint32_t *p_copy_ent
 	wanted_tile_sets = 0u;
 	for (;;)
 	{
-		shifted_tile_set = rotate_by(ROM8(block_cursor), (uint8_t)*p_palette_count, 32);
+		shifted_tile_set = rotate_by(BLOCK_TILE_SETS(block_cursor)[0], (uint8_t)*p_palette_count, 32);
 		wanted_tile_sets += shifted_tile_set;
 		*p_palette_count = (uint16_t)(*p_palette_count + 8u);
 		columns_left--;
@@ -402,7 +402,7 @@ void load_tile_set(uint32_t tile_set, uint32_t *p_count, uint32_t *p_stage_offse
 	script_list = get_tile_set_list_bank(script_list);
 	for (;;)
 	{
-		script = ROM32(script_list);
+		script = TILE_SET_VRAM_SCRIPTS(script_list)[0];
 		script_list += 4u;
 		if ((int32_t)script < 0)
 			break;
@@ -632,9 +632,9 @@ void update_scroll(uint32_t *p_position, uint32_t *p_speed, uint32_t *p_speed_va
 			return;
 		}
 		mode_script_cursor = scroll_mode_script;
-		scroll_mode = ROM16(mode_script_cursor);
+		scroll_mode = SCROLL_MODE_STEP(mode_script_cursor)->mode;
 		mode_script_cursor += 2u;
-		scroll_mode_timer = ROM16(mode_script_cursor);
+		scroll_mode_timer = SCROLL_MODE_STEP(mode_script_cursor - 0x2u)->duration;
 		scroll_mode_duration = scroll_mode_timer;
 		scroll_mode_script = mode_script_cursor + 2u;
 		scroll_ramp_speed = 1u;
@@ -661,9 +661,9 @@ void update_scroll(uint32_t *p_position, uint32_t *p_speed, uint32_t *p_speed_va
 	case 5:
 		nearby_floor_blocks_locked = 1u;
 		mode_script_cursor = scroll_mode_script;
-		scroll_mode = ROM16(mode_script_cursor);
+		scroll_mode = SCROLL_MODE_STEP(mode_script_cursor)->mode;
 		mode_script_cursor += 2u;
-		scroll_mode_timer = ROM16(mode_script_cursor);
+		scroll_mode_timer = SCROLL_MODE_STEP(mode_script_cursor - 0x2u)->duration;
 		scroll_mode_duration = scroll_mode_timer;
 		scroll_mode_script = mode_script_cursor + 2u;
 		scroll_ramp_speed = 1u;
@@ -676,9 +676,9 @@ void update_scroll(uint32_t *p_position, uint32_t *p_speed, uint32_t *p_speed_va
 	case 6:
 		nearby_floor_blocks_locked = 0u;
 		mode_script_cursor = scroll_mode_script;
-		scroll_mode = ROM16(mode_script_cursor);
+		scroll_mode = SCROLL_MODE_STEP(mode_script_cursor)->mode;
 		mode_script_cursor += 2u;
-		scroll_mode_timer = ROM16(mode_script_cursor);
+		scroll_mode_timer = SCROLL_MODE_STEP(mode_script_cursor - 0x2u)->duration;
 		scroll_mode_duration = scroll_mode_timer;
 		scroll_mode_script = mode_script_cursor + 2u;
 		scroll_ramp_speed = 1u;
@@ -711,7 +711,7 @@ void update_scroll(uint32_t *p_position, uint32_t *p_speed, uint32_t *p_speed_va
 		is_direction_in_quadrant(count, &r0, p_dest);
 		if ((uint8_t)r0 == 0u)
 		{
-			if (player_at_trailing_edge == 0u || (int16_t)((uint32_t)ROM16(section_end_list) - scroll_position) > 0x180)
+			if (player_at_trailing_edge == 0u || (int16_t)((uint32_t)SECTION_END_POSITIONS(section_end_list)[0] - scroll_position) > 0x180)
 			{
 				push_speed = 0u;
 				push_speed &= 0xFFu;
@@ -797,7 +797,7 @@ void update_scroll(uint32_t *p_position, uint32_t *p_speed, uint32_t *p_speed_va
 		}
 		if (players_pushing_edge == 0u || (int8_t)players_pushing_edge > 7 || player_at_trailing_edge != 0u)
 		{
-			if (player_at_trailing_edge == 0u || (int16_t)((uint32_t)ROM16(section_end_list) - scroll_position) > 0x180)
+			if (player_at_trailing_edge == 0u || (int16_t)((uint32_t)SECTION_END_POSITIONS(section_end_list)[0] - scroll_position) > 0x180)
 			{
 				push_speed = 0u;
 				push_speed &= 0xFFu;
@@ -1840,8 +1840,8 @@ void is_direction_in_quadrant(uint32_t count, uint32_t *p_found, uint32_t *p_sin
 		else if ((uint16_t)section_direction_x == 0x4000u || (uint16_t)section_direction_x == 0xC000u)
 			break;
 		direction_y = (uint16_t)section_direction_y;
-		next_entry = ROM16(*p_sine_entry + 2u);
-		if ((int16_t)ROM16(*p_sine_entry) < (int16_t)direction_y)
+		next_entry = (uint16_t)SCROLL_QUADRANT_SINES(*p_sine_entry)[1];
+		if (SCROLL_QUADRANT_SINES(*p_sine_entry)[0] < (int16_t)direction_y)
 			entry_at_least = 0u;
 		else
 			entry_at_least = 1u;
@@ -1943,34 +1943,34 @@ void advance_scroll(uint32_t *p_other_list, uint32_t *p_speed, uint32_t *p_speed
 
 	*p_next_scroll_position = move_camera_along_path(*p_speed);
 	update_camera_view();
-	if ((int32_t)scroll_position < (int32_t)ROM16(section_end_list))
+	if ((int32_t)scroll_position < (int32_t)SECTION_END_POSITIONS(section_end_list)[0])
 	{
 		set_camera_velocity(p_other_list, p_speed, p_speed_value, p_next_scroll_position, p_range, p_quadrant_cursor);
 		return;
 	}
 	back_edge_frames = 0u;
 	list = section_speed_list;
-	scroll_speed = ROM8(list);
+	scroll_speed = SECTION_SCROLL_SPEEDS(list)[0];
 	section_speed_list = list + 1u;
 	list = follow_base_speed_list;
-	follow_base_speed = ROM8(list);
+	follow_base_speed = SECTION_FOLLOW_SPEEDS(list)[0];
 	follow_base_speed_list = list + 1u;
 	limit_y_cursor = section_limit_y_list;
-	section_limit_y = ROM16(limit_y_cursor);
+	section_limit_y = SECTION_CAMERA_LIMITS(limit_y_cursor)[0];
 	section_limit_y_list = limit_y_cursor + 2u;
 	limit_x_cursor = section_limit_x_list;
-	section_limit_x = ROM16(limit_x_cursor);
+	section_limit_x = SECTION_CAMERA_LIMITS(limit_x_cursor)[0];
 	section_limit_x_list = limit_x_cursor + 2u;
 	mode_script_cursor = scroll_mode_script;
-	scroll_mode = ROM16(mode_script_cursor);
+	scroll_mode = SCROLL_MODE_STEP(mode_script_cursor)->mode;
 	mode_script_cursor += 2u;
-	scroll_mode_timer = ROM16(mode_script_cursor);
+	scroll_mode_timer = SCROLL_MODE_STEP(mode_script_cursor - 0x2u)->duration;
 	scroll_mode_duration = scroll_mode_timer;
 	scroll_mode_script = mode_script_cursor + 2u;
 	list = section_direction_x_list;
 	direction_y_list = section_direction_y_list;
-	direction_y = ROM16(direction_y_list);
-	section_direction_x = (int16_t)ROM16(list);
+	direction_y = SECTION_DIRECTIONS(direction_y_list)[0];
+	section_direction_x = SECTION_DIRECTIONS(list)[0];
 	section_direction_y = (int16_t)direction_y;
 	section_direction_x_list = list + 2u;
 	section_direction_y_list = direction_y_list + 2u;
@@ -2026,10 +2026,10 @@ void update_background_scroll(uint32_t *p_fast_scroll_start, uint32_t *p_scroll_
 	speed = update_nbg2_scroll(speed);
 	fast_scroll_start = stage;
 	range = stage_fast_scroll_ranges[fast_scroll_start] + stage_fast_scroll_ranges_ADDRESS;
-	section_start = ROM16(section_end_list - 2u);
+	section_start = SECTION_END_POSITIONS(section_end_list)[-1];
 	do
 	{
-		if (ROM16(range) == 0xFFFFu)
+		if (FAST_SCROLL_STARTS(range)[0] == 0xFFFFu)
 		{
 			*p_fast_scroll_start = fast_scroll_start;
 			*p_scroll_y = scroll_y;
@@ -2039,7 +2039,7 @@ void update_background_scroll(uint32_t *p_fast_scroll_start, uint32_t *p_scroll_
 			*p_quadrant_cursor = quadrant_cursor;
 			return;
 		}
-		fast_scroll_start = ROM16(range);
+		fast_scroll_start = FAST_SCROLL_STARTS(range)[0];
 		range += 2u;
 	} while ((int32_t)fast_scroll_start <= (int32_t)section_start);
 	current_position = scroll_position;
@@ -2840,7 +2840,7 @@ uint32_t move_camera_along_path(uint32_t speed)
 	{
 		next_offset = (uint16_t)(((int32_t)(section_direction_y * speed + camera_y) >> 16) - camera_origin_y);
 		limit_list = section_limit_y_list;
-		if ((int16_t)ROM16(limit_list - 4u) < (int16_t)ROM16(limit_list - 2u))
+		if (SECTION_CAMERA_LIMITS(limit_list)[-2] < SECTION_CAMERA_LIMITS(limit_list)[-1])
 		{
 			if (section_limit_y <= (int16_t)next_offset)
 			{
@@ -2850,7 +2850,7 @@ uint32_t move_camera_along_path(uint32_t speed)
 					camera_limits_reached |= 2u;
 					current_position = scroll_position;
 					current_position = (uint16_t)(current_position + speed);
-					if ((int32_t)ROM16(section_end_list) < (int32_t)current_position)
+					if ((int32_t)SECTION_END_POSITIONS(section_end_list)[0] < (int32_t)current_position)
 						camera_limits_reached |= 1u;
 					switch (camera_limits_reached)
 					{
@@ -2888,13 +2888,13 @@ uint32_t move_camera_along_path(uint32_t speed)
 				}
 				next_offset = (uint16_t)(((int32_t)(section_direction_x * speed + camera_x) >> 16) - camera_origin_x);
 				limit_list = section_limit_x_list;
-				if ((int16_t)ROM16(limit_list - 4u) < (int16_t)ROM16(limit_list - 2u))
+				if (SECTION_CAMERA_LIMITS(limit_list)[-2] < SECTION_CAMERA_LIMITS(limit_list)[-1])
 				{
 					if ((int16_t)next_offset < section_limit_x)
 					{
 						current_position = scroll_position;
 						current_position = (uint16_t)(current_position + speed);
-						if ((int32_t)ROM16(section_end_list) < (int32_t)current_position)
+						if ((int32_t)SECTION_END_POSITIONS(section_end_list)[0] < (int32_t)current_position)
 							camera_limits_reached |= 1u;
 						switch (camera_limits_reached)
 						{
@@ -2933,7 +2933,7 @@ uint32_t move_camera_along_path(uint32_t speed)
 					camera_limits_reached |= 2u;
 					current_position = scroll_position;
 					current_position = (uint16_t)(current_position + speed);
-					if ((int32_t)ROM16(section_end_list) < (int32_t)current_position)
+					if ((int32_t)SECTION_END_POSITIONS(section_end_list)[0] < (int32_t)current_position)
 						camera_limits_reached |= 1u;
 					switch (camera_limits_reached)
 					{
@@ -2973,7 +2973,7 @@ uint32_t move_camera_along_path(uint32_t speed)
 				{
 					current_position = scroll_position;
 					current_position = (uint16_t)(current_position + speed);
-					if ((int32_t)ROM16(section_end_list) < (int32_t)current_position)
+					if ((int32_t)SECTION_END_POSITIONS(section_end_list)[0] < (int32_t)current_position)
 						camera_limits_reached |= 1u;
 					switch (camera_limits_reached)
 					{
@@ -3012,7 +3012,7 @@ uint32_t move_camera_along_path(uint32_t speed)
 				camera_limits_reached |= 2u;
 				current_position = scroll_position;
 				current_position = (uint16_t)(current_position + speed);
-				if ((int32_t)ROM16(section_end_list) < (int32_t)current_position)
+				if ((int32_t)SECTION_END_POSITIONS(section_end_list)[0] < (int32_t)current_position)
 					camera_limits_reached |= 1u;
 				switch (camera_limits_reached)
 				{
@@ -3057,7 +3057,7 @@ uint32_t move_camera_along_path(uint32_t speed)
 		camera_limits_reached |= 2u;
 		current_position = scroll_position;
 		current_position = (uint16_t)(current_position + speed);
-		if ((int32_t)ROM16(section_end_list) < (int32_t)current_position)
+		if ((int32_t)SECTION_END_POSITIONS(section_end_list)[0] < (int32_t)current_position)
 			camera_limits_reached |= 1u;
 		switch (camera_limits_reached)
 		{
@@ -3095,13 +3095,13 @@ uint32_t move_camera_along_path(uint32_t speed)
 	}
 	next_offset = (uint16_t)(((int32_t)(section_direction_x * speed + camera_x) >> 16) - camera_origin_x);
 	limit_list = section_limit_x_list;
-	if ((int16_t)ROM16(limit_list - 4u) < (int16_t)ROM16(limit_list - 2u))
+	if (SECTION_CAMERA_LIMITS(limit_list)[-2] < SECTION_CAMERA_LIMITS(limit_list)[-1])
 	{
 		if ((int16_t)next_offset < section_limit_x)
 		{
 			current_position = scroll_position;
 			current_position = (uint16_t)(current_position + speed);
-			if ((int32_t)ROM16(section_end_list) < (int32_t)current_position)
+			if ((int32_t)SECTION_END_POSITIONS(section_end_list)[0] < (int32_t)current_position)
 				camera_limits_reached |= 1u;
 			switch (camera_limits_reached)
 			{
@@ -3140,7 +3140,7 @@ uint32_t move_camera_along_path(uint32_t speed)
 		camera_limits_reached |= 2u;
 		current_position = scroll_position;
 		current_position = (uint16_t)(current_position + speed);
-		if ((int32_t)ROM16(section_end_list) < (int32_t)current_position)
+		if ((int32_t)SECTION_END_POSITIONS(section_end_list)[0] < (int32_t)current_position)
 			camera_limits_reached |= 1u;
 		switch (camera_limits_reached)
 		{
@@ -3180,7 +3180,7 @@ uint32_t move_camera_along_path(uint32_t speed)
 	{
 		current_position = scroll_position;
 		current_position = (uint16_t)(current_position + speed);
-		if ((int32_t)ROM16(section_end_list) < (int32_t)current_position)
+		if ((int32_t)SECTION_END_POSITIONS(section_end_list)[0] < (int32_t)current_position)
 			camera_limits_reached |= 1u;
 		switch (camera_limits_reached)
 		{
@@ -3219,7 +3219,7 @@ uint32_t move_camera_along_path(uint32_t speed)
 	camera_limits_reached |= 2u;
 	current_position = scroll_position;
 	current_position = (uint16_t)(current_position + speed);
-	if ((int32_t)ROM16(section_end_list) < (int32_t)current_position)
+	if ((int32_t)SECTION_END_POSITIONS(section_end_list)[0] < (int32_t)current_position)
 		camera_limits_reached |= 1u;
 	switch (camera_limits_reached)
 	{
@@ -3310,10 +3310,10 @@ void snap_camera_to_section_end(void)
 {
 	uint32_t section_end_y = 0;
 
-	section_end_y = (uint32_t)(uint16_t)(ROM16(section_limit_y_list - 2u) + camera_origin_y) << 16;
-	camera_x = (uint32_t)(uint16_t)(ROM16(section_limit_x_list - 2u) + camera_origin_x) << 16;
+	section_end_y = (uint32_t)(uint16_t)(SECTION_CAMERA_LIMITS(section_limit_y_list)[-1] + camera_origin_y) << 16;
+	camera_x = (uint32_t)(uint16_t)(SECTION_CAMERA_LIMITS(section_limit_x_list)[-1] + camera_origin_x) << 16;
 	camera_y = section_end_y;
-	scroll_position = ROM16(section_end_list);
+	scroll_position = SECTION_END_POSITIONS(section_end_list)[0];
 }
 
 /* Unused: the scroll skip panel's frame. Closed (scroll_skip_open 0), it opens while service and 2P
@@ -3487,39 +3487,39 @@ void load_camera_start_section(uint32_t *p_section_offset, uint32_t *p_stage_ind
 	section_offset = (uint16_t)(section_offset << 1);
 	list = stage_section_limits_x[stage_index] + stage_section_limits_x_ADDRESS + section_offset;
 	limit_y_cursor = stage_section_limits_y[stage_index] + stage_section_limits_y_ADDRESS + section_offset;
-	start_y = ROM16(limit_y_cursor);
+	start_y = SECTION_CAMERA_LIMITS(limit_y_cursor)[0];
 	limit_y_cursor += 2u;
-	camera_x = (uint32_t)ROM16(list) << 16;
+	camera_x = (uint32_t)(uint16_t)SECTION_CAMERA_LIMITS(list)[0] << 16;
 	camera_y = (uint32_t)start_y << 16;
 	camera_x += (uint32_t)camera_origin_x << 16;
 	camera_y += (uint32_t)camera_origin_y << 16;
 	list += 2u;
-	section_limit_x = ROM16(list);
-	limit_y = ROM16(limit_y_cursor);
+	section_limit_x = SECTION_CAMERA_LIMITS(list)[0];
+	limit_y = SECTION_CAMERA_LIMITS(limit_y_cursor)[0];
 	section_limit_y = limit_y;
 	section_limit_x_list = list + 2u;
 	section_limit_y_list = limit_y_cursor + 2u;
 	list = stage_section_directions_x[stage_index] + stage_section_directions_x_ADDRESS + section_offset;
 	direction_y_cursor = stage_section_directions_y[stage_index] + stage_section_directions_y_ADDRESS + section_offset;
-	section_direction_x = (int16_t)ROM16(list);
-	direction_y = ROM16(direction_y_cursor);
+	section_direction_x = SECTION_DIRECTIONS(list)[0];
+	direction_y = SECTION_DIRECTIONS(direction_y_cursor)[0];
 	section_direction_y = (int16_t)direction_y;
 	section_direction_x_list = list + 2u;
 	section_direction_y_list = direction_y_cursor + 2u;
 	list = stage_section_ends[stage_index] + stage_section_ends_ADDRESS + section_offset;
-	scroll_position = ROM16(list);
+	scroll_position = SECTION_END_POSITIONS(list)[0];
 	section_end_list = list + 2u;
 	section_index = section_offset >> 1;
 	list = stage_section_speeds[stage_index] + stage_section_speeds_ADDRESS + section_index;
-	scroll_speed = ROM8(list);
+	scroll_speed = SECTION_SCROLL_SPEEDS(list)[0];
 	section_speed_list = list + 1u;
 	list = stage_section_follow_speeds[stage_index] + stage_section_follow_speeds_ADDRESS + section_index;
-	follow_base_speed = ROM8(list);
+	follow_base_speed = SECTION_FOLLOW_SPEEDS(list)[0];
 	follow_base_speed_list = list + 1u;
 	list = stage_scroll_modes[stage_index] + stage_scroll_modes_ADDRESS + section_offset + section_offset;
-	scroll_mode = ROM16(list);
+	scroll_mode = SCROLL_MODE_STEP(list)->mode;
 	list += 2u;
-	scroll_mode_timer = ROM16(list);
+	scroll_mode_timer = SCROLL_MODE_STEP(list - 0x2u)->duration;
 	scroll_mode_duration = scroll_mode_timer;
 	scroll_ramp_speed = 1u;
 	scroll_ramp_speed_pad = 0u;
@@ -3575,8 +3575,8 @@ void scroll_skip_draw_values(void)
 	uint32_t attribute = 0, point = 0, text_position = 0, value = 0, value_list = 0;
 
 	point = stage_start_section;
-	value_list = ROM32(scroll_skip_value_lists_ADDRESS + scroll_skip_value_index * 2u * 2u);
-	value = ROM16(ROM16((value_list & ~0xFFFFu) | (uint16_t)(value_list + stage * 2u)) + value_list + (uint16_t)(point * 2u));
+	value_list = scroll_skip_value_lists[scroll_skip_value_index];
+	value = ROM16(STAGE_SECTION_LIST_OFFSETS((value_list & ~0xFFFFu) | (uint16_t)(value_list + stage * 2u))[0] + value_list + (uint16_t)(point * 2u));
 	switch (scroll_skip_value_index)
 	{
 	case 0:
