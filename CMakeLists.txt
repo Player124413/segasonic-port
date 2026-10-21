@@ -45,7 +45,7 @@ endif()
 # it starts (runtime/src/game_data.c): tools/make_pack.py writes it beside the executables from assets/,
 # which extract_assets.py takes out of the player's ROM set (rom/, its files or its .zip; SONIC_ROM picks
 # another); a change to an asset goes into the pack. The reference runs the original code, so it reads
-# the ROM set itself when it starts (tools/reference/rom_set.c). The ROM never goes into the repository.
+# the ROM set itself when it starts (runtime/src/rom_set.c). The ROM never goes into the repository.
 # Without a ROM set (a build for another machine) nothing of the game's is made, only the executables
 find_package(Python3 COMPONENTS Interpreter)
 set(SONIC_ROM ${CMAKE_SOURCE_DIR}/rom CACHE PATH "The ROM set the assets are taken out of")
@@ -55,7 +55,8 @@ if(IS_DIRECTORY ${SONIC_ROM})
 elseif(EXISTS ${SONIC_ROM})
 	set(SONIC_ROM_FILES ${SONIC_ROM})
 endif()
-add_library(sonic_data STATIC runtime/src/game_data.c)
+add_library(sonic_data STATIC runtime/src/game_data.c runtime/src/rom_set.c runtime/src/inflate.c
+	runtime/src/extract.c runtime/src/pack_layout.c)
 target_include_directories(sonic_data PUBLIC runtime/include)
 if(SONIC_ROM_FILES AND Python3_FOUND)
 	file(GLOB_RECURSE SONIC_ASSET_FILES CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/assets/*)
@@ -87,8 +88,7 @@ if(SEGASONIC_SCAFFOLD AND SONIC_GENERATED)
 		target_compile_options(sonic_program PRIVATE /bigobj)
 	endif()
 
-	add_executable(sonic_headless ports/headless/main.c tools/reference/rom_set.c)
-	target_include_directories(sonic_headless PRIVATE tools/reference)
+	add_executable(sonic_headless ports/headless/main.c)
 	target_compile_definitions(sonic_headless PRIVATE SEGASONIC_SCAFFOLD)
 	target_link_libraries(sonic_headless PRIVATE sonic_program sonic_data)
 elseif(SEGASONIC_SCAFFOLD)
@@ -144,13 +144,23 @@ if(SONIC_DECOMPILED)
 	endif()
 	if(SDL2_FOUND)
 		# (an .app on macOS: SDL_GetBasePath is its Resources folder)
-		add_executable(sonic WIN32 MACOSX_BUNDLE ports/sdl2/main.c ports/sdl2/settings.c)
+		add_executable(sonic WIN32 MACOSX_BUNDLE ports/sdl2/main.c ports/sdl2/settings.c ports/sdl2/first_run.c)
 		target_link_libraries(sonic PRIVATE sonic_game sonic_data ${SONIC_SDL2})
 		set_target_properties(sonic PROPERTIES MACOSX_BUNDLE_BUNDLE_NAME "SegaSonic arcade"
 			MACOSX_BUNDLE_GUI_IDENTIFIER io.github.cheviman.segasonic-decomp)
 		if(WIN32 AND NOT SEGASONIC_STATIC_SDL2)
 			add_custom_command(TARGET sonic POST_BUILD
 				COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:SDL2::SDL2> $<TARGET_FILE_DIR:sonic>)
+		endif()
+		# the first run's letters (Kenney Mini, CC0; tools/make_font.py): beside the executable, or in the
+		# .app's Resources on macOS
+		if(APPLE)
+			target_sources(sonic PRIVATE ports/sdl2/font/font.bmp)
+			set_source_files_properties(ports/sdl2/font/font.bmp PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
+		else()
+			add_custom_command(TARGET sonic POST_BUILD
+				COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_SOURCE_DIR}/ports/sdl2/font/font.bmp
+					$<TARGET_FILE_DIR:sonic>)
 		endif()
 	else()
 		message(STATUS "No SDL2: the window port (sonic) is not built")
@@ -206,7 +216,6 @@ if(SEGASONIC_REFERENCE_TOOLS)
 
 	add_executable(s32ref
 		tools/reference/s32ref.cpp
-		tools/reference/rom_set.c
 		tools/reference/mame/v60.cpp
 		tools/reference/mame/v60d.cpp
 	)

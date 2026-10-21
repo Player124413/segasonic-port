@@ -10,7 +10,10 @@ Author:      Sebastian Toyos
 
 Usage: python tools/make_pack.py [pack]           write the pack (default build/bin/segasonic.assets)
        python tools/make_pack.py --check [rom]   compare what the pack puts in the board's memory with
-                                                  the ROM set (default rom/), the code left out
+                                                  the ROM set (default rom/), the code left out, and the
+                                                  first run's layout with the pack's
+       python tools/make_pack.py --layout [file] write the pack's pieces without their bytes, as C
+                                                  (default runtime/src/pack_layout.c)
 
 The pack holds the assets alone: the program's and the sound program's data pieces (layout.json; the
 code is in none, the C replaces it), the tile sheets, every sprite frame, the PCM samples, and the fills
@@ -21,6 +24,10 @@ board's mirrors of the chips (runtime/src/game_data.c).
 Format (little endian): "SSAP", u16 version, u16 0, u32 entries; each entry: u8 kind (0 bytes, 1 fill),
 u8 region (0 program, 1 tiles, 2 sprites, 3 sound), u16 name length, u32 offset, u32 size, the name, then
 the bytes (kind 0) or the fill byte (kind 1).
+
+The layout (--layout) is the pack's pieces in its order, each its kind, region, place, size and name:
+positions only, as assets.json, with no byte of the ROM. The game's first run builds the same pack from
+the player's ROM set with it (runtime/src/game_extract.c), as long as the assets are the ROM set's own.
 """
 import json
 import struct
@@ -140,6 +147,35 @@ def write_pack(path, entries):
     return len(out)
 
 
+def layout_text(name, entries):
+    """The pieces of the pack, without their bytes, as C for the game's first run."""
+    lines = ["/**",
+             f" *    Name:        {name}",
+             " *    Description: the assets pack's pieces, without their bytes: what the game's first run takes out",
+             " *                 of the player's ROM set (game_extract.c)",
+             " *    Version:     0.1.0",
+             " *    Created:     20-10-2026",
+             " *    Modified:    20-10-2026",
+             " *    Author:      Sebastian Toyos",
+             " *",
+             " *    license:BSD-3-Clause",
+             " *    Written by tools/make_pack.py --layout from the assets' layouts: positions only (as assets.json),",
+             " *    no byte of the ROM; in the pack's order.",
+             " */",
+             '#include "game/extract.h"',
+             "",
+             "const pack_piece pack_pieces[] = {"]
+    for kind, region, name, offset, data in entries:
+        size, fill = data if kind == KIND_FILL else (len(data), 0)
+        lines.append(f'\t{{ {kind}, {REGIONS[region]}, 0x{fill:02X}, 0x{offset:06X}u, 0x{size:X}u, "{name}" }},')
+    lines += ["};", "", f"const uint32_t pack_piece_count = {len(entries)}u;", ""]
+    return "\n".join(lines)
+
+
+def write_layout(path, entries):
+    path.write_text(layout_text(path.name, entries), encoding="ascii")
+
+
 def code_ranges(manifest):
     """{region: [(start, end)]} of the code the pack leaves out, and its mirrors."""
     ranges = {name: [] for name in REGION_SIZES}
@@ -175,6 +211,11 @@ def check(manifest, source):
         left_out = sum(outside)
         print(f"  {name:8} {count:9} bytes differ from the ROM set ({left_out} bytes of code left out)")
         different += count
+    layout = ROOT / "runtime" / "src" / "pack_layout.c"
+    written = layout.read_text(encoding="ascii").replace("\r\n", "\n")
+    if written != layout_text(layout.name, pack_entries(manifest)):
+        print(f"  {layout.relative_to(ROOT)} is not this pack's layout (the first run would write another pack)")
+        different += 1
     return 1 if different else 0
 
 
@@ -185,6 +226,12 @@ def main():
         raise SystemExit("assets/ does not hold this manifest's extraction")
     if arguments and arguments[0] == "--check":
         return check(manifest, Path(arguments[1]) if len(arguments) > 1 else ROOT / "rom")
+    if arguments and arguments[0] == "--layout":
+        path = Path(arguments[1]) if len(arguments) > 1 else ROOT / "runtime" / "src" / "pack_layout.c"
+        entries = pack_entries(manifest)
+        write_layout(path, entries)
+        print(f"  {path}  ({len(entries)} pieces)")
+        return 0
     path = Path(arguments[0]) if arguments else ROOT / "build" / "bin" / "segasonic.assets"
     entries = pack_entries(manifest)
     size = write_pack(path, entries)
