@@ -133,7 +133,7 @@ static int read_zip(const uint8_t *zip, size_t size, uint8_t **chips)
 	{
 		uint32_t method, crc, packed, unpacked;
 
-		if (entry + 46 > size || little32(zip + entry) != ZIP_ENTRY)
+		if (entry > size || size - entry < 46 || little32(zip + entry) != ZIP_ENTRY)
 			return 0;
 		method = little16(zip + entry + 10);
 		crc = little32(zip + entry + 16);
@@ -144,12 +144,13 @@ static int read_zip(const uint8_t *zip, size_t size, uint8_t **chips)
 		for (file = 0; file < FILES; file++)
 			if (!chips[file] && files[file].crc == crc && files[file].size == unpacked)
 				break;
-		if (file == FILES || local + 30 > size || little32(zip + local) != ZIP_LOCAL)
+		if (file == FILES || local > size || size - local < 30 || little32(zip + local) != ZIP_LOCAL)
 			continue;
 		local += 30 + little16(zip + local + 26) + little16(zip + local + 28);
-		if (local > size || packed > size - local || !(chips[file] = malloc(unpacked)))
-			continue;
-		if ((method == ZIP_STORED ? (memcpy(chips[file], zip + local, unpacked), packed == unpacked)
+		if (local > size || packed > size - local || (method == ZIP_STORED && packed != unpacked)
+			|| !(chips[file] = malloc(unpacked)))
+			continue;    /* (what the entry says does not fit the file) */
+		if ((method == ZIP_STORED ? (memcpy(chips[file], zip + local, unpacked), 1)
 				: method == ZIP_DEFLATED && inflate_raw(zip + local, packed, chips[file], unpacked))
 			&& crc32_of(chips[file], unpacked) == crc)
 			continue;
