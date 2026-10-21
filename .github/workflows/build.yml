@@ -4,7 +4,7 @@
 #              executables only, which load the player's assets pack
 # Version:     0.2.0
 # Created:     20-10-2026
-# Modified:    20-10-2026
+# Modified:    21-10-2026
 # Author:      Sebastian Toyos
 name: build
 
@@ -28,7 +28,7 @@ jobs:
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # SDL2 is built from its source (SEGASONIC_STATIC_SDL2): on Linux it needs the headers of what it
       # talks to (it loads the libraries themselves when the game runs)
@@ -81,7 +81,7 @@ jobs:
           cd ..
           tar czf dist/segasonic-${{ matrix.name }}-all.tar.gz -C build bin
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: segasonic-${{ matrix.name }}
           path: |
