@@ -37,34 +37,43 @@ add_library(s32runtime STATIC
 	runtime/src/memory_census.c
 )
 target_include_directories(s32runtime PUBLIC runtime/include)
+if(UNIX AND NOT APPLE)
+	target_link_libraries(s32runtime PUBLIC m)    # (the C library's maths are apart there)
+endif()
 
 # The game's data: no executable carries the ROM or anything from it. The game loads its assets pack when
 # it starts (runtime/src/game_data.c): tools/make_pack.py writes it beside the executables from assets/,
 # which extract_assets.py takes out of the player's ROM set (rom/, its files or its .zip; SONIC_ROM picks
 # another); a change to an asset goes into the pack. The reference runs the original code, so it reads
-# the ROM set itself when it starts (tools/reference/rom_set.c). The ROM never goes into the repository
-find_package(Python3 REQUIRED COMPONENTS Interpreter)
+# the ROM set itself when it starts (tools/reference/rom_set.c). The ROM never goes into the repository.
+# Without a ROM set (a build for another machine) nothing of the game's is made, only the executables
+find_package(Python3 COMPONENTS Interpreter)
 set(SONIC_ROM ${CMAKE_SOURCE_DIR}/rom CACHE PATH "The ROM set the assets are taken out of")
+set(SONIC_ROM_FILES "")
 if(IS_DIRECTORY ${SONIC_ROM})
 	file(GLOB SONIC_ROM_FILES ${SONIC_ROM}/*)
-else()
+elseif(EXISTS ${SONIC_ROM})
 	set(SONIC_ROM_FILES ${SONIC_ROM})
 endif()
-file(GLOB_RECURSE SONIC_ASSET_FILES CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/assets/*)
-file(GLOB SONIC_FORMAT_TOOLS CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/tools/formats/*.py)
-set(SONIC_ASSETS_PACK ${SONIC_BIN_DIR}/segasonic.assets)
-add_custom_command(OUTPUT ${SONIC_ASSETS_PACK}
-	COMMAND Python3::Interpreter ${CMAKE_SOURCE_DIR}/extract_assets.py ${SONIC_ROM}
-	COMMAND Python3::Interpreter ${CMAKE_SOURCE_DIR}/tools/make_pack.py ${SONIC_ASSETS_PACK}
-	DEPENDS ${SONIC_ROM_FILES} ${SONIC_ASSET_FILES} ${SONIC_FORMAT_TOOLS} ${CMAKE_SOURCE_DIR}/assets.json
-		${CMAKE_SOURCE_DIR}/extract_assets.py ${CMAKE_SOURCE_DIR}/tools/make_pack.py
-		${CMAKE_SOURCE_DIR}/tools/sonic_rom.py ${CMAKE_SOURCE_DIR}/tools/asset_formats.py
-		${CMAKE_SOURCE_DIR}/tools/data_formats.py
-	COMMENT "Taking the assets out of the ROM set and packing them for the game")
-add_custom_target(sonic_assets ALL DEPENDS ${SONIC_ASSETS_PACK})
 add_library(sonic_data STATIC runtime/src/game_data.c)
 target_include_directories(sonic_data PUBLIC runtime/include)
-add_dependencies(sonic_data sonic_assets)
+if(SONIC_ROM_FILES AND Python3_FOUND)
+	file(GLOB_RECURSE SONIC_ASSET_FILES CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/assets/*)
+	file(GLOB SONIC_FORMAT_TOOLS CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/tools/formats/*.py)
+	set(SONIC_ASSETS_PACK ${SONIC_BIN_DIR}/segasonic.assets)
+	add_custom_command(OUTPUT ${SONIC_ASSETS_PACK}
+		COMMAND Python3::Interpreter ${CMAKE_SOURCE_DIR}/extract_assets.py ${SONIC_ROM}
+		COMMAND Python3::Interpreter ${CMAKE_SOURCE_DIR}/tools/make_pack.py ${SONIC_ASSETS_PACK}
+		DEPENDS ${SONIC_ROM_FILES} ${SONIC_ASSET_FILES} ${SONIC_FORMAT_TOOLS} ${CMAKE_SOURCE_DIR}/assets.json
+			${CMAKE_SOURCE_DIR}/extract_assets.py ${CMAKE_SOURCE_DIR}/tools/make_pack.py
+			${CMAKE_SOURCE_DIR}/tools/sonic_rom.py ${CMAKE_SOURCE_DIR}/tools/asset_formats.py
+			${CMAKE_SOURCE_DIR}/tools/data_formats.py
+		COMMENT "Taking the assets out of the ROM set and packing them for the game")
+	add_custom_target(sonic_assets ALL DEPENDS ${SONIC_ASSETS_PACK})
+	add_dependencies(sonic_data sonic_assets)
+else()
+	message(STATUS "No ROM set at ${SONIC_ROM} (or no Python): no assets pack; the game needs one beside it")
+endif()
 
 # The translation scaffold the decompiler grew from: the V60 runtime plus the C tools/recompile.py writes
 # from the user's ROM into build/generated, instruction by instruction (for comparisons only)
