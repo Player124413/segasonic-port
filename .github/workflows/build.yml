@@ -1,0 +1,62 @@
+# Name:        build.yml
+# Description: builds the game on clean machines with no ROM set (Linux with GCC, macOS with Clang,
+#              Windows with MSVC): the executables only, which load the player's assets pack
+# Version:     0.1.0
+# Created:     20-10-2026
+# Modified:    20-10-2026
+# Author:      Sebastian Toyos
+name: build
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: linux-x64
+            os: ubuntu-24.04
+          - name: macos-arm64
+            os: macos-14
+          - name: windows-x64
+            os: windows-2022
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: SDL2 (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libsdl2-dev ninja-build
+
+      - name: SDL2 (macOS)
+        if: runner.os == 'macOS'
+        run: brew install sdl2 ninja
+
+      - name: SDL2 (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force build/downloads/sdl2 | Out-Null
+          Invoke-WebRequest -Uri https://github.com/libsdl-org/SDL/releases/download/release-2.32.10/SDL2-devel-2.32.10-VC.zip -OutFile build/downloads/sdl2/sdl2.zip
+          Expand-Archive build/downloads/sdl2/sdl2.zip -DestinationPath build/downloads/sdl2
+
+      - name: Configure (Linux, macOS)
+        if: runner.os != 'Windows'
+        run: cmake -S . -B build/cmake -G Ninja -DCMAKE_BUILD_TYPE=Release -DSEGASONIC_REFERENCE_TOOLS=OFF
+
+      - name: Configure (Windows)
+        if: runner.os == 'Windows'
+        run: cmake -S . -B build/cmake -DSEGASONIC_REFERENCE_TOOLS=OFF
+
+      - name: Build
+        run: cmake --build build/cmake --config Release --parallel
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: segasonic-${{ matrix.name }}
+          path: build/bin/
