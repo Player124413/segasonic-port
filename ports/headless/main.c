@@ -11,9 +11,11 @@
  *    license:BSD-3-Clause
  *    Usage: sonic_headless [--frames N] [--hashes FILE] [--script FILE]
  *                          [--dump-frame N --dump-dir DIR] [--video-hashes FILE] [--video-dump N ... --video-dir DIR]
- *                          [--sound-hashes FILE] [--wide] [--assets FILE]
+ *                          [--sound-hashes FILE] [--wide] [--assets FILE] [--extract ROM_SET]
  *    The game's data is its assets pack (game/data.h): --assets, or segasonic.assets beside the executable.
- *    The scaffold (SEGASONIC_SCAFFOLD) runs the original code, so it reads the ROM set from rom/ instead.
+ *    --extract first writes that pack from the player's ROM set (a .zip or a folder), as the first run does
+ *    (runtime/src/extract.c). The scaffold (SEGASONIC_SCAFFOLD) runs the original code, so it reads the ROM
+ *    set from rom/ instead.
  *    --dump-frame saves the board's memories at the end of that frame, in the files tools/reference/s32ref
  *    writes, so the two compare byte by byte. --video-hashes and --video-dump draw every frame with the
  *    board's video (runtime/src/video.c): the hash of each frame, and frames as BMP. --sound-hashes runs the
@@ -26,9 +28,7 @@
 #include "s32/video.h"
 #include "sound/chips.h"
 #include "game/data.h"
-#ifdef SEGASONIC_SCAFFOLD
-#include "rom_set.h"
-#endif
+#include "game/extract.h"
 #include "s32/bus.h"
 #ifdef SEGASONIC_CONSOLE
 #include "console.h"
@@ -43,7 +43,7 @@
 #define USAGE "Usage: sonic_headless [--frames N] [--hashes FILE] [--script FILE]" \
 	" [--dump-frame N --dump-dir DIR] [--video-hashes FILE] [--video-dump N ... --video-dir DIR]" \
 	" [--sound-hashes FILE] [--sprite-census FILE] [--tile-census FILE] [--memory-census FILE] [--wide]" \
-	" [--assets FILE]\n"
+	" [--assets FILE] [--extract ROM_SET]\n"
 #define ASSETS_FILE "segasonic.assets"
 #define MAX_VIDEO_DUMPS 64
 #define CENSUS_SLOTS (1u << 20)
@@ -252,6 +252,7 @@ int main(int argc, char **argv)
 	const char *tile_census_path = NULL;
 	const char *memory_census_path = NULL;
 	const char *assets_path = NULL;
+	const char *extract_source = NULL;
 	char beside[1024];
 	bool frames_given = false;
 
@@ -288,6 +289,8 @@ int main(int argc, char **argv)
 			memory_census_path = argv[++index];
 		else if (strcmp(argv[index], "--assets") == 0 && index + 1 < argc)
 			assets_path = argv[++index];
+		else if (strcmp(argv[index], "--extract") == 0 && index + 1 < argc)
+			extract_source = argv[++index];
 		else
 		{
 			fprintf(stderr, USAGE);
@@ -297,10 +300,14 @@ int main(int argc, char **argv)
 #ifdef SEGASONIC_SCAFFOLD
 	(void)assets_path;
 	(void)beside;
-	if (reference_load_rom_set("rom"))
 	{
-		fprintf(stderr, "rom: the ROM set is not complete\n");
-		return 1;
+		const char *problem = game_rom_set_load("rom");
+
+		if (problem)
+		{
+			fprintf(stderr, "rom: %s\n", problem);
+			return 1;
+		}
 	}
 #else
 	if (!assets_path)
@@ -311,6 +318,16 @@ int main(int argc, char **argv)
 
 		snprintf(beside, sizeof(beside), "%.*s" ASSETS_FILE, last ? (int)(last - argv[0] + 1) : 0, argv[0]);
 		assets_path = beside;
+	}
+	if (extract_source)
+	{
+		const char *problem = game_data_extract(extract_source, assets_path);
+
+		if (problem)
+		{
+			fprintf(stderr, "%s: %s\n", extract_source, problem);
+			return 1;
+		}
 	}
 	switch (game_data_load(assets_path))
 	{

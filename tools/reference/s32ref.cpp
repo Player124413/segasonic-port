@@ -17,7 +17,8 @@
  *                           [--sound-timing timing.txt] [--rom FOLDER] [--verbose]
  *
  *    It runs the original program, so it reads the player's ROM set when it starts, as MAME does: the
- *    set's files in --rom's folder (rom/ by default), into the board's memory (game/data.h, rom_set.c).
+ *    set in --rom's folder or .zip (rom/ by default), into the board's memory (game/data.h,
+ *    runtime/src/rom_set.c).
  *
  *    --timing frames, the default, runs the program the way the decompiled game runs: instructions take
  *    no time, and the board moves on to its next event only while the game waits for the next frame in
@@ -38,7 +39,7 @@
 #include "v60.h"
 
 #include "game/data.h"
-#include "rom_set.h"
+#include "game/extract.h"
 #include "s32/machine.h"
 #include "s32/script.h"
 #include "s32sound.h"
@@ -578,9 +579,9 @@ int main(int argc, char **argv)
 	if (!hashes_path.empty())
 		g_hashes.open(hashes_path);
 
-	if (const char *missing = reference_load_rom_set(rom_folder.c_str()))
+	if (const char *problem = game_rom_set_load(rom_folder.c_str()))
 	{
-		std::cerr << rom_folder << ": the ROM set has no " << missing << "\n";
+		std::cerr << rom_folder << ": " << problem << "\n";
 		return 1;
 	}
 

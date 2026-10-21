@@ -13,6 +13,7 @@
  *    The executable carries nothing of the game's: it loads the game's assets from segasonic.assets beside
  *    it (game/data.h; the pack of the assets taken out of the player's ROM set), with SDL2 beside it too.
  *    What it writes goes beside it on Windows, elsewhere to the user's folder for the game (saves_folder).
+ *    With no pack there the first run makes one from the player's ROM set (first_run.c).
  *
  *    The game (src/) and the board (runtime/) run as they are: this file only wraps them. Where the board
  *    has its hooks, the port does its part: when VBLANK starts the video draws the frame and the port puts
@@ -42,6 +43,7 @@
 #include "s32/program.h"
 #include "s32/video.h"
 #include "game/data.h"
+#include "first_run.h"
 #include "sound/chips.h"
 
 #include "settings.h"
@@ -1040,6 +1042,7 @@ int main(int argc, char **argv)
 	SDL_AudioSpec wanted;
 	char settings_path[1024], assets_path[1024];
 	char *base, *saves;
+	game_data_result assets;
 
 	(void)argc;
 	(void)argv;
@@ -1060,7 +1063,19 @@ int main(int argc, char **argv)
 		load_times();
 	}
 #endif
-	switch (load_assets(base, saves, assets_path, sizeof(assets_path)))
+	assets = load_assets(base, saves, assets_path, sizeof(assets_path));
+	if (assets == GAME_DATA_MISSING)
+	{
+		/* (the first run: the pack from the player's ROM set, where the game keeps what it writes) */
+		snprintf(assets_path, sizeof(assets_path), "%s" ASSETS_FILE, saves ? saves : "");
+		if (!first_run(base, saves, assets_path))
+		{
+			SDL_Quit();
+			return 0;
+		}
+		assets = game_data_load(assets_path);
+	}
+	switch (assets)
 	{
 	case GAME_DATA_LOADED:
 		break;

@@ -159,7 +159,10 @@ Without SDL2 only the headless builds are made.
 
    The executable can be copied anywhere with SDL2's library beside it (`SDL2.dll` on Windows, which the
    build puts next to it) and the assets pack (`segasonic.assets`), which the game also finds in the folder
-   where it keeps what it writes (below). The executable holds nothing of the game's; the pack is made from
+   where it keeps what it writes (below). With no pack, the first run makes it there from your ROM set:
+   `sonic.zip` beside the game, or the one you drop on the window it opens (the set's 18 files, each
+   checked by its CRC32); from then on the game loads the pack and never opens the ROM set again. Built
+   from `rom/`, `build/bin/` has the pack already. The executable holds nothing of the game's; the pack is made from
    your ROM: it is yours, not one to share. On Linux and macOS the build needs the system's SDL2
    (`libsdl2-dev`, Homebrew's `sdl2`); with no ROM set it makes the executables alone.
 
@@ -293,13 +296,18 @@ runtime/                System 32 board model (memory map, interrupts, I/O, the 
                         driver use besides memory (src/game.c, src/sound_cpu.c, include/game/support.h,
                         include/sound/support.h), in C; part of the game
 ports/headless/         runs the game with no screen or sound, for comparisons
-ports/sdl2/             the game in a window, on SDL2: picture, sound, controls, settings (sonic.ini)
+ports/sdl2/             the game in a window, on SDL2: picture, sound, controls, settings (sonic.ini);
+                        first_run.c, the window that asks for the ROM set when there is no assets pack
+                        (its letters: font/, Kenney Mini, CC0, drawn by tools/make_font.py)
 tests/controls/         control scripts: coins, buttons, trackball moves and pokes per frame
 docs/unreachable.txt    the code no scenario runs, and why
 tools/sonic_rom.py      ROM set definition and memory region layouts
 tools/make_pack.py      packs the assets for the game to load (segasonic.assets): each by name, where
                         the board's memory has it; --check compares it with the ROM set
 runtime/src/game_data.c loads the assets pack into the board's memory, and the chips' mirrors
+runtime/src/extract.c   the first run: the player's ROM set (rom_set.c: a .zip, inflate.c, or a folder,
+                        each file by its CRC32) into the assets pack, the pieces pack_layout.c lists
+                        (make_pack.py --layout writes it: positions only)
 tools/bisect_code.py    finds the bytes of the code a scenario still reads as data (assets.json's
                         read_as_data takes them), against the reference at a frame
 tools/asset_formats.py  the board's data formats to standard files (PNG, WAV) and back
