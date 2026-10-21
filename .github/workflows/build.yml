@@ -83,6 +83,9 @@ jobs:
           if [ -f ports/sdl2/prompts/License.txt ]; then
             cp ports/sdl2/prompts/License.txt dist/segasonic/licenses/Kenney-Input-Prompts.txt
           fi
+          if [ -f docs/package/README.txt ]; then
+            cp docs/package/README.txt dist/segasonic/README.txt    # (what the package holds, for its player)
+          fi
           if [ "$RUNNER_OS" = macOS ]; then
             for app in dist/segasonic/*.app; do
               codesign --force --deep --sign - "$app"
