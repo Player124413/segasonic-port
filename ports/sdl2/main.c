@@ -55,6 +55,7 @@
 #define PLAYERS            3
 #define OUTPUT_RATE        48000
 #define QUEUE_FRAMES_MAX   6          /* audio queued beyond this many frames is dropped */
+#define ASSETS_FILE        "segasonic.assets"    /* the game's assets pack (tools/make_pack.py) */
 
 static const double FM_RATE = S32_SOUND_CLOCK / 144.0;
 static const double PCM_RATE = S32_PCM_CLOCK / 384.0;
@@ -487,23 +488,47 @@ static int fail(const char *what, const char *detail)
 	return 1;
 }
 
+/* Where the game keeps what it writes (its settings, the EEPROM): beside the executable on Windows, as it
+   always was; elsewhere the user's own folder for the game (SDL_GetPrefPath: ~/.local/share/SegaSonic,
+   ~/Library/Application Support/SegaSonic), as the executable's may not be written (an .app, /usr/bin).
+   The caller frees it (SDL_free) */
+static char *saves_folder(void)
+{
+#ifdef _WIN32
+	return SDL_GetBasePath();
+#else
+	return SDL_GetPrefPath("", "SegaSonic");
+#endif
+}
+
+/* The assets pack: beside the executable, else in the folder of what the game keeps */
+static game_data_result load_assets(const char *base, const char *saves, char *path, size_t size)
+{
+	game_data_result result;
+
+	snprintf(path, size, "%s" ASSETS_FILE, base ? base : "");
+	result = game_data_load(path);
+	if (result != GAME_DATA_MISSING || !saves)
+		return result;
+	snprintf(path, size, "%s" ASSETS_FILE, saves);
+	return game_data_load(path);
+}
+
 int main(int argc, char **argv)
 {
 	SDL_AudioSpec wanted;
 	char settings_path[1024], assets_path[1024];
-	char *base;
+	char *base, *saves;
 
 	(void)argc;
 	(void)argv;
 	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_GAMECONTROLLER) != 0)
 		return fail("SDL could not start.", SDL_GetError());
-	/* what the game keeps goes beside the executable */
 	base = SDL_GetBasePath();
-	snprintf(settings_path, sizeof(settings_path), "%ssonic.ini", base ? base : "");
-	snprintf(eeprom_path, sizeof(eeprom_path), "%ssonic.eeprom", base ? base : "");
-	snprintf(assets_path, sizeof(assets_path), "%ssegasonic.assets", base ? base : "");
-	SDL_free(base);
-	switch (game_data_load(assets_path))
+	saves = saves_folder();
+	snprintf(settings_path, sizeof(settings_path), "%ssonic.ini", saves ? saves : "");
+	snprintf(eeprom_path, sizeof(eeprom_path), "%ssonic.eeprom", saves ? saves : "");
+	switch (load_assets(base, saves, assets_path, sizeof(assets_path)))
 	{
 	case GAME_DATA_LOADED:
 		break;
@@ -512,6 +537,8 @@ int main(int argc, char **argv)
 	default:
 		return fail("The game's assets cannot be read.", assets_path);
 	}
+	SDL_free(base);
+	SDL_free(saves);
 	settings_open(settings_path);
 	shown_scale = settings.window_scale;
 	window = SDL_CreateWindow("SegaSonic The Hedgehog", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
