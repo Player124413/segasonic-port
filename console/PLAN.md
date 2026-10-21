@@ -77,16 +77,24 @@ Done:
 - Start pauses the stage's events too (the scenes the game plays in it: the seesaw's, ...).
 - Debug: F7 and F8 move the camera to the stage's section before or after (the game's unused scroll skip).
 
-Next (in this order unless Sebas says otherwise; 20-10-2026: the game is the C and its assets first, in
-segasonic-decomp, then the release):
-1. The C's data through names, in segasonic-decomp: the 1137 reads through ROM addresses (rom_reads in
+Done 20-10-2026 (segasonic-decomp first, merged here):
+- No executable carries the ROM: the game loads segasonic.assets, the reference reads rom/ (0883c7c).
+- Linux x64 (GCC), macOS universal (Clang, an .app) and Windows x64 build on GitHub Actions with no ROM
+  set, SDL2 inside the executables (SEGASONIC_STATIC_SDL2), a package each; what the game writes goes to
+  the user's folder outside Windows (SDL_GetPrefPath).
+- The first run: with no pack, sonic.zip beside the game or dropped on its window (Kenney Mini letters)
+  becomes the pack, checked by CRC32, the same byte for byte as make_pack.py's; the ROM set is never
+  opened again.
+
+Next (in this order unless Sebas says otherwise):
+1. Linux checked 1:1 here (WSL: build-essential cmake ninja-build libsdl2-dev need Sebas's sudo): the 98
+   scenarios against the references, with check_scenarios.py --bin; macOS played by someone with a Mac.
+2. The release for Quiver Launcher: the port's README (crediting Kenney's Input Prompts and Fonts), a
+   neutral icon of ours for the .exe and the .app (the window's comes from the game's assets), the CI's
+   packages as a GitHub release.
+3. The C's data through names, in segasonic-decomp: the 1137 reads through ROM addresses (rom_reads in
    tools/noise_report.py: ROM8/16/32, mostly pointers that walk records, scripts and texts) become tables
    and structures with names and types over the loaded assets, as the work RAM's variables are.
-2. The first run in C: the player's sonic.zip (checked by CRC, this version of the set) to the assets pack,
-   so the release needs no Python; the game never opens the ROM again.
-3. Linux and macOS builds (GCC and Clang, SDL2 inside; GitHub Actions, as there is no Mac here), then one
-   SegaSonic.exe with SDL2 inside, the port's README (crediting Kenney's Input Prompts) and a release for
-   Quiver Launcher, with a neutral icon of ours (the window's comes from the game's assets).
 4. Achievements: our own, defined on the game's memory as RetroAchievements does (the work RAM is the
    original's, byte for byte); RetroAchievements itself only runs in the emulators it approves.
 5. The bitmap layer in the ice and tower stages' dark parts: the original leaves it on, 8 bits a pixel, over
