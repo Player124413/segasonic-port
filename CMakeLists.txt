@@ -21,6 +21,12 @@ endforeach()
 if(MSVC)
 	add_compile_options(/W3 /utf-8)
 	add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
+	# The releases (SEGASONIC_STATIC_SDL2, below) carry the C runtime in the executables too: they need no
+	# Visual C++ redistributable on the player's machine
+	if(SEGASONIC_STATIC_SDL2)
+		set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+		set(CMAKE_POLICY_DEFAULT_CMP0091 NEW)    # (SDL2's targets too)
+	endif()
 endif()
 
 # System 32 board model: part of the game (sound.c is the Z80's side of the board, video.c draws the frames,
@@ -148,6 +154,7 @@ if(SONIC_DECOMPILED)
 		set(SDL_SHARED OFF CACHE BOOL "" FORCE)
 		set(SDL_STATIC ON CACHE BOOL "" FORCE)
 		set(SDL_TEST OFF CACHE BOOL "" FORCE)
+		set(SDL_FORCE_STATIC_VCRT ON CACHE BOOL "" FORCE)    # (MSVC: the C runtime inside, as the game's)
 		FetchContent_MakeAvailable(SDL2)
 		set(SONIC_SDL2 SDL2::SDL2-static)
 		set(SDL2_FOUND TRUE)
