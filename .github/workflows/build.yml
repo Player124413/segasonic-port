@@ -1,8 +1,9 @@
 # Name:        build.yml
 # Description: builds the game on clean machines with no ROM set (Linux with GCC, macOS with Clang,
 #              Windows with MSVC), SDL2 inside the executables, and packs what a player runs: the
-#              executables only, which load the player's assets pack
-# Version:     0.2.0
+#              executables only, which load the player's assets pack, with their licenses; a tag v* makes
+#              a release of those packages
+# Version:     0.3.0
 # Created:     20-10-2026
 # Modified:    21-10-2026
 # Author:      Sebastian Toyos
@@ -60,18 +61,35 @@ jobs:
         run: cmake --build build/cmake --config Release --parallel
 
       # what a player runs (no headless runs, no build leftovers), in an archive of our own: the artifacts'
-      # zip loses the executables' permissions
+      # zip loses the executables' permissions. With it, the terms the executables come with: the project's,
+      # MAME's and ymfm's (BSD-3: the board's libraries follow their behavior and tables), SDL2's (zlib) and
+      # Kenney's (CC0). The .apps are signed ad hoc (no certificate): macOS then offers to open them anyway,
+      # where a bundle signed in part is "damaged"
       - name: Pack
         shell: bash
         run: |
-          mkdir -p dist/segasonic
+          mkdir -p dist/segasonic/licenses
           for file in build/bin/*; do
             case "$(basename "$file")" in
               *headless*|*.pdb|*.ilk|*.exp|*.lib|*.a) ;;
               *) cp -R "$file" dist/segasonic/ ;;
             esac
           done
-          ls -la dist/segasonic
+          cp LICENSE dist/segasonic/LICENSE.txt
+          cp tools/reference/mame/LICENSE dist/segasonic/licenses/MAME.txt
+          cp tools/reference/ymfm/LICENSE dist/segasonic/licenses/ymfm.txt
+          cp build/cmake/_deps/sdl2-src/LICENSE.txt dist/segasonic/licenses/SDL2.txt
+          cp ports/sdl2/font/License.txt dist/segasonic/licenses/Kenney-Fonts.txt
+          if [ -f ports/sdl2/prompts/License.txt ]; then
+            cp ports/sdl2/prompts/License.txt dist/segasonic/licenses/Kenney-Input-Prompts.txt
+          fi
+          if [ "$RUNNER_OS" = macOS ]; then
+            for app in dist/segasonic/*.app; do
+              codesign --force --deep --sign - "$app"
+              codesign --verify --deep --strict --verbose=2 "$app"
+            done
+          fi
+          ls -la dist/segasonic dist/segasonic/licenses
           cd dist
           case "$RUNNER_OS" in
             Linux) tar czf segasonic-${{ matrix.name }}.tar.gz segasonic ;;
@@ -87,3 +105,27 @@ jobs:
           path: |
             dist/segasonic-${{ matrix.name }}.*
             dist/segasonic-${{ matrix.name }}-all.tar.gz
+
+  # A tag v*: the packages as a GitHub release, its notes from docs/releases/TAG.md
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: segasonic-*
+          path: dist
+          merge-multiple: true
+
+      - name: Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --verify-tag \
+            --title "SegaSonic $GITHUB_REF_NAME" --notes-file "docs/releases/$GITHUB_REF_NAME.md" \
+            dist/segasonic-windows-x64.zip dist/segasonic-linux-x64.tar.gz dist/segasonic-macos-universal.zip
