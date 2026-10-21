@@ -158,8 +158,10 @@ Without SDL2 only the headless builds are made.
    ```
 
    The executable can be copied anywhere with SDL2's library beside it (`SDL2.dll` on Windows, which the
-   build puts next to it) and the assets pack (`segasonic.assets`). The executable holds nothing of the
-   game's; the pack is made from your ROM: it is yours, not one to share.
+   build puts next to it) and the assets pack (`segasonic.assets`), which the game also finds in the folder
+   where it keeps what it writes (below). The executable holds nothing of the game's; the pack is made from
+   your ROM: it is yours, not one to share. On Linux and macOS the build needs the system's SDL2
+   (`libsdl2-dev`, Homebrew's `sdl2`); with no ROM set it makes the executables alone.
 
    Or run the game without a window, here with the controls of a one-player game:
 
@@ -187,11 +189,13 @@ The mouse turns a trackball as the arcade's does: the ball turns with the mouse 
 or is lifted, rolls on and slows down; the right button holds it. Each game controller is a player: the
 left stick is the trackball, A the button, Start the start and Back a coin.
 
-The window's settings are in `sonic.ini`, beside the executable, written with every setting and what it
+The game keeps what it writes beside the executable on Windows, and elsewhere in the user's folder for it
+(`~/.local/share/SegaSonic` on Linux, `~/Library/Application Support/SegaSonic` on macOS). The window's
+settings are in `sonic.ini` there, written with every setting and what it
 does the first time the game runs: the mouse's speed and how the ball rolls on, the keys' and the
 stick's speed, the window's scale, full screen, smooth pixels and the volume. The game reads the file again
 whenever it is saved while the game runs, and the keys above write what they change into it. The game's own
-settings and bookkeeping (the EEPROM) are kept in `sonic.eeprom`, beside the executable too.
+settings and bookkeeping (the EEPROM) are kept in `sonic.eeprom`, there too.
 
 ### Changing the decompilation
 
