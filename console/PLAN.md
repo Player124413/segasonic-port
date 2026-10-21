@@ -86,12 +86,23 @@ Done 20-10-2026 (segasonic-decomp first, merged here):
   becomes the pack, checked by CRC32, the same byte for byte as make_pack.py's; the ROM set is never
   opened again.
 
+Done 21-10-2026:
+- Linux checked 1:1 in WSL (Ubuntu 24.04, GCC 13 and Clang 18, no warnings), segasonic-decomp and this port:
+  the 98 scenarios match the references frame by frame (board, picture, sound; check_scenarios.py --bin
+  --out, the references copied); the console build's runs the same as on Windows (the screenshots' runs to
+  frame 3600: the menus, STAGE SELECT, three players, WIDE); the first run's pack the same byte for byte, from
+  the folder and from a deflated .zip. CMake had taken the Windows SDL2 package on Linux in a tree shared
+  with WSL: only on Windows now (segasonic-decomp 8356205).
+- The first run on macOS looks beside the .app too (the base is its Resources folder; 3761a47).
+- The README for players: download, the first run, the console version, the controls, the files; the
+  decompilation by a link to segasonic-decomp. Its screenshots are the console build with WIDE, made by
+  tools/make_screenshots.py on segasonic_console_headless, whose --actions presses the console's actions.
+
 Next (in this order unless Sebas says otherwise):
-1. Linux checked 1:1 here (WSL: build-essential cmake ninja-build libsdl2-dev need Sebas's sudo): the 98
-   scenarios against the references, with check_scenarios.py --bin; macOS played by someone with a Mac.
-2. The release for Quiver Launcher: the port's README (crediting Kenney's Input Prompts and Fonts), a
-   neutral icon of ours for the .exe and the .app (the window's comes from the game's assets), the CI's
-   packages as a GitHub release.
+1. macOS played by someone with a Mac: the CI's segasonic-macos-universal (unsigned: right click → Open, or
+   Open Anyway), the first run with sonic.zip beside the .app and dropped on the window, WIDE, a controller.
+2. The release for Quiver Launcher: a neutral icon of ours for the .exe and the .app (the window's comes from
+   the game's assets), the CI's packages as a GitHub release (the README's Download says they will be there).
 3. The C's data through names, in segasonic-decomp: the 1137 reads through ROM addresses (rom_reads in
    tools/noise_report.py: ROM8/16/32, mostly pointers that walk records, scripts and texts) become tables
    and structures with names and types over the loaded assets, as the work RAM's variables are.
@@ -101,5 +112,3 @@ Next (in this order unless Sebas says otherwise):
    video RAM's start, where the tilemaps' pages are, and MAME draws them as rows of dots (the arcade build
    does as MAME; the console hides it). If the board does not (footage or photos of a real one), a fix for
    MAME's segas32 video.
-
-For the port's README: docs/screenshots/console_menu.png (the menu over the title, 640 x 448 like the others).

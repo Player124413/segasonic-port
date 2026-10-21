@@ -5,13 +5,13 @@
  *                 format tools/reference/s32ref uses
  *    Version:     0.1.0
  *    Created:     11-10-2026
- *    Modified:    20-10-2026
+ *    Modified:    21-10-2026
  *    Author:      Sebastian Toyos
  *
  *    license:BSD-3-Clause
  *    Usage: sonic_headless [--frames N] [--hashes FILE] [--script FILE]
  *                          [--dump-frame N --dump-dir DIR] [--video-hashes FILE] [--video-dump N ... --video-dir DIR]
- *                          [--sound-hashes FILE] [--wide] [--assets FILE] [--extract ROM_SET]
+ *                          [--sound-hashes FILE] [--wide] [--assets FILE] [--extract ROM_SET] [--actions FILE]
  *    The game's data is its assets pack (game/data.h): --assets, or segasonic.assets beside the executable.
  *    --extract first writes that pack from the player's ROM set (a .zip or a folder), as the first run does
  *    (runtime/src/extract.c). The scaffold (SEGASONIC_SCAFFOLD) runs the original code, so it reads the ROM
@@ -21,6 +21,8 @@
  *    board's video (runtime/src/video.c): the hash of each frame, and frames as BMP. --sound-hashes runs the
  *    sound board too (the decompiled sound program and the chips, runtime/src/sound_cpu.c and
  *    sound_chips.c), and writes for each frame the hash of its samples and of the sound board's memories.
+ *    --actions (the console build) presses the console's actions in the frames a file names, as the window
+ *    port's keys do: the menus, OPTIONS, the map (tools/make_screenshots.py).
  */
 #include "s32/machine.h"
 #include "s32/program.h"
@@ -40,10 +42,15 @@
 #include <stdlib.h>
 #include <string.h>
 
+#ifdef SEGASONIC_CONSOLE
+#define USAGE_ACTIONS " [--actions FILE]"
+#else
+#define USAGE_ACTIONS ""
+#endif
 #define USAGE "Usage: sonic_headless [--frames N] [--hashes FILE] [--script FILE]" \
 	" [--dump-frame N --dump-dir DIR] [--video-hashes FILE] [--video-dump N ... --video-dir DIR]" \
 	" [--sound-hashes FILE] [--sprite-census FILE] [--tile-census FILE] [--memory-census FILE] [--wide]" \
-	" [--assets FILE] [--extract ROM_SET]\n"
+	" [--assets FILE] [--extract ROM_SET]" USAGE_ACTIONS "\n"
 #define ASSETS_FILE "segasonic.assets"
 #define MAX_VIDEO_DUMPS 64
 #define CENSUS_SLOTS (1u << 20)
@@ -232,11 +239,105 @@ static void on_frame_done(void)
 		longjmp(finished, 1);
 }
 
+#ifdef SEGASONIC_CONSOLE
+/* --actions: the console's actions (console_actions.h) a file presses, as the window port's keys do, one a
+   line: "FRAME ACTION [FRAMES]", FRAME a frame number or +N for N frames after the previous line, held FRAMES
+   frames (1 by default) and pressed on the first; '#' starts a comment */
+#define MAX_ACTION_EVENTS 1024
+
+static struct
+{
+	uint64_t frame, frames;
+	console_action action;
+} action_events[MAX_ACTION_EVENTS];
+static int action_event_count;
+
+static const char *const action_names[ACTIONS] = { "up", "down", "left", "right", "accept", "back", "start", "jump" };
+
+static bool load_actions(const char *path)
+{
+	FILE *input = fopen(path, "r");
+	char line[256];
+	uint64_t previous = 0;
+	int number = 0;
+
+	if (!input)
+	{
+		fprintf(stderr, "%s: cannot be read\n", path);
+		return false;
+	}
+	while (fgets(line, sizeof(line), input))
+	{
+		char when[32], name[32];
+		unsigned long long frames = 1;
+		char *comment = strchr(line, '#');
+		int fields, action = 0;
+
+		number++;
+		if (comment)
+			*comment = '\0';
+		fields = sscanf(line, "%31s %31s %llu", when, name, &frames);
+		if (fields <= 0)
+			continue;
+		while (fields >= 2 && action < ACTIONS && strcmp(name, action_names[action]) != 0)
+			action++;
+		if (fields < 2 || action == ACTIONS || frames == 0 || action_event_count == MAX_ACTION_EVENTS)
+		{
+			fprintf(stderr, "%s:%d: not an action line\n", path, number);
+			fclose(input);
+			return false;
+		}
+		previous = when[0] == '+' ? previous + strtoull(when + 1, NULL, 10) : strtoull(when, NULL, 10);
+		action_events[action_event_count].frame = previous;
+		action_events[action_event_count].frames = frames;
+		action_events[action_event_count].action = (console_action)action;
+		action_event_count++;
+	}
+	fclose(input);
+	return true;
+}
+
+static bool actions_hold_start, actions_hold_button;    /* player 1's start and button, held by the actions */
+
+/* The frame's actions, as the window port hands them over (ports/sdl2/main.c): start is player 1's start
+   button too outside a game (or with their start prompt up), jump their button */
+static void apply_actions(uint64_t frame)
+{
+	uint32_t pressed = 0, held = 0;
+	bool start, button;
+
+	for (int index = 0; index < action_event_count; index++)
+		if (frame >= action_events[index].frame && frame - action_events[index].frame < action_events[index].frames)
+		{
+			held |= ACTION_BIT(action_events[index].action);
+			if (frame == action_events[index].frame)
+				pressed |= ACTION_BIT(action_events[index].action);
+		}
+	start = (held & ACTION_BIT(ACTION_START)) && (!console_in_game() || console_start_prompted(0));
+	button = (held & ACTION_BIT(ACTION_JUMP)) != 0;
+	/* (the ports are active low; a button the actions held is released when they let go of it) */
+	if (start)
+		s32_board.input.port_e &= (uint8_t)~0x10u;
+	else if (actions_hold_start)
+		s32_board.input.port_e |= 0x10u;
+	if (button)
+		s32_board.input.port_a &= (uint8_t)~0x01u;
+	else if (actions_hold_button)
+		s32_board.input.port_a |= 0x01u;
+	actions_hold_start = start;
+	actions_hold_button = button;
+	if (!console_in_game() && (pressed & ACTION_BIT(ACTION_BACK)))
+		console_back();
+	console_actions(pressed, held);
+}
+#endif
+
 static void on_controls_update(void)
 {
 	/* VBLANK of the board's frame is starting */
 	s32_script_apply(script, s32_board.frame);
 #ifdef SEGASONIC_CONSOLE
+	apply_actions(s32_board.frame);
 	if (wide_video)
 		s32_video_set_wide(console_wide_now());    /* (as the console's port does: the stages wider) */
 #endif
@@ -277,6 +378,13 @@ int main(int argc, char **argv)
 			video_dumps[video_dump_count++] = strtoull(argv[++index], NULL, 10);
 		else if (strcmp(argv[index], "--wide") == 0)
 			wide_video = true;
+#ifdef SEGASONIC_CONSOLE
+		else if (strcmp(argv[index], "--actions") == 0 && index + 1 < argc)
+		{
+			if (!load_actions(argv[++index]))
+				return 1;
+		}
+#endif
 		else if (strcmp(argv[index], "--video-dir") == 0 && index + 1 < argc)
 			video_dir = argv[++index];
 		else if (strcmp(argv[index], "--sound-hashes") == 0 && index + 1 < argc)
