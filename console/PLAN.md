@@ -101,8 +101,10 @@ Done 21-10-2026:
 Next (in this order unless Sebas says otherwise):
 1. macOS played by someone with a Mac: the CI's segasonic-macos-universal (unsigned: right click → Open, or
    Open Anyway), the first run with sonic.zip beside the .app and dropped on the window, WIDE, a controller.
-2. The release for Quiver Launcher: a neutral icon of ours for the .exe and the .app (the window's comes from
-   the game's assets), the CI's packages as a GitHub release (the README's Download says they will be there).
+2. Quiver Launcher: v1.0.0 is released (a tag v* makes the release from the CI's packages, its notes in
+   docs/releases/; the packages carry their licenses, the C runtime on Windows, the .apps signed ad hoc).
+   Next a neutral icon of ours for the .exe and the .app (the window's comes from the game's assets), in the
+   next release; then Sebas submits it to Quiver (its account), with a description and screenshots from here.
 3. The C's data through names, in segasonic-decomp: the 1137 reads through ROM addresses (rom_reads in
    tools/noise_report.py: ROM8/16/32, mostly pointers that walk records, scripts and texts) become tables
    and structures with names and types over the loaded assets, as the work RAM's variables are.

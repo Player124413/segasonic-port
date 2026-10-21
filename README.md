@@ -25,20 +25,21 @@ executable carries the ROM or anything from it.
 
 ### Download
 
-Every change is built for **Windows** (x64), **Linux** (x64) and **macOS** (Apple silicon and Intel, one
-app) by [GitHub Actions](https://github.com/cheviman/segasonic-port/actions): each run's artifacts hold a
-package per system (`segasonic-windows-x64`, `segasonic-linux-x64`, `segasonic-macos-universal`), and the
-[releases](https://github.com/cheviman/segasonic-port/releases) will carry them. Unpack it anywhere:
+The [latest release](https://github.com/cheviman/segasonic-port/releases/latest) has a package for
+**Windows** (x64), **Linux** (x64) and **macOS** (Apple silicon and Intel, one app); every change to the
+code is built the same way by [GitHub Actions](https://github.com/cheviman/segasonic-port/actions), whose
+runs keep the packages as artifacts. Unpack it anywhere:
 
 | Package | What is in it |
 |---|---|
-| Windows `.zip` | `SegaSonic.exe` (the console version), `sonic.exe` (the arcade one), and the pictures the window draws its letters and controls with |
-| Linux `.tar.gz` | `SegaSonic`, `sonic` and the same pictures |
-| macOS `.zip` | `SegaSonic.app` and `sonic.app` |
+| Windows `segasonic-windows-x64.zip` | `SegaSonic.exe` (the console version), `sonic.exe` (the arcade one), and the pictures the window draws its letters and controls with |
+| Linux `segasonic-linux-x64.tar.gz` | `SegaSonic`, `sonic` and the same pictures |
+| macOS `segasonic-macos-universal.zip` | `SegaSonic.app` and `sonic.app` |
 
-SDL2 is built into the executables: nothing else to install. The macOS apps are not signed: the first time,
-open one with right click → Open (on macOS 15 and later, try to open it, then System Settings → Privacy &
-Security → Open Anyway).
+Each has the licenses of what the executables contain (`LICENSE.txt`, `licenses/`). SDL2 and the C runtime
+are built into the executables: nothing else to install. The macOS apps are not signed by a developer: the
+first time, open one with right click → Open (on macOS 15 and later, try to open it, then System Settings →
+Privacy & Security → Open Anyway).
 
 ### The first run
 
