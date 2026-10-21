@@ -4,7 +4,7 @@
  *                 the pace, around the same game and board the headless runs check
  *    Version:     0.1.0
  *    Created:     13-10-2026
- *    Modified:    20-10-2026
+ *    Modified:    21-10-2026
  *    Author:      Sebastian Toyos
  *
  *    license:BSD-3-Clause
@@ -30,7 +30,8 @@
  *      5, 6, 7                        coins 1-3        1, 2, 3   starts 1-3 (Enter: start 1)
  *      9                              service          F2        test (the operator's menu: 9 moves
  *                                                                  its cursor, F2 picks)
- *      Escape                         quit (the console: pause in a game, the menu closes on the title)
+ *      Escape                         quit (the console: pause in a game, which frees the mouse to be the
+ *                                     pointer; the menu closes on the title)
  *                                     F11 or Alt+Enter   full screen
  *      F3                             smooth or sharp pixels
  *      F4                             the mouse's ball rolls on, or stops with the mouse
@@ -51,8 +52,10 @@
 #include "console.h"
 #include "actions.h"
 #define FILE_NAME "segasonic"    /* the console build: SegaSonic.exe, segasonic.ini, segasonic.eeprom */
+#define WINDOW_TITLE "SegaSonic The Hedgehog"
 #else
-#define FILE_NAME "sonic"
+#define FILE_NAME "sonic"        /* the arcade build: SegaSonic Arcade.exe, sonic.ini, sonic.eeprom */
+#define WINDOW_TITLE "SegaSonic Arcade"
 #endif
 #define ASSETS_FILE "segasonic.assets"    /* the game's assets pack (tools/make_pack.py) */
 
@@ -60,6 +63,11 @@
 static bool pause_requested;
 static bool bound_now;              /* CONTROLS took a key or button this frame */
 static void run_pause(void);
+/* The mouse is player 1's trackball (held by the window, its pointer hidden) only from a click in the
+   window, until a pause: who plays with keys or a game controller keeps the pointer. The click that takes
+   it is not the button */
+static bool mouse_held;
+static bool mouse_click_taken;      /* that click, until its buttons are let go */
 #endif
 
 #include <SDL.h>
@@ -489,7 +497,7 @@ static void show_mouse_speed(void)
 {
 	char title[96];
 
-	snprintf(title, sizeof(title), "SegaSonic The Hedgehog - mouse %d%% (F5/F6), ball %s (F4)",
+	snprintf(title, sizeof(title), WINDOW_TITLE " - mouse %d%% (F5/F6), ball %s (F4)",
 		(int)lround(settings.mouse_speed * 100), settings.ball_rolls_on ? "rolls on" : "stops with the mouse");
 	SDL_SetWindowTitle(window, title);
 }
@@ -629,6 +637,10 @@ static void read_events(void)
 			case SDL_QUIT:
 				longjmp(finished, 1);
 			case SDL_MOUSEMOTION:
+#ifdef SEGASONIC_CONSOLE
+				if (!mouse_held)
+					break;
+#endif
 				/* the board's X counts the other way (MAME reverses it) */
 				hand[0] -= event.motion.xrel * settings.mouse_speed;
 				hand[1] += event.motion.yrel * settings.mouse_speed;
@@ -667,6 +679,18 @@ static void read_events(void)
 					change_mouse_speed(event.key.keysym.sym == SDLK_F6);
 				break;
 #ifdef SEGASONIC_CONSOLE
+			case SDL_MOUSEBUTTONDOWN:
+				if (!mouse_held)
+				{
+					mouse_held = true;
+					mouse_click_taken = true;
+					SDL_SetRelativeMouseMode(SDL_TRUE);
+				}
+				break;
+			case SDL_MOUSEBUTTONUP:
+				if (mouse_click_taken && SDL_GetMouseState(NULL, NULL) == 0)
+					mouse_click_taken = false;
+				break;
 			case SDL_CONTROLLERBUTTONDOWN:
 				if (console_controls_waiting() >= 0)
 				{
@@ -704,10 +728,14 @@ static void read_events(void)
 static void on_controls_update(void)
 {
 	const Uint8 *keys = SDL_GetKeyboardState(NULL);
-	const Uint32 mouse = SDL_GetMouseState(NULL, NULL);
+	Uint32 mouse = SDL_GetMouseState(NULL, NULL);
 	s32_inputs *input = &s32_board.input;
 
 	read_events();
+#ifdef SEGASONIC_CONSOLE
+	if (!mouse_held || mouse_click_taken)
+		mouse = 0;    /* (the pointer's, or the click that took the mouse) */
+#endif
 	roll_ball((mouse & SDL_BUTTON_RMASK) != 0);
 #ifndef SEGASONIC_CONSOLE
 	controls.roll_x[0] += (keys[SDL_SCANCODE_LEFT] - keys[SDL_SCANCODE_RIGHT]) * (int)lround(settings.key_roll);
@@ -898,7 +926,8 @@ static void draw_pause_picture(int *width)
 }
 
 /* The actions start or back in a stage: the game stops, its sound too, until one of them is pressed
-   again */
+   again. The mouse is the pointer again (the window's close button, another window), until a click in
+   the window takes it back */
 static void run_pause(void)
 {
 	int width;
@@ -906,6 +935,8 @@ static void run_pause(void)
 	bool paused = true;
 
 	pause_requested = false;
+	mouse_held = false;    /* (a click takes it again) */
+	SDL_SetRelativeMouseMode(SDL_FALSE);
 	if (audio)
 		SDL_PauseAudioDevice(audio, 1);
 	draw_pause_picture(&width);
@@ -1007,7 +1038,7 @@ static int fail(const char *what, const char *detail)
 
 	snprintf(message, sizeof(message), "%s\n%s", what, detail);
 	fprintf(stderr, "%s\n", message);
-	SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "SegaSonic The Hedgehog", message, NULL);
+	SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, WINDOW_TITLE, message, NULL);
 	return 1;
 }
 
@@ -1095,7 +1126,7 @@ int main(int argc, char **argv)
 #endif
 	shown_scale = settings.window_scale;
 	shown_width = picture_width();
-	window = SDL_CreateWindow("SegaSonic The Hedgehog", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+	window = SDL_CreateWindow(WINDOW_TITLE, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
 		(int)(picture_width() * window_scale_that_fits()), (int)(S32_VIDEO_HEIGHT * window_scale_that_fits()),
 		SDL_WINDOW_RESIZABLE | (settings.full_screen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0));
 #ifdef SEGASONIC_CONSOLE
@@ -1128,7 +1159,9 @@ int main(int argc, char **argv)
 		return fail("The window could not be opened.", SDL_GetError());
 	SDL_RenderSetIntegerScale(renderer, SDL_FALSE);
 	SDL_SetTextureScaleMode(texture, SDL_ScaleModeNearest);
-	SDL_SetRelativeMouseMode(SDL_TRUE);
+#ifndef SEGASONIC_CONSOLE
+	SDL_SetRelativeMouseMode(SDL_TRUE);    /* (the arcade's trackball; the console's waits for a click) */
+#endif
 	show_mouse_speed();
 
 	SDL_zero(wanted);

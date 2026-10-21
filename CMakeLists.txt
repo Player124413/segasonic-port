@@ -173,7 +173,8 @@ if(SONIC_DECOMPILED)
 		# (an .app on macOS: SDL_GetBasePath is its Resources folder)
 		add_executable(sonic WIN32 MACOSX_BUNDLE ports/sdl2/main.c ports/sdl2/settings.c ports/sdl2/first_run.c)
 		target_link_libraries(sonic PRIVATE sonic_game sonic_data ${SONIC_SDL2})
-		set_target_properties(sonic PROPERTIES MACOSX_BUNDLE_BUNDLE_NAME "SegaSonic arcade"
+		# (the arcade game beside the console one: "SegaSonic Arcade" its executable, .app and window)
+		set_target_properties(sonic PROPERTIES OUTPUT_NAME "SegaSonic Arcade" MACOSX_BUNDLE_BUNDLE_NAME "SegaSonic Arcade"
 			MACOSX_BUNDLE_GUI_IDENTIFIER io.github.cheviman.segasonic-port.arcade)
 		if(WIN32 AND NOT SEGASONIC_STATIC_SDL2)
 			add_custom_command(TARGET sonic POST_BUILD

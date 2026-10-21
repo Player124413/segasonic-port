@@ -32,11 +32,12 @@ runs keep the packages as artifacts. Unpack it anywhere:
 
 | Package | What is in it |
 |---|---|
-| Windows `segasonic-windows-x64.zip` | `SegaSonic.exe` (the console version), `sonic.exe` (the arcade one), and the pictures the window draws its letters and controls with |
-| Linux `segasonic-linux-x64.tar.gz` | `SegaSonic`, `sonic` and the same pictures |
-| macOS `segasonic-macos-universal.zip` | `SegaSonic.app` and `sonic.app` |
+| Windows `segasonic-windows-x64.zip` | `SegaSonic.exe` (the console version), `SegaSonic Arcade.exe` (the arcade one), and the pictures the window draws its letters and controls with |
+| Linux `segasonic-linux-x64.tar.gz` | `SegaSonic`, `SegaSonic Arcade` and the same pictures |
+| macOS `segasonic-macos-universal.zip` | `SegaSonic.app` and `SegaSonic Arcade.app` |
 
-Each has the licenses of what the executables contain (`LICENSE.txt`, `licenses/`). SDL2 and the C runtime
+Each has a `README.txt` that says which game is which, and the licenses of what the executables contain
+(`LICENSE.txt`, `licenses/`). SDL2 and the C runtime
 are built into the executables: nothing else to install. The macOS apps are not signed by a developer: the
 first time, open one with right click → Open (on macOS 15 and later, try to open it, then System Settings →
 Privacy & Security → Open Anyway).
@@ -83,18 +84,22 @@ the one plugged in in their turn):
 
 | Action | Player 1 | Player 2 | Player 3 | Game controller |
 |---|---|---|---|---|
-| Move (the trackball) | arrows or WASD, or the mouse | I J K L | keypad 8 4 5 6 | pad or left stick |
+| Move (the trackball) | arrows or WASD, or the mouse (after a click) | I J K L | keypad 8 4 5 6 | pad or left stick |
 | Jump, spin | Z or Space, or the left mouse button | U | keypad 0 | A |
 | Start, pause | Enter or P | 2 | 3 | Start |
 | Accept (menus) | Enter, Z or Space | U | keypad 0 | A |
 | Back (menus), pause | Escape or Backspace | O | keypad . | B |
 
+The mouse is a pointer until a click in the window makes it player 1's trackball (the pointer hides); a
+pause (Escape) gives the pointer back, and a click takes it again. Alt+F4 or Cmd+Q close the game at any
+time; the title's menu has EXIT.
+
 The window, in both versions: F11 or Alt+Enter full screen, F3 smooth or sharp pixels, F4 whether the
 mouse's ball rolls on when the mouse stops, F5 and F6 the mouse slower or faster.
 
-### The arcade version: sonic
+### The arcade version: SegaSonic Arcade
 
-`sonic` is the arcade game as the board runs it, matching MAME frame by frame: put a coin in (5), then
+`SegaSonic Arcade` is the arcade game as the board runs it, matching MAME frame by frame: put a coin in (5), then
 start (1). Player 1's controls:
 
 | Control | Keys |
@@ -105,7 +110,7 @@ start (1). Player 1's controls:
 | Service, test | 9 and F2 (in the operator's menu, 9 moves the cursor and F2 picks) |
 | Quit | Escape |
 
-The mouse turns a trackball as the arcade's does: the ball turns with the mouse and, when the mouse stops
+The mouse is always the trackball here, and turns as the arcade's does: the ball turns with the mouse and, when the mouse stops
 or is lifted, rolls on and slows down; the right button holds it. Each game controller is a player: the
 left stick is the trackball, A the button, Start the start and Back a coin.
 
@@ -117,10 +122,10 @@ Support/SegaSonic` on macOS:
 | File | What it holds |
 |---|---|
 | `segasonic.assets` | the assets pack the first run made from your ROM set |
-| `segasonic.ini`, `sonic.ini` | each version's window settings, with what each one does (the game reads the file again whenever it is saved while it runs) |
+| `segasonic.ini`, `sonic.ini` | SegaSonic's and SegaSonic Arcade's window settings, with what each one does (the game reads the file again whenever it is saved while it runs) |
 | `controls.ini` | the console version's keys and buttons, a section a player |
 | `segasonic.times` | TIME ATTACK's best times and best run |
-| `segasonic.eeprom`, `sonic.eeprom` | the game's own settings and bookkeeping, as the board's EEPROM keeps them |
+| `segasonic.eeprom`, `sonic.eeprom` | each one's game settings and bookkeeping, as the board's EEPROM keeps them |
 
 ## Building
 
@@ -148,8 +153,8 @@ the downloads are.
    cmake --build build/cmake --config Release
    ```
 
-3. Play: `build/bin/SegaSonic` (the console version) or `build/bin/sonic` (the arcade one); `.app`s on
-   macOS.
+3. Play: `build/bin/SegaSonic` (the console version) or `build/bin/SegaSonic Arcade` (the arcade one);
+   `.app`s on macOS.
 
 The build also makes the game without a window, for scripted runs (`sonic_game_headless`, and
 `segasonic_console_headless`, whose `--actions` presses the console's actions), and the tools that check
