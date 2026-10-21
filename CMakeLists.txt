@@ -138,26 +138,55 @@ if(SONIC_DECOMPILED)
 	endif()
 
 	# The game in a window (ports/sdl2): SDL2 from the system, or the development package unpacked in
-	# build/downloads/sdl2 (SDL2_DIR picks another)
-	file(GLOB SONIC_SDL2_UNPACKED ${CMAKE_SOURCE_DIR}/build/downloads/sdl2/SDL2-*/cmake)
-	find_package(SDL2 CONFIG QUIET HINTS ${SONIC_SDL2_UNPACKED})
+	# build/downloads/sdl2 (SDL2_DIR picks another), a library beside the executable; or, with
+	# SEGASONIC_STATIC_SDL2 (the releases), SDL2 built from its own source into the executable
+	option(SEGASONIC_STATIC_SDL2 "Build SDL2 from its source into the executables" OFF)
+	if(SEGASONIC_STATIC_SDL2)
+		include(FetchContent)
+		FetchContent_Declare(SDL2 GIT_REPOSITORY https://github.com/libsdl-org/SDL.git GIT_TAG release-2.32.10
+			GIT_SHALLOW TRUE)
+		set(SDL_SHARED OFF CACHE BOOL "" FORCE)
+		set(SDL_STATIC ON CACHE BOOL "" FORCE)
+		set(SDL_TEST OFF CACHE BOOL "" FORCE)
+		FetchContent_MakeAvailable(SDL2)
+		set(SONIC_SDL2 SDL2::SDL2-static)
+		set(SDL2_FOUND TRUE)
+	else()
+		file(GLOB SONIC_SDL2_UNPACKED ${CMAKE_SOURCE_DIR}/build/downloads/sdl2/SDL2-*/cmake)
+		find_package(SDL2 CONFIG QUIET HINTS ${SONIC_SDL2_UNPACKED})
+		set(SONIC_SDL2 SDL2::SDL2)
+	endif()
+	if(TARGET SDL2::SDL2main)
+		list(APPEND SONIC_SDL2 SDL2::SDL2main)
+	endif()
 	if(SDL2_FOUND)
-		add_executable(sonic WIN32 ports/sdl2/main.c ports/sdl2/settings.c)
-		target_link_libraries(sonic PRIVATE sonic_game sonic_data SDL2::SDL2 SDL2::SDL2main)
-		if(WIN32)
+		# (an .app on macOS: SDL_GetBasePath is its Resources folder)
+		add_executable(sonic WIN32 MACOSX_BUNDLE ports/sdl2/main.c ports/sdl2/settings.c)
+		target_link_libraries(sonic PRIVATE sonic_game sonic_data ${SONIC_SDL2})
+		set_target_properties(sonic PROPERTIES MACOSX_BUNDLE_BUNDLE_NAME "SegaSonic arcade"
+			MACOSX_BUNDLE_GUI_IDENTIFIER io.github.cheviman.segasonic-port.arcade)
+		if(WIN32 AND NOT SEGASONIC_STATIC_SDL2)
 			add_custom_command(TARGET sonic POST_BUILD
 				COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:SDL2::SDL2> $<TARGET_FILE_DIR:sonic>)
 		endif()
-		add_executable(SegaSonic WIN32 ports/sdl2/main.c ports/sdl2/settings.c ports/sdl2/actions.c)
-		target_link_libraries(SegaSonic PRIVATE sonic_game_console sonic_data SDL2::SDL2 SDL2::SDL2main)
-		if(WIN32)
+		add_executable(SegaSonic WIN32 MACOSX_BUNDLE ports/sdl2/main.c ports/sdl2/settings.c ports/sdl2/actions.c)
+		target_link_libraries(SegaSonic PRIVATE sonic_game_console sonic_data ${SONIC_SDL2})
+		set_target_properties(SegaSonic PROPERTIES MACOSX_BUNDLE_BUNDLE_NAME "SegaSonic"
+			MACOSX_BUNDLE_GUI_IDENTIFIER io.github.cheviman.segasonic-port)
+		if(WIN32 AND NOT SEGASONIC_STATIC_SDL2)
 			add_custom_command(TARGET SegaSonic POST_BUILD
 				COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:SDL2::SDL2> $<TARGET_FILE_DIR:SegaSonic>)
 		endif()
-		# the CONTROLS screen's key and button pictures (Kenney's Input Prompts Pixel, CC0)
-		add_custom_command(TARGET SegaSonic POST_BUILD
-			COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_SOURCE_DIR}/ports/sdl2/prompts/input_prompts.bmp
-				$<TARGET_FILE_DIR:SegaSonic>)
+		# the CONTROLS screen's key and button pictures (Kenney's Input Prompts Pixel, CC0): beside the
+		# executable, or in the .app's Resources on macOS
+		if(APPLE)
+			target_sources(SegaSonic PRIVATE ports/sdl2/prompts/input_prompts.bmp)
+			set_source_files_properties(ports/sdl2/prompts/input_prompts.bmp PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
+		else()
+			add_custom_command(TARGET SegaSonic POST_BUILD
+				COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_SOURCE_DIR}/ports/sdl2/prompts/input_prompts.bmp
+					$<TARGET_FILE_DIR:SegaSonic>)
+		endif()
 	else()
 		message(STATUS "No SDL2: the window port (sonic) is not built")
 	endif()

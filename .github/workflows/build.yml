@@ -1,7 +1,8 @@
 # Name:        build.yml
 # Description: builds the game on clean machines with no ROM set (Linux with GCC, macOS with Clang,
-#              Windows with MSVC): the executables only, which load the player's assets pack
-# Version:     0.1.0
+#              Windows with MSVC), SDL2 inside the executables, and packs what a player runs: the
+#              executables only, which load the player's assets pack
+# Version:     0.2.0
 # Created:     20-10-2026
 # Modified:    20-10-2026
 # Author:      Sebastian Toyos
@@ -20,7 +21,7 @@ jobs:
         include:
           - name: linux-x64
             os: ubuntu-24.04
-          - name: macos-arm64
+          - name: macos-universal
             os: macos-14
           - name: windows-x64
             os: windows-2022
@@ -29,34 +30,60 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: SDL2 (Linux)
+      # SDL2 is built from its source (SEGASONIC_STATIC_SDL2): on Linux it needs the headers of what it
+      # talks to (it loads the libraries themselves when the game runs)
+      - name: Tools (Linux)
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y libsdl2-dev ninja-build
-
-      - name: SDL2 (macOS)
-        if: runner.os == 'macOS'
-        run: brew install sdl2 ninja
-
-      - name: SDL2 (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
         run: |
-          New-Item -ItemType Directory -Force build/downloads/sdl2 | Out-Null
-          Invoke-WebRequest -Uri https://github.com/libsdl-org/SDL/releases/download/release-2.32.10/SDL2-devel-2.32.10-VC.zip -OutFile build/downloads/sdl2/sdl2.zip
-          Expand-Archive build/downloads/sdl2/sdl2.zip -DestinationPath build/downloads/sdl2
+          sudo apt-get update
+          sudo apt-get install -y ninja-build libasound2-dev libpulse-dev libx11-dev libxext-dev \
+            libxrandr-dev libxcursor-dev libxi-dev libxinerama-dev libxss-dev libxkbcommon-dev \
+            libwayland-dev wayland-protocols libegl1-mesa-dev libgl1-mesa-dev libudev-dev libdbus-1-dev
 
-      - name: Configure (Linux, macOS)
-        if: runner.os != 'Windows'
-        run: cmake -S . -B build/cmake -G Ninja -DCMAKE_BUILD_TYPE=Release -DSEGASONIC_REFERENCE_TOOLS=OFF
+      - name: Tools (macOS)
+        if: runner.os == 'macOS'
+        run: brew install ninja
+
+      - name: Configure (Linux)
+        if: runner.os == 'Linux'
+        run: cmake -S . -B build/cmake -G Ninja -DCMAKE_BUILD_TYPE=Release -DSEGASONIC_REFERENCE_TOOLS=OFF -DSEGASONIC_STATIC_SDL2=ON
+
+      - name: Configure (macOS, Apple silicon and Intel)
+        if: runner.os == 'macOS'
+        run: cmake -S . -B build/cmake -G Ninja -DCMAKE_BUILD_TYPE=Release -DSEGASONIC_REFERENCE_TOOLS=OFF -DSEGASONIC_STATIC_SDL2=ON "-DCMAKE_OSX_ARCHITECTURES=arm64;x86_64" -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0
 
       - name: Configure (Windows)
         if: runner.os == 'Windows'
-        run: cmake -S . -B build/cmake -DSEGASONIC_REFERENCE_TOOLS=OFF
+        run: cmake -S . -B build/cmake -DSEGASONIC_REFERENCE_TOOLS=OFF -DSEGASONIC_STATIC_SDL2=ON
 
       - name: Build
         run: cmake --build build/cmake --config Release --parallel
 
+      # what a player runs (no headless runs, no build leftovers), in an archive of our own: the artifacts'
+      # zip loses the executables' permissions
+      - name: Pack
+        shell: bash
+        run: |
+          mkdir -p dist/segasonic
+          for file in build/bin/*; do
+            case "$(basename "$file")" in
+              *headless*|*.pdb|*.ilk|*.exp|*.lib|*.a) ;;
+              *) cp -R "$file" dist/segasonic/ ;;
+            esac
+          done
+          ls -la dist/segasonic
+          cd dist
+          case "$RUNNER_OS" in
+            Linux) tar czf segasonic-${{ matrix.name }}.tar.gz segasonic ;;
+            macOS) ditto -c -k --keepParent segasonic segasonic-${{ matrix.name }}.zip ;;
+            Windows) 7z a -tzip segasonic-${{ matrix.name }}.zip segasonic ;;
+          esac
+          cd ..
+          tar czf dist/segasonic-${{ matrix.name }}-all.tar.gz -C build bin
+
       - uses: actions/upload-artifact@v4
         with:
           name: segasonic-${{ matrix.name }}
-          path: build/bin/
+          path: |
+            dist/segasonic-${{ matrix.name }}.*
+            dist/segasonic-${{ matrix.name }}-all.tar.gz
