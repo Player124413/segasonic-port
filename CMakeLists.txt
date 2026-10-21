@@ -2,7 +2,7 @@
 # Description: build of the SegaSonic runtime and its development tools
 # Version:     0.1.0
 # Created:     11-10-2026
-# Modified:    20-10-2026
+# Modified:    21-10-2026
 # Author:      Sebastian Toyos
 cmake_minimum_required(VERSION 3.20)
 project(segasonic C CXX)
@@ -120,8 +120,8 @@ if(SONIC_DECOMPILED)
 	add_executable(sonic_game_headless ports/headless/main.c)
 	target_link_libraries(sonic_game_headless PRIVATE sonic_game sonic_data)
 
-	# The game in a window (ports/sdl2): SDL2 from the system, or the development package unpacked in
-	# build/downloads/sdl2 (SDL2_DIR picks another), a library beside the executable; or, with
+	# The game in a window (ports/sdl2): SDL2 from the system, or on Windows the development package
+	# unpacked in build/downloads/sdl2 (SDL2_DIR picks another), a library beside the executable; or, with
 	# SEGASONIC_STATIC_SDL2 (the releases), SDL2 built from its own source into the executable
 	option(SEGASONIC_STATIC_SDL2 "Build SDL2 from its source into the executables" OFF)
 	if(SEGASONIC_STATIC_SDL2)
@@ -135,7 +135,10 @@ if(SONIC_DECOMPILED)
 		set(SONIC_SDL2 SDL2::SDL2-static)
 		set(SDL2_FOUND TRUE)
 	else()
-		file(GLOB SONIC_SDL2_UNPACKED ${CMAKE_SOURCE_DIR}/build/downloads/sdl2/SDL2-*/cmake)
+		set(SONIC_SDL2_UNPACKED "")
+		if(WIN32)    # (the VC package: its libraries are Windows' only, a source tree shared with WSL has it)
+			file(GLOB SONIC_SDL2_UNPACKED ${CMAKE_SOURCE_DIR}/build/downloads/sdl2/SDL2-*/cmake)
+		endif()
 		find_package(SDL2 CONFIG QUIET HINTS ${SONIC_SDL2_UNPACKED})
 		set(SONIC_SDL2 SDL2::SDL2)
 	endif()
