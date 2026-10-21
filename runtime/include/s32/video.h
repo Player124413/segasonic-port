@@ -47,6 +47,11 @@ int s32_video_side(void);
    the tilemaps use now, has no pen but 0 */
 bool s32_video_cell_blank(uint16_t cell);
 
+/* A port's own tilemap cells, drawn in place of video RAM's: by video RAM word (page << 9 | cell), the
+   cells whose mark is not 0 take their word from 'words'; NULL, none (the arcade's) */
+#define S32_VIDEO_CELLS 0x10000
+void s32_video_set_cells(const uint16_t *words, const uint8_t *marks);
+
 /* What the board calls (s32_video_init sets them): the sprite commands, and the start of VBLANK */
 void s32_video_sprites(bool erase, bool draw);
 void s32_video_draw_frame(void);

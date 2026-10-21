@@ -195,9 +195,13 @@ static int tile_pen(uint32_t tile, int x, int y)
 
 /* A pixel of a tilemap page (32 x 16 cells, 512 x 256 pixels). A cell is the tile number (13 bits, the
    bank above them), its color (bits 4-12, over the number) and its flips (bit 14 x, bit 15 y). */
+static const uint16_t *own_cell_words;    /* s32_video_set_cells */
+static const uint8_t *own_cell_marks;
+
 static uint16_t page_pixel(int page, int bank, int y, int x)
 {
-	const uint16_t cell = video_word((uint32_t)page << 9 | (uint32_t)(y >> 4) << 5 | (uint32_t)(x >> 4));
+	const uint32_t index = (uint32_t)page << 9 | (uint32_t)(y >> 4) << 5 | (uint32_t)(x >> 4);
+	const uint16_t cell = own_cell_marks && own_cell_marks[index] ? own_cell_words[index] : video_word(index);
 	const uint32_t tile = (uint32_t)bank << 13 | (cell & 0x1fff);
 	const int column = (cell & 0x4000) ? 15 - (x & 15) : (x & 15);
 	const int line = (cell & 0x8000) ? 15 - (y & 15) : (y & 15);
@@ -1299,6 +1303,12 @@ bool s32_video_cell_blank(uint16_t cell)
 		blank_tiles[tile] = index == 128 ? 1 : 2;
 	}
 	return blank_tiles[tile] == 1;
+}
+
+void s32_video_set_cells(const uint16_t *words, const uint8_t *marks)
+{
+	own_cell_words = words;
+	own_cell_marks = words ? marks : NULL;
 }
 
 void s32_video_init(const uint8_t *tiles, size_t tiles_size, const uint8_t *sprites, size_t sprites_size)

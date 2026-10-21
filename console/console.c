@@ -1033,7 +1033,10 @@ static const uint8_t level_first_stage[LEVELS] = { 0x06u, 0x08u, 0x09u, 0x0Au, 0
    2 and the test corridor, 7) */
 static const int8_t stage_level[] = { -1, -1, -1, 4, 5, 0, 0, -1, 1, 2, 3, 7, 7, 7, 7, 7, 6, 7 };
 
-static int levels_reached = 1;    /* by this session's games (1: the first level) */
+#define ENDING_LEVEL_STAGE 0x11u  /* the ending: Eggman's tower is over */
+
+static uint8_t levels_cleared;    /* the levels this session's games played to their end (1 << level) */
+static int level_in_play = -1;    /* the level of the stage this game plays (-1: none) */
 
 static bool map_open;
 static int map_step;        /* 0 its first frame, 1 its layers on, 2 fading in, 3 choosing */
@@ -1041,16 +1044,23 @@ static int map_choice;
 static int map_travel_x, map_wait_x, map_travel_y, map_wait_y;
 static uint8_t map_blink;
 
-/* A stage played in a game: its level counts as reached */
-static void note_level_reached(void)
+/* Each frame of a game: a game goes on to another level once one is over, so the level it played before
+   counts as cleared, and the ending clears Eggman's tower; a TIME ATTACK game clears none (its map starts
+   clean) */
+static void note_levels_cleared(void)
 {
-	int level;
+	const int level = stage < sizeof(stage_level) ? stage_level[stage] : -1;
 
-	if (!console_in_game() || stage >= sizeof(stage_level))
+	if (system_mode != MODE_GAME || (int8_t)game_in_progress >= 0)
+	{
+		level_in_play = -1;
 		return;
-	level = stage_level[stage];
-	if (level + 1 > levels_reached)
-		levels_reached = level + 1;
+	}
+	if (level < 0)
+		return;
+	if (level_in_play >= 0 && (level != level_in_play || stage == ENDING_LEVEL_STAGE) && !time_attack)
+		levels_cleared |= (uint8_t)(1u << level_in_play);
+	level_in_play = stage == ENDING_LEVEL_STAGE ? -1 : level;
 }
 
 /* The map's first frame, as the map screen loads it (map_intro_update, step 4): the island and Eggman's
@@ -1101,7 +1111,15 @@ static void queue_map_sprite(uint32_t block, uint16_t flags, uint16_t layer, int
 	queue_sprite_in_layer();
 }
 
-/* The markers and their numbers, a level cleared (a later one reached) in its cleared colours; the chosen
+/* The player's head (Sonic's, the ranking's portrait: about 23 x 20 pixels from its top left) where a
+   level's name points on the map, past its arrow's tip: right and down of it, left and down (3), left and
+   up (5 and 7) */
+static const int16_t map_heads[LEVELS][2] = {
+	{ 0, 0 }, { 248, 80 }, { 161, 80 }, { 171, 107 }, { 182, 65 }, { 90, 28 }, { 129, 95 }, { 51, 29 }
+};
+
+/* The markers and their numbers, a level cleared this session in its cleared colours (not in TIME ATTACK's
+   map); the chosen
    level's number and name blink, or Eggman for the opening (it has neither) */
 static void draw_map(void)
 {
@@ -1118,7 +1136,8 @@ static void draw_map(void)
 			if (group == 1 && marker + 1 == map_choice && (map_blink & MAP_BLINK) != 0u)
 				continue;
 			queue_map_sprite(block, 0xAu, entry->sprite_layer, entry->screen_x, entry->screen_y, entry->sprite_frame,
-				marker + 2 < levels_reached ? entry->cleared_palette : entry->sprite_palette);
+				!time_attack && (levels_cleared & (1u << (marker + 1))) != 0u ? entry->cleared_palette
+					: entry->sprite_palette);
 		}
 	if ((map_blink & MAP_BLINK) != 0u)
 		;
@@ -1130,11 +1149,53 @@ static void draw_map(void)
 		queue_map_sprite(block, 0xAu, name->sprite_layer, name->screen_x, name->screen_y, name->sprite_frame,
 			name->sprite_palette);
 	}
+	if (map_choice > 0)    /* (the player's head where the name's arrow points, as the map screen shows its icon) */
+		queue_map_sprite(block + MAP_SPRITE_BLOCK, 0xAu, 0u, map_heads[map_choice][0], map_heads[map_choice][1],
+			ROM16(ranking_portrait_frames[0]), ranking_portrait_palettes[0]);
 	else if (time_attack)
 		queue_map_sprite(block, 0xAu, 0u, ALL_GAME_X, ALL_GAME_Y, ALL_GAME_FRAME, MAP_NAME_PALETTE);    /* (the whole game) */
 	else
 		queue_map_sprite(block, 0x107u, 1u, MAP_EGGMAN_X, MAP_EGGMAN_Y, MAP_EGGMAN, MAP_EGGMAN_PALETTE);
 	current_object = object;
+}
+
+/* Where the map shows each choice, in the picture's pixels: the opening's (and TIME ATTACK's whole game)
+   at Eggman's console, then the 7 markers (map_marker_layouts' places are not where they show) */
+static const int16_t map_places[LEVELS][2] = {
+	{ 160, 170 }, { 266, 45 }, { 147, 98 }, { 194, 129 }, { 202, 37 }, { 131, 26 }, { 82, 130 }, { 51, 41 }
+};
+
+static void map_place(int choice, int *x, int *y)
+{
+	*x = map_places[choice][0];
+	*y = map_places[choice][1];
+}
+
+/* Where the cursor goes from map_choice one way (a step across or down, -1 or 1): the nearest place that
+   way on the map, a place off to the side counting three times; it stays when there is none (the levels'
+   order runs right to left on the island: 1 is the volcano's) */
+static int map_choice_toward(int step_x, int step_y)
+{
+	int from_x = 0, from_y = 0, choice, best = map_choice, best_score = 0;
+
+	map_place(map_choice, &from_x, &from_y);
+	for (choice = 0; choice < LEVELS; choice++)
+	{
+		int x = 0, y = 0, along, aside;
+
+		map_place(choice, &x, &y);
+		along = (x - from_x) * step_x + (y - from_y) * step_y;
+		aside = step_x != 0 ? y - from_y : x - from_x;
+		aside = aside < 0 ? -aside : aside;
+		if (choice == map_choice || along <= 0)
+			continue;
+		if (best == map_choice || along + 3 * aside < best_score)
+		{
+			best = choice;
+			best_score = along + 3 * aside;
+		}
+	}
+	return best;
 }
 
 /* Back on the map: the game ends before it began (as game over ends one), back to OPTIONS */
@@ -1177,7 +1238,13 @@ void game_mode_stage_select(uint32_t *p_count, uint32_t *p_list_cursor)
 		stage_init_flags |= 0x40u;
 		map_open = true;
 		map_step = 0;
-		map_choice = clamp(levels_reached - 1, 0, LEVELS - 1);
+		map_choice = 0;    /* (the level after the last one cleared; TIME ATTACK's map from Eggman's place) */
+		for (int level = LEVELS - 1; level >= 0 && !time_attack; level--)
+			if ((levels_cleared & (1u << level)) != 0u)
+			{
+				map_choice = clamp(level + 1, 0, LEVELS - 1);
+				break;
+			}
 		map_travel_x = map_travel_y = 0;
 		map_wait_x = map_wait_y = MENU_PAUSE;
 	}
@@ -1188,8 +1255,10 @@ void game_mode_stage_select(uint32_t *p_count, uint32_t *p_list_cursor)
 		map_step++;
 		return;
 	case 1:
+		/* (NBG0, the island and the console; not NBG2, Eggman's head, which the map screen slides in with a
+		   row scroll: one a game left drew it across the console) */
 		mem_write16(video_layer_disable, mem_read16(video_layer_disable) | 0xEu);
-		mem_write16(video_layer_disable, mem_read16(video_layer_disable) & ~5u);
+		mem_write16(video_layer_disable, mem_read16(video_layer_disable) & ~1u);
 		map_step++;
 		return;
 	case 2:
@@ -1205,8 +1274,11 @@ void game_mode_stage_select(uint32_t *p_count, uint32_t *p_list_cursor)
 		break;
 	}
 	step = cursor_step(&map_travel_x, &map_wait_x, (int16_t)trackball_1_x, ACTION_LEFT, ACTION_RIGHT);
-	step += cursor_step(&map_travel_y, &map_wait_y, (int16_t)trackball_1_y, ACTION_UP, ACTION_DOWN);
-	map_choice = clamp(map_choice + step, 0, LEVELS - 1);
+	if (step != 0)
+		map_choice = map_choice_toward(step, 0);
+	step = cursor_step(&map_travel_y, &map_wait_y, (int16_t)trackball_1_y, ACTION_UP, ACTION_DOWN);
+	if (step != 0)
+		map_choice = map_choice_toward(0, step);
 	draw_map();
 	if (!picked())
 		return;
@@ -1230,16 +1302,26 @@ void game_mode_stage_select(uint32_t *p_count, uint32_t *p_list_cursor)
 #define LAYER_CELLS_Y      32
 #define PAGE_CELLS_X       32
 #define PAGE_CELLS_Y       16
-#define MAP_LAYERS         2        /* NBG0 and NBG1 draw the stage's map (NBG2 and NBG3 its backgrounds) */
+#define MAP_LAYERS         4        /* NBG0 and NBG1 draw the stage's map; NBG2 and NBG3 its backgrounds, or
+                                       some of it (the ice stage's cliffs) */
 #define NORMAL_ZOOM        0x200
 #define PERIOD_MOST        8        /* the widest repeat of a row's cells a side goes on with */
-#define REPEATS            16       /* the repeats tried: 1 to 8 cells across, and along the slopes */
+#define NO_MIRROR          (-0x7FFF)
+#define TILE_SET_SPAN      0x40     /* how near two tiles' numbers are in one set */
+#define REPEAT_EVIDENCE    2        /* the fewest cells a row's repeat holds for, to be taken */
+#define CELL_FLIP_X        0x4000u  /* a tilemap cell's bit: its tile drawn flipped across */
+#define REPEATS            32       /* the repeats tried: 1 to 8 cells across, along the slopes, and up or down */
 #define STRIP_ROWS         16       /* a side's cells: the picture's rows (15 at most) */
 #define STRIP_CELLS        4        /* and the columns its 48 pixels touch */
 #define FILLED_MOST        1024
+#define BLOCK_PIXELS_X     512      /* stage_block_maps' blocks */
+#define BLOCK_PIXELS_Y     256
 #define SCROLL_TRAIL       64       /* the most a map layer's scroll is from the camera */
 #define SECTIONS_END       0xFFFFu  /* stage_section_ends past a stage's last section */
 #define SECTIONS_MOST      64u
+#define BEYOND_WORDS       16       /* the most words beyond_word counts */
+#define WINDOW_CELLS_X     (2 * BLOCK_PIXELS_X / CELL_PIXELS)    /* the map's blocks the pages hold */
+#define WINDOW_CELLS_Y     (2 * BLOCK_PIXELS_Y / CELL_PIXELS)
 
 typedef struct
 {
@@ -1248,14 +1330,28 @@ typedef struct
 	int map_x, map_y;      /* the map's there: the camera's */
 } map_layer;
 
-static uint32_t filled_cells[FILLED_MOST];    /* the cells the frame draws its own way */
-static uint16_t filled_words[FILLED_MOST];    /* what they held, theirs again after it */
+static uint16_t own_words[S32_VIDEO_CELLS];   /* the cells the frame draws its own way (s32_video_set_cells) */
+static uint8_t own_marks[S32_VIDEO_CELLS];
+static uint32_t own_cells[FILLED_MOST];       /* which, to unmark after it */
 static int filled_count;
+
+static uint32_t cell_index(uint32_t cell)
+{
+	return (cell - VIDEO_RAM) / 2u;
+}
+
+/* A cell's word as the frame draws it: its own, else video RAM's */
+static uint16_t shown_word(uint32_t cell)
+{
+	const uint32_t index = cell_index(cell);
+
+	return own_marks[index] ? own_words[index] : mem_read16(cell);
+}
 
 /* A cell that draws nothing (the stages leave some blank with a tile of no pens) */
 static bool cell_blank(uint32_t cell)
 {
-	return s32_video_cell_blank(mem_read16(cell));
+	return s32_video_cell_blank(shown_word(cell));
 }
 
 static uint16_t video_register_word(uint32_t offset)
@@ -1322,6 +1418,37 @@ static bool cell_ever_shown(int x, int y)
 	return false;
 }
 
+/* A cell of the map's 2 x 2 blocks the game has in the pages (update_stage_tile_layers, from the camera:
+   2 blocks of 512 pixels across from the wide picture's left edge, 2 of 256 down from its top's): the
+   pages hold nothing else of the map, past them other blocks are in their place */
+static int loaded_left(const map_layer *layer)
+{
+	return (layer->map_x >= S32_VIDEO_WIDE_SIDE ? layer->map_x - S32_VIDEO_WIDE_SIDE : layer->map_x) & ~(BLOCK_PIXELS_X - 1);
+}
+
+static int loaded_top(const map_layer *layer)
+{
+	return layer->map_y & ~(BLOCK_PIXELS_Y - 1);
+}
+
+static bool cell_loaded(const map_layer *layer, int column, int row)
+{
+	const int x = column * CELL_PIXELS - layer->base_x + layer->map_x;
+	const int y = row * CELL_PIXELS - layer->base_y + layer->map_y;
+	const int left = loaded_left(layer), top = loaded_top(layer);
+
+	return x >= left && x < left + 2 * BLOCK_PIXELS_X && y >= top && y < top + 2 * BLOCK_PIXELS_Y;
+}
+
+/* A cell within the map's width (stage_block_map_width blocks of 512 pixels from x 0): past it the pages
+   hold another end of the map, by their wrap */
+static bool cell_in_map(const map_layer *layer, int column)
+{
+	const int x = column * CELL_PIXELS - layer->base_x + layer->map_x;
+
+	return x >= 0 && x < (int)stage_block_map_width * BLOCK_PIXELS_X;
+}
+
 /* A cell the board's picture never shows (nor this frame's) */
 static bool cell_hidden(const map_layer *layer, int column, int row)
 {
@@ -1332,7 +1459,9 @@ static bool cell_hidden(const map_layer *layer, int column, int row)
 }
 
 /* The picture's sides on a layer: each side's cells (its first column, and the step outward: right 1, left
-   -1), hidden or not, and which hidden ones the frame has drawn its own way so far */
+   -1), hidden or not, and which hidden ones the frame has drawn its own way so far; and, once a cell past
+   the map's width needs them (beyond_word), the loaded blocks' cells as the map holds them, the
+   columns within the map's width from 'first' to 'end' */
 enum { CELL_SHOWN, CELL_HIDDEN, CELL_DRAWN };
 
 typedef struct
@@ -1341,13 +1470,18 @@ typedef struct
 	int top_row, rows;
 	int first[2], step[2];
 	uint8_t state[STRIP_ROWS][2][STRIP_CELLS];
+	bool window_read;
+	int window_first, window_end;
+	uint16_t window[WINDOW_CELLS_Y][WINDOW_CELLS_X];
 } side_strips;
 
 /* A repeat: a cell takes the one 'across' cells toward the picture, and up (-1) or down (1) half as many
-   along the isometric slopes */
+   along the isometric slopes; or the one so many rows up or down (a wall's bricks) */
 static const int8_t repeats[REPEATS][2] = {
 	{ 1, 0 }, { 2, 0 }, { 2, -1 }, { 2, 1 }, { 3, 0 }, { 4, 0 }, { 4, -2 }, { 4, 2 },
-	{ 5, 0 }, { 6, 0 }, { 6, -3 }, { 6, 3 }, { 7, 0 }, { 8, 0 }, { 8, -4 }, { 8, 4 }
+	{ 5, 0 }, { 6, 0 }, { 6, -3 }, { 6, 3 }, { 7, 0 }, { 8, 0 }, { 8, -4 }, { 8, 4 },
+	{ 0, -1 }, { 0, 1 }, { 0, -2 }, { 0, 2 }, { 0, -3 }, { 0, 3 }, { 0, -4 }, { 0, 4 },
+	{ 0, -5 }, { 0, 5 }, { 0, -6 }, { 0, 6 }, { 0, -7 }, { 0, 7 }, { 0, -8 }, { 0, 8 }
 };
 
 static uint8_t *strip_state(side_strips *strips, int column, int row)
@@ -1370,20 +1504,25 @@ static bool cell_known(side_strips *strips, int column, int row)
 {
 	const uint8_t *state = strip_state(strips, column, row);
 
-	return state ? *state != CELL_HIDDEN : !cell_hidden(strips->layer, column, row);
+	if (!cell_loaded(strips->layer, column, row))
+		return false;
+	if (state ? *state != CELL_HIDDEN : !cell_hidden(strips->layer, column, row))
+		return true;
+	return cell_in_map(strips->layer, column)
+		&& !s32_video_cell_blank(mem_read16(layer_cell(strips->layer, column, row)));    /* (the map's own there) */
 }
 
 /* Two cells look alike: the same word, or both blank */
 static bool cells_alike(uint32_t one, uint32_t other)
 {
-	return mem_read16(one) == mem_read16(other) || (cell_blank(one) && cell_blank(other));
+	return shown_word(one) == shown_word(other) || (cell_blank(one) && cell_blank(other));
 }
 
-/* The repeats of a row's side, best first: how many drawn cells each holds for, where the row meets the
-   side (from the cell at 'from' toward the picture, with the rows above and below) */
-static void rank_repeats(const map_layer *layer, int row, int from, int step, int *ranked)
+/* The repeats of a row's side, best first, and their scores: how many drawn cells each holds for, where
+   the row meets the side (from the cell at 'from' toward the picture, with the rows above and below) */
+static void rank_repeats(const side_strips *strips, int row, int from, int step, int *ranked, int *scores)
 {
-	int scores[REPEATS];
+	const map_layer *layer = strips->layer;
 	int repeat, line, cell, index;
 
 	for (repeat = 0; repeat < REPEATS; repeat++)
@@ -1392,10 +1531,13 @@ static void rank_repeats(const map_layer *layer, int row, int from, int step, in
 		for (line = row - 1; line <= row + 1; line++)
 			for (cell = 0; cell < PERIOD_MOST; cell++)
 			{
+				if (!cell_loaded(layer, from - step * cell, line)
+					|| !cell_loaded(layer, from - step * (cell + repeats[repeat][0]), line + repeats[repeat][1]))
+					continue;
 				const uint32_t here = layer_cell(layer, from - step * cell, line);
 
-				scores[repeat] += !cell_blank(here) && mem_read16(here)
-					== mem_read16(layer_cell(layer, from - step * (cell + repeats[repeat][0]), line + repeats[repeat][1]));
+				scores[repeat] += !cell_blank(here) && shown_word(here)
+					== shown_word(layer_cell(layer, from - step * (cell + repeats[repeat][0]), line + repeats[repeat][1]));
 			}
 		for (index = repeat; index > 0 && scores[ranked[index - 1]] < scores[repeat]; index--)
 			ranked[index] = ranked[index - 1];
@@ -1403,17 +1545,37 @@ static void rank_repeats(const map_layer *layer, int row, int from, int step, in
 	}
 }
 
-/* What a hidden cell shows: the cell its row's best repeat takes that holds for the cell beside it toward
-   the picture, and for the one above it when that is known; else the one above it again, or the one
-   beside it */
-static uint16_t hidden_word(side_strips *strips, int column, int row, int step, const int *ranked)
+/* Two cells' tiles from the same set (numbers near each other): a structure's own, not a piece of
+   somewhere else */
+static bool same_tile_set(uint16_t one, uint16_t other)
+{
+	const int distance = (int)(one & 0x1FFFu) - (int)(other & 0x1FFFu);
+
+	return distance > -TILE_SET_SPAN && distance < TILE_SET_SPAN;
+}
+
+/* What a hidden cell shows, by its repeats (repeat_word, false when none holds): its own when it draws a
+   tile of the same set as the cell beside it toward the picture; else the cell its row's best repeat takes that holds for the cell beside it toward
+   the picture, and for the ones above it and under the one beside it when those are known; else its own when it draws, blank beside a
+   blank one, an even fill beside or above it, or the texture beside it mirrored (about the row's *mirror,
+   NO_MIRROR until a cell of the row takes it) */
+static bool repeat_word(side_strips *strips, int column, int row, int step, const int *ranked, const int *scores,
+	uint16_t *word)
 {
 	const map_layer *layer = strips->layer;
 	const int inner = column - step;
 	const bool above_known = cell_known(strips, column, row - 1);
+	const uint16_t own = mem_read16(layer_cell(layer, column, row));
+	const uint16_t beside = shown_word(layer_cell(layer, inner, row));
 	int index;
 
-	for (index = 0; index < REPEATS; index++)
+	*word = own;
+	if (cell_in_map(layer, column) && !s32_video_cell_blank(own) && !s32_video_cell_blank(beside)
+		&& same_tile_set(own, beside))
+		return true;    /* (what the map holds goes on with the cell beside it: the designer's own) */
+	if (!cell_in_map(layer, inner) && !cell_known(strips, inner, row))
+		return false;    /* (the cell beside it, past the map's width, isn't drawn yet: nothing to match) */
+	for (index = 0; index < REPEATS && scores[ranked[index]] >= REPEAT_EVIDENCE; index++)
 	{
 		const int across = -step * repeats[ranked[index]][0];
 		const int down = repeats[ranked[index]][1];
@@ -1424,20 +1586,141 @@ static uint16_t hidden_word(side_strips *strips, int column, int row, int step, 
 		if (above_known && (!cell_known(strips, column + across, row - 1 + down)
 				|| !cells_alike(layer_cell(layer, column, row - 1), layer_cell(layer, column + across, row - 1 + down))))
 			continue;
-		return mem_read16(layer_cell(layer, column + across, row + down));
+		if (!cell_hidden(layer, inner, row + 1) && cell_loaded(layer, inner, row + 1)
+			&& (!cell_known(strips, inner + across, row + 1 + down)
+				|| !cells_alike(layer_cell(layer, inner, row + 1), layer_cell(layer, inner + across, row + 1 + down))))
+			continue;    /* (and the one under the cell beside it, shown: a floor's corner ends there) */
+		*word = shown_word(layer_cell(layer, column + across, row + down));
+		return true;
 	}
-	/* (none: the cell beside it is one of a kind, as a structure's end the board shows; what is above goes
-	   on down, else the cell beside it) */
-	return mem_read16(layer_cell(layer, above_known ? column : inner, above_known ? row - 1 : row));
+	return false;
 }
 
-/* A layer's sides: row by row from the top, each side's hidden cells outward take hidden_word; the cells
-   drawn are kept, with what they held, for after the frame */
+/* The loaded blocks' cells within the map's width, as the map holds them (once a layer's frame) */
+static void read_window(side_strips *strips)
+{
+	const map_layer *layer = strips->layer;
+	const int left = loaded_left(layer), top = loaded_top(layer);
+	const int column = (left + layer->base_x - layer->map_x) / CELL_PIXELS;
+	const int row = (top + layer->base_y - layer->map_y) / CELL_PIXELS;
+	const int end = ((int)stage_block_map_width * BLOCK_PIXELS_X - left) / CELL_PIXELS;
+	int line, cell;
+
+	if (strips->window_read)
+		return;
+	strips->window_read = true;
+	strips->window_first = left < 0 ? -left / CELL_PIXELS : 0;
+	strips->window_end = end < WINDOW_CELLS_X ? (end > 0 ? end : 0) : WINDOW_CELLS_X;
+	for (line = 0; line < WINDOW_CELLS_Y; line++)
+		for (cell = strips->window_first; cell < strips->window_end; cell++)
+			strips->window[line][cell] = mem_read16(layer_cell(layer, column + cell, row + line));
+}
+
+/* A cell past the map's width (the pages hold another end of it there): what the map draws next where it
+   holds the same run as the row's cells toward the picture, up to the map's edge (the most often so, of the
+   ones that draw); else the same for a shorter run of them; nothing beside a blank one, or when the map never
+   holds even the cell beside it: a wall's bricks go on as the designer laid them */
+static uint16_t beyond_word(side_strips *strips, int column, int row, int step)
+{
+	const map_layer *layer = strips->layer;
+	const int x = column * CELL_PIXELS - layer->base_x + layer->map_x;
+	const int beyond = (step < 0 ? -x : x - (int)stage_block_map_width * BLOCK_PIXELS_X) / CELL_PIXELS + (step > 0);
+	uint16_t keys[STRIP_CELLS + 1];
+	uint16_t words[BEYOND_WORDS];
+	int counts[BEYOND_WORDS];
+	int run, found, best, line, cell, index;
+
+	if (beyond < 1 || cell_blank(layer_cell(layer, column - step, row)))
+		return 0u;    /* (a structure ends there) */
+	read_window(strips);
+	for (index = 1; index <= beyond && index <= STRIP_CELLS; index++)
+		keys[index] = shown_word(layer_cell(layer, column - step * index, row));
+	for (run = beyond < STRIP_CELLS ? beyond : STRIP_CELLS; run > 0; run--)
+	{
+		found = 0;
+		best = -1;
+		for (line = 0; line < WINDOW_CELLS_Y; line++)
+			for (cell = strips->window_first; cell < strips->window_end; cell++)
+			{
+				for (index = 1; index <= run; index++)
+				{
+					const int other = cell - step * index;
+
+					if (other < strips->window_first || other >= strips->window_end
+						|| strips->window[line][other] != keys[index])
+						break;
+				}
+				if (index <= run || s32_video_cell_blank(strips->window[line][cell]))
+					continue;    /* (where the run ends in the map, it ends: past the map it goes on) */
+				for (index = 0; index < found && words[index] != strips->window[line][cell]; index++)
+					;
+				if (index == found && found == BEYOND_WORDS)
+					continue;
+				if (index == found)
+				{
+					words[found] = strips->window[line][cell];
+					counts[found++] = 0;
+				}
+				counts[index]++;
+				if (best < 0 || counts[index] > counts[best])
+					best = index;
+			}
+		if (best >= 0)
+			return words[best];
+	}
+	return 0u;
+}
+
+static uint16_t hidden_word(side_strips *strips, int column, int row, int step, const int *ranked, const int *scores,
+	int *mirror)
+{
+	const map_layer *layer = strips->layer;
+	const int inner = column - step;
+	const bool above_known = cell_known(strips, column, row - 1);
+	const uint16_t own = mem_read16(layer_cell(layer, column, row));
+	uint16_t word = 0;
+
+	if (repeat_word(strips, column, row, step, ranked, scores, &word))
+		return word;
+	if (!cell_in_map(layer, column))
+		return beyond_word(strips, column, row, step);    /* (past the map's width, a repeat or what it draws so) */
+	/* (none: the row is one of a kind there, a picture, a texture with no repeat or a structure's end the
+	   board shows. What the map holds there, when it draws: the picture goes on. Else nothing where the
+	   cell beside it is blank (structures end); an even fill beside or above it goes on (the cell beside
+	   it as the one over that, or two alike above: lava past a floor's end); else, where the map is cut
+	   straight across (the cell beside it drawing above and under too), the texture beside it mirrored,
+	   about the row's first cell so taken (flipped across: rocks at the map's edge, whose top goes on with
+	   no step); else nothing (a structure's corner ends there)) */
+	if (!s32_video_cell_blank(mem_read16(layer_cell(layer, column, row))))
+		return mem_read16(layer_cell(layer, column, row));
+	if (cell_blank(layer_cell(layer, inner, row)))
+		return shown_word(layer_cell(layer, inner, row));
+	if (cell_known(strips, inner, row - 1)
+		&& shown_word(layer_cell(layer, inner, row - 1)) == shown_word(layer_cell(layer, inner, row)))
+		return shown_word(layer_cell(layer, inner, row));
+	if (above_known && !cell_blank(layer_cell(layer, column, row - 1)) && (!cell_known(strips, column, row - 2)
+			|| shown_word(layer_cell(layer, column, row - 2)) == shown_word(layer_cell(layer, column, row - 1))))
+		return shown_word(layer_cell(layer, column, row - 1));
+	if (cell_blank(layer_cell(layer, inner, row - 1)) || cell_blank(layer_cell(layer, inner, row + 1)))
+		return own;    /* (a structure's edge or corner, not the map cut across it: it ends there) */
+	if (*mirror == NO_MIRROR)
+		*mirror = column;
+	{
+		const int source = *mirror - step * ((column - *mirror) * step + 1);
+
+		if (cell_known(strips, source, row))
+			return (uint16_t)(shown_word(layer_cell(layer, source, row)) ^ CELL_FLIP_X);
+	}
+	return shown_word(layer_cell(layer, inner, row));
+}
+
+/* A layer's sides, twice row by row from the top: each side's hidden cells outward take their repeats
+   (repeat_word), then the ones left hidden_word, as the frame's own cells (kept, to unmark after it) */
 static void fill_sides(const map_layer *layer)
 {
 	side_strips strips;
-	int ranked[REPEATS];
-	int row, side, cell, first_hidden;
+	int ranked[REPEATS], scores[REPEATS];
+	int pass, row, side, cell, first_hidden, mirror;
 
 	memset(&strips, 0, sizeof(strips));
 	strips.layer = layer;
@@ -1452,6 +1735,7 @@ static void fill_sides(const map_layer *layer)
 			for (cell = 0; cell < STRIP_CELLS; cell++)
 				strips.state[row][side][cell] = cell_hidden(layer, strips.first[side] + strips.step[side] * cell,
 					strips.top_row + row) ? CELL_HIDDEN : CELL_SHOWN;
+	for (pass = 0; pass < 2; pass++)
 	for (row = 0; row < strips.rows; row++)
 		for (side = 0; side < 2; side++)
 		{
@@ -1462,7 +1746,9 @@ static void fill_sides(const map_layer *layer)
 				;
 			if (first_hidden == STRIP_CELLS)
 				continue;
-			rank_repeats(layer, strips.top_row + row, strips.first[side] + step * (first_hidden - 1), step, ranked);
+			rank_repeats(&strips, strips.top_row + row, strips.first[side] + step * (first_hidden - 1), step, ranked,
+				scores);
+			mirror = NO_MIRROR;
 			for (cell = first_hidden; cell < STRIP_CELLS && filled_count < FILLED_MOST; cell++)
 			{
 				const int column = strips.first[side] + step * cell;
@@ -1471,38 +1757,67 @@ static void fill_sides(const map_layer *layer)
 
 				if (strips.state[row][side][cell] != CELL_HIDDEN)
 					continue;
-				word = hidden_word(&strips, column, strips.top_row + row, step, ranked);
-				filled_cells[filled_count] = address;
-				filled_words[filled_count++] = mem_read16(address);
-				mem_write16(address, word);
+				if (pass == 0 && !repeat_word(&strips, column, strips.top_row + row, step, ranked, scores, &word))
+					continue;    /* (the first pass: repeats alone, so a row can take from the rows under it) */
+				if (pass == 1)
+					word = hidden_word(&strips, column, strips.top_row + row, step, ranked, scores, &mirror);
+				if (s32_video_cell_blank(word) && !s32_video_cell_blank(mem_read16(address)) && cell_in_map(layer, column))
+					word = mem_read16(address);    /* (never a hole where the map draws: a background's) */
+				own_words[cell_index(address)] = word;
+				own_marks[cell_index(address)] = 1u;
+				own_cells[filled_count++] = cell_index(address);
 				strips.state[row][side][cell] = CELL_DRAWN;
 			}
 		}
 }
 
-/* Tilemap 'number' (NBG0 or NBG1) shows the stage's map when it scrolls with the camera, unzoomed and
-   unflipped */
-static bool map_layer_of(int number, map_layer *layer)
+/* Tilemap 'number' is on (registers 0x02 and 0x8E; 0x00 bits 12-13 for NBG2-3) */
+static bool tilemap_on(int number)
+{
+	return (video_register_word(0x02u) & (1u << number)) == 0u && (video_register_word(0x8Eu) & (2u << number)) == 0u
+		&& (number < 2 || (video_register_word(0x00u) & (1u << (10 + number))) == 0u);
+}
+
+/* Tilemap 'number' shows the stage's map: on, unflipped, scrolling with the camera; NBG0 and NBG1
+   unzoomed, NBG2 and NBG3 (backgrounds, or parts of the map) with no line table and as the map layer
+   'map' does exactly */
+static bool map_layer_of(int number, map_layer *layer, const map_layer *map)
 {
 	const uint16_t control = video_register_word(0x00u);
 	const uint16_t upper = video_register_word(0x40u + 4u * (uint32_t)number);
 	const uint16_t lower = video_register_word(0x42u + 4u * (uint32_t)number);
+	const uint16_t line_control = video_register_word(0x04u);
 	const int scroll_x = video_register_word(0x12u + 8u * (uint32_t)number) & 0x3FF;
 	const int scroll_y = video_register_word(0x16u + 8u * (uint32_t)number) & 0x1FF;
-	const int center_x = (int)((video_register_word(0x30u + 4u * (uint32_t)number) & 0x1FFu) ^ 0x100u) - 0x100;
-	const int center_y = (int)((video_register_word(0x32u + 4u * (uint32_t)number) & 0x1FFu) ^ 0x100u) - 0x100;
+	const uint16_t center_x_word = video_register_word(0x30u + 4u * (uint32_t)number);
+	int center_x = (int)((center_x_word & 0x1FFu) ^ 0x100u) - 0x100;
+	int center_y = (int)((video_register_word(0x32u + 4u * (uint32_t)number) & 0x1FFu) ^ 0x100u) - 0x100;
 	int offset_x = 0, offset_y = 0;
 
-	if ((control & (0x0200u | (1u << number))) != 0u
-		|| (video_register_word(0x50u + 4u * (uint32_t)number) & 0xFFFu) != NORMAL_ZOOM
-		|| ((control & 0x4000u) != 0u && (video_register_word(0x52u + 4u * (uint32_t)number) & 0xFFFu) != NORMAL_ZOOM))
+	if (!tilemap_on(number) || (control & (0x0200u | (1u << number))) != 0u)
 		return false;
+	if (number < 2 && ((video_register_word(0x50u + 4u * (uint32_t)number) & 0xFFFu) != NORMAL_ZOOM
+			|| ((control & 0x4000u) != 0u && (video_register_word(0x52u + 4u * (uint32_t)number) & 0xFFFu) != NORMAL_ZOOM)))
+		return false;
+	if (number >= 2)
+	{
+		if ((line_control & ((1u << (number - 2)) | (1u << number) | (1u << (number + 2)))) != 0u || map == NULL)
+			return false;
+		center_x = center_x_word & 0x1FF;    /* (as draw_scrolled takes it: no sign, no y) */
+		center_y = 0;
+	}
 	layer->pages[0] = upper & 0x7F;
 	layer->pages[1] = (upper >> 8) & 0x7F;
 	layer->pages[2] = lower & 0x7F;
 	layer->pages[3] = (lower >> 8) & 0x7F;
 	layer->base_x = ((scroll_x - center_x) & 0x3FF) + 1024;
 	layer->base_y = ((scroll_y - center_y) & 0x1FF) + 1024;
+	if (number >= 2)
+	{
+		layer->map_x = map->map_x;
+		layer->map_y = map->map_y;
+		return layer->base_x == map->base_x && layer->base_y == map->base_y;
+	}
 	/* (the stage's blocks go in the pages by their place in the map: a layer's pixel is the map's at the
 	   same place, wrapped; its scroll can trail the camera a little) */
 	offset_x = ((layer->base_x - (uint16_t)camera_x_pixels + 512) & 0x3FF) - 512;
@@ -1530,21 +1845,82 @@ static bool stage_map_shown(void)
 	return console_window_settings.wide && stage_drawn() && stage < 0x11u && stage != 7u;
 }
 
+#define VIDEO_PAGES        128
+#define PAGE_BYTES         0x400u
+#define BITMAP_OFF         0x0020u    /* register 0x02: the bitmap layer off */
+
+/* The bitmap layer on shows video RAM from its start, 512 pixels a row of 4 or 8 bits (register 0x00 bit
+   11), from row register 0x8A on: true when the rows on screen hold pages the tilemaps that are on or the
+   text layer read (its map and characters, register 0x5C), which it shows as dots and dashes. The
+   original leaves it so in some stages (the ice and tower ones: rows of dots where the stage is dark) */
+static bool bitmap_shows_pages(void)
+{
+	bool used[VIDEO_PAGES] = { false };
+	const uint16_t control = video_register_word(0x00u);
+	const uint16_t off = video_register_word(0x02u);
+	const uint16_t more_off = video_register_word(0x8Eu);
+	const uint16_t text = video_register_word(0x5Cu);
+	const bool bits8 = (control & 0x0800u) != 0u;
+	const int y_scroll = video_register_word(0x8Au) & 0x1FF;
+	int number, row, page;
+
+	if ((off & BITMAP_OFF) != 0u || (more_off & 0x0020u) != 0u)
+		return false;
+	for (number = 0; number < 4; number++)
+	{
+		const uint16_t upper = video_register_word(0x40u + 4u * (uint32_t)number);
+		const uint16_t lower = video_register_word(0x42u + 4u * (uint32_t)number);
+
+		if ((off & (1u << number)) != 0u || (more_off & (2u << number)) != 0u
+			|| (number >= 2 && (control & (1u << (10 + number))) != 0u))
+			continue;
+		used[upper & 0x7F] = used[(upper >> 8) & 0x7F] = used[lower & 0x7F] = used[(lower >> 8) & 0x7F] = true;
+	}
+	if ((off & 0x0010u) == 0u && (more_off & 0x0001u) == 0u)
+	{
+		for (page = 0; page < 4; page++)
+			used[(((text >> 4) & 0x1F) * 4 + page) & 0x7F] = true;
+		for (page = 0; page < 16; page++)
+			used[((text & 7) * 16 + page) & 0x7F] = true;
+	}
+	for (row = 0; row < BOARD_HEIGHT; row++)
+	{
+		const uint32_t start = bits8 ? 512u * (uint32_t)((row + y_scroll) & 0xFF) : 256u * (uint32_t)((row + y_scroll) & 0x1FF);
+
+		if (used[(start / PAGE_BYTES) & 0x7F])
+			return true;
+	}
+	return false;
+}
+
 /* The frame, with each side's cells of the map the board's camera never shows going on as the cells beside
    them: the stages are drawn as far as it looks, past it they end, or keep a piece of somewhere else. The
-   video RAM is as the game left it again once it is drawn */
+   video draws them in place of video RAM's (s32_video_set_cells), which nothing writes: the bitmap, the
+   text layer and the backgrounds read it too, some stages where the map layers' pages are. In a stage, the
+   bitmap is off while it is drawn when it would show those pages (bitmap_shows_pages) */
 void console_draw_frame(void)
 {
-	map_layer layer;
+	map_layer layers[MAP_LAYERS];
+	bool on[MAP_LAYERS] = { false };
 	int number, index;
+	const uint16_t layers_off = video_register_word(0x02u);
+	bool hide_bitmap = false;
 
 	filled_count = 0;
 	for (number = 0; number < MAP_LAYERS && stage_map_shown(); number++)
-		if (map_layer_of(number, &layer))
-			fill_sides(&layer);
+		on[number] = map_layer_of(number, &layers[number], on[1] ? &layers[1] : on[0] ? &layers[0] : NULL);
+	for (number = 0; number < MAP_LAYERS; number++)
+		if (on[number])
+			fill_sides(&layers[number]);
+	hide_bitmap = stage_drawn() && bitmap_shows_pages();
+	if (hide_bitmap)
+		mem_write16(VIDEO_REGISTERS + 0x02u, (uint16_t)(layers_off | BITMAP_OFF));
+	s32_video_set_cells(own_words, own_marks);
 	s32_video_draw_frame();
-	for (index = filled_count - 1; index >= 0; index--)
-		mem_write16(filled_cells[index], filled_words[index]);
+	if (hide_bitmap)
+		mem_write16(VIDEO_REGISTERS + 0x02u, layers_off);    /* (as the game left it) */
+	for (index = 0; index < filled_count; index++)
+		own_marks[own_cells[index]] = 0u;
 	filled_count = 0;
 }
 
@@ -1614,9 +1990,29 @@ static bool player_in_play(int player)
 	return (int8_t)status < 0 || status == 1u || status == 4u;
 }
 
+#define NO_CONTINUE_CELLS  8    /* hud_no_continue_text's lines: "   No   ", "Continue" */
+#define TEXT_ROW_BYTES     0x80u
+
+/* The "No Continue" the HUD prints once where a player's start prompt is, when the last stage closes
+   joining (joining_closed, player_hud_update): erased */
+static void erase_no_continue(int player)
+{
+	const uint32_t position = 0x310000u | ((cabinet_config & 1u) != 0u ? start_prompt_positions_3p[player]
+		: start_prompt_positions_2p[player]);
+	int line, cell;
+
+	if (joining_closed == 0u)
+		return;
+	for (line = 0; line < 2; line++)
+		for (cell = 0; cell < NO_CONTINUE_CELLS; cell++)
+			mem_write16(position + (uint32_t)line * TEXT_ROW_BYTES + 2u * (uint32_t)cell, (uint16_t)' ');
+}
+
 /* Each frame of a game: a player out of play has no ring count on screen (player select, with the 3-player
    cabinet, draws them, and the stage never erases them); while TIME ATTACK's clock runs, a player who was
-   not in its run when it started cannot join (their start is not seen) */
+   not in its run when it started cannot join (their start is not seen, nor the last stage's "No
+   Continue" where their prompt is), and one who was goes on as soon as their continue's count is up
+   (TIME ATTACK has no end of lives: the clock keeps running) */
 static void keep_idle_players_out(void)
 {
 	int player, cell;
@@ -1630,7 +2026,12 @@ static void keep_idle_players_out(void)
 		for (cell = 0; cell < 4; cell++)
 			mem_write16((0x310000u | hud_ring_count_positions_3p[player]) + 2u * (uint32_t)cell, (uint16_t)' ');
 		if (time_attack && clock_running && (time_attack_players & (1u << player)) == 0u)
+		{
 			inputs_pressed &= ~(uint32_t)player_start_bits[player];
+			erase_no_continue(player);
+		}
+		else if (time_attack && clock_running && start_prompt_frames[player] > 0)
+			inputs_pressed |= player_start_bits[player];    /* (out of the run's: it goes on at once) */
 	}
 }
 
@@ -1659,6 +2060,7 @@ console_times console_best_times;
 
 static uint32_t clock_frames;
 #define ENDING_STAGE       0x11u    /* the ending: the run's end */
+#define LAST_STAGE         0x0Bu    /* Eggman's last: game_mode_play_stage closes joining there (joining_closed) */
 
 static bool new_record;               /* the run that just ended is the best */
 static bool shown_whole;              /* the page shows a whole game's run (else a level's) */
@@ -1710,8 +2112,7 @@ static void start_time_attack(void)
 
 	menu_open = false;
 	erase_menu();
-	give_game_credits();
-	time_attack = true;
+	time_attack = true;    /* (free play, as out of a game: no end of continues) */
 	time_attack_level = -1;
 	clock_running = false;
 	times_pending = false;
@@ -1823,6 +2224,8 @@ static void time_attack_frame(void)
 		run_splits[run_level] = clock_frames;    /* (the level before is over) */
 		run_level = level;
 	}
+	if (stage == LAST_STAGE)
+		joining_closed = 0u;    /* (no end of lives: the last stage closes continues each frame, before its players run) */
 	clock_frames++;
 	draw_clock();
 }
@@ -1963,7 +2366,7 @@ void run_game_mode(uint32_t pressed, uint32_t position, uint32_t speed, uint16_t
 	keep_idle_players_out();
 	original_run_game_mode(pressed, position, speed, next_scroll_position, object, p_speed_value, p_count, p_cycle,
 		p_list_cursor);
-	note_level_reached();
+	note_levels_cleared();
 	wide_how_to_play();
 	debug_sections();
 	time_attack_frame();
@@ -2466,6 +2869,8 @@ void join_character_chooser_update(uint32_t text_x)
 				OBJECT(block)->spawn_arg_1 = (uint16_t)((OBJECT(block)->spawn_arg_1 & 0xFF00u) | TURN_NOW);
 		}
 		join_chooser_rolling[player] = trackball_x != 0;
+		if (time_attack && clock_running)
+			OBJECT(block)->join_character_chooser.countdown = 0u;    /* (TIME ATTACK: the one shown, at once) */
 	}
 	original_join_character_chooser_update(text_x);
 }

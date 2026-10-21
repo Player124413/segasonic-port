@@ -51,8 +51,9 @@ Done:
   s32_video_side), player select and the attract demos too. The scenes, with 320-pixel pictures, between
   bars. The window takes the largest whole
   scale under WINDOW at which it fits the screen, so a 16:9 one stays 16:9.
-- The icon: Sonic's, Mighty's and Ray's heads (the join chooser's) from the player's ROM: the window's at
-  run time (console_window_icon), the .exe's at build time (tools/make_icon.py, in the build folder).
+- The icon: Sonic's, Mighty's and Ray's heads (the join chooser's) from the game's assets: the window's at
+  run time (console_window_icon). The .exe carries nothing of the game's, so its own icon will be a
+  neutral one of ours.
 
 - PIXELS' CRT: scanlines, a soft RGB phosphor mask and a little vignette over smooth pixels (a
   multiplying overlay the size the picture is shown at).
@@ -67,17 +68,30 @@ Done:
 - WIDE's sides of a stage: the stages are drawn as far as the board's camera looks (past it they end, or
   keep a piece of somewhere else). Each cell of the map no camera place on the stage's path shows (the
   sections' starts, straight from one to the next; the last on and on) is drawn, while the frame is,
-  as the repeat of its row (straight or along the isometric slopes) that also holds for the cells beside
-  and above it; else as the one above it. The video RAM is the game's again once the frame is drawn
-  (console_draw_frame, the ports' frame_shown).
+  as the repeat of its row (straight or along the isometric slopes, or a wall's rows up and down) that
+  also holds for the cells beside and above it; else as the one above it, or the texture beside it
+  mirrored where the map is cut straight across. Past the map's width (the pages hold another end of it
+  there) a cell takes what the map draws next where it holds the same run of the row's cells (beyond_word:
+  a wall's bricks go on as the designer laid them). The video RAM is the game's again once the frame is
+  drawn (console_draw_frame, the ports' frame_shown).
 - Start pauses the stage's events too (the scenes the game plays in it: the seesaw's, ...).
 - Debug: F7 and F8 move the camera to the stage's section before or after (the game's unused scroll skip).
 
-Next (in this order unless Sebas says otherwise):
-1. Achievements: our own, defined on the game's memory as RetroAchievements does (the work RAM is the
+Next (in this order unless Sebas says otherwise; 20-10-2026: the game is the C and its assets first, in
+segasonic-decomp, then the release):
+1. The C's data through names, in segasonic-decomp: the 1137 reads through ROM addresses (rom_reads in
+   tools/noise_report.py: ROM8/16/32, mostly pointers that walk records, scripts and texts) become tables
+   and structures with names and types over the loaded assets, as the work RAM's variables are.
+2. The first run in C: the player's sonic.zip (checked by CRC, this version of the set) to the assets pack,
+   so the release needs no Python; the game never opens the ROM again.
+3. Linux and macOS builds (GCC and Clang, SDL2 inside; GitHub Actions, as there is no Mac here), then one
+   SegaSonic.exe with SDL2 inside, the port's README (crediting Kenney's Input Prompts) and a release for
+   Quiver Launcher, with a neutral icon of ours (the window's comes from the game's assets).
+4. Achievements: our own, defined on the game's memory as RetroAchievements does (the work RAM is the
    original's, byte for byte); RetroAchievements itself only runs in the emulators it approves.
-2. One SegaSonic.exe with SDL2 inside; first run asks for the player's ROM set and extracts the assets;
-   the port's README (crediting Kenney's Input Prompts); a release for Quiver Launcher. The released
-   .exe carries no ROM, so no icon from it: a neutral one of ours (the window's still comes from the ROM).
+5. The bitmap layer in the ice and tower stages' dark parts: the original leaves it on, 8 bits a pixel, over
+   video RAM's start, where the tilemaps' pages are, and MAME draws them as rows of dots (the arcade build
+   does as MAME; the console hides it). If the board does not (footage or photos of a real one), a fix for
+   MAME's segas32 video.
 
 For the port's README: docs/screenshots/console_menu.png (the menu over the title, 640 x 448 like the others).
