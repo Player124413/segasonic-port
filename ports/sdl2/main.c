@@ -4,14 +4,15 @@
  *                 the pace, around the same game and board the headless runs check
  *    Version:     0.1.0
  *    Created:     13-10-2026
- *    Modified:    13-10-2026
+ *    Modified:    20-10-2026
  *    Author:      Sebastian Toyos
  *
  *    license:BSD-3-Clause
  *    Usage: sonic
  *
- *    The executable carries the game's data (game/data.h, written by the build from the player's ROM
- *    set), so it runs wherever it is copied, with SDL2 beside it. What it keeps is beside it too.
+ *    The executable carries nothing of the game's: it loads the game's assets from segasonic.assets beside
+ *    it (game/data.h; the pack of the assets taken out of the player's ROM set), with SDL2 beside it too.
+ *    What it keeps is beside it as well.
  *
  *    The game (src/) and the board (runtime/) run as they are: this file only wraps them. Where the board
  *    has its hooks, the port does its part: when VBLANK starts the video draws the frame and the port puts
@@ -489,7 +490,7 @@ static int fail(const char *what, const char *detail)
 int main(int argc, char **argv)
 {
 	SDL_AudioSpec wanted;
-	char settings_path[1024];
+	char settings_path[1024], assets_path[1024];
 	char *base;
 
 	(void)argc;
@@ -500,7 +501,17 @@ int main(int argc, char **argv)
 	base = SDL_GetBasePath();
 	snprintf(settings_path, sizeof(settings_path), "%ssonic.ini", base ? base : "");
 	snprintf(eeprom_path, sizeof(eeprom_path), "%ssonic.eeprom", base ? base : "");
+	snprintf(assets_path, sizeof(assets_path), "%ssegasonic.assets", base ? base : "");
 	SDL_free(base);
+	switch (game_data_load(assets_path))
+	{
+	case GAME_DATA_LOADED:
+		break;
+	case GAME_DATA_MISSING:
+		return fail("The game's assets are missing.", assets_path);
+	default:
+		return fail("The game's assets cannot be read.", assets_path);
+	}
 	settings_open(settings_path);
 	shown_scale = settings.window_scale;
 	window = SDL_CreateWindow("SegaSonic The Hedgehog", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
@@ -534,12 +545,12 @@ int main(int argc, char **argv)
 	s32_board.controls_update = on_controls_update;
 	s32_board.log = on_log;
 	s32_board.frame_timing = true;
-	s32_board.sound_rom = game_sound_rom;
-	s32_video_init(game_tile_rom, GAME_TILE_ROM_SIZE, game_sprite_rom, GAME_SPRITE_ROM_SIZE);
+	s32_board.sound_rom = game_sound;
+	s32_video_init(game_tiles, GAME_TILES_SIZE, game_sprites, GAME_SPRITES_SIZE);
 	s32_board.frame_shown = on_frame_shown;
 	sound_chips_attach();
 	sound_cpu_attach();
-	s32_init(game_program_rom);
+	s32_init(game_program);
 	load_eeprom();
 	program_reset();
 	program_frame_done = on_frame_done;

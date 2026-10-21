@@ -1,10 +1,11 @@
 /**
  *    Name:        game.c
  *    Description: runtime of the decompiled game program: processor status, the frame loop and its
- *                 interrupts, calls by address, and the V60's string and bit-string moves and searches
+ *                 interrupts, calls by address, the V60's string and bit-string moves and searches, and
+ *                 the functions the board puts its own in place of (runtime/replaced.txt)
  *    Version:     0.1.0
  *    Created:     11-10-2026
- *    Modified:    15-10-2026
+ *    Modified:    20-10-2026
  *    Author:      Sebastian Toyos
  *
  *    license:BSD-3-Clause
@@ -148,6 +149,13 @@ GAME_NORETURN void unknown_code(uint32_t address)
 	fprintf(stderr, "No code at %06X (frame %llu)\n", address & 0xffffff, (unsigned long long)frames);
 	print_recent_calls();
 	exit(3);
+}
+
+/* The MEMORY TEST's ROM part (runtime/replaced.txt): the game's, original_check_rom_checksums, sums the
+   board's ROM chips against rom_checksums; the decompiled game has no chips to measure, so it finds no
+   error there, as a board with good chips does */
+void check_rom_checksums(void)
+{
 }
 
 GAME_NORETURN void invalid_jump(uint32_t address)

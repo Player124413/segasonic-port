@@ -4,13 +4,15 @@ Description: counts what is left of the CPU and of the decompiler in the C (src/
              with the counts last saved
 Version:     0.1.0
 Created:     17-10-2026
-Modified:    17-10-2026
+Modified:    20-10-2026
 Author:      Sebastian Toyos
 
 Every kind of leftover the C can still have, counted in one pass over the generated C, so a round of work
 shows what it took away and nothing comes back unseen: gotos, functions and locals named after an address
 or a register, fields without a name, memory reached through computed addresses, results copied back at
-every return, jumps out of a table, ROM addresses printed as numbers, functions without a comment. The
+every return, jumps out of a table, ROM addresses printed as numbers, functions without a comment, data
+read through its ROM address instead of a table or structure with a name, functions the board puts its own
+in place of. The
 counts are compared with tools/noise_baseline.txt; a count that went up makes the run fail.
 
 Usage: python tools/noise_report.py [--save]
@@ -41,6 +43,9 @@ KINDS = {
     "unknown_code": ("calls to code the analysis does not know", re.compile(r"\bunknown_code\(")),
     "raw_rom_addresses": ("ROM addresses printed as numbers (build/decompile/unnamed_addresses.txt)", None),
     "uncommented": ("functions without a comment above them", None),
+    "rom_reads": ("data read through its ROM address (ROM8/16/32, rom(), SOUND_ROM8/16, sound_rom_at)",
+                  re.compile(r"\b(?:ROM(?:8|16|32)S?|SOUND_ROM(?:8|16)|rom|sound_rom_at)\(")),
+    "board_replaced": ("functions the board puts its own in place of (BOARD_ORIGINAL, runtime/replaced.txt)", None),
 }
 INFORMATION = {
     "functions": "functions",
@@ -67,6 +72,8 @@ def count(paths):
                     counts["uncommented"] += 1
                 if re.fullmatch(r"sub_[0-9A-F]{6}", found.group(1)):
                     counts["sub_functions"] += 1
+                if found.group(1) == "BOARD_ORIGINAL":
+                    counts["board_replaced"] += 1
                 counts["register_names"] += len(re.findall(r"(?<!\w)(?:p_)?r\d+(?:_\d+)?(?=[,)])", found.group(2)))
                 continue
             if not in_function:

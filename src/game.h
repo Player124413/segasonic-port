@@ -3,7 +3,7 @@
  *    Description: prototypes of the game's functions and the addresses of the code it keeps in memory slots
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    19-10-2026
+ *    Modified:    20-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -2158,6 +2158,7 @@ void draw_test_menu(void);
 void toggle_test_continue_mode(void);
 void test_memory(uint32_t *p_results_left, uint32_t *p_blocks_per_row);
 void check_rom_checksums(void);
+void BOARD_ORIGINAL(check_rom_checksums)(void);
 void test_work_ram(void);
 void test_work_ram_verify(void);
 void test_video_ram(void);

@@ -5,7 +5,7 @@ Description: the sound driver's data tables as text: the chips' init tables, the
              the velocity curves, the FM patches, the drum kits, the vibrato presets and the sample headers
 Version:     0.1.0
 Created:     14-10-2026
-Modified:    14-10-2026
+Modified:    20-10-2026
 Author:      Sebastian Toyos
 
 The tables the Z80 sound driver (src/sound/sound_00.c) reads below A000 of the sound program's chip, little
@@ -36,6 +36,8 @@ The formats (names start with z80_: FORMATS is one dictionary for every module):
 - z80_vibrato_presets: by CC 11's value, the 7 bytes of an FM voice's vibrato.
 - z80_pcm_sample_headers: by sample number, a pointer and the 6-byte header (bank and page of the sample;
   the comment names its WAV in assets/sound/samples), then the fill up to the next piece.
+- z80_jump_table: a table the driver jumps through (JP (HL), playlist_command_table): by index, the Z80
+  address it jumps to and that code's name in sound_symbols.txt (the code is the C's: the address goes back).
 
 Where a table is pointers and records, each record is written under the pointers that point at it (all of
 them, when several share it), in the order the records lie in the ROM: the pointer lines give the table's
@@ -89,11 +91,11 @@ def _names():
     places = {}
     lines = SYMBOLS.read_text(encoding="utf-8").splitlines() if SYMBOLS.exists() else []
     for line in lines:
-        match = re.match(r"([0-9A-F]{4})\s+(table|data|func|code|loop)\s+(\w+)", line)
+        match = re.match(r"([0-9A-F]{4})\s+(table|data|jumps|func|code|loop)\s+(\w+)", line)
         if match:
             address = int(match.group(1), 16)
             if address < WINDOW:
-                places.setdefault(address, match.group(3) if match.group(2) in ("table", "data") else None)
+                places.setdefault(address, match.group(3) if match.group(2) in ("table", "data", "jumps") else None)
     _NAMES["places"] = sorted(places.items())
     return _NAMES["places"]
 
@@ -658,6 +660,34 @@ def pitch_table_pointers_to_text(data):
     return _finish(lines)
 
 
+def _code_names():
+    """{address: name} of the code sound_symbols.txt names below A000 (its functions and labels)."""
+    if "code" not in _NAMES:
+        found = {}
+        lines = SYMBOLS.read_text(encoding="utf-8").splitlines() if SYMBOLS.exists() else []
+        for line in lines:
+            match = re.match(r"([0-9A-F]{4})\s+(func|code|loop)\s+(\w+)", line)
+            if match and int(match.group(1), 16) < WINDOW:
+                found.setdefault(int(match.group(1), 16), match.group(3))
+        _NAMES["code"] = found
+    return _NAMES["code"]
+
+
+def jump_table_to_text(data):
+    """A jump table, one entry a line: its index, the address the driver jumps to, the code's name there."""
+    lines = ["# by index, where the driver jumps (JP (HL)): the code there is the C's, only the address goes back"]
+    for index in range(len(data) // 2):
+        word = struct.unpack_from("<H", data, 2 * index)[0]
+        name = _code_names().get(word)
+        lines.append(f"{index:02X}  0x{word:04X}" + (f"  {name}" if name else ""))
+    lines += _tail_lines(data[len(data) // 2 * 2:])
+    return _finish(lines)
+
+
+def jump_table_from_text(text):
+    return pitch_table_pointers_from_text(text)
+
+
 def pitch_table_pointers_from_text(text):
     out = bytearray()
     for line in _lines(text):
@@ -1165,4 +1195,5 @@ FORMATS = {
     "z80_drum_kits": (".txt", drum_kits_to_text, drum_kits_from_text),
     "z80_vibrato_presets": (".txt", vibrato_presets_to_text, vibrato_presets_from_text),
     "z80_pcm_sample_headers": (".txt", pcm_sample_headers_to_text, pcm_sample_headers_from_text),
+    "z80_jump_table": (".txt", jump_table_to_text, jump_table_from_text),
 }

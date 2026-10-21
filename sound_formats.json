@@ -45,8 +45,9 @@
    }
   },
   "commands": {
-   "description": "the sound commands: the groups the V60's commands pick from, the playlists, the songs table and the song records",
+   "description": "the sound commands: the table the driver jumps through for a playlist's commands, the groups the V60's commands pick from, the playlists, the songs table and the song records",
    "pieces": {
+    "playlist_command_table": "z80_jump_table",
     "sound_groups": "z80_sound_groups",
     "songs": "z80_songs",
     "playlist_stages_b_to_f": "z80_playlists",

@@ -1952,6 +1952,16 @@
     "ending_big_explosion_frames_2": "ending_sprite_flags",
     "credits_label_text": "text_here"
    }
+  },
+  "system/code_read_as_data": {
+   "description": "the bytes of the program's code the game also reads as data (assets.json, read_as_data): the C replaces the code, and the game still reads these",
+   "pieces": {
+    "program_start_read_as_data": "bytes",
+    "program_start_read_as_data_2": "bytes",
+    "title_code_read_as_marker": "bytes",
+    "code_below_bridge_sag_curve": "bytes",
+    "code_past_text_frames": "bytes"
+   }
   }
  }
 }

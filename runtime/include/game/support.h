@@ -5,7 +5,7 @@
  *                 and searches
  *    Version:     0.1.0
  *    Created:     11-10-2026
- *    Modified:    15-10-2026
+ *    Modified:    20-10-2026
  *    Author:      Sebastian Toyos
  *
  *    license:BSD-3-Clause
@@ -227,6 +227,10 @@ uint32_t search_bits_up(uint32_t address, uint32_t offset, uint32_t length, uint
    remainder to high */
 void divx_pair(uint32_t divisor, uint32_t *low, uint32_t *high);
 void divux_pair(uint32_t divisor, uint32_t *low, uint32_t *high);
+
+/* A function of the game the board puts its own in place of, in every build (runtime/replaced.txt,
+   tools/decompile.py): the game's is original_NAME, the runtime's is NAME (runtime/src/game.c) */
+#define BOARD_ORIGINAL(name) original_##name
 
 #ifdef __cplusplus
 }
