@@ -18,6 +18,7 @@
 #define MAX_BITS        15
 #define LITERALS        288
 #define DISTANCES       30
+#define LITERALS_USED   286      /* the most a dynamic block may give lengths for */
 #define END_OF_BLOCK    256
 
 typedef struct
@@ -199,6 +200,8 @@ static int dynamic_block(stream *s)
 	literal_count += 257;
 	distance_count += 1;
 	length_count += 4;
+	if (literal_count > LITERALS_USED || distance_count > DISTANCES)
+		return 0;    /* (more than the codes have: a damaged stream) */
 	memset(lengths, 0, sizeof(lengths));
 	for (index = 0; index < (int)length_count; index++)
 	{
