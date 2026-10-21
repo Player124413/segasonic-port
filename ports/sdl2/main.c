@@ -4,14 +4,15 @@
  *                 the pace, around the same game and board the headless runs check
  *    Version:     0.1.0
  *    Created:     13-10-2026
- *    Modified:    13-10-2026
+ *    Modified:    20-10-2026
  *    Author:      Sebastian Toyos
  *
  *    license:BSD-3-Clause
  *    Usage: sonic
  *
- *    The executable carries the game's data (game/data.h, written by the build from the player's ROM
- *    set), so it runs wherever it is copied, with SDL2 beside it. What it keeps is beside it too.
+ *    The executable carries nothing of the game's: it loads the game's assets from segasonic.assets beside
+ *    it (game/data.h; the pack of the assets taken out of the player's ROM set), with SDL2 beside it too.
+ *    What it keeps is beside it as well.
  *
  *    The game (src/) and the board (runtime/) run as they are: this file only wraps them. Where the board
  *    has its hooks, the port does its part: when VBLANK starts the video draws the frame and the port puts
@@ -51,6 +52,7 @@
 #else
 #define FILE_NAME "sonic"
 #endif
+#define ASSETS_FILE "segasonic.assets"    /* the game's assets pack (tools/make_pack.py) */
 
 #ifdef SEGASONIC_CONSOLE
 static bool pause_requested;
@@ -1009,7 +1011,7 @@ static int fail(const char *what, const char *detail)
 int main(int argc, char **argv)
 {
 	SDL_AudioSpec wanted;
-	char settings_path[1024];
+	char settings_path[1024], assets_path[1024];
 	char *base;
 
 	(void)argc;
@@ -1020,6 +1022,7 @@ int main(int argc, char **argv)
 	base = SDL_GetBasePath();
 	snprintf(settings_path, sizeof(settings_path), "%s" FILE_NAME ".ini", base ? base : "");
 	snprintf(eeprom_path, sizeof(eeprom_path), "%s" FILE_NAME ".eeprom", base ? base : "");
+	snprintf(assets_path, sizeof(assets_path), "%s" ASSETS_FILE, base ? base : "");
 #ifdef SEGASONIC_CONSOLE
 	{
 		char controls_path[1024];
@@ -1032,6 +1035,15 @@ int main(int argc, char **argv)
 	}
 #endif
 	SDL_free(base);
+	switch (game_data_load(assets_path))
+	{
+	case GAME_DATA_LOADED:
+		break;
+	case GAME_DATA_MISSING:
+		return fail("The game's assets are missing.", assets_path);
+	default:
+		return fail("The game's assets cannot be read.", assets_path);
+	}
 	settings_open(settings_path);
 #ifdef SEGASONIC_CONSOLE
 	console_jingle_program((int)settings.sega_jingle_program, (int)settings.sega_jingle_layer);
@@ -1051,7 +1063,7 @@ int main(int argc, char **argv)
 		static uint32_t icon_pixels[CONSOLE_ICON_SIZE * CONSOLE_ICON_SIZE];
 		SDL_Surface *icon = NULL;
 
-		if (console_window_icon(icon_pixels, game_sprite_rom, GAME_SPRITE_ROM_SIZE, game_program_rom))
+		if (console_window_icon(icon_pixels, game_sprites, GAME_SPRITES_SIZE, game_program))
 			icon = SDL_CreateRGBSurfaceWithFormatFrom(icon_pixels, CONSOLE_ICON_SIZE, CONSOLE_ICON_SIZE, 32,
 				CONSOLE_ICON_SIZE * 4, SDL_PIXELFORMAT_ARGB8888);
 		if (icon)
@@ -1093,26 +1105,15 @@ int main(int argc, char **argv)
 	s32_board.controls_update = on_controls_update;
 	s32_board.log = on_log;
 	s32_board.frame_timing = true;
-	s32_board.sound_rom = game_sound_rom;
+	s32_board.sound_rom = game_sound;
 #ifdef SEGASONIC_CONSOLE
-	{
-		/* the console draws from a copy of the sprite graphics it changes (console_prepare_sprites) */
-		static uint8_t *console_sprites;
-
-		console_sprites = malloc(GAME_SPRITE_ROM_SIZE);
-		if (!console_sprites)
-			return fail("The game could not start.", "");
-		memcpy(console_sprites, game_sprite_rom, GAME_SPRITE_ROM_SIZE);
-		console_prepare_sprites(console_sprites, GAME_SPRITE_ROM_SIZE, game_program_rom);
-		s32_video_init(game_tile_rom, GAME_TILE_ROM_SIZE, console_sprites, GAME_SPRITE_ROM_SIZE);
-	}
-#else
-	s32_video_init(game_tile_rom, GAME_TILE_ROM_SIZE, game_sprite_rom, GAME_SPRITE_ROM_SIZE);
+	console_prepare_sprites(game_sprites, GAME_SPRITES_SIZE, game_program);    /* (the console's changes) */
 #endif
+	s32_video_init(game_tiles, GAME_TILES_SIZE, game_sprites, GAME_SPRITES_SIZE);
 	s32_board.frame_shown = on_frame_shown;
 	sound_chips_attach();
 	sound_cpu_attach();
-	s32_init(game_program_rom);
+	s32_init(game_program);
 	load_eeprom();
 	program_reset();
 	program_frame_done = on_frame_done;

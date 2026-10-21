@@ -4,7 +4,7 @@ Name:        extract_assets.py
 Description: extracts the game's assets from the user's own ROM, driven by assets.json (as in n64decomp/sm64)
 Version:     0.1.0
 Created:     11-10-2026
-Modified:    19-10-2026
+Modified:    20-10-2026
 Author:      Sebastian Toyos
 
 Usage:
@@ -265,6 +265,21 @@ def build_samples(asset):
     return bytes(out)
 
 
+def read_as_data(asset):
+    """[(start, end, name)] of the code the game also reads as data (the asset's 'read_as_data'): pieces of
+    their own, so the assets hold them though the C replaces the code."""
+    return [(int(read["address"], 0), int(read["address"], 0) + read["size"], read["name"])
+            for read in asset.get("read_as_data", [])]
+
+
+def without(spans, holes):
+    """The (start, end) spans less the (start, end, name) holes."""
+    for low, high, _ in holes:
+        spans = [part for start, end in spans for part in ((start, min(end, low)), (max(start, high), end))
+                 if part[0] < part[1]]
+    return spans
+
+
 def extract(asset, data, region_of):
     path = ROOT / asset["path"]
     kind = asset["type"]
@@ -272,8 +287,9 @@ def extract(asset, data, region_of):
         return extract_sprites(asset, data, region_of("program"), path)
     if kind == "program_data":
         start, end = asset["offset"], asset["offset"] + asset["size"]
-        places = data_formats.pieces(ROOT / "symbols.txt", start, end)
-        code = data_formats.v60_code(region_of("program"), ROOT / "symbols.txt", start, end)
+        reads = read_as_data(asset)
+        places = data_formats.pieces(ROOT / "symbols.txt", start, end) + [(low, name) for low, _, name in reads]
+        code = without(data_formats.v60_code(region_of("program"), ROOT / "symbols.txt", start, end), reads)
         # the chips' mirrors are no data of their own: kept, as the code is
         mirrors = [tuple(int(value, 0) for value in pair) for pair in asset.get("mirrors", [])]
         return data_formats.export(data, start, places, ROOT / asset["formats"], path, sorted(code + mirrors))

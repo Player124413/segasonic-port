@@ -5,14 +5,15 @@
  *                 format tools/reference/s32ref uses
  *    Version:     0.1.0
  *    Created:     11-10-2026
- *    Modified:    19-10-2026
+ *    Modified:    20-10-2026
  *    Author:      Sebastian Toyos
  *
  *    license:BSD-3-Clause
  *    Usage: sonic_headless [--frames N] [--hashes FILE] [--script FILE]
  *                          [--dump-frame N --dump-dir DIR] [--video-hashes FILE] [--video-dump N ... --video-dir DIR]
- *                          [--sound-hashes FILE] [--wide]
- *    The game's data is the one the executable carries (game/data.h).
+ *                          [--sound-hashes FILE] [--wide] [--assets FILE]
+ *    The game's data is its assets pack (game/data.h): --assets, or segasonic.assets beside the executable.
+ *    The scaffold (SEGASONIC_SCAFFOLD) runs the original code, so it reads the ROM set from rom/ instead.
  *    --dump-frame saves the board's memories at the end of that frame, in the files tools/reference/s32ref
  *    writes, so the two compare byte by byte. --video-hashes and --video-dump draw every frame with the
  *    board's video (runtime/src/video.c): the hash of each frame, and frames as BMP. --sound-hashes runs the
@@ -25,6 +26,9 @@
 #include "s32/video.h"
 #include "sound/chips.h"
 #include "game/data.h"
+#ifdef SEGASONIC_SCAFFOLD
+#include "rom_set.h"
+#endif
 #include "s32/bus.h"
 #ifdef SEGASONIC_CONSOLE
 #include "console.h"
@@ -38,7 +42,9 @@
 
 #define USAGE "Usage: sonic_headless [--frames N] [--hashes FILE] [--script FILE]" \
 	" [--dump-frame N --dump-dir DIR] [--video-hashes FILE] [--video-dump N ... --video-dir DIR]" \
-	" [--sound-hashes FILE] [--sprite-census FILE] [--tile-census FILE] [--memory-census FILE] [--wide]\n"
+	" [--sound-hashes FILE] [--sprite-census FILE] [--tile-census FILE] [--memory-census FILE] [--wide]" \
+	" [--assets FILE]\n"
+#define ASSETS_FILE "segasonic.assets"
 #define MAX_VIDEO_DUMPS 64
 #define CENSUS_SLOTS (1u << 20)
 
@@ -245,6 +251,8 @@ int main(int argc, char **argv)
 	const char *sprite_census_path = NULL;
 	const char *tile_census_path = NULL;
 	const char *memory_census_path = NULL;
+	const char *assets_path = NULL;
+	char beside[1024];
 	bool frames_given = false;
 
 	for (int index = 1; index < argc; index++)
@@ -278,12 +286,44 @@ int main(int argc, char **argv)
 			tile_census_path = argv[++index];
 		else if (strcmp(argv[index], "--memory-census") == 0 && index + 1 < argc)
 			memory_census_path = argv[++index];
+		else if (strcmp(argv[index], "--assets") == 0 && index + 1 < argc)
+			assets_path = argv[++index];
 		else
 		{
 			fprintf(stderr, USAGE);
 			return 1;
 		}
 	}
+#ifdef SEGASONIC_SCAFFOLD
+	(void)assets_path;
+	(void)beside;
+	if (reference_load_rom_set("rom"))
+	{
+		fprintf(stderr, "rom: the ROM set is not complete\n");
+		return 1;
+	}
+#else
+	if (!assets_path)
+	{
+		/* (the executable's folder, as argv[0] gives it) */
+		const char *slash = strrchr(argv[0], '/'), *backslash = strrchr(argv[0], '\\');
+		const char *last = slash > backslash ? slash : backslash;
+
+		snprintf(beside, sizeof(beside), "%.*s" ASSETS_FILE, last ? (int)(last - argv[0] + 1) : 0, argv[0]);
+		assets_path = beside;
+	}
+	switch (game_data_load(assets_path))
+	{
+	case GAME_DATA_LOADED:
+		break;
+	case GAME_DATA_MISSING:
+		fprintf(stderr, "%s: no game assets\n", assets_path);
+		return 1;
+	default:
+		fprintf(stderr, "%s: the game assets cannot be read\n", assets_path);
+		return 1;
+	}
+#endif
 	if (script_path)
 	{
 		char error[256];
@@ -302,16 +342,11 @@ int main(int argc, char **argv)
 	if (video_hashes_path || video_dump_count || sprite_census_path || tile_census_path)
 	{
 #ifdef SEGASONIC_CONSOLE
-		uint8_t *console_sprites = malloc(GAME_SPRITE_ROM_SIZE);    /* (console_prepare_sprites changes it) */
-
-		if (!console_sprites)
-			return 1;
-		memcpy(console_sprites, game_sprite_rom, GAME_SPRITE_ROM_SIZE);
-		console_prepare_sprites(console_sprites, GAME_SPRITE_ROM_SIZE, game_program_rom);
-		s32_video_init(game_tile_rom, GAME_TILE_ROM_SIZE, console_sprites, GAME_SPRITE_ROM_SIZE);
+		console_prepare_sprites(game_sprites, GAME_SPRITES_SIZE, game_program);
+		s32_video_init(game_tiles, GAME_TILES_SIZE, game_sprites, GAME_SPRITES_SIZE);
 		s32_board.frame_shown = console_draw_frame;    /* (WIDE's sides of a stage's map too) */
 #else
-		s32_video_init(game_tile_rom, GAME_TILE_ROM_SIZE, game_sprite_rom, GAME_SPRITE_ROM_SIZE);
+		s32_video_init(game_tiles, GAME_TILES_SIZE, game_sprites, GAME_SPRITES_SIZE);
 #endif
 #ifdef SEGASONIC_CONSOLE
 		console_window_settings.wide = wide_video;
@@ -345,7 +380,7 @@ int main(int argc, char **argv)
 	}
 	if (sound_hashes_path)
 	{
-		s32_board.sound_rom = game_sound_rom;
+		s32_board.sound_rom = game_sound;
 		sound_chips_attach();
 		sound_cpu_attach();
 		sound_hashes = fopen(sound_hashes_path, "w");
@@ -355,7 +390,7 @@ int main(int argc, char **argv)
 	s32_board.controls_update = on_controls_update;
 	s32_board.log = on_log;
 	s32_board.frame_timing = true;
-	s32_init(game_program_rom);
+	s32_init(game_program);
 	program_reset();
 	program_frame_done = on_frame_done;
 

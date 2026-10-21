@@ -1,12 +1,12 @@
 {
-  "manifest_version": 12,
+  "manifest_version": 13,
   "rom_set": "sonic",
   "notes": [
     "Positions only: every byte comes from the user's own ROM at extraction time.",
-    "Program data (the data area 0x100000-0x17FFFF and what the code chips hold besides the code, 0x000000-0x01FFFF and 0x080000-0x09FFFF): text files by subject (system/, video/, engine/, objects/, player/, stages/, scenes/), a section a piece, cut where symbols.txt names a place, in the format data_formats.json gives it; the code and the chips' mirrors are left out (the C replaces the code) and the build takes them from the ROM; layout.json lists the pieces in order.",
+    "Program data (the data area 0x100000-0x17FFFF and what the code chips hold besides the code, 0x000000-0x01FFFF and 0x080000-0x09FFFF): text files by subject (system/, video/, engine/, objects/, player/, stages/, scenes/), a section a piece, cut where symbols.txt names a place, in the format data_formats.json gives it; the code and the chips' mirrors are left out (the C replaces the code, and the game's assets pack holds none of it), except the bytes of the code the game also reads as data ('read_as_data': where, how many and why); layout.json lists the pieces in order.",
     "Sprites: every frame of sprite_frame_records (program ROM 0x130000) in sprite sheets, an animation family or an object a sheet, in folders by subject (sprite_sheets.txt: sonic/walking, stage_08/lava_flow, title/sega_logo...): an indexed PNG each, with the palettes the frames are drawn with (sprite_palettes.json: positions in the program ROM), and a JSON beside it that says where each frame is in the sheet and where it goes back in the sprite ROM; pen 0 is transparent.",
     "Tile sheets are 8-bit indexed PNGs in color: the 16 palettes the sheet's tiles are shown with the most (tile_palettes.json, positions in the program ROM), a tile's pixels at its palette's slot * 16 + pen, so index & 15 is the pen; pen 0 is transparent. Each sheet's JSON says every tile's palette.",
-    "Sound program (epr-15785, the first 0x40000 bytes of the sound region; the board repeats it four times): its data as text files, cut where sound_symbols.txt names a place, in the format sound_formats.json gives it; its code is left out (the C replaces it) and the build takes it from the ROM. layout.json lists the pieces in order. The songs (the banked part from 0x010000, 'movable') may change size: the build lays them out one after another and the song records find them by name.",
+    "Sound program (epr-15785, the first 0x40000 bytes of the sound region; the board repeats it four times): its data as text files, cut where sound_symbols.txt names a place, in the format sound_formats.json gives it; its code is left out (the C replaces it); its jump table is data (the driver reads it before it jumps). layout.json lists the pieces in order. The songs (the banked part from 0x010000, 'movable') may change size: the build lays them out one after another and the song records find them by name.",
     "PCM samples (0x100000-0x3FFFFF of the sound region): one 8-bit WAV a sample of pcm_sample_headers (sound program 0x6429, 175 of them), one ROM byte a WAV sample, so they go back exactly; samples.json says where each goes. The rate is nominal (half the RF5C68 output rate): the driver sets the pitch of every note."
   ],
   "assets": [
@@ -27,7 +27,14 @@
     {"path": "assets/tiles/tiles_14.png", "region": "tiles", "offset": "0x1C0000", "size": "0x20000", "type": "tiles_16x16x4", "columns": 32, "palettes": "tile_palettes.json"},
     {"path": "assets/tiles/tiles_15.png", "region": "tiles", "offset": "0x1E0000", "size": "0x20000", "type": "tiles_16x16x4", "columns": 32, "palettes": "tile_palettes.json"},
 
-    {"path": "assets/data", "region": "program", "offset": "0x000000", "size": "0x180000", "type": "program_data", "formats": "data_formats.json", "mirrors": [["0x020000", "0x080000"], ["0x0A0000", "0x100000"]]},
+    {"path": "assets/data", "region": "program", "offset": "0x000000", "size": "0x180000", "type": "program_data", "formats": "data_formats.json", "mirrors": [["0x020000", "0x080000"], ["0x0A0000", "0x100000"]],
+     "read_as_data": [
+      {"name": "program_start_read_as_data", "address": "0x000000", "size": 126, "why": "the program's first 512 bytes, up to the boot values (and program_start_read_as_data_2 after them): what a null pointer reads, as a structure (as large as struct player), as the text of a queue slot with no text (draw_queued_strings; the second byte ends it) or as the trail of a stage with none (start_map_trail: 0xFFFFFFFF, its points from 000001)"},
+      {"name": "program_start_read_as_data_2", "address": "0x00009A", "size": 358, "why": "the rest of the program's first 512 bytes, after the boot values (program_start_read_as_data)"},
+      {"name": "code_below_bridge_sag_curve", "address": "0x012372", "size": 255, "why": "compute_bridge_sag's curve index for a loaded plank past the bridge's middle is 16 bits: a negative one (-255 to -1) reads 64 KB up from bridge_sag_curve"},
+      {"name": "code_past_text_frames", "address": "0x08EAC9", "size": 256, "why": "draw_queued_strings' sprite frame for a character code 80-FF (as the text at a null pointer has): text_frames has 128, so it reads up to 256 bytes past it, in start_ranking_entry's code"},
+      {"name": "title_code_read_as_marker", "address": "0x096F97", "size": 4, "why": "map_screen_update's icon target for a stage with no marker (stage_map_markers FF): map_stage_positions[FF], past the table, in the title's code"}
+     ]},
 
     {"path": "assets/sprites", "region": "sprites", "offset": "0x000000", "size": "0x1000000", "type": "sprite_frames", "records": "0x130000", "count": 6138, "palettes": "sprite_palettes.json", "sheets": "sprite_sheets.txt"},
 

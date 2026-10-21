@@ -3,7 +3,7 @@ Name:        decompile.py
 Description: decompiles the game's V60 program into readable C, one C function per original function
 Version:     0.1.0
 Created:     11-10-2026
-Modified:    16-10-2026
+Modified:    20-10-2026
 Author:      Sebastian Toyos
 
 Usage: python tools/decompile.py [rom folder or .zip] [--check] [--trace] [--out DIR] [--symbols FILE]
@@ -393,6 +393,21 @@ def write_sources(out_dir, files, texts, include, header=None, keep=()):
                           + "\n".join(texts[entry] for entry in entries), encoding="ascii")
 
 
+def replaced_functions(lists):
+    """{function name: the macro its definition is written with} from the lists of the game's functions
+    something else puts its own in place of, [(path, macro)]: a name a line, '#' starts a comment. The
+    board's (runtime/replaced.txt) is BOARD_ORIGINAL, the console build's (console/replaced.txt)
+    CONSOLE_ORIGINAL (game/support.h)."""
+    found = {}
+    for path, macro in lists:
+        if path.exists():
+            for line in path.read_text(encoding="utf-8").splitlines():
+                name = line.split("#")[0].strip()
+                if name:
+                    found[name] = macro
+    return found
+
+
 def grouped_prototypes(files, prototype):
     """The functions' prototypes file by file, each file's under a comment with its path and description."""
     lines = []
@@ -653,9 +668,8 @@ def write_c(program, out_dir, trace=False, variables_path=None, split_webs=False
     emitter.data_labels = {address: name for address, name in data_names.items() if address not in named.tables}
     emitter.code_labels = {address: symbol.name for address, symbol in program.symbols.items() if symbol.kind == "code"}
     emitter.comments = dict(known.comments)
-    replaced = ROOT / "console" / "replaced.txt"    # (the port's console build: its own versions of these)
-    if replaced.exists():
-        emitter.replaceable = {line.split("#")[0].strip() for line in replaced.read_text().splitlines()} - {""}
+    emitter.replaced = replaced_functions([(ROOT / "runtime" / "replaced.txt", "BOARD_ORIGINAL"),
+                                         (ROOT / "console" / "replaced.txt", "CONSOLE_ORIGINAL")])
     entries_by_name = {name: entry for entry, name in names.items()}
     unknown = sorted(function for function, _ in known.params if function not in entries_by_name)
     if unknown:
@@ -720,9 +734,9 @@ def write_c(program, out_dir, trace=False, variables_path=None, split_webs=False
     defined = ", ".join(emitter.context_name(index) + (f" = 0x{signatures.INITIAL[index]:X}u" if index in signatures.INITIAL else "")
                         for index in signatures.CONTEXT)
     files = game_files(entries)
-    # (a function the console build replaces is declared twice: as the game calls it and as its original)
+    # (a function something else replaces is declared twice: as the game calls it and as its original)
     prototypes = grouped_prototypes(files, lambda entry: emitter.prototype(entry) + (
-        ";\n" + emitter.definition(entry) if names[entry] in emitter.replaceable else ""))
+        ";\n" + emitter.definition(entry) if names[entry] in emitter.replaced else ""))
     addresses = [f"#define {name} 0x{address:06X}u" for address, name in sorted(emitter.code_addresses.items())]
     (out_dir / "game.h").write_text(
         file_header("game.h", "prototypes of the game's functions and the addresses of the code it keeps in "

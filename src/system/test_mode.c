@@ -3,7 +3,7 @@
  *    Description: the test mode: the menu, the memory, input and sound tests, the CRT test, the game and coin assignments, the bookkeeping screen, the backup clear, the output test, the exit
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    19-10-2026
+ *    Modified:    20-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -321,7 +321,7 @@ void test_memory(uint32_t *p_results_left, uint32_t *p_blocks_per_row)
 /* The ROM part of the MEMORY TEST: compute_crc16 of 0x000000-0x01FFFF and of 0x080000-0x09EFFF,
    compute_crc16_alternate_bytes from 0x100000 and from 0x100001, each against its word of rom_checksums;
    a mismatch sets memory_test_errors 1, 4, 2 or 8 in that order. */
-void check_rom_checksums(void)
+void BOARD_ORIGINAL(check_rom_checksums)(void)
 {
 	uint32_t count = 0, crc = 0, data = 0, ignored = 0, stored_crc = 0;
 	uint16_t ic8_crc = 0, ic18_crc = 0;

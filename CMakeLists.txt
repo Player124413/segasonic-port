@@ -2,7 +2,7 @@
 # Description: build of the SegaSonic runtime and its development tools
 # Version:     0.1.0
 # Created:     11-10-2026
-# Modified:    15-10-2026
+# Modified:    20-10-2026
 # Author:      Sebastian Toyos
 cmake_minimum_required(VERSION 3.20)
 project(segasonic C CXX)
@@ -38,13 +38,13 @@ add_library(s32runtime STATIC
 )
 target_include_directories(s32runtime PUBLIC runtime/include)
 
-# The game's data, carried inside the executables that run it: the board's ROM regions, written from the
-# player's ROM set (rom/, its files or its .zip; SONIC_ROM picks another) by tools/embed_data.py when the
-# set changes; when assets/ holds the extracted assets (extract_assets.py), they stand for their part of
-# the ROM, and a change to them goes into the game. The C it writes stays in the build folder: the ROM
-# never goes into the repository
+# The game's data: no executable carries the ROM or anything from it. The game loads its assets pack when
+# it starts (runtime/src/game_data.c): tools/make_pack.py writes it beside the executables from assets/,
+# which extract_assets.py takes out of the player's ROM set (rom/, its files or its .zip; SONIC_ROM picks
+# another); a change to an asset goes into the pack. The reference runs the original code, so it reads
+# the ROM set itself when it starts (tools/reference/rom_set.c). The ROM never goes into the repository
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
-set(SONIC_ROM ${CMAKE_SOURCE_DIR}/rom CACHE PATH "The ROM set the game's data is written from")
+set(SONIC_ROM ${CMAKE_SOURCE_DIR}/rom CACHE PATH "The ROM set the assets are taken out of")
 if(IS_DIRECTORY ${SONIC_ROM})
 	file(GLOB SONIC_ROM_FILES ${SONIC_ROM}/*)
 else()
@@ -52,18 +52,19 @@ else()
 endif()
 file(GLOB_RECURSE SONIC_ASSET_FILES CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/assets/*)
 file(GLOB SONIC_FORMAT_TOOLS CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/tools/formats/*.py)
-set(SONIC_DATA_DIR ${CMAKE_BINARY_DIR}/data)
-set(SONIC_DATA_SOURCES
-	${SONIC_DATA_DIR}/program.c ${SONIC_DATA_DIR}/tiles.c ${SONIC_DATA_DIR}/sprites.c ${SONIC_DATA_DIR}/sound.c)
-add_custom_command(OUTPUT ${SONIC_DATA_SOURCES}
-	COMMAND Python3::Interpreter ${CMAKE_SOURCE_DIR}/tools/embed_data.py ${SONIC_ROM} ${SONIC_DATA_DIR}
+set(SONIC_ASSETS_PACK ${SONIC_BIN_DIR}/segasonic.assets)
+add_custom_command(OUTPUT ${SONIC_ASSETS_PACK}
+	COMMAND Python3::Interpreter ${CMAKE_SOURCE_DIR}/extract_assets.py ${SONIC_ROM}
+	COMMAND Python3::Interpreter ${CMAKE_SOURCE_DIR}/tools/make_pack.py ${SONIC_ASSETS_PACK}
 	DEPENDS ${SONIC_ROM_FILES} ${SONIC_ASSET_FILES} ${SONIC_FORMAT_TOOLS} ${CMAKE_SOURCE_DIR}/assets.json
-		${CMAKE_SOURCE_DIR}/extract_assets.py ${CMAKE_SOURCE_DIR}/tools/embed_data.py
+		${CMAKE_SOURCE_DIR}/extract_assets.py ${CMAKE_SOURCE_DIR}/tools/make_pack.py
 		${CMAKE_SOURCE_DIR}/tools/sonic_rom.py ${CMAKE_SOURCE_DIR}/tools/asset_formats.py
 		${CMAKE_SOURCE_DIR}/tools/data_formats.py
-	COMMENT "Writing the game's data from the ROM set and the assets")
-add_library(sonic_data STATIC ${SONIC_DATA_SOURCES})
+	COMMENT "Taking the assets out of the ROM set and packing them for the game")
+add_custom_target(sonic_assets ALL DEPENDS ${SONIC_ASSETS_PACK})
+add_library(sonic_data STATIC runtime/src/game_data.c)
 target_include_directories(sonic_data PUBLIC runtime/include)
+add_dependencies(sonic_data sonic_assets)
 
 # The translation scaffold the decompiler grew from: the V60 runtime plus the C tools/recompile.py writes
 # from the user's ROM into build/generated, instruction by instruction (for comparisons only)
@@ -77,7 +78,9 @@ if(SEGASONIC_SCAFFOLD AND SONIC_GENERATED)
 		target_compile_options(sonic_program PRIVATE /bigobj)
 	endif()
 
-	add_executable(sonic_headless ports/headless/main.c)
+	add_executable(sonic_headless ports/headless/main.c tools/reference/rom_set.c)
+	target_include_directories(sonic_headless PRIVATE tools/reference)
+	target_compile_definitions(sonic_headless PRIVATE SEGASONIC_SCAFFOLD)
 	target_link_libraries(sonic_headless PRIVATE sonic_program sonic_data)
 elseif(SEGASONIC_SCAFFOLD)
 	message(STATUS "No generated program yet: run tools/recompile.py to build the scaffold")
@@ -139,15 +142,6 @@ if(SONIC_DECOMPILED)
 		add_executable(SegaSonic WIN32 ports/sdl2/main.c ports/sdl2/settings.c ports/sdl2/actions.c)
 		target_link_libraries(SegaSonic PRIVATE sonic_game_console sonic_data SDL2::SDL2 SDL2::SDL2main)
 		if(WIN32)
-			# the executable's icon: Sonic's, Mighty's and Ray's heads from the player's ROM set
-			# (tools/make_icon.py), in the build folder only, as the game's data
-			add_custom_command(OUTPUT ${SONIC_DATA_DIR}/segasonic.rc ${SONIC_DATA_DIR}/segasonic.ico
-				COMMAND Python3::Interpreter ${CMAKE_SOURCE_DIR}/tools/make_icon.py ${SONIC_ROM} ${SONIC_DATA_DIR}
-				DEPENDS ${SONIC_ROM_FILES} ${CMAKE_SOURCE_DIR}/tools/make_icon.py ${CMAKE_SOURCE_DIR}/tools/sonic_rom.py
-					${CMAKE_SOURCE_DIR}/tools/asset_formats.py
-				COMMENT "Making the executable's icon from the ROM set")
-			set_source_files_properties(${SONIC_DATA_DIR}/segasonic.rc PROPERTIES OBJECT_DEPENDS ${SONIC_DATA_DIR}/segasonic.ico)
-			target_sources(SegaSonic PRIVATE ${SONIC_DATA_DIR}/segasonic.rc)
 			add_custom_command(TARGET SegaSonic POST_BUILD
 				COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:SDL2::SDL2> $<TARGET_FILE_DIR:SegaSonic>)
 		endif()
@@ -209,6 +203,7 @@ if(SEGASONIC_REFERENCE_TOOLS)
 
 	add_executable(s32ref
 		tools/reference/s32ref.cpp
+		tools/reference/rom_set.c
 		tools/reference/mame/v60.cpp
 		tools/reference/mame/v60d.cpp
 	)

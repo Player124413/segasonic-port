@@ -7,7 +7,8 @@ handhelds (Anbernic RG40XX) on top of it.
 **Apart from the screenshots on this page, this repository contains no game data.** The game's program
 is here as C, decompiled from the original machine code (`src/`); as with
 [n64decomp/sm64](https://github.com/n64decomp/sm64), you bring your own ROM for everything else: the
-tools verify it, extract the assets and the data the program reads, and you build your own executable.
+tools verify it and extract the assets and the data the program reads, which the game loads when it
+starts. No executable carries the ROM or anything from it.
 
 <p align="center">
   <img src="docs/screenshots/title.png" width="32%" alt="Title screen">
@@ -133,10 +134,14 @@ Without SDL2 only the headless builds are made.
    python extract_assets.py --check
    ```
 
-3. Build the game and the development tools into `build/bin/`. The build writes the game's data into the
-   executables (`tools/embed_data.py`), so they need no other file to run: from the assets, when
-   `assets/` holds them, with the code from your ROM set (without the assets, all of it from the ROM
-   set). Change an asset and build again, and the change is in the game:
+3. Build the game and the development tools into `build/bin/`. No executable carries the ROM or anything
+   from it: the build takes the assets out of your ROM set when `assets/` does not hold them yet, and
+   packs them into `build/bin/segasonic.assets` (`tools/make_pack.py`), which the game loads when it
+   starts (`runtime/src/game_data.c`). The original code is in no file: the C replaces it. Change an
+   asset and build again, and the change is in the game. `python tools/make_pack.py --check` compares
+   what the pack puts in the board's memory with your ROM set, byte for byte, the code left out. The
+   reference (`s32ref`), which runs the original code as MAME does, reads the ROM set from `rom/` when it
+   starts:
 
    ```bash
    cmake -S . -B build/cmake
@@ -153,7 +158,8 @@ Without SDL2 only the headless builds are made.
    ```
 
    The executable can be copied anywhere with SDL2's library beside it (`SDL2.dll` on Windows, which the
-   build puts next to it). It is built from your ROM: it is yours, not one to share.
+   build puts next to it) and the assets pack (`segasonic.assets`). The executable holds nothing of the
+   game's; the pack is made from your ROM: it is yours, not one to share.
 
    Or run the game without a window, here with the controls of a one-player game:
 
@@ -287,8 +293,11 @@ ports/sdl2/             the game in a window, on SDL2: picture, sound, controls,
 tests/controls/         control scripts: coins, buttons, trackball moves and pokes per frame
 docs/unreachable.txt    the code no scenario runs, and why
 tools/sonic_rom.py      ROM set definition and memory region layouts
-tools/embed_data.py     writes the game's data from the assets (or your ROM set) as C, for the
-                        executables to carry
+tools/make_pack.py      packs the assets for the game to load (segasonic.assets): each by name, where
+                        the board's memory has it; --check compares it with the ROM set
+runtime/src/game_data.c loads the assets pack into the board's memory, and the chips' mirrors
+tools/bisect_code.py    finds the bytes of the code a scenario still reads as data (assets.json's
+                        read_as_data takes them), against the reference at a frame
 tools/asset_formats.py  the board's data formats to standard files (PNG, WAV) and back
 tools/data_formats.py   the program's and the sound program's data as files and back, cut where
                         symbols.txt and sound_symbols.txt name a place, the code left out;
@@ -479,15 +488,24 @@ of them can go without the C doing something the original does not:
 | Object fields without a name (`var_80`) | 48 | read through an object whose type the code does not show |
 | Numbers in the ROM's range left as numbers | 10 | most are not addresses (the checksum's bounds, values written into a ranking record, constants); one is `fraction_digit_font` + 3, the font's fourth byte (`build/decompile/unnamed_addresses.txt` lists them) |
 | Functions with `bool` control variables | 10 | jumps that cross in a way blocks cannot (see Control flow) |
+| Functions the board puts its own in place of (`runtime/replaced.txt`, `BOARD_ORIGINAL`) | 1 | `check_rom_checksums`, the MEMORY TEST's ROM part: it measures ROM chips, and the decompiled game has none (it finds no error, as a board with good chips does) |
+| Bytes of the code the game also reads as data (`assets.json`, `read_as_data`) | 999 | the original reads them through a null pointer or past a table's end: a structure or a text at a null pointer (the program's first 512 bytes, and the frames of its characters past `text_frames`), the map trail and marker of a stage with none, a rope bridge's sag. Each piece takes all a pointer or an index can reach there; the assets hold them, and no other byte of the code |
+
+Still to do, so the decompilation is not finished: the C reads its data through ROM addresses (`ROM8`,
+`ROM16`, `ROM32`, `SOUND_ROM8`...: 1137 reads, `rom_reads` in the count above), by a table's name, by a
+bare number and, most of them, through pointers that walk records, scripts and texts. They become tables
+and structures with names and types over the loaded assets, as the work RAM's variables are.
 
 ## How the port works
 
 - **Game code.** The V60 machine code is decompiled to C (`src/`), so the game runs natively with no CPU
-  emulation. The program reads its data tables and level data, and the video and sound chips their
-  graphics and samples, from the ROM regions the build writes from your ROM set into the executable
-  (`runtime/include/game/data.h`), as the original reads them from its ROM chips. The build makes that
-  data from the assets in `assets/`: each asset builds back into its part of the ROM, and the code the C
-  replaces comes from your ROM set.
+  emulation. The game is that C and the assets: the build packs them (`tools/make_pack.py`) and the game
+  loads the pack when it starts (`runtime/src/game_data.c`), each asset where the board's memory has it,
+  so the program reads its data tables and level data, and the video and sound chips their graphics and
+  samples, where the original reads them from its ROM chips. The original code is in no file and no
+  executable, except the few bytes of it the game also reads as data (`assets.json`, `read_as_data`).
+  Only the reference (`s32ref`), which runs the original code as MAME does, reads your ROM set, when it
+  starts.
 - **Video.** The System 32 video hardware is a library (`runtime/src/video.c`) that draws every frame
   from the board's memories, as the board does, into a 320 or 416 x 224 picture; a platform shows that
   picture as a texture, scaled and filtered as it likes.

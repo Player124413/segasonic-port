@@ -2173,6 +2173,7 @@ void draw_test_menu(void);
 void toggle_test_continue_mode(void);
 void test_memory(uint32_t *p_results_left, uint32_t *p_blocks_per_row);
 void check_rom_checksums(void);
+void BOARD_ORIGINAL(check_rom_checksums)(void);
 void test_work_ram(void);
 void test_work_ram_verify(void);
 void test_video_ram(void);
