@@ -1,10 +1,10 @@
 /**
  *    Name:        first_run.c
- *    Description: the first run: the game's assets pack from the player's ROM set, found beside the game or
- *                 dropped on a window that asks for it
+ *    Description: the first run: the game's assets pack from the player's ROM set, found beside the game (on
+ *                 macOS beside its .app) or where it keeps its files, or dropped on a window that asks for it
  *    Version:     0.1.0
  *    Created:     20-10-2026
- *    Modified:    20-10-2026
+ *    Modified:    21-10-2026
  *    Author:      Sebastian Toyos
  *
  *    license:BSD-3-Clause
@@ -135,6 +135,30 @@ static void draw_window(SDL_Renderer *renderer, const font *letters, const char 
 	SDL_RenderPresent(renderer);
 }
 
+/* On macOS, the folder the .app is in (the game's base is the .app's Resources folder: where the player sees
+   the game is beside the .app); 0 elsewhere */
+static int app_folder(const char *base, char *folder, size_t size)
+{
+#ifdef __APPLE__
+	static const char inside[] = ".app/Contents/Resources/";
+	const size_t length = base ? strlen(base) : 0, tail = sizeof(inside) - 1;
+	size_t end;
+
+	if (length < tail || length >= size || strcmp(base + length - tail, inside) != 0)
+		return 0;
+	for (end = length - tail; end > 0 && base[end - 1] != '/'; end--)
+		;    /* (back over the .app's name) */
+	memcpy(folder, base, end);
+	folder[end] = '\0';
+	return end > 0;
+#else
+	(void)base;
+	(void)folder;
+	(void)size;
+	return 0;
+#endif
+}
+
 /* sonic.zip in 'folder', when it is there and is the set */
 static int found_beside(const char *folder, const char *pack)
 {
@@ -155,10 +179,11 @@ int first_run(const char *base, const char *saves, const char *pack)
 	SDL_Window *window;
 	SDL_Renderer *renderer;
 	font letters;
-	char problem[192] = "";
+	char problem[192] = "", beside_app[1024];
 	int done = 0, running = 1;
 
-	if (found_beside(base, pack) || found_beside(saves, pack))
+	if (found_beside(base, pack) || (app_folder(base, beside_app, sizeof(beside_app)) && found_beside(beside_app, pack))
+		|| found_beside(saves, pack))
 		return 1;
 	window = SDL_CreateWindow("SegaSonic The Hedgehog", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
 		WINDOW_WIDTH, WINDOW_HEIGHT, 0);

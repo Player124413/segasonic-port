@@ -160,11 +160,12 @@ Without SDL2 only the headless builds are made.
    The executable can be copied anywhere with SDL2's library beside it (`SDL2.dll` on Windows, which the
    build puts next to it) and the assets pack (`segasonic.assets`), which the game also finds in the folder
    where it keeps what it writes (below). With no pack, the first run makes it there from your ROM set:
-   `sonic.zip` beside the game, or the one you drop on the window it opens (the set's 18 files, each
-   checked by its CRC32); from then on the game loads the pack and never opens the ROM set again. Built
-   from `rom/`, `build/bin/` has the pack already. The executable holds nothing of the game's; the pack is made from
-   your ROM: it is yours, not one to share. On Linux and macOS the build needs the system's SDL2
-   (`libsdl2-dev`, Homebrew's `sdl2`); with no ROM set it makes the executables alone.
+   `sonic.zip` beside the game (its `.app` on macOS), or the one you drop on the window it opens (the
+   set's 18 files, each checked by its CRC32); from then on the game loads the pack and never opens the
+   ROM set again. Built from `rom/`, `build/bin/` has the pack already. The executable holds nothing of
+   the game's; the pack is made from your ROM: it is yours, not one to share. On Linux and macOS the build
+   needs the system's SDL2 (`libsdl2-dev`, Homebrew's `sdl2`); with no ROM set it makes the executables
+   alone.
 
    Or run the game without a window, here with the controls of a one-player game:
 
