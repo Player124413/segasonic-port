@@ -3,7 +3,7 @@
  *    Description: stage 10's objects, the river: the mines and the bubble column, the lid trap, the turtle, the eel and its den, the rafts, the geysers, the waterfall and the river water, the propeller machine that chases the players, the barred gate, the rope bridge
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    21-10-2026
+ *    Modified:    22-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -1896,9 +1896,9 @@ void geyser_front_rise_step(void)
 		OBJECT(current_object)->geyser_front.wait_timer = 0;
 		OBJECT(current_object)->z -= (uint32_t)chaser_speed << 12;
 		attribute_record = OBJECT(current_object)->floor_attribute + floor_types_ADDRESS;
-		slope_step = ((uint32_t)CLIMB_WALL_ATTRIBUTE(attribute_record)->x_per_rise * chaser_speed) >> 4;
+		slope_step = ((uint32_t)FLOOR_ATTRIBUTE_RECORD(attribute_record)->x_per_rise * chaser_speed) >> 4;
 		step_2 = slope_step;
-		if (CLIMB_WALL_ATTRIBUTE(attribute_record)->axis != 0u)
+		if (FLOOR_ATTRIBUTE_RECORD(attribute_record)->axis != 0u)
 			step_2 = 0u - step_2;
 		OBJECT(current_object)->geyser_front.fixed_projected_x += step_2;
 		OBJECT(current_object)->projected_x = OBJECT(current_object)->geyser_front.projected_x_whole;
@@ -2909,7 +2909,7 @@ void propeller_machine_read_script(void)
 		cursor += 2u;
 		if (CHASE_STEP_WITH_LIMIT(cursor - 0x4u)->catch_up_factor < 0)
 		{
-			current_object = (current_object & ~0xFFFFu) | OBJECT(current_object)->sprite_frame;
+			current_object = LINKED(current_object, OBJECT(current_object)->sprite_frame);
 			push_free_object();
 			delete_current_object();
 			return;
@@ -2934,7 +2934,7 @@ void propeller_machine_read_script(void)
 	}
 	if (CHASE_STEP_WITH_LIMIT(cursor - 0x4u)->catch_up_factor < 0)
 	{
-		current_object = (current_object & ~0xFFFFu) | OBJECT(current_object)->sprite_frame;
+		current_object = LINKED(current_object, OBJECT(current_object)->sprite_frame);
 		push_free_object();
 		delete_current_object();
 		return;

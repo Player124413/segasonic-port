@@ -3,7 +3,7 @@
  *    Description: animation and the sprite list: animation steps (frames, flips, moves, offsets, multi-part sprites), part palette cycles, the depth buckets, build_sprite_list and the buffer swap at VBLANK
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    21-10-2026
+ *    Modified:    22-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -888,7 +888,7 @@ void load_sized_frame_address_at_row(uint16_t row)
 	uint16_t row_bytes = 0;
 	uint32_t frame_record = 0;
 
-	frame_record = (sprite_frames & ~0xFFFFu) | OBJECT(current_object)->sprite_frame;
+	frame_record = LINKED(sprite_frames, OBJECT(current_object)->sprite_frame);
 	row_bytes = SPRITE_FRAME_RECORD(frame_record)->width;
 	frame_record += 2u;
 	if ((OBJECT(current_object)->sprite_flags & 0x200u) == 0u)
@@ -900,7 +900,7 @@ void load_sized_frame_address_at_row(uint16_t row)
    graphics address. */
 void load_sized_frame_address(void)
 {
-	OBJECT(current_object)->sprite_scale = mem_read16(((sprite_frames & ~0xFFFFu) | OBJECT(current_object)->sprite_frame) + 6u);
+	OBJECT(current_object)->sprite_scale = mem_read16(LINKED(sprite_frames, OBJECT(current_object)->sprite_frame) + 6u);
 }
 
 /* Unused: sprite_width and sprite_height = the width and height of the frame's record (sprite_frames +
@@ -909,7 +909,7 @@ void load_frame_size(void)
 {
 	uint32_t frame_record = 0;
 
-	frame_record = (sprite_frames & ~0xFFFFu) | OBJECT(current_object)->sprite_frame;
+	frame_record = LINKED(sprite_frames, OBJECT(current_object)->sprite_frame);
 	OBJECT(current_object)->sprite_width = SPRITE_FRAME_RECORD(frame_record)->width;
 	OBJECT(current_object)->sprite_height = (uint8_t)SPRITE_FRAME_RECORD(frame_record)->height;
 }
@@ -958,7 +958,7 @@ void build_sprite_list(uint32_t *p_height, uint32_t *p_scale_x, uint32_t *p_scal
 			{
 			case 0x0u:
 			case 0x37u:
-				frame_data = (frame_data & ~0xFFFFu) | OBJECT(current_object)->sprite_frame;
+				frame_data = LINKED(frame_data, OBJECT(current_object)->sprite_frame);
 				sprite_scale = OBJECT(current_object)->sprite_scale;
 				source_width = SPRITE_FRAME_RECORD(frame_data)->width;
 				frame_data += 2u;
@@ -973,7 +973,7 @@ void build_sprite_list(uint32_t *p_height, uint32_t *p_scale_x, uint32_t *p_scal
 				break;
 			case 0x3u:
 			case 0x4u:
-				frame_data = (frame_data & ~0xFFFFu) | OBJECT(current_object)->sprite_frame;
+				frame_data = LINKED(frame_data, OBJECT(current_object)->sprite_frame);
 				source_width = SPRITE_FRAME_RECORD(frame_data)->width;
 				dest_width = (uint16_t)source_width;
 				frame_data += 2u;
@@ -1025,7 +1025,7 @@ void build_sprite_list(uint32_t *p_height, uint32_t *p_scale_x, uint32_t *p_scal
 			case 0x23u:
 			case 0x24u:
 				sprite_flags &= 0x2FFFu;
-				frame_data = (frame_data & ~0xFFFFu) | OBJECT(current_object)->sprite_frame;
+				frame_data = LINKED(frame_data, OBJECT(current_object)->sprite_frame);
 				source_width = SPRITE_FRAME_RECORD(frame_data)->width;
 				frame_data += 2u;
 				height = (height & ~0xFFFFu) | SPRITE_FRAME_RECORD(frame_data - 0x2u)->height;

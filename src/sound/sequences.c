@@ -3,7 +3,7 @@
  *    Description: the sequence players stepped at every tick (their events into the MIDI queue, the playlist commands) and the V60's sound commands (songs and sequences started on players, volume fades)
  *    Version:     0.1.0
  *    Created:     13-10-2026
- *    Modified:    21-10-2026
+ *    Modified:    22-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the Z80 sound program decompiled into C by
@@ -797,7 +797,7 @@ void select_channel_player(uint16_t *p_header, uint16_t *p_player)
 
 	z80_block(55);
 	header++;
-	player_page = (SOUND_ROM8(header) & 0xFu) - 0xAu + (player >> 8);
+	player_page = (EFFECT_HEADER(header - 0x1u)->first_status & 0xFu) - 0xAu + (player >> 8);
 	header--;
 	player = (uint32_t)player_page << 8;
 	*p_header = header;

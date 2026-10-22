@@ -3,7 +3,7 @@
  *    Description: objects several stages use: the signs, the scenery sprites, the walls players and objects bounce off, the zones behind the chasers, the pacer that keeps two players together, the hold on a group leader; object types 4 and 13; the crawler, which nothing spawns
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    21-10-2026
+ *    Modified:    22-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -1333,7 +1333,7 @@ void spawn_walls(uint32_t *p_spawns_offset, uint32_t *p_part_size, uint32_t *p_s
 	OBJECT(wall)->wall_update.edge_flags = 0u;
 	current_object = wall;
 	blocks_needed = OBJECT(current_object)->speed_x_fraction;
-	if ((int16_t)ROM16(wall_kind_second_sprites_ADDRESS + OBJECT(current_object)->sprite_frame) >= 0)
+	if (WALL_KIND_PARTS(wall_kinds_ADDRESS + 6u + OBJECT(current_object)->sprite_frame)->second_sprite >= 0)
 		blocks_needed = (uint16_t)(blocks_needed * 2u);
 	if (free_object_stack_2[0] <= (int16_t)blocks_needed)
 	{

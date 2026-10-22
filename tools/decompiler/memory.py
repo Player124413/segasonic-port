@@ -36,6 +36,7 @@ import sonic_rom
 from v60 import ir
 
 from . import cprint
+from . import pointers
 
 WORK_RAM = (0x200000, 0x210000)
 ROM_AREAS = ((0x000000, 0x200000), (0xF00000, 0x1000000))    # the program ROM, the first area holding it whole
@@ -100,13 +101,18 @@ def constant_address(expression):
 
 
 def based(expression):
-    """(constant base, rest) for "base + rest", or None."""
+    """(constant base, rest) for "base + rest", or None. A table of the program ROM can be in the middle of
+    the sum: "a + table + b" is the table and a + b ((uint16_t)(stage x 0xC) + player_palette_lists + kind x 4)."""
     if isinstance(expression, ir.Op) and expression.name == "add":
         left, right = expression.args
         if isinstance(left, ir.Const) and not isinstance(right, ir.Const):
             return left.value & ADDRESS_MASK, right
         if isinstance(right, ir.Const) and not isinstance(left, ir.Const):
             return right.value & ADDRESS_MASK, left
+        for inner, other in ((left, right), (right, left)):
+            parts = based(inner) if isinstance(inner, ir.Op) and inner.bits == expression.bits else None
+            if parts is not None and program_rom(parts[0]) and not isinstance(other, ir.Const):
+                return parts[0], ir.op("add", (parts[1], other), expression.bits)
     return None
 
 
@@ -139,10 +145,30 @@ def table_index(rest, bits):
 
 
 def element_index(rest, bits):
-    """The element number when 'rest' is a byte offset into an array of 'bits'-wide elements, or None."""
+    """The element number when 'rest' is a byte offset into an array of 'bits'-wide elements, or None: a
+    multiple of the size, or a sum of them (the sum of their quotients: (uint16_t)(stage x 0xC) / 4 + kind
+    in a table of longs, the cut keeping it a multiple of 4)."""
     size = bits // 8
     if size == 1:
         return rest
+    if isinstance(rest, ir.Op) and rest.name == "add":
+        parts = [element_index(arg, bits) for arg in rest.args]
+        if all(part is not None for part in parts):
+            return ir.op("add", tuple(parts), rest.bits)
+        return None
+    found = pointers.narrow_count(rest, size) or whole_elements(rest, bits)
+    if found is not None:
+        return found
+    if not isinstance(rest, ir.Const) and size & (size - 1) == 0 \
+            and pointers.low_zeros(rest, {}) >= size.bit_length() - 1 and small(rest):
+        # a small value known to be a multiple of the size (a cut product: (uint16_t)(x * 0xC) of longs)
+        return ir.op("udiv", (rest, ir.Const(size, rest.bits)), rest.bits)
+    return None
+
+
+def whole_elements(rest, bits):
+    """The element number of a byte offset worked out as so many elements times their size, or None."""
+    size = bits // 8
     if isinstance(rest, ir.Op) and rest.name == "mul":
         for value, other in ((rest.args[1], rest.args[0]), (rest.args[0], rest.args[1])):
             if isinstance(value, ir.Const) and value.value == size:
@@ -170,6 +196,10 @@ def small(index):
         if index.name == "and" and any(isinstance(arg, ir.Const) and arg.value < 0x10000 for arg in index.args):
             return True
     if isinstance(index, ir.Load) and index.bits <= 16:
+        return True
+    if isinstance(index, ir.Op) and index.name in ("add", "mul", "udiv") and all(small(arg) for arg in index.args):
+        return True    # (two such values added, or one scaled by a constant: still no address)
+    if isinstance(index, ir.Op) and index.name == "trunc" and index.bits <= 16:
         return True
     return False
 

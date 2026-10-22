@@ -12,9 +12,9 @@ invalid_jump 243
 unknown_code 0
 raw_rom_addresses 10
 uncommented 0
-rom_reads 30
+rom_reads 0
 board_replaced 1
 functions 1783
-lines 78087
-casts 5747
-partial_writes 727
+lines 78088
+casts 5739
+partial_writes 717

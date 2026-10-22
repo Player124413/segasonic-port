@@ -98,9 +98,26 @@ FIELD_ARRAYS = {}              # (struct, offset) -> (bits, count): a field that
                                # of 'bits' (None: it goes on past the record's end), read STRUCT(p)->field[i]
 
 
+BASES = {}                     # name -> address of the program's data, for "STRUCT@NAME" (decompile.py)
+
+
 def link_kind(link, offset=0):
-    """The kind of a pointer to what 'link' names (symbols.txt): STRUCT, STRUCT.FAMILY or a region."""
-    struct, _, family = link.partition(".")
+    """The kind of a pointer to what 'link' names (symbols.txt): STRUCT, STRUCT.FAMILY or a region;
+    STRUCT+OFFSET (hexadecimal) that many bytes into one; STRUCT@BASE (BASE a name of the program's data or an
+    address, then maybe + a hexadecimal offset) no pointer but a byte offset from BASE to one: ("to", base,
+    STRUCT)."""
+    if "@" in link:
+        struct, _, base = link.partition("@")
+        if not base:
+            return "rel", struct    # (a byte offset from the table it is read from: STRUCT@)
+        name, plus, extra = base.partition("+")
+        address = BASES[name] if name in BASES else int(name, 16)
+        extra = int(extra, 16) if plus else 0
+        return "to", address + extra, struct, address, extra
+    struct, plus, extra = link.partition("+")
+    if plus:
+        offset += int(extra, 16)
+    struct, _, family = struct.partition(".")
     return (struct, offset, family) if family else (struct, offset)
 
 
@@ -220,19 +237,67 @@ def upper_bound(node):
     return (1 << node.bits) - 1
 
 
-def scaled_count(node, size):
+def narrow_count(node, size):
+    """The number of elements of 'size' bytes in an offset worked out in fewer bits than an address: a power
+    of two times x in a halfword (shl.h, or a product cut to 16 bits) is x with its bits past the halfword
+    dropped: (uint16_t)(x << 1) is element x & 0x7FFF of a table of words, exactly. None otherwise."""
+    while isinstance(node, ir.Op) and node.name in ("zext", "fits") and node.args[0].bits < node.bits:
+        node = node.args[0]
+    width = node.bits
+    if isinstance(node, ir.Op) and node.name == "trunc":
+        node = node.args[0]
+    elif not (isinstance(node, ir.Op) and width < POINTER_BITS):
+        return None
+    factor, base = 1, node
+    while isinstance(base, ir.Op) and base.name in ("shl", "mul") and isinstance(base.args[1], ir.Const) and (
+            base.name == "shl" or base.args[1].value > 0 and base.args[1].value & (base.args[1].value - 1) == 0):
+        factor *= 1 << base.args[1].value if base.name == "shl" else base.args[1].value
+        base = base.args[0]
+    if base is node or size & (size - 1) or not size <= factor < 1 << width or factor % size:
+        return None
+    kept = base if upper_bound(base) * factor < 1 << width else \
+        ir.op("and", (base, ir.Const((1 << (width - (factor.bit_length() - 1))) - 1, base.bits)), base.bits)
+    if factor == size:
+        return kept
+    if kept.bits < POINTER_BITS:
+        kept = ir.op("zext", (kept,), POINTER_BITS)
+    return ir.op("mul", (kept, ir.Const(factor // size, POINTER_BITS)), POINTER_BITS)
+
+
+def scaled_count(node, size, zeros=None):
     """The number of whole records of 'size' bytes 'node' is an offset of (x for "x * size", "x << n" with
     size 2^n, a constant's quotient), or None. Widenings are looked through, and a cut to fewer bits that
     keeps every bit the value can have (the Z80's byte arithmetic): an index cut for real wraps where a
     record number would not."""
+    narrow = narrow_count(node, size)
+    if narrow is not None:
+        return narrow
     while isinstance(node, ir.Op) and (node.name in ("zext", "fits")
                                        or node.name == "trunc" and upper_bound(node.args[0]) < 1 << node.bits):
         node = node.args[0]
+    if isinstance(node, ir.Op) and node.name == "trunc" and size & (size - 1) == 0:
+        # an index the code works out in fewer bits (shl.h): a power of two times x, cut to them, is a number
+        # of records cut to so many bits fewer: (uint16_t)(x << 1) is element x & 0x7FFF of a table of words
+        width = node.bits
+        factor, base = 1, node.args[0]
+        while isinstance(base, ir.Op) and (base.name == "shl" and isinstance(base.args[1], ir.Const)
+                                           or base.name == "mul" and isinstance(base.args[1], ir.Const)
+                                           and base.args[1].value & (base.args[1].value - 1) == 0):
+            factor *= 1 << base.args[1].value if base.name == "shl" else base.args[1].value
+            base = base.args[0]
+        if size <= factor < 1 << width:
+            kept = ir.op("and", (base, ir.Const((1 << (width - (factor.bit_length() - 1))) - 1, base.bits)), base.bits)
+            return kept if factor == size else ir.op("mul", (kept, ir.Const(factor // size, base.bits)), base.bits)
+        return None
     if isinstance(node, ir.Const):
         value = node.value if node.value < 0x80000000 else node.value - 0x100000000
         return ir.Const(value // size & 0xFFFFFFFF, 32) if value % size == 0 else None
     if size == 1:
         return node
+    if isinstance(node, ir.Reg) and zeros is not None and size & (size - 1) == 0 \
+            and zeros.get(node.index, 0) >= size.bit_length() - 1:
+        # a register known to hold a multiple of the size (stage x 2, kept in a register): its quotient
+        return ir.op("udiv", (node, ir.Const(size, node.bits)), node.bits)
     # (a chain of constant factors and shifts: x * 2 * 2 is four times x)
     factor, base = 1, node
     while isinstance(base, ir.Op) and base.bits == node.bits and (
@@ -340,6 +405,8 @@ def low_zeros(node, zeros):
         return min(node.bits, low_zeros(args[0], zeros) + low_zeros(args[1], zeros))
     if name == "and":
         return max(low_zeros(args[0], zeros), low_zeros(args[1], zeros))
+    if name == "add" and args[0] == args[1]:
+        return min(node.bits, low_zeros(args[0], zeros) + 1)    # (x + x: twice x, "add.h R5, R5")
     if name in ("or", "xor", "add", "sub"):
         return min(low_zeros(args[0], zeros), low_zeros(args[1], zeros))
     if name in ("zext", "trunc", "fits"):
@@ -365,10 +432,16 @@ def kind_of(node, state, zeros):
         if node.bits == POINTER_BITS:
             target = target_of(node.address, state, POINTER_BITS)
             return link_kind(target) if target is not None else None
-        return None
+        # (a narrower value symbols.txt says is a byte offset to a record: STRUCT@BASE, STRUCT@)
+        target = target_of(node.address, state, node.bits)
+        return link_kind(target) if target is not None and "@" in target else None
     if not isinstance(node, ir.Op):
         return None
     name, args = node.name, node.args
+    if name in ("zext", "fits") and isinstance(args[0], ir.Load):
+        found = kind_of(args[0], state, zeros)
+        if found is not None and found[0] in ("to", "rel"):
+            return found
     if PAGED and name in ("and", "or", "shl"):
         found = page_parts(node, state, zeros)
         if found is not None:
@@ -387,6 +460,8 @@ def kind_of(node, state, zeros):
         # A pointer to a record moved by something other than whole records points into the ROM, no more
         kinds = [kind_of(arg, state, zeros) if not isinstance(arg, ir.Const) or name == "add" else None
                  for arg in args]
+        # (a byte offset to a record, read where it leads nowhere symbols.txt says: an offset like any other)
+        kinds = [OFFSET if kind is not None and kind[0] in ("to", "rel") else kind for kind in kinds]
         if not any(isinstance(arg, ir.Const) for arg in args):
             kinds = [("rom", 0) if records_kind(kind) else kind for kind in kinds]
         elif name == "add":
@@ -513,7 +588,7 @@ def target_of(address, state, bits):
     return found[0] if found is not None and found[1] == bits else None
 
 
-def access(address, state):
+def access(address, state, zeros=None):
     """(struct, offset of the field, base register, how far into the struct the base points, the family of
     the structure or None) for a memory access at 'address', or None. Through a pointer to a variable:
     ("global", the address with the variable's address in place of the register)."""
@@ -529,7 +604,7 @@ def access(address, state):
             return ("global", folded)
     # a record by its number, or an element of a field that is an array, before "into the ROM, no more": a
     # table of records plus a row and a column is both
-    found = indexed_access(address, state)
+    found = indexed_access(address, state, zeros=zeros)
     if found is not None:
         return found
     whole = kind_of(address, state, {})
@@ -555,7 +630,7 @@ def access(address, state):
         kind = kind_of(base, state, {})    # a pointer read where it is used (22[4[R20]])
     else:
         kind = None
-    if kind is None or kind[0] in ("global", "const") or kind[0] in REGIONS or kind == OFFSET:
+    if kind is None or kind[0] in ("global", "const", "to", "rel") or kind[0] in REGIONS or kind == OFFSET:
         return None
     offset = signed(kind[1] + displacement)
     if 0 <= offset < STRUCTS[kind[0]]:
@@ -563,7 +638,7 @@ def access(address, state):
     return None
 
 
-def array_access(kind, pointer, constant, rest):
+def array_access(kind, pointer, constant, rest, zeros=None):
     """(struct, field offset, pointer, how far into its record the pointer points, family, record number or None,
     element number) for an access to an element of a field that is an array (FIELD_ARRAYS): the pointer's
     record (or the one so many records on) plus the field's offset plus the element's; None otherwise. The
@@ -576,8 +651,8 @@ def array_access(kind, pointer, constant, rest):
         records, element_terms = [], []
         for term in rest:
             # (an array past the record's end takes no record number: what follows is the array)
-            by_record = scaled_count(term, size) if count is not None else None
-            by_element = scaled_count(term, width)
+            by_record = scaled_count(term, size, zeros) if count is not None else None
+            by_element = scaled_count(term, width, zeros)
             if by_record is not None and not records:
                 records.append(by_record)
             elif by_element is not None and not element_terms:
@@ -601,7 +676,7 @@ def array_access(kind, pointer, constant, rest):
     return None
 
 
-def indexed_access(address, state, in_fields=True):
+def indexed_access(address, state, in_fields=True, zeros=None):
     """(struct, field offset, pointer, how far into its record the pointer points, family, index) for an
     access to a record of the program ROM by its number: a pointer to one (or a table of them) plus the
     number times the record's size, plus a displacement; or a displacement past the record the pointer is in
@@ -617,7 +692,8 @@ def indexed_access(address, state, in_fields=True):
         elif isinstance(node, ir.Op) and node.name == "add" and node.bits == POINTER_BITS:
             gather(node.args[0], sign)
             gather(node.args[1], sign)
-        elif isinstance(node, ir.Op) and node.name == "sub" and node.bits == POINTER_BITS                 and isinstance(node.args[1], ir.Const):
+        elif isinstance(node, ir.Op) and node.name == "sub" and node.bits == POINTER_BITS \
+                and isinstance(node.args[1], ir.Const):
             gather(node.args[0], sign)
             constant -= sign * node.args[1].value
         else:
@@ -630,8 +706,31 @@ def indexed_access(address, state, in_fields=True):
     pointer = kind = None
     if terms == [address]:
         return None    # (nothing to take apart: an address of another width)
-    for term in terms:
-        found = state.get(term.index) if isinstance(term, ir.Reg) else kind_of(term, state, {})
+    kinds = [state.get(term.index) if isinstance(term, ir.Reg) else kind_of(term, state, {}) for term in terms]
+    relative = [index for index, found in enumerate(kinds) if found is not None and found[0] == "rel"]
+    if len(relative) == 1:
+        # a byte offset read from a table, from the table's own start, plus a pointer to the table: what it
+        # leads to, STRUCT(table + offset)
+        bases = [index for index, found in enumerate(kinds) if index not in relative and records_kind(found)]
+        if bases:
+            offset_term, base_term = terms[relative[0]], terms[bases[0]]
+            pointer = ir.op("add", (base_term, offset_term), POINTER_BITS)
+            kind = (kinds[relative[0]][1], 0)
+            terms = [pointer] + [term for term in terms if term is not offset_term and term is not base_term]
+    for term, found in zip(terms, kinds) if pointer is None else ():
+        if found is not None and found[0] == "to" and len(terms) == 1:
+            # a byte offset from a table to a record in it plus the table's address (and a field's place):
+            # that record's field, STRUCT(table_ADDRESS + offset)->field; [-1] the record before
+            size = STRUCTS[found[2]]
+            element, within = divmod(constant - found[1], size)
+            if abs(element) > 1:
+                continue
+            named = ir.Const(found[3], POINTER_BITS)
+            base = named if not found[4] else ir.op("add", (named, ir.Const(found[4], POINTER_BITS)), POINTER_BITS)
+            at = ir.op("add", (base, term), POINTER_BITS)
+            if not element:
+                return found[2], within, at, 0, None
+            return found[2], within, at, 0, None, ir.Const(element & 0xFFFFFFFF, 32)
         if records_kind(found):
             pointer, kind = term, found
             break
@@ -644,13 +743,13 @@ def indexed_access(address, state, in_fields=True):
     if len(rest) > 1 and all(term == rest[0] for term in rest):
         rest = [ir.op("mul", (rest[0], ir.Const(len(rest), rest[0].bits)), rest[0].bits)]    # (i + i: twice i)
     if in_fields and len(rest) <= 2:
-        found = array_access(kind, pointer, constant, rest)
+        found = array_access(kind, pointer, constant, rest, zeros)
         if found is not None:
             return found
     if len(rest) > 1:
         return None
     size = STRUCTS[kind[0]]
-    count = scaled_count(rest[0], size) if rest else None
+    count = scaled_count(rest[0], size, zeros) if rest else None
     if rest and count is None:
         return None
     element, offset = divmod(kind[1] + constant, size)
@@ -663,6 +762,36 @@ def indexed_access(address, state, in_fields=True):
     else:
         index = count
     return kind[0], offset, pointer, kind[1], family_of(kind), index
+
+
+def table_element(address, zeros):
+    """("table_index", table address, register, the power of two it is a multiple of) for "table + register"
+    with a register whose low bits are known to be zero (stage x 2 kept in a register): emit.py reads it as
+    the table's element (register / size) when the table's elements fit; None otherwise. The table can be
+    added with 16-bit arithmetic in its 64 KB page ("page | (uint16_t)(low + register)", add.h)."""
+    if isinstance(address, ir.Op) and address.name == "or" and len(address.args) == 2:
+        for page, low in (address.args, tuple(reversed(address.args))):
+            while isinstance(low, ir.Op) and low.name in ("zext", "fits", "trunc"):
+                low = low.args[0]
+            if isinstance(page, ir.Const) and page.value & 0xFFFF == 0 and isinstance(low, ir.Op) \
+                    and low.name == "add" and low.bits <= 16:
+                for table, register in (low.args, tuple(reversed(low.args))):
+                    if isinstance(table, ir.Const):
+                        found = table_element(ir.op("add", (ir.Const(page.value | table.value, POINTER_BITS),
+                                                            register), POINTER_BITS), zeros)
+                        if found is not None:
+                            return found
+        return None
+    if not (isinstance(address, ir.Op) and address.name == "add" and address.bits == POINTER_BITS):
+        return None
+    for table, register in (address.args, tuple(reversed(address.args))):
+        inner = register
+        while isinstance(inner, ir.Op) and inner.name in ("zext", "fits", "trunc"):
+            inner = inner.args[0]
+        if isinstance(table, ir.Const) and rom_address(table.value & ADDRESS_MASK) and isinstance(inner, ir.Reg) \
+                and low_zeros(register, zeros) > 0:
+            return "table_index", table.value & ADDRESS_MASK, register, 1 << low_zeros(register, zeros)
+    return None
 
 
 def fold(node):
@@ -858,10 +987,11 @@ class Program:
                 state.pop(index, None)
                 zeros.pop(index, None)
 
-    def note(self, statement, state, record):
+    def note(self, statement, state, record, zeros=None):
         found, accesses = record
+        zeros = zeros if zeros is not None else {}
         if isinstance(statement, ir.Store):
-            hit = access(statement.address, state)
+            hit = access(statement.address, state, zeros)
             if hit is not None and hit[0] in REGIONS:
                 hit = None    # nothing writes the ROM: whatever this is, it stays as it was
             if hit is not None:
@@ -873,9 +1003,10 @@ class Program:
         for expression in ir.statement_expressions(statement):
             for node in ir.walk(expression):
                 if isinstance(node, ir.Load):
-                    hit = access(node.address, state)
-                    if hit is not None and hit[0] in REGIONS:
-                        found[id(node)] = hit
+                    hit = access(node.address, state, zeros)
+                    element = table_element(node.address, zeros) if hit is None or hit[0] in REGIONS else None
+                    if element is not None or hit is not None and hit[0] in REGIONS:
+                        found[id(node)] = element or hit
                         continue
                     if hit is not None:
                         if hit[0] == "global":
@@ -926,11 +1057,11 @@ class Program:
             block = blocks[label]
             for statement in block.statements:
                 if record is not None:
-                    self.note(statement, state, record)
+                    self.note(statement, state, record, zeros)
                 self.step(statement, state, zeros, record)
             end = block.end
             if record is not None:
-                self.note(end, state, record)
+                self.note(end, state, record, zeros)
             if isinstance(end, ir.TailCall):
                 if record is None:
                     self.tell_callee(end.target, self.told(end.target, state))

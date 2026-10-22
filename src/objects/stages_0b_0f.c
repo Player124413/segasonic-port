@@ -3,7 +3,7 @@
  *    Description: the objects of stages B to F: the chasers (the brick wall that bursts, the biting head, the fire front) and the flames that spread ahead of it, the spike gate, the falling grates, the rising saws and the steps they cut, the puffs, the checkered pad, the static triangle, the railing
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    21-10-2026
+ *    Modified:    22-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -811,7 +811,7 @@ void biting_head_load_record(uint32_t path_cursor)
 {
 	if (BITING_HEAD_PATH_ENTRY(path_cursor - 0x4u)->catch_up_factor < 0)
 	{
-		current_object = (current_object & ~0xFFFFu) | OBJECT(current_object)->sprite_frame;
+		current_object = LINKED(current_object, OBJECT(current_object)->sprite_frame);
 		push_free_object();
 		current_object = LINKED(current_object, OBJECT(object_cursor)->child);
 		push_free_object();
@@ -1896,9 +1896,9 @@ void rising_saw_rise(void)
 	OBJECT(current_object)->rising_saw.wait_timer = 0;
 	OBJECT(current_object)->z -= (uint32_t)(int16_t)OBJECT(current_object)->speed_fraction << 12;
 	attribute_record = OBJECT(current_object)->floor_attribute + floor_types_ADDRESS;
-	slope_step = ((uint32_t)CLIMB_WALL_ATTRIBUTE(attribute_record)->x_per_rise * (int16_t)OBJECT(current_object)->speed_fraction) >> 4;
+	slope_step = ((uint32_t)FLOOR_ATTRIBUTE_RECORD(attribute_record)->x_per_rise * (int16_t)OBJECT(current_object)->speed_fraction) >> 4;
 	projected_dx = slope_step;
-	if (CLIMB_WALL_ATTRIBUTE(attribute_record)->axis != 0u)
+	if (FLOOR_ATTRIBUTE_RECORD(attribute_record)->axis != 0u)
 		projected_dx = 0u - projected_dx;
 	OBJECT(current_object)->rising_saw.fixed_projected_x += projected_dx;
 	OBJECT(current_object)->projected_x = OBJECT(current_object)->rising_saw.projected_x_whole;
@@ -2171,7 +2171,7 @@ void build_grate_steps(void)
 			OBJECT(current_object)->projected_y -= 0x1A8000u;
 			grate_step_number++;
 		} while (grate_step_number < 3);
-		slope_shift = (int16_t)ROM16(floor_attribute_slopes_ADDRESS + OBJECT(current_object)->floor_attribute) * 0x1Eu;
+		slope_shift = FLOOR_ATTRIBUTE_RECORD(floor_types_ADDRESS + OBJECT(current_object)->floor_attribute)->x_per_rise * 0x1Eu;
 		OBJECT(current_object)->build_grate_steps.row_projected_x += slope_shift;
 		OBJECT(current_object)->build_grate_steps.row_projected_y += slope_shift >> 1;
 		OBJECT(current_object)->z_int += 0x1Eu;
@@ -2279,7 +2279,7 @@ void spawn_grate_step_debris(void)
 		OBJECT(object)->speed_x += (int16_t)random_value;
 		random_value = (int32_t)random_value >> 16;
 		OBJECT(object)->speed_z += random_value;
-		OBJECT(object)->animation = ROM16(record) + grate_step_debris_animations_ADDRESS;
+		OBJECT(object)->animation = GRATE_DEBRIS_PIECE(record - 0x8u)->animation + grate_step_debris_animations_ADDRESS;
 		OBJECT(object)->animation_frame = 0xFFu;
 		OBJECT(object)->animation_speed = 3u;
 		OBJECT(object)->animation_timer = 0;
@@ -2353,7 +2353,7 @@ void build_saw_shaft_base(void)
 		OBJECT(object)->projected_y = OBJECT(current_object)->projected_y;
 		OBJECT(object)->z = OBJECT(current_object)->z;
 		OBJECT(current_object)->z_int += 0x1Du;
-		slope_shift = (int16_t)ROM16(floor_attribute_slopes_ADDRESS + OBJECT(current_object)->floor_attribute) * 0x1Du;
+		slope_shift = FLOOR_ATTRIBUTE_RECORD(floor_types_ADDRESS + OBJECT(current_object)->floor_attribute)->x_per_rise * 0x1Du;
 		OBJECT(current_object)->build_saw_shaft_base.fixed_projected_x += slope_shift;
 		OBJECT(current_object)->projected_y += slope_shift >> 1;
 		saw_shaft_part++;

@@ -841,7 +841,8 @@ class FunctionWriter:
             return "return_address"
         if node.offset > 0:
             raise EmitError(f"{self.function.name}: reads its caller's stack at {node.offset:+d}")
-        name = self.slots.get(node.offset) or self.slot_chosen(node.offset) or self.slot_hint(node.offset)             or f"stack_{-node.offset:X}"
+        name = self.slots.get(node.offset) or self.slot_chosen(node.offset) or self.slot_hint(node.offset) \
+            or f"stack_{-node.offset:X}"
         self.slots[node.offset] = name
         bits = self.slot_widths.setdefault(node.offset, node.bits)
         if bits != node.bits:
@@ -858,6 +859,14 @@ class FunctionWriter:
         if bits not in memory.TYPES:
             return None
         field = self.fields.get(key)
+        if field is not None and field[0] == "table_index":
+            # a table read by a register that holds a multiple of its elements' size: that element
+            item = self.emitter.memory.tables.get(memory.own_copy(field[1]))
+            size = bits // 8
+            if item is not None and item.bits == bits and field[3] % size == 0:
+                register = self.printer.any(field[2]).text
+                return (f"{item.name}[{register}]" if size == 1 else f"{item.name}[{register} / {size}u]"), item.signed, False
+            field = (pointers.REGIONS and next(iter(pointers.REGIONS)), 0, address, 0, None)
         if field is not None and field[0] in pointers.REGIONS:
             # through a pointer into the ROM: a table with a name, or the data read straight
             named = self.emitter.memory.access(address, bits, self.exact)
@@ -1650,9 +1659,12 @@ class FunctionWriter:
                             summed |= {id(arg) for arg in node.args if isinstance(arg, ir.Const)}
                         elif isinstance(node, ir.Const) and not node.value & 0xFFFF:
                             hit = self.fields.get(id(statement))
-                            if isinstance(statement, ir.Store) and statement.value is node                                     and hit is not None and hit[:2] == ("object", 0x1C):
+                            if isinstance(statement, ir.Store) and statement.value is node \
+                                    and hit is not None and hit[:2] == ("object", 0x1C):
                                 continue
-                            if isinstance(statement, ir.SetReg) and statement.value is node                                     and node.value in BOARD_MEMORIES                                     and self.vars.def_name(statement, statement.index) in pointing:
+                            if isinstance(statement, ir.SetReg) and statement.value is node \
+                                    and node.value in BOARD_MEMORIES \
+                                    and self.vars.def_name(statement, statement.index) in pointing:
                                 continue
                             found.add(id(node))
         self._numbers = found
