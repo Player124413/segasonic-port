@@ -3,7 +3,7 @@
  *    Description: the map screen between stages (game mode 4): the wipe, the island map, the trail, the markers, Eggman
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    21-10-2026
+ *    Modified:    22-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -113,7 +113,7 @@ void map_intro_update(void)
 		mem_write16(backdrop_color, 0u);
 		OBJECT(current_object)->animation_frame++;
 		stage_number = stage;
-		map_stage_icon = ROM16(stage_map_icons_ADDRESS + (uint16_t)(stage_number << 1));
+		map_stage_icon = stage_map_icons[stage_number & 0x7FFFu];
 		return;
 	case 3:
 		move_map_stage_icon();
@@ -369,7 +369,7 @@ void map_screen_update(void)
 		return;
 	case 5:
 		stage_number = stage;
-		map_stage_icon = ROM16(next_stage_map_icons_ADDRESS + (uint16_t)(stage_number << 1));
+		map_stage_icon = next_stage_map_icons[stage_number & 0x7FFFu];
 		window_wipe_closing = 0u;
 		record = map_wipe_out_windows_ADDRESS + stage * 6u;
 		start_window_wipe(record);
@@ -854,7 +854,7 @@ uint32_t draw_map_stage_markers(uint32_t badge_offset)
 				else
 				{
 					badge_offset = badge_offset * 0xCu;
-					if (OBJECT(current_object)->sprite_frame != ROM16(map_number_badge_sprites_ADDRESS + badge_offset))
+					if (OBJECT(current_object)->sprite_frame != map_number_badge_sprites[badge_offset / 2u])
 					{
 						queue_sprite_in_layer();
 						current_object = current_object + 0x30u;

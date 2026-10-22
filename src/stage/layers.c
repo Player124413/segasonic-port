@@ -3,7 +3,7 @@
  *    Description: the stage's background: the palettes animated per stage, the palette sets and the backdrop, and the tilemap layers NBG0-NBG3 (pictures, mixing, per-stage scroll)
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    21-10-2026
+ *    Modified:    22-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -856,7 +856,7 @@ uint32_t init_nbg2_layer(uint32_t dest)
 		{
 			row_scroll_wave_step &= 0x7Fu;
 			wave_index = row_scroll_wave_step;
-			mem_write16(table_entry, (int32_t)(((uint32_t)(int16_t)ROM16(sine_table_ADDRESS + (uint16_t)(wave_index << 4)) << 3) & ~0xFFFFu) >> 16);
+			mem_write16(table_entry, (int32_t)(((uint32_t)sine_table[(wave_index & 0xFFFu) * 8u] << 3) & ~0xFFFFu) >> 16);
 			row_scroll_wave_step++;
 			table_entry += 2u;
 			entries_left--;

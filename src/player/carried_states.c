@@ -3,7 +3,7 @@
  *    Description: the player's states while the stage carries or holds them: thrown, carried off, trapped, riding, the final stage, tripped, swept away, climbing an object, pulled, held still, stuck on an object, caught, sinking, knocked off
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    21-10-2026
+ *    Modified:    22-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -231,7 +231,7 @@ void player_state_carried_off(uint32_t depth, uint32_t cursor)
 		OBJECT(current_object)->sprite_flags &= ~0xC0u;
 		OBJECT(current_object)->sprite_flags |= FLAGGED_STEP(cursor)->flags;
 		cursor += 2u;
-		OBJECT(current_object)->sprite_frame = ROM16(cursor);
+		OBJECT(current_object)->sprite_frame = FLAGGED_STEP(cursor - 0x2u)->frame;
 	case 4:
 		if (PLAYER(current_player)->previous_state == 0xDu)
 		{

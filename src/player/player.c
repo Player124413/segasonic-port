@@ -3,7 +3,7 @@
  *    Description: the player: starting, joining, resetting and placing a player, player_update, the movement (screen edges, trackball, turning, jumps, walls), the shadow, the floor checks, the restart point, the checks of every frame, and check_player_contacts (what touching each kind of object does)
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    21-10-2026
+ *    Modified:    22-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -251,7 +251,7 @@ void player_reset(void)
 	OBJECT(current_object)->animation_timer = 0;
 	OBJECT(current_object)->animation = sonic_walking_animations_ADDRESS;
 	stage_index = stage;
-	OBJECT(current_object)->player_view.palette_list = ROM32((uint16_t)(stage_index * 0xCu) + player_palette_lists_ADDRESS + OBJECT(current_object)->kind * 4u);
+	OBJECT(current_object)->player_view.palette_list = player_palette_lists[(uint32_t)((uint16_t)(stage_index * 0xCu) / 4u) + OBJECT(current_object)->kind];
 	OBJECT(current_object)->sprite_palette = PLAYER_PALETTE_LIST(OBJECT(current_object)->player_view.palette_list)->normal_palette;
 	if ((OBJECT(current_object)->flags & 0x2000000u) != 0u || current_game_mode == 0x1Bu)
 	{
@@ -644,7 +644,7 @@ uint32_t keep_player_on_screen(uint32_t depth)
 	if ((uint8_t)scroll_direction != 0u)
 		direction_row = (uint16_t)(direction_row + 4u);
 	direction_row = (uint16_t)(direction_row + (scroll_direction >> 8));
-	if ((int8_t)ROM8((uint16_t)(direction_row << 2) + screen_edge_scroll_carry_flags_ADDRESS + PLAYER(current_player)->screen_edge) >= 0)
+	if (screen_edge_scroll_carry_flags[(uint32_t)(uint16_t)(direction_row << 2) + PLAYER(current_player)->screen_edge] >= 0)
 		return push_player_from_screen_edge();
 	push_player_from_screen_edge();
 	slope_direction = (int16_t)camera_slope_direction;
@@ -2343,7 +2343,7 @@ void set_floor_sprite_priority(void)
 		OBJECT(current_object)->sprite_palette &= 0x1FFFu;
 		OBJECT(current_object)->sprite_palette |= 0x4000u;
 	}
-	if (ROM8(floor_types_ADDRESS + mem_read8(floor_blocks + 2u + OBJECT(current_object)->previous_floor_block + 0x12u) * 4u) == 0xCu && OBJECT(current_object)->floor_type == 0xCu)
+	if (floor_types[mem_read8(floor_blocks + 2u + OBJECT(current_object)->previous_floor_block + 0x12u)].floor_type == 0xCu && OBJECT(current_object)->floor_type == 0xCu)
 	{
 		OBJECT(current_object)->sprite_palette &= 0x1FFFu;
 		OBJECT(current_object)->sprite_palette |= 0x2000u;
@@ -2420,14 +2420,14 @@ uint32_t update_sinking_floor(uint32_t sink_offset)
 	return sink_offset;
 }
 
-/* Carries the player with a moving floor: on floor type 7 whose floor_attribute_slopes byte is 1, x +=
+/* Carries the player with a moving floor: on floor type 7 whose floor attribute's ride is 1, x +=
    moving_floor_object's speed_x; on floor type 0xC, y += its platform's speed_y (not while jumping, nor
    while teetering off a block not of type 0xC). */
 void apply_moving_floor(void)
 {
-	if (OBJECT(current_object)->floor_type == 7u && ROM8(floor_attribute_slopes_ADDRESS + OBJECT(current_object)->floor_attribute) == 1u)
+	if (OBJECT(current_object)->floor_type == 7u && FLOOR_ATTRIBUTE_RECORD(floor_types_ADDRESS + OBJECT(current_object)->floor_attribute)->ride == 1u)
 		OBJECT(current_object)->x += OBJECT(LINKED(current_object, moving_floor_object))->speed_x;
-	if (PLAYER(current_player)->state != 4u && (PLAYER(current_player)->state != 5u || ROM8(floor_types_ADDRESS + mem_read8(floor_blocks + 2u + OBJECT(current_object)->previous_floor_block + 0x12u) * 4u) == 0xCu) && OBJECT(current_object)->floor_type == 0xCu)
+	if (PLAYER(current_player)->state != 4u && (PLAYER(current_player)->state != 5u || floor_types[mem_read8(floor_blocks + 2u + OBJECT(current_object)->previous_floor_block + 0x12u)].floor_type == 0xCu) && OBJECT(current_object)->floor_type == 0xCu)
 		OBJECT(current_object)->y += OBJECT(LINKED(current_object, OBJECT(current_object)->platform))->speed_y;
 }
 
@@ -3047,16 +3047,16 @@ void start_climb_at_spawn(uint32_t climbed_height)
 	}
 	OBJECT(current_object)->animation = climb_animation;
 	OBJECT(current_object)->sprite_flags |= 0x40u;
-	if (floor_types[OBJECT(current_object)->floor_attribute] != 0u)
+	if (FLOOR_ATTRIBUTE_RECORD(floor_types_ADDRESS + OBJECT(current_object)->floor_attribute)->axis != 0u)
 		OBJECT(current_object)->sprite_flags &= 0xFFBFu;
 	OBJECT(current_object)->animation_timer = 0;
 	OBJECT(current_object)->animation_speed = 3u;
 	OBJECT(current_object)->animation_frame = 0xFFu;
 	attribute_record = OBJECT(current_object)->floor_attribute + floor_types_ADDRESS;
-	PLAYER(current_player)->climb_remaining = CLIMB_WALL_ATTRIBUTE(attribute_record)->height;
-	climbed_height = (climbed_height & ~0xFFFFu) | CLIMB_WALL_ATTRIBUTE(attribute_record)->rise;
+	PLAYER(current_player)->climb_remaining = FLOOR_ATTRIBUTE_RECORD(attribute_record)->height;
+	climbed_height = (climbed_height & ~0xFFFFu) | FLOOR_ATTRIBUTE_RECORD(attribute_record)->rise;
 	block = floor_blocks + 2u + OBJECT(current_object)->floor_block;
-	if (CLIMB_WALL_ATTRIBUTE(attribute_record)->axis == 0u)
+	if (FLOOR_ATTRIBUTE_RECORD(attribute_record)->axis == 0u)
 		distance = (uint32_t)OBJECT(current_object)->x - FLOOR_BLOCK(block)->x_min;
 	else
 		distance = (uint32_t)FLOOR_BLOCK(block)->y_max - OBJECT(current_object)->y;
@@ -3071,7 +3071,7 @@ void start_climb_at_spawn(uint32_t climbed_height)
 }
 
 /* On floor type 2 (a wall to climb) starts the riding player climbing: its character's climb animation,
-   x + 0x41000, climb_base_z from the floor block, climb_remaining from floor_attribute_wall_heights less
+   x + 0x41000, climb_base_z from the floor block, climb_remaining from its floor attribute's height less
    its height above climb_base_z; state 0xA, substate 3. */
 void start_climb(void)
 {
@@ -3088,7 +3088,7 @@ void start_climb(void)
 	}
 	OBJECT(current_object)->animation = animation;
 	OBJECT(current_object)->sprite_flags |= 0x40u;
-	if (floor_types[OBJECT(current_object)->floor_attribute] != 0u)
+	if (FLOOR_ATTRIBUTE_RECORD(floor_types_ADDRESS + OBJECT(current_object)->floor_attribute)->axis != 0u)
 		OBJECT(current_object)->sprite_flags &= 0xFFBFu;
 	OBJECT(current_object)->animation_timer = 0;
 	OBJECT(current_object)->animation_speed = 3u;
@@ -3096,7 +3096,7 @@ void start_climb(void)
 	OBJECT(current_object)->x += 0x41000u;
 	PLAYER(current_player)->climb_base_z_int = mem_read16(floor_blocks + 2u + OBJECT(current_object)->floor_block + 0x10u);
 	PLAYER(current_player)->climb_base_z_fraction = 0u;
-	PLAYER(current_player)->climb_remaining = ROM16(floor_attribute_wall_heights_ADDRESS + OBJECT(current_object)->floor_attribute);
+	PLAYER(current_player)->climb_remaining = FLOOR_ATTRIBUTE_RECORD(floor_types_ADDRESS + OBJECT(current_object)->floor_attribute)->height;
 	PLAYER(current_player)->climb_remaining -= PLAYER(current_player)->climb_base_z_int - OBJECT(current_object)->z_int;
 	project_object(&ignored, &ignored);
 	PLAYER(current_player)->screen_x_int = OBJECT(current_object)->projected_x;
@@ -3159,8 +3159,8 @@ void apply_floor_push(void)
 		if (PLAYER(current_player)->invulnerable_timer < 0 && ((OBJECT(current_object)->floor_type == 7u && OBJECT(current_object)->floor_attribute != 0u) || OBJECT(current_object)->floor_type == 0xBu || OBJECT(current_object)->floor_type == 4u || (OBJECT(current_object)->floor_type == 5u && PLAYER(current_player)->state != 0x17u)))
 		{
 			attribute_record = OBJECT(current_object)->floor_attribute + floor_types_ADDRESS;
-			PLAYER(current_player)->push_x += FLOOR_PUSH_ATTRIBUTE(attribute_record)->push_x;
-			PLAYER(current_player)->push_y += FLOOR_PUSH_ATTRIBUTE(attribute_record)->push_y;
+			PLAYER(current_player)->push_x += FLOOR_ATTRIBUTE_RECORD(attribute_record)->push_x;
+			PLAYER(current_player)->push_y += FLOOR_ATTRIBUTE_RECORD(attribute_record)->push_y;
 		}
 	}
 }

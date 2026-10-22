@@ -749,7 +749,7 @@ elements rom_chip_checksums u16       # the words of rom_checksums check_rom_che
 # for spawn_objects (08DD56) and a "next handler" for the objects 083B14 restarts. Not named here.
 field object 00 draw_next u16 object          # next object in the same depth bucket: the queue_sprite_* routines (099FC0...) push the object with "mov.h [bucket],[R20]"; build_sprite_list follows it until it points back at the bucket
 field object 02 sprite_flags u16       # word 0 of the sprite entry (MAME segas32_v: 13 indirect palette, 11 shadow, 9 8bpp, 8 pen 0 transparent, 7 y flip, 6 x flip, 5/4 add the y/x offset set by entry 1 (screen centre 70/A0), 3-2 y anchor (1 bottom), 1-0 x anchor (0 centre)); 00DFC1/00E058 negate dx/dy with bits 6/7. The game reuses bits 15,14,12 to pick how 09A27B writes it: 000 scaled frame, 001 unscaled frame (0x1004 is the usual value), 01x the 16 bytes 02-11 as they are (clip entries, 0x5000), 100 a jump to the next entry (unused), 101 sized frame (18/1A sizes, 08 = address), 110/111 multi-part sprite (0xC000/0xD00x). init_object_fields sets 4
-field object 04 sprite_frame u16       # offset of the frame's 4-word record (width, height + address bits, bank bits, address) in sprite_frame_records (7112[R25] = 0x130000); 00DEB3 & co. load it from the animation. Multi-part sprites keep a 32-bit pointer to a part list in 04-07 (count <= 16, then per part frame, flags, s8 dx, s8 dy, palette: 09A3F2)
+field object 04 sprite_frame u16 wall_kind_parts@wall_kinds+6       # offset of the frame's 4-word record (width, height + address bits, bank bits, address) in sprite_frame_records (7112[R25] = 0x130000); 00DEB3 & co. load it from the animation. Multi-part sprites keep a 32-bit pointer to a part list in 04-07 (count <= 16, then per part frame, flags, s8 dx, s8 dy, palette: 09A3F2). The walls' spawner keeps its wall kind's byte offset into wall_kinds in it (spawn_walls tests that kind's second_sprite at wall_kind_second_sprites + it), hence its link: a wall_kind_parts record that many bytes from wall_kinds + 6
 field object 04 part_list u32            # multi-part sprites (flags 0xC000/0xD00x): the 32-bit address of the part list in 04-07, in place of sprite_frame and sprite_palette
 field object 06 sprite_palette u16     # word 7 of the sprite entry (09A2CB "mov.h 6[R20],[R19+]"): palette; the bits above it pick the mixer's priority group (00C2C7 copies the player's bits 13-14 to its extra sprites, 01E4ED moves a shadow to 0x2000); xFFE is the shadow colour (shadows use 9FFE/1FFE)
 field object 08 sprite_scale u16       # 0x100 = 1:1: 09A317 multiplies both frame sizes by it (+0x80, >>8); init_object_fields sets 0x100; 01E9C1 shrinks rings by 0x10 a frame. Sized frames (flags 9xxx) use it as the address word instead (0953BF loads it from the frame record +6)
@@ -795,7 +795,7 @@ field object 72 platform_list_next u16 object # link in the rider, platform and 
 field object 74 platform u16 object           # check_platforms (002178): on a rider the platform it stands on, on the platform the rider; find_floor takes floor_block and floor_z (the platform's z) from it while flags bit 3 is set
 field object 76 floor_slope u8         # slope type of the floor block (+13), index into floor_slopes: find_floor adds the slope to floor_z, check_hit corrects round hitboxes with it (001FBE)
 field object 77 floor_type u8          # byte 0 of floor_types for the block's type (+12) (find_floor); the player and the rings test it (7 in 01E4ED, 0xD in 002CEC)
-field object 7A floor_attribute u16    # word 2 of floor_types for the block's type (find_floor); the player tests it (4, 5 in 00E488/002CEC)
+field object 7A floor_attribute u16 floor_attribute_record@floor_types    # word 2 of floor_types for the block's type (find_floor); the player tests it (4, 5 in 00E488/002CEC)
 field object 7C hitbox_offset_x s8     # box hitboxes start at x + this (001E55, 0018D8, 0022DA)
 field object 7D hitbox_offset_y s8     # box hitboxes start at y + this (001E82, 0018F3, 0022F5)
 field object 7E health s8              # enemies: 00E488 subtracts the attacking player's strength (player block 72) when it hits them, they die at 0 (00F8E1), the sturdiest start at 0x7F (00EED2, 00F1F1); players: their rings (00E488 adds ring pickups, hits take 4 or 8 off in 002CEC, at 8 or less some hits put the player out with flags bit 10; starts at 20E66A: 0x10 in the reference run)
@@ -997,7 +997,18 @@ field sine_and_cosine 200 cosine u16       # cosine_table[angle], read unsigned
 09A666  table angle_octants  u16       # 099082: base angle per octant (complemented = mirrored)
 10DF44  data  floor_slopes             # 8 bytes per slope type (floor_slope): +0 flags (bit 1 = slope along x), +2 slope factor (find_floor, check_hit)
 10DF44  table floor_slopes floor_slope   # find_floor, check_hit, spawn_object_groups, get_floor_z_at_point read a slope's record by its number
-10E14C  data  floor_types              # 4 bytes per floor type (block +12): +0 floor_type, +2 floor_attribute (find_floor, 09383A)
+10E14C  table floor_types floor_block_type   # 4 bytes per floor type (block +12): +0 floor_type, +2 floor_attribute (find_floor, 09383A), by a block's type_index (x 4); the attribute records after the 40 types are reached by byte offsets (floor_attribute_record)
+struct floor_attribute_record 10 rom      # the record a floor type's floor_attribute reaches, floor_types + it (a byte offset; tools/formats/stages.py): a climbable wall's (floor type 2, 16 bytes: census ROM 10E1EC-10E25B, floor_types + A0 to + 100, 7 walls), a moving floor's (7, 6 bytes: push_x, push_y, ride) or a push's (4, 5, 0B, 4 bytes: push_x, push_y; census ROM 10E264-10E29B, floor_types + 118 to + 14F); each kind reads only its own fields. Held in R12 by player_state_climbing (004726, handed to the player_climbing_* pieces), start_climb_at_spawn (00D8DF), apply_floor_push (00DADD "add.w #10E14C, R12", then "add.h [R12+], 94[R18]" and "add.h [R12+], 96[R18]": 00DAE4, 00DAEA), the geyser front's rise (08C91B-08C939) and the stage 8 climb (08B69F-08B6B1); read at floor_types + floor_attribute + the field by start_climb (00D9BC-00D9C3), the moving floor (apply_moving_floor) and the machine fire, bridge fire, grate steps and saw shaft (their x_per_rise)
+field floor_attribute_record 00 push_x s16        # a push's or a moving floor's: added to the player's push_x (94)
+field floor_attribute_record 00 axis u8           # a wall's: "test.b [R12]" (0047B3, 004911, 004936, 004A80, 004A99, 004C5C, 004C90, 004DEF, 004E10, 00D8FC): 0 the wall runs along y, else along x
+field floor_attribute_record 02 push_y s16        # a push's or a moving floor's: added to push_y (96)
+field floor_attribute_record 04 x_per_rise s16    # a wall's: 004C52 "movs.hw 4[R12], R0": the screen shift per z step (also machine_fire_update, bridge_fire_rise, build_grate_steps x 1E, build_saw_shaft_base x 1D)
+field floor_attribute_record 04 ride u8           # a moving floor's: 1 the floor carries the player along x (apply_moving_floor)
+field floor_attribute_record 06 height s16        # a wall's climb: "mov.h 6[R12], 2C[R18]" into climb_remaining (0048DC, 00D8E6, 00D9C3); 004C84 "cmp.h 6[R12], 2C[R18]" + a signed branch
+field floor_attribute_record 08 top_z s16         # a wall's: 004769 "cmp.h 8[R12], 42[R20]" (z_int, signed); 004DAC "mov.h 8[R12], 42[R20]" when pulling up
+field floor_attribute_record 0A along_min u16     # a wall's: "mov.h A[R12], R3" (0047BB, 004AA4): where the wall starts along its axis (then compared signed)
+field floor_attribute_record 0C along_length u16  # a wall's: "add.h C[R12], R3" (0047C5, 004AAD): the wall's end = along_min + it
+field floor_attribute_record 0E rise u16          # a wall's: 00D8EC "mov.h E[R12], R0": z gained per unit along the floor (start_climb_at_spawn)
 struct floor_block_type 4 rom              # a floor_types record by a block's type_index (floor_block +12; tools/formats/stages.py _FLOOR_TYPE): find_floor "movea.w 10E14C(R0), R12" (00C6F2, 00C7E4: R0 x 4), "mov.b [R12+], 77[R20]" (00C6FA, 00C7EC), "mov.h 1[R12], 7A[R20]" (00C6FF, 00C7F1); spawn_object_groups_2_build_group the same (093A83); census ROM 10E14C-10E1EB (40 types; the attribute records follow)
 field floor_block_type 00 floor_type u8    # into the object's floor_type (77): 0-D (byte 01 is 0 in every type)
 field floor_block_type 02 floor_attribute u16  # into floor_attribute (7A): a byte offset from floor_types to the type's attribute record (A0, 118, 128...) or a small number (1, 2, 3, 5)
@@ -1775,7 +1786,8 @@ elements scroll_quadrant_sines s16  # sine_table's entries (0x4000 = 1.0) from t
 elements stage_start_tile_sets u32  # a stage_initial_tile_sets list: the four tile set numbers init_stage_view loads at the stage's start (0159FE "mov.w [R2+], R7": load_tile_set's tile_set); census ROM 01973A-019749 (15 16 18 19 for stage 0, 0 1 2 3 for the others)
 elements block_tile_sets u8         # a stage_block_maps map: the tile set of each 512 x 256 block of the stage map, rows of stage_block_map_widths[stage] bytes: update_stage_tile_layers reads the 2 x 2 under the camera (015D6F "mov.b [R10+], R1"); census ROM 017C82-0188C1
 elements tile_set_vram_scripts u32  # a tile set's list in stage_tile_sets: the address of each vram script load_tile_set runs, a negative one ends (015E63 "mov.w [R6+], R10"; test.w + blt); census ROM 140910-170D0C
-elements stage_section_list_offsets u16  # one of the per-stage tables scroll_skip_value_lists points at (stage_section_limits_x, _y, stage_section_ends): the stage's offset from the table to its list (scroll_skip_draw_values 01AB0E "movz.hw [R0], R0" after "add.h R5, R0", R5 = stage x 2); census ROM 018DFA-018E1F, 018E20-018E45, 0193E0-019405
+elements stage_section_list_offsets u16 section_values@  # one of the per-stage tables scroll_skip_value_lists points at (stage_section_limits_x, _y, stage_section_ends): the stage's offset from the table to its list (scroll_skip_draw_values 01AB0E "movz.hw [R0], R0" after "add.h R5, R0", R5 = stage x 2); census ROM 018DFA-018E1F, 018E20-018E45, 0193E0-019405
+elements section_values u16                # a stage's section list as scroll_skip_draw_values prints it (one of stage_section_limits_x/_y, a signed limit a section, or stage_section_ends, an end position): the value of the start section, at the list's offset + 2 x it
 
 # ======== Tile layers (video RAM 300000-31FFFF) ========
 # The stage map is split in blocks (512 x 256 pixels of the map); stage_block_maps gives each block a tile
@@ -2544,7 +2556,7 @@ elements spiked_roller_start_frames u8   # what roller_part_frame_cursor walks (
 0822E4  table  spiked_roller_animation_speeds u8 # [min(chaser_speed >> 4, 5)]: 04 04 03 02 01 01 (faster turning at higher speed)
 082396  table  spiked_roller_rumble_delays u8  # [chaser_speed >> 4 clamped 0-4]: frames between rumble sounds (B): 46 3C 28 1E 14
 082306  table  spiked_roller_events    u16     # 6 offsets from 082306 (field 72), then 8-byte records: scroll position, test (0/4 y <=, 1 x >=, 2 y >=, 3 x <=), coordinate, new state; FFFF never
-082302  table  spiked_roller_event_coords u16  # spiked_roller_events - 4: indexed by field 72 after an event fired it reads that event's coordinate (only the unused ram state does)
+082302  table  spiked_roller_event_coords u16  # spiked_roller_events - 4: indexed by field 72 after an event fired it reads that event's coordinate (only the unused ram state does). The C reads it as spiked_roller_event [-1].coordinate (event_offset's link); the name marks where the assets cut the table
 08234C  table  roller_wall_fragment_count u16  # 6 (spiked_roller_burst_out)
 08234E  table  roller_wall_fragments   rock_debris_piece  # 6 x 6 words: sprite flags (0 = growing toward the viewer), dx, dy from the roller's screen position, speed x, y (12.4), animation offset into rock_debris_animations
 struct rock_debris_piece C rom           # a piece of rock that flies off as a rock_debris_fly object: roller_wall_fragments (08234E: spiked_roller_burst_out [R12+] 080CDC-080CFD) and ram_target_debris (085ED5: ram_target_burst [R12+] 085606-085627); stage_00_rock_pieces (0955A2) has the same layout; census ROM 08234E-082395, 085ED5-085F04; stage_00_rock_pieces too: update_stage_05_event reads one with [R12+] (094B56)
@@ -2583,7 +2595,7 @@ field spiked_roller_part 0D hitbox_offset_y s8  # -> 7D (0802D1)
 struct spiked_roller_event 8 rom         # a record of spiked_roller_events (after its 6 offsets; spiked_roller.event_offset from 082306): spiked_roller_chase_check_event 0806FB "add.w #82306, R10", then [R10+]; census ROM 082312-08234B (a position FFFF never comes)
 field spiked_roller_event 00 position u16  # "cmp.h [R10+], 6435[R25]; bl" (080702): the scroll_position it waits for
 field spiked_roller_event 02 test u16     # "movz.hw [R10+], R0; add.w R0, R0; jmp 8071B[PC](R0)" (080710): 0/4 y at most, 1 x at least, 2 y at least, 3 x at most
-field spiked_roller_event 04 coordinate s16  # "cmp.h [R10+], 52[R20]" / "4E[R20]" with ble, bge, bgt (080723-08073E, signed): F74B, 0C80, FA63...; spiked_roller_event_coords reads it again by event_offset - 4
+field spiked_roller_event 04 coordinate s16  # "cmp.h [R10+], 52[R20]" / "4E[R20]" with ble, bge, bgt (080723-08073E, signed): F74B, 0C80, FA63...; spiked_roller_ram_back_off reads it again from the event before event_offset ([-1])
 field spiked_roller_event 06 state u16    # "movt.hb [R10+], 80[R20]" (080745): the roller's new state (its low byte: D, F, 6, 7...)
 20E5EB  var   roller_ram_count         u8      # spiked_roller_ram_charge: charges so far (state 4 never runs)
 20E5F3  var   roller_ram_hit           u8      # FF when a ram charge hits, cleared by spiked_roller_chase every frame; only unused code reads it (ram_target_check_hits, ram_target_part_update)
@@ -4245,10 +4257,10 @@ elements character_bit_numbers u8     # character_taken_bits' bytes, by characte
 1167B5  table individual_coin_setting_numbers u8    # [setting_coin_number_individual 0-E]: 01 06 08 09 0A 0B 0C 0F 11 12 13 15 16 18 1A, the settings allowed with individual chutes
 11786D  table small_large_texts         u32 rom     # [setting_small_large] "SMALL" / "LARGE" (test_game_assignments item 8)
 # Four more rom_ reads the C regenerated at 06:53 shows (not in unnamed.txt):
-090A84  table wall_kind_second_sprites  s16         # wall_kinds + 12, read at the kind's offset (spawn_walls): the second part's sprite of each step; >= 0 doubles the pool 2 blocks a wall needs
+090A84  table wall_kind_second_sprites  s16         # wall_kinds + 12, read at the kind's offset (spawn_walls): the second part's sprite of each step; >= 0 doubles the pool 2 blocks a wall needs. The C reads it as the kind's wall_kind_parts second_sprite (sprite_frame's link); the name marks where the assets cut wall_kinds
 096C21  table map_number_badge_sprites  u16         # map_marker_layouts records 7-D (+6): the numbered badges 64A8 + 8 n (render: 1, 2, 3, 4); read at 096C21 + 12 x stage_map_markers[stage], blink_current_map_marker blinks the part showing the current stage's badge
-10E150  table floor_attribute_slopes    s16         # floor_types + 4, read at floor_attribute (a byte offset): x moved per unit of rise on that floor (machine_fire_update, bridge_fire_rise x speed >> 4, build_grate_steps x 1E, build_saw_shaft_base x 1D); low byte 1 = the axis of a floor type 7 moving floor (apply_moving_floor)
-10E152  table floor_attribute_wall_heights u16      # floor_types + 6 at floor_attribute: the climb height start_climb puts in climb_remaining
+10E150  table floor_attribute_slopes    s16         # floor_types + 4, read at floor_attribute (a byte offset): x moved per unit of rise on that floor (machine_fire_update, bridge_fire_rise x speed >> 4, build_grate_steps x 1E, build_saw_shaft_base x 1D); low byte 1 = the axis of a floor type 7 moving floor (apply_moving_floor). The C reads it as floor_attribute_record's x_per_rise and ride (floor_attribute's link); the name marks where the assets cut floor_types
+10E152  table floor_attribute_wall_heights u16      # floor_types + 6 at floor_attribute: the climb height start_climb puts in climb_remaining. The C reads it as floor_attribute_record's height; the name marks where the assets cut floor_types
 
 # ---------------- player fields ----------------
 # Not proposed: player 02, 2A and 47 (and the shadow_update uses of 54 and 58) are not player fields:
@@ -5524,7 +5536,10 @@ param clip_line_to_left_edge R8 unclipped_y  # clip_line_at_x's
 scoped object animate_hud 25 frame u8  # current entry of the list at 28: + 1 a step, back to 0 (R8 = -1) past the list's last index; the player block calls it hud_gauge_frame / hud_portrait_frame / hud_ring_effect_frame
 scoped object animate_hud 26 anim_delay u8  # frames per entry: reloads 27
 scoped object animate_hud 27 anim_timer s8  # counted down every call; the next entry when it was <= 1 (signed)
-scoped object animate_hud 28 anim u32 rom  # the list: a word (its last index), then palettes (animate_hud_palette -> sprite_palette) or sprite words (animate_hud_tiles -> sprite_frame); 0xCD37, 0xCD4D... (hud_gauge_anim)
+scoped object animate_hud 28 anim u32 hud_step_list  # the list: a word (its last index), then palettes (animate_hud_palette -> sprite_palette) or sprite words (animate_hud_tiles -> sprite_frame); 0xCD37, 0xCD4D... (hud_gauge_anim)
+struct hud_step_list 2 rom                 # what animate_hud steps through: its last index, then a word a step: the gauge's and the portrait's palettes (hud_portrait_hurt_palettes_*), or the ring effect's sprite frames (animate_hud_tiles); player_hurt_hud reads the first step in place (2[28[R]])
+field hud_step_list 00 last_index u16      # the last step's number
+field hud_step_list 02 steps u16[]         # the palettes or sprite frames, a word each
 scoped object ending 30 started u8  # 0 when spawned (the spawners clear it); set to 1 (or + 1) on the first frame, which sets the object up; ending_horizon_show sets 2 once it has spawned ending_dust_cloud_rise
 scoped object ending 31 step u8  # per object: the credit blocks' "scrolled out" flag (1: parts freed, removed), ending_credits_fade_in's "music started", ending_window_open's four clip-edge bits (flags bits 8-11, done at F), the entry of ending_eggman_turn_frames, ending_eggman_fly_away's step (switch 0-7)
 scoped object ending 32 timer s16  # frames: cleared on the first frame, + 1 a frame (time tables, timed lists, music cues and the credit scroll compare it signed); ending_eggman_fly_in counts it down from 1E0 (sound 75 at 104, puffs drawn while > 32)
@@ -5552,10 +5567,10 @@ scoped object bubble_start 82 base_y u16  # y_int at the start: the same in y
 scoped object bubble_pop 80 base_x u16  # as bubble_start 80: x_int = it + random 0-F after each pop (not kind 6)
 scoped object bubble_pop 82 base_y u16  # as bubble_start 82: y_int = it + the same random
 scoped object build_grate_steps 80 rows_left s16  # grate_steps_init F: one row of 3 steps a frame, removed after the last (dec.h, signed)
-scoped object build_grate_steps 82 row_projected_y s32  # projected_y (16.16) where the next row starts (grate_steps_init: its own); + half of the row's x shift (floor_attribute_slopes x 1E >> 1) after each row
-scoped object build_grate_steps 94 row_projected_x s32  # 16.16 projected x where the next row starts (grate_steps_init: projected_x, 94 = 0); + floor_attribute_slopes x 1E after each row
+scoped object build_grate_steps 82 row_projected_y s32  # projected_y (16.16) where the next row starts (grate_steps_init: its own); + half of the row's x shift (the floor attribute's x_per_rise x 1E >> 1) after each row
+scoped object build_grate_steps 94 row_projected_x s32  # 16.16 projected x where the next row starts (grate_steps_init: projected_x, 94 = 0); + the floor attribute's x_per_rise x 1E after each row
 scoped object build_grate_steps 96 row_projected_x_whole s16  # the whole part of row_projected_x: each row's first step starts at it (projected_x)
-scoped object build_saw_shaft_base 94 fixed_projected_x s32  # as rising_saw 94: 16.16 projected x of the next piece (projected_x, 94 = 0), + floor_attribute_slopes x 1D per piece
+scoped object build_saw_shaft_base 94 fixed_projected_x s32  # as rising_saw 94: 16.16 projected x of the next piece (projected_x, 94 = 0), + the floor attribute's x_per_rise x 1D per piece
 scoped object build_saw_shaft_base 96 projected_x_whole s16  # the whole part of fixed_projected_x: each piece's projected_x
 scoped object build_ring_tally_panel 44 part_3 u32 object  # the third second-pool part (sprite 9E90 at 40,70); the others go to 38, 40 and the digits to 48, 4C, 50
 scoped object build_ring_tally_panel 67 gets_bonus u8  # start_ring_tally: 1 when the player gets the ring bonus (pick_ring_bonus_players, stage bonus percentage reached); 0: label sprite 9EF8 instead of 9EF0, update_ring_tally_panel skips the bonus steps
@@ -5721,7 +5736,7 @@ scoped object rope_bridge_plank 6E state u8  # rope_bridge_plank_update's jump t
 scoped object rope_bridge_plank 6F plank_index u8  # group_member_number (spawn_object_groups_2): index into bridge_0_sag / bridge_1_sag (as collapsing_bridge_plank 6F); planks with it & 3 = 0 get the two rope parts (test of speed_fraction & 300)
 scoped object rope_bridge_plank 92 takes_slot s8  # group_takes_slot of its record (spawn_object_groups_2): negative: a kind F rider marks its half in the plank's group_slots byte and the plank turns into record 0's plank (signed test), then 1; the stage 10 records never use it
 scoped object sand_block 6E state u8  # sand_block_update's jump table: 0/4 project, then 1 (2 at once when the leader's y_int is already <= its y + box - 10), 1 platform until that, 2 bursts out (sand_face_update and sand_streams_update objects, two clip entries, sound 11), 3 cut at the leader's line, removed with its face once the leader passes
-scoped object spiked_roller 72 event_offset u16  # offset of its next spiked_roller_events record (spiked_roller_start: spiked_roller_events[kind]): scroll position, then a coordinate (spiked_roller_event_coords) and a state; spiked_roller_chase steps it by 8 with add.w #8, 72 (4 of its 8 uses). The rollers never join a list linked through 72
+scoped object spiked_roller 72 event_offset u16 spiked_roller_event@spiked_roller_events  # offset of its next spiked_roller_events record (spiked_roller_start: spiked_roller_events[kind]): scroll position, then a coordinate (read again as [-1].coordinate once the event fired) and a state; spiked_roller_chase steps it by 8 with add.w #8, 72 (4 of its 8 uses). The rollers never join a list linked through 72
 scoped object tornado 72 sound_timer u8  # frames to the next sound 12 while on screen (reloaded with 28): tornado_move, not in game mode 7
 scoped object tornado 73 off_screen u8  # FF while off screen (tornado_start sets it; tornado_move: screen x > 180 or < -40 by direction): coming back clears it and sound_timer (as machine_fire 72/73)
 scoped object propped_board 34 shake_strength s16  # 3C whenever it is touched (flags bit 2; mov.b #3C, 34: a byte store, the high byte stays 0), - 2 a frame, 0 once it was <= 2 (signed); its >> 4 is the shake in pixels
@@ -5839,7 +5854,7 @@ scoped object bubble_near_parent_update 84 draw_depth u16  # FFF0 every frame (t
 scoped object bubble_pop 84 draw_depth u16  # its queue_sprite_at_depth depth: screen_y (bubble_update) or FFF0 (bubble_near_parent_update)
 scoped object bubble_pop 86 variant u16  # as bubble_start 86: kind 6 stays where it is; the others go to base_x/base_y + random 0-F after each pop
 scoped object build_wall_parts 80 invisible u8  # FF when the wall kind has no parts (first part sprite negative: a collision box only), else 0: wall_update draws nothing while it is set
-scoped object build_wall_parts 81 no_second_sprite u8  # FF when the kind has no second sprite (wall_kind_second_sprites negative), else 0: then every step has a second part (palette 9FFE) and wall_update places it from the first
+scoped object build_wall_parts 81 no_second_sprite u8  # FF when the kind has no second sprite (its wall_kind_parts second_sprite negative), else 0: then every step has a second part (palette 9FFE) and wall_update places it from the first
 scoped object burning_boulder 82 path_high u16  # high word of path (nested): FFFF for the follower (path FFFFFFFF): on landing it goes to state 2 (copies lead_burning_boulder) instead of 1, and its draw depth is 20 less while it waits (states 0/6)
 scoped object burning_boulder_flame 84 pause_timer s16  # frames before the next flame: 0 at the start; after each run of the animation a random 0-3F (not drawn meanwhile); counted down, the flame plays when it was <= 1 (signed)
 scoped object button_box 80 step u8  # entry of button_box_steps / button_box_durations: steps 0-12 rise out of the floor and open the lid (stops at 13 until Eggman's 81 is 2), 13-22 press the button and sink back (draw_button_box at 23)
@@ -7074,9 +7089,9 @@ local pay_and_join 00D622 t2 port_d  # io_port_d (read as a long by clr1) before
 local set_fall_sprite_priority 00D82E,00D837,00D860,00D869 r0 side  # index into the fall_sprite_priorities record: 3 or 1 by the half of the block the player is on, else ledge_side (ledge_direction for 4)
 local set_fall_sprite_priority 00D86E r1 priority  # the record's byte: not negative, it goes into sprite_palette bits 13-14
 local start_climb_at_spawn 00D904,00D90E r1 distance  # the distance from the wall's base: x - the block's x min, or the block's y max - y (by the wall's orientation)
-local start_climb_at_spawn 00D8DF r12 attribute_record climb_wall_attribute  # floor_types + floor_attribute: the wall's orientation (+0), climb height (+6), slope factor (+E)
+local start_climb_at_spawn 00D8DF r12 attribute_record floor_attribute_record  # floor_types + floor_attribute: the wall's orientation (+0), climb height (+6), slope factor (+E)
 local start_climb 00D948,00D954,00D962 r10 animation  # the character's climb animation (sonic/ray/mighty_climb_animation)
-local apply_floor_push 00DADD r12 attribute_record floor_push_attribute  # floor_types + floor_attribute: the floor's push x (+0) and push y (+2)
+local apply_floor_push 00DADD r12 attribute_record floor_attribute_record  # floor_types + floor_attribute: the floor's push x (+0) and push y (+2)
 local spawn_slip_pieces 00DC61 t2 pieces_left  # slip_pieces_left before the decrement: the loop ends when it was <= 1
 local follow_player_path 00DD82,00DD89,00DDF6 r10 point  # path_pointer + 2: the path record's point, x then y
 local animate_step_with_flags 00DE64 r0 last_frame  # low byte of the animation's first word: the last frame; past it the animation wraps to 0
@@ -7594,11 +7609,11 @@ local fire_front_chase 08B014 t3 hold_threshold  # direction ^ (direction >> 1):
 local rising_saw_init 08B3CB r12 path rising_saw_path_start  # rising_saw_paths[sprite_frame] + rising_saw_paths ("add.w #8C001, R12"): x, y, z; rising_saw.path = what follows (+ 6)
 local rising_saw_init 08B3D2,08B3DC r12 path  # the rising_saw_paths entry for sprite_frame: x, y and z read in turn; rising_saw.path = what follows
 local rising_saw_init 08B54F t2 blades_left  # saw_blades_left before the decrement: the loop repeats while it was above 1
-local rising_saw_rise 08B6AA r0 slope_step  # the floor attribute's slope word (floor_attribute_slopes) * speed_fraction >> 4: projected_y -= half of it, fixed_projected_x moves by it (update_screen_position's result sits here before, only handed to add_to_touchable_list)
+local rising_saw_rise 08B6AA r0 slope_step  # the floor attribute's x_per_rise * speed_fraction >> 4: projected_y -= half of it, fixed_projected_x moves by it (update_screen_position's result sits here before, only handed to add_to_touchable_list)
 local rising_saw_rise 08B6AE,08B6B5 r1 projected_dx  # slope_step, negated when attribute_record's first byte is set: added to rising_saw.fixed_projected_x (update_screen_position's unread result lands here first)
 local rising_saw_rise 08B668,08B673 r1 speed  # base_speed, or camera_ground_speed_int * catch_up_factor >> 8 when that is larger and the saw is below its screen threshold; stored in speed_fraction
 local rising_saw_rise 08B5D5,08B5E3,08B5E9,08B5EF r10 cursor  # walks the path record past its two trigger words: threshold, catch-up factor, base speed, wait time; saved back to rising_saw.path
-local rising_saw_rise 08B698 r12 attribute_record climb_wall_attribute  # floor_types + floor_attribute (a byte offset): byte 0 = which way the slope shifts x, word 4 = floor_attribute_slopes (x per unit of rise)
+local rising_saw_rise 08B698 r12 attribute_record floor_attribute_record  # floor_types + floor_attribute (a byte offset): byte 0 = which way the slope shifts x (axis), word 4 = x_per_rise
 local saw_blade_update 08B7ED r7 clip_x  # screen x (project_point) of the blade's x at the saw's y, + sprite_offset_x: into the first clip entry's palette word (the line the blade is clipped at)
 local saw_blade_update 08B72B,08B76C r8 clips_left  # 2, decremented until 0 (dbr): the two clip entries (sprite flags 5000) chained behind the blade
 local build_grate_steps 08BAF5 t2 rows_to_build  # grate_rows_to_build before the decrement: the row loop repeats while it was above 1
@@ -7613,7 +7628,7 @@ local geyser_front_init 08C6EB r12 path geyser_front_record  # geyser_fronts + t
 local geyser_front_init 08C6F2,08C6FC r12 path  # the [R12+] steps through it
 local geyser_front_wait 08C7B5,08C7BF r0 start_position  # 0x6500 (0x8400 when sprite_frame is not 0): the front starts rising once scroll_position reaches it
 local geyser_front_rise 08C84A,08C862,08C868,08C86E r10 cursor  # walks the path record past its two trigger words: threshold, catch-up factor, base speed, wait time; saved back to geyser_front.path
-local geyser_front_rise 08C91F r12 attribute_record climb_wall_attribute  # floor_types + floor_attribute (a byte offset): byte 0 = which way the slope shifts x, word 4 = floor_attribute_slopes (x per unit of rise)
+local geyser_front_rise 08C91F r12 attribute_record floor_attribute_record  # floor_types + floor_attribute (a byte offset): byte 0 = which way the slope shifts x (axis), word 4 = x_per_rise
 local geyser_front_rise 08CA37 t2 geysers_remaining  # geysers_left before the decrement: the row loop repeats while it was above 1
 local spawn_listed_geyser 08CA6A,08CA6D,08CA74,08CA7B r10 record  # walks the geyser list entry past its scroll position: x, y, z, wait; next_listed_geyser = what follows
 local waterfall_move 08CE3C,08CE47 r1 speed  # base_speed, or camera_ground_speed_int * catch_up_factor >> 8 when larger: stored in chaser_speed (find_floor/project_object/play_sound results land here too, unread)
@@ -8346,7 +8361,7 @@ local player_state_sinking 00A2A4,00A2B0,00A2BE r10 pit_sinking_animation  # son
 local player_state_knocked_off 00A508,00A514,00A522 r10 hurt_animations player_facing_animation_offsets  # sonic_/ray_/mighty_hurt_animations by the object's kind (character)
 local player_animate_falling 003506,003519,00352E r11 near_hang_animations  # sonic_/ray_/mighty_near_edge_hang_animations by kind: ledge sides 2 and 3
 local player_animate_jumping 003654,003667,00367C r11 plain_jump_animations player_facing_animation_offsets  # sonic_/ray_/mighty_plain_jump_animations by kind: used instead of the attack ones when attack_power < 1
-local player_state_climbing 004726 r12 attribute_record climb_wall_attribute  # floor_types + floor_attribute: byte 0 the wall's axis, +4 screen shift, +6 climb height, +8 top z, +0xA/+0xC the wall's extent
+local player_state_climbing 004726 r12 attribute_record floor_attribute_record  # floor_types + floor_attribute: byte 0 the wall's axis, +4 screen shift, +6 climb height, +8 top z, +0xA/+0xC the wall's extent
 local player_state_bouncing 005C1E,005C2A,005C38 r12 bounce_records  # sonic_/ray_/mighty_bounce_records by kind
 local player_state_hurt 005AD3 r1 knock_speed  # 0x40000: speed_x or speed_y (sign by the hitter's spawn_arg_2 direction) when shocked
 local player_state_tumbling 0067D6 r1 sprite_depth  # queue_sprite_at_base's depth, kept in draw_depth (before it, project_object's R1 handed to keep_player_on_screen)
@@ -8534,7 +8549,7 @@ local boulder_roll 0827F4 r0 sound_id  # F, played when the boulder first rolls 
 local door_wall_wait_to_burst 082913 r0 random_offsets  # next_random's bits with the low half cut to 0-3F (added to the piece's screen_x); its high half & 3F is added to screen_y
 local door_wall_wait_to_burst 08295C r10 fragment_animation  # door_wall.fragment + 8: the record's animation offset (into rock_debris_animations); + 2 is the next fragment record
 local spawn_door_rollers 0829D2 r0 free_count  # allocate_object_outside_loop's free count: 0 stops spawning; also find_floor's R0 leftover
-local machine_fire_update 08380B r0 projected_dx  # floor_attribute_slopes[floor_attribute] * speed_fraction >> 4: added to fixed_projected_x, half of it taken from projected_y (as in bridge_fire_rise)
+local machine_fire_update 08380B r0 projected_dx  # the floor attribute's x_per_rise * speed_fraction >> 4: added to fixed_projected_x, half of it taken from projected_y (as in bridge_fire_rise)
 local machine_fire_update 0837CA,0837D5 r1 climb_speed  # base_speed, or camera ground speed * catch_up_factor >> 8 when that is more: stored in speed_fraction (as climb_speed in bridge_fire_rise); also update_screen_position / play_sound leftovers
 local fireball_fly 083AB5,083AC0 r1 arc_step  # 9 (E on stage 0C): added to arc_angle every frame of the flight
 local how_to_play_trackball_hand_update 083F76,083F84 r0 child_palette  # 8750, or 8550 when the hand's palette is not 8760: the second sprite's palette
@@ -8557,7 +8572,7 @@ local burning_boulder_update 086753,08675F r8 flames_left  # 4, counts the bould
 local ember_emitter_move 086947 r0 travel_direction  # the floor block's direction byte (+15): stored in ember_emitter.travel_direction and switched on; also find_floor's R0 leftover
 local ember_emitter_move 086A56 r10 speed_entry falling_ember_speed  # falling_ember_speeds + (random & 3) * 4: the ember's speed_z and speed_y (<< 8)
 local ember_emitter_move 086A3A r9 random_low  # low byte of next_random's bits: & 3 picks the falling_ember_speeds entry
-local bridge_fire_rise 087468 r0 projected_dx  # floor_attribute_slopes[floor_attribute] * speed_fraction >> 4: added to fixed_projected_x, half of it taken from projected_y
+local bridge_fire_rise 087468 r0 projected_dx  # the floor attribute's x_per_rise * speed_fraction >> 4: added to fixed_projected_x, half of it taken from projected_y
 local spawn_lava_flame 087907 r3 flame_random  # lava_flame_random reloaded: bit 0 picks the second animation, the low byte * C0C1 gives anchor_y, byte 2 gives anchor_x
 local ice_block_update entry,087E68,087E7A r0 push_speed  # 10000, or the toucher's speed_fraction << 8 when it is no player (kind > 2): stored in speed_x; also the caller's R0 and add_to_touchable_list's leftover
 local spawn_ice_platform_leader 087EDE r0 free_count  # allocate_object_outside_loop's free count: 0 hands back spawned = 0 at once
@@ -8589,11 +8604,11 @@ local biting_head_chase 08AE11 r1 bounce_dy  # biting_head_bounce[bounce_index]:
 local fire_front_chase 08B1A0,08B1B7,08B1CE,08B1E5 r0 step  # chaser_speed << 12: moves y or x by direction and is the matching speed (negated up and left)
 local fire_front_chase 08B014,08B019 r1 threshold  # hold_threshold, or 0x160 when it is 0: the screen_threshold while holding back
 local fire_front_chase 08B045 r1 trigger_coordinate  # the path record's second word (0 = none): the record loads once y (plus hitbox_offset_y) or x passes it
-local build_grate_steps 08BADA r0 slope_shift  # floor_attribute_slopes word * 0x1E: added to row_projected_x, half of it to row_projected_y, for each row
+local build_grate_steps 08BADA r0 slope_shift  # the floor attribute's x_per_rise * 0x1E: added to row_projected_x, half of it to row_projected_y, for each row
 local grate_step_update 08BB37 r0 cut_gap  # saw_top_z - cut_z: once the saw reaches the cut line, debris and sound 0x28 while it is within 0x20 of it
-local build_saw_shaft_base 08BD5A r0 slope_shift  # floor_attribute_slopes word * 0x1D: added to fixed_projected_x, half of it to projected_y, for each piece
+local build_saw_shaft_base 08BD5A r0 slope_shift  # the floor attribute's x_per_rise * 0x1D: added to fixed_projected_x, half of it to projected_y, for each piece
 local river_raft_spawner_update 08C24A,08C255,08C260 r10 raft_entry  # the raft list entry: y offset, speed, floor block; the next entry (+ 4) goes back to entry
-local geyser_front_rise entry,08C932 r0 slope_step  # floor_attribute_slopes word (attribute_record + 4) * chaser_speed >> 4: the projected x shift (signed by the attribute) and twice the projected_y rise; also update_screen_position's leftover handed to add_to_touchable_list
+local geyser_front_rise entry,08C932 r0 slope_step  # the floor attribute's x_per_rise (attribute_record + 4) * chaser_speed >> 4: the projected x shift (signed by the attribute) and twice the projected_y rise; also update_screen_position's leftover handed to add_to_touchable_list
 local spawn_geyser 08CAA0 r0 free_count  # allocate_object's free count: 0 is handed back as spawned (no geyser)
 local spawn_waterfall 08CC66 r0 free_count  # allocate_object_outside_loop's free count: 0 is handed back as spawned (no waterfall)
 local propeller_machine_chase 08D596 r0 sound_id  # 0x0B for play_sound (the machine's sound every 0x3C frames); then find_floor's unread r0
@@ -10949,7 +10964,7 @@ param face_nearest_player R0 direction       # angle_of_vector's R0 for each act
 param centipede_hop R0 height                # fall_to_floor's R0 (floor_z - z while still above the floor, 0 once on it) when 86 = 0; else the caller's
 param centipede_hop R2 z                     # fall_to_floor's R2 (the z it loaded while falling) when 86 = 0; else the caller's
 
-param draw_map_stage_markers R11 badge_offset  # result: stage_map_markers[stage] x C, the current marker's offset in map_number_badge_sprites (set while it blinks); else the caller's
+param draw_map_stage_markers R11 badge_offset map_marker_layout@map_marker_layouts+54  # result: stage_map_markers[stage] x C, the current marker's offset in map_number_badge_sprites (set while it blinks); else the caller's
 
 param update_stage_06_background R3 random_value  # next_random's R3 (step 6's two rolls, & F); the caller's value is not read
 param update_stage_06_background R9 words_left    # next_random's R9 (0 after a roll); else the caller's, handed back
@@ -12856,17 +12871,6 @@ struct stage_goal_line_range 4 rom            # a stage_goal's last two words (+
 field stage_goal_line_range 00 line_min u16   # 00D019 "mov.h [R12+], 664A[R25]": goal_line_min (0 or where the goal line starts)
 field stage_goal_line_range 02 line_max u16   # 00D01F "mov.h [R12+], 664C[R25]": goal_line_max
 elements fall_sprite_priority_sides s8        # a record of fall_sprite_priorities (113F7F, 4 bytes for a floor block's fall_priorities): set_fall_sprite_priority "movea.w 113F7F(R11), R10" (00D83E, 00D858), then "movz.bh [R10](R0), R1" (00D86E, R0 = the side 0-3); 0-2 go into sprite_palette bits 13-14, FF keeps them; census ROM 113F7F-113F9E
-struct climb_wall_attribute 10 rom            # the floor attribute record of a climbable wall (floor type 2; tools/formats/stages.py climb_wall): floor_types + floor_attribute (a byte offset), held in R12 by player_state_climbing (004726, handed to the player_climbing_* pieces) and start_climb_at_spawn (00D8DF); start_climb's +6 read (00D9BC-00D9C3) stays floor_attribute_wall_heights (its R12 is folded into the read); the geyser front's rise reads +0 and +4 the same way (geyser_front_rise_step 08C91B-08C939); census ROM 10E1EC-10E25B (floor_types + A0 to + 100, 7 walls); the stage 8 climb reads +0 and +4 too (08B69F-08B6B1)
-field climb_wall_attribute 00 axis u8         # "test.b [R12]" (0047B3, 004911, 004936, 004A80, 004A99, 004C5C, 004C90, 004DEF, 004E10, 00D8FC): 0 the wall runs along y, else along x
-field climb_wall_attribute 04 x_per_rise s16  # 004C52 "movs.hw 4[R12], R0": the screen shift per z step (floor_attribute_slopes)
-field climb_wall_attribute 06 height s16      # the climb: "mov.h 6[R12], 2C[R18]" into climb_remaining (0048DC, 00D8E6, 00D9C3); 004C84 "cmp.h 6[R12], 2C[R18]" + a signed branch
-field climb_wall_attribute 08 top_z s16       # 004769 "cmp.h 8[R12], 42[R20]" (z_int, signed); 004DAC "mov.h 8[R12], 42[R20]" when pulling up
-field climb_wall_attribute 0A along_min u16   # "mov.h A[R12], R3" (0047BB, 004AA4): where the wall starts along its axis (then compared signed)
-field climb_wall_attribute 0C along_length u16  # "add.h C[R12], R3" (0047C5, 004AAD): the wall's end = along_min + it
-field climb_wall_attribute 0E rise u16        # 00D8EC "mov.h E[R12], R0": z gained per unit along the floor (start_climb_at_spawn)
-struct floor_push_attribute 4 rom             # the floor attribute record that pushes the player (floor types 4, 5, 0B, and 7 with an attribute: tools/formats/stages.py push / moving_floor): apply_floor_push "add.w #10E14C, R12" (00DADD: floor_types + floor_attribute), then "add.h [R12+], 94[R18]" and "add.h [R12+], 96[R18]" (00DAE4, 00DAEA); census ROM 10E264-10E29B (floor_types + 118 to + 14F)
-field floor_push_attribute 00 push_x u16      # added to the player's push_x (94)
-field floor_push_attribute 02 push_y u16      # added to push_y (96)
 struct player_path_step 8 rom                 # a record of the players' autopilot paths (player_path_offsets 115528; tools/formats/stages.py _PATH_RECORD): follow_player_path keeps the current one in the player's path_pointer (5C) and moves it 8 on (00DDB8 "add.w #8, 5C[R18]"); census ROM 1155D4-115A31 (128 records)
 field player_path_step 00 speed s16           # 00DDBD "mov.h [5C[R18]], B0[R18]" (path_speed; 0: a wait); 00DDAB "test.h 8[R10]" + bp on the next record's: negative ends the path
 field player_path_step 02 x_or_wait u16       # the point's x (00DD89 "sub.h [R10+], R0", 00DDF9), or with speed 0 the frames to wait (00DDE2 "mov.h 2[5C[R18]], C0[R18]": path_wait)
@@ -12931,7 +12935,7 @@ scoped object river_water 48 animation u32 frame_animation  # the water's animat
 local propeller_machine_chase 08D526 r10 animation frame_animation  # the machine's animation (48): a word (last step), then 2-word steps (the frame of parts 6/9, of part 4); census ROM 08DBC6-08DBD4; "cmp.h [R10], R1" (08D530) its last step
 local biting_head_init 08AAB3 r11 taken_object object  # the second take_free_object block: an object (hitbox sizes, direction, height, offsets, flags 40000000, kind 9) that becomes the head's child, its second zone box; census RAM 203CB0-2045DC
 local spawn_grate_step_debris 08BBE5 r10 record grate_debris_piece  # the current grate_step_debris record (grate_debris_record): x and y offsets, speed_x, speed_z, animation
-local spawn_grate_step_debris 08BC11 r10 record rom  # popped back after next_random: 8 bytes into the piece (its animation word), so read as the ROM's word
+local spawn_grate_step_debris 08BC11 r10 record grate_debris_piece+8  # popped back after next_random: 8 bytes into the piece, at its animation word
 local spawn_grate_step_debris 08BB86 r10 record grate_step_debris_list  # grate_step_debris ("movea.b 8C0E9[PC], R10"): the count word, then (08BB94 [R10+]) the pieces, saved in grate_debris_record
 local spawn_grate_step_debris 08BBEA,08BBF0 r10 record  # grate_step_debris (a count, then records), then the [R10+] steps; saved in grate_debris_record
 scoped object player 48 animation u32 rom  # the player object's animation (a ROM pointer: the per-facing animation tables, hurt/knock/bounce records): the player states read its steps in place ("mov.h 2[48[R20]], 4[R20]": player_object_climb_begin/_move, player_state_dropping +36/+38, player_state_bouncing, the stuck jump-outs +4, spawn_slip_piece +3A: those families have their own 48 below, frame_animation or edge_hang_animations), census ROM 009CB5-1144F6; all the player_* functions' 48 accesses then read player_view.animation
@@ -12947,7 +12951,7 @@ local player_state_scene_thrown 007CA2 r10 step_record  # the new animation (its
 local player_state_scene_thrown 007D6F r10 step_record flagged_step  # the new animation + 2: its first step's flags and sprite frame
 local player_state_scene_thrown 007D6B r10 step_record  # the new animation (its last-step word)
 local player_state_carried_off 007FB6 r11 cursor flagged_step  # animation + 2 + 4 x animation_frame (2): the step's flags and sprite frame ("movea.w 2[R10](R1), R11"); census ROM 1132FC-1135C4
-local player_state_carried_off 007FC2 r11 cursor rom  # the [R11+] step to the frame word: R11 then goes to find_floor and player_state_hurt, so it is read as a ROM pointer (a structure kind would reach their R11, where other callers hand objects)
+local player_state_carried_off 007FC2 r11 cursor flagged_step+2  # the [R11+] step to the frame word, 2 bytes into the step; R11 then goes to find_floor and player_state_hurt, whose R11 stays as their other callers hand it (objects)
 local player_state_tripped 0086F5 r10 step_record flagged_step  # the new animation + 2: its first step's flags and sprite frame
 local player_state_tripped 0086F1 r10 step_record  # the new animation (its last-step word)
 local player_state_floor_8_sequence 00901D r10 step_record flagged_step  # the new animation + 2: its first step's flags and sprite frame
@@ -12992,7 +12996,12 @@ param player_animate_run_from_table R10 animation_table player_facing_animation_
 local player_state_teetering 003826 r11 block floor_block  # get_ledge_side's R11: the previous floor block's record (its x/y bounds give the teeter position); census ROM 10B77A-10DEE8
 local player_state_falling_off_edge 003B80 r10 floor_block_record floor_block  # floor_blocks + 2 + floor_block: the block's corners (+0/+4/+8/+0xC) and kind (+0x12)
 local player_state_falling_off_edge 003D05 r10 floor_block_record floor_block  # floor_blocks + 2 + floor_block: the block's corners (+0/+4/+8/+0xC) and kind (+0x12)
-local player_state_over_edge 003F14 r10 animation rom  # the object's animation (48): its first two steps' flags words ("mov.h 2[R10], R0; or.h 6[R10], R0"); census ROM 10FDAE-1128C2
+local player_state_over_edge 003F14 r10 animation flagged_animation_start  # the object's animation (48): its first two steps' flags words ("mov.h 2[R10], R0; or.h 6[R10], R0"); census ROM 10FDAE-1128C2
+struct flagged_animation_start 8 rom       # the start of an animation of flagged steps (a last step word, then flags and frame a step): player_state_over_edge reads the animation the state before left in 48 (003F17 "mov.h 2[R10], R0; or.h 6[R10], R0") and runs animate_with_flags when both steps' flags have no bits but the flips (and #FF3F)
+field flagged_animation_start 00 last_step u16
+field flagged_animation_start 02 first_flags u16      # the first step's flags (flagged_step)
+field flagged_animation_start 04 first_frame u16
+field flagged_animation_start 06 second_flags u16     # the second step's flags
 local player_state_falling_into_pit 004599 r10 floor_block_record floor_block  # floor_blocks + 2 + floor_block: the block's corners (+0/+4/+8/+0xC) and kind (+0x12)
 local player_state_falling_into_pit 004623 r10 floor_block_record floor_block  # floor_blocks + 2 + floor_block: the block's corners (+0/+4/+8/+0xC) and kind (+0x12)
 local player_state_climbing 004932 r10 floor_block_record floor_block  # floor_blocks + 2 + floor_block: the block's corners (+0/+4/+8/+0xC) and kind (+0x12)
@@ -13789,27 +13798,27 @@ param check_player_contacts_solid R10 toucher object  # check_player_contacts' L
 param check_player_step_against_floor R0 height_diff  # check_player_step's height_diff: z_int - step_floor_z_int (+8 for the -8..8 test, then back): below 0 falls (state 2), above 8 blocks; 0 after a stop; the caller's on a path
 param check_player_step_against_floor R11 cursor  # check_player_step's cursor (player_move's, find_floor's) handed back; the player's x (get_floor_block_side's) on the bounce path
 param player_climbing_animate_vertical_step R11 cursor  # player_state_climbing's cursor (check_player_contacts' R11), only handed on to player_climbing_update_position
-param player_climbing_animate_vertical_step R12 attribute_record climb_wall_attribute  # player_state_climbing's attribute_record (floor_types + floor_attribute): +4 the screen shift per z step (x 2 or -2), byte 0 the wall's axis (the shift's sign); handed on
+param player_climbing_animate_vertical_step R12 attribute_record floor_attribute_record  # player_state_climbing's attribute_record (floor_types + floor_attribute): +4 the screen shift per z step (x 2 or -2), byte 0 the wall's axis (the shift's sign); handed on
 param player_climbing_begin_climb R11 cursor  # player_state_climbing's cursor, only handed on to player_climbing_move
-param player_climbing_begin_climb R12 attribute_record climb_wall_attribute  # player_state_climbing's attribute_record (floor_types + floor_attribute), only handed on to player_climbing_move
+param player_climbing_begin_climb R12 attribute_record floor_attribute_record  # player_state_climbing's attribute_record (floor_types + floor_attribute), only handed on to player_climbing_move
 param player_climbing_check_vertical_step R11 cursor  # player_state_climbing's cursor, only handed on
-param player_climbing_check_vertical_step R12 attribute_record climb_wall_attribute  # player_state_climbing's attribute_record (floor_types + floor_attribute), only handed on to the step's start / animation
+param player_climbing_check_vertical_step R12 attribute_record floor_attribute_record  # player_state_climbing's attribute_record (floor_types + floor_attribute), only handed on to the step's start / animation
 param player_climbing_descend_over_edge R11 cursor  # player_state_climbing's cursor, only handed on to player_climbing_begin_climb
-param player_climbing_descend_over_edge R12 attribute_record climb_wall_attribute  # player_state_climbing's attribute_record (floor_types + floor_attribute), only handed on to player_climbing_begin_climb
+param player_climbing_descend_over_edge R12 attribute_record floor_attribute_record  # player_state_climbing's attribute_record (floor_types + floor_attribute), only handed on to player_climbing_begin_climb
 param player_climbing_grab_wall R11 cursor  # player_state_climbing's cursor (or player_climbing_start's), only handed on
-param player_climbing_grab_wall R12 attribute_record climb_wall_attribute  # player_state_climbing's attribute_record (floor_types + floor_attribute): byte 0 the wall's axis (x or y kept in the wall, the flip, the block edge), +A/+C the wall's start and length, +6 the climb height into climb_remaining
+param player_climbing_grab_wall R12 attribute_record floor_attribute_record  # player_state_climbing's attribute_record (floor_types + floor_attribute): byte 0 the wall's axis (x or y kept in the wall, the flip, the block edge), +A/+C the wall's start and length, +6 the climb height into climb_remaining
 param player_climbing_move R11 cursor  # player_state_climbing's cursor (or player_climbing_begin_climb's), only handed on
-param player_climbing_move R12 attribute_record climb_wall_attribute  # player_state_climbing's attribute_record (floor_types + floor_attribute), only handed on to the vertical step, the side step or player_climbing_update_position
-param player_climbing_pull_up R12 attribute_record climb_wall_attribute  # player_state_climbing's attribute_record (floor_types + floor_attribute), or player_climbing_update_position's: +8 the top's z, byte 0 the wall's axis (placed A past the block's x max or y min, heading 80 or 380)
+param player_climbing_move R12 attribute_record floor_attribute_record  # player_state_climbing's attribute_record (floor_types + floor_attribute), only handed on to the vertical step, the side step or player_climbing_update_position
+param player_climbing_pull_up R12 attribute_record floor_attribute_record  # player_state_climbing's attribute_record (floor_types + floor_attribute), or player_climbing_update_position's: +8 the top's z, byte 0 the wall's axis (placed A past the block's x max or y min, heading 80 or 380)
 param player_climbing_side_step R1 cos_speed  # player_climbing_move's set_climb_speed_from_trackball (or set_speed_from_direction) result: cosine(direction) x speed >> 6, speed_y negated; added to the stepped projected y and z for the on-screen test (screen y 10..CF)
 param player_climbing_side_step R11 cursor  # player_climbing_move's (player_state_climbing's cursor), only handed on to player_climbing_update_position
-param player_climbing_side_step R12 attribute_record climb_wall_attribute  # player_climbing_move's (floor_types + floor_attribute): byte 0 the wall's axis (the y step's sign, x or y tested), +A/+C the wall's start and length the step must stay in
+param player_climbing_side_step R12 attribute_record floor_attribute_record  # player_climbing_move's (floor_types + floor_attribute): byte 0 the wall's axis (the y step's sign, x or y tested), +A/+C the wall's start and length the step must stay in
 param player_climbing_start R11 cursor  # player_state_climbing's cursor (check_player_contacts' R11), only handed on to player_climbing_grab_wall
-param player_climbing_start R12 attribute_record climb_wall_attribute  # player_state_climbing's attribute_record (floor_types + floor_attribute), only handed on to player_climbing_grab_wall
+param player_climbing_start R12 attribute_record floor_attribute_record  # player_state_climbing's attribute_record (floor_types + floor_attribute), only handed on to player_climbing_grab_wall
 param player_climbing_start_vertical_step R11 cursor  # player_climbing_check_vertical_step's (player_state_climbing's cursor), only handed on
-param player_climbing_start_vertical_step R12 attribute_record climb_wall_attribute  # player_climbing_check_vertical_step's (floor_types + floor_attribute), only handed on to player_climbing_animate_vertical_step
+param player_climbing_start_vertical_step R12 attribute_record floor_attribute_record  # player_climbing_check_vertical_step's (floor_types + floor_attribute), only handed on to player_climbing_animate_vertical_step
 param player_climbing_update_position R11 cursor  # player_state_climbing's cursor through the climbing pieces: spawn_climb_zone_effect allocates the splash zone effect in it (its R11)
-param player_climbing_update_position R12 attribute_record climb_wall_attribute  # player_state_climbing's attribute_record (floor_types + floor_attribute), straight (touched by kind 5) or through the pieces: +6 the climb height (back at the foot), byte 0 the wall's axis; handed to player_climbing_pull_up
+param player_climbing_update_position R12 attribute_record floor_attribute_record  # player_state_climbing's attribute_record (floor_types + floor_attribute), straight (touched by kind 5) or through the pieces: +6 the climb height (back at the foot), byte 0 the wall's axis; handed to player_climbing_pull_up
 param player_dispatch_state R1 depth  # the player chain's R1 (player_animate's / player_move's name): player_update's (player_hud_update's R1), or the state code's when a state changes; handed to every state that takes R1
 param player_dispatch_state R11 cursor  # the player chain's R11 (player_animate's / player_move's name): player_update's (check_scene_states'), or the state code's (find_floor's / check_player_contacts' cursor); handed to every state that takes R11
 param player_hurt_fly R1 depth  # player_state_hurt's depth (substate 2), or the hurt animation offset player_hurt_set_animation loads (as player_state_hurt loads the shocked one into depth): find_floor's R1, handed to player_dispatch_state
@@ -14175,7 +14184,7 @@ comment add_player_to_lists Puts the player object in hitter_list and rider_list
 comment add_push_to_player_motion Unused: polar_to_xy(heading_snapped, speed_int) plus the push, each >> 4, gives speed (length << 12, 0 when negative, at most 0x5000000) and heading; the push is then cleared. It reads push_x and push_y as 32-bit words, each taking the halfword after it, and the clear also zeroes animation_speed's low half.
 comment aim_at_screen_centre Hands back in dx and dy a step of 0x200 from the player toward the ground point under the screen centre (0xA0, 0x70) at its z; check_player_contacts_solid pushes the player out with it.
 comment apply_floor_push Sets push_x and push_y from the floor: cleared, then the floor_types record's first two words added on floor types 4, 0xB, 5 (not while hopping) and 7 (with an attribute), not while invulnerable. With flags bit 31 set it leaves the push alone.
-comment apply_moving_floor Carries the player with a moving floor: on floor type 7 whose floor_attribute_slopes byte is 1, x += moving_floor_object's speed_x; on floor type 0xC, y += its platform's speed_y (not while jumping, nor while teetering off a block not of type 0xC).
+comment apply_moving_floor Carries the player with a moving floor: on floor type 7 whose floor attribute's ride is 1, x += moving_floor_object's speed_x; on floor type 0xC, y += its platform's speed_y (not while jumping, nor while teetering off a block not of type 0xC).
 comment apply_speed_scale Hands back target_speed x speed_scale / 16 when speed_scale is set, else target_speed.
 comment bounce_off_wall_in_air When the player has moved over a floor block at least 8 higher than its last and is below its top, puts it back at its previous position and floor and turns it 0x80 to one side of straight away from the side it hit (get_floor_block_side), facing that way, with control_lock 0xA and flags bit 13.
 comment check_fall_into_pit Over a pit (floor_z 0x7FF or more, not floor type 6), a player falling or still (speed_z not negative) at or below its previous floor's height goes to state 9, falling into the pit.
@@ -14256,7 +14265,7 @@ comment slip_pieces_update Ray's two slip pieces: each moves by speed_x and spee
 comment spawn_slip_piece For Mighty (kind 2) slipping off a ledge (player_state_dropping): one piece with the frame at its animation + 0x3A, at the player's position, that waits 0x10 frames before it falls (slip_piece_update).
 comment spawn_slip_pieces For Ray (kind 1) slipping off a ledge: two pieces (the player's animation + 0x3A) thrown up (speed_z -0x80000) and apart at 0x8000 in x (ledge sides 0, 2 and 4) or y (1 and 3), run by slip_pieces_update; needs 2 free objects.
 comment spawn_tumble_effect Spawns the tumble effect over the player (tumble_effect_animation, tumble_effect_update), flipped when the player's facing is 1 to 7.
-comment start_climb On floor type 2 (a wall to climb) starts the riding player climbing: its character's climb animation, x + 0x41000, climb_base_z from the floor block, climb_remaining from floor_attribute_wall_heights less its height above climb_base_z; state 0xA, substate 3.
+comment start_climb On floor type 2 (a wall to climb) starts the riding player climbing: its character's climb animation, x + 0x41000, climb_base_z from the floor block, climb_remaining from its floor attribute's height less its height above climb_base_z; state 0xA, substate 3.
 comment start_climb_at_spawn On floor type 2 (a wall to climb) a player placed there starts climbing: its character's climb animation, z raised by the wall's rise (its floor_types record) times how far it is into the block, climb_remaining and climb_base_z set; state 0xA, substate 3.
 comment start_jump_if_pressed Starts a jump (state 4) when the player's button is newly pressed (inputs_pressed bit 0x10, 0x18 or 0x12 by player in a game, 0x19 to 0x1B outside one), unless pushed_out or on a path.
 comment toggle_hidden Flips flags bit 19, which keeps the player from being drawn: the blink.
@@ -14808,7 +14817,7 @@ comment fireball_start The fireballs machine_fire_update throws: sprite flags 0x
 comment flame_burn Animated and drawn at screen_y + 0x30 until it has left the screen (check_left_screen), then removed.
 comment flame_start A big flame (flame_animation, palette 0x9010) set on its floor; flame_burn.
 comment init_fireball_flight fireball_animation; flight_timer 0x36 frames (0x24 in stage 0xC), speed_x and speed_y to reach target_x, target_y in that time, the arc's base floor_z = z; sound 0xF, fireball_fly.
-comment machine_fire_climb_step The climb: base_speed while the top's screen y (screen_y - hitbox_height) is screen_threshold or less, else catching up with the camera, in the hold-back limits; after wait_timer z climbs by it and projected x, y follow floor_attribute_slopes (x, y from them). Sound 9 every 0x3C frames on screen.
+comment machine_fire_climb_step The climb: base_speed while the top's screen y (screen_y - hitbox_height) is screen_threshold or less, else catching up with the camera, in the hold-back limits; after wait_timer z climbs by it and projected x, y follow the floor attribute's x_per_rise (x, y from it). Sound 9 every 0x3C frames on screen.
 comment machine_fire_read_script Until the fire's top (z - hitbox_height) reaches the height of the next machine_fire_script record, machine_fire_climb_step; then it loads the record's screen_threshold, catch_up_factor, base_speed and wait_timer and climbs on, or at a negative factor the climb ends (next state).
 comment machine_fire_update The machine's fire: a small flame until the machine is wrecked; then an invisible box (kind 0x13, rising_fire_object): the spawns_with_next_handler fireballs, a climb (machine_fire_script), 0x80 frames +x with fireballs in three lanes (lane 3's timer is sound_timer), machine_fire_done.
 comment machine_run The machine: animated until machine_wrecked, then stopped on the smashed frame (0x68E8); touchable, drawn at screen_y - 0x68; removed once it has left the screen.
@@ -14852,7 +14861,7 @@ comment spiked_roller_fall States 1 and 8: falls (speed_z + 0x1000 a frame), tur
 comment spiked_roller_fall_off_ledge State 1: its palette word gets 0x4000 (another priority group), then spiked_roller_fall.
 comment spiked_roller_follow_leader State 2, the four other parts: the leader's y and speed_y (x and speed_x for path_direction 1 and 3), kind, box, z and floors, its states 1 and 8, its hidden and backwards bits; animated at the chase speed. Removed (player = 0xFF) when the leader is in state 5.
 comment spiked_roller_ram State 4, the ram: spiked_roller_ram_charge, _pause, _back_off or _wait by substate, with its own rumble (sound 0xB). No script or event sets state 4, so it never runs.
-comment spiked_roller_ram_back_off Ram substate 2: rolls back +y one a frame (chaser_speed 0x10) until y reaches the event's coordinate (spiked_roller_event_coords); then substate 3 with the animation backwards (flags bit 7).
+comment spiked_roller_ram_back_off Ram substate 2: rolls back +y one a frame (chaser_speed 0x10) until y reaches the coordinate of the event that fired; then substate 3 with the animation backwards (flags bit 7).
 comment spiked_roller_ram_charge Ram substates 0 and 4: rolls -y 4 a frame (chaser_speed 0x40) until y is at most the event's coordinate - 0x50: camera_shake_active, roller_ram_hit, sound 7, next substate. Off screen, or after 4 charges (roller_ram_count), back to state 0.
 comment spiked_roller_ram_pause Ram substate 1: stopped (chaser_speed 0, roller_ram_hit 0) for 0x3C frames (pause_timer); then substate 2 with the animation forwards.
 comment spiked_roller_ram_wait Ram substate 3: turns in place (chaser_speed 0x40) for 0x3C frames, counted only while a player is in play, then charges again (substate 0).

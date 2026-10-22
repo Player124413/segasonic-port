@@ -3,7 +3,7 @@
  *    Description: the player's states in play: standing, walking, running, falling and jumping (player_move, player_animate), teetering on a ledge and going over it, dropping, falling into a pit, climbing a wall, skidding, hopping, dying, launched, hurt, bouncing
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    21-10-2026
+ *    Modified:    22-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -1271,7 +1271,7 @@ void player_state_over_edge(uint32_t jump_offset, uint32_t cursor)
 		if (PLAYER(current_player)->previous_state != 0xCu)
 		{
 			animation = OBJECT(current_object)->animation;
-			if (((ROM16(animation + 2u) | ROM16(animation + 6u)) & ~0xC0u) == 0u)
+			if (((FLAGGED_ANIMATION_START(animation)->first_flags | FLAGGED_ANIMATION_START(animation)->second_flags) & ~0xC0u) == 0u)
 				animate_with_flags(&r1, &ignored);
 		}
 		if ((OBJECT(current_object)->flags & 0x20000u) == 0u)
@@ -2127,7 +2127,7 @@ void player_state_climbing(uint32_t depth, uint32_t cursor)
 		invalid_jump(0x4755u + PLAYER(current_player)->substate * 3u);
 	}
 	PLAYER(current_player)->climb_from_top = 0u;
-	if (OBJECT(current_object)->z_int <= CLIMB_WALL_ATTRIBUTE(attribute_record)->top_z)
+	if (OBJECT(current_object)->z_int <= FLOOR_ATTRIBUTE_RECORD(attribute_record)->top_z)
 		PLAYER(current_player)->climb_from_top = 0xFFu;
 	if (PLAYER(current_player)->climb_from_top == 0u || PLAYER(current_player)->previous_state != 4u)
 	{
@@ -2162,9 +2162,9 @@ void player_climbing_grab_wall(uint32_t cursor, uint32_t attribute_record)
 	uint32_t along_wall = 0, climb_animation = 0, climb_over_animation = 0, floor_block_record = 0, ignored = 0;
 
 	along_wall = current_object + 0x50u;
-	if (CLIMB_WALL_ATTRIBUTE(attribute_record)->axis != 0u)
+	if (FLOOR_ATTRIBUTE_RECORD(attribute_record)->axis != 0u)
 		along_wall = current_object + 0x4Cu;
-	wall_limit = CLIMB_WALL_ATTRIBUTE(attribute_record)->along_min;
+	wall_limit = FLOOR_ATTRIBUTE_RECORD(attribute_record)->along_min;
 	if ((int16_t)mem_read16(along_wall + 2u) < (int16_t)wall_limit)
 	{
 		mem_write16(along_wall, 0u);
@@ -2172,7 +2172,7 @@ void player_climbing_grab_wall(uint32_t cursor, uint32_t attribute_record)
 	}
 	else
 	{
-		wall_limit += CLIMB_WALL_ATTRIBUTE(attribute_record)->along_length;
+		wall_limit += FLOOR_ATTRIBUTE_RECORD(attribute_record)->along_length;
 		if ((int16_t)wall_limit < (int16_t)mem_read16(along_wall + 2u))
 		{
 			mem_write16(along_wall, 0u);
@@ -2181,7 +2181,7 @@ void player_climbing_grab_wall(uint32_t cursor, uint32_t attribute_record)
 	}
 	if (PLAYER(current_player)->climb_from_top == 0u)
 	{
-		PLAYER(current_player)->climb_remaining = CLIMB_WALL_ATTRIBUTE(attribute_record)->height;
+		PLAYER(current_player)->climb_remaining = FLOOR_ATTRIBUTE_RECORD(attribute_record)->height;
 		OBJECT(current_object)->flags &= ~0x80u;
 		climb_animation = sonic_climb_animation_ADDRESS;
 		if (OBJECT(current_object)->kind != 0u)
@@ -2192,13 +2192,13 @@ void player_climbing_grab_wall(uint32_t cursor, uint32_t attribute_record)
 		}
 		OBJECT(current_object)->animation = climb_animation;
 		OBJECT(current_object)->sprite_flags |= 0x40u;
-		if (CLIMB_WALL_ATTRIBUTE(attribute_record)->axis != 0u)
+		if (FLOOR_ATTRIBUTE_RECORD(attribute_record)->axis != 0u)
 			OBJECT(current_object)->sprite_flags &= 0xFFBFu;
 		OBJECT(current_object)->animation_timer = 0;
 		OBJECT(current_object)->animation_speed = 3u;
 		OBJECT(current_object)->animation_frame = 0xFFu;
 		floor_block_record = floor_blocks + 2u + OBJECT(current_object)->floor_block;
-		if (CLIMB_WALL_ATTRIBUTE(attribute_record)->axis == 0u)
+		if (FLOOR_ATTRIBUTE_RECORD(attribute_record)->axis == 0u)
 			OBJECT(current_object)->x = FLOOR_BLOCK(floor_block_record)->x_min;
 		else
 			OBJECT(current_object)->y = FLOOR_BLOCK(floor_block_record)->y_max;
@@ -2398,17 +2398,17 @@ void player_climbing_side_step(uint32_t cos_speed, uint32_t cursor, uint32_t att
 	step_x = PLAYER(current_player)->screen_x + side_step;
 	side_step_screen_x = step_x;
 	side_step = (int32_t)side_step >> 1;
-	if (CLIMB_WALL_ATTRIBUTE(attribute_record)->axis != 0u)
+	if (FLOOR_ATTRIBUTE_RECORD(attribute_record)->axis != 0u)
 		side_step = 0u - side_step;
 	side_step += OBJECT(current_object)->projected_y;
 	step_projected_y = side_step;
 	side_step = side_step * 2u;
 	unproject_point(&step_x, &side_step);
-	if (CLIMB_WALL_ATTRIBUTE(attribute_record)->axis != 0u)
+	if (FLOOR_ATTRIBUTE_RECORD(attribute_record)->axis != 0u)
 		side_step = step_x;
 	side_step = (int32_t)side_step >> 16;
-	wall_start = CLIMB_WALL_ATTRIBUTE(attribute_record)->along_min;
-	if ((int16_t)side_step < (int16_t)wall_start || (int16_t)(wall_start + CLIMB_WALL_ATTRIBUTE(attribute_record)->along_length) < (int16_t)side_step || (uint16_t)(((int32_t)((uint32_t)step_projected_y + OBJECT(current_object)->z + cos_speed) >> 16) - view_y - 0x10u) >= 0xC0u)
+	wall_start = FLOOR_ATTRIBUTE_RECORD(attribute_record)->along_min;
+	if ((int16_t)side_step < (int16_t)wall_start || (int16_t)(wall_start + FLOOR_ATTRIBUTE_RECORD(attribute_record)->along_length) < (int16_t)side_step || (uint16_t)(((int32_t)((uint32_t)step_projected_y + OBJECT(current_object)->z + cos_speed) >> 16) - view_y - 0x10u) >= 0xC0u)
 	{
 		player_climbing_update_position(cursor, attribute_record);
 		return;
@@ -2544,9 +2544,9 @@ void player_climbing_animate_vertical_step(uint32_t cursor, uint32_t attribute_r
 	PLAYER(current_player)->saved_climb_remaining = PLAYER(current_player)->climb_remaining;
 	PLAYER(current_player)->climb_remaining += z_step;
 	PLAYER(current_player)->saved_screen_x = PLAYER(current_player)->screen_x;
-	screen_shift = CLIMB_WALL_ATTRIBUTE(attribute_record)->x_per_rise * z_step;
+	screen_shift = FLOOR_ATTRIBUTE_RECORD(attribute_record)->x_per_rise * z_step;
 	screen_x_shift = screen_shift;
-	if (CLIMB_WALL_ATTRIBUTE(attribute_record)->axis == 0u)
+	if (FLOOR_ATTRIBUTE_RECORD(attribute_record)->axis == 0u)
 		screen_x_shift = 0u - screen_x_shift;
 	PLAYER(current_player)->screen_x += screen_x_shift;
 	OBJECT(current_object)->projected_x = PLAYER(current_player)->screen_x_int;
@@ -2582,10 +2582,10 @@ void player_climbing_update_position(uint32_t cursor, uint32_t attribute_record)
 		player_climbing_pull_up(attribute_record);
 		return;
 	}
-	if (CLIMB_WALL_ATTRIBUTE(attribute_record)->height <= PLAYER(current_player)->climb_remaining)
+	if (FLOOR_ATTRIBUTE_RECORD(attribute_record)->height <= PLAYER(current_player)->climb_remaining)
 	{
 		across_wall = current_object + 0x4Eu;
-		if (CLIMB_WALL_ATTRIBUTE(attribute_record)->axis != 0u)
+		if (FLOOR_ATTRIBUTE_RECORD(attribute_record)->axis != 0u)
 			across_wall = current_object + 0x52u;
 		mem_write16(across_wall, mem_read16(across_wall) - 2u);
 		PLAYER(current_player)->substate = 0u;
@@ -2646,7 +2646,7 @@ void player_climbing_pull_up(uint32_t attribute_record)
 		ignored = queue_sprite(ignored);
 		return;
 	}
-	OBJECT(current_object)->z_int = CLIMB_WALL_ATTRIBUTE(attribute_record)->top_z;
+	OBJECT(current_object)->z_int = FLOOR_ATTRIBUTE_RECORD(attribute_record)->top_z;
 	OBJECT(current_object)->z_fraction = 0u;
 	OBJECT(current_object)->floor_z = OBJECT(current_object)->z;
 	OBJECT(current_object)->flags &= ~0x80u;
@@ -2658,7 +2658,7 @@ void player_climbing_pull_up(uint32_t attribute_record)
 	OBJECT(current_object)->speed_y = 0;
 	PLAYER(current_player)->animation_speed = 0;
 	floor_block_record = floor_blocks + 2u + OBJECT(current_object)->floor_block;
-	if (CLIMB_WALL_ATTRIBUTE(attribute_record)->axis == 0u)
+	if (FLOOR_ATTRIBUTE_RECORD(attribute_record)->axis == 0u)
 	{
 		OBJECT(current_object)->x = FLOOR_BLOCK(floor_block_record)->x_max;
 		OBJECT(current_object)->x_int += 0xAu;
@@ -2669,7 +2669,7 @@ void player_climbing_pull_up(uint32_t attribute_record)
 		OBJECT(current_object)->y_int -= 0xAu;
 	}
 	new_heading = 0x80u;
-	if (CLIMB_WALL_ATTRIBUTE(attribute_record)->axis != 0u)
+	if (FLOOR_ATTRIBUTE_RECORD(attribute_record)->axis != 0u)
 		new_heading = 0x380u;
 	PLAYER(current_player)->target_heading = new_heading;
 	turn_player();
@@ -3477,7 +3477,7 @@ void player_state_hurt(uint32_t depth, uint32_t cursor)
 			}
 		}
 		kind = OBJECT(current_object)->kind;
-		OBJECT(current_object)->sprite_palette = shocked_palettes[kind].palettes[OBJECT(current_object)->animation_frame];
+		OBJECT(current_object)->sprite_palette = shocked_palettes[kind & 0xFFFu].palettes[OBJECT(current_object)->animation_frame];
 		update_screen_position(&ignored, &depth);
 		keep_player_on_screen(depth);
 		add_player_to_lists();
@@ -3498,7 +3498,7 @@ void player_state_hurt(uint32_t depth, uint32_t cursor)
 			}
 		}
 		kind = OBJECT(current_object)->kind;
-		OBJECT(current_object)->sprite_palette = shocked_palettes[kind].palettes[OBJECT(current_object)->animation_frame];
+		OBJECT(current_object)->sprite_palette = shocked_palettes[kind & 0xFFFu].palettes[OBJECT(current_object)->animation_frame];
 		update_screen_position(&ignored, &depth);
 		keep_player_on_screen(depth);
 		add_player_to_lists();

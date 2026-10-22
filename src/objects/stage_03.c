@@ -3,7 +3,7 @@
  *    Description: stage 3's objects: the spiked panels and the electric poles, the crate pushed to a post, the breakable panel, the spiked roller that chases the players (also in stage E) and the floor that crumbles at the finale, the machine at 8300 with its fire and fireballs, the fire vents, the end pillar
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    21-10-2026
+ *    Modified:    22-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -1681,7 +1681,7 @@ void spiked_roller_ram_charge(void)
 	OBJECT(current_object)->y += OBJECT(current_object)->speed_y;
 	OBJECT(current_object)->animation_speed = 1u;
 	animate(&ignored, &ignored, &ignored);
-	if ((int16_t)(ROM16(spiked_roller_event_coords_ADDRESS + OBJECT(current_object)->spiked_roller.event_offset) - 0x50u) < OBJECT(current_object)->y_int)
+	if ((int16_t)(SPIKED_ROLLER_EVENT(spiked_roller_events_ADDRESS + OBJECT(current_object)->spiked_roller.event_offset)[-1].coordinate - 0x50u) < OBJECT(current_object)->y_int)
 		return;
 	OBJECT(current_object)->spiked_roller.substate++;
 	camera_shake_active = 1u;
@@ -1725,8 +1725,8 @@ void spiked_roller_ram_pause(void)
 	}
 }
 
-/* Ram substate 2: rolls back +y one a frame (chaser_speed 0x10) until y reaches the event's coordinate
-   (spiked_roller_event_coords); then substate 3 with the animation backwards (flags bit 7). */
+/* Ram substate 2: rolls back +y one a frame (chaser_speed 0x10) until y reaches the coordinate of the
+   event that fired; then substate 3 with the animation backwards (flags bit 7). */
 void spiked_roller_ram_back_off(void)
 {
 	uint32_t ignored = 0;
@@ -1737,7 +1737,7 @@ void spiked_roller_ram_back_off(void)
 	OBJECT(current_object)->y += OBJECT(current_object)->speed_y;
 	OBJECT(current_object)->animation_speed = 4u;
 	animate(&ignored, &ignored, &ignored);
-	if ((int16_t)ROM16(spiked_roller_event_coords_ADDRESS + OBJECT(current_object)->spiked_roller.event_offset) <= OBJECT(current_object)->y_int)
+	if (SPIKED_ROLLER_EVENT(spiked_roller_events_ADDRESS + OBJECT(current_object)->spiked_roller.event_offset)[-1].coordinate <= OBJECT(current_object)->y_int)
 	{
 		OBJECT(current_object)->spiked_roller.substate++;
 		OBJECT(current_object)->spiked_roller.pause_timer = 0u;
@@ -2394,7 +2394,8 @@ void machine_fire_read_script(void)
 
 /* The climb: base_speed while the top's screen y (screen_y - hitbox_height) is screen_threshold or less,
    else catching up with the camera, in the hold-back limits; after wait_timer z climbs by it and
-   projected x, y follow floor_attribute_slopes (x, y from them). Sound 9 every 0x3C frames on screen. */
+   projected x, y follow the floor attribute's x_per_rise (x, y from it). Sound 9 every 0x3C frames on
+   screen. */
 void machine_fire_climb_step(void)
 {
 	uint16_t climb_speed = 0;
@@ -2470,7 +2471,7 @@ void machine_fire_climb_step(void)
 		OBJECT(current_object)->machine_fire.wait_timer = 0;
 		OBJECT(current_object)->z -= (uint32_t)(int16_t)OBJECT(current_object)->speed_fraction << 12;
 	}
-	projected_dx = (int32_t)((uint32_t)(int16_t)ROM16(floor_attribute_slopes_ADDRESS + OBJECT(current_object)->floor_attribute) * OBJECT(current_object)->speed_fraction) >> 4;
+	projected_dx = (int32_t)((uint32_t)FLOOR_ATTRIBUTE_RECORD(floor_types_ADDRESS + OBJECT(current_object)->floor_attribute)->x_per_rise * OBJECT(current_object)->speed_fraction) >> 4;
 	OBJECT(current_object)->machine_fire.fixed_projected_x += projected_dx;
 	OBJECT(current_object)->projected_x = OBJECT(current_object)->machine_fire.projected_x_whole;
 	OBJECT(current_object)->projected_y -= (int32_t)projected_dx >> 1;

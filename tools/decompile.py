@@ -626,6 +626,10 @@ def write_c(program, out_dir, trace=False, variables_path=None, split_webs=False
     pointers.ELEMENTS = dict(known.arrays)
     pointers.RECORD_TABLES = dict(known.record_tables)
     pointers.FIELD_ARRAYS = {key: (int(known.fields[key][1][1:]), count) for key, count in known.field_arrays.items()}
+    # the names a "STRUCT@BASE" may give its base by: the program's data, tables and tables of records
+    pointers.BASES = {symbol.name: address for address, symbol in program.symbols.items() if symbol.kind == "data"}
+    pointers.BASES.update({name: address for address, (name, _) in list(known.tables.items())
+                           + list(known.record_tables.items())})
     # records of their own (not the object's or the player's blocks) come one after another: the flood
     # fill's queue is walked a record at a time
     pointers.RUNS = set(known.structs) - {"object", "player"}

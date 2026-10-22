@@ -3,7 +3,7 @@
  *    Description: the sound program's ports, variables, tables, structures and functions
  *    Version:     0.1.0
  *    Created:     13-10-2026
- *    Modified:    21-10-2026
+ *    Modified:    22-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the Z80 sound program decompiled into C by
@@ -652,6 +652,12 @@ struct song_record
 	};
 };
 
+struct effect_header
+{
+	uint8_t flags;
+	uint8_t first_status;
+};
+
 #pragma pack(pop)
 
 _Static_assert(sizeof(struct fm_voice) == 0x12, "struct fm_voice has the size of the game's blocks");
@@ -666,6 +672,7 @@ _Static_assert(sizeof(struct register_value_pair) == 0x2, "struct register_value
 _Static_assert(sizeof(struct sound_list) == 0x1, "struct sound_list has the size of the program ROM's records");
 _Static_assert(sizeof(struct sound_header) == 0x2, "struct sound_header has the size of the program ROM's records");
 _Static_assert(sizeof(struct song_record) == 0x4, "struct song_record has the size of the program ROM's records");
+_Static_assert(sizeof(struct effect_header) == 0x2, "struct effect_header has the size of the program ROM's records");
 
 #define FM_VOICE(address) ((struct fm_voice *)sound_ram_at(address))
 #define MIDI_PART(address) ((struct midi_part *)sound_ram_at(address))
@@ -689,6 +696,7 @@ _Static_assert(sizeof(struct song_record) == 0x4, "struct song_record has the si
 #define SOUND_LIST(address) ((const struct sound_list *)sound_rom_at(address))
 #define SOUND_HEADER(address) ((const struct sound_header *)sound_rom_at(address))
 #define SONG_RECORD(address) ((const struct song_record *)sound_rom_at(address))
+#define EFFECT_HEADER(address) ((const struct effect_header *)sound_rom_at(address))
 
 /* the program ROM's tables of records, by name: name[i].field */
 #define fm_global_init_ADDRESS 0x0273u

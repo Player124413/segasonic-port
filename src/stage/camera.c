@@ -3,7 +3,7 @@
  *    Description: the stage view, the scroll and the camera: the view set-up and the tile sets around it, the scroll modes and the screen edges the players push, the camera's speeds, shake and path along the sections, the fades between stages, the start section of the demos and the unused scroll skip panel
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    21-10-2026
+ *    Modified:    22-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -217,15 +217,15 @@ void init_stage_view(uint32_t *p_direction_y, uint32_t *p_direction_x, uint32_t 
 	table_offset = stage;
 	stage_block_map_width = stage_block_map_widths[table_offset];
 	table_offset = (uint16_t)(table_offset * 2u);
-	camera_origin = ROM16(stage_camera_origins_x_ADDRESS + table_offset);
+	camera_origin = (uint16_t)stage_camera_origins_x[table_offset / 2u];
 	camera_origin_x = camera_origin;
 	camera_x += (uint32_t)camera_origin << 16;
-	camera_origin = ROM16(stage_camera_origins_y_ADDRESS + table_offset);
+	camera_origin = (uint16_t)stage_camera_origins_y[table_offset / 2u];
 	camera_origin_y = camera_origin;
 	camera_y += (uint32_t)camera_origin << 16;
-	view_offset_y = ROM16(stage_view_offsets_y_ADDRESS + table_offset);
-	view_offset_x = ROM16(stage_view_offsets_x_ADDRESS + table_offset);
-	scroll_end = ROM16(stage_scroll_ends_ADDRESS + table_offset);
+	view_offset_y = stage_view_offsets_y[table_offset / 2u];
+	view_offset_x = stage_view_offsets_x[table_offset / 2u];
+	scroll_end = stage_scroll_ends[table_offset / 2u];
 	stage_number = stage;
 	list = stage_section_speeds[stage_number] + stage_section_speeds_ADDRESS;
 	scroll_speed = SECTION_SCROLL_SPEEDS(list)[0];
@@ -3329,7 +3329,7 @@ void run_scroll_skip_mode(void)
 			scroll_skip_open = 0u;
 			return;
 		}
-		scroll_skip_last_point = scroll_skip_last_points[stage];
+		scroll_skip_last_point = scroll_skip_last_points[stage & 0x7FFFu];
 		stage_start_section = 0xDu;
 		scroll_skip_value_index = 0u;
 		scroll_skip_next_armed = 0u;
@@ -3576,7 +3576,7 @@ void scroll_skip_draw_values(void)
 
 	point = stage_start_section;
 	value_list = scroll_skip_value_lists[scroll_skip_value_index];
-	value = ROM16(STAGE_SECTION_LIST_OFFSETS((value_list & ~0xFFFFu) | (uint16_t)(value_list + stage * 2u))[0] + value_list + (uint16_t)(point * 2u));
+	value = SECTION_VALUES(value_list + STAGE_SECTION_LIST_OFFSETS((value_list & ~0xFFFFu) | (uint16_t)(value_list + stage * 2u))[0])[point & 0x7FFFu];
 	switch (scroll_skip_value_index)
 	{
 	case 0:

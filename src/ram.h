@@ -3,7 +3,7 @@
  *    Description: the game's variables, tables, board registers and structures
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    21-10-2026
+ *    Modified:    22-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -2207,8 +2207,6 @@
 #define floor_slope_factors ((const uint32_t *)rom(floor_slope_factors_ADDRESS))
 #define floor_slope_direction_tables_ADDRESS 0x10DF4Au
 #define floor_slope_direction_tables ((const uint16_t *)rom(floor_slope_direction_tables_ADDRESS))
-#define floor_types_ADDRESS 0x10E14Cu
-#define floor_types ((const uint8_t *)rom(floor_types_ADDRESS))
 #define floor_attribute_slopes_ADDRESS 0x10E150u
 #define floor_attribute_slopes ((const int16_t *)rom(floor_attribute_slopes_ADDRESS))
 #define floor_attribute_wall_heights_ADDRESS 0x10E152u
@@ -2230,9 +2228,9 @@
 #define ledge_recover_headings_ADDRESS 0x113CD1u
 #define ledge_recover_headings ((const uint16_t *)rom(ledge_recover_headings_ADDRESS))
 #define screen_edge_scroll_carry_flags_ADDRESS 0x113CE7u
-#define screen_edge_scroll_carry_flags ROM8S(screen_edge_scroll_carry_flags_ADDRESS)
+#define screen_edge_scroll_carry_flags ((const int8_t *)rom(screen_edge_scroll_carry_flags_ADDRESS))
 #define player_palette_lists_ADDRESS 0x113D59u
-#define player_palette_lists ROM32(player_palette_lists_ADDRESS)
+#define player_palette_lists ((const uint32_t *)rom(player_palette_lists_ADDRESS))
 #define floor_block_side_codes_ADDRESS 0x113E95u
 #define floor_block_side_codes ((const uint8_t *)rom(floor_block_side_codes_ADDRESS))
 #define heading_speed_factors_ADDRESS 0x113EC0u
@@ -7011,6 +7009,26 @@ struct sine_and_cosine
 	uint16_t cosine;
 };
 
+struct floor_attribute_record
+{
+	union
+	{
+		int16_t push_x;
+		uint8_t axis;
+	};
+	int16_t push_y;
+	union
+	{
+		int16_t x_per_rise;
+		uint8_t ride;
+	};
+	int16_t height;
+	int16_t top_z;
+	uint16_t along_min;
+	uint16_t along_length;
+	uint16_t rise;
+};
+
 struct floor_block_type
 {
 	uint8_t floor_type;
@@ -7443,6 +7461,12 @@ struct sprite_palette_cycle
 {
 	uint16_t last_index;
 	uint16_t palettes[];
+};
+
+struct hud_step_list
+{
+	uint16_t last_index;
+	uint16_t steps[];
 };
 
 struct eggman_speech_step
@@ -7994,24 +8018,6 @@ struct stage_goal_line_range
 	uint16_t line_max;
 };
 
-struct climb_wall_attribute
-{
-	uint8_t axis;
-	uint8_t pad_01[0x3];
-	int16_t x_per_rise;
-	int16_t height;
-	int16_t top_z;
-	uint16_t along_min;
-	uint16_t along_length;
-	uint16_t rise;
-};
-
-struct floor_push_attribute
-{
-	uint16_t push_x;
-	uint16_t push_y;
-};
-
 struct player_path_step
 {
 	int16_t speed;
@@ -8044,6 +8050,14 @@ struct sand_block_part_list
 	uint16_t count;
 	uint8_t pad_02[0x6];
 	uint16_t first_palette;
+};
+
+struct flagged_animation_start
+{
+	uint16_t last_step;
+	uint16_t first_flags;
+	uint16_t first_frame;
+	uint16_t second_flags;
 };
 
 struct debris_path_step
@@ -8478,6 +8492,7 @@ _Static_assert(sizeof(struct ring_row) == 0xC, "struct ring_row has the size of 
 _Static_assert(sizeof(struct group_spawn_record) == 0x18, "struct group_spawn_record has the size of the program ROM's records");
 _Static_assert(sizeof(struct sprite_buffer_swap) == 0x4, "struct sprite_buffer_swap has the size of the program ROM's records");
 _Static_assert(sizeof(struct sine_and_cosine) == 0x202, "struct sine_and_cosine has the size of the program ROM's records");
+_Static_assert(sizeof(struct floor_attribute_record) == 0x10, "struct floor_attribute_record has the size of the program ROM's records");
 _Static_assert(sizeof(struct floor_block_type) == 0x4, "struct floor_block_type has the size of the program ROM's records");
 _Static_assert(sizeof(struct floor_outline_list) == 0x2, "struct floor_outline_list has the size of the program ROM's records");
 _Static_assert(sizeof(struct floor_outline) == 0x10, "struct floor_outline has the size of the program ROM's records");
@@ -8537,6 +8552,7 @@ _Static_assert(sizeof(struct fence_offset) == 0x4, "struct fence_offset has the 
 _Static_assert(sizeof(struct fence_post_box) == 0x4, "struct fence_post_box has the size of the program ROM's records");
 _Static_assert(sizeof(struct fence_post_box_offset) == 0x2, "struct fence_post_box_offset has the size of the program ROM's records");
 _Static_assert(sizeof(struct sprite_palette_cycle) == 0x2, "struct sprite_palette_cycle has the size of the program ROM's records");
+_Static_assert(sizeof(struct hud_step_list) == 0x2, "struct hud_step_list has the size of the program ROM's records");
 _Static_assert(sizeof(struct eggman_speech_step) == 0x4, "struct eggman_speech_step has the size of the program ROM's records");
 _Static_assert(sizeof(struct how_to_play_button_press) == 0x4, "struct how_to_play_button_press has the size of the program ROM's records");
 _Static_assert(sizeof(struct coin_setting_value) == 0x4, "struct coin_setting_value has the size of the program ROM's records");
@@ -8604,13 +8620,12 @@ _Static_assert(sizeof(struct restart_point) == 0x8, "struct restart_point has th
 _Static_assert(sizeof(struct stage_start_point) == 0x6, "struct stage_start_point has the size of the program ROM's records");
 _Static_assert(sizeof(struct stage_goal) == 0xC, "struct stage_goal has the size of the program ROM's records");
 _Static_assert(sizeof(struct stage_goal_line_range) == 0x4, "struct stage_goal_line_range has the size of the program ROM's records");
-_Static_assert(sizeof(struct climb_wall_attribute) == 0x10, "struct climb_wall_attribute has the size of the program ROM's records");
-_Static_assert(sizeof(struct floor_push_attribute) == 0x4, "struct floor_push_attribute has the size of the program ROM's records");
 _Static_assert(sizeof(struct player_path_step) == 0x8, "struct player_path_step has the size of the program ROM's records");
 _Static_assert(sizeof(struct hud_portrait_sprite) == 0x4, "struct hud_portrait_sprite has the size of the program ROM's records");
 _Static_assert(sizeof(struct hud_palette_cycle) == 0x2, "struct hud_palette_cycle has the size of the program ROM's records");
 _Static_assert(sizeof(struct floor_slope) == 0x8, "struct floor_slope has the size of the program ROM's records");
 _Static_assert(sizeof(struct sand_block_part_list) == 0xA, "struct sand_block_part_list has the size of the program ROM's records");
+_Static_assert(sizeof(struct flagged_animation_start) == 0x8, "struct flagged_animation_start has the size of the program ROM's records");
 _Static_assert(sizeof(struct debris_path_step) == 0x8, "struct debris_path_step has the size of the program ROM's records");
 _Static_assert(sizeof(struct dust_cloud_frame) == 0x4, "struct dust_cloud_frame has the size of the program ROM's records");
 _Static_assert(sizeof(struct credit_part) == 0x8, "struct credit_part has the size of the program ROM's records");
@@ -8682,6 +8697,7 @@ _Static_assert(sizeof(struct group_slot_trigger_record) == 0x6, "struct group_sl
 #define SPRITE_CONTROL_SETTINGS(address) ((const uint8_t *)rom(address))
 #define SPRITE_BUFFER_SWAP(address) ((const struct sprite_buffer_swap *)rom(address))
 #define SINE_AND_COSINE(address) ((const struct sine_and_cosine *)rom(address))
+#define FLOOR_ATTRIBUTE_RECORD(address) ((const struct floor_attribute_record *)rom(address))
 #define FLOOR_BLOCK_TYPE(address) ((const struct floor_block_type *)rom(address))
 #define FLOOR_OUTLINE_LIST(address) ((const struct floor_outline_list *)rom(address))
 #define FLOOR_OUTLINE(address) ((const struct floor_outline *)rom(address))
@@ -8705,6 +8721,7 @@ _Static_assert(sizeof(struct group_slot_trigger_record) == 0x6, "struct group_sl
 #define BLOCK_TILE_SETS(address) ((const uint8_t *)rom(address))
 #define TILE_SET_VRAM_SCRIPTS(address) ((const uint32_t *)rom(address))
 #define STAGE_SECTION_LIST_OFFSETS(address) ((const uint16_t *)rom(address))
+#define SECTION_VALUES(address) ((const uint16_t *)rom(address))
 #define NBG_LAYER_PRIORITIES(address) ((const uint8_t *)rom(address))
 #define NBG3_BLOCK_PAGES(address) ((const uint8_t *)rom(address))
 #define NBG3_QUADRANTS(address) ((const uint8_t *)rom(address))
@@ -8763,6 +8780,7 @@ _Static_assert(sizeof(struct group_slot_trigger_record) == 0x6, "struct group_sl
 #define SPRITE_PALETTE_CYCLE(address) ((const struct sprite_palette_cycle *)rom(address))
 #define SPRITE_CYCLE_PALETTES(address) ((const uint16_t *)rom(address))
 #define DEMO_TRACKBALL_DELTAS(address) ((const int8_t *)rom(address))
+#define HUD_STEP_LIST(address) ((const struct hud_step_list *)rom(address))
 #define EGGMAN_SPEECH_STEP(address) ((const struct eggman_speech_step *)rom(address))
 #define EGGMAN_SPEECH_ARGUMENTS(address) ((const uint16_t *)rom(address))
 #define HOW_TO_PLAY_BUTTON_PRESS(address) ((const struct how_to_play_button_press *)rom(address))
@@ -8844,14 +8862,13 @@ _Static_assert(sizeof(struct group_slot_trigger_record) == 0x6, "struct group_sl
 #define STAGE_GOAL(address) ((const struct stage_goal *)rom(address))
 #define STAGE_GOAL_LINE_RANGE(address) ((const struct stage_goal_line_range *)rom(address))
 #define FALL_SPRITE_PRIORITY_SIDES(address) ((const int8_t *)rom(address))
-#define CLIMB_WALL_ATTRIBUTE(address) ((const struct climb_wall_attribute *)rom(address))
-#define FLOOR_PUSH_ATTRIBUTE(address) ((const struct floor_push_attribute *)rom(address))
 #define PLAYER_PATH_STEP(address) ((const struct player_path_step *)rom(address))
 #define HUD_PORTRAIT_SPRITE(address) ((const struct hud_portrait_sprite *)rom(address))
 #define HUD_PALETTE_CYCLE(address) ((const struct hud_palette_cycle *)rom(address))
 #define HUD_CYCLE_PALETTES(address) ((const uint16_t *)rom(address))
 #define FLOOR_SLOPE(address) ((const struct floor_slope *)rom(address))
 #define SAND_BLOCK_PART_LIST(address) ((const struct sand_block_part_list *)rom(address))
+#define FLAGGED_ANIMATION_START(address) ((const struct flagged_animation_start *)rom(address))
 #define ENDING_SPRITE_FRAMES(address) ((const uint16_t *)rom(address))
 #define DEBRIS_PATH_STEP(address) ((const struct debris_path_step *)rom(address))
 #define DUST_CLOUD_FRAME(address) ((const struct dust_cloud_frame *)rom(address))
@@ -8997,6 +9014,8 @@ _Static_assert(sizeof(struct group_slot_trigger_record) == 0x6, "struct group_sl
 #define stage_palettes ((const struct stage_palette *)rom(stage_palettes_ADDRESS))
 #define floor_slopes_ADDRESS 0x10DF44u
 #define floor_slopes ((const struct floor_slope *)rom(floor_slopes_ADDRESS))
+#define floor_types_ADDRESS 0x10E14Cu
+#define floor_types ((const struct floor_block_type *)rom(floor_types_ADDRESS))
 #define teetering_animations_ADDRESS 0x1128AEu
 #define teetering_animations ((const struct teeter_animation_offsets *)rom(teetering_animations_ADDRESS))
 #define floor_type_player_states_ADDRESS 0x113CD9u

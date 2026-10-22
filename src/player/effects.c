@@ -3,7 +3,7 @@
  *    Description: around the players: the skid dust, the HUD (gauge, portrait, ring count, start prompt, messages), the ride of game mode 0x1C, joining with a character select, the result bonus, the climb zone splash, the intro marker
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    21-10-2026
+ *    Modified:    22-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -221,7 +221,7 @@ void player_hud_update(uint32_t *p_digit_attribute, uint32_t *p_text_position)
 			OBJECT(object)->direction_low = OBJECT(object_cursor)->health;
 			OBJECT(object)->hud_anim_repeats = 0;
 			OBJECT(current_object)->hud_anim_repeats = 0;
-			OBJECT(object)->sprite_palette = ROM16(OBJECT(object)->animate_hud.anim + 2u);
+			OBJECT(object)->sprite_palette = HUD_STEP_LIST(OBJECT(object)->animate_hud.anim)->steps[0];
 			portrait_anim = hud_portrait_hurt_palettes_sonic_ADDRESS;
 			if (OBJECT(object_cursor)->kind != 0u)
 			{
@@ -230,7 +230,7 @@ void player_hud_update(uint32_t *p_digit_attribute, uint32_t *p_text_position)
 					portrait_anim = hud_portrait_hurt_palettes_mighty_ADDRESS;
 			}
 			OBJECT(current_object)->animate_hud.anim = portrait_anim;
-			OBJECT(current_object)->sprite_palette = ROM16(OBJECT(current_object)->animate_hud.anim + 2u);
+			OBJECT(current_object)->sprite_palette = HUD_STEP_LIST(OBJECT(current_object)->animate_hud.anim)->steps[0];
 		}
 		flags = PLAYER(current_player)->flags;
 		PLAYER(current_player)->flags = flags & ~0x40u;

@@ -357,7 +357,8 @@ def load_names(path, registers=None):
         if len(parts) == 5:
             names.targets[("global", address)] = (parts[4], int(parts[3][1:]))
     def structure(pointed):
-        """True for STRUCT or STRUCT.FAMILY."""
+        """True for STRUCT or STRUCT.FAMILY, STRUCT+OFFSET or STRUCT@BASE (a byte offset from BASE to one)."""
+        pointed = pointed.partition("@")[0].partition("+")[0]
         struct, dot, family = pointed.partition(".")
         return struct in names.structs and (not dot or family.isidentifier())
     for (struct, offset), count in names.field_arrays.items():
@@ -522,7 +523,8 @@ class Analysis:
             for number in range(MAX_RECORDS):
                 if count is not None and number == count:
                     break
-                if layout.end is not None                         and (self.mem.r32(record) if layout.end_bytes == 4 else self.mem.r16(record)) == layout.end:
+                if layout.end is not None \
+                        and (self.mem.r32(record) if layout.end_bytes == 4 else self.mem.r16(record)) == layout.end:
                     record += layout.end_bytes
                     break
                 for offset, base in layout.code:
