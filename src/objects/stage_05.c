@@ -3,7 +3,7 @@
  *    Description: stage 5's objects: the exit door, the floor patch, the bubbles, the spiked press, the cage
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    19-10-2026
+ *    Modified:    21-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -433,11 +433,11 @@ void cage_bar_update(void)
 		OBJECT(current_object)->animation_frame++;
 		animation_frame = OBJECT(current_object)->animation_frame;
 		step_list = OBJECT(current_object)->animation;
-		last_step = ROM16(step_list);
+		last_step = CAGE_BAR_ANIMATION(step_list)->last_frame;
 		step_list += 2u;
 		if ((int16_t)animation_frame < (int16_t)last_step)
 		{
-			OBJECT(current_object)->sprite_frame = ROM16(step_list + animation_frame * 2u);
+			OBJECT(current_object)->sprite_frame = SPRITE_FRAME_NUMBERS(step_list)[animation_frame];
 			OBJECT(current_object)->health = 1;
 			cage_bar_hit = 0xFFu;
 		}
@@ -455,7 +455,7 @@ void cage_bar_update(void)
 		OBJECT(current_object)->animation_timer = animation_timer - 1u;
 		if ((int8_t)animation_timer < 1)
 		{
-			OBJECT(current_object)->sprite_frame = ROM16(OBJECT(current_object)->animation + 6u);
+			OBJECT(current_object)->sprite_frame = CAGE_BAR_ANIMATION(OBJECT(current_object)->animation)->broken_frame;
 			OBJECT(current_object)->projected_x++;
 		}
 	}

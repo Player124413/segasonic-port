@@ -3,7 +3,7 @@
  *    Description: the sound program's ports, variables, tables, structures and functions
  *    Version:     0.1.0
  *    Created:     13-10-2026
- *    Modified:    19-10-2026
+ *    Modified:    21-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the Z80 sound program decompiled into C by
@@ -148,32 +148,14 @@
 #define sound_cpu_hold SOUND_RAM8(sound_cpu_hold_ADDRESS)
 
 /* data in the program ROM the code reads */
-#define fm_global_init_ADDRESS 0x0273u
-#define fm_global_init SOUND_ROM8(fm_global_init_ADDRESS)
-#define fm_operator_init_ADDRESS 0x0289u
-#define fm_operator_init SOUND_ROM8(fm_operator_init_ADDRESS)
-#define pcm_register_init_ADDRESS 0x031Bu
-#define pcm_register_init SOUND_ROM8(pcm_register_init_ADDRESS)
-#define voice_chip_channels_ADDRESS 0x0387u
-#define voice_chip_channels SOUND_ROM8(voice_chip_channels_ADDRESS)
 #define pcm_channel_bits_ADDRESS 0x06F1u
 #define pcm_channel_bits ((const uint8_t *)sound_rom_at(pcm_channel_bits_ADDRESS))
-#define fm_patch_registers_ADDRESS 0x134Bu
-#define fm_patch_registers SOUND_ROM8(fm_patch_registers_ADDRESS)
-#define fm_level_registers_ADDRESS 0x1360u
-#define fm_level_registers SOUND_ROM8(fm_level_registers_ADDRESS)
-#define fm_fnum_tables_ADDRESS 0x137Cu
-#define fm_fnum_tables SOUND_ROM16(fm_fnum_tables_ADDRESS)
 #define part_templates_ADDRESS 0x1594u
 #define part_templates SOUND_ROM16(part_templates_ADDRESS)
 #define instruments_ADDRESS 0x193Bu
 #define instruments SOUND_ROM16(instruments_ADDRESS)
 #define note_codes_ADDRESS 0x1A3Eu
 #define note_codes ((const uint8_t *)sound_rom_at(note_codes_ADDRESS))
-#define velocity_levels_ADDRESS 0x1BFEu
-#define velocity_levels SOUND_ROM8(velocity_levels_ADDRESS)
-#define pcm_pitch_tables_ADDRESS 0x1E96u
-#define pcm_pitch_tables SOUND_ROM16(pcm_pitch_tables_ADDRESS)
 #define pitch_bend_steps_ADDRESS 0x232Eu
 #define pitch_bend_steps ((const uint8_t *)sound_rom_at(pitch_bend_steps_ADDRESS))
 #define fm_patches_ADDRESS 0x242Eu
@@ -637,6 +619,12 @@ struct pcm_sample_header
 	uint8_t address_high;
 };
 
+struct register_value_pair
+{
+	uint8_t register_number;
+	uint8_t value;
+};
+
 struct sound_list
 {
 	uint8_t last_number;
@@ -674,6 +662,7 @@ _Static_assert(sizeof(struct instrument) == 0x5, "struct instrument has the size
 _Static_assert(sizeof(struct drum_note) == 0x4, "struct drum_note has the size of the program ROM's records");
 _Static_assert(sizeof(struct vibrato_preset) == 0x7, "struct vibrato_preset has the size of the program ROM's records");
 _Static_assert(sizeof(struct pcm_sample_header) == 0x6, "struct pcm_sample_header has the size of the program ROM's records");
+_Static_assert(sizeof(struct register_value_pair) == 0x2, "struct register_value_pair has the size of the program ROM's records");
 _Static_assert(sizeof(struct sound_list) == 0x1, "struct sound_list has the size of the program ROM's records");
 _Static_assert(sizeof(struct sound_header) == 0x2, "struct sound_header has the size of the program ROM's records");
 _Static_assert(sizeof(struct song_record) == 0x4, "struct song_record has the size of the program ROM's records");
@@ -686,9 +675,40 @@ _Static_assert(sizeof(struct song_record) == 0x4, "struct song_record has the si
 #define DRUM_NOTE(address) ((const struct drum_note *)sound_rom_at(address))
 #define VIBRATO_PRESET(address) ((const struct vibrato_preset *)sound_rom_at(address))
 #define PCM_SAMPLE_HEADER(address) ((const struct pcm_sample_header *)sound_rom_at(address))
+#define REGISTER_VALUE_PAIR(address) ((const struct register_value_pair *)sound_rom_at(address))
+#define VOICE_CHIP_CODES(address) ((const uint8_t *)sound_rom_at(address))
+#define NOTE_LEVELS(address) ((const uint8_t *)sound_rom_at(address))
+#define FM_FNUMBERS(address) ((const uint16_t *)sound_rom_at(address))
+#define FM_FNUMBER_RUNS(address) ((const uint16_t *)sound_rom_at(address))
+#define PCM_PITCH_STEPS(address) ((const uint16_t *)sound_rom_at(address))
+#define PCM_PITCH_RUNS(address) ((const uint16_t *)sound_rom_at(address))
+#define FM_REGISTER_NUMBERS(address) ((const uint8_t *)sound_rom_at(address))
+#define FM_PATCH_BYTES(address) ((const uint8_t *)sound_rom_at(address))
+#define PLAYLIST_BYTES(address) ((const uint8_t *)sound_rom_at(address))
+#define TABLE_WORDS(address) ((const uint16_t *)sound_rom_at(address))
 #define SOUND_LIST(address) ((const struct sound_list *)sound_rom_at(address))
 #define SOUND_HEADER(address) ((const struct sound_header *)sound_rom_at(address))
 #define SONG_RECORD(address) ((const struct song_record *)sound_rom_at(address))
+
+/* the program ROM's tables of records, by name: name[i].field */
+#define fm_global_init_ADDRESS 0x0273u
+#define fm_global_init ((const struct register_value_pair *)sound_rom_at(fm_global_init_ADDRESS))
+#define fm_operator_init_ADDRESS 0x0289u
+#define fm_operator_init ((const struct register_value_pair *)sound_rom_at(fm_operator_init_ADDRESS))
+#define pcm_register_init_ADDRESS 0x031Bu
+#define pcm_register_init ((const struct register_value_pair *)sound_rom_at(pcm_register_init_ADDRESS))
+#define voice_chip_channels_ADDRESS 0x0387u
+#define voice_chip_channels ((const uint8_t *)sound_rom_at(voice_chip_channels_ADDRESS))
+#define fm_patch_registers_ADDRESS 0x134Bu
+#define fm_patch_registers ((const uint8_t *)sound_rom_at(fm_patch_registers_ADDRESS))
+#define fm_level_registers_ADDRESS 0x1360u
+#define fm_level_registers ((const uint8_t *)sound_rom_at(fm_level_registers_ADDRESS))
+#define fm_fnum_tables_ADDRESS 0x137Cu
+#define fm_fnum_tables ((const uint16_t *)sound_rom_at(fm_fnum_tables_ADDRESS))
+#define velocity_levels_ADDRESS 0x1BFEu
+#define velocity_levels ((const uint8_t *)sound_rom_at(velocity_levels_ADDRESS))
+#define pcm_pitch_tables_ADDRESS 0x1E96u
+#define pcm_pitch_tables ((const uint16_t *)sound_rom_at(pcm_pitch_tables_ADDRESS))
 #define FM_VOICE_ADDRESS(n) (0xE490u + (n) * 0x12u)    /* the 12 of them, from 0 */
 #define MIDI_PART_ADDRESS(n) (0xE300u + (n) * 0x9u)    /* the 13 of them, from 0 */
 #define SAMPLE_VOICE_ADDRESS(n) (0xE400u + (n) * 0x12u)    /* the 8 of them, from 0 */

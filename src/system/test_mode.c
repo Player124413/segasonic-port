@@ -3,7 +3,7 @@
  *    Description: the test mode: the menu, the memory, input and sound tests, the CRT test, the game and coin assignments, the bookkeeping screen, the backup clear, the output test, the exit
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    20-10-2026
+ *    Modified:    21-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -296,7 +296,7 @@ void test_memory(uint32_t *p_results_left, uint32_t *p_blocks_per_row)
 			if ((memory_test_errors & shl32(1u, (int)(result_index))) != 0u)
 				offset_entry = memory_test_bad_offsets_ADDRESS + result_index * 2u;
 			*p_blocks_per_row = memory_test_result_texts_ADDRESS;
-			text = ROM16(offset_entry) + memory_test_result_texts_ADDRESS;
+			text = MEMORY_TEST_RESULT_OFFSETS(offset_entry)[0] + memory_test_result_texts_ADDRESS;
 			print_text_list(&text, &ignored);
 			result_index = (uint8_t)(result_index + 1u);
 			(*p_results_left)--;
@@ -335,21 +335,21 @@ void BOARD_ORIGINAL(check_rom_checksums)(void)
 	data = 0x80000u;
 	count = 0x1F000u;
 	compute_crc16(count, &crc, &data, &ignored);
-	ic8_crc = ROM16(stored_crc);
+	ic8_crc = ROM_CHIP_CHECKSUMS(stored_crc)[0];
 	stored_crc += 2u;
 	if ((uint16_t)crc != ic8_crc)
 		memory_test_errors |= 4u;
 	data = 0x100000u;
 	count = 0x40000u;
 	crc = compute_crc16_alternate_bytes(data, count);
-	ic18_crc = ROM16(stored_crc);
+	ic18_crc = ROM_CHIP_CHECKSUMS(stored_crc)[0];
 	stored_crc += 2u;
 	if ((uint16_t)crc != ic18_crc)
 		memory_test_errors |= 2u;
 	data = 0x100001u;
 	count = 0x3FFFFu;
 	crc = compute_crc16_alternate_bytes(data, count);
-	if ((uint16_t)crc != ROM16(stored_crc))
+	if ((uint16_t)crc != ROM_CHIP_CHECKSUMS(stored_crc)[0])
 		memory_test_errors |= 8u;
 }
 
@@ -371,7 +371,7 @@ void test_work_ram(void)
 			bytes_left = 0xF9u;
 			do
 			{
-				mem_write8(ram_cursor, ROM8(pattern));
+				mem_write8(ram_cursor, RAM_TEST_PATTERN_BYTES(pattern)[0]);
 				pattern++;
 				ram_cursor++;
 				if ((int32_t)ram_cursor >= 0x210000)
@@ -407,7 +407,7 @@ void test_work_ram_verify(void)
 			bytes_left = 0xF9u;
 			do
 			{
-				expected = ROM8(pattern);
+				expected = RAM_TEST_PATTERN_BYTES(pattern)[0];
 				actual = mem_read8(ram_cursor);
 				pattern++;
 				ram_cursor++;
@@ -448,7 +448,7 @@ void test_video_ram(void)
 			bytes_left = 0xF9u;
 			do
 			{
-				mem_write8(ram_cursor, ROM8(pattern));
+				mem_write8(ram_cursor, RAM_TEST_PATTERN_BYTES(pattern)[0]);
 				ram_cursor++;
 				pattern++;
 				if ((int32_t)ram_cursor >= 0x320000)
@@ -484,7 +484,7 @@ void test_video_ram_verify(void)
 			bytes_left = 0xF9u;
 			do
 			{
-				expected = ROM8(pattern);
+				expected = RAM_TEST_PATTERN_BYTES(pattern)[0];
 				actual = mem_read8(ram_cursor);
 				ram_cursor++;
 				pattern++;
@@ -492,14 +492,14 @@ void test_video_ram_verify(void)
 				{
 					if ((ram_cursor & 1u) != 0u)
 					{
-						if ((mem_read8(ram_cursor - 1u) & 0xFu) != (ROM8(pattern - 1u) & 0xFu))
+						if ((mem_read8(ram_cursor - 1u) & 0xFu) != (RAM_TEST_PATTERN_BYTES(pattern)[-1] & 0xFu))
 							memory_test_errors |= 0x10000u;
-						if ((mem_read8(ram_cursor - 1u) & ~0xFu) != (ROM8(pattern - 1u) & ~0xFu))
+						if ((mem_read8(ram_cursor - 1u) & ~0xFu) != (RAM_TEST_PATTERN_BYTES(pattern)[-1] & ~0xFu))
 							memory_test_errors |= 0x8000u;
 					}
-					if ((mem_read8(ram_cursor - 1u) & 0xFu) != (ROM8(pattern - 1u) & 0xFu))
+					if ((mem_read8(ram_cursor - 1u) & 0xFu) != (RAM_TEST_PATTERN_BYTES(pattern)[-1] & 0xFu))
 						memory_test_errors |= 0x4000u;
-					if ((mem_read8(ram_cursor - 1u) & ~0xFu) != (ROM8(pattern - 1u) & ~0xFu))
+					if ((mem_read8(ram_cursor - 1u) & ~0xFu) != (RAM_TEST_PATTERN_BYTES(pattern)[-1] & ~0xFu))
 						memory_test_errors |= 0x2000u;
 				}
 				if ((int32_t)ram_cursor >= 0x320000)
@@ -528,7 +528,7 @@ void test_sprite_ram(void)
 			bytes_left = 0xF9u;
 			do
 			{
-				mem_write8(ram_cursor, ROM8(pattern));
+				mem_write8(ram_cursor, RAM_TEST_PATTERN_BYTES(pattern)[0]);
 				ram_cursor++;
 				pattern++;
 				if ((int32_t)ram_cursor >= 0x420000)
@@ -564,7 +564,7 @@ void test_sprite_ram_verify(void)
 			bytes_left = 0xF9u;
 			do
 			{
-				expected = ROM8(pattern);
+				expected = RAM_TEST_PATTERN_BYTES(pattern)[0];
 				actual = mem_read8(ram_cursor);
 				ram_cursor++;
 				pattern++;
@@ -572,14 +572,14 @@ void test_sprite_ram_verify(void)
 				{
 					if ((ram_cursor & 1u) != 0u)
 					{
-						if ((mem_read8(ram_cursor - 1u) & 0xFu) != (ROM8(pattern - 1u) & 0xFu))
+						if ((mem_read8(ram_cursor - 1u) & 0xFu) != (RAM_TEST_PATTERN_BYTES(pattern)[-1] & 0xFu))
 							memory_test_errors |= 0x1000u;
-						if ((mem_read8(ram_cursor - 1u) & ~0xFu) != (ROM8(pattern - 1u) & ~0xFu))
+						if ((mem_read8(ram_cursor - 1u) & ~0xFu) != (RAM_TEST_PATTERN_BYTES(pattern)[-1] & ~0xFu))
 							memory_test_errors |= 0x800u;
 					}
-					if ((mem_read8(ram_cursor - 1u) & 0xFu) != (ROM8(pattern - 1u) & 0xFu))
+					if ((mem_read8(ram_cursor - 1u) & 0xFu) != (RAM_TEST_PATTERN_BYTES(pattern)[-1] & 0xFu))
 						memory_test_errors |= 0x400u;
-					if ((mem_read8(ram_cursor - 1u) & ~0xFu) != (ROM8(pattern - 1u) & ~0xFu))
+					if ((mem_read8(ram_cursor - 1u) & ~0xFu) != (RAM_TEST_PATTERN_BYTES(pattern)[-1] & ~0xFu))
 						memory_test_errors |= 0x200u;
 				}
 				if ((int32_t)ram_cursor >= 0x420000)
@@ -610,7 +610,7 @@ void test_palette_ram(void)
 			halfwords_left = 0xF9u;
 			do
 			{
-				mem_write16(ram_cursor, ROM16(pattern));
+				mem_write16(ram_cursor, RAM_TEST_PATTERN_WORDS(pattern)[0]);
 				ram_cursor += 2u;
 				pattern += 2u;
 				if ((int32_t)ram_cursor >= 0x604000)
@@ -645,15 +645,15 @@ void test_palette_ram_verify_first_half(void)
 			halfwords_left = 0xF9u;
 			do
 			{
-				expected_first = ROM16(pattern);
+				expected_first = RAM_TEST_PATTERN_WORDS(pattern)[0];
 				actual_first = mem_read16(ram_cursor);
 				ram_cursor += 2u;
 				pattern += 2u;
 				if (actual_first != expected_first)
 				{
-					if ((mem_read16(ram_cursor - 2u) & 0xFFu) != (ROM16(pattern - 2u) & 0xFFu))
+					if ((mem_read16(ram_cursor - 2u) & 0xFFu) != (RAM_TEST_PATTERN_WORDS(pattern)[-1] & 0xFFu))
 						memory_test_errors |= 0x100u;
-					if ((mem_read16(ram_cursor - 2u) & ~0xFFu) != (ROM16(pattern - 2u) & ~0xFFu))
+					if ((mem_read16(ram_cursor - 2u) & ~0xFFu) != (RAM_TEST_PATTERN_WORDS(pattern)[-1] & ~0xFFu))
 						memory_test_errors |= 0x80u;
 				}
 				if ((int32_t)ram_cursor >= 0x604000)
@@ -687,7 +687,7 @@ void test_palette_ram_fill_second_half(void)
 			halfwords_left = 0xF9u;
 			do
 			{
-				mem_write16(ram_cursor, ROM16(pattern));
+				mem_write16(ram_cursor, RAM_TEST_PATTERN_WORDS(pattern)[0]);
 				ram_cursor += 2u;
 				pattern += 2u;
 				if ((int32_t)ram_cursor >= 0x608000)
@@ -722,15 +722,15 @@ void test_palette_ram_verify_second_half(void)
 			halfwords_left = 0xF9u;
 			do
 			{
-				expected_second = ROM16(pattern);
+				expected_second = RAM_TEST_PATTERN_WORDS(pattern)[0];
 				actual_second = mem_read16(ram_cursor);
 				ram_cursor += 2u;
 				pattern += 2u;
 				if (actual_second != expected_second)
 				{
-					if ((mem_read16(ram_cursor - 2u) & 0xFFu) != (ROM16(pattern - 2u) & 0xFFu))
+					if ((mem_read16(ram_cursor - 2u) & 0xFFu) != (RAM_TEST_PATTERN_WORDS(pattern)[-1] & 0xFFu))
 						memory_test_errors |= 0x40000u;
-					if ((mem_read16(ram_cursor - 2u) & ~0xFFu) != (ROM16(pattern - 2u) & ~0xFFu))
+					if ((mem_read16(ram_cursor - 2u) & ~0xFFu) != (RAM_TEST_PATTERN_WORDS(pattern)[-1] & ~0xFFu))
 						memory_test_errors |= 0x20000u;
 				}
 				if ((int32_t)ram_cursor >= 0x608000)
@@ -761,7 +761,7 @@ void test_sound_ram(void)
 			bytes_left = 0xF9u;
 			do
 			{
-				mem_write8(ram_cursor, ROM8(pattern));
+				mem_write8(ram_cursor, RAM_TEST_PATTERN_BYTES(pattern)[0]);
 				pattern++;
 				ram_cursor++;
 				if ((int32_t)ram_cursor >= 0x702000)
@@ -796,7 +796,7 @@ void test_sound_ram_verify(void)
 			bytes_left = 0xF9u;
 			do
 			{
-				expected = ROM8(pattern);
+				expected = RAM_TEST_PATTERN_BYTES(pattern)[0];
 				actual = mem_read8(ram_cursor);
 				pattern++;
 				ram_cursor++;
@@ -858,11 +858,11 @@ void test_inputs(uint16_t count, uint32_t *p_panel_color, uint32_t *p_blocks_per
 		do
 		{
 			input_index = (inputs_left & ~0xFFu) | (uint8_t)(inputs_left - 1u);
-			if ((input_ports_active & shl32(1u, (int)(mem_read8(input_bits + input_index)))) == 0u)
+			if ((input_ports_active & shl32(1u, (int)(INPUT_TEST_BIT_NUMBERS(input_bits)[input_index]))) == 0u)
 				text_entry = off_texts + input_index * 4u;
 			else
 				text_entry = on_texts + input_index * 4u;
-			text = ROM32(text_entry);
+			text = INPUT_TEST_TEXTS(text_entry)[0];
 			print_text_list(&text, &ignored);
 			inputs_left--;
 		} while (inputs_left != 0u);
@@ -1071,8 +1071,8 @@ void move_input_test_cursors(uint32_t count, uint32_t text, uint32_t *p_cursors_
 	do
 	{
 		bottom_limit = input_test_cursor_bottom_limits_ADDRESS + cursors_left * 2u;
-		if ((int16_t)ROM16(bottom_limit) <= OBJECT(current_object)->screen_y)
-			OBJECT(current_object)->screen_y = ROM16(bottom_limit);
+		if (INPUT_TEST_CURSOR_LIMITS(bottom_limit)[0] <= OBJECT(current_object)->screen_y)
+			OBJECT(current_object)->screen_y = INPUT_TEST_CURSOR_LIMITS(bottom_limit)[0];
 		current_object = current_object + 0x10u;
 		cursors_left--;
 	} while (cursors_left != 0u);
@@ -1081,8 +1081,8 @@ void move_input_test_cursors(uint32_t count, uint32_t text, uint32_t *p_cursors_
 	do
 	{
 		top_limit = input_test_cursor_top_limits_ADDRESS + cursors_left * 2u;
-		if (OBJECT(current_object)->screen_y <= (int16_t)ROM16(top_limit))
-			OBJECT(current_object)->screen_y = ROM16(top_limit);
+		if (OBJECT(current_object)->screen_y <= INPUT_TEST_CURSOR_LIMITS(top_limit)[0])
+			OBJECT(current_object)->screen_y = INPUT_TEST_CURSOR_LIMITS(top_limit)[0];
 		current_object = current_object + 0x10u;
 		cursors_left--;
 	} while (cursors_left != 0u);
@@ -1211,11 +1211,11 @@ void test_crt(uint32_t start_y, uint32_t *p_color, uint32_t *p_blocks_per_row)
 		rows_left = 4u;
 		do
 		{
-			crt_test_x = ROM16(bar_record);
+			crt_test_x = CRT_TEST_COLOR_BAR_ROW(bar_record)->x;
 			bar_record += 2u;
-			crt_test_y = ROM16(bar_record);
+			crt_test_y = CRT_TEST_COLOR_BAR_ROW(bar_record - 0x2u)->y;
 			bar_record += 2u;
-			crt_test_color = ROM8(bar_record);
+			crt_test_color = CRT_TEST_COLOR_BAR_ROW(bar_record - 0x4u)->first_color;
 			bars_left = 0x20u;
 			bar_record++;
 			do
@@ -1253,13 +1253,13 @@ void test_crt(uint32_t start_y, uint32_t *p_color, uint32_t *p_blocks_per_row)
 		lines_left = 4u;
 		do
 		{
-			start_x = (start_x & ~0xFFFFu) | ROM16(line_record);
+			start_x = (start_x & ~0xFFFFu) | CRT_TEST_LINE(line_record)->start_x;
 			line_record += 2u;
-			start_y = (start_y & ~0xFFFFu) | ROM16(line_record);
+			start_y = (start_y & ~0xFFFFu) | CRT_TEST_LINE(line_record - 0x2u)->start_y;
 			line_record += 2u;
-			end_x = ROM16(line_record);
+			end_x = CRT_TEST_LINE(line_record - 0x4u)->end_x;
 			line_record += 2u;
-			end_y = ROM16(line_record);
+			end_y = CRT_TEST_LINE(line_record - 0x6u)->end_y;
 			color = (color & ~0xFFu) | 0x7Eu;
 			line_record += 2u;
 			draw_line(end_x, end_y, &start_x, &start_y, &color, &lines_left);
@@ -1821,12 +1821,12 @@ void apply_coin_setting(void)
 		coin_setting = (uint8_t)(coin_setting + 1u);
 	}
 	values_record = coin_setting_values_ADDRESS + (uint8_t)(coin_setting - 1u) * 4u;
-	setting_coins_per_credit = ROM8(values_record);
+	setting_coins_per_credit = COIN_SETTING_VALUE(values_record)->coins_per_credit;
 	values_record++;
-	setting_bonus_adder = ROM8(values_record);
+	setting_bonus_adder = COIN_SETTING_VALUE(values_record - 0x1u)->bonus_coins;
 	values_record++;
-	setting_chute_1_multiplier = ROM8(values_record);
-	setting_chute_2_multiplier = ROM8(values_record + 1u);
+	setting_chute_1_multiplier = COIN_SETTING_VALUE(values_record - 0x2u)->chute_1_coin_value;
+	setting_chute_2_multiplier = COIN_SETTING_VALUE(values_record - 0x2u)->chute_2_coin_value;
 }
 
 /* Prints setting_number in decimal (convert_to_bcd, draw_hex_2) at text cell 31,9 with attribute 0x1200. */
@@ -2491,7 +2491,7 @@ void draw_blinking_test_cursor(uint32_t cursor_char)
 		cursor_char = test_cursor_space_ADDRESS;
 	if (test_cursor_blink <= -0xF)
 		test_cursor_blink = 0x1E;
-	mem_write16(TEXT_CELL(0, 0) + (((uint32_t)test_cursor_row << 7) + ((uint32_t)test_cursor_column << 1)), 0x200u | ROM8(cursor_char));
+	mem_write16(TEXT_CELL(0, 0) + (((uint32_t)test_cursor_row << 7) + ((uint32_t)test_cursor_column << 1)), 0x200u | TEST_CURSOR_CHARACTERS(cursor_char)[0]);
 }
 
 /* Writes a blank at test_cursor's place in cursor_positions (test_cursor_column/test_cursor_row loaded

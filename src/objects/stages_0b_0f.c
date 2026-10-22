@@ -3,7 +3,7 @@
  *    Description: the objects of stages B to F: the chasers (the brick wall that bursts, the biting head, the fire front) and the flames that spread ahead of it, the spike gate, the falling grates, the rising saws and the steps they cut, the puffs, the checkered pad, the static triangle, the railing
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    19-10-2026
+ *    Modified:    21-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -542,20 +542,20 @@ void brick_wall_wait(void)
 			delete_current_object();
 			return;
 		}
-		OBJECT(object)->sprite_flags = ROM16(piece_record);
+		OBJECT(object)->sprite_flags = BRICK_WALL_BRICK(piece_record)->sprite_flags;
 		OBJECT(object)->screen_x = screen_x;
 		piece_record += 2u;
-		OBJECT(object)->screen_x += ROM16(piece_record);
+		OBJECT(object)->screen_x += BRICK_WALL_BRICK(piece_record - 0x2u)->offset_x;
 		OBJECT(object)->screen_y = r14;
 		piece_record += 2u;
-		OBJECT(object)->screen_y += ROM16(piece_record);
+		OBJECT(object)->screen_y += BRICK_WALL_BRICK(piece_record - 0x4u)->offset_y;
 		piece_record += 2u;
-		OBJECT(object)->speed_x_fraction = ROM16(piece_record);
+		OBJECT(object)->speed_x_fraction = BRICK_WALL_BRICK(piece_record - 0x6u)->speed_x;
 		piece_record += 2u;
-		OBJECT(object)->speed_y_fraction = ROM16(piece_record);
+		OBJECT(object)->speed_y_fraction = BRICK_WALL_BRICK(piece_record - 0x8u)->speed_y;
 		piece_record += 2u;
-		brick_animation = brick_animations_ADDRESS + ROM16(piece_record);
-		OBJECT(object)->sprite_palette = ROM16(brick_animation);
+		brick_animation = brick_animations_ADDRESS + BRICK_WALL_BRICK(piece_record - 0xAu)->look;
+		OBJECT(object)->sprite_palette = BRICK_LOOK(brick_animation)->palette;
 		OBJECT(object)->animation = brick_animation + 2u;
 		OBJECT(object)->projected_x = (uint32_t)OBJECT(object)->screen_x << 4;
 		OBJECT(object)->projected_y_fraction = (uint32_t)OBJECT(object)->screen_y << 4;
@@ -577,15 +577,15 @@ void brick_wall_wait(void)
 		allocate_object(&free_count, &object);
 		if (free_count == 0u)
 			break;
-		OBJECT(object)->sprite_flags = ROM16(piece_record);
+		OBJECT(object)->sprite_flags = BRICK_DUST_PUFF(piece_record)->sprite_flags;
 		OBJECT(object)->screen_x = screen_x;
 		piece_record += 2u;
-		OBJECT(object)->screen_x += ROM16(piece_record);
+		OBJECT(object)->screen_x += BRICK_DUST_PUFF(piece_record - 0x2u)->offset_x;
 		OBJECT(object)->screen_y = r14;
 		piece_record += 2u;
-		OBJECT(object)->screen_y += ROM16(piece_record);
+		OBJECT(object)->screen_y += BRICK_DUST_PUFF(piece_record - 0x4u)->offset_y;
 		piece_record += 2u;
-		OBJECT(object)->brick_dust.wait_timer = ROM16(piece_record);
+		OBJECT(object)->brick_dust.wait_timer = BRICK_DUST_PUFF(piece_record - 0x6u)->delay;
 		OBJECT(object)->animation = brick_dust_animation_ADDRESS;
 		OBJECT(object)->sprite_palette = 0x10E0u;
 		OBJECT(object)->animation_frame = 0u;
@@ -630,10 +630,10 @@ void biting_head_init(void)
 	uint32_t free_count = 0, head_record = 0, taken_object = 0;
 
 	head_record = biting_head_paths_ADDRESS + biting_head_paths[OBJECT(current_object)->sprite_frame];
-	OBJECT(current_object)->x_int = ROM16(head_record);
+	OBJECT(current_object)->x_int = BITING_HEAD_PATH_START(head_record)->x;
 	OBJECT(current_object)->x_fraction = 0u;
 	head_record += 2u;
-	OBJECT(current_object)->y_int = ROM16(head_record);
+	OBJECT(current_object)->y_int = BITING_HEAD_PATH_START(head_record - 0x2u)->y;
 	OBJECT(current_object)->y_fraction = 0u;
 	OBJECT(current_object)->biting_head_view.path = head_record + 2u;
 	OBJECT(current_object)->sprite_flags = 0xD004u;
@@ -752,7 +752,7 @@ void biting_head_read_script(void)
 	}
 	OBJECT(current_object)->biting_head_view.wait_timer = 0;
 	path_cursor = OBJECT(current_object)->biting_head_view.path;
-	record_scroll = ROM16(path_cursor);
+	record_scroll = BITING_HEAD_PATH_ENTRY(path_cursor)->position;
 	path_cursor += 2u;
 	if (record_scroll <= scroll_position)
 	{
@@ -760,7 +760,7 @@ void biting_head_read_script(void)
 		biting_head_load_record(path_cursor);
 		return;
 	}
-	record_coordinate = ROM16(path_cursor);
+	record_coordinate = (uint16_t)BITING_HEAD_PATH_ENTRY(path_cursor - 0x2u)->limit;
 	direction = OBJECT(current_object)->direction;
 	path_cursor += 2u;
 	switch (direction >> 8)
@@ -809,7 +809,7 @@ void biting_head_read_script(void)
    deleted. */
 void biting_head_load_record(uint32_t path_cursor)
 {
-	if ((int16_t)ROM16(path_cursor + 2u) < 0)
+	if (BITING_HEAD_PATH_ENTRY(path_cursor - 0x4u)->catch_up_factor < 0)
 	{
 		current_object = (current_object & ~0xFFFFu) | OBJECT(current_object)->sprite_frame;
 		push_free_object();
@@ -818,15 +818,15 @@ void biting_head_load_record(uint32_t path_cursor)
 		delete_current_object();
 		return;
 	}
-	OBJECT(current_object)->biting_head_view.screen_threshold = ROM16(path_cursor);
+	OBJECT(current_object)->biting_head_view.screen_threshold = BITING_HEAD_PATH_ENTRY(path_cursor - 0x4u)->screen_threshold;
 	path_cursor += 2u;
-	OBJECT(current_object)->biting_head_view.catch_up_factor = ROM16(path_cursor);
+	OBJECT(current_object)->biting_head_view.catch_up_factor = BITING_HEAD_PATH_ENTRY(path_cursor - 0x6u)->catch_up_factor;
 	path_cursor += 2u;
-	OBJECT(current_object)->biting_head_view.base_speed = ROM16(path_cursor);
+	OBJECT(current_object)->biting_head_view.base_speed = BITING_HEAD_PATH_ENTRY(path_cursor - 0x8u)->base_speed;
 	path_cursor += 2u;
-	OBJECT(current_object)->biting_head_view.wait_timer = ROM16(path_cursor);
+	OBJECT(current_object)->biting_head_view.wait_timer = BITING_HEAD_PATH_ENTRY(path_cursor - 0xAu)->wait;
 	path_cursor += 2u;
-	OBJECT(current_object)->direction = ROM16(path_cursor);
+	OBJECT(current_object)->direction = BITING_HEAD_PATH_ENTRY(path_cursor - 0xCu)->direction;
 	OBJECT(current_object)->biting_head_view.path = path_cursor + 2u;
 	biting_head_chase_step();
 }
@@ -1018,7 +1018,7 @@ void biting_head_move_at_speed(uint16_t move_speed)
 			if ((int8_t)biting_head_frames < (int8_t)next_frame)
 				next_frame = 0u;
 			OBJECT(current_object)->animation_frame = next_frame;
-			move_frame = ROM16(move_frames + next_frame * 2u);
+			move_frame = SPRITE_FRAME_NUMBERS(move_frames)[next_frame];
 			mem_write16(OBJECT(current_object)->part_list + 2u, move_frame);
 			mem_write16(OBJECT(current_object)->part_list + 0x22u, move_frame);
 		}
@@ -1039,8 +1039,8 @@ void biting_head_move_at_speed(uint16_t move_speed)
 			next_bite_step = 0u;
 		OBJECT(current_object)->biting_head_view.bite_step = next_bite_step;
 		bite_record += next_bite_step * 4u;
-		mem_write16(OBJECT(current_object)->part_list + 0x1Au, ROM16(bite_record));
-		OBJECT(current_object)->biting_head_view.bite_timer = ROM8(bite_record + 2u);
+		mem_write16(OBJECT(current_object)->part_list + 0x1Au, BITING_HEAD_BITE_STEP(bite_record)->jaw_frame);
+		OBJECT(current_object)->biting_head_view.bite_timer = BITING_HEAD_BITE_STEP(bite_record)->hold;
 		if (OBJECT(current_object)->biting_head_view.bite_step == 5u)
 			OBJECT(current_object)->biting_head_view.bounce_index = 0;
 	}
@@ -1099,17 +1099,17 @@ void fire_front_init(void)
 	uint32_t flames_left = 0, ignored = 0, object = 0, path = 0;
 
 	path = fire_front_paths_ADDRESS + fire_front_paths[OBJECT(current_object)->sprite_frame];
-	OBJECT(current_object)->x_int = ROM16(path);
+	OBJECT(current_object)->x_int = FIRE_FRONT_PATH_START(path)->x;
 	OBJECT(current_object)->x_fraction = 0u;
 	path += 2u;
-	OBJECT(current_object)->y_int = ROM16(path);
+	OBJECT(current_object)->y_int = FIRE_FRONT_PATH_START(path - 0x2u)->y;
 	OBJECT(current_object)->y_fraction = 0u;
 	path += 2u;
-	OBJECT(current_object)->floor_z_int = ROM16(path);
+	OBJECT(current_object)->floor_z_int = FIRE_FRONT_PATH_START(path - 0x4u)->floor_z;
 	OBJECT(current_object)->floor_z_fraction = 0u;
 	OBJECT(current_object)->z = OBJECT(current_object)->floor_z;
 	path += 2u;
-	OBJECT(current_object)->direction = ROM16(path);
+	OBJECT(current_object)->direction = FIRE_FRONT_PATH_START(path - 0x6u)->direction;
 	OBJECT(current_object)->fire_front.path = path + 2u;
 	OBJECT(current_object)->flags = 0x40000000u;
 	OBJECT(current_object)->fire_front.holding_back = 0u;
@@ -1203,7 +1203,7 @@ void fire_front_read_script(void)
 	}
 	OBJECT(current_object)->fire_front.wait_timer = 0;
 	cursor = OBJECT(current_object)->fire_front.path;
-	trigger_scroll = ROM16(cursor);
+	trigger_scroll = CHASE_STEP_WITH_LIMIT(cursor)->position;
 	cursor += 2u;
 	if (trigger_scroll <= scroll_position)
 	{
@@ -1211,7 +1211,7 @@ void fire_front_read_script(void)
 		fire_front_load_record(cursor);
 		return;
 	}
-	trigger_coordinate = ROM16(cursor);
+	trigger_coordinate = (uint16_t)CHASE_STEP_WITH_LIMIT(cursor - 0x2u)->limit;
 	cursor += 2u;
 	if (trigger_coordinate == 0u)
 	{
@@ -1264,19 +1264,19 @@ void fire_front_read_script(void)
    chase: chaser_object = 0 and the front is deleted. */
 void fire_front_load_record(uint32_t path_cursor)
 {
-	if ((int16_t)ROM16(path_cursor + 2u) < 0)
+	if (CHASE_STEP_WITH_LIMIT(path_cursor - 0x4u)->catch_up_factor < 0)
 	{
 		chaser_object = 0u;
 		delete_current_object();
 		return;
 	}
-	OBJECT(current_object)->fire_front.screen_threshold = ROM16(path_cursor);
+	OBJECT(current_object)->fire_front.screen_threshold = CHASE_STEP_WITH_LIMIT(path_cursor - 0x4u)->screen_threshold;
 	path_cursor += 2u;
-	OBJECT(current_object)->fire_front.catch_up_factor = ROM16(path_cursor);
+	OBJECT(current_object)->fire_front.catch_up_factor = CHASE_STEP_WITH_LIMIT(path_cursor - 0x6u)->catch_up_factor;
 	path_cursor += 2u;
-	OBJECT(current_object)->fire_front.base_speed = ROM16(path_cursor);
+	OBJECT(current_object)->fire_front.base_speed = CHASE_STEP_WITH_LIMIT(path_cursor - 0x8u)->base_speed;
 	path_cursor += 2u;
-	OBJECT(current_object)->fire_front.wait_timer = ROM16(path_cursor);
+	OBJECT(current_object)->fire_front.wait_timer = CHASE_STEP_WITH_LIMIT(path_cursor - 0xAu)->wait;
 	path_cursor += 2u;
 	if ((uint16_t)OBJECT(current_object)->fire_front.wait_timer != 0u)
 	{
@@ -1423,7 +1423,7 @@ void fire_front_chase_step(void)
 	chaser_speed = speed;
 	if (OBJECT(current_object)->fire_front.wait_timer > 0)
 	{
-		if (ROM16(OBJECT(current_object)->fire_front.path - 6u) == 0u)
+		if ((uint16_t)CHASE_STEP_WITH_LIMIT(OBJECT(current_object)->fire_front.path)[-1].catch_up_factor == 0u)
 		{
 			OBJECT(current_object)->hitbox_size_x = 0xF2u;
 			OBJECT(current_object)->hitbox_offset_x = 0;
@@ -1438,7 +1438,7 @@ void fire_front_chase_step(void)
 		OBJECT(current_object)->y -= step;
 		OBJECT(current_object)->speed_y = 0u - step;
 		OBJECT(current_object)->speed_x = 0;
-		if (ROM16(OBJECT(current_object)->fire_front.path - 6u) == 0u)
+		if ((uint16_t)CHASE_STEP_WITH_LIMIT(OBJECT(current_object)->fire_front.path)[-1].catch_up_factor == 0u)
 		{
 			OBJECT(current_object)->hitbox_size_x = 0xF2u;
 			OBJECT(current_object)->hitbox_offset_x = 0;
@@ -1450,7 +1450,7 @@ void fire_front_chase_step(void)
 		OBJECT(current_object)->x += step;
 		OBJECT(current_object)->speed_x = step;
 		OBJECT(current_object)->speed_y = 0;
-		if (ROM16(OBJECT(current_object)->fire_front.path - 6u) == 0u)
+		if ((uint16_t)CHASE_STEP_WITH_LIMIT(OBJECT(current_object)->fire_front.path)[-1].catch_up_factor == 0u)
 		{
 			OBJECT(current_object)->hitbox_size_x = 0xF2u;
 			OBJECT(current_object)->hitbox_offset_x = 0;
@@ -1463,7 +1463,7 @@ void fire_front_chase_step(void)
 		OBJECT(current_object)->y += step;
 		OBJECT(current_object)->speed_y = step;
 		OBJECT(current_object)->speed_x = 0;
-		if (ROM16(OBJECT(current_object)->fire_front.path - 6u) == 0u)
+		if ((uint16_t)CHASE_STEP_WITH_LIMIT(OBJECT(current_object)->fire_front.path)[-1].catch_up_factor == 0u)
 		{
 			OBJECT(current_object)->hitbox_size_x = 0xF2u;
 			OBJECT(current_object)->hitbox_offset_x = 0;
@@ -1475,7 +1475,7 @@ void fire_front_chase_step(void)
 		OBJECT(current_object)->x -= step;
 		OBJECT(current_object)->speed_x = 0u - step;
 		OBJECT(current_object)->speed_y = 0;
-		if (ROM16(OBJECT(current_object)->fire_front.path - 6u) == 0u)
+		if ((uint16_t)CHASE_STEP_WITH_LIMIT(OBJECT(current_object)->fire_front.path)[-1].catch_up_factor == 0u)
 		{
 			OBJECT(current_object)->hitbox_size_x = 0xF2u;
 			OBJECT(current_object)->hitbox_offset_x = 0;
@@ -1708,13 +1708,13 @@ void rising_saw_init(void)
 	if (scroll_position < 0x3780u && biting_head_done == 0u)
 		return;
 	path = rising_saw_paths[OBJECT(current_object)->sprite_frame] + rising_saw_paths_ADDRESS;
-	OBJECT(current_object)->x_int = ROM16(path);
+	OBJECT(current_object)->x_int = RISING_SAW_PATH_START(path)->x;
 	OBJECT(current_object)->x_fraction = 0u;
 	path += 2u;
-	OBJECT(current_object)->y_int = ROM16(path);
+	OBJECT(current_object)->y_int = RISING_SAW_PATH_START(path - 0x2u)->y;
 	OBJECT(current_object)->y_fraction = 0u;
 	path += 2u;
-	OBJECT(current_object)->z_int = ROM16(path);
+	OBJECT(current_object)->z_int = RISING_SAW_PATH_START(path - 0x4u)->z;
 	OBJECT(current_object)->z_fraction = 0u;
 	OBJECT(current_object)->rising_saw.path = path + 2u;
 	rising_saws[OBJECT(current_object)->sprite_frame] = current_object;
@@ -1799,21 +1799,21 @@ void rising_saw_rise(void)
 		if ((uint16_t)OBJECT(current_object)->rising_saw.wait_timer == 0u)
 		{
 			cursor = OBJECT(current_object)->rising_saw.path;
-			if (ROM16(cursor) <= scroll_position || OBJECT(current_object)->z_int <= (int16_t)ROM16(cursor + 2u))
+			if (CHASE_STEP_WITH_LIMIT(cursor)->position <= scroll_position || OBJECT(current_object)->z_int <= CHASE_STEP_WITH_LIMIT(cursor)->limit)
 			{
 				cursor += 4u;
-				if ((int16_t)ROM16(cursor + 2u) < 0)
+				if (CHASE_STEP_WITH_LIMIT(cursor - 0x4u)->catch_up_factor < 0)
 				{
 					delete_current_object();
 					return;
 				}
-				OBJECT(current_object)->rising_saw.screen_threshold = ROM16(cursor);
+				OBJECT(current_object)->rising_saw.screen_threshold = CHASE_STEP_WITH_LIMIT(cursor - 0x4u)->screen_threshold;
 				cursor += 2u;
-				OBJECT(current_object)->rising_saw.catch_up_factor = ROM16(cursor);
+				OBJECT(current_object)->rising_saw.catch_up_factor = CHASE_STEP_WITH_LIMIT(cursor - 0x6u)->catch_up_factor;
 				cursor += 2u;
-				OBJECT(current_object)->rising_saw.base_speed = ROM16(cursor);
+				OBJECT(current_object)->rising_saw.base_speed = CHASE_STEP_WITH_LIMIT(cursor - 0x8u)->base_speed;
 				cursor += 2u;
-				OBJECT(current_object)->rising_saw.wait_timer = ROM16(cursor);
+				OBJECT(current_object)->rising_saw.wait_timer = CHASE_STEP_WITH_LIMIT(cursor - 0xAu)->wait;
 				OBJECT(current_object)->rising_saw.path = cursor + 2u;
 			}
 		}
@@ -1833,21 +1833,21 @@ void rising_saw_rise(void)
 		else if ((uint16_t)OBJECT(current_object)->rising_saw.wait_timer == 0u)
 		{
 			cursor = OBJECT(current_object)->rising_saw.path;
-			if (ROM16(cursor) <= scroll_position || OBJECT(current_object)->z_int <= (int16_t)ROM16(cursor + 2u))
+			if (CHASE_STEP_WITH_LIMIT(cursor)->position <= scroll_position || OBJECT(current_object)->z_int <= CHASE_STEP_WITH_LIMIT(cursor)->limit)
 			{
 				cursor += 4u;
-				if ((int16_t)ROM16(cursor + 2u) < 0)
+				if (CHASE_STEP_WITH_LIMIT(cursor - 0x4u)->catch_up_factor < 0)
 				{
 					delete_current_object();
 					return;
 				}
-				OBJECT(current_object)->rising_saw.screen_threshold = ROM16(cursor);
+				OBJECT(current_object)->rising_saw.screen_threshold = CHASE_STEP_WITH_LIMIT(cursor - 0x4u)->screen_threshold;
 				cursor += 2u;
-				OBJECT(current_object)->rising_saw.catch_up_factor = ROM16(cursor);
+				OBJECT(current_object)->rising_saw.catch_up_factor = CHASE_STEP_WITH_LIMIT(cursor - 0x6u)->catch_up_factor;
 				cursor += 2u;
-				OBJECT(current_object)->rising_saw.base_speed = ROM16(cursor);
+				OBJECT(current_object)->rising_saw.base_speed = CHASE_STEP_WITH_LIMIT(cursor - 0x8u)->base_speed;
 				cursor += 2u;
-				OBJECT(current_object)->rising_saw.wait_timer = ROM16(cursor);
+				OBJECT(current_object)->rising_saw.wait_timer = CHASE_STEP_WITH_LIMIT(cursor - 0xAu)->wait;
 				OBJECT(current_object)->rising_saw.path = cursor + 2u;
 			}
 		}
@@ -1896,9 +1896,9 @@ void rising_saw_rise(void)
 	OBJECT(current_object)->rising_saw.wait_timer = 0;
 	OBJECT(current_object)->z -= (uint32_t)(int16_t)OBJECT(current_object)->speed_fraction << 12;
 	attribute_record = OBJECT(current_object)->floor_attribute + floor_types_ADDRESS;
-	slope_step = ((uint32_t)(int16_t)ROM16(attribute_record + 4u) * (int16_t)OBJECT(current_object)->speed_fraction) >> 4;
+	slope_step = ((uint32_t)CLIMB_WALL_ATTRIBUTE(attribute_record)->x_per_rise * (int16_t)OBJECT(current_object)->speed_fraction) >> 4;
 	projected_dx = slope_step;
-	if (ROM8(attribute_record) != 0u)
+	if (CLIMB_WALL_ATTRIBUTE(attribute_record)->axis != 0u)
 		projected_dx = 0u - projected_dx;
 	OBJECT(current_object)->rising_saw.fixed_projected_x += projected_dx;
 	OBJECT(current_object)->projected_x = OBJECT(current_object)->rising_saw.projected_x_whole;
@@ -2249,7 +2249,7 @@ void spawn_grate_step_debris(void)
 	record = grate_step_debris_ADDRESS;
 	if (free_object_stack < (int16_t)grate_step_debris)
 		return;
-	grate_debris_left = ROM16(record);
+	grate_debris_left = GRATE_STEP_DEBRIS_LIST(record)->count;
 	grate_debris_record = record + 2u;
 	do
 	{

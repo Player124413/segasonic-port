@@ -3,7 +3,7 @@
  *    Description: choosing a character: the PLAYER SELECT chooser at a new game and the chooser of a player joining
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    20-10-2026
+ *    Modified:    21-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -219,7 +219,7 @@ void character_chooser_confirm(void)
 	OBJECT(current_object)->sprite_palette = chooser_portrait_palettes[chosen_character];
 	OBJECT(current_object)->handler = character_chooser_chosen_ADDRESS;
 	next_random(&random_value, &ignored, &ignored);
-	sound_id = ROM8(chooser_voice_sounds_ADDRESS + (OBJECT(current_object)->character_chooser.character * 4u + (random_value & 3u)));
+	sound_id = chooser_voice_sounds[OBJECT(current_object)->character_chooser.character].sounds[random_value & 3u];
 	play_sound(sound_id, &ignored, &ignored);
 	sound_id = 0x20u;
 	play_sound(sound_id, &ignored, &ignored);
@@ -505,7 +505,7 @@ uint32_t start_join_character_chooser(void)
 	block = join_chooser_blocks[player];
 	object = block;
 	init_object(object);
-	while ((characters_taken & shl32(1u, (int)(mem_read8(character_taken_bits_ADDRESS + character)))) != 0u)
+	while ((characters_taken & shl32(1u, (int)(character_taken_bits[character]))) != 0u)
 	{
 		character = ((character & ~0xFFu) | (uint8_t)(character + 1u)) % 3u;
 	}
@@ -677,7 +677,7 @@ void count_free_characters(uint32_t *p_characters_left, uint32_t *p_character, u
 	do
 	{
 		character = characters_left - 1u;
-		taken_bit = ROM8(character_taken_bits_ADDRESS + character);
+		taken_bit = character_taken_bits[character];
 		if ((characters_taken & shl32(1u, (int)(taken_bit))) == 0u)
 			free_characters++;
 		characters_left--;

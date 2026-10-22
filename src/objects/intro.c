@@ -3,7 +3,7 @@
  *    Description: the scenes that start a game: stage 6's opening (the rushing ground, the giant machine head) and stage 7's how to play (the panel, the hands on the button and the trackball, the metal wall that rises and breaks)
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    19-10-2026
+ *    Modified:    21-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -197,13 +197,13 @@ void metal_wall_draw(void)
 		part_index = (parts_left & ~0xFFu) | (uint8_t)(parts_left - 1u);
 		frame_index = (uint8_t)OBJECT(object_cursor)->metal_wall.frame_index;
 		offset_pair = metal_wall_part_tables[(part_index & ~0xFFu) | (uint8_t)(part_index + 3u)] + (uint8_t)(frame_index * 2u) + flip_offset;
-		screen_offset = (uint16_t)(int8_t)ROM8(offset_pair);
-		part_dy = (uint16_t)(int8_t)ROM8(offset_pair + 1u);
+		screen_offset = (uint16_t)METAL_WALL_PART_OFFSET(offset_pair)->dx;
+		part_dy = (uint16_t)METAL_WALL_PART_OFFSET(offset_pair)->dy;
 		OBJECT(current_object)->screen_x = OBJECT(object_cursor)->screen_x;
 		OBJECT(current_object)->screen_x += screen_offset;
 		OBJECT(current_object)->screen_y = OBJECT(object_cursor)->screen_y;
 		OBJECT(current_object)->screen_y += part_dy;
-		OBJECT(current_object)->sprite_frame = ROM16(metal_wall_part_tables[part_index] + (uint8_t)OBJECT(object_cursor)->metal_wall.frame_index * 2u);
+		OBJECT(current_object)->sprite_frame = METAL_WALL_PART_SPRITES(metal_wall_part_tables[part_index])[(uint8_t)OBJECT(object_cursor)->metal_wall.frame_index];
 		health = (uint8_t)OBJECT(object_cursor)->health;
 		if ((uint8_t)part_index != 2u)
 		{
@@ -311,9 +311,9 @@ void how_to_play_button_hand_update(void)
 		frames = 0x12Cu;
 		spawn_message_box(screen_x, screen_y, kind, frames, 0u);
 	}
-	if ((uint16_t)game_mode_timer == ROM16(OBJECT(current_object)->how_to_play_button_hand.next_press))
+	if ((uint16_t)game_mode_timer == HOW_TO_PLAY_BUTTON_PRESS(OBJECT(current_object)->how_to_play_button_hand.next_press)->press_time)
 	{
-		OBJECT(current_object)->animation_frame = (uint8_t)ROM16(OBJECT(current_object)->how_to_play_button_hand.next_press + 2u);
+		OBJECT(current_object)->animation_frame = (uint8_t)HOW_TO_PLAY_BUTTON_PRESS(OBJECT(current_object)->how_to_play_button_hand.next_press)->frame;
 		OBJECT(current_object)->how_to_play_button_hand.next_press += 4u;
 		animate_part_list_step();
 	}
@@ -453,14 +453,14 @@ void how_to_play_trackball_hand_update(void)
 		}
 		OBJECT(object_cursor)->animation_timer = OBJECT(object_cursor)->animation_speed;
 		step_list = OBJECT(object_cursor)->animation;
-		last_step = (uint8_t)ROM16(step_list);
+		last_step = (uint8_t)FRAME_ANIMATION(step_list)->last_frame;
 		next_step = OBJECT(object_cursor)->animation_frame;
 		next_step = (uint8_t)(next_step + 1u);
 		step_list += 2u;
 		if ((int8_t)last_step < (int8_t)next_step)
 			next_step = 0u;
 		OBJECT(object_cursor)->animation_frame = next_step;
-		OBJECT(current_object)->sprite_frame = ROM16(step_list + next_step * 2u);
+		OBJECT(current_object)->sprite_frame = SPRITE_FRAME_NUMBERS(step_list)[next_step];
 	}
 	child_palette = 0x8750u;
 	if (OBJECT(object_cursor)->sprite_palette != 0x8760u)

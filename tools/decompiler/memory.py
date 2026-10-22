@@ -5,7 +5,7 @@ Description: the game's variables, tables and hardware registers by name: work R
              named addresses
 Version:     0.1.0
 Created:     12-10-2026
-Modified:    15-10-2026
+Modified:    21-10-2026
 Author:      Sebastian Toyos
 
 Work RAM (0x200000-0x20FFFF) stays the board's byte array, so the state compares byte for byte with the
@@ -150,7 +150,12 @@ def element_index(rest, bits):
     if isinstance(rest, ir.Op) and rest.name == "shl" and isinstance(rest.args[1], ir.Const) \
             and 1 << rest.args[1].value == size:
         return rest.args[0]
-    return None
+    # (a chain of constant factors: x * 2 * 2 is element x of a table of longs)
+    factor, base = 1, rest
+    while isinstance(base, ir.Op) and base.bits == rest.bits and base.name == "mul" \
+            and isinstance(base.args[1], ir.Const):
+        factor, base = factor * base.args[1].value, base.args[0]
+    return base if factor == size and base is not rest else None
 
 
 def small(index):
@@ -215,6 +220,9 @@ class Memory:
 
         widths = {"variables": {}, "tables": {}, "hardware": {}}
         indexed = set()
+        # the tables of records (pointers.py reads them by name and field): no plain table of their own
+        records = [(address, address + names.structs[struct])
+                   for address, (_, struct) in getattr(names, "record_tables", {}).items()]
         for address_expression, bits in accesses:
             if bits not in TYPES:
                 continue
@@ -229,6 +237,8 @@ class Memory:
             if value is None:
                 continue
             value = own_copy(value)
+            if value not in self.tables and any(start <= value < end for start, end in records):
+                continue    # (a column of a table of records gets no table without a name of its own)
             where = "variables" if work_ram(value) else "tables" if program_rom(value) else \
                 "hardware" if hardware_area(value) else None
             if where is None or (where == "hardware" and parts is not None):

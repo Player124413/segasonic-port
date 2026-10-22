@@ -3,7 +3,7 @@
  *    Description: the sound program's frame: the reset, the timer interrupt (the players' tick), the main loop and sound_init; the two YM3438 and the RF5C68 set up and written; the tracks' and MIDI parts' start values; read_table_word, multiply_bytes, copy_sample_page
  *    Version:     0.1.0
  *    Created:     13-10-2026
- *    Modified:    19-10-2026
+ *    Modified:    21-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the Z80 sound program decompiled into C by
@@ -154,9 +154,9 @@ uint16_t init_fm_chips(void)
 	for (;;)
 	{
 		z80_block(43);
-		init_register = SOUND_ROM8(init_entry);
+		init_register = REGISTER_VALUE_PAIR(init_entry)->register_number;
 		init_entry++;
-		value = SOUND_ROM8(init_entry);
+		value = REGISTER_VALUE_PAIR(init_entry - 0x1u)->value;
 		init_entry++;
 		fm_register = init_register;
 		write_fm1(fm_register, value);
@@ -183,9 +183,9 @@ uint16_t init_fm_chips(void)
 	for (;;)
 	{
 		z80_block(43);
-		init_register = SOUND_ROM8(init_entry);
+		init_register = REGISTER_VALUE_PAIR(init_entry)->register_number;
 		init_entry++;
-		value = SOUND_ROM8(init_entry);
+		value = REGISTER_VALUE_PAIR(init_entry - 0x1u)->value;
 		init_entry++;
 		fm_register = init_register;
 		write_fm1(fm_register, value);
@@ -358,9 +358,9 @@ void init_pcm_chip(uint32_t unused_c)
 	for (;;)
 	{
 		z80_block(43);
-		init_register = SOUND_ROM8(init_entry);
+		init_register = REGISTER_VALUE_PAIR(init_entry)->register_number;
 		init_entry++;
-		value = SOUND_ROM8(init_entry);
+		value = REGISTER_VALUE_PAIR(init_entry - 0x1u)->value;
 		init_entry++;
 		pcm_register = init_register;
 		write_pcm_register(pcm_register, value);
@@ -397,7 +397,7 @@ void init_track_channels(uint32_t unused_c)
 	{
 		z80_block(70);
 		saved_voices_left = voices_left;
-		SAMPLE_VOICE(sample_voice - 0x1u)->chip_channel = SOUND_ROM8(code_entry);
+		SAMPLE_VOICE(sample_voice - 0x1u)->chip_channel = VOICE_CHIP_CODES(code_entry)[0];
 		code_entry++;
 		sample_voice += 0x12u;
 		voices_left = saved_voices_left - 1u;
@@ -495,7 +495,7 @@ uint16_t read_table_word(uint16_t table, uint8_t index)
 	z80_block(88);
 	offset = index;
 	table = table + offset + offset;
-	word = SOUND_ROM16(table);
+	word = TABLE_WORDS(table)[0];
 	return word;
 }
 

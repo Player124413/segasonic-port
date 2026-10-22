@@ -3,7 +3,7 @@
  *    Description: text: the text layer's font, printing and erasing text, lines, fractions and digits, and the strings drawn with sprites
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    19-10-2026
+ *    Modified:    21-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -106,7 +106,7 @@ void draw_queued_strings(uint16_t size, uint16_t width, uint32_t sprite_entry, u
 		cursor += 2u;
 		scale = QUEUED_STRING(cursor - 0x6u)->scale;
 		text = QUEUED_STRING(cursor - 0x6u)->text;
-		char_code = ROM8(text);
+		char_code = SPRITE_STRING_CHARS(text)[0];
 		r14 = 0u;
 		text++;
 		do
@@ -154,7 +154,7 @@ void draw_queued_strings(uint16_t size, uint16_t width, uint32_t sprite_entry, u
 			else
 				leading_blanks++;
 			char_x += advance;
-			char_code = ROM8(text);
+			char_code = SPRITE_STRING_CHARS(text)[0];
 			text++;
 		} while (char_code != 0u);
 	}
@@ -213,7 +213,7 @@ void expand_font(uint8_t color, uint32_t count, uint32_t source, uint32_t dest, 
 		shadow_pixels = 0u;
 		do
 		{
-			font_row = ROM8(source);
+			font_row = FONT_ROWS_1BPP(source)[0];
 			pairs_left = 4u;
 			pixels = 0u;
 			source++;
@@ -253,7 +253,7 @@ void expand_font_2bpp(uint8_t color, uint32_t count, uint32_t source, uint32_t d
 	count = (uint32_t)(uint16_t)count << 3;
 	do
 	{
-		font_row = ROM16(source);
+		font_row = FONT_ROWS_2BPP(source)[0];
 		pairs_left = 4u;
 		pixels = 0u;
 		source += 2u;
@@ -291,7 +291,7 @@ void expand_font_2bpp_transparent(uint8_t color, uint32_t count, uint32_t pixels
 	count = (uint32_t)(uint16_t)count << 3;
 	do
 	{
-		font_row = ROM16(source);
+		font_row = FONT_ROWS_2BPP(source)[0];
 		pairs_left = 4u;
 		source += 2u;
 		do
@@ -342,7 +342,7 @@ void draw_fraction(uint16_t attribute, uint32_t *p_numerator, uint32_t *p_denomi
 /* Prints each print_text record from text until a 0 halfword. */
 void print_text_list(uint32_t *p_text, uint32_t *p_text_position)
 {
-	while (ROM16(*p_text) != 0u)
+	while (PLACED_TEXT(*p_text)->position != 0u)
 	{
 		print_text(p_text, p_text_position);
 	}
@@ -354,7 +354,7 @@ void print_text(uint32_t *p_text, uint32_t *p_text_position)
 {
 	uint32_t ignored = 0;
 
-	*p_text_position = 0x310000u | ROM16(*p_text);
+	*p_text_position = 0x310000u | PLACED_TEXT(*p_text)->position;
 	*p_text += 2u;
 	print_text_here(&ignored, p_text, p_text_position);
 }
@@ -368,9 +368,9 @@ void print_text_here(uint32_t *p_cell, uint32_t *p_text, uint32_t *p_text_positi
 	uint16_t cell = 0;
 	uint8_t next_char = 0;
 
-	cell = (uint16_t)((uint32_t)ROM8(text) << 8);
+	cell = (uint16_t)((uint32_t)TEXT_LAYER_STRING(text)[0] << 8);
 	text++;
-	cell |= ROM8(text);
+	cell |= TEXT_LAYER_STRING(text)[0];
 	text++;
 	if ((uint8_t)cell == 0u)
 	{
@@ -381,7 +381,7 @@ void print_text_here(uint32_t *p_cell, uint32_t *p_text, uint32_t *p_text_positi
 	do
 	{
 		mem_write16(*p_text_position, cell);
-		next_char = ROM8(text);
+		next_char = TEXT_LAYER_STRING(text)[0];
 		text++;
 		cell = (uint16_t)((cell & ~0xFFu) | next_char);
 		*p_text_position += 2u;
@@ -393,7 +393,7 @@ void print_text_here(uint32_t *p_cell, uint32_t *p_text, uint32_t *p_text_positi
 /* Unused: erase_text for each record from text until a 0 halfword. */
 void erase_text_list(uint32_t text)
 {
-	while (ROM16(text) != 0u)
+	while (PLACED_TEXT(text)->position != 0u)
 	{
 		text = erase_text(text);
 	}
@@ -407,7 +407,7 @@ uint32_t erase_text(uint32_t text)
 	uint32_t text_position = 0;
 
 	cell = 0u;
-	text_position = 0x310000u | ROM16(text);
+	text_position = 0x310000u | PLACED_TEXT(text)->position;
 	text += 2u;
 	erase_text_here(cell, &text, &text_position);
 	return text;
@@ -421,7 +421,7 @@ void erase_text_here(uint16_t cell, uint32_t *p_text, uint32_t *p_text_position)
 	uint8_t first_char = 0, next_char = 0;
 
 	text++;
-	first_char = ROM8(text);
+	first_char = TEXT_LAYER_STRING(text)[0];
 	text++;
 	if (first_char == 0u)
 	{
@@ -431,7 +431,7 @@ void erase_text_here(uint16_t cell, uint32_t *p_text, uint32_t *p_text_position)
 	do
 	{
 		mem_write16(*p_text_position, cell);
-		next_char = ROM8(text);
+		next_char = TEXT_LAYER_STRING(text)[0];
 		text++;
 		*p_text_position += 2u;
 	} while (next_char != 0u);
@@ -448,11 +448,11 @@ void print_text_lines(uint32_t *p_text, uint32_t *p_text_position)
 	uint32_t line_start = 0;
 
 	line_start = text_position;
-	text_cell = (uint16_t)((uint32_t)ROM8(text) << 8);
+	text_cell = (uint16_t)((uint32_t)TEXT_LAYER_STRING(text)[0] << 8);
 	text++;
 	for (;;)
 	{
-		text_cell = (uint16_t)((text_cell & ~0xFFu) | ROM8(text));
+		text_cell = (uint16_t)((text_cell & ~0xFFu) | TEXT_LAYER_STRING(text)[0]);
 		text++;
 		if ((uint8_t)text_cell == 0u)
 			break;
@@ -484,7 +484,7 @@ void erase_text_lines(uint32_t *p_text, uint32_t *p_text_position)
 	text++;
 	for (;;)
 	{
-		text_char = ROM8(text);
+		text_char = TEXT_LAYER_STRING(text)[0];
 		negative = text_char >> 7;
 		text++;
 		if (text_char == 0u)
@@ -518,7 +518,7 @@ void print_formatted_text(uint32_t text)
    low half), then formatted_text_attribute_single. */
 void formatted_text_position_single(uint32_t text, uint32_t text_position)
 {
-	text_position = (text_position & ~0xFFFFu) | ROM16(text);
+	text_position = (text_position & ~0xFFFFu) | PLACED_TEXT(text)->position;
 	text += 2u;
 	formatted_text_attribute_single(text, text_position);
 }
@@ -529,7 +529,7 @@ void formatted_text_attribute_single(uint32_t text, uint32_t text_position)
 {
 	uint16_t cell = 0;
 
-	cell = (uint16_t)((uint32_t)ROM8(text) << 8);
+	cell = (uint16_t)((uint32_t)FORMATTED_TEXT(text)[0] << 8);
 	text++;
 	formatted_text_single(cell, text, text_position);
 }
@@ -545,7 +545,7 @@ void formatted_text_single(uint16_t cell, uint32_t text, uint32_t text_position)
 
 	for (;;)
 	{
-		cell = (uint16_t)((cell & ~0xFFu) | ROM8(text));
+		cell = (uint16_t)((cell & ~0xFFu) | FORMATTED_TEXT(text)[0]);
 		zero = (uint8_t)cell == 0u;
 		text++;
 		if ((uint8_t)cell != 0u)
@@ -553,14 +553,14 @@ void formatted_text_single(uint16_t cell, uint32_t text, uint32_t text_position)
 			do
 			{
 				mem_write16(text_position, cell);
-				next_char = ROM8(text);
+				next_char = FORMATTED_TEXT(text)[0];
 				text++;
 				cell = (uint16_t)((cell & ~0xFFu) | next_char);
 				zero = (uint8_t)cell == 0u;
 				text_position += 2u;
 			} while ((uint8_t)cell != 0u);
 		}
-		code = ROM8(text);
+		code = FORMATTED_TEXT(text)[0];
 		text++;
 		switch (code)
 		{
@@ -610,7 +610,7 @@ void formatted_text_single(uint16_t cell, uint32_t text, uint32_t text_position)
 /* Unused: code 0x21 at width 1: text_position moves by a signed byte of cells, then the next run. */
 void formatted_text_skip_single(uint16_t cell, uint32_t text, uint32_t text_position)
 {
-	text_position += (int8_t)ROM8(text) * 2u;
+	text_position += TILEMAP_SKIP(text)->cells * 2u;
 	text++;
 	formatted_text_single(cell, text, text_position);
 }
@@ -618,7 +618,7 @@ void formatted_text_skip_single(uint16_t cell, uint32_t text, uint32_t text_posi
 /* Unused: code 0x24 at width 1: text_position moves by a signed halfword of cells, then the next run. */
 void formatted_text_skip_long_single(uint16_t cell, uint32_t text, uint32_t text_position)
 {
-	text_position += (int16_t)ROM16(text) * 2u;
+	text_position += TILEMAP_LONG_SKIP(text)->cells * 2u;
 	text += 2u;
 	formatted_text_single(cell, text, text_position);
 }
@@ -627,7 +627,7 @@ void formatted_text_skip_long_single(uint16_t cell, uint32_t text, uint32_t text
    formatted_text_attribute_double. */
 void formatted_text_position_double(uint32_t text, uint32_t text_position)
 {
-	text_position = (text_position & ~0xFFFFu) | ROM16(text);
+	text_position = (text_position & ~0xFFFFu) | PLACED_TEXT(text)->position;
 	text += 2u;
 	formatted_text_attribute_double(text, text_position);
 }
@@ -638,7 +638,7 @@ void formatted_text_attribute_double(uint32_t text, uint32_t text_position)
 {
 	uint16_t cell = 0;
 
-	cell = (uint16_t)((uint32_t)ROM8(text) << 8);
+	cell = (uint16_t)((uint32_t)FORMATTED_TEXT(text)[0] << 8);
 	text++;
 	formatted_text_double(cell, text, text_position);
 }
@@ -653,7 +653,7 @@ void formatted_text_double(uint16_t cell, uint32_t text, uint32_t text_position)
 
 	for (;;)
 	{
-		cell = (uint16_t)((cell & ~0xFFu) | ROM8(text));
+		cell = (uint16_t)((cell & ~0xFFu) | FORMATTED_TEXT(text)[0]);
 		zero = (uint8_t)cell == 0u;
 		text++;
 		if ((uint8_t)cell != 0u)
@@ -664,14 +664,14 @@ void formatted_text_double(uint16_t cell, uint32_t text, uint32_t text_position)
 				cell++;
 				text_position += 2u;
 				mem_write16(text_position, cell);
-				next_char = ROM8(text);
+				next_char = FORMATTED_TEXT(text)[0];
 				text++;
 				cell = (uint16_t)((cell & ~0xFFu) | next_char);
 				zero = (uint8_t)cell == 0u;
 				text_position += 2u;
 			} while ((uint8_t)cell != 0u);
 		}
-		code = ROM8(text);
+		code = FORMATTED_TEXT(text)[0];
 		text++;
 		switch (code)
 		{
@@ -722,7 +722,7 @@ void formatted_text_double(uint16_t cell, uint32_t text, uint32_t text_position)
 /* Unused: code 0x21 at width 2: text_position moves by a signed byte of cells, then the next run. */
 void formatted_text_skip_double(uint16_t cell, uint32_t text, uint32_t text_position)
 {
-	text_position += (int8_t)ROM8(text) * 2u;
+	text_position += TILEMAP_SKIP(text)->cells * 2u;
 	text++;
 	formatted_text_double(cell, text, text_position);
 }
@@ -730,7 +730,7 @@ void formatted_text_skip_double(uint16_t cell, uint32_t text, uint32_t text_posi
 /* Unused: code 0x24 at width 2: text_position moves by a signed halfword of cells, then the next run. */
 void formatted_text_skip_long_double(uint16_t cell, uint32_t text, uint32_t text_position)
 {
-	text_position += (int16_t)ROM16(text) * 2u;
+	text_position += TILEMAP_LONG_SKIP(text)->cells * 2u;
 	text += 2u;
 	formatted_text_double(cell, text, text_position);
 }
@@ -739,7 +739,7 @@ void formatted_text_skip_long_double(uint16_t cell, uint32_t text, uint32_t text
    formatted_text_attribute_triple. */
 void formatted_text_position_triple(uint32_t text, uint32_t text_position)
 {
-	text_position = (text_position & ~0xFFFFu) | ROM16(text);
+	text_position = (text_position & ~0xFFFFu) | PLACED_TEXT(text)->position;
 	text += 2u;
 	formatted_text_attribute_triple(text, text_position);
 }
@@ -750,7 +750,7 @@ void formatted_text_attribute_triple(uint32_t text, uint32_t text_position)
 {
 	uint16_t cell = 0;
 
-	cell = (uint16_t)((uint32_t)ROM8(text) << 8);
+	cell = (uint16_t)((uint32_t)FORMATTED_TEXT(text)[0] << 8);
 	text++;
 	formatted_text_triple(cell, text, text_position);
 }
@@ -765,7 +765,7 @@ void formatted_text_triple(uint16_t cell, uint32_t text, uint32_t text_position)
 
 	for (;;)
 	{
-		cell = (uint16_t)((cell & ~0xFFu) | ROM8(text));
+		cell = (uint16_t)((cell & ~0xFFu) | FORMATTED_TEXT(text)[0]);
 		zero = (uint8_t)cell == 0u;
 		text++;
 		if ((uint8_t)cell != 0u)
@@ -779,14 +779,14 @@ void formatted_text_triple(uint16_t cell, uint32_t text, uint32_t text_position)
 				cell++;
 				text_position += 2u;
 				mem_write16(text_position, cell);
-				next_char = ROM8(text);
+				next_char = FORMATTED_TEXT(text)[0];
 				text++;
 				cell = (uint16_t)((cell & ~0xFFu) | next_char);
 				zero = (uint8_t)cell == 0u;
 				text_position += 2u;
 			} while ((uint8_t)cell != 0u);
 		}
-		code = ROM8(text);
+		code = FORMATTED_TEXT(text)[0];
 		text++;
 		switch (code)
 		{
@@ -837,7 +837,7 @@ void formatted_text_triple(uint16_t cell, uint32_t text, uint32_t text_position)
 /* Unused: code 0x21 at width 3: text_position moves by a signed byte of cells, then the next run. */
 void formatted_text_skip_triple(uint16_t cell, uint32_t text, uint32_t text_position)
 {
-	text_position += (int8_t)ROM8(text) * 2u;
+	text_position += TILEMAP_SKIP(text)->cells * 2u;
 	text++;
 	formatted_text_triple(cell, text, text_position);
 }
@@ -845,7 +845,7 @@ void formatted_text_skip_triple(uint16_t cell, uint32_t text, uint32_t text_posi
 /* Unused: code 0x24 at width 3: text_position moves by a signed halfword of cells, then the next run. */
 void formatted_text_skip_long_triple(uint16_t cell, uint32_t text, uint32_t text_position)
 {
-	text_position += (int16_t)ROM16(text) * 2u;
+	text_position += TILEMAP_LONG_SKIP(text)->cells * 2u;
 	text += 2u;
 	formatted_text_triple(cell, text, text_position);
 }
@@ -865,7 +865,7 @@ void erase_formatted_text(uint32_t cell, uint32_t text)
    then erase_formatted_text_attribute_single. */
 void erase_formatted_text_position_single(uint32_t cell, uint32_t text, uint32_t text_position)
 {
-	text_position = (text_position & ~0xFFFFu) | ROM16(text);
+	text_position = (text_position & ~0xFFFFu) | PLACED_TEXT(text)->position;
 	text += 2u;
 	erase_formatted_text_attribute_single(cell, text, text_position);
 }
@@ -888,7 +888,7 @@ void erase_formatted_text_single(uint32_t cell, uint32_t text, uint32_t text_pos
 
 	for (;;)
 	{
-		first_char = ROM8(text);
+		first_char = FORMATTED_TEXT(text)[0];
 		zero = first_char == 0u;
 		text++;
 		if (first_char != 0u)
@@ -896,13 +896,13 @@ void erase_formatted_text_single(uint32_t cell, uint32_t text, uint32_t text_pos
 			do
 			{
 				mem_write16(text_position, cell);
-				next_char = ROM8(text);
+				next_char = FORMATTED_TEXT(text)[0];
 				text++;
 				zero = next_char == 0u;
 				text_position += 2u;
 			} while (next_char != 0u);
 		}
-		code = ROM8(text);
+		code = FORMATTED_TEXT(text)[0];
 		text++;
 		switch (code)
 		{
@@ -949,7 +949,7 @@ void erase_formatted_text_single(uint32_t cell, uint32_t text, uint32_t text_pos
 /* Unused: code 0x21 erased at width 1: text_position moves by a signed byte of cells. */
 void erase_formatted_text_skip_single(uint32_t cell, uint32_t text, uint32_t text_position)
 {
-	text_position += (int8_t)ROM8(text) * 2u;
+	text_position += TILEMAP_SKIP(text)->cells * 2u;
 	text++;
 	erase_formatted_text_single(cell, text, text_position);
 }
@@ -957,7 +957,7 @@ void erase_formatted_text_skip_single(uint32_t cell, uint32_t text, uint32_t tex
 /* Unused: code 0x15 erased: a new position halfword, then erase_formatted_text_attribute_double. */
 void erase_formatted_text_position_double(uint32_t cell, uint32_t text, uint32_t text_position)
 {
-	text_position = (text_position & ~0xFFFFu) | ROM16(text);
+	text_position = (text_position & ~0xFFFFu) | PLACED_TEXT(text)->position;
 	text += 2u;
 	erase_formatted_text_attribute_double(cell, text, text_position);
 }
@@ -981,7 +981,7 @@ void erase_formatted_text_double(uint32_t cell, uint32_t text, uint32_t text_pos
 
 	for (;;)
 	{
-		first_char = ROM8(text);
+		first_char = FORMATTED_TEXT(text)[0];
 		zero = first_char == 0u;
 		text++;
 		if (first_char != 0u)
@@ -989,13 +989,13 @@ void erase_formatted_text_double(uint32_t cell, uint32_t text, uint32_t text_pos
 			do
 			{
 				mem_write32(text_position, cell);
-				next_char = ROM8(text);
+				next_char = FORMATTED_TEXT(text)[0];
 				text++;
 				zero = next_char == 0u;
 				text_position += 4u;
 			} while (next_char != 0u);
 		}
-		code = ROM8(text);
+		code = FORMATTED_TEXT(text)[0];
 		text++;
 		switch (code)
 		{
@@ -1043,7 +1043,7 @@ void erase_formatted_text_double(uint32_t cell, uint32_t text, uint32_t text_pos
 /* Unused: code 0x21 erased at width 2: text_position moves by a signed byte of cells. */
 void erase_formatted_text_skip_double(uint32_t cell, uint32_t text, uint32_t text_position)
 {
-	text_position += (int8_t)ROM8(text) * 2u;
+	text_position += TILEMAP_SKIP(text)->cells * 2u;
 	text++;
 	erase_formatted_text_double(cell, text, text_position);
 }
@@ -1051,7 +1051,7 @@ void erase_formatted_text_skip_double(uint32_t cell, uint32_t text, uint32_t tex
 /* Unused: code 0x1B erased: a new position halfword, then erase_formatted_text_attribute_triple. */
 void erase_formatted_text_position_triple(uint32_t cell, uint32_t text, uint32_t text_position)
 {
-	text_position = (text_position & ~0xFFFFu) | ROM16(text);
+	text_position = (text_position & ~0xFFFFu) | PLACED_TEXT(text)->position;
 	text += 2u;
 	erase_formatted_text_attribute_triple(cell, text, text_position);
 }
@@ -1075,7 +1075,7 @@ void erase_formatted_text_triple(uint32_t cell, uint32_t text, uint32_t text_pos
 
 	for (;;)
 	{
-		first_char = ROM8(text);
+		first_char = FORMATTED_TEXT(text)[0];
 		zero = first_char == 0u;
 		text++;
 		if (first_char != 0u)
@@ -1085,13 +1085,13 @@ void erase_formatted_text_triple(uint32_t cell, uint32_t text, uint32_t text_pos
 				mem_write32(text_position, cell);
 				text_position += 4u;
 				mem_write16(text_position, cell);
-				next_char = ROM8(text);
+				next_char = FORMATTED_TEXT(text)[0];
 				text++;
 				zero = next_char == 0u;
 				text_position += 2u;
 			} while (next_char != 0u);
 		}
-		code = ROM8(text);
+		code = FORMATTED_TEXT(text)[0];
 		text++;
 		switch (code)
 		{
@@ -1139,7 +1139,7 @@ void erase_formatted_text_triple(uint32_t cell, uint32_t text, uint32_t text_pos
 /* Unused: code 0x21 erased at width 3: text_position moves by a signed byte of cells. */
 void erase_formatted_text_skip_triple(uint32_t cell, uint32_t text, uint32_t text_position)
 {
-	text_position += (int8_t)ROM8(text) * 2u;
+	text_position += TILEMAP_SKIP(text)->cells * 2u;
 	text++;
 	erase_formatted_text_triple(cell, text, text_position);
 }

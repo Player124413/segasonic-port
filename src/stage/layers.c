@@ -3,7 +3,7 @@
  *    Description: the stage's background: the palettes animated per stage, the palette sets and the backdrop, and the tilemap layers NBG0-NBG3 (pictures, mixing, per-stage scroll)
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    19-10-2026
+ *    Modified:    21-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -534,7 +534,7 @@ void load_palette_set_and_backdrop(uint32_t stage_index, uint32_t *p_tile_bank_b
 
 	mem_write32(video_control, mem_read32(video_control) & ~0x400u);
 	tile_bank_entry = stage_tile_bank_bits_ADDRESS + stage_index;
-	*p_tile_bank_bits = (tile_bank_entry & ~0xFFFFu) | ROM8(tile_bank_entry);
+	*p_tile_bank_bits = (tile_bank_entry & ~0xFFFFu) | TILE_BANK_SELECTS(tile_bank_entry)[0];
 	*p_tile_bank_bits = (*p_tile_bank_bits & ~0xFFFFu) | (uint16_t)(*p_tile_bank_bits << 10);
 	mem_write16(video_control, mem_read16(video_control) | *p_tile_bank_bits);
 	palette_set = stage_palette_sets[stage_index];
@@ -669,7 +669,7 @@ uint32_t set_stage_layer_mixing(void)
 	count = 4u;
 	do
 	{
-		mem_write16(mixer_register, ROM8(priority_cursor) + 0x200u);
+		mem_write16(mixer_register, NBG_LAYER_PRIORITIES(priority_cursor)[0] + 0x200u);
 		count--;
 		priority_cursor++;
 		mixer_register += 2u;
@@ -1286,7 +1286,7 @@ void select_nbg3_pages(uint32_t *p_block_pages, uint32_t *p_quadrants, uint32_t 
 	gathered_pages = 0u;
 	do
 	{
-		gathered_pages |= rotate_by(ROM8(map_cursor), (uint8_t)byte_shift, 32);
+		gathered_pages |= rotate_by(NBG3_BLOCK_PAGES(map_cursor)[0], (uint8_t)byte_shift, 32);
 		map_cursor++;
 		byte_shift += 8u;
 		if (bytes_left == 3u)
@@ -1299,7 +1299,7 @@ void select_nbg3_pages(uint32_t *p_block_pages, uint32_t *p_quadrants, uint32_t 
 	gathered_quadrants = 0u;
 	do
 	{
-		gathered_quadrants |= rotate_by(ROM8(quadrant_cursor), (uint8_t)byte_shift, 32);
+		gathered_quadrants |= rotate_by(NBG3_QUADRANTS(quadrant_cursor)[0], (uint8_t)byte_shift, 32);
 		quadrant_cursor++;
 		byte_shift += 8u;
 		if (bytes_left == 3u)
@@ -1343,9 +1343,9 @@ void load_stage_palette(uint32_t *p_palette_record, uint32_t *p_source, uint32_t
 	uint32_t halfword_count = 0, palette_record = 0;
 
 	palette_record = stage_palettes_ADDRESS + ((uint32_t)stage << 3);
-	*p_source = ROM32(palette_record);
+	*p_source = STAGE_PALETTE(palette_record)->source;
 	palette_record += 4u;
-	halfword_count = ROM32(palette_record);
+	halfword_count = STAGE_PALETTE(palette_record - 0x4u)->halfword_count;
 	*p_dest = PALETTE_RAM + 0xB800u;
 	move_halfwords(PALETTE_RAM + 0xB800u, *p_source, halfword_count);
 	*p_palette_record = palette_record;

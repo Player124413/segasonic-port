@@ -3,7 +3,7 @@
  *    Description: shapes on the bitmap layer, mostly unused: triangles, quadrilaterals, circles, flood fill, saved rectangles, and the clipping the lines and rectangles use
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    19-10-2026
+ *    Modified:    21-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -869,7 +869,7 @@ void draw_circle_polygon(uint32_t center_x, uint32_t center_y, uint32_t radius, 
 		sine_entry = angle;
 		angle += angle_step;
 		sine_entry = sines + (uint8_t)((sine_entry << 15) | (sine_entry >> 17)) * 2u;
-		cos_offset = (uint16_t)shift_by(ROM16(sine_entry + 0x200u) * radius, sine_shift, 32);
+		cos_offset = (uint16_t)shift_by(SINE_AND_COSINE(sine_entry)->cosine * radius, sine_shift, 32);
 		coordinate = (uint16_t)(center_x + cos_offset);
 		mem_write16(point_cursor, coordinate);
 		mem_write16(mirror_cursor - 4u, coordinate);
@@ -884,7 +884,7 @@ void draw_circle_polygon(uint32_t center_x, uint32_t center_y, uint32_t radius, 
 		coordinate = (uint16_t)(center_y + cos_offset);
 		mem_write16(point_cursor + 0xC0u, coordinate);
 		mem_write16(mirror_cursor - 0x42u, coordinate);
-		sin_offset = (uint16_t)shift_by(ROM16(sine_entry) * radius, sine_shift, 32);
+		sin_offset = (uint16_t)shift_by(SINE_AND_COSINE(sine_entry)->sine * radius, sine_shift, 32);
 		coordinate = (uint16_t)(center_y + sin_offset);
 		mem_write16(point_cursor, coordinate);
 		mem_write16(mirror_cursor + 0x7Eu, coordinate);

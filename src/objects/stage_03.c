@@ -3,7 +3,7 @@
  *    Description: stage 3's objects: the spiked panels and the electric poles, the crate pushed to a post, the breakable panel, the spiked roller that chases the players (also in stage E) and the floor that crumbles at the finale, the machine at 8300 with its fire and fireballs, the fire vents, the end pillar
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    19-10-2026
+ *    Modified:    21-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -148,8 +148,8 @@ void spike_panel_update(void)
 		frame_index = spike_panel_frame_sequence[(uint8_t)OBJECT(current_object)->spike_panel.step];
 		OBJECT(current_object)->spike_panel.frame_index = frame_index;
 		offset_record = spike_panel_head_offsets_ADDRESS + frame_index * 4u;
-		OBJECT(current_object)->screen_x += ROM16(offset_record);
-		OBJECT(current_object)->screen_y += ROM16(offset_record + 2u);
+		OBJECT(current_object)->screen_x += SPIKE_PANEL_SCREEN_OFFSET(offset_record)->dx;
+		OBJECT(current_object)->screen_y += SPIKE_PANEL_SCREEN_OFFSET(offset_record)->dy;
 		OBJECT(current_object)->sprite_frame = spike_panel_head_sprites[frame_index];
 		if ((int8_t)frame_index >= 5)
 		{
@@ -174,10 +174,10 @@ void spike_panel_update(void)
 		OBJECT(current_object)->z = OBJECT(object_cursor)->z;
 		frame_index = (uint8_t)OBJECT(object_cursor)->spike_panel.frame_index;
 		offset_record = spike_panel_part_1_offsets_ADDRESS + (frame_index * 2u * 2u + frame_index + frame_index);
-		OBJECT(current_object)->projected_x += ROM16(offset_record);
+		OBJECT(current_object)->projected_x += SPIKE_PANEL_PART_OFFSET(offset_record)->dx;
 		offset_record += 2u;
-		OBJECT(current_object)->projected_y_int += ROM16(offset_record);
-		OBJECT(current_object)->z_int += ROM16(offset_record + 2u);
+		OBJECT(current_object)->projected_y_int += SPIKE_PANEL_PART_OFFSET(offset_record - 0x2u)->dy;
+		OBJECT(current_object)->z_int += SPIKE_PANEL_PART_OFFSET(offset_record - 0x2u)->dz;
 		OBJECT(current_object)->sprite_flags = spike_panel_part_1_sprite_flags[frame_index];
 		OBJECT(current_object)->sprite_frame = spike_panel_part_1_sprites[frame_index];
 		unproject_object(&ignored, &ignored, &ignored, &r11);
@@ -199,8 +199,8 @@ void spike_panel_update(void)
 		OBJECT(current_object)->sprite_frame = spike_panel_part_2_sprites[part_2_frame];
 		if (part_2_frame != 3u)
 		{
-			OBJECT(current_object)->screen_x += ROM16(offset_record);
-			OBJECT(current_object)->screen_y += ROM16(offset_record + 2u);
+			OBJECT(current_object)->screen_x += SPIKE_PANEL_SCREEN_OFFSET(offset_record)->dx;
+			OBJECT(current_object)->screen_y += SPIKE_PANEL_SCREEN_OFFSET(offset_record)->dy;
 			depth = (uint16_t)(OBJECT(current_object)->screen_y - 0xFu);
 			queue_sprite_at_depth(&part_2_frame, &depth);
 		}
@@ -769,14 +769,14 @@ void stage_03_floor_block_start(void)
 	block_kind = OBJECT(current_object)->sprite_frame;
 	OBJECT(current_object)->speed_x_int = block_kind;
 	kind_entry = stage_03_floor_block_kinds_ADDRESS + block_kind * 4u;
-	kind_record = ROM16(kind_entry) + stage_03_floor_block_kinds_ADDRESS;
-	OBJECT(current_object)->sprite_offset_x = ROM8(kind_record);
+	kind_record = STAGE_03_FLOOR_BLOCK_KIND(kind_entry)->shape + stage_03_floor_block_kinds_ADDRESS;
+	OBJECT(current_object)->sprite_offset_x = STAGE_03_FLOOR_BLOCK_SHAPE(kind_record)->sprite_offset_x;
 	kind_record++;
-	OBJECT(current_object)->sprite_offset_y = ROM8(kind_record);
+	OBJECT(current_object)->sprite_offset_y = STAGE_03_FLOOR_BLOCK_SHAPE(kind_record - 0x1u)->sprite_offset_y;
 	kind_record++;
-	OBJECT(current_object)->speed_y_fraction = ROM16(kind_record);
+	OBJECT(current_object)->speed_y_fraction = STAGE_03_FLOOR_BLOCK_SHAPE(kind_record - 0x2u)->depth_offset;
 	OBJECT(current_object)->animation = kind_record + 2u;
-	OBJECT(current_object)->speed_x_fraction = ROM16(kind_entry + 2u);
+	OBJECT(current_object)->speed_x_fraction = STAGE_03_FLOOR_BLOCK_KIND(kind_entry)->fall_flag;
 	OBJECT(current_object)->sprite_flags = 0x1004u;
 	OBJECT(current_object)->sprite_palette = 0x9040u;
 	OBJECT(current_object)->handler = stage_03_floor_block_update_ADDRESS;
@@ -786,7 +786,7 @@ void stage_03_floor_block_start(void)
 	OBJECT(current_object)->flags = 2u;
 	stage_03_floor_block_falls[0] = 0u;
 	stage_03_floor_block_falls_1 = 0u;
-	OBJECT(current_object)->sprite_frame = ROM16(OBJECT(current_object)->animation + 2u);
+	OBJECT(current_object)->sprite_frame = STAGE_03_FLOOR_BLOCK_ANIMATION(OBJECT(current_object)->animation)->first_frame;
 	OBJECT(current_object)->animation_frame = 0u;
 	OBJECT(current_object)->animation_speed = 8u;
 	OBJECT(current_object)->animation_timer = 0;
@@ -868,18 +868,18 @@ void spiked_roller_start(void)
 	OBJECT(current_object)->spiked_roller.roller_kind = roller_kind;
 	OBJECT(current_object)->spiked_roller.event_offset = spiked_roller_events[roller_kind];
 	record_cursor = spiked_roller_kinds_ADDRESS + spiked_roller_kinds[roller_kind];
-	roller_parts_left = ROM8(record_cursor);
+	roller_parts_left = SPIKED_ROLLER_KIND(record_cursor)->part_count;
 	record_cursor++;
-	r11 = ROM16(record_cursor);
+	r11 = SPIKED_ROLLER_KIND(record_cursor - 0x1u)->layout;
 	record_cursor += 2u;
-	roller_first_state = ROM16(record_cursor);
+	roller_first_state = SPIKED_ROLLER_KIND(record_cursor - 0x3u)->first_state;
 	record_cursor += 2u;
-	roller_back_zone_index = ROM16(record_cursor);
+	roller_back_zone_index = SPIKED_ROLLER_KIND(record_cursor - 0x5u)->back_zone;
 	OBJECT(current_object)->spiked_roller.path = record_cursor + 2u;
 	r11 += spiked_roller_layouts_ADDRESS;
-	roller_step_x = (uint32_t)(int8_t)ROM8(r11) << 16;
+	roller_step_x = (uint32_t)SPIKED_ROLLER_LAYOUT(r11)->step_x << 16;
 	r11++;
-	roller_step_y = (uint32_t)(int8_t)ROM8(r11) << 16;
+	roller_step_y = (uint32_t)SPIKED_ROLLER_LAYOUT(r11 - 0x1u)->step_y << 16;
 	r11++;
 	roller_part_record = r11;
 	OBJECT(current_object)->flags = 0u;
@@ -917,18 +917,18 @@ void spiked_roller_start(void)
 		OBJECT(current_object)->speed_x = 0;
 		OBJECT(current_object)->speed_y = 0;
 		record_cursor = roller_part_record;
-		OBJECT(current_object)->sprite_flags = ROM16(record_cursor);
+		OBJECT(current_object)->sprite_flags = SPIKED_ROLLER_PART(record_cursor)->sprite_flags;
 		record_cursor += 2u;
-		OBJECT(current_object)->hitbox_size_x = ROM16(record_cursor);
+		OBJECT(current_object)->hitbox_size_x = SPIKED_ROLLER_PART(record_cursor - 0x2u)->hitbox_size_x;
 		record_cursor += 2u;
-		OBJECT(current_object)->hitbox_size_y = ROM16(record_cursor);
+		OBJECT(current_object)->hitbox_size_y = SPIKED_ROLLER_PART(record_cursor - 0x4u)->hitbox_size_y;
 		record_cursor += 2u;
-		OBJECT(current_object)->spiked_roller.path_direction = ROM16(record_cursor);
+		OBJECT(current_object)->spiked_roller.path_direction = SPIKED_ROLLER_PART(record_cursor - 0x6u)->path_direction;
 		record_cursor += 2u;
-		OBJECT(current_object)->flags = ROM32(record_cursor);
+		OBJECT(current_object)->flags = SPIKED_ROLLER_PART(record_cursor - 0x8u)->flags;
 		record_cursor += 4u;
-		OBJECT(current_object)->hitbox_offset_x = ROM8(record_cursor);
-		OBJECT(current_object)->hitbox_offset_y = ROM8(record_cursor + 1u);
+		OBJECT(current_object)->hitbox_offset_x = SPIKED_ROLLER_PART(record_cursor - 0xCu)->hitbox_offset_x;
+		OBJECT(current_object)->hitbox_offset_y = SPIKED_ROLLER_PART(record_cursor - 0xCu)->hitbox_offset_y;
 		OBJECT(current_object)->direction = (uint32_t)OBJECT(current_object)->spiked_roller.path_direction << 8;
 		OBJECT(current_object)->spiked_roller.leader = object_cursor;
 		OBJECT(current_object)->parent = object;
@@ -936,7 +936,7 @@ void spiked_roller_start(void)
 		object = (object & ~0xFFFFu) | (uint16_t)current_object;
 		OBJECT(current_object)->animation_timer = 0;
 		OBJECT(current_object)->animation = spiked_roller_animation_ADDRESS;
-		OBJECT(current_object)->animation_frame = mem_read8(roller_part_frame_cursor);
+		OBJECT(current_object)->animation_frame = SPIKED_ROLLER_START_FRAMES(roller_part_frame_cursor)[0];
 		roller_part_frame_cursor++;
 		OBJECT(current_object)->sprite_frame = spiked_roller_frames[OBJECT(current_object)->animation_frame];
 		parts_left = roller_parts_left;
@@ -1113,22 +1113,22 @@ void spiked_roller_chase_read_script(void)
 		return;
 	}
 	record_cursor = OBJECT(current_object)->spiked_roller.path;
-	record_position = ROM16(record_cursor);
+	record_position = SPIKED_ROLLER_CHASE_STEP(record_cursor)->position;
 	record_cursor += 2u;
 	if (scroll_position < record_position)
 	{
 		spiked_roller_chase_move_step();
 		return;
 	}
-	if ((int16_t)ROM16(record_cursor + 2u) >= 0)
+	if (SPIKED_ROLLER_CHASE_STEP(record_cursor - 0x2u)->catch_up_factor >= 0)
 	{
-		OBJECT(current_object)->spiked_roller.screen_threshold = ROM16(record_cursor);
+		OBJECT(current_object)->spiked_roller.screen_threshold = SPIKED_ROLLER_CHASE_STEP(record_cursor - 0x2u)->screen_threshold;
 		record_cursor += 2u;
-		OBJECT(current_object)->spiked_roller.catch_up_factor = ROM16(record_cursor);
+		OBJECT(current_object)->spiked_roller.catch_up_factor = SPIKED_ROLLER_CHASE_STEP(record_cursor - 0x4u)->catch_up_factor;
 		record_cursor += 2u;
-		OBJECT(current_object)->spiked_roller.base_speed = ROM16(record_cursor);
+		OBJECT(current_object)->spiked_roller.base_speed = SPIKED_ROLLER_CHASE_STEP(record_cursor - 0x6u)->base_speed;
 		record_cursor += 2u;
-		OBJECT(current_object)->spiked_roller.wait_timer = ROM16(record_cursor);
+		OBJECT(current_object)->spiked_roller.wait_timer = SPIKED_ROLLER_CHASE_STEP(record_cursor - 0x8u)->wait;
 		OBJECT(current_object)->spiked_roller.path = record_cursor + 2u;
 		if ((uint16_t)OBJECT(current_object)->spiked_roller.wait_timer != 0u)
 		{
@@ -1439,55 +1439,55 @@ void spiked_roller_chase_check_event(void)
 	uint16_t event_position = 0, max_y = 0, min_x = 0, min_y = 0, max_x = 0;
 
 	record_cursor = OBJECT(current_object)->spiked_roller.event_offset + spiked_roller_events_ADDRESS;
-	event_position = ROM16(record_cursor);
+	event_position = SPIKED_ROLLER_EVENT(record_cursor)->position;
 	record_cursor += 2u;
 	if (scroll_position < event_position || OBJECT(current_object)->spiked_roller.substate != 0u)
 	{
 		roller_ram_hit = 0u;
 		return;
 	}
-	event_kind = ROM16(record_cursor) * 2u;
+	event_kind = SPIKED_ROLLER_EVENT(record_cursor - 0x2u)->test * 2u;
 	record_cursor += 2u;
 	switch (event_kind)
 	{
 	case 0x0u:
 	case 0x8u:
-		max_y = ROM16(record_cursor);
+		max_y = SPIKED_ROLLER_EVENT(record_cursor - 0x4u)->coordinate;
 		record_cursor += 2u;
 		if (OBJECT(current_object)->y_int <= (int16_t)max_y)
 		{
-			OBJECT(current_object)->spiked_roller.state = (uint8_t)ROM16(record_cursor);
+			OBJECT(current_object)->spiked_roller.state = (uint8_t)SPIKED_ROLLER_EVENT(record_cursor - 0x6u)->state;
 			OBJECT(current_object)->spiked_roller.event_offset_long += 8u;
 		}
 		break;
 	case 0x2u:
-		min_x = ROM16(record_cursor);
+		min_x = SPIKED_ROLLER_EVENT(record_cursor - 0x4u)->coordinate;
 		record_cursor += 2u;
 		if ((int16_t)min_x <= OBJECT(current_object)->x_int)
 		{
-			OBJECT(current_object)->spiked_roller.state = (uint8_t)ROM16(record_cursor);
+			OBJECT(current_object)->spiked_roller.state = (uint8_t)SPIKED_ROLLER_EVENT(record_cursor - 0x6u)->state;
 			OBJECT(current_object)->spiked_roller.event_offset_long += 8u;
 			roller_ram_hit = 0u;
 			return;
 		}
 		break;
 	case 0x4u:
-		min_y = ROM16(record_cursor);
+		min_y = SPIKED_ROLLER_EVENT(record_cursor - 0x4u)->coordinate;
 		record_cursor += 2u;
 		if ((int16_t)min_y <= OBJECT(current_object)->y_int)
 		{
-			OBJECT(current_object)->spiked_roller.state = (uint8_t)ROM16(record_cursor);
+			OBJECT(current_object)->spiked_roller.state = (uint8_t)SPIKED_ROLLER_EVENT(record_cursor - 0x6u)->state;
 			OBJECT(current_object)->spiked_roller.event_offset_long += 8u;
 			roller_ram_hit = 0u;
 			return;
 		}
 		break;
 	case 0x6u:
-		max_x = ROM16(record_cursor);
+		max_x = SPIKED_ROLLER_EVENT(record_cursor - 0x4u)->coordinate;
 		record_cursor += 2u;
 		if (OBJECT(current_object)->x_int <= (int16_t)max_x)
 		{
-			OBJECT(current_object)->spiked_roller.state = (uint8_t)ROM16(record_cursor);
+			OBJECT(current_object)->spiked_roller.state = (uint8_t)SPIKED_ROLLER_EVENT(record_cursor - 0x6u)->state;
 			OBJECT(current_object)->spiked_roller.event_offset_long += 8u;
 			roller_ram_hit = 0u;
 			return;
@@ -1933,19 +1933,19 @@ void spiked_roller_burst_out(void)
 		allocate_object(&free_count, &object);
 		if (free_count == 0u)
 			break;
-		OBJECT(object)->sprite_flags = ROM16(fragment_cursor);
+		OBJECT(object)->sprite_flags = ROCK_DEBRIS_PIECE(fragment_cursor)->sprite_flags;
 		OBJECT(object)->screen_x = screen_x;
 		fragment_cursor += 2u;
-		OBJECT(object)->screen_x += ROM16(fragment_cursor);
+		OBJECT(object)->screen_x += ROCK_DEBRIS_PIECE(fragment_cursor - 0x2u)->offset_x;
 		OBJECT(object)->screen_y = r14;
 		fragment_cursor += 2u;
-		OBJECT(object)->screen_y += ROM16(fragment_cursor);
+		OBJECT(object)->screen_y += ROCK_DEBRIS_PIECE(fragment_cursor - 0x4u)->offset_y;
 		fragment_cursor += 2u;
-		OBJECT(object)->speed_x_fraction = ROM16(fragment_cursor);
+		OBJECT(object)->speed_x_fraction = ROCK_DEBRIS_PIECE(fragment_cursor - 0x6u)->speed_x;
 		fragment_cursor += 2u;
-		OBJECT(object)->speed_y_fraction = ROM16(fragment_cursor);
+		OBJECT(object)->speed_y_fraction = ROCK_DEBRIS_PIECE(fragment_cursor - 0x8u)->speed_y;
 		fragment_cursor += 2u;
-		OBJECT(object)->animation = rock_debris_animations_ADDRESS + ROM16(fragment_cursor);
+		OBJECT(object)->animation = rock_debris_animations_ADDRESS + ROCK_DEBRIS_PIECE(fragment_cursor - 0xAu)->animation_offset;
 		OBJECT(object)->sprite_palette = 0x8240u;
 		OBJECT(object)->projected_x = (uint32_t)OBJECT(object)->screen_x << 4;
 		OBJECT(object)->projected_y_fraction = (uint32_t)OBJECT(object)->screen_y << 4;
@@ -2195,27 +2195,27 @@ void machine_fire_update(void)
 			spawn_record = spawns_with_next_handler_ADDRESS;
 			if (free_object_stack < (int16_t)spawns_with_next_handler)
 				return;
-			temp_0 = ROM16(spawn_record);
+			temp_0 = MACHINE_FIREBALL_SPAWNS(spawn_record)->count;
 			spawn_record += 2u;
 			do
 			{
 				allocate_object(&ignored, &object);
 				OBJECT(object)->handler = fireball_start_ADDRESS;
 				OBJECT(object)->fireball_start.state = 0u;
-				OBJECT(object)->x_int = ROM16(spawn_record);
+				OBJECT(object)->x_int = MACHINE_FIREBALL_SPAWN(spawn_record)->x;
 				OBJECT(object)->x_fraction = 0u;
 				spawn_record += 2u;
-				OBJECT(object)->y_int = ROM16(spawn_record);
+				OBJECT(object)->y_int = MACHINE_FIREBALL_SPAWN(spawn_record - 0x2u)->y;
 				OBJECT(object)->y_fraction = 0u;
 				spawn_record += 2u;
-				OBJECT(object)->fireball_start.target_x = ROM16(spawn_record);
+				OBJECT(object)->fireball_start.target_x = MACHINE_FIREBALL_SPAWN(spawn_record - 0x4u)->target_x;
 				spawn_record += 2u;
-				OBJECT(object)->fireball_start.target_y = ROM16(spawn_record);
+				OBJECT(object)->fireball_start.target_y = MACHINE_FIREBALL_SPAWN(spawn_record - 0x6u)->target_y;
 				spawn_record += 2u;
-				OBJECT(object)->z_int = ROM16(spawn_record);
+				OBJECT(object)->z_int = MACHINE_FIREBALL_SPAWN(spawn_record - 0x8u)->z;
 				OBJECT(object)->z_fraction = 0u;
 				spawn_record += 2u;
-				OBJECT(object)->next_handler = ROM32(spawn_record);
+				OBJECT(object)->next_handler = MACHINE_FIREBALL_SPAWN(spawn_record - 0xAu)->next_handler;
 				spawns_left_before = temp_0;
 				temp_0 = spawns_left_before - 1u;
 				spawn_record += 4u;
@@ -2359,14 +2359,14 @@ void machine_fire_read_script(void)
 	uint16_t record_height = 0;
 
 	path_cursor = OBJECT(current_object)->machine_fire.path;
-	record_height = ROM16(path_cursor);
+	record_height = MACHINE_FIRE_SCRIPT_STEP(path_cursor)->height;
 	path_cursor += 2u;
 	if ((int16_t)record_height < (int16_t)(OBJECT(current_object)->z_int - OBJECT(current_object)->hitbox_height))
 	{
 		machine_fire_climb_step();
 		return;
 	}
-	if ((int16_t)ROM16(path_cursor + 2u) < 0)
+	if (MACHINE_FIRE_SCRIPT_STEP(path_cursor - 0x2u)->catch_up_factor < 0)
 	{
 		OBJECT(current_object)->machine_fire.state++;
 		sound_timer = OBJECT(current_object)->machine_fire.sound_timer;
@@ -2381,13 +2381,13 @@ void machine_fire_read_script(void)
 		ignored = add_to_touchable_list(ignored);
 		return;
 	}
-	OBJECT(current_object)->machine_fire.screen_threshold = ROM16(path_cursor);
+	OBJECT(current_object)->machine_fire.screen_threshold = MACHINE_FIRE_SCRIPT_STEP(path_cursor - 0x2u)->screen_threshold;
 	path_cursor += 2u;
-	OBJECT(current_object)->machine_fire.catch_up_factor = ROM16(path_cursor);
+	OBJECT(current_object)->machine_fire.catch_up_factor = MACHINE_FIRE_SCRIPT_STEP(path_cursor - 0x4u)->catch_up_factor;
 	path_cursor += 2u;
-	OBJECT(current_object)->machine_fire.base_speed = ROM16(path_cursor);
+	OBJECT(current_object)->machine_fire.base_speed = MACHINE_FIRE_SCRIPT_STEP(path_cursor - 0x6u)->base_speed;
 	path_cursor += 2u;
-	OBJECT(current_object)->machine_fire.wait_timer = ROM16(path_cursor);
+	OBJECT(current_object)->machine_fire.wait_timer = MACHINE_FIRE_SCRIPT_STEP(path_cursor - 0x8u)->wait;
 	OBJECT(current_object)->machine_fire.path = path_cursor + 2u;
 	machine_fire_climb_step();
 }
@@ -2918,10 +2918,10 @@ void ram_target_check_hits(void)
 	{
 		OBJECT(current_object)->animation_frame = 0u;
 		OBJECT(current_object)->ram_target.hit_count++;
-		if ((int8_t)ROM8(OBJECT(current_object)->ram_target.damage_script) <= OBJECT(current_object)->ram_target.hit_count)
+		if (RAM_TARGET_DAMAGE_STEP(OBJECT(current_object)->ram_target.damage_script)->hits <= OBJECT(current_object)->ram_target.hit_count)
 		{
 			script_record = OBJECT(current_object)->ram_target.damage_script + 2u;
-			animation = ROM16(script_record) + ram_target_damage_script_ADDRESS;
+			animation = RAM_TARGET_DAMAGE_STEP(script_record - 0x2u)->animation + ram_target_damage_script_ADDRESS;
 			OBJECT(current_object)->animation = animation;
 			OBJECT(current_object)->ram_target.damage_script = script_record + 2u;
 			if (OBJECT(current_object)->ram_target.hit_count >= 4)
@@ -2977,19 +2977,19 @@ void ram_target_burst(uint32_t piece)
 		allocate_object_outside_loop(&free_count, &piece);
 		if (free_count == 0u)
 			break;
-		OBJECT(piece)->sprite_flags = ROM16(piece_record);
+		OBJECT(piece)->sprite_flags = ROCK_DEBRIS_PIECE(piece_record)->sprite_flags;
 		OBJECT(piece)->screen_x = screen_x;
 		piece_record += 2u;
-		OBJECT(piece)->screen_x += ROM16(piece_record);
+		OBJECT(piece)->screen_x += ROCK_DEBRIS_PIECE(piece_record - 0x2u)->offset_x;
 		OBJECT(piece)->screen_y = r14;
 		piece_record += 2u;
-		OBJECT(piece)->screen_y += ROM16(piece_record);
+		OBJECT(piece)->screen_y += ROCK_DEBRIS_PIECE(piece_record - 0x4u)->offset_y;
 		piece_record += 2u;
-		OBJECT(piece)->speed_x_fraction = ROM16(piece_record);
+		OBJECT(piece)->speed_x_fraction = ROCK_DEBRIS_PIECE(piece_record - 0x6u)->speed_x;
 		piece_record += 2u;
-		OBJECT(piece)->speed_y_fraction = ROM16(piece_record);
+		OBJECT(piece)->speed_y_fraction = ROCK_DEBRIS_PIECE(piece_record - 0x8u)->speed_y;
 		piece_record += 2u;
-		OBJECT(piece)->animation = ram_target_debris_animations_ADDRESS + ROM16(piece_record);
+		OBJECT(piece)->animation = ram_target_debris_animations_ADDRESS + ROCK_DEBRIS_PIECE(piece_record - 0xAu)->animation_offset;
 		OBJECT(piece)->sprite_palette = 0x8240u;
 		OBJECT(piece)->projected_x = (uint32_t)OBJECT(piece)->screen_x << 4;
 		OBJECT(piece)->projected_y_fraction = (uint32_t)OBJECT(piece)->screen_y << 4;
@@ -3102,11 +3102,11 @@ void fire_vent_spawner_update(void)
 	uint16_t spawn_position = 0;
 
 	vent_record = fire_vent_cursor;
-	spawn_position = ROM16(vent_record);
+	spawn_position = FIRE_VENT_SPAWN(vent_record)->position;
 	vent_record += 2u;
 	if (scroll_position < spawn_position)
 		return;
-	if ((int16_t)ROM16(vent_record + 6u) < 0)
+	if (FIRE_VENT_SPAWN(vent_record - 0x2u)->blast_delay < 0)
 	{
 		delete_current_object();
 		return;
@@ -3114,15 +3114,15 @@ void fire_vent_spawner_update(void)
 	allocate_object(&free_count, &object);
 	if (free_count != 0u)
 	{
-		OBJECT(object)->x_int = ROM16(vent_record);
+		OBJECT(object)->x_int = FIRE_VENT_SPAWN(vent_record - 0x2u)->x;
 		OBJECT(object)->x_fraction = 0u;
 		vent_record += 2u;
-		OBJECT(object)->y_int = ROM16(vent_record);
+		OBJECT(object)->y_int = FIRE_VENT_SPAWN(vent_record - 0x4u)->y;
 		OBJECT(object)->y_fraction = 0u;
 		vent_record += 2u;
-		OBJECT(object)->z_int = ROM16(vent_record);
+		OBJECT(object)->z_int = FIRE_VENT_SPAWN(vent_record - 0x6u)->z;
 		OBJECT(object)->z_fraction = 0u;
-		OBJECT(object)->fire_vent.blast_delay = ROM16(vent_record + 2u);
+		OBJECT(object)->fire_vent.blast_delay = FIRE_VENT_SPAWN(vent_record - 0x6u)->blast_delay;
 		OBJECT(object)->sprite_flags = 0x1006u;
 		OBJECT(object)->sprite_frame = 0x6A48u;
 		OBJECT(object)->sprite_palette = 0x9110u;

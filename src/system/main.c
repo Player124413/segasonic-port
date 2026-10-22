@@ -3,7 +3,7 @@
  *    Description: the machine's main program: power-on and boot, the frame loop, the attract mode and the system modes, the frame wait and the controls, the interrupt handlers, the reset vector
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    19-10-2026
+ *    Modified:    21-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -27,10 +27,10 @@ void boot(void)
 	pairs_left = 8u;
 	do
 	{
-		mem_write8(dest, ROM8(source));
+		mem_write8(dest, BOOT_REGISTER_VALUES(source)[0]);
 		dest++;
 		source++;
-		mem_write8(dest, ROM8(source));
+		mem_write8(dest, BOOT_REGISTER_VALUES(source)[0]);
 		dest++;
 		pairs_left--;
 		source++;
@@ -39,7 +39,7 @@ void boot(void)
 	bytes_left = 0xCu;
 	do
 	{
-		mem_write8(dest, ROM8(source));
+		mem_write8(dest, BOOT_REGISTER_VALUES(source)[0]);
 		dest++;
 		bytes_left--;
 		source++;
@@ -894,7 +894,7 @@ void play_demo_trackballs(uint32_t *p_count, uint32_t *p_demo_cursor, uint32_t *
 	count = 6u;
 	do
 	{
-		mem_write16(trackball_cursor, (int8_t)ROM8(demo_cursor));
+		mem_write16(trackball_cursor, DEMO_TRACKBALL_DELTAS(demo_cursor)[0]);
 		trackball_cursor += 2u;
 		count--;
 		demo_cursor++;
@@ -1168,8 +1168,8 @@ void send_sound_command(void)
 	if (read_index != sound_queue_write)
 	{
 		command_entry = sound_commands_ADDRESS + mem_read8(queue_base + read_index) * 2u;
-		mem_write8(sound_command_group, ROM8(command_entry));
-		mem_write8(sound_command, ROM8(command_entry + 1u));
+		mem_write8(sound_command_group, SOUND_COMMAND_BYTES(command_entry)->group);
+		mem_write8(sound_command, SOUND_COMMAND_BYTES(command_entry)->number);
 		sound_queue_read = (read_index + 1u) & 0x1Fu;
 	}
 }

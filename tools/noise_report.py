@@ -4,7 +4,7 @@ Description: counts what is left of the CPU and of the decompiler in the C (src/
              with the counts last saved
 Version:     0.1.0
 Created:     17-10-2026
-Modified:    20-10-2026
+Modified:    21-10-2026
 Author:      Sebastian Toyos
 
 Every kind of leftover the C can still have, counted in one pass over the generated C, so a round of work
@@ -15,8 +15,10 @@ read through its ROM address instead of a table or structure with a name, functi
 in place of. The
 counts are compared with tools/noise_baseline.txt; a count that went up makes the run fail.
 
-Usage: python tools/noise_report.py [--save]
+Usage: python tools/noise_report.py [--save] [--src DIR] [--files]
   --save   write the counts as the new baseline (after a round that took something away)
+  --src    count another copy of the C (tools/decompile.py --out DIR) against the same baseline
+  --files  also the data read through its ROM address, file by file
 """
 import re
 import sys
@@ -91,7 +93,11 @@ def count(paths):
 
 
 def main():
-    sources = sorted(path for path in (ROOT / "src").rglob("*.c"))
+    arguments = sys.argv[1:]
+    source = ROOT / "src"
+    if "--src" in arguments:
+        source = Path(arguments[arguments.index("--src") + 1]).resolve()
+    sources = sorted(path for path in source.rglob("*.c"))
     counts = count(sources)
     if UNNAMED_ADDRESSES.exists():
         counts["raw_rom_addresses"] = sum(1 for line in UNNAMED_ADDRESSES.read_text().splitlines()
@@ -110,7 +116,13 @@ def main():
         print(f"{kind:20s} {counts[kind]:7d} {'' if before is None else before:>7} {change:>6s}  {what}")
         if kind in KINDS and before is not None and counts[kind] > before:
             rose.append(kind)
-    if "--save" in sys.argv[1:]:
+    if "--files" in arguments:
+        print()
+        for path in sources:
+            found = count([path])["rom_reads"]
+            if found:
+                print(f"{found:5d}  {path.relative_to(source).as_posix()}")
+    if "--save" in arguments and source == ROOT / "src":
         BASELINE.write_text("# KIND COUNT: tools/noise_report.py --save writes it\n" +
                             "".join(f"{kind} {value}\n" for kind, value in counts.items()), encoding="ascii")
         print(f"saved in {BASELINE.relative_to(ROOT)}")

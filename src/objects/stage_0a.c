@@ -3,7 +3,7 @@
  *    Description: stage A's objects, the sand: the cactus, the centipede, the wall pieces, the shaking blocks, the sand rock, the sand arch, the stepped wall, the tornado and the whirlwinds it throws, quicksand, sinkholes, the collapsing sand blocks
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    19-10-2026
+ *    Modified:    21-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -622,12 +622,12 @@ void wall_piece_init(void)
 	OBJECT(current_object)->flags |= 2u;
 	OBJECT(current_object)->hitbox_height = 0x28u;
 	box_record = wall_piece_boxes_ADDRESS + spawn_arg_1 * 6u;
-	OBJECT(current_object)->hitbox_size_x = ROM16(box_record);
+	OBJECT(current_object)->hitbox_size_x = HITBOX_SIZE_AND_OFFSET(box_record)->size_x;
 	box_record += 2u;
-	OBJECT(current_object)->hitbox_size_y = ROM16(box_record);
+	OBJECT(current_object)->hitbox_size_y = HITBOX_SIZE_AND_OFFSET(box_record - 0x2u)->size_y;
 	box_record += 2u;
-	OBJECT(current_object)->hitbox_offset_x = ROM8(box_record);
-	OBJECT(current_object)->hitbox_offset_y = ROM8(box_record + 1u);
+	OBJECT(current_object)->hitbox_offset_x = HITBOX_SIZE_AND_OFFSET(box_record - 0x4u)->offset_x;
+	OBJECT(current_object)->hitbox_offset_y = HITBOX_SIZE_AND_OFFSET(box_record - 0x4u)->offset_y;
 }
 
 /* Unprojects and is removed off screen; drawn at depth screen_y + 0x14 (at most 0xEE) while its screen_y
@@ -661,12 +661,12 @@ void shaking_block_init(void)
 	OBJECT(current_object)->flags |= 2u;
 	OBJECT(current_object)->hitbox_height = 0x28u;
 	box_record = shaking_block_boxes_ADDRESS + OBJECT(current_object)->spawn_arg_1 * 6u;
-	OBJECT(current_object)->hitbox_size_x = ROM16(box_record);
+	OBJECT(current_object)->hitbox_size_x = HITBOX_SIZE_AND_OFFSET(box_record)->size_x;
 	box_record += 2u;
-	OBJECT(current_object)->hitbox_size_y = ROM16(box_record);
+	OBJECT(current_object)->hitbox_size_y = HITBOX_SIZE_AND_OFFSET(box_record - 0x2u)->size_y;
 	box_record += 2u;
-	OBJECT(current_object)->hitbox_offset_x = ROM8(box_record);
-	OBJECT(current_object)->hitbox_offset_y = ROM8(box_record + 1u);
+	OBJECT(current_object)->hitbox_offset_x = HITBOX_SIZE_AND_OFFSET(box_record - 0x4u)->offset_x;
+	OBJECT(current_object)->hitbox_offset_y = HITBOX_SIZE_AND_OFFSET(box_record - 0x4u)->offset_y;
 	spawn_count = 1u;
 	add_pieces_to_current_object(&spawned, &ignored, &ignored, &object);
 	if ((uint8_t)spawned == 0u)
@@ -1079,16 +1079,16 @@ void tornado_start(void)
 	if (sand_block_leader_active != 0u && (OBJECT(current_object)->sprite_frame != 1u || scroll_position < 0x9C00u))
 		return;
 	tornado_record = tornado_records_ADDRESS + tornado_records[OBJECT(current_object)->sprite_frame];
-	OBJECT(current_object)->x_int = ROM16(tornado_record);
+	OBJECT(current_object)->x_int = TORNADO_START_RECORD(tornado_record)->x;
 	OBJECT(current_object)->x_fraction = 0u;
 	tornado_record += 2u;
-	OBJECT(current_object)->y_int = ROM16(tornado_record);
+	OBJECT(current_object)->y_int = TORNADO_START_RECORD(tornado_record - 0x2u)->y;
 	OBJECT(current_object)->y_fraction = 0u;
 	tornado_record += 2u;
-	OBJECT(current_object)->animation = ROM16(tornado_record) + tornado_hazard_lists_ADDRESS;
+	OBJECT(current_object)->animation = TORNADO_START_RECORD(tornado_record - 0x4u)->hazard_list_offset + tornado_hazard_lists_ADDRESS;
 	tornado_kind = OBJECT(current_object)->sprite_frame;
 	tornado_record += 2u;
-	object = ROM16(tornado_record) + tornado_whirlwind_lists_ADDRESS;
+	object = TORNADO_START_RECORD(tornado_record - 0x6u)->whirlwind_list_offset + tornado_whirlwind_lists_ADDRESS;
 	OBJECT(current_object)->part_list = object;
 	OBJECT(current_object)->tornado.path = tornado_record + 2u;
 	OBJECT(current_object)->flags = 2u;
@@ -1204,7 +1204,7 @@ void tornado_move(void)
 	}
 	OBJECT(current_object)->tornado.wait_timer = 0;
 	path_cursor = OBJECT(current_object)->tornado.path;
-	record_scroll = ROM16(path_cursor);
+	record_scroll = TORNADO_PATH_STEP(path_cursor)->position;
 	path_cursor += 2u;
 	if (record_scroll <= scroll_position)
 	{
@@ -1212,7 +1212,7 @@ void tornado_move(void)
 		tornado_load_record(path_cursor);
 		return;
 	}
-	threshold = ROM16(path_cursor);
+	threshold = (uint16_t)TORNADO_PATH_STEP(path_cursor - 0x2u)->coordinate;
 	direction = OBJECT(current_object)->direction;
 	path_cursor += 2u;
 	switch (direction >> 8)
@@ -1264,9 +1264,9 @@ void tornado_load_record(uint32_t path_cursor)
 	uint16_t box_across = 0, box_along = 0;
 	uint32_t direction = 0;
 
-	if ((int16_t)ROM16(path_cursor + 2u) < 0)
+	if (TORNADO_PATH_STEP(path_cursor - 0x4u)->catch_up_factor < 0)
 	{
-		if ((int16_t)ROM16(path_cursor + 4u) >= 0)
+		if (TORNADO_PATH_STEP(path_cursor - 0x4u)->base_speed >= 0)
 		{
 			tornado_remove_with_columns();
 			return;
@@ -1275,15 +1275,15 @@ void tornado_load_record(uint32_t path_cursor)
 		tornado_remove_with_columns();
 		return;
 	}
-	OBJECT(current_object)->tornado.screen_threshold = ROM16(path_cursor);
+	OBJECT(current_object)->tornado.screen_threshold = TORNADO_PATH_STEP(path_cursor - 0x4u)->screen_threshold;
 	path_cursor += 2u;
-	OBJECT(current_object)->tornado.catch_up_factor = ROM16(path_cursor);
+	OBJECT(current_object)->tornado.catch_up_factor = TORNADO_PATH_STEP(path_cursor - 0x6u)->catch_up_factor;
 	path_cursor += 2u;
-	OBJECT(current_object)->tornado.base_speed = ROM16(path_cursor);
+	OBJECT(current_object)->tornado.base_speed = TORNADO_PATH_STEP(path_cursor - 0x8u)->base_speed;
 	path_cursor += 2u;
-	OBJECT(current_object)->tornado.wait_timer = ROM16(path_cursor);
+	OBJECT(current_object)->tornado.wait_timer = TORNADO_PATH_STEP(path_cursor - 0xAu)->wait;
 	path_cursor += 2u;
-	OBJECT(current_object)->direction = ROM16(path_cursor);
+	OBJECT(current_object)->direction = TORNADO_PATH_STEP(path_cursor - 0xCu)->direction;
 	OBJECT(current_object)->tornado.path = path_cursor + 2u;
 	box_across = 0xF0u;
 	box_along = 0x80u;
@@ -2021,12 +2021,12 @@ void quicksand_swirl(void)
 		step_list = OBJECT(current_object)->animation;
 		next_step = OBJECT(current_object)->animation_frame;
 		next_step = (uint8_t)(next_step + 1u);
-		last_step = ROM16(step_list);
+		last_step = FRAME_ANIMATION(step_list)->last_frame;
 		step_list += 2u;
 		if ((int16_t)last_step < (int16_t)next_step)
 			next_step = 0u;
 		OBJECT(current_object)->animation_frame = next_step;
-		step_frame = ROM16(step_list + next_step * 2u);
+		step_frame = SPRITE_FRAME_NUMBERS(step_list)[next_step];
 		part_cursor = OBJECT(LINKED(current_object, OBJECT(current_object)->child))->part_list;
 		parts_left = SPRITE_PART_LIST(part_cursor)->count;
 		part_cursor += 2u;
@@ -2432,25 +2432,25 @@ void sand_block_leader_read_script(void)
 	}
 	OBJECT(current_object)->sand_block_leader.wait_timer = 0;
 	path_cursor = OBJECT(current_object)->sand_block_leader.path;
-	record_scroll = ROM16(path_cursor);
+	record_scroll = CHASE_STEP_AT_SCROLL(path_cursor)->position;
 	path_cursor += 2u;
 	if (scroll_position < record_scroll)
 	{
 		sand_block_leader_move_step();
 		return;
 	}
-	if ((int16_t)ROM16(path_cursor + 2u) < 0)
+	if (CHASE_STEP_AT_SCROLL(path_cursor - 0x2u)->catch_up_factor < 0)
 	{
 		delete_current_object();
 		return;
 	}
-	OBJECT(current_object)->sand_block_leader.screen_threshold = ROM16(path_cursor);
+	OBJECT(current_object)->sand_block_leader.screen_threshold = CHASE_STEP_AT_SCROLL(path_cursor - 0x2u)->screen_threshold;
 	path_cursor += 2u;
-	OBJECT(current_object)->sand_block_leader.catch_up_factor = ROM16(path_cursor);
+	OBJECT(current_object)->sand_block_leader.catch_up_factor = CHASE_STEP_AT_SCROLL(path_cursor - 0x4u)->catch_up_factor;
 	path_cursor += 2u;
-	OBJECT(current_object)->sand_block_leader.base_speed = ROM16(path_cursor);
+	OBJECT(current_object)->sand_block_leader.base_speed = CHASE_STEP_AT_SCROLL(path_cursor - 0x6u)->base_speed;
 	path_cursor += 2u;
-	OBJECT(current_object)->sand_block_leader.wait_timer = ROM16(path_cursor);
+	OBJECT(current_object)->sand_block_leader.wait_timer = CHASE_STEP_AT_SCROLL(path_cursor - 0x8u)->wait;
 	OBJECT(current_object)->sand_block_leader.path = path_cursor + 2u;
 	sand_block_leader_move_step();
 }
@@ -2726,8 +2726,8 @@ void sand_block_update(void)
 		allocate_object_2(&ignored, &ignored, &object_2);
 		move_halfwords_backward(object_2, sand_face_parts_ADDRESS, 9u);
 		part_list = OBJECT(current_object)->part_list;
-		OBJECT(object_2)->sprite_scale = ROM16(part_list + 8u);
-		OBJECT(object_2)->hitbox_size_x = ROM16(part_list + 8u);
+		OBJECT(object_2)->sprite_scale = SAND_BLOCK_PART_LIST(part_list)->first_palette;
+		OBJECT(object_2)->hitbox_size_x = SAND_BLOCK_PART_LIST(part_list)->first_palette;
 		OBJECT(object_3)->part_list = object_2;
 		allocate_object(&ignored, &object_2);
 		OBJECT(object_2)->sprite_flags = 0xD002u;
@@ -2910,10 +2910,10 @@ uint32_t spawn_sink_swirl(uint32_t allocated)
 		OBJECT(allocated)->flags_low = 0u;
 		OBJECT(allocated)->sprite_offset_x = 0;
 		OBJECT(allocated)->sprite_offset_y = 0;
-		OBJECT(allocated)->sink_swirl.depth_offset = ROM16(effect_record);
+		OBJECT(allocated)->sink_swirl.depth_offset = SINK_SWIRL_EFFECT(effect_record)->depth_offset;
 		OBJECT(allocated)->handler = sink_swirl_start_ADDRESS;
 		effect_record += 2u;
-		OBJECT(allocated)->animation = ROM32(effect_record);
+		OBJECT(allocated)->animation = SINK_SWIRL_EFFECT(effect_record - 0x2u)->streak_animation;
 		OBJECT(allocated)->animation_frame = 0xFFu;
 		OBJECT(allocated)->animation_speed = 0xAu;
 		OBJECT(allocated)->animation_timer = 0;
@@ -2927,7 +2927,7 @@ uint32_t spawn_sink_swirl(uint32_t allocated)
 		OBJECT(allocated)->sprite_flags = 0x1004u;
 		OBJECT(allocated)->sprite_palette = 0x1230u;
 		OBJECT(allocated)->flags_low = 0u;
-		OBJECT(allocated)->animation = ROM32(effect_record);
+		OBJECT(allocated)->animation = SINK_SWIRL_EFFECT(effect_record - 0x6u)->puff_animation;
 		OBJECT(allocated)->animation_frame = 0xFFu;
 		OBJECT(allocated)->animation_speed = 4u;
 		OBJECT(allocated)->animation_timer = 0;

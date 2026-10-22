@@ -3,7 +3,7 @@
  *    Description: contacts between objects and players: the zones, the hitter, touchable, rider, platform and wall lists, and the checks that pair them
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    19-10-2026
+ *    Modified:    21-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -180,7 +180,7 @@ void check_hit(uint32_t other, uint32_t hitter, uint32_t *p_box_edge, uint32_t *
 							{
 								floor_slope = OBJECT(hitter)->floor_slope;
 								slope_record = floor_slopes_ADDRESS + (uint16_t)(floor_slope * 2u) * 4u;
-								slope_kind = ROM8(slope_record) * 2u;
+								slope_kind = FLOOR_SLOPE(slope_record)->flags * 2u;
 								slope_record++;
 								switch (slope_kind)
 								{
@@ -198,7 +198,7 @@ void check_hit(uint32_t other, uint32_t hitter, uint32_t *p_box_edge, uint32_t *
 								}
 								if ((int16_t)box_edge < 0)
 									box_edge = 0u - box_edge;
-								slope_factor = ROM32(slope_record + 1u);
+								slope_factor = FLOOR_SLOPE(slope_record - 0x1u)->factor;
 								if ((int32_t)slope_factor < 0)
 									slope_factor = 0u - slope_factor;
 								box_edge = (((box_edge * slope_factor) >> 8) * 0xB5u) >> 16;
@@ -681,7 +681,7 @@ void compute_bridge_sag(uint32_t load_list, uint16_t plank_count, uint32_t *p_mi
 			curve_index = (uint16_t)(0u - curve_index);
 			curve_index = (uint16_t)(curve_index + plank_total);
 		}
-		sag = ROM8(sag_curve + curve_index);
+		sag = BRIDGE_SAG_DEPTHS(sag_curve)[curve_index];
 		span = mem_read8(load_entry);
 		next_curve_index = span;
 		if ((int16_t)middle < (int16_t)next_curve_index)
@@ -691,7 +691,7 @@ void compute_bridge_sag(uint32_t load_list, uint16_t plank_count, uint32_t *p_mi
 		}
 		sag = (uint16_t)((uint32_t)sag << 8);
 		span = (uint16_t)(span - plank);
-		sag_step = divide_s16((uint16_t)(((uint32_t)ROM8(sag_curve + next_curve_index) << 8) - sag), span);
+		sag_step = divide_s16((uint16_t)(((uint32_t)BRIDGE_SAG_DEPTHS(sag_curve)[next_curve_index] << 8) - sag), span);
 		do
 		{
 			mem_write16(sag_cursor, sag);

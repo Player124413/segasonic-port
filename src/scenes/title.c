@@ -3,7 +3,7 @@
  *    Description: the title screen: the SEGA logo, the emblem, the land, the craft, Sonic's loop, the clouds and the sky
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    19-10-2026
+ *    Modified:    21-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -149,12 +149,12 @@ void title_emblem_animate(void)
 		{
 			sonic_step = (uint8_t)title_sonic_step;
 			loop_entry = title_sonic_loop_frames_ADDRESS + (uint8_t)(sonic_step - 0x14u);
-			if (ROM8(loop_entry) != 0xFFu)
+			if (TITLE_SONIC_LOOP_CODES(loop_entry)[0] != 0xFFu)
 				break;
 			title_sonic_step = 0x14;
 		}
 		sonic_y = 0x46u;
-		sonic_frame = (uint8_t)(ROM8(loop_entry) - 1u);
+		sonic_frame = (uint8_t)(TITLE_SONIC_LOOP_CODES(loop_entry)[0] - 1u);
 	}
 	title_timer++;
 	if (title_timer < 0x258)
@@ -310,17 +310,17 @@ void timed_spawner_run(void)
 	for (;;)
 	{
 		spawn_record = timed_spawns_ADDRESS + OBJECT(current_object)->timed_spawner.list_index * 4u;
-		if (ROM16(spawn_record) == 0xFFFFu || title_done != 0u)
+		if ((uint16_t)TIMED_SPAWN(spawn_record)->time == 0xFFFFu || title_done != 0u)
 		{
 			delete_current_object();
 			return;
 		}
-		spawn_frame = ROM16(spawn_record);
+		spawn_frame = TIMED_SPAWN(spawn_record)->time;
 		spawn_record += 2u;
 		if (OBJECT(current_object)->timer <= (int16_t)spawn_frame)
 			break;
 		OBJECT(current_object)->timed_spawner.list_index++;
-		spawned_handler = ROM16(spawn_record) + 0x973B4u;
+		spawned_handler = TIMED_SPAWN(spawn_record - 0x2u)->handler_offset + 0x973B4u;
 		allocate_object(&ignored, &object);
 		OBJECT(object)->handler = spawned_handler;
 		OBJECT(object)->flags_low_byte = 0u;
@@ -396,8 +396,8 @@ void title_smoke_puff_animate(void)
 		puff_frame = OBJECT(current_object)->title.frame_index;
 		OBJECT(current_object)->title.frame_index++;
 		puff_frame = title_smoke_puff_frames_ADDRESS + puff_frame * 2u;
-		OBJECT(current_object)->sprite_frame = ROM16(puff_frame);
-		if (ROM16(puff_frame) == 0xFFFFu)
+		OBJECT(current_object)->sprite_frame = TITLE_SMOKE_PUFF_SPRITES(puff_frame)[0];
+		if (TITLE_SMOKE_PUFF_SPRITES(puff_frame)[0] == 0xFFFFu)
 		{
 			delete_current_object();
 			return;
@@ -929,7 +929,7 @@ void title_sky_wave(void)
 	wave_rows_left = 0x80u;
 	do
 	{
-		mem_write32(row_offset, mem_read32(row_offset) + ((uint32_t)ROM16(sine_cursor) << 3));
+		mem_write32(row_offset, mem_read32(row_offset) + ((uint32_t)TITLE_WAVE_SINES(sine_cursor)[0] << 3));
 		mem_write32(row_offset, mem_read32(row_offset) & 0x1FFFFFFu);
 		mem_write16(row_scroll, mem_read32(row_offset) >> 16);
 		row_scroll += 2u;

@@ -3,7 +3,7 @@
  *    Description: the object system: the object list and its two pools, allocating, linking and deleting objects, spawning them from the stage lists (by type, by handler, in groups led by a leader), and what the stage objects share
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    19-10-2026
+ *    Modified:    21-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -296,13 +296,13 @@ void spawn_objects_by_handler(uint32_t *p_list_offset, uint32_t *p_record, uint3
 		handler_spawn_cursor = stage_spawns_by_handler_ADDRESS + list_offset;
 	}
 	record = handler_spawn_cursor;
-	if (scroll_position < ROM16(record))
+	if (scroll_position < HANDLER_SPAWN_RECORD(record)->position)
 	{
 		*p_list_offset = list_offset;
 		*p_record = record;
 		return;
 	}
-	if ((uint16_t)(scroll_position - ROM16(record)) >= 0x100u)
+	if ((uint16_t)(scroll_position - HANDLER_SPAWN_RECORD(record)->position) >= 0x100u)
 	{
 		handler_spawn_cursor += 0xCu;
 		*p_list_offset = list_offset;
@@ -317,15 +317,15 @@ void spawn_objects_by_handler(uint32_t *p_list_offset, uint32_t *p_record, uint3
 		return;
 	}
 	record = handler_spawn_cursor + 2u;
-	OBJECT(*p_object)->x_int = ROM16(record);
+	OBJECT(*p_object)->x_int = HANDLER_SPAWN_RECORD(record - 0x2u)->x;
 	OBJECT(*p_object)->x_fraction = 0u;
 	record += 2u;
-	OBJECT(*p_object)->y_int = ROM16(record);
+	OBJECT(*p_object)->y_int = HANDLER_SPAWN_RECORD(record - 0x4u)->y;
 	OBJECT(*p_object)->y_fraction = 0u;
 	record += 2u;
-	OBJECT(*p_object)->sprite_frame = ROM16(record);
+	OBJECT(*p_object)->sprite_frame = HANDLER_SPAWN_RECORD(record - 0x6u)->handler_arg;
 	record += 2u;
-	OBJECT(*p_object)->handler = ROM32(record);
+	OBJECT(*p_object)->handler = HANDLER_SPAWN_RECORD(record - 0x8u)->handler;
 	record += 4u;
 	handler_spawn_cursor += 0xCu;
 	*p_list_offset = list_offset;
@@ -373,7 +373,7 @@ void spawn_objects_by_type(uint32_t *p_player_object, uint32_t *p_player_index, 
 	}
 	record = type_spawn_cursor[0];
 	r0 = scroll_position;
-	trigger_scroll = ROM16(record);
+	trigger_scroll = TYPE_SPAWN_RECORD(record)->position;
 	record += 2u;
 	if (trigger_scroll == 0xFFFFu || r0 <= trigger_scroll)
 	{
@@ -381,16 +381,16 @@ void spawn_objects_by_type(uint32_t *p_player_object, uint32_t *p_player_index, 
 		*p_player_object = player_object;
 		return;
 	}
-	*p_projected_x = ROM16(record);
+	*p_projected_x = TYPE_SPAWN_RECORD(record - 0x2u)->projected_x;
 	record += 2u;
-	projected_y = (int16_t)ROM16(record);
+	projected_y = TYPE_SPAWN_RECORD(record - 0x4u)->projected_y;
 	record += 2u;
-	spawn_z = (uint16_t)(int16_t)ROM16(record);
+	spawn_z = (uint16_t)TYPE_SPAWN_RECORD(record - 0x6u)->z;
 	record += 2u;
 	if ((int32_t)trigger_scroll <= (int32_t)r0)
 	{
-		*p_object_type = 0x100000u + ROM16(record) * 8u;
-		spawn_count = ROM32(*p_object_type);
+		*p_object_type = 0x100000u + TYPE_SPAWN_RECORD(record - 0x8u)->object_type * 8u;
+		spawn_count = OBJECT_TYPE_RECORD(*p_object_type)->part_count;
 		record += 2u;
 		*p_object_type += 4u;
 		spawn_object_with_pieces(0x08DCB1u, &r0, &ignored, p_player_index, p_first, p_object);
@@ -408,10 +408,10 @@ void spawn_objects_by_type(uint32_t *p_player_object, uint32_t *p_player_index, 
 		OBJECT(current_object)->projected_y = projected_y;
 		OBJECT(current_object)->z = (uint32_t)spawn_z << 16;
 		OBJECT(current_object)->flags = 0u;
-		OBJECT(current_object)->handler = ROM32(*p_object_type);
-		OBJECT(current_object)->spawn_arg_1 = ROM16(record);
+		OBJECT(current_object)->handler = OBJECT_TYPE_RECORD(*p_object_type - 0x4u)->handler;
+		OBJECT(current_object)->spawn_arg_1 = TYPE_SPAWN_RECORD(record - 0xAu)->spawn_arg_1;
 		record += 2u;
-		OBJECT(current_object)->spawn_arg_2 = ROM16(record);
+		OBJECT(current_object)->spawn_arg_2 = TYPE_SPAWN_RECORD(record - 0xCu)->spawn_arg_2;
 		type_spawn_cursor[0] = record + 2u;
 		unproject_object(&ignored, &ignored, p_first, p_object);
 		count_active_players(&player_object, p_player_index);
@@ -1566,7 +1566,7 @@ void spawn_object_groups(uint32_t *p_list_offset, uint32_t *p_free_stack, uint32
 	for (;;)
 	{
 		record = group_spawn_cursor;
-		spawn_position = ROM16(record);
+		spawn_position = GROUP_SPAWN_RECORD(record)->position;
 		record += 2u;
 		if (scroll_position < spawn_position)
 		{
@@ -1574,7 +1574,7 @@ void spawn_object_groups(uint32_t *p_list_offset, uint32_t *p_free_stack, uint32
 			return;
 		}
 		group_silent = 0u;
-		kind_index = ROM8(record) * 2u;
+		kind_index = GROUP_SPAWN_RECORD(record - 0x2u)->kind * 2u;
 		record++;
 		switch (kind_index)
 		{
@@ -1679,7 +1679,7 @@ void spawn_object_groups_build_group(uint32_t record, uint32_t *p_list_offset, u
 	uint32_t floor_block_record = 0, free_count = 0, member_record = 0, slope_number = 0, slope_record = 0, slot_cursor = 0;
 	uint16_t slot_taken = 0, members_left = 0;
 
-	if ((uint16_t)(scroll_position - ROM16(record - 3u)) >= 0x100u)
+	if ((uint16_t)(scroll_position - GROUP_SPAWN_RECORD(record - 0x3u)->position) >= 0x100u)
 	{
 		group_spawn_cursor += 0x18u;
 		*p_list_offset = (*p_list_offset & 0xFFFF0000u) | list_offset;
@@ -1687,26 +1687,26 @@ void spawn_object_groups_build_group(uint32_t record, uint32_t *p_list_offset, u
 		*p_object = object;
 		return;
 	}
-	group_leader = group_leaders[ROM8(record)];
+	group_leader = group_leaders[GROUP_SPAWN_RECORD(record - 0x3u)->leader];
 	record++;
-	group_takes_slot = ROM8(record);
+	group_takes_slot = GROUP_SPAWN_RECORD(record - 0x4u)->takes_slot;
 	record += 2u;
-	group_floor_block = ROM32(record);
+	group_floor_block = GROUP_SPAWN_RECORD(record - 0x6u)->floor_block;
 	record += 4u;
-	group_member_count = ROM16(record);
+	group_member_count = GROUP_SPAWN_RECORD(record - 0xAu)->member_count;
 	record += 2u;
 	if (free_object_stack < group_member_count)
 		return;
-	group_step_x = ROM16(record);
+	group_step_x = GROUP_SPAWN_RECORD(record - 0xCu)->step_x;
 	record += 2u;
-	group_step_y = ROM16(record);
+	group_step_y = GROUP_SPAWN_RECORD(record - 0xEu)->step_y;
 	record += 2u;
-	group_direction = ROM16(record);
+	group_direction = GROUP_SPAWN_RECORD(record - 0x10u)->direction;
 	record += 2u;
-	group_member_x = ROM16(record);
+	group_member_x = GROUP_SPAWN_RECORD(record - 0x12u)->member_x;
 	record += 2u;
-	group_member_y = ROM16(record);
-	object = ROM16(record + 2u) + stage_object_records_ADDRESS;
+	group_member_y = GROUP_SPAWN_RECORD(record - 0x14u)->member_y;
+	object = GROUP_SPAWN_RECORD(record - 0x14u)->member_template + stage_object_records_ADDRESS;
 	group_record = object;
 	group_member_number = 0u;
 	if (group_takes_slot != 0u)
@@ -1786,11 +1786,11 @@ void spawn_object_groups_build_group(uint32_t record, uint32_t *p_list_offset, u
 		{
 			slope_number = FLOOR_BLOCK(floor_block_record)->slope;
 			slope_record = floor_slopes_ADDRESS + (uint16_t)(slope_number * 2u) * 4u;
-			if ((ROM32(slope_record) & 2u) == 0u)
+			if ((FLOOR_SLOPE(slope_record)->flags & 2u) == 0u)
 				*p_slope_z = (uint32_t)OBJECT(object)->y - FLOOR_BLOCK(floor_block_record)->y_min;
 			else
 				*p_slope_z = (uint32_t)OBJECT(object)->x - FLOOR_BLOCK(floor_block_record)->x_min;
-			*p_slope_z = ((int32_t)*p_slope_z >> 16) * ROM32(slope_record + 2u);
+			*p_slope_z = (uint32_t)((int32_t)*p_slope_z >> 16) * FLOOR_SLOPE(slope_record)->factor;
 			OBJECT(object)->floor_z += *p_slope_z;
 		}
 		OBJECT(object)->z = OBJECT(object)->floor_z;
@@ -2150,25 +2150,25 @@ void group_leader_read_script(void)
 	}
 	OBJECT(current_object)->group_leader_move.wait_timer = 0;
 	cursor = OBJECT(current_object)->group_leader_move.path;
-	trigger_scroll = ROM16(cursor);
+	trigger_scroll = CHASE_STEP_AT_SCROLL(cursor)->position;
 	cursor += 2u;
 	if (scroll_position < trigger_scroll)
 	{
 		group_leader_move_step();
 		return;
 	}
-	if ((int16_t)ROM16(cursor + 2u) < 0)
+	if (CHASE_STEP_AT_SCROLL(cursor - 0x2u)->catch_up_factor < 0)
 	{
 		delete_current_object();
 		return;
 	}
-	OBJECT(current_object)->group_leader_move.screen_threshold = ROM16(cursor);
+	OBJECT(current_object)->group_leader_move.screen_threshold = CHASE_STEP_AT_SCROLL(cursor - 0x2u)->screen_threshold;
 	cursor += 2u;
-	OBJECT(current_object)->group_leader_move.catch_up_factor = ROM16(cursor);
+	OBJECT(current_object)->group_leader_move.catch_up_factor = CHASE_STEP_AT_SCROLL(cursor - 0x4u)->catch_up_factor;
 	cursor += 2u;
-	OBJECT(current_object)->group_leader_move.base_speed = ROM16(cursor);
+	OBJECT(current_object)->group_leader_move.base_speed = CHASE_STEP_AT_SCROLL(cursor - 0x6u)->base_speed;
 	cursor += 2u;
-	OBJECT(current_object)->group_leader_move.wait_timer = ROM16(cursor);
+	OBJECT(current_object)->group_leader_move.wait_timer = CHASE_STEP_AT_SCROLL(cursor - 0x8u)->wait;
 	OBJECT(current_object)->group_leader_move.path = cursor + 2u;
 	group_leader_move_step();
 }
@@ -2452,13 +2452,13 @@ void spawn_object_groups_2(uint32_t *p_list_offset, uint32_t *p_count, uint32_t 
 	for (;;)
 	{
 		record = group_spawn_cursor_2;
-		spawn_position = ROM16(record);
+		spawn_position = GROUP_SPAWN_RECORD(record)->position;
 		record += 2u;
 		if (scroll_position < spawn_position)
 		{
 			return;
 		}
-		kind_index = ROM8(record) * 2u;
+		kind_index = GROUP_SPAWN_RECORD(record - 0x2u)->kind * 2u;
 		record++;
 		switch (kind_index)
 		{
@@ -2499,7 +2499,7 @@ void spawn_object_groups_2_pick_bridge(uint32_t record, uint32_t *p_list_offset,
 	uint8_t bridge_number = 0;
 	uint32_t plank_count_var = 0;
 
-	if (free_object_stack < (int16_t)ROM16(record + 5u))
+	if (free_object_stack < (int16_t)(uint16_t)(GROUP_SPAWN_RECORD(record - 0x3u)->floor_block >> 16u))
 		return;
 	bridge_number = 0u;
 	plank_count_var = bridge_0_plank_count_ADDRESS;
@@ -2533,31 +2533,31 @@ void spawn_object_groups_2_build_group(uint32_t record, uint32_t plank_count_var
 	uint8_t slot_taken = 0;
 	uint16_t members_left = 0;
 
-	if ((uint16_t)(scroll_position - ROM16(record - 3u)) >= 0x100u)
+	if ((uint16_t)(scroll_position - GROUP_SPAWN_RECORD(record - 0x3u)->position) >= 0x100u)
 	{
 		group_spawn_cursor_2 += 0x18u;
 		return;
 	}
-	group_leader = group_leaders[ROM8(record)];
+	group_leader = group_leaders[GROUP_SPAWN_RECORD(record - 0x3u)->leader];
 	record++;
-	group_takes_slot = ROM8(record);
+	group_takes_slot = GROUP_SPAWN_RECORD(record - 0x4u)->takes_slot;
 	record += 2u;
-	group_floor_block = ROM32(record);
+	group_floor_block = GROUP_SPAWN_RECORD(record - 0x6u)->floor_block;
 	record += 4u;
-	group_member_count = ROM16(record);
+	group_member_count = GROUP_SPAWN_RECORD(record - 0xAu)->member_count;
 	group_previous_member = 0xFFFFu;
 	mem_write16(plank_count_var, mem_read16(plank_count_var) + group_member_count);
 	record += 2u;
-	group_step_x = ROM16(record);
+	group_step_x = GROUP_SPAWN_RECORD(record - 0xCu)->step_x;
 	record += 2u;
-	group_step_y = ROM16(record);
+	group_step_y = GROUP_SPAWN_RECORD(record - 0xEu)->step_y;
 	record += 2u;
-	group_direction = ROM16(record);
+	group_direction = GROUP_SPAWN_RECORD(record - 0x10u)->direction;
 	record += 2u;
-	group_member_x = ROM16(record);
+	group_member_x = GROUP_SPAWN_RECORD(record - 0x12u)->member_x;
 	record += 2u;
-	group_member_y = ROM16(record);
-	group_record = ROM16(record + 2u);
+	group_member_y = GROUP_SPAWN_RECORD(record - 0x14u)->member_y;
+	group_record = GROUP_SPAWN_RECORD(record - 0x14u)->member_template;
 	if (group_takes_slot != 0u)
 	{
 		slot_cursor = group_slots_ADDRESS;
@@ -2620,8 +2620,8 @@ void spawn_object_groups_2_build_group(uint32_t record, uint32_t plank_count_var
 		OBJECT(object)->speed_x = OBJECT(object)->z;
 		OBJECT(object)->floor_slope = FLOOR_BLOCK(floor_block_record)->slope;
 		floor_type_record = floor_types_ADDRESS + FLOOR_BLOCK(floor_block_record)->type_index * 4u;
-		OBJECT(object)->floor_type = ROM8(floor_type_record);
-		OBJECT(object)->floor_attribute = ROM16(floor_type_record + 2u);
+		OBJECT(object)->floor_type = FLOOR_BLOCK_TYPE(floor_type_record)->floor_type;
+		OBJECT(object)->floor_attribute = FLOOR_BLOCK_TYPE(floor_type_record)->floor_attribute;
 		OBJECT(object)->flags = 0u;
 		OBJECT(object)->spawn_arg_2_low = 0u;
 		OBJECT(object)->var_8A = group_slot_index;

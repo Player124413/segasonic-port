@@ -3,7 +3,7 @@
  *    Description: the ring tally after a stage (game mode 0x1D): the total and the players' panels
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    19-10-2026
+ *    Modified:    21-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -579,7 +579,7 @@ void update_ring_tally_panel(void)
 		update_ring_tally_panel_count_up();
 		return;
 	case 2:
-		OBJECT(object_cursor)->sprite_frame = ROM16(OBJECT(object_cursor)->update_ring_tally_panel.result_frames + 2u);
+		OBJECT(object_cursor)->sprite_frame = RING_TALLY_RESULT_FACES(OBJECT(object_cursor)->update_ring_tally_panel.result_frames)->bonus_frame;
 		queue_sprite_in_layer();
 		current_object = OBJECT(object_cursor)->update_ring_tally_panel.bonus_label;
 		queue_sprite_in_layer();
@@ -609,7 +609,7 @@ void update_ring_tally_panel(void)
 		sound_id = 0x89u;
 		queue_sound(sound_id, &ignored, &ignored);
 		OBJECT(object_cursor)->update_ring_tally_panel.step++;
-		OBJECT(object_cursor)->sprite_frame = ROM16(OBJECT(object_cursor)->update_ring_tally_panel.result_frames);
+		OBJECT(object_cursor)->sprite_frame = RING_TALLY_RESULT_FACES(OBJECT(object_cursor)->update_ring_tally_panel.result_frames)->no_bonus_frame;
 		queue_sprite_in_layer();
 		current_object = OBJECT(object_cursor)->update_ring_tally_panel.bonus_label;
 		queue_sprite_in_layer();
@@ -632,7 +632,7 @@ void update_ring_tally_panel(void)
 		}
 		return;
 	case 4:
-		OBJECT(object_cursor)->sprite_frame = ROM16(OBJECT(object_cursor)->update_ring_tally_panel.result_frames);
+		OBJECT(object_cursor)->sprite_frame = RING_TALLY_RESULT_FACES(OBJECT(object_cursor)->update_ring_tally_panel.result_frames)->no_bonus_frame;
 		queue_sprite_in_layer();
 		current_object = OBJECT(object_cursor)->update_ring_tally_panel.bonus_label;
 		queue_sprite_in_layer();

@@ -3,7 +3,7 @@
  *    Description: rings: the stage rows, spinning, carried and scattered rings, sparkles; the unused gauge ring and template spawner
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    19-10-2026
+ *    Modified:    21-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -33,12 +33,12 @@ void spawn_ring_rows(uint32_t *p_stage_list_offset, uint32_t *p_free_stack, uint
 		ring_spawn_cursor = stage_template_spawns_ADDRESS + stage_list_offset;
 	}
 	row_cursor = ring_spawn_cursor;
-	if (scroll_position < ROM16(row_cursor))
+	if (scroll_position < RING_ROW(row_cursor)->position)
 	{
 		*p_stage_list_offset = stage_list_offset;
 		return;
 	}
-	scroll_past_row = (uint16_t)(scroll_position - ROM16(row_cursor));
+	scroll_past_row = (uint16_t)(scroll_position - RING_ROW(row_cursor)->position);
 	row_cursor += 2u;
 	if ((int16_t)scroll_past_row >= 0x100)
 	{
@@ -48,21 +48,21 @@ void spawn_ring_rows(uint32_t *p_stage_list_offset, uint32_t *p_free_stack, uint
 		*p_object = object;
 		return;
 	}
-	if (free_object_stack < (int16_t)ROM16(row_cursor + 2u) || free_object_stack_2[0] < (int16_t)ROM16(row_cursor + 2u))
+	if (free_object_stack < RING_ROW(row_cursor - 0x2u)->ring_count || free_object_stack_2[0] < RING_ROW(row_cursor - 0x2u)->ring_count)
 	{
 		*p_stage_list_offset = stage_list_offset;
 		return;
 	}
-	ring_row_template = ROM16(row_cursor);
+	ring_row_template = RING_ROW(row_cursor - 0x2u)->template_offset;
 	row_cursor += 2u;
-	ring_row_rings_left = ROM16(row_cursor);
+	ring_row_rings_left = RING_ROW(row_cursor - 0x4u)->ring_count;
 	row_cursor += 2u;
-	ring_row_x = ROM16(row_cursor);
+	ring_row_x = RING_ROW(row_cursor - 0x6u)->x;
 	row_cursor += 2u;
-	ring_row_y = ROM16(row_cursor);
+	ring_row_y = RING_ROW(row_cursor - 0x8u)->y;
 	row_cursor += 2u;
-	ring_row_dx = (int8_t)ROM8(row_cursor);
-	ring_row_dy = (int8_t)ROM8(row_cursor + 1u);
+	ring_row_dx = RING_ROW(row_cursor - 0xAu)->dx;
+	ring_row_dy = RING_ROW(row_cursor - 0xAu)->dy;
 	ring_row_next_80 = 0u;
 	do
 	{
@@ -707,7 +707,7 @@ void spawn_gauge_ring(uint32_t ring)
 		OBJECT(ring)->direction = 0u;
 		OBJECT(ring)->gauge_ring.step = 0u;
 		OBJECT(ring)->kind = OBJECT(current_object)->kind;
-		OBJECT(ring)->speed_x = (int32_t)((uint32_t)(uint16_t)(ROM16(hud_gauge_positions_3p_ADDRESS + OBJECT(current_object)->player * 4u) + 0x10u - OBJECT(ring)->screen_x) << 16) / 0x3C;
+		OBJECT(ring)->speed_x = (int32_t)((uint32_t)(uint16_t)(hud_gauge_positions_3p[OBJECT(current_object)->player].x + 0x10u - OBJECT(ring)->screen_x) << 16) / 0x3C;
 		OBJECT(ring)->gauge_ring.turn_speed = 0x88u;
 		OBJECT(ring)->gauge_ring.hop_timer = 0x1E;
 		sound_id = 0x7Fu;
@@ -741,7 +741,7 @@ void gauge_ring_update(void)
 
 /* Unused: the gauge ring's step 0: moves on by speed_x while it rises along a sine arc up to 0x40 above
    base_y (direction + turn_speed a frame); after hop_timer frames step 1, with base_y at its gauge's y
-   (hud_gauge_positions_3p_y by kind) and drop_height from the distance down to it. */
+   (hud_gauge_positions_3p[kind].y) and drop_height from the distance down to it. */
 void gauge_ring_rise(void)
 {
 	uint16_t gauge_y = 0, y = 0;
@@ -761,7 +761,7 @@ void gauge_ring_rise(void)
 	if ((int8_t)hop_timer <= 1)
 	{
 		OBJECT(current_object)->gauge_ring.step++;
-		gauge_y = ROM16(hud_gauge_positions_3p_y_ADDRESS + OBJECT(current_object)->kind * 4u);
+		gauge_y = (uint16_t)hud_gauge_positions_3p[OBJECT(current_object)->kind].y;
 		OBJECT(current_object)->gauge_ring.base_y = gauge_y;
 		OBJECT(current_object)->gauge_ring.drop_height = 0u - (uint16_t)((uint32_t)(gauge_y - OBJECT(current_object)->screen_y) << 2);
 		OBJECT(current_object)->gauge_ring.turn_speed = 0x88u;

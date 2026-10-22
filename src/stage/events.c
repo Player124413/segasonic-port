@@ -3,7 +3,7 @@
  *    Description: the scripted game modes run_game_mode jumps into and what they spawn: platforms, rocks, lightning, message boxes, the escape alarm and countdown
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    20-10-2026
+ *    Modified:    21-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -105,17 +105,17 @@ void event_0f_show_messages(uint32_t *p_frames, uint32_t *p_box)
 
 	scene_timer++;
 	cursor = event_0f_message_cursor;
-	show_time = ROM16(cursor);
+	show_time = EVENT_0F_MESSAGE(cursor)->show_time;
 	cursor += 2u;
 	if ((int16_t)show_time <= scene_timer)
 	{
-		screen_x = ROM16(cursor);
+		screen_x = EVENT_0F_MESSAGE(cursor - 0x2u)->screen_x;
 		cursor += 2u;
-		screen_y = ROM16(cursor);
+		screen_y = EVENT_0F_MESSAGE(cursor - 0x4u)->screen_y;
 		cursor += 2u;
-		kind = ROM16(cursor);
+		kind = EVENT_0F_MESSAGE(cursor - 0x6u)->kind;
 		cursor += 2u;
-		frames = ROM16(cursor);
+		frames = EVENT_0F_MESSAGE(cursor - 0x8u)->frames;
 		event_0f_message_cursor = cursor + 2u;
 		*p_box = spawn_message_box(screen_x, screen_y, kind, frames, *p_box);
 	}
@@ -144,13 +144,13 @@ void spawn_falling_rocks(uint32_t object)
 		allocate_object_outside_loop(&free_count, &object);
 		if (free_count == 0u)
 			break;
-		OBJECT(object)->x_int = ROM16(rock_record);
+		OBJECT(object)->x_int = FALLING_ROCK(rock_record)->x;
 		OBJECT(object)->x_fraction = 0u;
 		rock_record += 2u;
-		OBJECT(object)->y_int = ROM16(rock_record);
+		OBJECT(object)->y_int = FALLING_ROCK(rock_record - 0x2u)->y;
 		OBJECT(object)->y_fraction = 0u;
 		rock_record += 2u;
-		OBJECT(object)->z_int = ROM16(rock_record);
+		OBJECT(object)->z_int = FALLING_ROCK(rock_record - 0x4u)->z;
 		OBJECT(object)->z_fraction = 0u;
 		OBJECT(object)->sprite_flags = 0x1000u;
 		OBJECT(object)->sprite_palette = 0x8240u;
@@ -159,15 +159,15 @@ void spawn_falling_rocks(uint32_t object)
 		OBJECT(object)->flags = 0u;
 		OBJECT(object)->handler = falling_rock_bounce_ADDRESS;
 		rock_record += 2u;
-		OBJECT(object)->speed_x = (uint32_t)(int16_t)ROM16(rock_record) << 12;
+		OBJECT(object)->speed_x = (uint32_t)FALLING_ROCK(rock_record - 0x6u)->speed_x << 12;
 		rock_record += 2u;
-		OBJECT(object)->speed_y = (uint32_t)(int16_t)ROM16(rock_record) << 12;
+		OBJECT(object)->speed_y = (uint32_t)FALLING_ROCK(rock_record - 0x8u)->speed_y << 12;
 		OBJECT(object)->speed_z = 0;
 		OBJECT(object)->animation_frame = 0u;
 		OBJECT(object)->animation_speed = 4u;
 		OBJECT(object)->animation_timer = 0;
 		rock_record += 2u;
-		OBJECT(object)->animation = ROM32(rock_record);
+		OBJECT(object)->animation = FALLING_ROCK(rock_record - 0xAu)->animation;
 		rock_record += 4u;
 		rocks_left--;
 	} while (rocks_left != 0u);
@@ -484,19 +484,19 @@ void update_stage_05_event(uint32_t position, uint32_t speed, uint32_t object, u
 				scene_step++;
 				return;
 			}
-			OBJECT(object)->sprite_flags = ROM16(piece_record);
+			OBJECT(object)->sprite_flags = ROCK_DEBRIS_PIECE(piece_record)->sprite_flags;
 			OBJECT(object)->screen_x = screen_x;
 			piece_record += 2u;
-			OBJECT(object)->screen_x += ROM16(piece_record);
+			OBJECT(object)->screen_x += ROCK_DEBRIS_PIECE(piece_record - 0x2u)->offset_x;
 			OBJECT(object)->screen_y = r14;
 			piece_record += 2u;
-			OBJECT(object)->screen_y += ROM16(piece_record);
+			OBJECT(object)->screen_y += ROCK_DEBRIS_PIECE(piece_record - 0x4u)->offset_y;
 			piece_record += 2u;
-			OBJECT(object)->speed_x_fraction = ROM16(piece_record);
+			OBJECT(object)->speed_x_fraction = ROCK_DEBRIS_PIECE(piece_record - 0x6u)->speed_x;
 			piece_record += 2u;
-			OBJECT(object)->speed_y_fraction = ROM16(piece_record);
+			OBJECT(object)->speed_y_fraction = ROCK_DEBRIS_PIECE(piece_record - 0x8u)->speed_y;
 			piece_record += 2u;
-			OBJECT(object)->animation = rock_debris_animations_ADDRESS + ROM16(piece_record);
+			OBJECT(object)->animation = rock_debris_animations_ADDRESS + ROCK_DEBRIS_PIECE(piece_record - 0xAu)->animation_offset;
 			OBJECT(object)->sprite_palette = 0x8240u;
 			OBJECT(object)->projected_x = (uint32_t)OBJECT(object)->screen_x << 4;
 			OBJECT(object)->projected_y_fraction = (uint32_t)OBJECT(object)->screen_y << 4;
@@ -935,7 +935,7 @@ void spawn_stage_06_lightning(uint32_t *p_record, uint32_t *p_bolt)
 	if ((init_flags & 0x1000u) == 0u)
 		stage_06_lightning_cursor = stage_06_lightning_strikes_ADDRESS;
 	record = stage_06_lightning_cursor;
-	strike_time = ROM16(record);
+	strike_time = STAGE_06_LIGHTNING_STRIKE(record)->strike_time;
 	record += 2u;
 	if (scene_timer < (int16_t)strike_time)
 	{
@@ -953,11 +953,11 @@ void spawn_stage_06_lightning(uint32_t *p_record, uint32_t *p_bolt)
 	OBJECT(bolt)->sprite_palette = 0x9110u;
 	OBJECT(bolt)->flags = 0u;
 	OBJECT(bolt)->handler = stage_06_lightning_animate_ADDRESS;
-	OBJECT(bolt)->screen_x = ROM16(record);
+	OBJECT(bolt)->screen_x = STAGE_06_LIGHTNING_STRIKE(record - 0x2u)->screen_x;
 	record += 2u;
-	OBJECT(bolt)->screen_y = ROM16(record);
+	OBJECT(bolt)->screen_y = STAGE_06_LIGHTNING_STRIKE(record - 0x4u)->screen_y;
 	record += 2u;
-	OBJECT(bolt)->animation = ROM32(record);
+	OBJECT(bolt)->animation = STAGE_06_LIGHTNING_STRIKE(record - 0x6u)->animation;
 	OBJECT(bolt)->animation_frame = 0u;
 	OBJECT(bolt)->animation_timer = 0;
 	OBJECT(bolt)->animation_speed = 4u;
@@ -1021,12 +1021,12 @@ void CONSOLE_ORIGINAL(place_message_box)(uint16_t screen_x, uint16_t screen_y, u
 	OBJECT(box)->screen_y = screen_y;
 	OBJECT(box)->speed_x_fraction = frames;
 	kind = (uint16_t)kind * 8u + message_box_kinds_ADDRESS;
-	OBJECT(box)->sprite_frame = ROM16(kind);
+	OBJECT(box)->sprite_frame = MESSAGE_BOX_KIND(kind)->sprite_frame;
 	kind += 2u;
-	OBJECT(box)->sprite_palette = ROM16(kind);
+	OBJECT(box)->sprite_palette = MESSAGE_BOX_KIND(kind - 0x2u)->palette;
 	kind += 2u;
-	OBJECT(box)->speed_x_int = ROM16(kind);
-	OBJECT(box)->sprite_height = ROM16(kind + 2u);
+	OBJECT(box)->speed_x_int = MESSAGE_BOX_KIND(kind - 0x4u)->width;
+	OBJECT(box)->sprite_height = MESSAGE_BOX_KIND(kind - 0x4u)->height;
 	OBJECT(box)->sprite_flags = 0x9000u;
 	OBJECT(box)->flags = 0u;
 	OBJECT(box)->sprite_width = 0;

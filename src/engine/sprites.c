@@ -3,7 +3,7 @@
  *    Description: animation and the sprite list: animation steps (frames, flips, moves, offsets, multi-part sprites), part palette cycles, the depth buckets, build_sprite_list and the buffer swap at VBLANK
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    19-10-2026
+ *    Modified:    21-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -26,14 +26,14 @@ void cycle_part_palettes(void)
 		return;
 	OBJECT(current_object)->cycle_part_palettes.palette_timer = OBJECT(current_object)->cycle_part_palettes.palette_delay;
 	palettes = OBJECT(current_object)->cycle_part_palettes.palette_list;
-	last_index = (uint8_t)ROM16(palettes);
+	last_index = (uint8_t)HUD_PALETTE_CYCLE(palettes)->last_index;
 	next_index = OBJECT(current_object)->cycle_part_palettes.palette_index;
 	next_index = (uint8_t)(next_index + 1u);
 	palettes += 2u;
 	if ((int8_t)last_index <= (int8_t)next_index && (int8_t)last_index < (int8_t)next_index)
 		next_index = 0u;
 	OBJECT(current_object)->cycle_part_palettes.palette_index = next_index;
-	palette = ROM16(palettes + next_index * 2u);
+	palette = HUD_CYCLE_PALETTES(palettes)[next_index];
 	part = OBJECT(current_object)->part_list;
 	parts_left = SPRITE_PART_LIST(part)->count;
 	part += 2u;
@@ -77,7 +77,7 @@ void animate_step_with_flags(uint32_t *p_frame, uint32_t *p_at_last_step)
 	uint32_t frame = 0, step_record = 0;
 
 	step_record = OBJECT(current_object)->animation;
-	last_frame = (uint8_t)ROM16(step_record);
+	last_frame = (uint8_t)FRAME_ANIMATION(step_record)->last_frame;
 	frame = OBJECT(current_object)->animation_frame;
 	frame = (uint8_t)(frame + 1u);
 	step_record += 2u;
@@ -133,7 +133,7 @@ void animate_step(uint32_t *p_frame, uint32_t *p_wrapped, uint32_t *p_at_last_st
 	uint32_t frame = 0, frame_list = 0;
 
 	frame_list = OBJECT(current_object)->animation;
-	last_frame = (uint8_t)ROM16(frame_list);
+	last_frame = (uint8_t)FRAME_ANIMATION(frame_list)->last_frame;
 	frame = OBJECT(current_object)->animation_frame;
 	frame_list += 2u;
 	if ((OBJECT(current_object)->flags & 0x80u) == 0u)
@@ -142,7 +142,7 @@ void animate_step(uint32_t *p_frame, uint32_t *p_wrapped, uint32_t *p_at_last_st
 		if ((int8_t)frame < (int8_t)last_frame)
 		{
 			OBJECT(current_object)->animation_frame = frame;
-			OBJECT(current_object)->sprite_frame = ROM16(frame_list + frame * 2u);
+			OBJECT(current_object)->sprite_frame = SPRITE_FRAME_NUMBERS(frame_list)[frame];
 			*p_frame = frame;
 			return;
 		}
@@ -151,14 +151,14 @@ void animate_step(uint32_t *p_frame, uint32_t *p_wrapped, uint32_t *p_at_last_st
 			frame = 0u;
 			wrapped = 0xFFu;
 			OBJECT(current_object)->animation_frame = frame;
-			OBJECT(current_object)->sprite_frame = ROM16(frame_list + frame * 2u);
+			OBJECT(current_object)->sprite_frame = SPRITE_FRAME_NUMBERS(frame_list)[frame];
 			*p_frame = frame;
 			*p_wrapped = (*p_wrapped & 0xFFFFFF00u) | wrapped;
 			return;
 		}
 		at_last_step = 0xFFu;
 		OBJECT(current_object)->animation_frame = frame;
-		OBJECT(current_object)->sprite_frame = ROM16(frame_list + frame * 2u);
+		OBJECT(current_object)->sprite_frame = SPRITE_FRAME_NUMBERS(frame_list)[frame];
 		*p_frame = frame;
 		*p_at_last_step = (*p_at_last_step & 0xFFFFFF00u) | at_last_step;
 		return;
@@ -167,7 +167,7 @@ void animate_step(uint32_t *p_frame, uint32_t *p_wrapped, uint32_t *p_at_last_st
 	if ((int8_t)frame > 0)
 	{
 		OBJECT(current_object)->animation_frame = frame;
-		OBJECT(current_object)->sprite_frame = ROM16(frame_list + frame * 2u);
+		OBJECT(current_object)->sprite_frame = SPRITE_FRAME_NUMBERS(frame_list)[frame];
 		*p_frame = frame;
 		return;
 	}
@@ -176,14 +176,14 @@ void animate_step(uint32_t *p_frame, uint32_t *p_wrapped, uint32_t *p_at_last_st
 		frame = (uint8_t)last_frame;
 		wrapped = 0xFFu;
 		OBJECT(current_object)->animation_frame = frame;
-		OBJECT(current_object)->sprite_frame = ROM16(frame_list + frame * 2u);
+		OBJECT(current_object)->sprite_frame = SPRITE_FRAME_NUMBERS(frame_list)[frame];
 		*p_frame = frame;
 		*p_wrapped = (*p_wrapped & 0xFFFFFF00u) | wrapped;
 		return;
 	}
 	at_last_step = 0xFFu;
 	OBJECT(current_object)->animation_frame = frame;
-	OBJECT(current_object)->sprite_frame = ROM16(frame_list + frame * 2u);
+	OBJECT(current_object)->sprite_frame = SPRITE_FRAME_NUMBERS(frame_list)[frame];
 	*p_frame = frame;
 	*p_at_last_step = (*p_at_last_step & 0xFFFFFF00u) | at_last_step;
 }
@@ -204,7 +204,7 @@ uint32_t animate_and_move(uint32_t at_last_step)
 		return at_last_step;
 	OBJECT(current_object)->animation_timer = OBJECT(current_object)->animation_speed;
 	step_record = OBJECT(current_object)->animation;
-	last_frame = (uint8_t)ROM16(step_record);
+	last_frame = (uint8_t)FRAME_ANIMATION(step_record)->last_frame;
 	frame = OBJECT(current_object)->animation_frame;
 	step_record += 2u;
 	if ((OBJECT(current_object)->flags & 0x80u) == 0u)
@@ -260,7 +260,7 @@ uint32_t animate_around_anchor(void)
 		return at_last_step;
 	OBJECT(current_object)->animation_timer = OBJECT(current_object)->animation_speed;
 	steps = OBJECT(current_object)->animation;
-	last_frame = (uint8_t)ROM16(steps);
+	last_frame = (uint8_t)FRAME_ANIMATION(steps)->last_frame;
 	frame = OBJECT(current_object)->animation_frame;
 	steps += 2u;
 	if ((OBJECT(current_object)->flags & 0x80u) == 0u)
@@ -330,7 +330,7 @@ uint32_t animate_with_screen_offset(uint32_t at_last_step)
 	}
 	OBJECT(current_object)->animation_timer = OBJECT(current_object)->animation_speed;
 	step_record = OBJECT(current_object)->animation;
-	last_frame = (uint8_t)ROM16(step_record);
+	last_frame = (uint8_t)FRAME_ANIMATION(step_record)->last_frame;
 	frame = OBJECT(current_object)->animation_frame;
 	step_record += 2u;
 	if ((OBJECT(current_object)->flags & 0x80u) == 0u)
@@ -412,7 +412,7 @@ void animate_part_list_step(void)
 	uint32_t frame_offsets = 0, next_frame = 0;
 
 	frame_offsets = OBJECT(current_object)->animation;
-	max_frame = (uint8_t)ROM16(frame_offsets);
+	max_frame = (uint8_t)FRAME_ANIMATION(frame_offsets)->last_frame;
 	next_frame = OBJECT(current_object)->animation_frame;
 	frame_offsets += 2u;
 	if ((OBJECT(current_object)->flags & 0x80u) == 0u)
@@ -428,7 +428,7 @@ void animate_part_list_step(void)
 			next_frame = (uint8_t)max_frame;
 	}
 	OBJECT(current_object)->animation_frame = next_frame;
-	OBJECT(current_object)->part_list = ROM16(frame_offsets + next_frame * 2u) + frame_offsets - 2u;
+	OBJECT(current_object)->part_list = PART_LIST_OFFSETS(frame_offsets)[next_frame] + frame_offsets - 2u;
 }
 
 /* animate for a multi-part sprite: on each new step (backwards with flags bit 7, wrapping) the step's
@@ -452,7 +452,7 @@ void animate_all_parts(uint32_t *p_at_last_step, uint32_t *p_part)
 	}
 	OBJECT(current_object)->animation_timer = OBJECT(current_object)->animation_speed;
 	frame_sprites = OBJECT(current_object)->animation;
-	max_frame = (uint8_t)ROM16(frame_sprites);
+	max_frame = (uint8_t)FRAME_ANIMATION(frame_sprites)->last_frame;
 	next_frame = OBJECT(current_object)->animation_frame;
 	frame_sprites += 2u;
 	if ((OBJECT(current_object)->flags & 0x80u) == 0u)
@@ -461,7 +461,7 @@ void animate_all_parts(uint32_t *p_at_last_step, uint32_t *p_part)
 		if ((int8_t)next_frame < (int8_t)max_frame)
 		{
 			OBJECT(current_object)->animation_frame = next_frame;
-			frame_sprite = ROM16(frame_sprites + next_frame * 2u);
+			frame_sprite = SPRITE_FRAME_NUMBERS(frame_sprites)[next_frame];
 			part = OBJECT(current_object)->part_list;
 			parts_left = SPRITE_PART_LIST(part)->count;
 			part += 2u;
@@ -486,7 +486,7 @@ void animate_all_parts(uint32_t *p_at_last_step, uint32_t *p_part)
 		if ((int8_t)next_frame > 0)
 		{
 			OBJECT(current_object)->animation_frame = next_frame;
-			frame_sprite = ROM16(frame_sprites + next_frame * 2u);
+			frame_sprite = SPRITE_FRAME_NUMBERS(frame_sprites)[next_frame];
 			part = OBJECT(current_object)->part_list;
 			parts_left = SPRITE_PART_LIST(part)->count;
 			part += 2u;
@@ -506,7 +506,7 @@ void animate_all_parts(uint32_t *p_at_last_step, uint32_t *p_part)
 			at_last_step = 0xFFu;
 	}
 	OBJECT(current_object)->animation_frame = next_frame;
-	frame_sprite = ROM16(frame_sprites + next_frame * 2u);
+	frame_sprite = SPRITE_FRAME_NUMBERS(frame_sprites)[next_frame];
 	part = OBJECT(current_object)->part_list;
 	parts_left = SPRITE_PART_LIST(part)->count;
 	part += 2u;
@@ -581,7 +581,7 @@ void init_sprite_hardware(uint32_t *p_end_mark, uint32_t *p_source)
 	control_cursor = SPRITE_CONTROL + 0x6u;
 	do
 	{
-		mem_write16(control_cursor, ROM8(control_init));
+		mem_write16(control_cursor, SPRITE_CONTROL_SETTINGS(control_init)[0]);
 		registers_left--;
 		control_init++;
 		control_cursor += 2u;
@@ -868,8 +868,8 @@ void swap_sprite_buffers_now(void)
 
 	sprite_buffer_flip += 2u;
 	swap_entry = sprite_buffer_swaps_ADDRESS + (6u & sprite_buffer_flip) * 2u;
-	sprite_back_buffer_offset = ROM16(swap_entry);
-	mem_write16(sprite_list_jump, ROM16(swap_entry + 2u));
+	sprite_back_buffer_offset = SPRITE_BUFFER_SWAP(swap_entry)->back_buffer_offset;
+	mem_write16(sprite_list_jump, SPRITE_BUFFER_SWAP(swap_entry)->list_jump);
 	status = mem_read8(sprite_status);
 }
 
