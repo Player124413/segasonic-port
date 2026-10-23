@@ -3,7 +3,7 @@
  *    Description: the test mode: the menu, the memory, input and sound tests, the CRT test, the game and coin assignments, the bookkeeping screen, the backup clear, the output test, the exit
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    21-10-2026
+ *    Modified:    22-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -19,7 +19,7 @@ void start_test_mode(uint32_t *p_color, uint32_t *p_blocks_per_row)
 {
 	uint8_t is_8bpp = 0, mode = 0, sound_id = 0;
 	uint16_t scroll_x = 0;
-	uint32_t r0 = 0, r8 = 0, ignored = 0, scroll_y = 0;
+	uint32_t clear_value = 0, count = 0, ignored = 0, scroll_y = 0;
 	uint8_t cnt_bits = 0, port_d_bits = 0, seat_port_bits = 0;
 
 	cnt_bits = mem_read8(io_cnt);
@@ -36,13 +36,13 @@ void start_test_mode(uint32_t *p_color, uint32_t *p_blocks_per_row)
 	mem_write8(io_port_d, port_d_bits & ~8u);
 	sound_id = 0x94u;
 	queue_sound(sound_id, &ignored, &ignored);
-	r8 = wait_for_frames();
+	count = wait_for_frames();
 	reset_objects(&ignored, &ignored);
 	clear_sprite_buckets();
 	mode = 0u;
 	set_screen_mode(mode);
-	clear_text_layer(&r0, &ignored, &ignored);
-	clear_bitmap_layer((uint8_t)r0, &scroll_y, p_color, &ignored, &r8, p_blocks_per_row, &ignored);
+	clear_text_layer(&clear_value, &ignored, &ignored);
+	clear_bitmap_layer((uint8_t)clear_value, &scroll_y, p_color, &ignored, &count, p_blocks_per_row, &ignored);
 	mem_write16(video_layer_disable, 0xFu);
 	scroll_x = 0u;
 	scroll_y &= ~0xFFFFu;
@@ -66,7 +66,7 @@ void start_test_mode(uint32_t *p_color, uint32_t *p_blocks_per_row)
 	mem_write32(video_control, mem_read32(video_control) | 0x800u);
 	fill_value = (fill_value & ~0xFFFFu) | 0x909u;
 	set_halfwords(VIDEO_RAM, 0xE000u, fill_value);
-	run_test_mode(scroll_y, (uint16_t)r8, p_color, p_blocks_per_row);
+	run_test_mode(scroll_y, (uint16_t)count, p_color, p_blocks_per_row);
 }
 
 /* One frame of the test mode: runs the screen test_screen names: 0 test_menu, 1
@@ -218,7 +218,7 @@ void test_memory(uint32_t *p_results_left, uint32_t *p_blocks_per_row)
 {
 	uint8_t is_8bpp = 0, mode = 0;
 	uint16_t scroll_x = 0, scroll_y = 0;
-	uint32_t r0 = 0, r4 = 0, delay_count = 0, ignored = 0, offset_entry = 0, print_position = 0, result_index = 0, text = 0;
+	uint32_t clear_value = 0, delay_count = 0, font_pixels = 0, ignored = 0, offset_entry = 0, print_position = 0, result_index = 0, text = 0;
 	uint8_t cnt_bits = 0;
 
 	if (test_screen_ready == 0u)
@@ -253,7 +253,7 @@ void test_memory(uint32_t *p_results_left, uint32_t *p_blocks_per_row)
 			delay_count--;
 		} while (delay_count != 0u);
 		load_default_palettes();
-		load_text_font(&r4, &ignored);
+		load_text_font(&font_pixels, &ignored);
 		init_video_registers();
 		reset_objects(&ignored, &ignored);
 		init_sound();
@@ -261,8 +261,8 @@ void test_memory(uint32_t *p_results_left, uint32_t *p_blocks_per_row)
 		clear_sprite_buckets();
 		mode = 0u;
 		set_screen_mode(mode);
-		clear_text_layer(&r0, &ignored, &print_position);
-		clear_bitmap_layer((uint8_t)r0, &ignored, &r4, &ignored, &ignored, &ignored, &ignored);
+		clear_text_layer(&clear_value, &ignored, &print_position);
+		clear_bitmap_layer((uint8_t)clear_value, &ignored, &font_pixels, &ignored, &ignored, &ignored, &ignored);
 		mem_write16(video_layer_disable, 0xFu);
 		scroll_x = 0u;
 		scroll_y = 0u;
@@ -327,27 +327,27 @@ void BOARD_ORIGINAL(check_rom_checksums)(void)
 	uint16_t ic8_crc = 0, ic18_crc = 0;
 
 	data = 0u;
-	count = 0x20000u;
+	count = IC17_BYTES;
 	compute_crc16(count, &crc, &data, &ignored);
 	stored_crc = rom_checksum_ic8_ADDRESS;
 	if ((uint16_t)crc != rom_checksums)
 		memory_test_errors |= 1u;
-	data = 0x80000u;
-	count = 0x1F000u;
+	data = IC8_START;
+	count = IC8_BYTES;
 	compute_crc16(count, &crc, &data, &ignored);
 	ic8_crc = ROM_CHIP_CHECKSUMS(stored_crc)[0];
 	stored_crc += 2u;
 	if ((uint16_t)crc != ic8_crc)
 		memory_test_errors |= 4u;
-	data = 0x100000u;
-	count = 0x40000u;
+	data = IC18_START;
+	count = IC18_BYTES;
 	crc = compute_crc16_alternate_bytes(data, count);
 	ic18_crc = ROM_CHIP_CHECKSUMS(stored_crc)[0];
 	stored_crc += 2u;
 	if ((uint16_t)crc != ic18_crc)
 		memory_test_errors |= 2u;
-	data = 0x100001u;
-	count = 0x3FFFFu;
+	data = IC9_START;
+	count = IC9_BYTES;
 	crc = compute_crc16_alternate_bytes(data, count);
 	if ((uint16_t)crc != ROM_CHIP_CHECKSUMS(stored_crc)[0])
 		memory_test_errors |= 8u;
@@ -1205,7 +1205,7 @@ void test_crt(uint32_t start_y, uint32_t *p_color, uint32_t *p_blocks_per_row)
 	{
 	case 0:
 	case 5:
-		return;
+		break;
 	case 1:
 		bar_record = crt_test_color_bars_ADDRESS;
 		rows_left = 4u;
@@ -1235,14 +1235,14 @@ void test_crt(uint32_t start_y, uint32_t *p_color, uint32_t *p_blocks_per_row)
 			rows_left--;
 		} while (rows_left != 0u);
 		test_screen_ready++;
-		*p_color = color;
-		return;
+		break;
 	case 2:
-		if ((0x2002u & inputs_pressed) == 0u)
-			return;
-		clear_text_layer(&ignored, &ignored, &ignored);
-		test_screen_ready++;
-		return;
+		if ((0x2002u & inputs_pressed) != 0u)
+		{
+			clear_text_layer(&ignored, &ignored, &ignored);
+			test_screen_ready++;
+		}
+		break;
 	case 3:
 		mem_write32(video_control, mem_read32(video_control) | 0x800u);
 		fill_value = fill_value & ~0xFFFFu;
@@ -1292,29 +1292,31 @@ void test_crt(uint32_t start_y, uint32_t *p_color, uint32_t *p_blocks_per_row)
 			lines_left--;
 		} while (lines_left != 0u);
 		test_screen_ready++;
-		*p_color = color;
-		return;
+		break;
 	case 4:
-		if ((0x2002u & inputs_pressed) == 0u)
-			return;
-		mem_write32(video_control, mem_read32(video_control) | 0x800u);
-		fill_value = (fill_value & ~0xFFFFu) | 0x909u;
-		set_halfwords(VIDEO_RAM, 0xE000u, fill_value);
-		if (test_continue_mode != 0u)
+		if ((0x2002u & inputs_pressed) != 0u)
 		{
-			test_screen++;
-			test_screen_ready = 0u;
-			return;
+			mem_write32(video_control, mem_read32(video_control) | 0x800u);
+			fill_value = (fill_value & ~0xFFFFu) | 0x909u;
+			set_halfwords(VIDEO_RAM, 0xE000u, fill_value);
+			if (test_continue_mode != 0u)
+			{
+				test_screen++;
+				test_screen_ready = 0u;
+			}
+			else
+			{
+				test_cursor = test_menu_item;
+				test_screen = 0u;
+				test_screen_ready = 1u;
+				draw_test_menu();
+			}
 		}
-		test_cursor = test_menu_item;
-		test_screen = 0u;
-		test_screen_ready = 1u;
-		draw_test_menu();
-		*p_color = color;
-		return;
+		break;
 	default:
 		invalid_jump(0x9D8CCu + test_screen_ready * 3u);
 	}
+	*p_color = color;
 }
 
 /* GAME ASSIGNMENTS: service moves the cursor (past MOVING SEAT without moving_seat_dip), test changes

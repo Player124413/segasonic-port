@@ -579,11 +579,11 @@ void rock_wall_update(void)
 {
 	uint8_t bucket = 0;
 	uint16_t offset_x = 0, offset_y = 0;
-	uint32_t r3 = 0, r11 = 0, deleted = 0, depth = 0, ignored = 0, random_value = 0, ring = 0;
+	uint32_t cursor = 0, deleted = 0, depth = 0, ignored = 0, random_value = 0, ring = 0, slope_height = 0;
 	uint16_t twinkle_delay = 0, direction = 0, direction_2 = 0;
 
-	unproject_object(&ignored, &ignored, &r3, &r11);
-	delete_if_off_screen(&deleted, &ignored, &r3);
+	unproject_object(&ignored, &ignored, &slope_height, &cursor);
+	delete_if_off_screen(&deleted, &ignored, &slope_height);
 	if ((uint8_t)deleted == 1u)
 		return;
 	if (OBJECT(current_object)->rock_wall.breaking != 0u)
@@ -602,7 +602,7 @@ void rock_wall_update(void)
 					released_ring_angle = OBJECT(current_object)->spawn_arg_2;
 					released_ring_flip = 0u;
 					released_rings_random = 0u;
-					drop_rings(r3, &r11, &random_value, &ring);
+					drop_rings(slope_height, &cursor, &random_value, &ring);
 				}
 			}
 			add_to_touchable_list(deleted);
@@ -627,7 +627,7 @@ void rock_wall_update(void)
 					released_ring_angle = OBJECT(current_object)->spawn_arg_2;
 					released_ring_flip = 0u;
 					released_rings_random = 0u;
-					drop_rings(r3, &r11, &random_value, &ring);
+					drop_rings(slope_height, &cursor, &random_value, &ring);
 				}
 			}
 			add_to_touchable_list(deleted);
@@ -939,6 +939,7 @@ void burning_boulder_update(void)
 	uint32_t depth = 0, drop_step = 0, flames_left = 0, floor_slope = 0, ignored = 0, object = 0, path_cursor = 0, slope_factor = 0, speed_level = 0, step_y = 0;
 	uint8_t hold_timer = 0;
 	uint16_t start_delay = 0, wait_timer = 0, record_scroll = 0, record_y = 0, next_slow_timer = 0, rumble_before = 0, rumble_after = 0, start_delay_2 = 0;
+	uint32_t stored1 = 0;
 
 	switch (OBJECT(current_object)->burning_boulder.state)
 	{
@@ -1101,16 +1102,19 @@ void burning_boulder_update(void)
 			animate(&ignored, &ignored, &ignored);
 		}
 		find_floor(&ignored, &ignored, &ignored, &ignored, &ignored);
-		rumble_before = AS16(OBJECT(current_object)->burning_boulder.rumble_timer);
+		rumble_before = (OBJECT(current_object)->burning_boulder.rumble_timer | ((uint32_t)((uint16_t)OBJECT(current_object)->burning_boulder.start_delay & 0xFFu) << 8u));
 		rumble_after = rumble_before - 1u;
 		zero = rumble_after == 0u;
-		AS16(OBJECT(current_object)->burning_boulder.rumble_timer) = rumble_after;
+		OBJECT(current_object)->burning_boulder.rumble_timer = (uint8_t)rumble_after;
+		OBJECT(current_object)->burning_boulder.start_delay = (OBJECT(current_object)->burning_boulder.start_delay & 0xFF00u) | ((rumble_after >> 8u) & 0xFFu);
 		if ((int16_t)rumble_before <= 1)
 		{
 			animation_speed = OBJECT(current_object)->animation_speed;
 			if (zero == 0u)
 			{
-				AS16(OBJECT(current_object)->burning_boulder.rumble_timer) = animation_speed * 0xAu;
+				stored1 = animation_speed * 0xAu;
+				OBJECT(current_object)->burning_boulder.rumble_timer = (uint8_t)stored1;
+				OBJECT(current_object)->burning_boulder.start_delay = (OBJECT(current_object)->burning_boulder.start_delay & 0xFF00u) | ((stored1 >> 8u) & 0xFFu);
 				sound_id = 0xDu;
 				play_sound(sound_id, &ignored, &ignored);
 			}
@@ -2027,7 +2031,7 @@ void bridge_fire_start(void)
 	find_floor(&ignored, &ignored, &ignored, &ignored, &object);
 	project_object(&ignored, &ignored);
 	OBJECT(current_object)->bridge_fire.projected_x_whole = OBJECT(current_object)->projected_x;
-	AS16(OBJECT(current_object)->bridge_fire.fixed_projected_x) = 0u;
+	OBJECT(current_object)->bridge_fire.projected_x_fraction = 0u;
 	bridge_flames_left = 3;
 	if (free_object_stack < bridge_flames_left)
 		return;
@@ -2566,7 +2570,7 @@ void extend_lava_flow(uint32_t block)
 void lava_flow_segment_follow(void)
 {
 	uint16_t part_list = 0;
-	uint32_t r11 = 0, depth = 0, ignored = 0, object = 0, part_list_2 = 0, part_list_3 = 0;
+	uint32_t depth = 0, flame = 0, ignored = 0, object = 0, part_list_2 = 0, part_list_3 = 0;
 
 	if (scroll_position >= 0x7E00u)
 	{
@@ -2597,8 +2601,8 @@ void lava_flow_segment_follow(void)
 	part_list_3 = OBJECT(current_object)->part_list;
 	SPRITE_PART_LIST(part_list_3)->part_0_frame = SPRITE_PART_LIST(part_list_2)->part_0_frame;
 	SPRITE_PART_LIST(part_list_3)->part_1_frame = SPRITE_PART_LIST(part_list_2)->part_0_frame;
-	r11 = spawn_lava_flame(0u, 0u);
-	extend_lava_flow(r11);
+	flame = spawn_lava_flame(0u, 0u);
+	extend_lava_flow(flame);
 	depth = (uint16_t)(OBJECT(LINKED(current_object, OBJECT(current_object)->parent))->screen_y + 0x48u);
 	queue_sprite_at_depth(&ignored, &depth);
 }
@@ -3409,7 +3413,7 @@ void group_slot_trigger_update(void)
 			group_slots[slot] = GROUP_SLOT_TRIGGER_RECORD(cursor - 0x4u)->delay;
 			slot_address = group_slots_ADDRESS + slot * 2u;
 			mem_write16(slot_address, mem_read16(slot_address) | 0x8000u);
-			AS16(OBJECT(current_object)->group_slot_trigger.next_trigger) = cursor + 2u;
+			OBJECT(current_object)->group_slot_trigger.next_trigger_low = cursor + 2u;
 		}
 		return;
 	}

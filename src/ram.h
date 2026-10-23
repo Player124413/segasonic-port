@@ -102,7 +102,7 @@
 #define characters_taken_ADDRESS 0x208090u
 #define characters_taken RAM32(characters_taken_ADDRESS)
 #define players_in_join_chooser_ADDRESS 0x208091u
-#define players_in_join_chooser RAM8(players_in_join_chooser_ADDRESS)
+#define players_in_join_chooser RAM32(players_in_join_chooser_ADDRESS)
 #define free_character_count_ADDRESS 0x208092u
 #define free_character_count RAM8(free_character_count_ADDRESS)
 #define character_select_timer_ADDRESS 0x208093u
@@ -973,6 +973,8 @@
 #define timer_0_ticks RAM32(timer_0_ticks_ADDRESS)
 #define timer_1_ticks_ADDRESS 0x20F034u
 #define timer_1_ticks RAM32(timer_1_ticks_ADDRESS)
+#define frame_counter_long_ADDRESS 0x20F038u
+#define frame_counter_long RAM32(frame_counter_long_ADDRESS)
 #define frame_counter_ADDRESS 0x20F038u
 #define frame_counter RAM8(frame_counter_ADDRESS)
 #define display_off_frames_ADDRESS 0x20F039u
@@ -3948,6 +3950,25 @@
 #define title_sky_script_ADDRESS 0x172D11u
 #define title_waving_background_script_ADDRESS 0x172D41u
 
+/* numbers the code uses, by name (symbols.txt constant lines) */
+#define FRAMES_PER_SECOND 0x3Cu
+#define FRAMES_PER_MINUTE 0xDFBu
+#define IC8_BYTES 0x1F000u
+#define IC17_BYTES 0x20000u
+#define STAGE_05_SWITCHED_TILE_SETS 0x32A03u
+#define FRAMES_PER_HOUR 0x346A7u
+#define IC9_BYTES 0x3FFFFu
+#define IC18_BYTES 0x40000u
+#define IC8_START 0x80000u
+#define INITIALS_TAK 0xA0013u
+#define IC18_START 0x100000u
+#define IC9_START 0x100001u
+#define INITIALS_SEX 0x170412u
+#define INITIALS_XXX 0x171717u
+#define INITIALS_X_X 0x172B17u
+#define INITIALS_XX_ 0x2B1717u
+#define FRAMES_PER_DAY 0x4E9FA0u
+
 /* the game's structures in work RAM */
 #pragma pack(push, 1)
 struct object
@@ -4037,7 +4058,16 @@ struct object
 				struct
 				{
 					uint8_t pad_28[0x2];
-					int16_t projected_x;
+					union
+					{
+						int16_t projected_x;
+						uint8_t letter_fraction;
+						struct
+						{
+							uint8_t pad_2A[0x1];
+							int8_t letter_code;
+						};
+					};
 				};
 			};
 			union
@@ -4395,6 +4425,7 @@ struct object
 			union
 			{
 				int32_t fixed_projected_x;
+				uint16_t projected_x_fraction;
 				struct
 				{
 					uint8_t pad_94[0x2];
@@ -4474,6 +4505,7 @@ struct object
 			union
 			{
 				int32_t fixed_projected_x;
+				uint16_t projected_x_fraction;
 				struct
 				{
 					uint8_t pad_94[0x2];
@@ -4595,9 +4627,16 @@ struct object
 		} centipede_tail;
 		struct
 		{
-			uint8_t pad_10[0x2];
-			uint8_t name_changed;
-			int8_t turn_direction;
+			union
+			{
+				uint32_t player_block;
+				struct
+				{
+					uint8_t pad_10[0x2];
+					uint8_t name_changed;
+					int8_t turn_direction;
+				};
+			};
 			uint8_t pad_14[0x6C];
 			uint8_t idle_step;
 			uint8_t character;
@@ -4646,8 +4685,11 @@ struct object
 		struct
 		{
 			uint8_t pad_10[0x70];
-			int8_t frame_index;
-			uint8_t pad_81[0x1];
+			union
+			{
+				uint16_t frame_index_word;
+				int8_t frame_index;
+			};
 			uint16_t frame_timer;
 		} checker_pad;
 		struct
@@ -4747,8 +4789,16 @@ struct object
 		{
 			uint8_t pad_10[0x70];
 			uint8_t state;
-			uint8_t pad_81[0x2];
-			uint8_t off_screen;
+			uint8_t pad_81[0x1];
+			union
+			{
+				int16_t roll_out_timer;
+				struct
+				{
+					uint8_t pad_82[0x1];
+					uint8_t off_screen;
+				};
+			};
 		} door_roller;
 		struct
 		{
@@ -4826,7 +4876,11 @@ struct object
 			uint8_t pad_10[0x70];
 			uint32_t path;
 			uint8_t pad_84[0x12];
-			uint8_t rides_platform;
+			union
+			{
+				uint16_t dropper_flags;
+				uint8_t rides_platform;
+			};
 		} drop_icicle_row;
 		struct
 		{
@@ -4871,7 +4925,7 @@ struct object
 		{
 			uint8_t pad_10[0x70];
 			int8_t frame_index;
-			uint8_t pad_81[0x1];
+			int8_t stretch_step;
 			uint16_t frame_timer;
 		} eel_piece;
 		struct
@@ -4918,8 +4972,16 @@ struct object
 		struct
 		{
 			uint8_t pad_10[0x70];
-			int8_t frame_index;
-			int8_t last_frame;
+			union
+			{
+				int16_t frame_index_word;
+				int8_t frame_index;
+				struct
+				{
+					uint8_t pad_80[0x1];
+					int8_t last_frame;
+				};
+			};
 			uint16_t frame_toggle;
 			uint16_t draw_offset_y;
 		} electric_pole;
@@ -5225,6 +5287,7 @@ struct object
 			union
 			{
 				int32_t fixed_projected_x;
+				uint16_t projected_x_fraction;
 				struct
 				{
 					uint8_t pad_94[0x2];
@@ -5281,11 +5344,16 @@ struct object
 			uint8_t pad_92[0x4];
 			int16_t depth_offset;
 			uint16_t normal_palette;
+			uint16_t previous_member;
 		} group_member;
 		struct
 		{
 			uint8_t pad_10[0x70];
-			uint32_t next_trigger;
+			union
+			{
+				uint32_t next_trigger;
+				uint16_t next_trigger_low;
+			};
 		} group_slot_trigger;
 		struct
 		{
@@ -5314,8 +5382,16 @@ struct object
 			uint8_t pad_10[0x16];
 			uint16_t parent;
 			uint8_t pad_28[0x58];
-			uint8_t index;
-			uint8_t grip;
+			union
+			{
+				uint16_t index_word;
+				uint8_t index;
+				struct
+				{
+					uint8_t pad_80[0x1];
+					uint8_t grip;
+				};
+			};
 			uint16_t start_angle;
 			int16_t rod_angle_speed;
 			uint16_t rod;
@@ -5404,8 +5480,16 @@ struct object
 			int16_t wait_timer;
 			uint16_t hold_start_position;
 			int16_t travel;
-			uint8_t rides_platform;
-			uint8_t last_dropper;
+			union
+			{
+				uint16_t record_flags;
+				uint8_t rides_platform;
+				struct
+				{
+					uint8_t pad_96[0x1];
+					uint8_t last_dropper;
+				};
+			};
 			union
 			{
 				int32_t platform_offset;
@@ -5422,7 +5506,11 @@ struct object
 			uint8_t pad_10[0x16];
 			uint16_t parent;
 			uint8_t pad_28[0x5E];
-			uint8_t blink_timer;
+			union
+			{
+				uint16_t blink_timer_word;
+				uint8_t blink_timer;
+			};
 		} icicle_shadow;
 		struct
 		{
@@ -5434,8 +5522,16 @@ struct object
 			uint8_t pad_86[0x2];
 			uint16_t draw_depth;
 			uint8_t pad_8A[0xC];
-			uint8_t rides_platform;
-			uint8_t counts_goal;
+			union
+			{
+				uint16_t dropper_flags;
+				uint8_t rides_platform;
+				struct
+				{
+					uint8_t pad_96[0x1];
+					uint8_t counts_goal;
+				};
+			};
 		} icicle_update;
 		struct
 		{
@@ -5450,7 +5546,16 @@ struct object
 		} init_fireball_flight;
 		struct
 		{
-			uint8_t pad_10[0x70];
+			union
+			{
+				uint32_t player_block;
+				struct
+				{
+					uint8_t pad_10[0x3];
+					int8_t turn_direction;
+				};
+			};
+			uint8_t pad_14[0x6C];
 			uint8_t portrait_changed;
 			uint8_t character;
 			uint16_t countdown;
@@ -5533,6 +5638,7 @@ struct object
 			union
 			{
 				int32_t fixed_projected_x;
+				uint16_t projected_x_fraction;
 				struct
 				{
 					uint8_t pad_92[0x2];
@@ -5739,6 +5845,11 @@ struct object
 		} player_state_dropping;
 		struct
 		{
+			uint8_t pad_10[0x5A];
+			uint16_t touched_by;
+		} player_state_stuck;
+		struct
+		{
 			uint8_t pad_10[0x38];
 			uint32_t animation;
 		} player_stuck_jump_out;
@@ -5747,6 +5858,11 @@ struct object
 			uint8_t pad_10[0x38];
 			uint32_t animation;
 		} player_stuck_on_object_jump_out;
+		struct
+		{
+			uint8_t pad_10[0x5A];
+			uint16_t touched_by;
+		} player_stuck_wait_release;
 		struct
 		{
 			uint8_t pad_10[0x70];
@@ -5765,7 +5881,11 @@ struct object
 		struct
 		{
 			uint8_t pad_10[0x24];
-			int16_t shake_strength;
+			union
+			{
+				int16_t shake_strength;
+				uint8_t shake_strength_low;
+			};
 			uint8_t shake_step;
 			uint8_t pad_37[0x49];
 			int16_t shake_dx;
@@ -5885,7 +6005,8 @@ struct object
 		} rimmed_sinkhole;
 		struct
 		{
-			uint8_t pad_10[0x70];
+			uint8_t pad_10[0x6E];
+			uint16_t spawn_scroll_position;
 			uint16_t unused_glint_timer;
 		} ring_spin;
 		struct
@@ -5954,6 +6075,7 @@ struct object
 			union
 			{
 				int32_t fixed_projected_x;
+				uint16_t projected_x_fraction;
 				struct
 				{
 					uint8_t pad_94[0x2];
@@ -6030,6 +6152,13 @@ struct object
 			uint8_t bridge;
 			int16_t depth_offset;
 		} rope_bridge_plank;
+		struct
+		{
+			uint8_t pad_10[0x6E];
+			uint16_t spawn_scroll_position;
+			uint16_t glint_timer;
+			uint16_t hover_height;
+		} row_ring;
 		struct
 		{
 			uint8_t pad_10[0x22];
@@ -6324,8 +6453,16 @@ struct object
 				};
 			};
 			uint8_t pad_76[0xA];
-			uint8_t state;
-			uint8_t holding_back;
+			union
+			{
+				uint16_t state_word;
+				uint8_t state;
+				struct
+				{
+					uint8_t pad_80[0x1];
+					uint8_t holding_back;
+				};
+			};
 			int16_t wait_timer;
 			int16_t saved_base_speed;
 			uint16_t leader;
@@ -7897,16 +8034,17 @@ struct credit_block
 {
 	union
 	{
-		uint16_t counts;
+		uint32_t counts_long;
 		uint8_t coins;
+		uint16_t counts;
 		struct
 		{
 			uint8_t pad_00[0x1];
 			uint8_t credits;
+			uint8_t bonus_coins;
+			uint8_t changed;
 		};
 	};
-	uint8_t bonus_coins;
-	uint8_t changed;
 };
 
 struct trackball_motion
@@ -8116,9 +8254,25 @@ struct wipe_window
 
 struct ranking_record
 {
-	int16_t rings;
-	uint8_t character;
-	uint8_t stages_reached;
+	union
+	{
+		uint32_t rings_long;
+		int16_t rings;
+		struct
+		{
+			uint8_t pad_00[0x2];
+			union
+			{
+				uint16_t character_and_stages;
+				uint8_t character;
+				struct
+				{
+					uint8_t pad_02[0x1];
+					uint8_t stages_reached;
+				};
+			};
+		};
+	};
 	union
 	{
 		uint32_t initials;

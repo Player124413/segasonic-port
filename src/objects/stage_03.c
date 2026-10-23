@@ -124,14 +124,14 @@ void spike_panel_update(void)
 {
 	uint8_t bucket = 0, sound_id = 0;
 	uint16_t count = 0;
-	uint32_t r0 = 0, r11 = 0, deleted = 0, depth = 0, frame_index = 0, ignored = 0, offset_record = 0, part_2_frame = 0;
+	uint32_t chaser_distance = 0, cursor = 0, deleted = 0, depth = 0, frame_index = 0, ignored = 0, offset_record = 0, part_2_frame = 0;
 
-	unproject_object(&ignored, &ignored, &ignored, &r11);
+	unproject_object(&ignored, &ignored, &ignored, &cursor);
 	delete_if_off_screen(&deleted, &ignored, &ignored);
 	if ((uint8_t)deleted != 0u)
 		return;
 	r14 = LINKED(WORK_RAM, chaser_object);
-	r0 = face_object();
+	chaser_distance = face_object();
 	if ((int16_t)OBJECT(current_object)->direction <= 0x100 || (int16_t)OBJECT(current_object)->direction >= 0x378)
 	{
 		OBJECT(current_object)->spike_panel.step_timer--;
@@ -180,7 +180,7 @@ void spike_panel_update(void)
 		OBJECT(current_object)->z_int += SPIKE_PANEL_PART_OFFSET(offset_record - 0x2u)->dz;
 		OBJECT(current_object)->sprite_flags = spike_panel_part_1_sprite_flags[frame_index];
 		OBJECT(current_object)->sprite_frame = spike_panel_part_1_sprites[frame_index];
-		unproject_object(&ignored, &ignored, &ignored, &r11);
+		unproject_object(&ignored, &ignored, &ignored, &cursor);
 		if (OBJECT(object_cursor)->spike_panel.frame_index >= 3)
 			queue_sprite(offset_record);
 		else if ((uint8_t)OBJECT(object_cursor)->spike_panel.frame_index != 5u)
@@ -223,7 +223,7 @@ void spike_panel_update(void)
 	count = 0xFu;
 	OBJECT(current_object)->projected_x -= 0x90u;
 	OBJECT(current_object)->projected_y_int -= 0x40u;
-	spawn_debris(r0, count, r11);
+	spawn_debris(chaser_distance, count, cursor);
 	delete_object_and_children(&ignored, &ignored, &ignored);
 }
 
@@ -395,7 +395,7 @@ void electric_pole_draw(void)
 		return;
 	OBJECT(current_object)->screen_y += OBJECT(current_object)->electric_pole.draw_offset_y;
 	queue_sprite(0u);
-	if ((int16_t)AS16(OBJECT(object_cursor)->electric_pole.frame_index) < 0xA)
+	if (OBJECT(object_cursor)->electric_pole.frame_index_word < 0xA)
 	{
 		current_object = LINKED(current_object, OBJECT(current_object)->child);
 		if (OBJECT(object_cursor)->electric_pole.frame_index < 2)
@@ -534,7 +534,7 @@ void push_crate_update(void)
    after push_crate_release_all_rings when ring_count is above 0. Then push_crate_move. */
 void push_crate_break(void)
 {
-	uint32_t r11 = 0, break_frame = 0, random_value = 0, ring = 0;
+	uint32_t allocated = 0, break_frame = 0, random_value = 0, ring = 0;
 	uint16_t odd_frame = 0;
 
 	OBJECT(current_object)->push_crate.frame_count++;
@@ -550,8 +550,8 @@ void push_crate_break(void)
 			OBJECT(current_object)->handler = push_crate_move_ADDRESS;
 			if (OBJECT(current_object)->push_crate.ring_count > 0)
 			{
-				push_crate_release_all_rings(&r11, &random_value, &ring);
-				push_crate_move(r11, random_value, ring);
+				push_crate_release_all_rings(&allocated, &random_value, &ring);
+				push_crate_move(allocated, random_value, ring);
 				return;
 			}
 		}
@@ -564,11 +564,11 @@ void push_crate_break(void)
    lasts. Broken: drawn in bucket 0xFF, under everything. */
 void push_crate_move(uint32_t cursor, uint32_t random_value, uint32_t ring)
 {
-	uint32_t r3 = 0, deleted = 0, depth = 0, ignored = 0;
+	uint32_t deleted = 0, depth = 0, ignored = 0, slope_height = 0;
 	uint16_t ring_delay = 0;
 
-	move_object_projected(&ignored, &ignored, &r3, &cursor);
-	delete_if_off_screen(&deleted, &ignored, &r3);
+	move_object_projected(&ignored, &ignored, &slope_height, &cursor);
+	delete_if_off_screen(&deleted, &ignored, &slope_height);
 	if ((uint8_t)deleted == 1u)
 		return;
 	if (OBJECT(current_object)->push_crate.break_frame != 2u)
@@ -586,7 +586,7 @@ void push_crate_move(uint32_t cursor, uint32_t random_value, uint32_t ring)
 				OBJECT(current_object)->push_crate.ring_count--;
 				OBJECT(current_object)->push_crate.ring_timer = 0x10;
 				rings_to_release = 1u;
-				push_crate_release_rings(r3, &cursor, &random_value, &ring);
+				push_crate_release_rings(slope_height, &cursor, &random_value, &ring);
 			}
 		}
 	}
@@ -861,7 +861,7 @@ void stage_03_floor_block_update(void)
    players_frozen, 0xE hides it at z 0x50), the script, the back zone and chaser_object if free. */
 void spiked_roller_start(void)
 {
-	uint32_t r11 = 0, free_count = 0, ignored = 0, object = 0, record_cursor = 0, roller_kind = 0, zone_index = 0;
+	uint32_t free_count = 0, ignored = 0, layout_cursor = 0, object = 0, record_cursor = 0, roller_kind = 0, zone_index = 0;
 	uint8_t parts_left = 0;
 
 	roller_kind = OBJECT(current_object)->sprite_frame;
@@ -870,20 +870,20 @@ void spiked_roller_start(void)
 	record_cursor = spiked_roller_kinds_ADDRESS + spiked_roller_kinds[roller_kind];
 	roller_parts_left = SPIKED_ROLLER_KIND(record_cursor)->part_count;
 	record_cursor++;
-	r11 = SPIKED_ROLLER_KIND(record_cursor - 0x1u)->layout;
+	layout_cursor = SPIKED_ROLLER_KIND(record_cursor - 0x1u)->layout;
 	record_cursor += 2u;
 	roller_first_state = SPIKED_ROLLER_KIND(record_cursor - 0x3u)->first_state;
 	record_cursor += 2u;
 	roller_back_zone_index = SPIKED_ROLLER_KIND(record_cursor - 0x5u)->back_zone;
 	OBJECT(current_object)->spiked_roller.path = record_cursor + 2u;
-	r11 += spiked_roller_layouts_ADDRESS;
-	roller_step_x = (uint32_t)SPIKED_ROLLER_LAYOUT(r11)->step_x << 16;
-	r11++;
-	roller_step_y = (uint32_t)SPIKED_ROLLER_LAYOUT(r11 - 0x1u)->step_y << 16;
-	r11++;
-	roller_part_record = r11;
+	layout_cursor += spiked_roller_layouts_ADDRESS;
+	roller_step_x = (uint32_t)SPIKED_ROLLER_LAYOUT(layout_cursor)->step_x << 16;
+	layout_cursor++;
+	roller_step_y = (uint32_t)SPIKED_ROLLER_LAYOUT(layout_cursor - 0x1u)->step_y << 16;
+	layout_cursor++;
+	roller_part_record = layout_cursor;
 	OBJECT(current_object)->flags = 0u;
-	find_floor(&ignored, &ignored, &ignored, &ignored, &r11);
+	find_floor(&ignored, &ignored, &ignored, &ignored, &layout_cursor);
 	OBJECT(current_object)->z = OBJECT(current_object)->floor_z;
 	OBJECT(current_object)->spiked_roller.screen_threshold = 0;
 	OBJECT(current_object)->spiked_roller.catch_up_factor = 0u;
@@ -943,10 +943,10 @@ void spiked_roller_start(void)
 		roller_parts_left = parts_left - 1u;
 		if ((int8_t)parts_left <= 1)
 			break;
-		allocate_object(&free_count, &r11);
+		allocate_object(&free_count, &layout_cursor);
 		if (free_count == 0u)
 			return;
-		current_object = r11;
+		current_object = layout_cursor;
 		roller_part_x += roller_step_x;
 		OBJECT(current_object)->x = roller_part_x;
 		roller_part_y += roller_step_y;
@@ -955,9 +955,9 @@ void spiked_roller_start(void)
 		OBJECT(current_object)->spiked_roller.path_direction = OBJECT(object_cursor)->spiked_roller.path_direction;
 	}
 	OBJECT(current_object)->child = 0xFFFFu;
-	AS16(OBJECT(object_cursor)->spiked_roller.state) = roller_first_state;
+	OBJECT(object_cursor)->spiked_roller.state_word = roller_first_state;
 	zone_index = roller_back_zone_index;
-	spawn_roller_back_zone(zone_index, r11);
+	spawn_roller_back_zone(zone_index, layout_cursor);
 	if (OBJECT(object_cursor)->spiked_roller.state == 0u)
 		players_frozen = 0xFFu;
 	if (OBJECT(object_cursor)->spiked_roller.state == 0xEu)
@@ -1239,7 +1239,7 @@ void spiked_roller_chase_move_step(void)
 			OBJECT(current_object)->spiked_roller.hold_timer = 0xFFu;
 		hold_timer = OBJECT(current_object)->spiked_roller.hold_timer;
 		OBJECT(current_object)->spiked_roller.hold_timer = hold_timer - 1u;
-		if (hold_timer == 0u || AS32(players_finished[0]) == 0xFFFFFFu)
+		if (hold_timer == 0u || (players_finished[0] | ((uint32_t)players_finished[1] << 8u) | ((uint32_t)players_finished[2] << 16u) | ((uint32_t)goal_unlocked << 24u)) == 0xFFFFFFu)
 		{
 			OBJECT(current_object)->spiked_roller.holding_back = 0u;
 			OBJECT(current_object)->spiked_roller.screen_threshold = OBJECT(current_object)->spiked_roller.saved_threshold;
@@ -2185,7 +2185,7 @@ void machine_fire_update(void)
 		OBJECT(current_object)->machine_fire.holding_back = 0u;
 		project_object(&ignored, &ignored);
 		OBJECT(current_object)->machine_fire.projected_x_whole = OBJECT(current_object)->projected_x;
-		AS16(OBJECT(current_object)->machine_fire.fixed_projected_x) = 0u;
+		OBJECT(current_object)->machine_fire.projected_x_fraction = 0u;
 		allocate_object(&free_count, &object);
 		if (free_count != 0u)
 		{
@@ -2839,7 +2839,7 @@ void exit_gate_update(void)
 		delete_current_object();
 		return;
 	}
-	if ((uint32_t)OBJECT(current_object)->z != (uint32_t)OBJECT(current_object)->floor_z && AS32(players_finished[0]) == 0xFFFFFFu)
+	if ((uint32_t)OBJECT(current_object)->z != (uint32_t)OBJECT(current_object)->floor_z && (players_finished[0] | ((uint32_t)players_finished[1] << 8u) | ((uint32_t)players_finished[2] << 16u) | ((uint32_t)goal_unlocked << 24u)) == 0xFFFFFFu)
 	{
 		OBJECT(current_object)->speed_z += 0x6000u;
 		OBJECT(current_object)->z += OBJECT(current_object)->speed_z;

@@ -121,20 +121,20 @@ void mine_float(void)
 void mine_fall(void)
 {
 	uint8_t sinking = 0, sound_id = 0;
-	uint32_t r0 = 0, r2 = 0, r3 = 0, r11 = 0, bucket = 0, deleted = 0, ignored = 0;
+	uint32_t block_offset = 0, bucket = 0, cursor = 0, deleted = 0, height = 0, ignored = 0, slope_height = 0;
 	uint16_t odd_frame = 0;
 
-	move_object_projected(&ignored, &r2, &r3, &r11);
-	delete_if_off_screen(&deleted, &r2, &r3);
+	move_object_projected(&ignored, &block_offset, &slope_height, &cursor);
+	delete_if_off_screen(&deleted, &block_offset, &slope_height);
 	if ((uint8_t)deleted == 1u)
 		return;
-	fall_to_floor(&r0, &ignored, &r2);
+	fall_to_floor(&height, &ignored, &block_offset);
 	if (OBJECT(current_object)->z_int < (int16_t)OBJECT(current_object)->spawn_arg_1)
 	{
 		sinking = 0u;
 		flash_mine_palette(sinking);
 		queue_sprite_at_floor();
-		add_to_touchable_list(r0);
+		add_to_touchable_list(height);
 		current_object = LINKED(current_object, OBJECT(current_object)->child);
 		OBJECT(current_object)->direction++;
 		odd_frame = OBJECT(current_object)->direction & 1u;
@@ -146,7 +146,7 @@ void mine_fall(void)
 		}
 		return;
 	}
-	spawn_mine_splash(r0, r2, r3, r11);
+	spawn_mine_splash(height, block_offset, slope_height, cursor);
 	OBJECT(current_object)->mine.timer = 0u;
 	OBJECT(current_object)->speed_z = 0;
 	OBJECT(current_object)->z_int += 4u;
@@ -452,7 +452,7 @@ void lid_trap_update(void)
 	queue_sprite_at_depth(&ignored, &depth);
 	add_to_touchable_list(ignored);
 	current_object = LINKED(current_object, OBJECT(current_object)->child);
-	if (OBJECT(object_cursor)->lid_trap.sprung != 0u && (int16_t)AS16(OBJECT(current_object)->piece_frame) < 4)
+	if (OBJECT(object_cursor)->lid_trap.sprung != 0u && (int16_t)((uint8_t)OBJECT(current_object)->piece_frame | ((uint32_t)OBJECT(current_object)->piece_value << 8u)) < 4)
 	{
 		direction = OBJECT(current_object)->direction;
 		OBJECT(current_object)->direction = direction - 1u;
@@ -534,7 +534,7 @@ void turtle_wait(void)
 	else
 	{
 		OBJECT(current_object)->direction = 4u;
-		OBJECT(current_object)->sprite_frame = turtle_head_frames[turtle_head_steps[AS16(OBJECT(current_object)->piece_frame)]];
+		OBJECT(current_object)->sprite_frame = turtle_head_frames[turtle_head_steps[((uint8_t)OBJECT(current_object)->piece_frame | ((uint32_t)OBJECT(current_object)->piece_value << 8u))]];
 		OBJECT(current_object)->piece_frame++;
 		head_step = OBJECT(current_object)->piece_frame & 0xFu;
 		OBJECT(current_object)->piece_frame = head_step;
@@ -646,7 +646,7 @@ void turtle_swim(void)
 	if (direction_2 == 0u)
 	{
 		OBJECT(current_object)->direction = 1u;
-		OBJECT(current_object)->sprite_frame = turtle_head_frames[turtle_head_steps[AS16(OBJECT(current_object)->piece_frame)]];
+		OBJECT(current_object)->sprite_frame = turtle_head_frames[turtle_head_steps[((uint8_t)OBJECT(current_object)->piece_frame | ((uint32_t)OBJECT(current_object)->piece_value << 8u))]];
 		OBJECT(current_object)->piece_frame++;
 		wrapped_head_step = OBJECT(current_object)->piece_frame & 0xFu;
 		OBJECT(current_object)->piece_frame = wrapped_head_step;
@@ -860,7 +860,7 @@ void eel_anchor_stretch(void)
 		current_object = LINKED(current_object, OBJECT(current_object)->child);
 		OBJECT(current_object)->direction = OBJECT(object_cursor)->direction;
 		OBJECT(current_object)->speed = segment_speed;
-		OBJECT(current_object)->var_81 = OBJECT(object_cursor)->eel_anchor.stretch_step;
+		OBJECT(current_object)->eel_piece.stretch_step = OBJECT(object_cursor)->eel_anchor.stretch_step;
 		current_object = LINKED(current_object, OBJECT(current_object)->child);
 		current_object = LINKED(current_object, OBJECT(current_object)->child);
 		current_object = LINKED(current_object, OBJECT(current_object)->child);
@@ -1054,7 +1054,7 @@ void draw_eel_piece_parts(void)
 	}
 	OBJECT(current_object)->screen_x = OBJECT(object_cursor)->screen_x;
 	OBJECT(current_object)->screen_y = OBJECT(object_cursor)->screen_y;
-	floor_depth = (uint16_t)(AS32(OBJECT(object_cursor)->projected_y_int) + AS32(OBJECT(object_cursor)->floor_z_int) - view_y + 1u);
+	floor_depth = (uint16_t)(((uint16_t)OBJECT(object_cursor)->projected_y_int | ((uint32_t)OBJECT(object_cursor)->flags_low << 16u)) + ((uint16_t)OBJECT(object_cursor)->floor_z_int | ((uint32_t)OBJECT(object_cursor)->previous_floor_z_fraction << 16u)) - view_y + 1u);
 	r14 = floor_depth;
 	queue_sprite_at_depth(&ignored, &floor_depth);
 	current_object = LINKED(current_object, OBJECT(current_object)->child);
@@ -2030,36 +2030,34 @@ void spawn_geyser(uint32_t x, uint32_t y, uint16_t wait, uint32_t *p_spawned, ui
 	uint32_t geyser = *p_geyser;
 
 	allocate_object(p_spawned, &geyser);
-	if (*p_spawned == 0u)
+	if (*p_spawned != 0u)
 	{
-		*p_geyser = geyser;
-		return;
+		OBJECT(geyser)->x = x;
+		OBJECT(geyser)->y = y;
+		OBJECT(geyser)->z = r14;
+		OBJECT(geyser)->geyser_wait.erupt_delay = wait;
+		OBJECT(geyser)->sprite_flags = 0x1000u;
+		OBJECT(geyser)->sprite_frame = 0x5DA0u;
+		OBJECT(geyser)->sprite_palette = 0x8280u;
+		OBJECT(geyser)->hitbox_size_x = 0x20u;
+		OBJECT(geyser)->hitbox_size_y = 0x30u;
+		OBJECT(geyser)->hitbox_height = 0x20u;
+		OBJECT(geyser)->kind = 0x27u;
+		OBJECT(geyser)->geyser_wait.draw_depth = 0xEFu;
+		OBJECT(geyser)->handler = geyser_wait_ADDRESS;
+		OBJECT(geyser)->direction = 0x300u;
+		OBJECT(geyser)->sprite_offset_x = 0;
+		OBJECT(geyser)->sprite_offset_y = -0x10;
+		OBJECT(geyser)->flags = 2u;
+		OBJECT(geyser)->hitbox_offset_x = -5;
+		OBJECT(geyser)->hitbox_offset_y = -0x18;
+		OBJECT(geyser)->parent = current_object;
+		OBJECT(geyser)->animation_speed = 8u;
+		OBJECT(geyser)->animation_timer = 0;
+		OBJECT(geyser)->animation_frame = 0xFFu;
+		OBJECT(geyser)->animation = geyser_animation_ADDRESS;
+		*p_spawned = 0xFFFFFFFFu;
 	}
-	OBJECT(geyser)->x = x;
-	OBJECT(geyser)->y = y;
-	OBJECT(geyser)->z = r14;
-	OBJECT(geyser)->geyser_wait.erupt_delay = wait;
-	OBJECT(geyser)->sprite_flags = 0x1000u;
-	OBJECT(geyser)->sprite_frame = 0x5DA0u;
-	OBJECT(geyser)->sprite_palette = 0x8280u;
-	OBJECT(geyser)->hitbox_size_x = 0x20u;
-	OBJECT(geyser)->hitbox_size_y = 0x30u;
-	OBJECT(geyser)->hitbox_height = 0x20u;
-	OBJECT(geyser)->kind = 0x27u;
-	OBJECT(geyser)->geyser_wait.draw_depth = 0xEFu;
-	OBJECT(geyser)->handler = geyser_wait_ADDRESS;
-	OBJECT(geyser)->direction = 0x300u;
-	OBJECT(geyser)->sprite_offset_x = 0;
-	OBJECT(geyser)->sprite_offset_y = -0x10;
-	OBJECT(geyser)->flags = 2u;
-	OBJECT(geyser)->hitbox_offset_x = -5;
-	OBJECT(geyser)->hitbox_offset_y = -0x18;
-	OBJECT(geyser)->parent = current_object;
-	OBJECT(geyser)->animation_speed = 8u;
-	OBJECT(geyser)->animation_timer = 0;
-	OBJECT(geyser)->animation_frame = 0xFFu;
-	OBJECT(geyser)->animation = geyser_animation_ADDRESS;
-	*p_spawned = 0xFFFFFFFFu;
 	*p_geyser = geyser;
 }
 
@@ -2144,42 +2142,40 @@ void spawn_waterfall(uint32_t record, uint32_t *p_spawned, uint32_t *p_free_stac
 	uint32_t ignored = 0, object = 0;
 
 	allocate_object_outside_loop(p_spawned, &block);
-	if (*p_spawned == 0u || (uint16_t)free_object_stack_2[0] == 0u)
+	if (*p_spawned != 0u && (uint16_t)free_object_stack_2[0] != 0u)
 	{
-		*p_block = block;
-		return;
+		group_leaders[LEADER_SPAWN(record)->leader & 3u] = block;
+		record++;
+		OBJECT(block)->x_int = LEADER_SPAWN(record - 0x1u)->x;
+		OBJECT(block)->x_fraction = 0u;
+		record += 2u;
+		OBJECT(block)->y_int = LEADER_SPAWN(record - 0x3u)->y;
+		OBJECT(block)->y_fraction = 0u;
+		record += 2u;
+		OBJECT(block)->z_int = LEADER_SPAWN(record - 0x5u)->z;
+		OBJECT(block)->z_fraction = 0u;
+		OBJECT(block)->floor_z = OBJECT(block)->z;
+		record += 2u;
+		OBJECT(block)->direction = LEADER_SPAWN(record - 0x7u)->direction;
+		OBJECT(block)->waterfall.path = LEADER_SPAWN(record - 0x7u)->path + group_leader_data_ADDRESS;
+		OBJECT(block)->handler = waterfall_move_ADDRESS;
+		OBJECT(block)->sprite_flags = 0xD00Au;
+		OBJECT(block)->flags = 0u;
+		OBJECT(block)->sprite_offset_x = 0;
+		OBJECT(block)->sprite_offset_y = 0;
+		OBJECT(block)->waterfall.holding_back = 0u;
+		OBJECT(block)->waterfall.sound_timer = 0u;
+		OBJECT(block)->waterfall.wait_timer = 1;
+		OBJECT(block)->animation = waterfall_animation_ADDRESS;
+		OBJECT(block)->animation_frame = 0u;
+		OBJECT(block)->animation_speed = 3u;
+		OBJECT(block)->animation_timer = 0;
+		object = block;
+		allocate_object_2(&ignored, p_free_stack, &block);
+		move_halfwords_backward(block, waterfall_parts_ADDRESS, 0xDu);
+		OBJECT(object)->part_list = block;
+		*p_spawned = 0xFFFFFFFFu;
 	}
-	group_leaders[LEADER_SPAWN(record)->leader & 3u] = block;
-	record++;
-	OBJECT(block)->x_int = LEADER_SPAWN(record - 0x1u)->x;
-	OBJECT(block)->x_fraction = 0u;
-	record += 2u;
-	OBJECT(block)->y_int = LEADER_SPAWN(record - 0x3u)->y;
-	OBJECT(block)->y_fraction = 0u;
-	record += 2u;
-	OBJECT(block)->z_int = LEADER_SPAWN(record - 0x5u)->z;
-	OBJECT(block)->z_fraction = 0u;
-	OBJECT(block)->floor_z = OBJECT(block)->z;
-	record += 2u;
-	OBJECT(block)->direction = LEADER_SPAWN(record - 0x7u)->direction;
-	OBJECT(block)->waterfall.path = LEADER_SPAWN(record - 0x7u)->path + group_leader_data_ADDRESS;
-	OBJECT(block)->handler = waterfall_move_ADDRESS;
-	OBJECT(block)->sprite_flags = 0xD00Au;
-	OBJECT(block)->flags = 0u;
-	OBJECT(block)->sprite_offset_x = 0;
-	OBJECT(block)->sprite_offset_y = 0;
-	OBJECT(block)->waterfall.holding_back = 0u;
-	OBJECT(block)->waterfall.sound_timer = 0u;
-	OBJECT(block)->waterfall.wait_timer = 1;
-	OBJECT(block)->animation = waterfall_animation_ADDRESS;
-	OBJECT(block)->animation_frame = 0u;
-	OBJECT(block)->animation_speed = 3u;
-	OBJECT(block)->animation_timer = 0;
-	object = block;
-	allocate_object_2(&ignored, p_free_stack, &block);
-	move_halfwords_backward(block, waterfall_parts_ADDRESS, 0xDu);
-	OBJECT(object)->part_list = block;
-	*p_spawned = 0xFFFFFFFFu;
 	*p_block = block;
 }
 

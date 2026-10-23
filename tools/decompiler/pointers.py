@@ -909,15 +909,63 @@ class Program:
         written = {variable[1] for variable in self.flow.summaries[entry].writes if variable[0] == "r"}
         return results | (written & self.context)
 
+    def keeps(self, entry, index):
+        """True when the function gives its caller back register 'index' as it came in on every way out:
+        it never writes it, or puts back what it saved (a context register it saves on the stack while
+        what it calls changes it). Then the caller's kind for it holds after the call."""
+        if not hasattr(self, "_keeps"):
+            self._keeps = {}
+        key = (entry, index)
+        if key in self._keeps:
+            return self._keeps[key]
+        self._keeps[key] = False    # (a call back into itself: not known)
+        function = self.functions.get(entry)
+        if function is None:
+            return False
+        start = {function.entry: True}    # block -> the register holds what it came in with
+        pending = [function.entry]
+        kept = True
+        while pending and kept:
+            label = pending.pop()
+            same = start[label]
+            saved = {}
+            block = function.blocks[label]
+            for statement in block.statements:
+                if isinstance(statement, ir.SetStack) and statement.value == ir.Reg(index):
+                    saved[statement.offset] = same
+                elif isinstance(statement, ir.SetReg) and statement.index == index:
+                    value = statement.value
+                    same = isinstance(value, ir.Stack) and saved.get(value.offset, False)
+                elif isinstance(statement, (ir.Call, ir.Effect)):
+                    written = {variable[1] for variable in self.flow.statement_writes(statement) if variable[0] == "r"}
+                    if index in written:
+                        targets = self.flow.call_targets(statement) if isinstance(statement, ir.Call) else []
+                        same = same and bool(targets) and all(self.keeps(target, index) for target in targets)
+            if isinstance(block.end, (ir.Return, ir.InterruptReturn)):
+                kept = kept and same
+            elif isinstance(block.end, ir.TailCall):
+                kept = kept and same and self.keeps(block.end.target, index)
+            for successor in block.successors():
+                if successor not in start:
+                    start[successor] = same
+                    pending.append(successor)
+                elif start[successor] and not same:
+                    start[successor] = False
+                    pending.append(successor)
+        self._keeps[key] = kept
+        return kept
+
     def after_call(self, targets, state, context_only=False):
         """The kinds after a call that may go to any of 'targets': a register a target writes has the kind
-        that target leaves in it, one it does not write keeps the caller's. Through a slot only the
-        context registers come back."""
+        that target leaves in it, one it does not write keeps the caller's, and so does an object register
+        every target puts back as it came in (keeps). Through a slot only the context registers come back."""
         affected = set()
         for target in targets:
             affected |= self.handed_back(target)
         if context_only:
             affected &= self.context
+        affected -= {index for index in affected & set(OBJECT_REGISTERS)
+                     if index in state and targets and all(self.keeps(target, index) for target in targets)}
         for index in affected:
             said = {}
             for target in targets:

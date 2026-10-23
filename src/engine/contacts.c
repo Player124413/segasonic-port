@@ -3,7 +3,7 @@
  *    Description: contacts between objects and players: the zones, the hitter, touchable, rider, platform and wall lists, and the checks that pair them
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    21-10-2026
+ *    Modified:    22-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -524,77 +524,63 @@ void check_platforms(uint32_t *p_middle, uint32_t *p_plank, uint32_t *p_span, ui
 	bridge_1_load_last = (uint8_t)bridge_1_plank_count;
 	rider = 0x20F01Eu;
 	object = 0x20F01Eu;
-	if ((int16_t)platform_list < 0)
+	if ((int16_t)platform_list >= 0)
 	{
-		rider_list = 0xFFFFu;
-		platform_list = 0xFFFFu;
-		*p_platform = object;
-		return;
-	}
-	while ((int16_t)OBJECT(rider)->platform_list_next >= 0)
-	{
-		rider = LINKED(rider, OBJECT(rider)->platform_list_next);
-		object = LINKED(object, platform_list);
-		for (;;)
+		while ((int16_t)OBJECT(rider)->platform_list_next >= 0)
 		{
-			x_int = (uint16_t)OBJECT(object)->x_int;
-			if (OBJECT(rider)->x_int < (int16_t)x_int || (int16_t)(x_int + OBJECT(object)->hitbox_size_x) < OBJECT(rider)->x_int)
+			rider = LINKED(rider, OBJECT(rider)->platform_list_next);
+			object = LINKED(object, platform_list);
+			for (;;)
 			{
-				if ((int16_t)OBJECT(object)->platform_list_next < 0)
+				x_int = (uint16_t)OBJECT(object)->x_int;
+				if (OBJECT(rider)->x_int < (int16_t)x_int || (int16_t)(x_int + OBJECT(object)->hitbox_size_x) < OBJECT(rider)->x_int)
+				{
+					if ((int16_t)OBJECT(object)->platform_list_next < 0)
+						break;
+					object = LINKED(object, OBJECT(object)->platform_list_next);
+					continue;
+				}
+				y_int = (uint16_t)OBJECT(object)->y_int;
+				if (OBJECT(rider)->y_int < (int16_t)y_int || (int16_t)(y_int + OBJECT(object)->hitbox_size_y) < OBJECT(rider)->y_int)
+				{
+					if ((int16_t)OBJECT(object)->platform_list_next < 0)
+						break;
+					object = LINKED(object, OBJECT(object)->platform_list_next);
+					continue;
+				}
+				OBJECT(rider)->flags |= 8u;
+				OBJECT(rider)->platform = object;
+				OBJECT(object)->platform = rider;
+				if (OBJECT(rider)->z_int < OBJECT(object)->floor_z_int)
 					break;
-				object = LINKED(object, OBJECT(object)->platform_list_next);
-				continue;
-			}
-			y_int = (uint16_t)OBJECT(object)->y_int;
-			if (OBJECT(rider)->y_int < (int16_t)y_int || (int16_t)(y_int + OBJECT(object)->hitbox_size_y) < OBJECT(rider)->y_int)
-			{
-				if ((int16_t)OBJECT(object)->platform_list_next < 0)
+				flags = OBJECT(object)->flags;
+				OBJECT(object)->flags = flags | 8u;
+				if ((flags & 8u) != 0u)
 					break;
-				object = LINKED(object, OBJECT(object)->platform_list_next);
-				continue;
+				load_list = bridge_0_load_ADDRESS;
+				if (OBJECT(object)->spawn_arg_2_high != 0u)
+					load_list = bridge_1_load_ADDRESS;
+				BRIDGE_LOAD(load_list)->count++;
+				*p_load_count = BRIDGE_LOAD(load_list)->count;
+				mem_write8(load_list + *p_load_count, OBJECT(object)->member_number);
+				break;
 			}
-			OBJECT(rider)->flags |= 8u;
-			OBJECT(rider)->platform = object;
-			OBJECT(object)->platform = rider;
-			if (OBJECT(rider)->z_int < OBJECT(object)->floor_z_int)
-				break;
-			flags = OBJECT(object)->flags;
-			OBJECT(object)->flags = flags | 8u;
-			if ((flags & 8u) != 0u)
-				break;
-			load_list = bridge_0_load_ADDRESS;
-			if (OBJECT(object)->spawn_arg_2_high != 0u)
-				load_list = bridge_1_load_ADDRESS;
-			BRIDGE_LOAD(load_list)->count++;
-			*p_load_count = BRIDGE_LOAD(load_list)->count;
-			mem_write8(load_list + *p_load_count, OBJECT(object)->member_number);
-			break;
+		}
+		if (bridge_0_plank_count != 0u)
+		{
+			load_list_2 = bridge_0_load_ADDRESS;
+			current_player = bridge_0_sag_ADDRESS;
+			plank_count = bridge_0_plank_count;
+			compute_bridge_sag(load_list_2, plank_count, &middle, &plank, &span, &sag, &sag_step, p_load_count, p_passes_left, &object, &load_list);
+		}
+		if (bridge_1_plank_count != 0u)
+		{
+			load_list_2 = bridge_1_load_ADDRESS;
+			current_player = bridge_1_sag_ADDRESS;
+			plank_count = bridge_1_plank_count;
+			compute_bridge_sag(load_list_2, plank_count, &middle, &plank, &span, &sag, &sag_step, p_load_count, p_passes_left, &object, &load_list);
 		}
 	}
-	if (bridge_0_plank_count != 0u)
-	{
-		load_list_2 = bridge_0_load_ADDRESS;
-		current_player = bridge_0_sag_ADDRESS;
-		plank_count = bridge_0_plank_count;
-		compute_bridge_sag(load_list_2, plank_count, &middle, &plank, &span, &sag, &sag_step, p_load_count, p_passes_left, &object, &load_list);
-	}
-	if (bridge_1_plank_count == 0u)
-	{
-		rider_list = 0xFFFFu;
-		platform_list = 0xFFFFu;
-		*p_middle = (*p_middle & 0xFFFF0000u) | (middle & 0xFFFFu);
-		*p_plank = plank;
-		*p_span = span;
-		*p_sag = (*p_sag & 0xFFFF0000u) | (sag & 0xFFFFu);
-		*p_sag_step = (*p_sag_step & 0xFFFF0000u) | (sag_step & 0xFFFFu);
-		*p_platform = object;
-		*p_load_list = load_list;
-		return;
-	}
-	load_list_2 = bridge_1_load_ADDRESS;
-	current_player = bridge_1_sag_ADDRESS;
-	plank_count = bridge_1_plank_count;
-	compute_bridge_sag(load_list_2, plank_count, &middle, &plank, &span, &sag, &sag_step, p_load_count, p_passes_left, &object, &load_list);
 	rider_list = 0xFFFFu;
 	platform_list = 0xFFFFu;
 	*p_middle = (*p_middle & 0xFFFF0000u) | (middle & 0xFFFFu);

@@ -3,7 +3,7 @@
  *    Description: the sound program's ports, variables, tables, structures and functions
  *    Version:     0.1.0
  *    Created:     13-10-2026
- *    Modified:    22-10-2026
+ *    Modified:    23-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the Z80 sound program decompiled into C by
@@ -749,6 +749,7 @@ void skip_midi_data(uint8_t first_byte);
 void play_midi_message(uint8_t message_byte, uint16_t part);
 void scan_drum_note_voices(uint16_t note_and_velocity, uint16_t part);
 void allocate_sample_voice(uint8_t note_velocity, uint16_t part);
+void note_off(uint16_t part);
 uint16_t retune_voice(uint16_t loop_count, uint16_t part, uint16_t voice);
 void update_fm_modulation(uint16_t *p_loop_count, uint16_t *p_voice);
 void read_midi_byte(uint16_t *p_byte_copy, uint16_t *p_queue_slot, uint8_t *p_byte);

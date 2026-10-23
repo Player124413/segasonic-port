@@ -3,7 +3,7 @@
  *    Description: the bitmap layer: clearing it, its address, scroll and window, pixels, lines, spans and rectangles; an unused packed picture decoder and LZ unpacker
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    21-10-2026
+ *    Modified:    23-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -211,41 +211,42 @@ void unpack_picture_pixels(uint32_t stream, uint32_t width, uint32_t colour_cach
    colour and newest_slot. */
 void read_picture_colour(uint32_t stream, uint32_t colour_cache, uint32_t *p_colour, uint32_t *p_newest_slot)
 {
+	uint32_t colour = *p_colour;
 	uint32_t newest_slot = *p_newest_slot;
-	uint32_t is_cached = 0, newest_offset = 0, next_slot = 0, oldest_slot = 0, picked_slot = 0, previous_slot = 0, slot = 0, slot_offset = 0;
+	uint32_t is_cached = 0, newest_offset = 0, next_slot = 0, oldest_slot = 0, picked_colour = 0, previous_slot = 0, slot = 0, slot_offset = 0;
 
 	is_cached = shr32(mem_read32(stream + (current_player >> 3)), (int)(current_player & 7u)) & 1u;
 	current_player = current_player + 1u;
 	if (is_cached == 0u)
 	{
-		*p_colour = shr32(mem_read32(stream + (current_player >> 3)), (int)(current_player & 7u)) & 0xFFu;
+		picked_colour = shr32(mem_read32(stream + (current_player >> 3)), (int)(current_player & 7u)) & 0xFFu;
 		current_player = current_player + 8u;
-		picked_slot = mem_read8(colour_cache + newest_slot * 3u);
-		mem_write8(colour_cache + 2u + picked_slot * 3u, *p_colour);
-		*p_newest_slot = picked_slot;
-		return;
+		newest_slot = mem_read8(colour_cache + newest_slot * 3u);
+		mem_write8(colour_cache + 2u + newest_slot * 3u, picked_colour);
 	}
-	slot = shr32(mem_read32(stream + (current_player >> 3)), (int)(current_player & 7u)) & 0xFu;
-	current_player = current_player + 4u;
-	if (newest_slot == slot)
+	else
 	{
-		*p_colour = (*p_colour & ~0xFFu) | mem_read8(colour_cache + 2u + slot * 3u);
-		return;
+		slot = shr32(mem_read32(stream + (current_player >> 3)), (int)(current_player & 7u)) & 0xFu;
+		current_player = current_player + 4u;
+		if (newest_slot != slot)
+		{
+			slot_offset = slot * 3u;
+			previous_slot = mem_read8(colour_cache + 1u + slot_offset);
+			next_slot = mem_read8(colour_cache + slot_offset);
+			mem_write8(colour_cache + previous_slot * 3u, next_slot);
+			mem_write8(colour_cache + 1u + next_slot * 3u, previous_slot);
+			newest_offset = newest_slot * 3u;
+			oldest_slot = mem_read8(colour_cache + newest_offset);
+			mem_write8(colour_cache + 1u + oldest_slot * 3u, slot);
+			mem_write8(colour_cache + slot_offset, oldest_slot);
+			mem_write8(colour_cache + newest_offset, slot);
+			mem_write8(colour_cache + 1u + slot_offset, newest_slot);
+			newest_slot = slot;
+		}
+		picked_colour = (colour & ~0xFFu) | mem_read8(colour_cache + 2u + slot * 3u);
 	}
-	slot_offset = slot * 3u;
-	previous_slot = mem_read8(colour_cache + 1u + slot_offset);
-	next_slot = mem_read8(colour_cache + slot_offset);
-	mem_write8(colour_cache + previous_slot * 3u, next_slot);
-	mem_write8(colour_cache + 1u + next_slot * 3u, previous_slot);
-	newest_offset = newest_slot * 3u;
-	oldest_slot = mem_read8(colour_cache + newest_offset);
-	mem_write8(colour_cache + 1u + oldest_slot * 3u, slot);
-	mem_write8(colour_cache + slot_offset, oldest_slot);
-	mem_write8(colour_cache + newest_offset, slot);
-	mem_write8(colour_cache + 1u + slot_offset, newest_slot);
-	picked_slot = slot;
-	*p_colour = (*p_colour & ~0xFFu) | mem_read8(colour_cache + 2u + slot * 3u);
-	*p_newest_slot = picked_slot;
+	*p_colour = picked_colour;
+	*p_newest_slot = newest_slot;
 }
 
 /* Unused: with setting_monitor_flip set, turns the 320 x 224 picture on the 8 bpp bitmap layer half a
@@ -657,7 +658,6 @@ void draw_line(uint32_t end_x, uint32_t end_y, uint32_t *p_start_x, uint32_t *p_
 {
 	uint32_t start_x = *p_start_x;
 	uint32_t start_y = *p_start_y;
-	bool diagonal_odd_pixel = false, steep_odd_pixel = false;
 	uint32_t zero = 0, negative = 0, overflow = 0, carry = 0;
 	uint8_t high_nibble_mask = 0, low_nibble_color = 0;
 	uint16_t fraction_4bpp = 0, fraction_8bpp = 0;
@@ -735,29 +735,8 @@ void draw_line(uint32_t end_x, uint32_t end_y, uint32_t *p_start_x, uint32_t *p_
 		{
 			steep_slope = divide_u32(steep_slope << 16, slope);
 			fraction_4bpp = 0u;
-			for (;;)
+			if ((start_x & 1u) == 0u)
 			{
-				if (steep_odd_pixel || (start_x & 1u) != 0u)
-				{
-					do
-					{
-						start_x = (start_x & ~0xFFu) | mem_read8(start_y);
-						start_x = (start_x & ~0xFFu) | (start_x & 0xFu);
-						start_x = (start_x & ~0xFFu) | (uint8_t)(start_x | *p_color);
-						mem_write8(start_y, start_x);
-						start_y += row_step_4bpp;
-						carry = (uint16_t)(fraction_4bpp + steep_slope) < fraction_4bpp;
-						fraction_4bpp += steep_slope;
-						slope--;
-					} while ((slope != 0u) & (carry == 0u));
-					start_y++;
-					if (slope == 0u)
-					{
-						*p_start_x = start_x;
-						*p_start_y = start_y;
-						return;
-					}
-				}
 				do
 				{
 					start_x = (start_x & ~0xFFu) | mem_read8(start_y);
@@ -775,8 +754,43 @@ void draw_line(uint32_t end_x, uint32_t end_y, uint32_t *p_start_x, uint32_t *p_
 					*p_start_y = start_y;
 					return;
 				}
-				steep_odd_pixel = true;
 			}
+			for (;;)
+			{
+				start_x = (start_x & ~0xFFu) | mem_read8(start_y);
+				start_x = (start_x & ~0xFFu) | (start_x & 0xFu);
+				start_x = (start_x & ~0xFFu) | (uint8_t)(start_x | *p_color);
+				mem_write8(start_y, start_x);
+				start_y += row_step_4bpp;
+				carry = (uint16_t)(fraction_4bpp + steep_slope) < fraction_4bpp;
+				fraction_4bpp += steep_slope;
+				slope--;
+				if ((slope != 0u) & (carry == 0u))
+					continue;
+				start_y++;
+				if (slope == 0u)
+					break;
+				do
+				{
+					start_x = (start_x & ~0xFFu) | mem_read8(start_y);
+					start_x = (start_x & ~0xFFu) | (start_x & high_nibble_mask);
+					start_x = (start_x & ~0xFFu) | (uint8_t)(start_x | low_nibble_color);
+					mem_write8(start_y, start_x);
+					start_y += row_step_4bpp;
+					carry = (uint16_t)(fraction_4bpp + steep_slope) < fraction_4bpp;
+					fraction_4bpp += steep_slope;
+					slope--;
+				} while ((slope != 0u) & (carry == 0u));
+				if (slope == 0u)
+				{
+					*p_start_x = start_x;
+					*p_start_y = start_y;
+					return;
+				}
+			}
+			*p_start_x = start_x;
+			*p_start_y = start_y;
+			return;
 		}
 		if (steep_slope != slope)
 		{
@@ -794,23 +808,8 @@ void draw_line(uint32_t end_x, uint32_t end_y, uint32_t *p_start_x, uint32_t *p_
 			*p_start_y = start_y;
 			return;
 		}
-		for (;;)
+		if ((start_x & 1u) == 0u)
 		{
-			if (diagonal_odd_pixel || (start_x & 1u) != 0u)
-			{
-				start_x = (start_x & ~0xFFu) | mem_read8(start_y);
-				start_x = (start_x & ~0xFFu) | (start_x & 0xFu);
-				start_x = (start_x & ~0xFFu) | (uint8_t)(start_x | *p_color);
-				mem_write8(start_y, start_x);
-				start_y = start_y + 1u + row_step_4bpp;
-				steep_slope--;
-				if (steep_slope == 0u)
-				{
-					*p_start_x = start_x;
-					*p_start_y = start_y;
-					return;
-				}
-			}
 			start_x = (start_x & ~0xFFu) | mem_read8(start_y);
 			start_x = (start_x & ~0xFFu) | (start_x & high_nibble_mask);
 			start_x = (start_x & ~0xFFu) | (uint8_t)(start_x | low_nibble_color);
@@ -824,8 +823,34 @@ void draw_line(uint32_t end_x, uint32_t end_y, uint32_t *p_start_x, uint32_t *p_
 				*p_start_y = start_y;
 				return;
 			}
-			diagonal_odd_pixel = true;
 		}
+		for (;;)
+		{
+			start_x = (start_x & ~0xFFu) | mem_read8(start_y);
+			start_x = (start_x & ~0xFFu) | (start_x & 0xFu);
+			start_x = (start_x & ~0xFFu) | (uint8_t)(start_x | *p_color);
+			mem_write8(start_y, start_x);
+			start_y = start_y + 1u + row_step_4bpp;
+			steep_slope--;
+			if (steep_slope == 0u)
+				break;
+			start_x = (start_x & ~0xFFu) | mem_read8(start_y);
+			start_x = (start_x & ~0xFFu) | (start_x & high_nibble_mask);
+			start_x = (start_x & ~0xFFu) | (uint8_t)(start_x | low_nibble_color);
+			mem_write8(start_y, start_x);
+			start_y += row_step_4bpp;
+			pixels_left = steep_slope;
+			steep_slope = pixels_left - 1u;
+			if (pixels_left == 1u)
+			{
+				*p_start_x = start_x;
+				*p_start_y = start_y;
+				return;
+			}
+		}
+		*p_start_x = start_x;
+		*p_start_y = start_y;
+		return;
 	}
 	direction_index = 0u;
 	end_y_copy_8bpp = end_y;
@@ -1818,12 +1843,12 @@ void fill_rect(uint32_t top, uint32_t right, uint32_t bottom, uint32_t *p_left, 
 	uint32_t ignored = 0, unclipped_edges = 0;
 
 	clip_rect_to_window(p_left, &top, &right, &bottom, &ignored, &unclipped_edges);
-	if (unclipped_edges == 0u)
+	if (unclipped_edges != 0u)
 	{
-		*p_left = 0xFFFFFFFFu;
+		fill_rect_unclipped(right, bottom, p_left, &top, p_color, &ignored, &ignored, p_blocks_per_row, &ignored);
 		return;
 	}
-	fill_rect_unclipped(right, bottom, p_left, &top, p_color, &ignored, &ignored, p_blocks_per_row, &ignored);
+	*p_left = 0xFFFFFFFFu;
 }
 
 /* Fills left, top to right, bottom with color, unclipped (fill_rect, clear_bitmap_layer): at 8 bpp two

@@ -3,7 +3,7 @@
  *    Description: the game modes (run_game_mode) and what a stage frame runs: starting a stage, layer blending, the stage clear check, the player summary, stage slots and events, restart points, the player objects, the GAME OVER banner and the demo prompt
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    21-10-2026
+ *    Modified:    22-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -520,28 +520,26 @@ void game_mode_continue(uint32_t position, uint32_t *p_speed_value, uint32_t *p_
 	case 3:
 		if (p3_credits == 0u || (inputs_pressed & 0x80u) == 0u)
 		{
-			if ((p2_credits == 0u || (inputs_pressed & 0x20u) == 0u) && (p1_credits == 0u || (inputs_pressed & 0x10u) == 0u))
+			if ((p2_credits != 0u && (inputs_pressed & 0x20u) != 0u) || (p1_credits != 0u && (inputs_pressed & 0x10u) != 0u))
 			{
-				*p_speed_value = (*p_speed_value & 0xFFFF0000u) | (speed_value & 0xFFFFu);
-				return;
+				game_mode = saved_game_mode;
+				player_status[0] = 0u;
+				player_2_status = 0u;
+				player_3_status = 0u;
+				player_status_spare = 0xFFu;
+				hitter_list = 0xFFFFu;
+				touchable_list = 0xFFFFu;
+				wall_list = 0xFFFFu;
+				rider_list = 0xFFFFu;
+				platform_list = 0xFFFFu;
+				zone_list = 0xFFFFu;
+				text = continue_text_ADDRESS;
+				erase_text(text);
+				cell = 0u;
+				*p_list_cursor = 0x25C4u;
+				text_position = TEXT_CELL(24, 14);
+				erase_text_here(cell, p_list_cursor, &text_position);
 			}
-			game_mode = saved_game_mode;
-			player_status[0] = 0u;
-			player_2_status = 0u;
-			player_3_status = 0u;
-			player_status_spare = 0xFFu;
-			hitter_list = 0xFFFFu;
-			touchable_list = 0xFFFFu;
-			wall_list = 0xFFFFu;
-			rider_list = 0xFFFFu;
-			platform_list = 0xFFFFu;
-			zone_list = 0xFFFFu;
-			text = continue_text_ADDRESS;
-			erase_text(text);
-			cell = 0u;
-			*p_list_cursor = 0x25C4u;
-			text_position = TEXT_CELL(24, 14);
-			erase_text_here(cell, p_list_cursor, &text_position);
 			*p_speed_value = (*p_speed_value & 0xFFFF0000u) | (speed_value & 0xFFFFu);
 			return;
 		}
@@ -668,8 +666,7 @@ void game_mode_stage_clear(uint32_t position, uint32_t speed, uint32_t object, u
 				OBJECT(object)->sprite_palette = 0x89A0u;
 				OBJECT(object)->handler = cleared_banner_wait_ADDRESS;
 				OBJECT(object)->flags = 1u;
-				OBJECT(object)->var_80 = 0x10u;
-				OBJECT(object)->var_81 = 0u;
+				OBJECT(object)->stage_clear_banner.sparkle_offset = 0x10u;
 				OBJECT(object)->screen_x = cleared_banner_x;
 				OBJECT(object)->screen_y = cleared_banner_y;
 				OBJECT(object)->animation = cleared_banner_animation_ADDRESS;
@@ -2049,7 +2046,7 @@ void game_mode_event_1F(uint32_t pressed, uint32_t position, uint32_t in_play_co
 	else
 	{
 		exit_status_cursor = player_status_ADDRESS;
-		*p_list_cursor = AS32(players_finished[0]);
+		*p_list_cursor = (players_finished[0] | ((uint32_t)players_finished[1] << 8u) | ((uint32_t)players_finished[2] << 16u) | ((uint32_t)goal_unlocked << 24u));
 		*p_count = (*p_count & ~0xFFu) | 3u;
 		do
 		{
@@ -2273,30 +2270,28 @@ void apply_stage_layer_blending(uint32_t *p_layer_bit, uint32_t *p_count)
 		count--;
 	} while (count != 0u);
 	cursor = stage_layer_blending_ADDRESS + stage_layer_blending[stage];
-	if (LAYER_BLEND_LIST(cursor)->count == 0u)
+	if (LAYER_BLEND_LIST(cursor)->count != 0u)
 	{
-		*p_count = count;
-		return;
+		count = LAYER_BLEND_LIST(cursor)->count;
+		cursor++;
+		do
+		{
+			blend_mask = LAYER_BLEND_RECORD(cursor)->blend_mask;
+			cursor++;
+			*p_layer_bit = LAYER_BLEND_RECORD(cursor - 0x1u)->layer_bit;
+			cursor++;
+			layer_shadow = GAME_VARIABLES + LAYER_BLEND_RECORD(cursor - 0x2u)->shadow_offset;
+			mem_write16(layer_shadow, mem_read16(layer_shadow) & ~0x3Fu);
+			mem_write16(layer_shadow, mem_read16(layer_shadow) | blend_mask);
+			mem_write32(layer_shadow, mem_read32(layer_shadow) | shl32(1u, (int)(*p_layer_bit)));
+			mixer_blend &= ~0xF00u;
+			cursor += 2u;
+			mixer_blend |= LAYER_BLEND_RECORD(cursor - 0x4u)->blend_factor;
+			mixer_blend |= 0x800u;
+			count--;
+			cursor += 2u;
+		} while (count != 0u);
 	}
-	count = LAYER_BLEND_LIST(cursor)->count;
-	cursor++;
-	do
-	{
-		blend_mask = LAYER_BLEND_RECORD(cursor)->blend_mask;
-		cursor++;
-		*p_layer_bit = LAYER_BLEND_RECORD(cursor - 0x1u)->layer_bit;
-		cursor++;
-		layer_shadow = GAME_VARIABLES + LAYER_BLEND_RECORD(cursor - 0x2u)->shadow_offset;
-		mem_write16(layer_shadow, mem_read16(layer_shadow) & ~0x3Fu);
-		mem_write16(layer_shadow, mem_read16(layer_shadow) | blend_mask);
-		mem_write32(layer_shadow, mem_read32(layer_shadow) | shl32(1u, (int)(*p_layer_bit)));
-		mixer_blend &= ~0xF00u;
-		cursor += 2u;
-		mixer_blend |= LAYER_BLEND_RECORD(cursor - 0x4u)->blend_factor;
-		mixer_blend |= 0x800u;
-		count--;
-		cursor += 2u;
-	} while (count != 0u);
 	*p_count = count;
 }
 
@@ -2306,32 +2301,35 @@ void apply_stage_layer_blending(uint32_t *p_layer_bit, uint32_t *p_count)
    game_mode 0x17, or 0x1E on stages 0xB-0xF. */
 void check_stage_clear(uint32_t *p_count, uint32_t *p_finished_flag, uint32_t *p_status)
 {
+	uint32_t count = *p_count;
+	uint32_t finished_flag = *p_finished_flag;
 	uint32_t status = *p_status;
 	uint8_t next_game_mode = 0;
 
-	if (scroll_position < goal_scroll_position || player_status_spare != 0u || stage_exit_started == 0u)
-		return;
-	*p_finished_flag = players_finished_ADDRESS;
-	status = player_status_ADDRESS;
-	*p_count = (*p_count & ~0xFFu) | 3u;
-	do
+	if (goal_scroll_position <= scroll_position && player_status_spare == 0u && stage_exit_started != 0u)
 	{
-		if (mem_read8(status) == 0u || mem_read8(status) == 0x82u || mem_read8(status) == 3u || mem_read8(status) == 4u || mem_read8(status) == 2u)
-			mem_write8(*p_finished_flag, 0xFFu);
-		(*p_finished_flag)++;
-		status++;
-		(*p_count)--;
-	} while (*p_count != 0u);
-	if (AS32(players_finished[0]) != 0xFFFFFFFFu)
-	{
-		*p_status = status;
-		return;
+		finished_flag = players_finished_ADDRESS;
+		status = player_status_ADDRESS;
+		count = (count & ~0xFFu) | 3u;
+		do
+		{
+			if (mem_read8(status) == 0u || mem_read8(status) == 0x82u || mem_read8(status) == 3u || mem_read8(status) == 4u || mem_read8(status) == 2u)
+				mem_write8(finished_flag, 0xFFu);
+			finished_flag++;
+			status++;
+			count--;
+		} while (count != 0u);
+		if ((players_finished[0] | ((uint32_t)players_finished[1] << 8u) | ((uint32_t)players_finished[2] << 16u) | ((uint32_t)goal_unlocked << 24u)) == 0xFFFFFFFFu)
+		{
+			game_mode_timer = 0;
+			next_game_mode = 0x17u;
+			if (stage == 0xBu || stage == 0xCu || stage == 0xDu || stage == 0xEu || stage == 0xFu)
+				next_game_mode = 0x1Eu;
+			game_mode = next_game_mode;
+		}
 	}
-	game_mode_timer = 0;
-	next_game_mode = 0x17u;
-	if (stage == 0xBu || stage == 0xCu || stage == 0xDu || stage == 0xEu || stage == 0xFu)
-		next_game_mode = 0x1Eu;
-	game_mode = next_game_mode;
+	*p_count = count;
+	*p_finished_flag = finished_flag;
 	*p_status = status;
 }
 
@@ -2563,20 +2561,18 @@ void run_stage_events(uint32_t *p_table_offset, uint32_t *p_event)
 		stage_event_cursor = stage_events_ADDRESS + *p_table_offset;
 	}
 	event = stage_event_cursor;
-	if (scroll_position < STAGE_EVENT(event)->position)
+	if (STAGE_EVENT(event)->position <= scroll_position)
 	{
-		*p_event = event;
-		return;
+		distance_past = (uint16_t)(scroll_position - STAGE_EVENT(event)->position);
+		event += 2u;
+		if (stage == 0x11u || distance_past < 0x100u)
+		{
+			game_mode = STAGE_EVENT(event - 0x2u)->next_game_mode;
+			scene_step = 0u;
+			scene_timer = 0;
+		}
+		stage_event_cursor += 4u;
 	}
-	distance_past = (uint16_t)(scroll_position - STAGE_EVENT(event)->position);
-	event += 2u;
-	if (stage == 0x11u || distance_past < 0x100u)
-	{
-		game_mode = STAGE_EVENT(event - 0x2u)->next_game_mode;
-		scene_step = 0u;
-		scene_timer = 0;
-	}
-	stage_event_cursor += 4u;
 	*p_event = event;
 }
 
@@ -2612,13 +2608,11 @@ void read_trackball_step(uint32_t *p_player_number, uint32_t *p_trackball)
 		*p_player_number = (*p_player_number & 0xFFFF0000u) | step;
 		return;
 	}
-	if ((int16_t)mem_read16(step_sum) > -0x40)
+	if ((int16_t)mem_read16(step_sum) <= -0x40)
 	{
-		*p_player_number = (*p_player_number & 0xFFFF0000u) | step;
-		return;
+		step = 0xFFFFu;
+		mem_write16(step_sum, 0u);
 	}
-	step = 0xFFFFu;
-	mem_write16(step_sum, 0u);
 	*p_player_number = (*p_player_number & 0xFFFF0000u) | step;
 }
 
@@ -2668,11 +2662,11 @@ uint32_t start_player_objects(uint32_t object)
 void reset_objects_from_list(uint32_t object, uint32_t *p_player_number, uint32_t *p_handler_cursor)
 {
 	uint8_t status = 0;
-	uint32_t free_count = 0, handler_cursor = 0, handlers_left = 0, ignored = 0;
+	uint32_t free_count = 0, handler_cursor = 0, handlers_left = 0, ignored = 0, player_number = 0;
 	uint32_t handler_count = 0;
 
 	player_block_cursor = PLAYER_BLOCK(1);
-	reset_objects(&ignored, p_player_number);
+	reset_objects(&ignored, &player_number);
 	handler_cursor = object_handler_list;
 	handlers_left = OBJECT_START_LIST(handler_cursor)->count;
 	handler_cursor += 2u;
@@ -2693,38 +2687,34 @@ void reset_objects_from_list(uint32_t object, uint32_t *p_player_number, uint32_
 	player_block_cursor += 0x200u;
 	handler_count = handlers_left;
 	handlers_left = handler_count - 1u;
-	if ((int32_t)handler_count <= 1)
+	if ((int32_t)handler_count > 1)
 	{
-		*p_handler_cursor = handler_cursor;
-		return;
-	}
-	do
-	{
-		allocate_object(&free_count, &object);
-		if (free_count == 0u)
+		do
 		{
-			*p_handler_cursor = handler_cursor;
-			return;
-		}
-		OBJECT(object)->handler = OBJECT_START_HANDLERS(handler_cursor)[0];
-		handler_cursor += 4u;
-		if (OBJECT(object)->handler == player_start_stage_ADDRESS)
-		{
-			if (mem_read8(player_block_cursor + 9u) == 0u)
+			allocate_object(&free_count, &object);
+			if (free_count == 0u)
+				break;
+			OBJECT(object)->handler = OBJECT_START_HANDLERS(handler_cursor)[0];
+			handler_cursor += 4u;
+			if (OBJECT(object)->handler == player_start_stage_ADDRESS)
 			{
-				*p_player_number = 1u;
-				if (player_block_cursor != PLAYER_BLOCK(2))
-					*p_player_number = 2u;
-				status = player_status[*p_player_number];
-				if (status == 2u || status == 1u || status == 3u)
-					OBJECT(object)->handler = player_resume_ADDRESS;
+				if (mem_read8(player_block_cursor + 9u) == 0u)
+				{
+					player_number = 1u;
+					if (player_block_cursor != PLAYER_BLOCK(2))
+						player_number = 2u;
+					status = player_status[player_number];
+					if (status == 2u || status == 1u || status == 3u)
+						OBJECT(object)->handler = player_resume_ADDRESS;
+				}
+				else
+					OBJECT(object)->handler = player_join_ADDRESS;
 			}
-			else
-				OBJECT(object)->handler = player_join_ADDRESS;
-		}
-		player_block_cursor += 0x200u;
-		handlers_left--;
-	} while (handlers_left != 0u);
+			player_block_cursor += 0x200u;
+			handlers_left--;
+		} while (handlers_left != 0u);
+	}
+	*p_player_number = player_number;
 	*p_handler_cursor = handler_cursor;
 }
 

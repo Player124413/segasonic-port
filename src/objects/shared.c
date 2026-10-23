@@ -283,7 +283,7 @@ void crawler_segment_update(void)
 		crawler_step();
 		return;
 	}
-	if (OBJECT(LINKED(WORK_RAM, OBJECT(current_object)->parent))->var_80 == 0u)
+	if (OBJECT(LINKED(WORK_RAM, OBJECT(current_object)->parent))->crawler_head.over_pit == 0u)
 	{
 		OBJECT(current_object)->speed_z = 0;
 		crawler_step();
@@ -381,7 +381,7 @@ uint32_t spawn_chaser_back_zone(uint32_t zone_index, uint32_t zone)
 		OBJECT(zone)->kind = 9u;
 		OBJECT(zone)->flags = 0x40000002u;
 		step_record = object_steps_ADDRESS + chaser_zone_index * 3u * 2u;
-		AS16(OBJECT(zone)->var_80) = BACK_ZONE_RECORD(step_record)->limit;
+		OBJECT(zone)->chaser_back_zone.end_position = BACK_ZONE_RECORD(step_record)->limit;
 		OBJECT(zone)->handler = BACK_ZONE_RECORD(step_record)->handler;
 		OBJECT(zone)->parent = current_object;
 	}
@@ -674,33 +674,32 @@ void player_pacer_update(void)
 void get_pacing_axis(uint32_t player, uint32_t *p_axis_field, uint32_t *p_decreasing)
 {
 	uint16_t decreasing = 0;
+	uint32_t axis_field = 0;
 
 	switch (mem_read8(floor_blocks + 2u + OBJECT(LINKED(current_object, PLAYER(player)->object))->floor_block + 0x15u))
 	{
 	case 0:
 	case 4:
-		*p_axis_field = 0x29u;
+		axis_field = 0x29u;
 		decreasing = 0xFFFFu;
-		*p_decreasing = (*p_decreasing & 0xFFFF0000u) | decreasing;
-		return;
+		break;
 	case 1:
-		*p_axis_field = 0x27u;
+		axis_field = 0x27u;
 		decreasing = 0u;
-		*p_decreasing = (*p_decreasing & 0xFFFF0000u) | decreasing;
-		return;
+		break;
 	case 2:
-		*p_axis_field = 0x29u;
+		axis_field = 0x29u;
 		decreasing = 0u;
-		*p_decreasing = (*p_decreasing & 0xFFFF0000u) | decreasing;
-		return;
+		break;
 	case 3:
-		*p_axis_field = 0x27u;
+		axis_field = 0x27u;
 		decreasing = 0xFFFFu;
-		*p_decreasing = (*p_decreasing & 0xFFFF0000u) | decreasing;
-		return;
+		break;
 	default:
 		invalid_jump(0x8451Du + mem_read8(floor_blocks + 2u + OBJECT(LINKED(current_object, PLAYER(player)->object))->floor_block + 0x15u) * 2u);
 	}
+	*p_axis_field = axis_field;
+	*p_decreasing = (*p_decreasing & 0xFFFF0000u) | decreasing;
 }
 
 /* Stage list object made a sign: its z from record sprite_frame of object_kinds, the rest of the record
@@ -1626,7 +1625,7 @@ void build_wall_parts(uint32_t *p_part_size, uint32_t *p_second_sprite, uint32_t
 	uint32_t part = *p_part;
 	uint8_t part_step_x = 0, part_step_y = 0, second_offset_x = 0;
 	uint16_t part_sprite = 0;
-	uint32_t free_count = 0, free_stack = 0, object = 0, object_2 = 0, parts_left = 0, record = 0;
+	uint32_t free_count = 0, object = 0, parts_left = 0, record = 0;
 
 	record = OBJECT(current_object)->sprite_frame + 0x90A78u;
 	OBJECT(current_object)->hitbox_size_x = WALL_KIND_PARTS(record)->size_x;
@@ -1661,11 +1660,12 @@ void build_wall_parts(uint32_t *p_part_size, uint32_t *p_second_sprite, uint32_t
 	if ((int16_t)part_sprite < 0)
 	{
 		OBJECT(current_object)->build_wall_parts.invisible = 0xFFu;
-		object = current_object;
-		OBJECT(object)->child = 0xFFFFu;
-		OBJECT(current_object)->speed_y_int = object;
+		part = current_object;
+		OBJECT(part)->child = 0xFFFFu;
+		OBJECT(current_object)->speed_y_int = part;
 		*p_part_size = part_size;
-		*p_part = object;
+		*p_second_sprite = (*p_second_sprite & 0xFFFF0000u) | second_sprite;
+		*p_part = part;
 		return;
 	}
 	second_offset_x = WALL_KIND_PARTS(record - 0xAu)->second_offset_x;
@@ -1675,55 +1675,39 @@ void build_wall_parts(uint32_t *p_part_size, uint32_t *p_second_sprite, uint32_t
 	OBJECT(current_object)->build_wall_parts.no_second_sprite = 0xFFu;
 	if ((int16_t)second_sprite >= 0)
 		OBJECT(current_object)->build_wall_parts.no_second_sprite = 0u;
-	object_2 = current_object;
-	for (;;)
+	object = current_object;
+	do
 	{
-		allocate_object_2(&free_count, &free_stack, &part);
+		allocate_object_2(&free_count, &part_size, &part);
 		if (free_count == 0u)
-		{
-			OBJECT(part)->child = 0xFFFFu;
-			OBJECT(current_object)->speed_y_int = part;
-			*p_part_size = free_stack;
-			*p_second_sprite = (*p_second_sprite & 0xFFFF0000u) | second_sprite;
-			*p_part = part;
-			return;
-		}
+			break;
 		OBJECT(part)->sprite_frame = part_sprite;
 		OBJECT(part)->hitbox_centre_x = part_step_x;
 		OBJECT(part)->hitbox_centre_y = part_step_y;
-		OBJECT(part)->sprite_flags = OBJECT(object_2)->sprite_flags;
+		OBJECT(part)->sprite_flags = OBJECT(object)->sprite_flags;
 		OBJECT(part)->sprite_palette = OBJECT(current_object)->sprite_palette;
-		OBJECT(part)->parent = object_2;
-		OBJECT(object_2)->child = part;
-		object_2 = part;
+		OBJECT(part)->parent = object;
+		OBJECT(object)->child = part;
+		object = part;
 		if ((int16_t)second_sprite >= 0)
 		{
-			allocate_object_2(&free_count, &free_stack, &part);
+			allocate_object_2(&free_count, &part_size, &part);
 			if (free_count == 0u)
 				break;
 			OBJECT(part)->sprite_frame = second_sprite;
 			OBJECT(part)->hitbox_centre_x = second_offset_x;
 			OBJECT(part)->hitbox_centre_y = current_player;
-			OBJECT(part)->sprite_flags = OBJECT(object_2)->sprite_flags;
+			OBJECT(part)->sprite_flags = OBJECT(object)->sprite_flags;
 			OBJECT(part)->sprite_palette = 0x9FFEu;
-			OBJECT(part)->parent = object_2;
-			OBJECT(object_2)->child = part;
-			object_2 = part;
+			OBJECT(part)->parent = object;
+			OBJECT(object)->child = part;
+			object = part;
 		}
 		parts_left--;
-		if (parts_left == 0u)
-		{
-			OBJECT(part)->child = 0xFFFFu;
-			OBJECT(current_object)->speed_y_int = part;
-			*p_part_size = free_stack;
-			*p_second_sprite = (*p_second_sprite & 0xFFFF0000u) | second_sprite;
-			*p_part = part;
-			return;
-		}
-	}
+	} while (parts_left != 0u);
 	OBJECT(part)->child = 0xFFFFu;
 	OBJECT(current_object)->speed_y_int = part;
-	*p_part_size = free_stack;
+	*p_part_size = part_size;
 	*p_second_sprite = (*p_second_sprite & 0xFFFF0000u) | second_sprite;
 	*p_part = part;
 }

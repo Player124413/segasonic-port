@@ -3,7 +3,7 @@
  *    Description: stage 0x11, the ending: the runners, the tower and the explosions, the flash to white, the credits (portraits, name plates, scrolling blocks), Eggman flying away and the three running across
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    21-10-2026
+ *    Modified:    22-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -19,7 +19,7 @@ void build_ending_scene(uint32_t *p_write_index_address, uint32_t *p_tile_bank_b
 {
 	uint32_t scene_actor = *p_scene_actor;
 	uint8_t is_8bpp = 0, sound_id = 0;
-	uint32_t dest = 0, ignored = 0, script = 0;
+	uint32_t ignored = 0, script = 0;
 	uint8_t io_cnt_bits = 0;
 
 	is_8bpp = (uint8_t)(ending_scene_step * 3u);
@@ -33,7 +33,7 @@ void build_ending_scene(uint32_t *p_write_index_address, uint32_t *p_tile_bank_b
 		clear_sprite_buckets();
 		clear_bitmap_layer(is_8bpp, &ignored, p_color, &ignored, p_row_pairs_left, p_blocks_per_row, &ignored);
 		init_video_registers();
-		load_stage_palette_set(p_tile_bank_bits, &dest);
+		load_stage_palette_set(p_tile_bank_bits, &scene_actor);
 		sound_id = 0x94u;
 		queue_sound(sound_id, &ignored, p_write_index_address);
 		color_offset_red = 0x20u;
@@ -77,22 +77,21 @@ void build_ending_scene(uint32_t *p_write_index_address, uint32_t *p_tile_bank_b
 		mem_write16(video_clip_1_top, 0u);
 		mem_write16(video_clip_1_bottom, 0u);
 		script = blue_sky_script_ADDRESS;
-		run_vram_script(&ignored, &script, &dest);
+		run_vram_script(&ignored, &script, &scene_actor);
 		script = aerial_city_script_ADDRESS;
-		run_vram_script(&ignored, &script, &dest);
+		run_vram_script(&ignored, &script, &scene_actor);
 		script = sonic_head_pattern_script_ADDRESS;
-		run_vram_script(&ignored, &script, &dest);
+		run_vram_script(&ignored, &script, &scene_actor);
 		script = ending_eggman_machine_script_ADDRESS;
-		run_vram_script(&ignored, &script, &dest);
+		run_vram_script(&ignored, &script, &scene_actor);
 		script = ending_logo_script_ADDRESS;
-		run_vram_script(&ignored, &script, &dest);
+		run_vram_script(&ignored, &script, &scene_actor);
 		script = ending_bars_script_ADDRESS;
-		run_vram_script(&ignored, &script, &dest);
+		run_vram_script(&ignored, &script, &scene_actor);
 		nbg0_pages = 0x8080707u;
 		nbg1_pages = 0x1010101u;
 		nbg2_pages = 0x5050505u;
-		*p_scene_actor = dest;
-		return;
+		break;
 	case 1:
 		allocate_object_outside_loop(&ignored, &scene_actor);
 		OBJECT(scene_actor)->handler = ending_tower_animate_ADDRESS;
@@ -112,14 +111,14 @@ void build_ending_scene(uint32_t *p_write_index_address, uint32_t *p_tile_bank_b
 		allocate_object_outside_loop(&ignored, &scene_actor);
 		OBJECT(scene_actor)->handler = ending_road_scroll_ADDRESS;
 		init_ending_scene_object(scene_actor);
-		*p_scene_actor = scene_actor;
-		return;
+		break;
 	case 2:
 	case 3:
-		return;
+		break;
 	default:
 		invalid_jump(0x1BCD3u + ending_scene_step * 3u);
 	}
+	*p_scene_actor = scene_actor;
 }
 
 /* Clears the flags_low_byte (started), step and timer of object, a new scene object, and sets
@@ -138,12 +137,12 @@ void init_ending_scene_object(uint32_t object)
    list. */
 void ending_tower_animate(void)
 {
-	uint32_t r11 = 0, frame_record = 0, ignored = 0, script = 0;
+	uint32_t frame_record = 0, ignored = 0, script = 0, spawned_object = 0;
 
 	if (OBJECT(current_object)->ending.started == 0u)
 	{
 		script = cloudy_horizon_script_ADDRESS;
-		run_vram_script(&ignored, &script, &r11);
+		run_vram_script(&ignored, &script, &spawned_object);
 		mem_write16(video_layer_disable, mem_read16(video_layer_disable) & ~8u);
 		nbg3_pages = 0u;
 		OBJECT(current_object)->ending.list_index = 0u;
@@ -163,7 +162,7 @@ void ending_tower_animate(void)
 			if (ENDING_TOWER_FRAME(frame_record)->sprite_palette != 0xFFFFu)
 			{
 				OBJECT(current_object)->timer++;
-				run_timed_spawns_2(r11);
+				run_timed_spawns_2(spawned_object);
 				return;
 			}
 			delete_current_object();
@@ -179,7 +178,7 @@ void ending_tower_animate(void)
 	if (ENDING_TOWER_FRAME(frame_record)->sprite_palette != 0xFFFFu)
 	{
 		OBJECT(current_object)->timer++;
-		run_timed_spawns_2(r11);
+		run_timed_spawns_2(spawned_object);
 		return;
 	}
 	delete_current_object();

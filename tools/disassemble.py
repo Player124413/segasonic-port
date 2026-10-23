@@ -99,7 +99,7 @@ def parse_layout(attributes, where):
 
 
 NAME_KINDS = ("var", "io", "table", "struct", "field", "register", "scoped", "param", "result", "local", "port",
-              "file", "anchor", "comment", "elements")    # names for the decompiled C (load_names; file lines:
+              "file", "anchor", "comment", "elements", "constant")    # names for the decompiled C (load_names; file lines:
                                               # decompile.source_files)
 
 
@@ -166,6 +166,7 @@ class Names(NamedTuple):
                          # reads by index (name[i].field)
     field_arrays: dict  # (struct, offset) -> how many elements the field holds (TYPE[N]), or None for an
                         # array that goes on past the record's end (TYPE[])
+    constants: dict     # (function name, value) -> the name the C gives that number in the function
 
 
 def load_names(path, registers=None):
@@ -212,9 +213,11 @@ def load_names(path, registers=None):
                                          VARIABLE (the list's head) as its field at OFFSET (the link the walk
                                          follows), so the C writes it as VARIABLE's address less OFFSET
         comment  FUNCTION TEXT           what the C says about the function, in a /* */ block above it
+        constant FUNCTION VALUE NAME     a number the function uses (VALUE in hexadecimal), by name: a
+                                         divisor, a count, a code the program compares with
     'registers' ({name: number}) lets param and local lines name a register by its name (hl, iy) on a
     processor whose registers have names; RN works on any."""
-    names = Names({}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, set(), {}, {}, {}, {}, {}, {}, {})
+    names = Names({}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, set(), {}, {}, {}, {}, {}, {}, {}, {})
     registers = registers or {}
 
     def register_number(text):
@@ -241,6 +244,16 @@ def load_names(path, registers=None):
         if not parts:
             continue
         where = f"{path.name}:{number}"
+        if parts[0] == "constant":
+            if len(parts) != 4 or not parts[1].isidentifier() or not re.fullmatch(r"[0-9A-Fa-f]+", parts[2]) \
+                    or not re.fullmatch(r"[A-Z][A-Z0-9_]*", parts[3]):
+                raise SystemExit(f"{where}: expected 'constant FUNCTION VALUE NAME' (NAME in capitals)")
+            value = int(parts[2], 16)
+            for (_, other), name in names.constants.items():
+                if name == parts[3] and other != value:
+                    raise SystemExit(f"{where}: {parts[3]} is 0x{other:X} already")
+            names.constants[(parts[1], value)] = parts[3]
+            continue
         if parts[0] == "comment":
             words = line.split(None, 2)
             if len(words) != 3 or not words[1].isidentifier():

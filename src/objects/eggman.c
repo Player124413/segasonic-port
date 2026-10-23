@@ -3,7 +3,7 @@
  *    Description: Eggman: his booth that slides in during his speeches, the speech scripts (stages 3, 8, A), his scene with the button box in stage B and the sliding door, his teleport (never spawned)
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    21-10-2026
+ *    Modified:    22-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -631,7 +631,7 @@ void eggman_speech_run(void)
 {
 	uint8_t sound_id = 0;
 	uint16_t frames = 0, kind = 0, screen_x = 0, screen_y = 0;
-	uint32_t r11 = 0, command = 0, free_count = 0, ignored = 0, script_cursor = 0;
+	uint32_t block = 0, command = 0, free_count = 0, ignored = 0, script_cursor = 0;
 	uint16_t delay = 0;
 
 	if (current_game_mode == 0x11u)
@@ -653,7 +653,7 @@ void eggman_speech_run(void)
 	case 0x2u:
 		OBJECT(current_object)->eggman_speech.script = script_cursor;
 		OBJECT(current_object)->eggman_speech.frame_count = 0;
-		spawn_eggman_booth(command, 0u, 0u, &free_count, &r11);
+		spawn_eggman_booth(command, 0u, 0u, &free_count, &block);
 		return;
 	case 0x4u:
 		break;
@@ -677,5 +677,5 @@ void eggman_speech_run(void)
 	frames = EGGMAN_SPEECH_ARGUMENTS(script_cursor)[0];
 	OBJECT(current_object)->eggman_speech.script = script_cursor + 2u;
 	OBJECT(current_object)->eggman_speech.frame_count = 0;
-	r11 = spawn_message_box(screen_x, screen_y, kind, frames, 0u);
+	block = spawn_message_box(screen_x, screen_y, kind, frames, 0u);
 }

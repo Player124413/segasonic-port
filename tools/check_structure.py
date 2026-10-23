@@ -290,12 +290,13 @@ def main():
     checked, problems = [], []
     original = tree_nodes.structure
 
-    def checking(function, control_name=None):
-        tree, labels = original(function, control_name)
+    def checking(function, control_name=None, *ways):
+        # (every way the decompiler tries is checked: the other copies, loops going on where their ways meet)
+        tree, labels = original(function, control_name, *ways)
         checked.append(function.name)
         problems.extend(compare(function.name, function, tree, runs))
         left = [node for node in gotos.walk(tree) if isinstance(node, tree_nodes.Goto)]
-        if left:
+        if left and control_name is not None:    # (a way only tried may leave gotos: the C does not take it)
             problems.append(f"{function.name}: {len(left)} gotos left")
         return tree, labels
     tree_nodes.structure = checking

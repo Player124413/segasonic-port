@@ -3,7 +3,7 @@
  *    Description: the title screen: the SEGA logo, the emblem, the land, the craft, Sonic's loop, the clouds and the sky
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    21-10-2026
+ *    Modified:    22-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -958,7 +958,7 @@ void run_sega_logo(uint32_t logo_block, uint32_t *p_color, uint32_t *p_row_pairs
 {
 	uint8_t is_8bpp = 0;
 	uint16_t object = 0, scroll_x = 0, scroll_y = 0;
-	uint32_t r0 = 0, ignored = 0;
+	uint32_t end_mark = 0, ignored = 0;
 	uint8_t cnt_bits = 0;
 
 	if (sega_logo_step == 7u)
@@ -968,9 +968,9 @@ void run_sega_logo(uint32_t logo_block, uint32_t *p_color, uint32_t *p_row_pairs
 		cnt_bits = mem_read8(io_cnt);
 		mem_write8(io_cnt, cnt_bits & ~2u);
 		display_off_frames = 5u;
-		init_sprites(&r0, p_lower_row_cursor);
+		init_sprites(&end_mark, p_lower_row_cursor);
 		logo_block = clear_sprite_buckets();
-		clear_bitmap_layer((uint8_t)r0, &ignored, p_color, &ignored, p_row_pairs_left, p_blocks_per_row, p_lower_row_cursor);
+		clear_bitmap_layer((uint8_t)end_mark, &ignored, p_color, &ignored, p_row_pairs_left, p_blocks_per_row, p_lower_row_cursor);
 		title_scene_built = 1u;
 		title_done = 0u;
 		scroll_x = 0u;

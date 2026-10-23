@@ -3,7 +3,7 @@
  *    Description: stage 9's objects, the ice: the handle rod between two posts, the spear traps, the ice cube launcher, the padded wall, the snow mound, the ice blocks and the moving ice platform, the crumbling ice floor, the icicles
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    21-10-2026
+ *    Modified:    22-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -17,7 +17,7 @@
 void handle_rod_init(void)
 {
 	uint16_t angle_offset = 0, angle_step = 0;
-	uint32_t block = 0, count_or_spawned = 0, handle_index = 0, ignored = 0, object = 0, object_2 = 0, object_3 = 0, rod_dx = 0, rod_dz = 0, rod_length = 0;
+	uint32_t block = 0, count_or_spawned = 0, grip_handle = 0, handle_index = 0, ignored = 0, object = 0, object_2 = 0, rod_dx = 0, rod_dz = 0, rod_length = 0;
 
 	OBJECT(current_object)->sprite_scale = 0x100u;
 	OBJECT(current_object)->sprite_frame = 0x73B8u;
@@ -33,7 +33,7 @@ void handle_rod_init(void)
 		return;
 	OBJECT(current_object)->child = object_2;
 	OBJECT(current_object)->parent = object_2;
-	object_3 = LINKED(WORK_RAM, OBJECT(object_2)->child);
+	grip_handle = LINKED(WORK_RAM, OBJECT(object_2)->child);
 	OBJECT(current_object)->handler = handle_rod_wait_ADDRESS;
 	handle_index = (count_or_spawned & ~0xFFFFu) | OBJECT(current_object)->handle_rod.handle_count;
 	angle_step = divide_s16(0x400u, (uint16_t)handle_index);
@@ -48,7 +48,7 @@ void handle_rod_init(void)
 		OBJECT(current_object)->handle_rod_handle.start_angle = OBJECT(object_cursor)->handle_rod.angle;
 		OBJECT(current_object)->handle_rod_handle.rod_angle_speed = OBJECT(object_cursor)->handle_rod.angle_speed;
 		OBJECT(current_object)->sprite_scale = OBJECT(object_cursor)->sprite_scale;
-		AS16(OBJECT(current_object)->handle_rod_handle.index) = handle_index;
+		OBJECT(current_object)->handle_rod_handle.index_word = handle_index;
 		angle_offset = (uint16_t)(angle_step * handle_index);
 		OBJECT(current_object)->spawn_arg_1 = 0x400u;
 		OBJECT(current_object)->spawn_arg_1 -= angle_offset;
@@ -56,11 +56,11 @@ void handle_rod_init(void)
 		OBJECT(current_object)->z_int += handle_index * 0x12u;
 		handle_index--;
 	} while (handle_index != 0u);
-	OBJECT(object_3)->var_81 = 1u;
-	OBJECT(object_3)->var_86 = object_cursor;
-	OBJECT(object_3)->spawn_arg_2 = OBJECT(object_cursor)->x_int;
-	OBJECT(object_3)->hitbox_size_x = 0x10u;
-	OBJECT(object_3)->kind = 0x1Au;
+	OBJECT(grip_handle)->handle_rod_handle.grip = 1u;
+	OBJECT(grip_handle)->handle_rod_handle.rod = object_cursor;
+	OBJECT(grip_handle)->spawn_arg_2 = OBJECT(object_cursor)->x_int;
+	OBJECT(grip_handle)->hitbox_size_x = 0x10u;
+	OBJECT(grip_handle)->kind = 0x1Au;
 	current_object = LINKED(current_object, OBJECT(object_cursor)->child);
 	OBJECT(object_cursor)->child = 0xFFFFu;
 	OBJECT(object_cursor)->handle_rod.angle = 0x300u;
@@ -636,10 +636,10 @@ void ice_launcher_init(void)
    an ice cube (ice_cube_slide, kind 0x19) at ice_cube_speeds[cube_speed_index]. */
 void ice_launcher_update(void)
 {
-	uint32_t r11 = 0, depth = 0, duration_index_or_spawned = 0, frame_index = 0, ignored = 0, object = 0, offset_record = 0, size_record = 0;
+	uint32_t cursor = 0, depth = 0, duration_index_or_spawned = 0, frame_index = 0, ignored = 0, object = 0, offset_record = 0, size_record = 0;
 	uint16_t step_timer = 0;
 
-	unproject_object(&duration_index_or_spawned, &ignored, &object, &r11);
+	unproject_object(&duration_index_or_spawned, &ignored, &object, &cursor);
 	if (OBJECT(current_object)->spawn_arg_2 <= scroll_position)
 	{
 		delete_object_and_children(&ignored, &ignored, &ignored);
@@ -684,7 +684,7 @@ void ice_launcher_update(void)
 		return;
 	}
 	spawn_count = 2u;
-	spawn_object_with_pieces(0x011D7Du, &duration_index_or_spawned, &ignored, &offset_record, &object, &r11);
+	spawn_object_with_pieces(0x011D7Du, &duration_index_or_spawned, &ignored, &offset_record, &object, &cursor);
 	if ((uint8_t)duration_index_or_spawned == 0u)
 	{
 		add_to_touchable_list(duration_index_or_spawned);
@@ -884,11 +884,11 @@ void snow_mound_init(void)
    random_scatter for the spread); untouched, snow_mound_draw. */
 void snow_mound_update(void)
 {
-	uint32_t r3 = 0, r11 = 0, deleted = 0, ignored = 0, random_value = 0, ring = 0;
+	uint32_t cursor = 0, deleted = 0, ignored = 0, random_value = 0, ring = 0, slope_height = 0;
 
-	move_object_projected(&ignored, &ignored, &r3, &r11);
+	move_object_projected(&ignored, &ignored, &slope_height, &cursor);
 	fall_to_floor(&ignored, &ignored, &ignored);
-	delete_if_off_screen(&deleted, &ignored, &r3);
+	delete_if_off_screen(&deleted, &ignored, &slope_height);
 	if ((uint8_t)deleted == 1u)
 		return;
 	if (OBJECT(current_object)->snow_mound.bursting != 0u)
@@ -911,7 +911,7 @@ void snow_mound_update(void)
 	rings_to_release = OBJECT(current_object)->snow_mound.ring_count;
 	released_ring_angle = OBJECT(current_object)->spawn_arg_2;
 	released_rings_random = OBJECT(current_object)->snow_mound.random_scatter;
-	drop_rings(r3, &r11, &random_value, &ring);
+	drop_rings(slope_height, &cursor, &random_value, &ring);
 	snow_mound_burst();
 }
 
@@ -1133,35 +1133,33 @@ void spawn_ice_platform_leader(uint32_t record, uint32_t *p_spawned, uint32_t *p
 	uint16_t reference_x = 0;
 
 	allocate_object_outside_loop(p_spawned, &leader);
-	if (*p_spawned == 0u)
+	if (*p_spawned != 0u)
 	{
-		*p_leader = leader;
-		return;
+		group_leaders[ICE_LEADER_SPAWN(record)->leader & 3u] = leader;
+		record++;
+		OBJECT(leader)->ice_platform_leader.end_position = ICE_LEADER_SPAWN(record - 0x1u)->end_position;
+		record += 2u;
+		reference_x = (uint16_t)ICE_LEADER_SPAWN(record - 0x3u)->reference_x;
+		record += 2u;
+		travel = (uint16_t)(ICE_LEADER_SPAWN(record - 0x5u)->x - reference_x);
+		OBJECT(leader)->ice_platform_leader.travel = travel;
+		OBJECT(leader)->x_int = ICE_LEADER_SPAWN(record - 0x5u)->x;
+		OBJECT(leader)->x_fraction = 0u;
+		record += 2u;
+		OBJECT(leader)->y_int = ICE_LEADER_SPAWN(record - 0x7u)->y;
+		OBJECT(leader)->y_fraction = 0u;
+		OBJECT(leader)->z_int = ICE_LEADER_SPAWN(record - 0x7u)->z;
+		OBJECT(leader)->z_fraction = 0u;
+		OBJECT(leader)->floor_z = OBJECT(leader)->z;
+		OBJECT(leader)->handler = ice_platform_leader_move_ADDRESS;
+		OBJECT(leader)->speed_x = 0x10000;
+		OBJECT(leader)->speed_y = 0;
+		OBJECT(leader)->flags = 0u;
+		OBJECT(leader)->sprite_offset_x = 0;
+		OBJECT(leader)->sprite_offset_y = 0;
+		moving_floor_object = leader;
+		*p_spawned = 0xFFFFFFFFu;
 	}
-	group_leaders[ICE_LEADER_SPAWN(record)->leader & 3u] = leader;
-	record++;
-	OBJECT(leader)->ice_platform_leader.end_position = ICE_LEADER_SPAWN(record - 0x1u)->end_position;
-	record += 2u;
-	reference_x = (uint16_t)ICE_LEADER_SPAWN(record - 0x3u)->reference_x;
-	record += 2u;
-	travel = (uint16_t)(ICE_LEADER_SPAWN(record - 0x5u)->x - reference_x);
-	OBJECT(leader)->ice_platform_leader.travel = travel;
-	OBJECT(leader)->x_int = ICE_LEADER_SPAWN(record - 0x5u)->x;
-	OBJECT(leader)->x_fraction = 0u;
-	record += 2u;
-	OBJECT(leader)->y_int = ICE_LEADER_SPAWN(record - 0x7u)->y;
-	OBJECT(leader)->y_fraction = 0u;
-	OBJECT(leader)->z_int = ICE_LEADER_SPAWN(record - 0x7u)->z;
-	OBJECT(leader)->z_fraction = 0u;
-	OBJECT(leader)->floor_z = OBJECT(leader)->z;
-	OBJECT(leader)->handler = ice_platform_leader_move_ADDRESS;
-	OBJECT(leader)->speed_x = 0x10000;
-	OBJECT(leader)->speed_y = 0;
-	OBJECT(leader)->flags = 0u;
-	OBJECT(leader)->sprite_offset_x = 0;
-	OBJECT(leader)->sprite_offset_y = 0;
-	moving_floor_object = leader;
-	*p_spawned = 0xFFFFFFFFu;
 	*p_travel = (*p_travel & 0xFFFF0000u) | travel;
 	*p_leader = leader;
 }
@@ -1410,7 +1408,7 @@ void icicle_dropper_start(void)
 	dropper_record += 2u;
 	OBJECT(current_object)->direction = ICICLE_DROPPER_RECORD(dropper_record - 0x6u)->direction;
 	dropper_record += 2u;
-	OBJECT(current_object)->var_96 = ICICLE_DROPPER_RECORD(dropper_record - 0x8u)->flags;
+	OBJECT(current_object)->icicle_dropper.record_flags = ICICLE_DROPPER_RECORD(dropper_record - 0x8u)->flags;
 	OBJECT(current_object)->icicle_dropper.path = icicle_dropper_scripts_ADDRESS + ICICLE_DROPPER_RECORD(dropper_record - 0x8u)->script;
 	OBJECT(current_object)->handler = icicle_dropper_move_ADDRESS;
 	OBJECT(current_object)->sprite_offset_x = 0;
@@ -1604,7 +1602,7 @@ void icicle_dropper_move_step(void)
 		icicle_dropper_choose_speed(slope_height, cursor);
 		return;
 	}
-	if ((int16_t)(scroll_position - OBJECT(current_object)->icicle_dropper.hold_start_position) >= 0x300 || (OBJECT(current_object)->icicle_dropper.last_dropper != 0u && AS32(players_finished[0]) == 0xFFFFFFu))
+	if ((int16_t)(scroll_position - OBJECT(current_object)->icicle_dropper.hold_start_position) >= 0x300 || (OBJECT(current_object)->icicle_dropper.last_dropper != 0u && (players_finished[0] | ((uint32_t)players_finished[1] << 8u) | ((uint32_t)players_finished[2] << 16u) | ((uint32_t)goal_unlocked << 24u)) == 0xFFFFFFu))
 	{
 		OBJECT(current_object)->icicle_dropper.holding_back = 0u;
 		OBJECT(current_object)->icicle_dropper.screen_threshold = OBJECT(current_object)->icicle_dropper.saved_threshold;
@@ -1718,7 +1716,7 @@ void icicle_dropper_move_at_speed(uint16_t move_speed, uint32_t slope_height, ui
 	chaser_speed = move_speed;
 	if (OBJECT(current_object)->icicle_dropper.wait_timer <= 0)
 	{
-		if (OBJECT(current_object)->icicle_dropper.last_dropper != 0u && AS32(players_finished[0]) == 0xFFFFFFu)
+		if (OBJECT(current_object)->icicle_dropper.last_dropper != 0u && (players_finished[0] | ((uint32_t)players_finished[1] << 8u) | ((uint32_t)players_finished[2] << 16u) | ((uint32_t)goal_unlocked << 24u)) == 0xFFFFFFu)
 			chaser_speed = 0x400;
 		direction = OBJECT(current_object)->direction;
 		switch (direction >> 8)
@@ -1821,7 +1819,7 @@ void drop_icicle_row(uint32_t random_value, uint32_t block)
 		OBJECT(block)->speed_z = 1;
 		OBJECT(block)->direction = OBJECT(current_object)->direction;
 		OBJECT(block)->speed = 0;
-		OBJECT(block)->var_96 = OBJECT(current_object)->var_96;
+		OBJECT(block)->icicle_update.dropper_flags = OBJECT(current_object)->drop_icicle_row.dropper_flags;
 		OBJECT(block)->icicle_update.state = 0u;
 		if (OBJECT(block)->icicle_update.rides_platform != 0u)
 			OBJECT(block)->icicle_update.state = 4u;
@@ -1912,7 +1910,7 @@ void drop_icicle_row(uint32_t random_value, uint32_t block)
 		OBJECT(block)->sprite_offset_y = 0;
 		OBJECT(block)->flags = 0u;
 		OBJECT(block)->speed_z = 0;
-		OBJECT(block)->var_86 = 0u;
+		OBJECT(block)->icicle_shadow.blink_timer_word = 0u;
 		OBJECT(block)->parent = object;
 		OBJECT(block)->x = OBJECT(object)->x;
 		OBJECT(block)->y = OBJECT(object)->y;
@@ -2360,7 +2358,7 @@ void icicle_shadow_follow(void)
 		OBJECT(current_object)->icicle_shadow.blink_timer = blink_timer - 1u;
 		if ((int8_t)blink_timer <= 1)
 		{
-			OBJECT(current_object)->var_86 = 2u;
+			OBJECT(current_object)->icicle_shadow.blink_timer_word = 2u;
 			OBJECT(current_object)->flags |= 0x80000u;
 		}
 	}

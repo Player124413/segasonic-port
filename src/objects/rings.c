@@ -3,7 +3,7 @@
  *    Description: rings: the stage rows, spinning, carried and scattered rings, sparkles; the unused gauge ring and template spawner
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    21-10-2026
+ *    Modified:    22-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -77,7 +77,7 @@ void spawn_ring_rows(uint32_t *p_stage_list_offset, uint32_t *p_free_stack, uint
 		OBJECT(object)->hitbox_size_x = STAGE_OBJECT_TEMPLATE(template_cursor - 0x6u)->hitbox_size_x;
 		OBJECT(object)->hitbox_size_y = 0u;
 		template_cursor += 2u;
-		OBJECT(object)->var_82 = STAGE_OBJECT_TEMPLATE(template_cursor - 0x8u)->hover_height;
+		OBJECT(object)->row_ring.hover_height = STAGE_OBJECT_TEMPLATE(template_cursor - 0x8u)->hover_height;
 		template_cursor += 2u;
 		OBJECT(object)->animation_speed = STAGE_OBJECT_TEMPLATE(template_cursor - 0xAu)->animation_speed;
 		template_cursor++;
@@ -95,8 +95,8 @@ void spawn_ring_rows(uint32_t *p_stage_list_offset, uint32_t *p_free_stack, uint
 		template_cursor++;
 		OBJECT(object)->sprite_offset_y = STAGE_OBJECT_TEMPLATE(template_cursor - 0x17u)->sprite_offset_y;
 		OBJECT(object)->hitbox_height = STAGE_OBJECT_TEMPLATE(template_cursor - 0x17u)->hitbox_height;
-		AS16(OBJECT(object)->health) = scroll_position;
-		AS16(OBJECT(object)->var_80) = ring_row_next_80;
+		OBJECT(object)->row_ring.spawn_scroll_position = scroll_position;
+		OBJECT(object)->row_ring.glint_timer = ring_row_next_80;
 		ring_row_next_80 += 0x20u;
 		OBJECT(object)->flags = 0u;
 		OBJECT(object)->x_int = ring_row_x;
@@ -108,7 +108,7 @@ void spawn_ring_rows(uint32_t *p_stage_list_offset, uint32_t *p_free_stack, uint
 		current_object = object;
 		find_floor(&ignored, &ignored, &ignored, &slope_height, &object);
 		OBJECT(current_object)->z = OBJECT(current_object)->floor_z;
-		OBJECT(current_object)->z_int -= OBJECT(current_object)->var_82;
+		OBJECT(current_object)->z_int -= OBJECT(current_object)->row_ring.hover_height;
 		project_object(&ignored, &stage_list_offset);
 		object_cursor = current_object;
 		allocate_object_2(&ignored, p_free_stack, &object);
@@ -365,6 +365,7 @@ void scatter_rings(uint32_t count, uint32_t *p_random_value, uint32_t *p_allocat
 {
 	uint32_t random_value = *p_random_value;
 	uint32_t allocated = *p_allocated;
+	uint32_t ring = *p_ring;
 	uint32_t free_count = 0, ignored = 0;
 
 	if ((int16_t)count > 0xA)
@@ -372,20 +373,10 @@ void scatter_rings(uint32_t count, uint32_t *p_random_value, uint32_t *p_allocat
 	do
 	{
 		if (free_object_stack_2[0] <= 0)
-		{
-			current_object = object_cursor;
-			*p_random_value = random_value;
-			*p_allocated = allocated;
-			return;
-		}
+			break;
 		allocate_object(&free_count, &allocated);
 		if (free_count == 0u)
-		{
-			current_object = object_cursor;
-			*p_random_value = random_value;
-			*p_allocated = allocated;
-			return;
-		}
+			break;
 		OBJECT(allocated)->sprite_flags = 0x1004u;
 		OBJECT(allocated)->sprite_frame = 0x5E70u;
 		OBJECT(allocated)->sprite_palette = 0x8430u;
@@ -437,18 +428,19 @@ void scatter_rings(uint32_t count, uint32_t *p_random_value, uint32_t *p_allocat
 			OBJECT(current_object)->flags |= 8u;
 			OBJECT(current_object)->platform = OBJECT(object_cursor)->platform;
 		}
-		*p_ring = allocated;
+		ring = allocated;
 		allocate_object_2(&ignored, &ignored, &allocated);
 		OBJECT(allocated)->sprite_flags = 0x1000u;
 		OBJECT(allocated)->sprite_palette = 0x9FFEu;
 		OBJECT(allocated)->sprite_frame = 0x5D90u;
-		OBJECT(*p_ring)->child = allocated;
-		OBJECT(allocated)->parent = *p_ring;
+		OBJECT(ring)->child = allocated;
+		OBJECT(allocated)->parent = ring;
 		count--;
 	} while (count != 0u);
 	current_object = object_cursor;
 	*p_random_value = random_value;
 	*p_allocated = allocated;
+	*p_ring = ring;
 }
 
 /* Handler of a ring just thrown: moves it (move_scattered_ring) while pickup_delay counts down with
@@ -822,7 +814,7 @@ void spawn_stage_template_0(uint16_t x, uint16_t y, uint16_t z, uint32_t object)
 			OBJECT(object)->sprite_offset_x = stage_template_0_offset_x;
 			OBJECT(object)->sprite_offset_y = stage_template_0_offset_y;
 			OBJECT(object)->hitbox_height = stage_template_0_hitbox_height;
-			AS16(OBJECT(object)->health) = scroll_position;
+			OBJECT(object)->ring_spin.spawn_scroll_position = scroll_position;
 			OBJECT(object)->flags = 0u;
 			OBJECT(object)->x_int = template_spawn_x;
 			OBJECT(object)->x_fraction = 0u;
@@ -888,7 +880,7 @@ void spawn_stage_template(uint16_t template_index, uint16_t x, uint16_t y, uint1
 			template_cursor++;
 			OBJECT(object)->sprite_offset_y = STAGE_OBJECT_TEMPLATE(template_cursor - 0x17u)->sprite_offset_y;
 			OBJECT(object)->hitbox_height = STAGE_OBJECT_TEMPLATE(template_cursor - 0x17u)->hitbox_height;
-			AS16(OBJECT(object)->health) = scroll_position;
+			OBJECT(object)->ring_spin.spawn_scroll_position = scroll_position;
 			OBJECT(object)->flags = 0u;
 			OBJECT(object)->x_int = template_spawn_x;
 			OBJECT(object)->x_fraction = 0u;

@@ -241,11 +241,11 @@ void move_map_stage_icon(void)
    first dot, the trail starting over at every call (map_intro_update's fade-in). */
 void draw_map_markers_and_trail(void)
 {
-	uint32_t r11 = 0;
+	uint32_t badge_offset = 0;
 
-	r11 = draw_map_stage_markers(0u);
+	badge_offset = draw_map_stage_markers(0u);
 	start_map_trail();
-	draw_map_trail_dot(r11);
+	draw_map_trail_dot(badge_offset);
 }
 
 /* Unused: map_screen_update's step 4 drawing alone: sprite 0x65C8, palette 0x6C0 at 0x20,0x10, zoom
@@ -636,7 +636,7 @@ void map_eggman_update(void)
 				}
 			}
 		}
-		if ((int16_t)AS16(OBJECT(current_object)->kind) <= 5)
+		if ((int16_t)(OBJECT(current_object)->kind | ((uint32_t)(OBJECT(current_object)->map_eggman.hold_frames & 0xFFu) << 8u)) <= 5)
 		{
 			draw_map_eggman();
 			return;
@@ -1060,15 +1060,8 @@ void update_screen_wipe(uint32_t *p_clip_right, uint32_t *p_clip_top, uint32_t *
 	mem_write16(video_bitmap_clip_top, clip_top);
 	mem_write16(video_bitmap_clip_right, clip_right);
 	mem_write16(video_bitmap_clip_bottom, clip_bottom);
-	if ((uint16_t)edges_done != 0xFFFFu)
-	{
-		*p_clip_right = clip_right;
-		*p_clip_top = clip_top;
-		*p_clip_bottom = clip_bottom;
-		*p_edges_done = edges_done;
-		return;
-	}
-	mem_write8(video_layer_disable, mem_read8(video_layer_disable) | 0x20u);
+	if ((uint16_t)edges_done == 0xFFFFu)
+		mem_write8(video_layer_disable, mem_read8(video_layer_disable) | 0x20u);
 	*p_clip_right = clip_right;
 	*p_clip_top = clip_top;
 	*p_clip_bottom = clip_bottom;

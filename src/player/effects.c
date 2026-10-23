@@ -170,17 +170,15 @@ void player_hud_start(void)
    the no-continue text. */
 void player_hud_update(uint32_t *p_digit_attribute, uint32_t *p_text_position)
 {
-	uint32_t text_position = *p_text_position;
-	uint32_t digit = 0, message_position = 0, object = 0, player = 0, player_2 = 0, portrait_anim = 0, prompt_position = 0, text = 0, value = 0, wrapped = 0;
+	uint32_t digit = 0, message_position = 0, object = 0, player = 0, player_2 = 0, portrait_anim = 0, text = 0, value = 0, wrapped = 0;
 	uint32_t flags = 0;
 
 	player = OBJECT(current_object)->player;
 	if (player_status[player] == 0x82u)
 	{
 		text = hud_wait_text_ADDRESS;
-		text_position = blink_player_hud_message(text, text_position);
+		*p_text_position = blink_player_hud_message(text, *p_text_position);
 		OBJECT(LINKED(current_object, PLAYER(current_player)->hud_gauge))->piece_frame = -1;
-		*p_text_position = text_position;
 		return;
 	}
 	if (PLAYER(current_player)->state == 0x23u || PLAYER(current_player)->state == 0x2Eu || PLAYER(current_player)->state == 0x34u || PLAYER(current_player)->state == 0x24u || PLAYER(current_player)->state == 0x37u)
@@ -198,12 +196,11 @@ void player_hud_update(uint32_t *p_digit_attribute, uint32_t *p_text_position)
 		PLAYER(current_player)->hud_message_shown = 0u;
 		text = hud_message_blank_text_ADDRESS;
 		player = OBJECT(current_object)->player;
-		text_position = 0x310000u | hud_text_positions_3p[player];
+		*p_text_position = 0x310000u | hud_text_positions_3p[player];
 		if ((cabinet_config & 1u) == 0u)
-			text_position = (text_position & ~0xFFFFu) | hud_text_positions_2p[player];
-		erase_text_lines(&text, &text_position);
+			*p_text_position = (*p_text_position & ~0xFFFFu) | hud_text_positions_2p[player];
+		erase_text_lines(&text, p_text_position);
 		OBJECT(LINKED(current_object, PLAYER(current_player)->hud_gauge))->piece_frame = -1;
-		*p_text_position = text_position;
 		return;
 	}
 	if (PLAYER(current_player)->state == 0x39u && game_mode_timer >= 0x3C)
@@ -294,10 +291,10 @@ void player_hud_update(uint32_t *p_digit_attribute, uint32_t *p_text_position)
 					*p_digit_attribute = (*p_digit_attribute & ~0xFFFFu) | 0xC00u;
 			}
 			player_2 = OBJECT(object_cursor)->player;
-			text_position = 0x310000u | hud_ring_count_positions_3p[player_2];
+			*p_text_position = 0x310000u | hud_ring_count_positions_3p[player_2];
 			if ((cabinet_config & 1u) == 0u)
-				text_position = (text_position & ~0xFFFFu) | hud_ring_count_positions_2p[player_2];
-			draw_hex_4(&value, p_digit_attribute, &text_position);
+				*p_text_position = (*p_text_position & ~0xFFFFu) | hud_ring_count_positions_2p[player_2];
+			draw_hex_4(&value, p_digit_attribute, p_text_position);
 		}
 		current_object = (current_object & ~0xFFFFu) | PLAYER(current_player)->hud_ring_effect;
 		if ((int8_t)OBJECT(current_object)->direction_high >= 0)
@@ -323,16 +320,12 @@ void player_hud_update(uint32_t *p_digit_attribute, uint32_t *p_text_position)
 				OBJECT(current_object)->hud_anim_repeats--;
 		}
 		OBJECT(current_object)->sprite_width = (uint8_t)OBJECT(object_cursor)->health * 2u;
-		if (OBJECT(current_object)->sprite_width <= 0)
+		if (OBJECT(current_object)->sprite_width > 0)
 		{
-			current_object = (current_object & ~0xFFFFu) | (uint16_t)object_cursor;
-			*p_text_position = text_position;
-			return;
+			OBJECT(current_object)->sprite_width++;
+			queue_sprite_on_top();
 		}
-		OBJECT(current_object)->sprite_width++;
-		queue_sprite_on_top();
 		current_object = (current_object & ~0xFFFFu) | (uint16_t)object_cursor;
-		*p_text_position = text_position;
 		return;
 	}
 	OBJECT(LINKED(current_object, PLAYER(current_player)->hud_gauge))->piece_frame = -1;
@@ -346,22 +339,22 @@ void player_hud_update(uint32_t *p_digit_attribute, uint32_t *p_text_position)
 		PLAYER(current_player)->hud_message_shown = 0u;
 		text = hud_message_blank_text_ADDRESS;
 		player = OBJECT(current_object)->player;
-		text_position = 0x310000u | hud_text_positions_3p[player];
+		*p_text_position = 0x310000u | hud_text_positions_3p[player];
 		if ((cabinet_config & 1u) == 0u)
-			text_position = (text_position & ~0xFFFFu) | hud_text_positions_2p[player];
-		erase_text_lines(&text, &text_position);
+			*p_text_position = (*p_text_position & ~0xFFFFu) | hud_text_positions_2p[player];
+		erase_text_lines(&text, p_text_position);
 		OBJECT(LINKED(current_object, PLAYER(current_player)->hud_gauge))->piece_frame = -1;
-		*p_text_position = text_position;
 		return;
 	}
 	if (joining_closed == 0u)
 	{
-		prompt_position = draw_player_start_prompt();
-		*p_text_position = prompt_position;
+		*p_text_position = draw_player_start_prompt();
 		return;
 	}
 	if (PLAYER(current_player)->hud_message_shown != 0u)
+	{
 		return;
+	}
 	PLAYER(current_player)->hud_message_shown = 0xFFu;
 	text = hud_message_blank_text_ADDRESS;
 	player = OBJECT(current_object)->player;
@@ -370,12 +363,11 @@ void player_hud_update(uint32_t *p_digit_attribute, uint32_t *p_text_position)
 		message_position = (message_position & ~0xFFFFu) | hud_text_positions_2p[player];
 	erase_text_lines(&text, &message_position);
 	player = OBJECT(current_object)->player;
-	text_position = 0x310000u | start_prompt_positions_3p[player];
+	*p_text_position = 0x310000u | start_prompt_positions_3p[player];
 	if ((cabinet_config & 1u) == 0u)
-		text_position = (text_position & ~0xFFFFu) | start_prompt_positions_2p[player];
+		*p_text_position = (*p_text_position & ~0xFFFFu) | start_prompt_positions_2p[player];
 	text = hud_no_continue_text_ADDRESS;
-	print_text_lines(&text, &text_position);
-	*p_text_position = text_position;
+	print_text_lines(&text, p_text_position);
 }
 
 /* Blinks the start prompt (blink_start_prompt, start_prompt_texts) at the player's
@@ -597,7 +589,7 @@ void player_select_character(uint32_t player_number)
 		if (OBJECT(current_object)->player != 1u)
 			player_bit = 2u;
 	}
-	if ((AS32(players_in_join_chooser) & shl32(1u, (int)(player_bit))) == 0u)
+	if ((players_in_join_chooser & shl32(1u, (int)(player_bit))) == 0u)
 	{
 		PLAYER(current_player)->substate = 0u;
 		PLAYER(current_player)->is_joining = 0u;

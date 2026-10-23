@@ -3,7 +3,7 @@
  *    Description: prototypes of the game's functions and the addresses of the code it keeps in memory slots
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    20-10-2026
+ *    Modified:    23-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -2268,6 +2268,7 @@ uint32_t flood_fill_scan_seed_rows(uint8_t border_color, uint32_t window_left, u
 uint32_t flood_fill_scan_row(uint8_t border_color, uint32_t window_left, uint32_t window_right, uint32_t direction, uint8_t y, uint32_t fill_pattern);
 uint32_t flood_fill_scan_span_rows(uint8_t border_color, uint32_t window_left, uint16_t window_top, uint32_t window_right, uint16_t window_bottom, uint32_t scan_x, uint16_t y, uint32_t fill_pattern);
 uint32_t flood_fill_scan_row_skip_parent(uint8_t border_color, uint32_t window_left, uint32_t window_right, uint32_t direction, uint32_t scan_x, uint8_t y, uint32_t fill_pattern);
+uint32_t flood_fill_skip_parent_right(uint8_t border_color, uint32_t window_left, uint32_t window_right, uint8_t direction, uint32_t scan_x, uint8_t y, uint32_t fill_pattern);
 void fill_span_at_point(uint32_t point_x, uint32_t point_y, uint8_t fill_color, uint8_t border_color, uint32_t right_cursor);
 void fill_span_at_point_left_byte(uint32_t scan_count, uint8_t fill_color, uint8_t border_color, uint32_t left_x, uint32_t right_cursor, uint32_t right_x);
 void fill_span_at_point_left_even_pixel(uint8_t pixel_byte, uint32_t scan_count, uint8_t fill_color, uint8_t border_color, uint32_t left_x, uint32_t right_cursor, uint32_t right_x);

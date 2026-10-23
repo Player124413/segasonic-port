@@ -79,7 +79,7 @@
 046C  func  play_midi_message               # one MIDI message for the part in IX (040B calls it for every part on the message's channel): by midi_status's high nibble, 90 note on, 80 note off, E0 pitch bend, B0 control change, C0 program change (A0 and D0 skipped by 0450)
 052B  code  allocate_sample_voice           # sample note on (instrument or drum kit): a free sample_voice, else the lowest allocation_order is stopped and taken
 059C  code  start_sample_voice              # IY = the sample_voice: drum kit (05A4) or instrument (0614) set-up of the RF5C68 channel
-0714  code  note_off                        # note off, or note on with velocity 0: drum kits ignore it; FM programs go to fm_note_off
+0714  func  note_off                        # note off, or note on with velocity 0: drum kits ignore it; FM programs go to fm_note_off
 0750  code  note_off_not_this               # the voice is not the note: A back to the channel
 0751  code  note_off_next_voice
 07DE  code  pitch_bend_next_voice
@@ -645,6 +645,7 @@ param next_sequence_byte      hl  cursor        # the read position, handed back
 param next_sequence_byte      ix  player sequence_player        # whose bank (field 1B) moves on at C000
 param play_midi_message bc message_byte     # C: the byte 040B read (a status byte if bit 7 is set, else the first data byte); the handlers read the next one when it is a status byte
 param play_midi_message ix part midi_part    # the part the message is for (E300 + 9n)
+param note_off ix part midi_part    # the part the note off is for (play_midi_message's)
 param playlist_command        a   playlist_byte # the playlist byte F0-FF; handed back: the byte after the command, a song number or 0 (4892)
 param playlist_command        de  queue_pointer # where the next byte goes in midi_queue: D picks what FF clears (46E0)
 param playlist_command        hl  playlist      # the playlist position after the command byte; handed back past its operands
@@ -1256,6 +1257,7 @@ comment allocate_sample_voice A sample note on for part: takes a free sample_voi
 comment handle_midi_message Takes one message off the MIDI queue when midi_queue_count is not 0: its status byte, or under running status midi_status again, then play_midi_message for each of the 13 parts that is on and listens to its channel, each reading from the same place; then skip_midi_data moves past it.
 comment init_midi_port Unused: sets the MIDI port's 8251 USART up: three 0 commands and an internal reset (0x40), mode 0x4E (asynchronous, clock / 16, 8 data bits, no parity, 1 stop bit: MIDI's frame), then command 0x37 as reset_midi_errors.
 comment play_midi_message One MIDI message for part, by midi_status's high nibble: note on and off (FM voices, or sample voices for sample instruments and drum kits), pitch bend (retune_voice), control change (1, 7, 0x10, 0x11, 0x20, 0x40, 0x50, 0x51, 0x7B, 0x80) or program change; 0xA0 and 0xD0 only skip their data. The sample loops of CC 0x7B and CC 0x50 0x7E never leave the first voice.
+comment note_off A note off for part (MIDI 0x80, or a note on with velocity 0): nothing for a drum kit (program 0xF0 and up); an FM instrument's goes to fm_note_off; else the sample voice on midi_status's channel playing note_code, if it is sounding and not already released, is stopped (stop_pcm_voice) unless the channel's sustain pedal is down (channel_controls bit 7), which only marks it released (flags bit 1).
 comment read_midi_byte Moves midi_queue_read on by one and hands back the midi_queue byte there in byte (and in byte_copy's low byte) and its address in queue_slot.
 comment receive_midi_byte Unused: one byte from the MIDI port into midi_queue: waits out (resetting) USART errors, reads without checking a byte has come, turns 0xF2 into 0x80 and drops the other 0xF0-0xFF bytes. A status byte opens a message of its length (3; 2 for 0xC0-0xDF), a lone data byte reopens the last (running status); a full message adds 1 to midi_queue_count.
 comment receive_midi_byte_spare_return_1 Unused: an empty function, a lone return left after receive_midi_byte's own.

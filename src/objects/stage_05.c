@@ -3,7 +3,7 @@
  *    Description: stage 5's objects: the exit door, the floor patch, the bubbles, the spiked press, the cage
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    21-10-2026
+ *    Modified:    22-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -201,7 +201,7 @@ void bubble_pop(void)
    freezes the players and spawns Eggman's booth (spawn_eggman_booth); then spiked_press_update. */
 void spiked_press_start(void)
 {
-	uint32_t r0 = 0, r2 = 0, r3 = 0, r11 = 0, ignored = 0;
+	uint32_t block_offset = 0, cursor = 0, ignored = 0, slope_height = 0, x = 0;
 
 	OBJECT(current_object)->sprite_flags = 0x1104u;
 	OBJECT(current_object)->sprite_frame = 0x7070u;
@@ -223,12 +223,12 @@ void spiked_press_start(void)
 	OBJECT(current_object)->speed_x = 0;
 	OBJECT(current_object)->speed_y = 0x2000;
 	OBJECT(current_object)->direction = 0x200u;
-	find_floor(&r0, &ignored, &r2, &r3, &r11);
+	find_floor(&x, &ignored, &block_offset, &slope_height, &cursor);
 	OBJECT(current_object)->z = OBJECT(current_object)->floor_z;
 	spiked_press_object = current_object;
 	scroll_mode = 1u;
 	players_frozen = 0xFFu;
-	spawn_eggman_booth(r0, ignored, r3, &r2, &r11);
+	spawn_eggman_booth(x, ignored, slope_height, &block_offset, &cursor);
 }
 
 /* Counts frames in game modes 3 and 0xA: at 0x14 a message box and at 0x50 a voice by caged_character,

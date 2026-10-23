@@ -452,10 +452,117 @@ def drop_unread(tree):
 
 # ---- simplifying ----
 
+WAYS = 256    # ways through a piece of code known_reads follows, at most
+
+
+def known_reads(nodes):
+    """A test of control variables whose outcome every way to it knows: the ways through the code before it
+    in the same list are followed (each test of control variables taken as their values say, or both ways,
+    with what it says about them), and when every way that gets to the test finds it true (or false) it is
+    that constant. "c = A; if (!c) { ...; c = B; if (!c) { ...; x = true; } } if (c) { ...; x = true; }
+    if (x)": x is true wherever it is read. True if it changed anything."""
+    changed = False
+    for node in nodes:
+        for inner in children(node):
+            changed |= known_reads(inner)
+    for index, node in enumerate(nodes):
+        if not isinstance(node, If) or not read_names(node.condition):
+            continue
+        # (from past the last loop or switch before it: nothing known there is the safe start)
+        start = max((position + 1 for position in range(index)
+                     if isinstance(nodes[position], (Loop, Switch))), default=0)
+        outcomes = set()
+        for state in ways_through(nodes[start:index], {}):
+            if state is None:
+                outcomes = None
+                break
+            outcomes.add(fold(node.condition, state))
+        if outcomes is not None and len(outcomes) == 1 and next(iter(outcomes)) in (TRUE, FALSE):
+            node.condition = next(iter(outcomes))
+            changed = True
+    return changed
+
+
+def fold(condition, state):
+    for name, value in state.items():
+        if value in (TRUE, FALSE):
+            condition = substitute(condition, name, value)
+    return condition
+
+
+def ways_through(nodes, state, budget=None):
+    """The control variables' values on every way that falls off the end of 'nodes' from 'state' (name ->
+    TRUE, FALSE or unknown), as dicts; a None among them when some way cannot be followed (a loop, a switch,
+    too many ways). A label is nothing by then: the gotos to it are gone."""
+    budget = budget if budget is not None else [WAYS]
+    states = [dict(state)]
+    for node in nodes:
+        following = []
+        for current in states:
+            if isinstance(node, (Loop, Switch)):
+                return [None]
+            if isinstance(node, Label):
+                following.append(current)
+                continue
+            if isinstance(node, (End, Break, Continue, Goto)):
+                continue    # (this way does not get there)
+            if isinstance(node, Mark):
+                value = fold(node.value, current) if node.value is not None else None
+                current = dict(current)
+                current[node.name] = value if value in (TRUE, FALSE) else None
+                following.append(current)
+            elif isinstance(node, If):
+                condition = fold(node.condition, current)
+                for taken, side in ((TRUE, node.then), (FALSE, node.otherwise)):
+                    if condition in (TRUE, FALSE) and condition != taken:
+                        continue
+                    branch = dict(current)
+                    if isinstance(condition, ir.Control):
+                        branch[condition.name] = taken    # (what the test says about the variable)
+                    elif read_names(condition) and condition not in (TRUE, FALSE):
+                        negated = negate_condition(condition)
+                        if isinstance(negated, ir.Control):
+                            branch[negated.name] = FALSE if taken == TRUE else TRUE
+                    budget[0] -= 1
+                    if budget[0] < 0:
+                        return [None]
+                    following.extend(ways_through(side, branch, budget))
+            else:
+                following.append(current)
+        if None in following:
+            return [None]
+        states = following
+    return states
+
+
+def settle_tests(nodes):
+    """"x = e; if (!x) { ...a way out }" is "if (!e) { ...a way out }" with x false inside it and true after
+    it: what comes after only runs when x is true (the other ways to it set x true, so that x then reads as
+    true wherever it is read, and goes). True if it changed anything."""
+    changed = False
+    for node in nodes:
+        for inner in children(node):
+            changed |= settle_tests(inner)
+    for index in range(len(nodes) - 1):
+        mark, test = nodes[index], nodes[index + 1]
+        if not (isinstance(mark, Mark) and mark.value not in (TRUE, FALSE) and not reads(mark, mark.name)
+                and isinstance(test, If) and not test.otherwise and ends(test.then)
+                and read_names(test.condition) == {mark.name}
+                and substitute(test.condition, mark.name, FALSE) == TRUE
+                and substitute(test.condition, mark.name, TRUE) == FALSE):
+            continue
+        replace_reads(test.then, mark.name, FALSE)
+        nodes[index:index + 2] = [If(negate_condition(mark.value), test.then), Mark(mark.name, TRUE)]
+        changed = True
+    return changed
+
+
 def simplify(tree):
     changed = True
     while changed:
         changed = drop_unread(tree)
+        changed |= settle_tests(tree)
+        changed |= known_reads(tree)
         names = {node.name for node in walk(tree) if isinstance(node, Mark)}
         entry = live_in(tree, frozenset(), frozenset(), frozenset(), {})
         for name in sorted(names):
@@ -475,12 +582,14 @@ def remove_marks(nodes, name):
             remove_marks(inner, name)
 
 
-def replace_reads(nodes, name):
+def replace_reads(nodes, name, value=TRUE):
     for node in nodes:
         if isinstance(node, (If, Loop)) and node.condition is not None:
-            node.condition = substitute(node.condition, name)
+            node.condition = substitute(node.condition, name, value)
+        elif isinstance(node, Mark) and node.value is not None:
+            node.value = substitute(node.value, name, value)
         for inner in children(node):
-            replace_reads(inner, name)
+            replace_reads(inner, name, value)
 
 
 def substitute(expression, name, value=TRUE):

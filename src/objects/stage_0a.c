@@ -3,7 +3,7 @@
  *    Description: stage A's objects, the sand: the cactus, the centipede, the wall pieces, the shaking blocks, the sand rock, the sand arch, the stepped wall, the tornado and the whirlwinds it throws, quicksand, sinkholes, the collapsing sand blocks
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    21-10-2026
+ *    Modified:    22-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -275,10 +275,10 @@ void centipede_init(void)
    stores are never read. */
 void centipede_chase(void)
 {
-	uint32_t r0 = 0, r2 = 0, r3 = 0, r11 = 0, path_cursor = 0;
+	uint32_t block_offset = 0, cursor = 0, path_cursor = 0, screen_y = 0, slope_height = 0;
 	uint32_t path_write_index = 0;
 
-	move_object_projected(&r0, &r2, &r3, &r11);
+	move_object_projected(&screen_y, &block_offset, &slope_height, &cursor);
 	if (scroll_position <= OBJECT(current_object)->spawn_arg_1)
 	{
 		if ((int8_t)active_player_count > 0)
@@ -287,16 +287,16 @@ void centipede_chase(void)
 			centipede_command = 0u;
 			if (OBJECT(current_object)->speed_z <= 0)
 			{
-				r0 = add_to_touchable_list(r0);
-				face_nearest_player(r0, r3);
+				screen_y = add_to_touchable_list(screen_y);
+				face_nearest_player(screen_y, slope_height);
 				if (nearest_player_floor_z >= 0x800)
 				{
 					OBJECT(current_object)->anchor_y = 0;
-					centipede_move(r11);
+					centipede_move(cursor);
 					return;
 				}
 			}
-			centipede_move(r11);
+			centipede_move(cursor);
 			return;
 		}
 		path_write_index = (uint8_t)OBJECT(current_object)->centipede.path_write_index;
@@ -315,9 +315,9 @@ void centipede_chase(void)
 		OBJECT(current_object)->anchor_y = 0x280;
 		centipede_command = 1u;
 		path_cursor += 2u;
-		centipede_hop(&path_cursor, &r2);
+		centipede_hop(&path_cursor, &block_offset);
 		if (OBJECT(current_object)->centipede.hop_timer == 0x5Au)
-			spawn_centipede_sand_puff(path_cursor, r2, r3, r11);
+			spawn_centipede_sand_puff(path_cursor, block_offset, slope_height, cursor);
 		draw_centipede_piece();
 		return;
 	}
@@ -326,16 +326,16 @@ void centipede_chase(void)
 	centipede_command = 0u;
 	if (OBJECT(current_object)->speed_z <= 0)
 	{
-		r0 = add_to_touchable_list(r0);
-		face_nearest_player(r0, r3);
+		screen_y = add_to_touchable_list(screen_y);
+		face_nearest_player(screen_y, slope_height);
 		if (nearest_player_floor_z >= 0x800)
 		{
 			OBJECT(current_object)->anchor_y = 0;
-			centipede_move(r11);
+			centipede_move(cursor);
 			return;
 		}
 	}
-	centipede_move(r11);
+	centipede_move(cursor);
 }
 
 /* The head once scroll_position has passed spawn_arg_1: heads along spawn_arg_2 with centipede_move at
@@ -343,9 +343,9 @@ void centipede_chase(void)
    is removed off screen, which removes the body. */
 void centipede_leave(void)
 {
-	uint32_t r11 = 0, deleted = 0, ignored = 0;
+	uint32_t cursor = 0, deleted = 0, ignored = 0;
 
-	move_object_projected(&ignored, &ignored, &ignored, &r11);
+	move_object_projected(&ignored, &ignored, &ignored, &cursor);
 	delete_if_off_screen(&deleted, &ignored, &ignored);
 	if ((uint8_t)deleted == 1u)
 	{
@@ -356,7 +356,7 @@ void centipede_leave(void)
 	OBJECT(current_object)->direction = OBJECT(current_object)->spawn_arg_2;
 	nearest_player_distance = 0x1F;
 	nearest_player_dx = 0;
-	centipede_move(r11);
+	centipede_move(cursor);
 }
 
 /* The head's step: sprite centipede_head_frames[(direction / 0x92 + 1) & 7]; speed
@@ -410,7 +410,7 @@ void centipede_move(uint32_t block)
    centipede_segment_follow. */
 void centipede_segment_wait(void)
 {
-	uint32_t r0 = 0, r2 = 0;
+	uint32_t height = 0, z = 0;
 
 	OBJECT(current_object)->centipede_segment.path_index--;
 	if (OBJECT(current_object)->centipede_segment.path_index <= 0)
@@ -419,9 +419,9 @@ void centipede_segment_wait(void)
 		centipede_segment_follow();
 		return;
 	}
-	centipede_hop(&r0, &r2);
+	centipede_hop(&height, &z);
 	if (OBJECT(current_object)->centipede_segment.hop_timer == 0x5Au)
-		spawn_centipede_sand_puff(r0, r2, 0u, 0u);
+		spawn_centipede_sand_puff(height, z, 0u, 0u);
 	draw_centipede_piece();
 }
 
@@ -430,19 +430,19 @@ void centipede_segment_wait(void)
    landing) and is drawn like the head. */
 void centipede_segment_follow(void)
 {
-	uint32_t r0 = 0, r2 = 0, r3 = 0, r11 = 0, ignored = 0;
+	uint32_t block_offset = 0, cursor = 0, ignored = 0, path_cursor = 0, slope_height = 0;
 
-	move_object_projected(&r0, &r2, &r3, &r11);
+	move_object_projected(&path_cursor, &block_offset, &slope_height, &cursor);
 	if (centipede_command == 9u)
 	{
 		delete_object_and_children(&ignored, &ignored, &ignored);
 		return;
 	}
 	if (centipede_command != 1u)
-		r0 = centipede_follow_path();
-	centipede_hop(&r0, &r2);
+		path_cursor = centipede_follow_path();
+	centipede_hop(&path_cursor, &block_offset);
 	if (OBJECT(current_object)->centipede_segment.hop_timer == 0x5Au)
-		spawn_centipede_sand_puff(r0, r2, r3, r11);
+		spawn_centipede_sand_puff(path_cursor, block_offset, slope_height, cursor);
 	draw_centipede_piece();
 }
 
@@ -450,7 +450,7 @@ void centipede_segment_follow(void)
    centipede_tail_follow. */
 void centipede_tail_wait(void)
 {
-	uint32_t r0 = 0, r2 = 0;
+	uint32_t height = 0, z = 0;
 
 	OBJECT(current_object)->centipede_tail.path_index--;
 	if (OBJECT(current_object)->centipede_tail.path_index <= 0)
@@ -459,9 +459,9 @@ void centipede_tail_wait(void)
 		centipede_tail_follow();
 		return;
 	}
-	centipede_hop(&r0, &r2);
+	centipede_hop(&height, &z);
 	if (OBJECT(current_object)->centipede_tail.hop_timer == 0x5Au)
-		spawn_centipede_sand_puff(r0, r2, 0u, 0u);
+		spawn_centipede_sand_puff(height, z, 0u, 0u);
 	draw_centipede_piece();
 }
 
@@ -469,9 +469,9 @@ void centipede_tail_wait(void)
    (direction_to_object) for its sprite, centipede_tail_frames[(direction / 0x92 + 5) & 7]. */
 void centipede_tail_follow(void)
 {
-	uint32_t r0 = 0, r2 = 0, r3 = 0, r11 = 0, ignored = 0, tail_frame = 0;
+	uint32_t block_offset = 0, cursor = 0, ignored = 0, octant = 0, path_cursor = 0, tail_frame = 0;
 
-	move_object_projected(&r0, &r2, &r3, &r11);
+	move_object_projected(&path_cursor, &block_offset, &octant, &cursor);
 	if (centipede_command == 9u)
 	{
 		delete_object_and_children(&ignored, &ignored, &ignored);
@@ -480,17 +480,17 @@ void centipede_tail_follow(void)
 	if (centipede_command != 1u)
 	{
 		r14 = OBJECT(current_object)->centipede_tail.segment_ahead;
-		r3 = direction_to_object();
+		octant = direction_to_object();
 		tail_frame = OBJECT(current_object)->direction;
 		tail_frame = (uint16_t)((int16_t)tail_frame / 0x92);
 		tail_frame = (uint16_t)(tail_frame + 1u);
 		tail_frame = (uint16_t)(tail_frame + 4u);
 		OBJECT(current_object)->sprite_frame = centipede_tail_frames[tail_frame & 7u];
-		r0 = centipede_follow_path();
+		path_cursor = centipede_follow_path();
 	}
-	centipede_hop(&r0, &r2);
+	centipede_hop(&path_cursor, &block_offset);
 	if (OBJECT(current_object)->centipede_tail.hop_timer == 0x5Au)
-		spawn_centipede_sand_puff(r0, r2, r3, r11);
+		spawn_centipede_sand_puff(path_cursor, block_offset, octant, cursor);
 	draw_centipede_piece();
 }
 
@@ -756,11 +756,11 @@ void sand_rock_init(void)
    then sand_rock_draw. */
 void sand_rock_update(void)
 {
-	uint32_t r3 = 0, r11 = 0, deleted = 0, ignored = 0, random_value = 0, ring = 0;
+	uint32_t cursor = 0, deleted = 0, ignored = 0, random_value = 0, ring = 0, slope_height = 0;
 
-	unproject_object(&ignored, &ignored, &r3, &r11);
+	unproject_object(&ignored, &ignored, &slope_height, &cursor);
 	fall_to_floor(&ignored, &ignored, &ignored);
-	delete_if_off_screen(&deleted, &ignored, &r3);
+	delete_if_off_screen(&deleted, &ignored, &slope_height);
 	if ((uint8_t)deleted == 1u)
 		return;
 	if (OBJECT(current_object)->sand_rock.crumbling != 0u)
@@ -782,7 +782,7 @@ void sand_rock_update(void)
 	released_ring_flip = 0u;
 	rings_to_release = OBJECT(current_object)->sand_rock.ring_count;
 	released_ring_angle = OBJECT(current_object)->spawn_arg_2;
-	drop_rings(r3, &r11, &random_value, &ring);
+	drop_rings(slope_height, &cursor, &random_value, &ring);
 	sand_rock_draw();
 }
 
@@ -1661,7 +1661,7 @@ void tornado_move_at_speed(uint16_t move_speed)
 	uint32_t direction = 0, ignored = 0;
 	uint8_t sound_timer = 0;
 
-	if (AS32(players_finished[0]) == 0xFFFFFFu)
+	if ((players_finished[0] | ((uint32_t)players_finished[1] << 8u) | ((uint32_t)players_finished[2] << 16u) | ((uint32_t)goal_unlocked << 24u)) == 0xFFFFFFu)
 		move_speed = (uint16_t)((uint32_t)move_speed << 2);
 	chaser_speed = move_speed;
 	if (OBJECT(current_object)->tornado.wait_timer <= 0)
@@ -2336,35 +2336,33 @@ void spawn_sand_block_leader(uint32_t record, uint32_t *p_spawned, uint32_t *p_l
 	uint32_t leader = *p_leader;
 
 	allocate_object_outside_loop(p_spawned, &leader);
-	if (*p_spawned == 0u)
+	if (*p_spawned != 0u)
 	{
-		*p_leader = leader;
-		return;
+		group_leaders[LEADER_SPAWN(record)->leader & 3u] = leader;
+		record++;
+		OBJECT(leader)->x_int = LEADER_SPAWN(record - 0x1u)->x;
+		OBJECT(leader)->x_fraction = 0u;
+		record += 2u;
+		OBJECT(leader)->y_int = LEADER_SPAWN(record - 0x3u)->y;
+		OBJECT(leader)->y_fraction = 0u;
+		record += 2u;
+		OBJECT(leader)->z_int = LEADER_SPAWN(record - 0x5u)->z;
+		OBJECT(leader)->z_fraction = 0u;
+		OBJECT(leader)->floor_z = OBJECT(leader)->z;
+		record += 2u;
+		OBJECT(leader)->direction = LEADER_SPAWN(record - 0x7u)->direction;
+		OBJECT(leader)->sand_block_leader.path = LEADER_SPAWN(record - 0x7u)->path + group_leader_data_ADDRESS;
+		OBJECT(leader)->handler = sand_block_leader_move_ADDRESS;
+		OBJECT(leader)->flags = 0u;
+		OBJECT(leader)->sprite_offset_x = 0;
+		OBJECT(leader)->sprite_offset_y = 0;
+		OBJECT(leader)->sand_block_leader.holding_back = 0u;
+		OBJECT(leader)->sand_block_leader.wait_timer = 1;
+		sand_block_leader_active = 0xFFu;
+		if (group_leader_0_held != 0u)
+			OBJECT(leader)->handler = sand_block_leader_wait_ADDRESS;
+		*p_spawned = 0xFFFFFFFFu;
 	}
-	group_leaders[LEADER_SPAWN(record)->leader & 3u] = leader;
-	record++;
-	OBJECT(leader)->x_int = LEADER_SPAWN(record - 0x1u)->x;
-	OBJECT(leader)->x_fraction = 0u;
-	record += 2u;
-	OBJECT(leader)->y_int = LEADER_SPAWN(record - 0x3u)->y;
-	OBJECT(leader)->y_fraction = 0u;
-	record += 2u;
-	OBJECT(leader)->z_int = LEADER_SPAWN(record - 0x5u)->z;
-	OBJECT(leader)->z_fraction = 0u;
-	OBJECT(leader)->floor_z = OBJECT(leader)->z;
-	record += 2u;
-	OBJECT(leader)->direction = LEADER_SPAWN(record - 0x7u)->direction;
-	OBJECT(leader)->sand_block_leader.path = LEADER_SPAWN(record - 0x7u)->path + group_leader_data_ADDRESS;
-	OBJECT(leader)->handler = sand_block_leader_move_ADDRESS;
-	OBJECT(leader)->flags = 0u;
-	OBJECT(leader)->sprite_offset_x = 0;
-	OBJECT(leader)->sprite_offset_y = 0;
-	OBJECT(leader)->sand_block_leader.holding_back = 0u;
-	OBJECT(leader)->sand_block_leader.wait_timer = 1;
-	sand_block_leader_active = 0xFFu;
-	if (group_leader_0_held != 0u)
-		OBJECT(leader)->handler = sand_block_leader_wait_ADDRESS;
-	*p_spawned = 0xFFFFFFFFu;
 	*p_leader = leader;
 }
 

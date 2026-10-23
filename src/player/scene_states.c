@@ -3,7 +3,7 @@
  *    Description: the player's states in scenes and stage events: out of the game, continue, entering and leaving a stage, tumbling, blown away, the intro and opening scenes, stunned, choosing a character, YOU FAILED, held, stuck
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    21-10-2026
+ *    Modified:    23-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -583,7 +583,7 @@ void player_state_stage_exit(uint32_t depth, uint32_t cursor)
    Out of health: knocked-out animation, then state 0x16. */
 void player_state_tumbling(uint32_t depth, uint32_t cursor)
 {
-	uint16_t r1 = 0;
+	uint16_t knocked_out_palette = 0;
 	uint32_t at_last_step = 0, facing = 0, ignored = 0, knocked_out_animations = 0, knocked_out_entry = 0, sprite_depth = 0;
 	uint8_t hurt_contact_delay = 0, health = 0;
 	uint16_t state_timer = 0, state_timer_2 = 0;
@@ -750,19 +750,19 @@ void player_state_tumbling(uint32_t depth, uint32_t cursor)
 			}
 			PLAYER(current_player)->substate = 8u;
 			knocked_out_animations = sonic_knocked_out_animations_ADDRESS;
-			r1 = 0xA90u;
+			knocked_out_palette = 0xA90u;
 			if (OBJECT(current_object)->kind != 0u)
 			{
 				knocked_out_animations = ray_knocked_out_animations_ADDRESS;
-				r1 = 0xAA0u;
+				knocked_out_palette = 0xAA0u;
 				if (OBJECT(current_object)->kind != 1u)
 				{
 					knocked_out_animations = mighty_knocked_out_animations_ADDRESS;
-					r1 = 0xA80u;
+					knocked_out_palette = 0xA80u;
 				}
 			}
 			OBJECT(current_object)->sprite_palette &= ~0xFFFu;
-			OBJECT(current_object)->sprite_palette |= r1;
+			OBJECT(current_object)->sprite_palette |= knocked_out_palette;
 			facing = PLAYER(current_player)->facing;
 			knocked_out_entry = knocked_out_animations + (facing >> 2) * 4u;
 			OBJECT(current_object)->sprite_flags &= ~0x40u;
@@ -1532,7 +1532,7 @@ void player_state_stage_scene(uint32_t depth, uint32_t cursor)
    plays its recovery animation and stands (state 0) facing direction 0x300 with control_lock 4. */
 void player_state_stunned(uint32_t depth, uint32_t cursor)
 {
-	uint16_t r0 = 0;
+	uint16_t stunned_frame = 0;
 	uint32_t at_last_step = 0, ignored = 0, stun_recover_animation = 0;
 	uint8_t health = 0;
 	uint16_t state_timer = 0;
@@ -1557,14 +1557,14 @@ void player_state_stunned(uint32_t depth, uint32_t cursor)
 		PLAYER(current_player)->animation_speed = 0;
 		PLAYER(current_player)->mishap_flag = 0xFFu;
 		PLAYER(current_player)->state_timer = 0x3C;
-		r0 = 0x8410u;
+		stunned_frame = 0x8410u;
 		if (OBJECT(current_object)->kind != 0u)
 		{
-			r0 = 0x8450u;
+			stunned_frame = 0x8450u;
 			if (OBJECT(current_object)->kind != 1u)
-				r0 = 0x83D0u;
+				stunned_frame = 0x83D0u;
 		}
-		OBJECT(current_object)->sprite_frame = r0;
+		OBJECT(current_object)->sprite_frame = stunned_frame;
 		if (OBJECT(current_object)->kind == 1u)
 		{
 			OBJECT(current_object)->animation = ray_stunned_animation_ADDRESS;
@@ -1776,7 +1776,7 @@ void player_state_stuck(uint32_t cursor)
 	else
 		OBJECT(current_object)->z += OBJECT(object)->speed_z;
 	update_screen_position(&ignored, &depth);
-	OBJECT(current_object)->screen_x += AS16(OBJECT(LINKED(current_object, OBJECT(current_object)->touched_by))->var_80);
+	OBJECT(current_object)->screen_x += OBJECT(LINKED(current_object, OBJECT(current_object)->touched_by))->propped_board.shake_dx;
 	find_floor(&ignored, &depth, &ignored, &ignored, &ignored);
 	keep_player_on_screen(depth);
 	depth = PLAYER(current_player)->draw_depth;
@@ -1846,7 +1846,7 @@ void player_stuck_wait_release(void)
 	uint8_t sound_id = 0;
 	uint32_t ignored = 0;
 
-	if ((OBJECT(LINKED(current_object, OBJECT(current_object)->touched_by))->var_80 | OBJECT(LINKED(current_object, OBJECT(current_object)->touched_by))->var_81) != 0u)
+	if ((uint16_t)OBJECT(LINKED(current_object, OBJECT(current_object)->touched_by))->propped_board.shake_dx != 0u)
 		return;
 	PLAYER(current_player)->substate++;
 	OBJECT(current_object)->animation_frame = 0u;

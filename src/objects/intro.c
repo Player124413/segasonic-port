@@ -3,7 +3,7 @@
  *    Description: the scenes that start a game: stage 6's opening (the rushing ground, the giant machine head) and stage 7's how to play (the panel, the hands on the button and the trackball, the metal wall that rises and breaks)
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    21-10-2026
+ *    Modified:    22-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -115,7 +115,7 @@ void metal_wall_rise(uint32_t octant)
 void metal_wall_update(uint32_t octant)
 {
 	uint8_t last_health_or_debris = 0;
-	uint32_t r11 = 0, deleted = 0, health = 0, ignored = 0, last_health_or_debris_2 = 0, ring_count = 0, spawn_arg_1 = 0;
+	uint32_t allocated = 0, deleted = 0, health = 0, ignored = 0, last_health_or_debris_2 = 0, ring_count = 0, spawn_arg_1 = 0;
 
 	if (OBJECT(current_object)->health <= 0)
 	{
@@ -124,7 +124,7 @@ void metal_wall_update(uint32_t octant)
 		if (OBJECT(current_object)->metal_wall.ring_count != 0u)
 		{
 			ring_count = OBJECT(current_object)->metal_wall.ring_count;
-			scatter_rings_random(octant, ring_count, &r11, &ignored);
+			scatter_rings_random(octant, ring_count, &allocated, &ignored);
 		}
 	}
 	health = (uint8_t)OBJECT(current_object)->health;
@@ -139,7 +139,7 @@ void metal_wall_update(uint32_t octant)
 		spawn_arg_1 = OBJECT(current_object)->spawn_arg_1;
 		last_health_or_debris_2 = (4u - spawn_arg_1) * 2u;
 		if ((int32_t)last_health_or_debris_2 > 0)
-			spawn_debris(spawn_arg_1, (uint16_t)last_health_or_debris_2, r11);
+			spawn_debris(spawn_arg_1, (uint16_t)last_health_or_debris_2, allocated);
 	}
 	delete_if_off_screen(&deleted, &ignored, &ignored);
 	if ((uint8_t)deleted == 1u)

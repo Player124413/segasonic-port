@@ -69,7 +69,7 @@ void checker_pad_animate(void)
 	OBJECT(current_object)->checker_pad.frame_timer = frame_timer - 1u;
 	if (frame_timer == 0u)
 	{
-		OBJECT(current_object)->sprite_frame = checker_pad_frames[AS16(OBJECT(current_object)->checker_pad.frame_index)];
+		OBJECT(current_object)->sprite_frame = checker_pad_frames[OBJECT(current_object)->checker_pad.frame_index_word];
 		OBJECT(current_object)->checker_pad.frame_timer = 8u;
 		OBJECT(current_object)->checker_pad.frame_index++;
 		if (OBJECT(current_object)->checker_pad.frame_index > 4)
@@ -253,9 +253,9 @@ void spike_gate_init(void)
 void spike_gate_pillar_update(void)
 {
 	uint16_t count = 0;
-	uint32_t r11 = 0, depth = 0, head_distance_x = 0, ignored = 0;
+	uint32_t cursor = 0, depth = 0, head_distance_x = 0, ignored = 0;
 
-	unproject_object(&ignored, &ignored, &ignored, &r11);
+	unproject_object(&ignored, &ignored, &ignored, &cursor);
 	r14 = LINKED(WORK_RAM, biting_head);
 	distance_xy_to_object(&head_distance_x, &ignored);
 	if ((int32_t)head_distance_x <= 0x20 || (int16_t)OBJECT(current_object)->spawn_arg_2 < (int16_t)scroll_position)
@@ -263,7 +263,7 @@ void spike_gate_pillar_update(void)
 		count = 5u;
 		OBJECT(current_object)->projected_x -= 0x90u;
 		OBJECT(current_object)->projected_y_int -= 0x40u;
-		spawn_debris(head_distance_x, count, r11);
+		spawn_debris(head_distance_x, count, cursor);
 		delete_object_and_children(&ignored, &ignored, &ignored);
 		return;
 	}
@@ -364,9 +364,9 @@ void spike_gate_beam_wait(void)
 void spike_gate_beam_update(void)
 {
 	uint16_t count = 0, offset_x = 0, offset_y = 0;
-	uint32_t r11 = 0, bucket = 0, depth = 0, head_distance_x = 0, ignored = 0;
+	uint32_t bucket = 0, cursor = 0, depth = 0, head_distance_x = 0, ignored = 0;
 
-	move_object_projected(&ignored, &ignored, &ignored, &r11);
+	move_object_projected(&ignored, &ignored, &ignored, &cursor);
 	r14 = LINKED(WORK_RAM, biting_head);
 	distance_xy_to_object(&head_distance_x, &depth);
 	if ((int32_t)head_distance_x <= 0x20 || (int16_t)OBJECT(current_object)->spawn_arg_2 < (int16_t)scroll_position)
@@ -374,7 +374,7 @@ void spike_gate_beam_update(void)
 		count = 5u;
 		OBJECT(current_object)->projected_x -= 0x90u;
 		OBJECT(current_object)->projected_y_int -= 0x40u;
-		spawn_debris(head_distance_x, count, r11);
+		spawn_debris(head_distance_x, count, cursor);
 		delete_object_and_children(&ignored, &ignored, &ignored);
 		return;
 	}
@@ -476,15 +476,15 @@ void spreading_flame_burn(void)
 		current_object = fireball;
 		OBJECT(current_object)->x = OBJECT(object_cursor)->x;
 		OBJECT(current_object)->y = OBJECT(object_cursor)->y;
-		OBJECT(current_object)->var_96 = OBJECT(current_object)->x_int;
-		OBJECT(current_object)->var_9A = OBJECT(current_object)->y_int;
+		OBJECT(current_object)->init_fireball_flight.target_x = OBJECT(current_object)->x_int;
+		OBJECT(current_object)->init_fireball_flight.target_y = OBJECT(current_object)->y_int;
 		next_random(&target_dy, &ignored, &ignored);
 		target_dy = target_dy & 0x3Fu;
 		if ((int16_t)target_dy < flame_chaser_gap)
 			target_dy = (uint16_t)flame_chaser_gap;
-		OBJECT(current_object)->var_9A -= target_dy;
+		OBJECT(current_object)->init_fireball_flight.target_y -= target_dy;
 		OBJECT(current_object)->z = OBJECT(object_cursor)->z;
-		OBJECT(current_object)->var_7F = 0u;
+		OBJECT(current_object)->init_fireball_flight.state = 0u;
 		OBJECT(current_object)->next_handler = spreading_flame_start_ADDRESS;
 		start_fireball_flipped();
 		current_object = object_cursor;
@@ -1722,7 +1722,7 @@ void rising_saw_init(void)
 	OBJECT(current_object)->previous_floor_z_int = OBJECT(current_object)->z_int;
 	project_object(&ignored, &ignored);
 	OBJECT(current_object)->rising_saw.projected_x_whole = OBJECT(current_object)->projected_x;
-	AS16(OBJECT(current_object)->rising_saw.fixed_projected_x) = 0u;
+	OBJECT(current_object)->rising_saw.projected_x_fraction = 0u;
 	OBJECT(current_object)->flags = 2u;
 	OBJECT(current_object)->hitbox_offset_x = -0x10;
 	OBJECT(current_object)->hitbox_offset_y = -0x20;
@@ -2261,7 +2261,7 @@ void spawn_grate_step_debris(void)
 		OBJECT(object)->sprite_offset_y = 0;
 		OBJECT(object)->handler = grate_step_debris_fly_ADDRESS;
 		OBJECT(object)->grate_step_debris_view.projected_x_whole = OBJECT(current_object)->projected_x;
-		AS16(OBJECT(object)->grate_step_debris_view.fixed_projected_x) = 0u;
+		OBJECT(object)->grate_step_debris_view.projected_x_fraction = 0u;
 		OBJECT(object)->projected_y = OBJECT(current_object)->projected_y;
 		OBJECT(object)->z_int = OBJECT(current_object)->spawn_grate_step_debris.cut_z;
 		OBJECT(object)->z_fraction = 0u;
@@ -2328,7 +2328,7 @@ void build_saw_shaft_base(void)
 	OBJECT(current_object)->z_int -= 0x3Au;
 	project_object(&ignored, &ignored);
 	OBJECT(current_object)->build_saw_shaft_base.projected_x_whole = OBJECT(current_object)->projected_x;
-	AS16(OBJECT(current_object)->build_saw_shaft_base.fixed_projected_x) = 0u;
+	OBJECT(current_object)->build_saw_shaft_base.projected_x_fraction = 0u;
 	saw_shaft_part = 0;
 	do
 	{

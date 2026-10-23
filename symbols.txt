@@ -247,6 +247,7 @@ field machine_fireball_spawn 0A next_handler u32  # "mov.w [R12+], 9C[R11]" (083
 #   result FUNCTION RN NAME       what a function nothing calls hands back in register RN (its callers say
 #                                 it for the others); every register such a function reads before writing
 #                                 is one of its parameters
+#   constant FUNCTION VALUE NAME  a number the function uses, by name (VALUE in hexadecimal; a #define in ram.h)
 #   local FUNCTION WHERE RN NAME  the local variable that holds what the instructions at WHERE (addresses,
 #                                 or "entry": where the function starts) write in register RN
 # A second var or field at the same place with a narrower type names the first bytes of the wider one
@@ -4044,7 +4045,7 @@ D00005  io  irq_control_5          u8    # init_system clears it with the other 
 # Character select and ranking (game_08)
 20808F  var   players_choosing_character u8         # start_character_chooser + 1, character_chooser_confirm - 1 (at 0 character_select_timer = 3C); character_select_countdown_update goes away when it is 0 and the timer ran out
 208090  var   characters_taken          u32         # bit character_taken_bits[c] (bits 0-2: Sonic, Ray, Mighty) per character in use: the choosers skip them, game over frees the player's (005FD6), game mode 0x1B clears it (00109E: a 32-bit store that also clears 208091-208093); bit tests are 32-bit (test1/set1/clr1)
-208091  var   players_in_join_chooser   u8          # bit per player while start_join_character_chooser's chooser runs (set1/test1/clr1 at 91[R25]); player_select_character waits for it to clear
+208091  var   players_in_join_chooser   u32         # bit per player while start_join_character_chooser's chooser runs (set1/test1/clr1 at 91[R25]); player_select_character waits for it to clear
 208092  var   free_character_count      u8          # count_free_characters; character_chooser_confirm - 1; with 1 left the chooser confirms at once, with 0 there is no join chooser
 208095  var   ranking_entry_players     u32         # bit per player whose ranking entry runs (start_ranking_entry sets it, enter_ranking_initials clears it)
 208037  var   ranking_title_layout      u8          # build_ranking_display toggles 0/1 at each ranking screen; draw_ranking_title moves the outer two TOP15 letters along x only (0) or along x and y (1)
@@ -10255,6 +10256,7 @@ local flood_fill 09BCE3 r16 span_right_x             # 09BD99: the span's right 
 09C051  code  flood_fill_skip_parent_left_back_to_pixel  # flood_fill_scan_row_skip_parent: R14 back to the fillable pixel just read
 09C053  code  flood_fill_skip_parent_left_found     # flood_fill_scan_row_skip_parent: R10 += R14 - R15: the x of the fillable pixel
 09C059  code  flood_fill_skip_parent_left_push      # flood_fill_scan_row_skip_parent: flood_fill_push_span; on 2 past its end while left of the parent's left x - 2, then the right part
+09C074  func  flood_fill_skip_parent_right          # unused: flood_fill_scan_row_skip_parent's right part (from the parent's right x on), a function of its own: every way out of the left part jumps here, and it ends the scan (rsr 09C10C)
 09C0D3  code  flood_fill_skip_parent_right_odd_pixel     # flood_fill_scan_row_skip_parent: the right part's odd last pixel, if any
 09C0EA  code  flood_fill_skip_parent_right_back_to_pixel # flood_fill_scan_row_skip_parent: R14 back to the fillable pixel just read
 09C0EC  code  flood_fill_skip_parent_right_found    # flood_fill_scan_row_skip_parent: R10 += R14 - R15: the x of the fillable pixel
@@ -10347,6 +10349,13 @@ param flood_fill_scan_row_skip_parent R9 direction  # compared with flood_fill_d
 param flood_fill_scan_row_skip_parent R10 scan_x    # starts at flood_fill_left_x, the x the scan reached
 param flood_fill_scan_row_skip_parent R11 y
 param flood_fill_scan_row_skip_parent R12 fill_pattern
+param flood_fill_skip_parent_right R3 border_color  # flood_fill_scan_row_skip_parent's, handed on
+param flood_fill_skip_parent_right R4 window_left
+param flood_fill_skip_parent_right R6 window_right
+param flood_fill_skip_parent_right R9 direction
+param flood_fill_skip_parent_right R10 scan_x   # the x the scan reached; handed back
+param flood_fill_skip_parent_right R11 y
+param flood_fill_skip_parent_right R12 fill_pattern
 param get_point_outcode R0 point_x                  # compared signed with bitmap_window_left/right, handed back sign-extended
 param get_point_outcode R1 point_y                  # compared signed with bitmap_window_top/bottom, handed back sign-extended
 param get_point_outcode R10 outcode                 # out: 1 left, 2 right, 4 above, 8 below the window
@@ -12746,7 +12755,7 @@ local spiked_roller_start 080176 r10 record_cursor spiked_roller_kind  # spiked_
 local spiked_roller_start 08017C,080182,080185 r10 record_cursor  # moving through the kind's record ([R10+])
 local spiked_roller_start 0802AD r10 record_cursor spiked_roller_part  # roller_part_record (0802AD "mov.w 70EC[R25], R10"): the part record each part copies (sprite flags, hitbox sizes, path direction, flags, hitbox offsets); census ROM 08219E-0821DB
 local spiked_roller_start 0802B2,0802B7,0802BC,0802C1,0802C7 r10 record_cursor  # moving through the part record ([R10+])
-local spiked_roller_start 080196 r11 r11 spiked_roller_layout  # spiked_roller_layouts + the kind's layout offset (080196 "add.w #8219C, R11"): step x, step y, then the part record (roller_part_record = it + 2); R11's variable runs on through find_floor's and allocate_object's R11, so it keeps the register's name
+local spiked_roller_start 080196 r11 layout_cursor spiked_roller_layout  # spiked_roller_layouts + the kind's layout offset (080196 "add.w #8219C, R11"): step x, step y, then the part record (roller_part_record = it + 2); R11's variable runs on through find_floor's and allocate_object's R11, so it keeps the register's name
 struct object_pair_template 1A rom            # the catapult's template: catapult_wait_for_platform_setup reads it with [R10+] from object_pair_templates + 0 / 1A (080EE1), the second object's half from catapult_pair_template + C (080FD8); census ROM 082250-082280
 field object_pair_template 00 handler u32     # catapult_update (08104E): "mov.w [R10+], 1C[R20]" (080EEC)
 field object_pair_template 04 animation u32 rom   # catapult_x/y animation (0821E2, 0821FC): "mov.w [R10+], 48[R20]" (080EF1)
@@ -14098,6 +14107,169 @@ local flood_fill_span_left_pixel 09BDD7,09BDE0,09BDEF,09BDF3 r15 right_address  
 local flood_fill_span_set_left_x 09BDFB r15 right_address  # flood_fill_span_scan_right's right_address (the run's right end address): handed back
 local flood_fill_span_scan_right 09BE04 r15 right_address  # flood_fill_span_fill_run's right_address when the seed is already at window_right (no scan): the run's right end, handed back
 local flood_fill_span_set_right_x 09BE5A r15 right_address  # flood_fill_span_fill_run's right_address (the last byte written, the run's right end), handed back as right_cursor
+
+# ======== the last locals the C named by their register (build/naming/locals6_1..3.txt) ========
+local find_floor 00C7E0 r0 floor_type_index  # 00C7E0 "movz.bw 12[R10], R0": the found block's type index (byte 12), indexes floor_types like the platform path's (00C6EE); then find_floor_set_floor_z's x (the slope factor on a slope, else unchanged), handed back as x: one variable with floor_type_index
+local project_point 00C560 r7 screen_x  # point_to_screen's screen_x (projected x - view_x): its low half handed back in point_x
+local project_point 00C560 r8 screen_y  # point_to_screen's screen_y ((projected y + z) >> 16 - view_y): its low half handed back in point_y
+local delete_object_and_children 08E0EA r2 free_stack  # free_object_2's free_stack (free_object_stack_2) after a pool 2 child, the usual kind (pieces, shadows); delete_object's previous after a pool 1 child (08E105), int_default's dest on the overflow trap (08E0FF); never read, handed back in R2 (block_offset)
+local spawn_debris 08E782 r3 random_value  # next_random's random_value for each piece: its low byte added to sprite_scale, & 0x3FFFF off speed_z, then the direction, speed and frame set bits; before the loop spawn_objects' first (08E734), copied to r14
+local spawn_objects_by_type 08DC70 r0 scroll  # "movz.hw 6435[R25], R0": scroll_position, compared with the record's trigger_scroll (08DC80 "cmp.w R0, R1"); then spawn_object_with_pieces' spawned (08DCAE: only the low byte cleared on failure), tested (uint8_t) at 08DCB1
+local unproject_object 08DFEF r2 scaled_x_copy  # "mov.w R0, R2": projected_x << 8 kept for y = (scaled_y + it) * 0xB5 (08DFF5) once R0 became x's difference; then find_floor's block_offset (the caller's R2 when no block is found), handed back as block_offset
+local build_sprite_list 09A44E r2 scaled_dx  # "mul.w R8, R2": the sprite part's x offset (signed byte) times scale_x, shifted by scale_shift and added to screen_x for the entry's x
+local init_sprites 099F2D r0 end_mark  # init_sprites_from_frame_wait's end_mark (init_sprite_hardware's FFFF, low half), handed back as end_mark
+local init_sprites_from_frame_wait 099F35 r0 end_mark  # init_sprite_hardware's end_mark (FFFF, the end mark of the sprite list buffers), handed back as end_mark
+local character_chooser_turn 08FF03 r1 taken_bit  # "movz.bw 90354[PC](R0), R1": character_taken_bits[the middle portrait's character], set in characters_taken turns on again; otherwise queue_sprite's depth (08FF4E, 08FF6F, 08FF91), which it only hands on to the next queue_sprite
+local start_character_chooser 08F9DC r2 free_count  # spawn_object_with_pieces' free_count (08F9DC, 08FA30), whose high half the next one's no-free-objects test reads; count_free_characters' character (08F9AB) and show_nbg0_picture's copy_entry (08F9CC) before that; never read here
+local ending_tower_animate 01BF3A r11 spawned_object  # handed to run_timed_spawns_2 as object (the slot allocate_object_outside_loop fills; the value passed only stays when none is free): R11 at entry, or run_vram_script's dest on the first frame
+local draw_map_markers_and_trail 095D31 r11 badge_offset  # draw_map_stage_markers' badge_offset (the blinking marker's offset in map_number_badge_sprites, else the caller's), only handed on to draw_map_trail_dot as its object
+local draw_ranking_title 08F578 r1 depth  # queue_sprite's depth (screen_y + 0x10 clamped) after each letter, handed to the next queue_sprite; its high half goes into layout_offset
+local run_sega_logo 09818A r0 end_mark  # init_sprites' end_mark (FFFF), handed to clear_bitmap_layer as is_8bpp (not 0: the 8 bpp bitmap)
+local update_scroll 016042 r0 check_result  # is_direction_in_quadrant's found flag, then each is_player_facing_scroll / is_player_pushing_edge result (low byte tested for players_facing_scroll / players_pushing_edge, handed to the next test): one variable with check_result (016039, the 0 given to set_screen_push_edges)
+local update_scroll 015F8E,015F99,015FA9,015FB2,015FB5,01696F,01699C,016A23,016A41,016A4D,016A74 r2 position  # "movz.hw 6435[R25], R2": scroll_position, compared with scroll_end; then what update_scroll_at_end, scroll_at_scroll_speed, scroll_slowing_down, scroll_speeding_up or set_camera_velocity leave in R2 (other_list, scroll_y), handed back as position: one variable with position
+local attract_ranking 0002CE r11 dest  # clear_page_0_and_scroll's dest (clear_blocks' write position, 20F300 at the end), only handed to start_ranking_display as display (kept only when no object is free)
+local boot 0000B8 r4 scale  # run_frame's scale (draw_queued_strings' last string scale), handed back to it every frame; init_system's polynomial (0000A9) before, start_test_mode's / run_test_mode's color (0000BD, 0000C9) in test mode
+local boot 0000B8 r5 cursor  # run_frame's cursor (draw_queued_strings' string cursor), handed back to it every frame; init_system's words_left (0000A9) before
+local boot 0000B8 r9 height  # run_frame's height (draw_queued_strings' height word), handed back to it every frame; start_test_mode's / run_test_mode's blocks_per_row (0000BD, 0000C9) in test mode
+local init_system 000413 r0 sound_hold  # init_sound's sound_hold (0), handed to load_settings as its crc (a leftover); then reset_objects' block and read_controls' inputs (000446-000458), which nothing reads
+local init_system 000446,00044C,000452,000458 r0 inputs  # reset_objects' block, which read_controls takes in as its inputs and hands back (three times); nobody reads it after
+local run_frame 0000F3 r10 message_text  # draw_attract_credits' message_text, handed to the mode handler (its trackball_port), build_sprite_list (sprite_flags) and draw_queued_strings (width), as run_frame_start_game's message_text
+local run_frame 0000F3 r11 text_position  # draw_attract_credits' text_position, handed to the mode handlers (their trackball_cursor) and run_frame_start_game as text_position
+local start_test_mode 09C95F r0 clear_value  # clear_text_layer's value (clear_blocks' fill, 0), handed to clear_bitmap_layer as is_8bpp
+local start_test_mode 09C944 r8 count  # wait_for_frames' count (read_controls' counter, 0); then clear_bitmap_layer's row_pairs_left (09C965), handed to run_test_mode as count
+local test_memory 09CC24 r0 clear_value  # clear_text_layer's value (clear_blocks' fill, 0), handed to clear_bitmap_layer as is_8bpp
+local test_memory 09CBF7 r4 font_pixels  # load_text_font's pixels (expand_font's R4), handed to clear_bitmap_layer as color (09CC2A), which clears its low byte and gives back the fill colour; not read after
+local eggman_speech_run 0857AE r11 block  # spawn_eggman_booth's R11 block (the last block spawn_object_with_pieces allocated), or spawn_message_box's R11 box (also an allocated object); both are tail calls, nothing reads it
+local metal_wall_update 00F901 r11 allocated  # scatter_rings_random's R11 allocated (the last block scatter_rings allocated), else the caller's; only handed to spawn_debris (its block, which spawn_objects replaces)
+local push_crate_break 01130B r11 allocated  # push_crate_release_all_rings' allocated (drop_rings' R11, scatter_rings_random's last allocated block); handed to push_crate_move as its cursor, which move_object_projected replaces
+local push_crate_move 01130E r3 slope_height  # move_object_projected's R3 slope_height (find_floor's slope part of floor_z), handed through delete_if_off_screen (slope_height); then push_crate_release_rings' seed (drop_rings' shadow in)
+local spike_panel_update 00F20B r0 chaser_distance  # face_object's result: distance_to_object's distance to chaser_object (r14), also nearest_player_distance; only handed to spawn_debris as its R0 (spawned, replaced by spawn_objects)
+local spike_panel_update 00F1F1 r11 cursor  # unproject_object's R11 cursor (find_floor's), from the panel and from part 1 (00F343); handed to spawn_debris as its block
+local flame_machine_arm_update 0101CE r11 cursor  # unproject_object's R11 cursor (find_floor's); only handed to flame_machine_arm_take_disc (its block, spawn_object_with_pieces')
+local flame_machine_arm_update 0101CE r2 block_offset  # unproject_object's R2 block_offset (find_floor's floor block offset); only handed to flame_machine_arm_take_disc (its free_count)
+local flame_machine_arm_update 0101CE r3 slope_height  # unproject_object's R3 slope_height (find_floor's); only handed to flame_machine_arm_take_disc (its disc, spawn_object_with_pieces' object)
+local flame_machine_cannon_update 0103F0 r11 cursor  # unproject_object's R11 cursor (find_floor's), then handed in and out of spawn_object_with_pieces (01043A, its block: the last block allocated); never read
+local flame_machine_cannon_update 0103F0 r2 block_offset  # unproject_object's R2 block_offset (find_floor's), then handed to spawn_object_with_pieces (01043A, its free_count comes back); never read
+local vine_bar_update 00EF53 r11 cursor  # unproject_object's R11 cursor (find_floor's); handed to spawn_sign (00EFC5), whose R11 sign comes back
+local spiked_press_start 0847F8 r0 x  # find_floor's R0 x (out: the found block's floor type index, the slope factor on a slope, or the x when no block holds it); only handed to spawn_eggman_booth (its spawned, replaced)
+local spiked_press_start 0847F8 r11 cursor  # find_floor's R11 cursor; handed to spawn_eggman_booth (084816), whose R11 block (the last block allocated) comes back
+local spiked_press_start 0847F8 r2 block_offset  # find_floor's R2 block_offset; handed to spawn_eggman_booth (084816), whose R2 free_count comes back
+local spiked_press_start 0847F8 r3 slope_height  # find_floor's R3 slope_height; only handed to spawn_eggman_booth (its booth, spawn_object_with_pieces' object)
+local lava_flow_segment_follow 087890 r11 flame  # spawn_lava_flame's R11 flame (allocate_object's new flame, unchanged when none is made); handed to extend_lava_flow as its block, which it replaces
+local rock_wall_update 013263 r11 cursor  # unproject_object's R11 cursor (find_floor's); handed to drop_rings (0132E9), whose R11 allocated comes back
+local rock_wall_update 013263 r3 slope_height  # unproject_object's R3 slope_height (find_floor's), handed through delete_if_off_screen (013269, slope_height); then drop_rings' shadow (in: scatter_rings_random's random_value)
+local ice_launcher_update 011CE7 r11 cursor  # unproject_object's R11 cursor (find_floor's); handed to spawn_object_with_pieces (011D77), whose R11 block comes back; never read
+local snow_mound_update 013056 r11 cursor  # move_object_projected's R11 cursor (find_floor's); handed to drop_rings (0130A2), whose R11 allocated comes back
+local snow_mound_update 013056 r3 slope_height  # move_object_projected's R3 slope_height (find_floor's), handed through delete_if_off_screen (013062, slope_height); then drop_rings' shadow
+local centipede_chase 0123CC r0 screen_y  # move_object_projected's R0 screen_y; handed to add_to_touchable_list (012485), whose old_head comes back and goes to face_nearest_player (its direction, replaced)
+local centipede_chase 0123CC r11 cursor  # move_object_projected's R11 cursor (find_floor's); handed to centipede_move (its block) and spawn_centipede_sand_puff (its block)
+local centipede_chase 0123CC r2 block_offset  # move_object_projected's R2 block_offset (find_floor's); through centipede_hop (01253A, its z: fall_to_floor's while still falling) to spawn_centipede_sand_puff (its free_count)
+local centipede_chase 0123CC r3 slope_height  # move_object_projected's R3 slope_height (find_floor's); handed to face_nearest_player (01248B, its octant, unread after) and spawn_centipede_sand_puff (its puff)
+local centipede_leave 0123E6 r11 cursor  # move_object_projected's R11 cursor (find_floor's); handed to centipede_move (its block)
+local centipede_segment_follow 01257E r0 path_cursor  # centipede_follow_path's result (the address after the path entry it copied), as centipede_chase's path_cursor; before it move_object_projected's screen_y (012561), after it centipede_hop's height (012581); only handed to spawn_centipede_sand_puff (spawned)
+local centipede_segment_follow 012561 r11 cursor  # move_object_projected's R11 cursor (find_floor's); handed to spawn_centipede_sand_puff (its block)
+local centipede_segment_follow 012561 r2 block_offset  # move_object_projected's R2 block_offset (find_floor's); through centipede_hop (012581, its z) to spawn_centipede_sand_puff (its free_count)
+local centipede_segment_follow 012561 r3 slope_height  # move_object_projected's R3 slope_height (find_floor's); handed to spawn_centipede_sand_puff (its puff)
+local centipede_segment_wait 012581 r0 height  # centipede_hop's R0 height (fall_to_floor's floor_z - z while the hop timer is 0), else what run_objects left; only handed to spawn_centipede_sand_puff (spawned)
+local centipede_segment_wait 012581 r2 z  # centipede_hop's R2 z (fall_to_floor's z while still falling), else what run_objects left; only handed to spawn_centipede_sand_puff (free_count)
+local centipede_tail_follow 0125E9 r0 path_cursor  # centipede_follow_path's result (the address after the path entry it copied), as centipede_chase's path_cursor; before it move_object_projected's screen_y (0125A8), after it centipede_hop's height (0125EC); only handed to spawn_centipede_sand_puff (spawned)
+local centipede_tail_follow 0125A8 r11 cursor  # move_object_projected's R11 cursor (find_floor's); handed to spawn_centipede_sand_puff (its block)
+local centipede_tail_follow 0125A8 r2 block_offset  # move_object_projected's R2 block_offset (find_floor's); through centipede_hop (0125EC, its z) to spawn_centipede_sand_puff (its free_count)
+local centipede_tail_follow 0125CA r3 octant  # direction_to_object's R3 octant (toward segment_ahead) while following; move_object_projected's slope_height (0125A8) while centipede_command is 1; only handed to spawn_centipede_sand_puff (its puff)
+local centipede_tail_wait 0125EC r0 height  # centipede_hop's R0 height (fall_to_floor's floor_z - z while the hop timer is 0), else what run_objects left; only handed to spawn_centipede_sand_puff (spawned)
+local centipede_tail_wait 0125EC r2 z  # centipede_hop's R2 z (fall_to_floor's z while still falling), else what run_objects left; only handed to spawn_centipede_sand_puff (free_count)
+local sand_rock_update 012EA9 r11 cursor  # unproject_object's R11 cursor (find_floor's); handed to drop_rings (012EEE), whose R11 allocated comes back
+local sand_rock_update 012EA9 r3 slope_height  # unproject_object's R3 slope_height (find_floor's), handed through delete_if_off_screen (012EB5, slope_height); then drop_rings' shadow
+local mine_fall 013C77 r0 height  # fall_to_floor's R0 height (floor_z - z while above the floor, 0 on it); handed to add_to_touchable_list (013CBC, old_head comes back unread) or spawn_mine_splash (its spawned)
+local mine_fall 013C66 r11 cursor  # move_object_projected's R11 cursor (find_floor's); handed to spawn_mine_splash (its block)
+local mine_fall 013C66 r2 block_offset  # move_object_projected's R2 block_offset (find_floor's), handed through delete_if_off_screen (013C6C, block_offset) and fall_to_floor (013C77: its z replaces it while still falling); then spawn_mine_splash's free_count
+local mine_fall 013C66 r3 slope_height  # move_object_projected's R3 slope_height (find_floor's), handed through delete_if_off_screen (013C6C); then spawn_mine_splash's splash
+local spike_gate_beam_update 015630 r11 cursor  # move_object_projected's R11 cursor (find_floor's); handed to spawn_debris (its block)
+local spike_gate_pillar_update 015544 r11 cursor  # unproject_object's R11 cursor (find_floor's); handed to spawn_debris (its block)
+local player_move_with_scroll 009734 r0 screen_y  # project_object's R0 (the new screen_y), handed to player_steer, whose wanted_speed only reaches follow_player_path from it
+local player_move_with_scroll 0097B8 r1 depth  # keep_player_on_screen's depth, through animate (frame) into queue_sprite and back through *p_depth; one variable with depth. Before it the register holds the drift step along y (cosine x speed >> 8, taken off y) and in state 26 the direction 100/300, then heading_16 for the turn tests
+local player_state_floor_8_sequence 009194 r1 depth  # player_move_with_scroll's depth, through animate (frame) into player_dispatch_state's depth when the player dies (state 16)
+local player_state_pulled 008EF9,008E64 r1 depth  # compute_ground_speed's R1 (a speed table entry), through play_sound (write_index) into player_animate_skidding's depth; one variable with depth (player_move_with_scroll's, handed to player_dispatch_state)
+local player_state_tripped 008709 r1 depth  # project_object's depth, handed to check_player_contacts (its health_limit, the caller's R1 back on most paths); not read after
+local compute_ground_speed 00BD73,00BD96 r1 speed_table_entry  # heading_speed_factors[rounded_heading >> 6] (ground_speed = speed >> 8 x it), then on a slope floor_slope_direction_tables[slope x 4] (offset of the slope's pairs in slope_speed_direction_pairs); handed back
+local player_place 002BD3 r0 player_offset  # place_player_at_restart_point's player_offset, through find_floor's x (it leaves the floor type index, or the caller's R0) into start_climb_at_spawn's climbed_height, where only its high half survives
+local player_update 002D0F r1 digit_attribute  # player_hud_update's digit_attribute (in/out, the handler's R1 at entry), handed to player_dispatch_state as its depth
+local player_update 002D0F r11 text_position  # player_hud_update's text_position (in/out, the handler's R11 at entry), through check_scene_states (its object: spawn_player_ride's object for event 1C) into player_dispatch_state's cursor
+local player_state_stunned 00730D,007317,007323 r0 stunned_frame  # 8410, 8450 (kind 1) or 83D0 (kind 2): the character's stunned sprite_frame
+local player_state_tumbling 006917,006928,00693B r1 knocked_out_palette  # A90, AA0 (kind 1) or A80 (kind 2): ORed into the low 12 bits of sprite_palette with the knocked_out_animations
+local player_animate_jumping 0036A3,0036A7,0036AC r0 sprite_flags  # sprite_flags with bits 6-7 replaced by the take-off step's flags, written back; first (00368D) the facing that picks the per-facing offset in jump_animation
+local player_state_hurt 0058B8,0058C6 r0 gravity  # substate 4: 0x6000 (/4 on floor type 4) added to speed_z
+local player_state_over_edge 003EC8,003F7B,003F27,003F3E,004294,0042A0 r1 depth  # project_object's depth, through animate_with_flags (frame) into check_player_contacts (health_limit); one variable with depth (fall_draw_depth / the toucher's draw_depth + 1 for queue_sprite_at_depth)
+local player_state_teetering 003AA4 r1 player  # the object's player number: indexes player_status for new_status; also update_ledge_pullback's cos_speed, handed with it to check_player_contacts (health_limit)
+
+# ======== the last object fields by their offset and the fields read or written at once (build/naming/varfields_1.txt, wide_1.txt) ========
+local spawn_object_groups_build_group 09137A r11 object object.group_member  # allocate_object_outside_loop's member, filled from the stage_object_records template: 96 depth_offset (0913DE mov.h [R12+], 96[R11]; + group_member_count x group_depth_step, 091462 add.h), 98 normal_palette (0913F9 its palette 6), 91 silent_row (091400 group_silent), 8A group_slot (091413 group_slot_index)
+local spawn_object_groups_2_build_group 09399A r11 object object.group_member  # allocate_object_outside_loop's plank: 96 depth_offset (093A0A mov.h [R12+], 96[R11]), 9A previous_member (093A49), 8A group_slot (093AA2 group_slot_index)
+scoped object group_member 9A previous_member u16 object.group_member  # group_previous_member (FFFF, then each member once made: 093A49 mov.h 70F6[R25], 9A[R11], 093A51 mov.h R11, 70F6[R25]): the member made before it; the planks read it as collapsing_bridge_plank 9A previous_plank
+local spawn_ring_rows 01E3F8 r11 object object.row_ring  # allocate_object_outside_loop's ring, filled from its stage_object_templates record; made current_object for its z (01E498 mov.w R11, R20); then allocate_object_2 puts its shadow in R11 (another definition, not typed)
+scoped object row_ring 80 glint_timer u16  # ring_row_next_80 (0, + 20 a ring: 01E459 mov.h 650C[R25], 80[R11]): the rings of a row start with staggered values; ring_spin writes 78 there at each glint (ring_spin 80 unused_glint_timer, mov.h), carried_ring_keep_spinning as two bytes (carried_ring 80/81); no reader found (probably a glint timer)
+scoped object row_ring 82 hover_height u16  # stage_object_template word 8 (01E41F mov.h [R12+], 82[R11]): z = floor_z - it (01E4A7 sub.h 82[R20], 42[R20]), every ring of the row floats this high; carried rings keep reading it (carried_ring 82 hover_height)
+local crawler_segment_update 0129E1 r20 segment object.crawler  # R20 (current_object), only typed: delete_if_off_screen changes it only when it deletes the piece, and then the function returns (0129EA be 12ACF); typed again, the parent read at 012A06 (crawler 26 parent: object.crawler_head) is the head and its 80 (012A0A test.b 80[R0]) is crawler_head over_pit, as at 0129DB before the call
+local spawn_chaser_back_zone 082E87 r11 zone object.chaser_back_zone  # allocate_object's object: its 80 (082EAE mov.h [R12+], 80[R11], the object_steps record's limit) is chaser_back_zone 80 end_position, which chaser_back_zone_update compares with scroll_position (082ED3 cmp.h 80[R20])
+local door_roller_update 082A9D r20 roller object.door_roller  # R20 (current_object), only typed: after the state's jump table (door_roller_drop may jmp delete_current_object, 082B26, which leaves R20 = the same block) it is still the roller: 83 off_screen (082AA1 test.b 83[R20]) and 80 state (082AB9 test.b 80[R20])
+local handle_rod_init 011484 r15 grip_handle object.handle_rod_handle  # the first spawned object's child (011484 mov.h 28[R3], R15): the second handle (handle_rod_handle_init from the loop), made the grip: 81 grip = 1 (0114FF), 86 rod = the rod (011505 mov.h R23, 86[R15]), 94 the pivot's x, hitbox 10, kind 1A
+scoped object icicle_shadow 86 blink_timer_word u16  # blink_timer as a halfword (its high byte 87 stays 0): drop_icicle_row clears it on the shadow it makes (0887FE mov.h #0, 86[R11]), icicle_shadow_follow sets 2 (088E45 mov.h #2, 86[R20]) when the byte count runs out (088E3F dec.b 86[R20]); same place as blink_timer u8, which becomes its overlay (as geyser_front 98)
+local eel_anchor_stretch 014C23 r20 piece object.eel_piece  # R20 (current_object), only typed: each piece's first part down the chain (014C23 mov.h 28[R20], R20, past the anchor's three parts): the eel_segment_move pieces, the last one the head (eel_head_move); it gets the anchor's direction, speed and stretch_step (014C31 mov.b 81[R23], 81[R20])
+scoped object eel_piece 81 stretch_step s8  # as eel_segment 81 and eel_head 81 (every piece, segment or head): eel_anchor_stretch copies the anchor's stretch_step into it every frame (014C31)
+local spreading_flame_burn 084F2B r11 fireball object.init_fireball_flight  # allocate_object's fireball (this can replace 'local spreading_flame_burn entry r11 fireball', the same variable named by its entry value): made current (084F35 movea.b [R11], R20), 96 target_x = its x_int (084F44), 9A target_y = its y_int (084F4B) - target_dy (084F69 sub.h), 7F state = 0 (084F74), then start_fireball_flipped -> init_fireball_flight reads them
+local check_player_contacts 00EA4C r11 rod object.handle_rod  # kind 1A, the touched grip (handle_rod_handle): its parent (00EA4C mov.h 26[R10], R11; handle_rod_handle 26 parent: the rod), handed back in cursor; the climb (state 27) starts only while the rod's angle (00EA50 cmp.h #300, 82[R11]: handle_rod 82 angle) is 300, level
+scoped object player_state_stuck 6A touched_by u16 object.propped_board  # state 1D comes from touching kind 11 (check_player_contacts, 00E8F7), which only propped_board_start gives (0824F1 mov.b #11, 47[R20]); the stuck player is put on no touch list, so it stays the board: its speed_z (0076C1) and shake_dx (0076EB add.h 80[R10], E[R20]); player_state_stuck_on_object falls in this family by its name but never reads it
+scoped object player_stuck_wait_release 6A touched_by u16 object.propped_board  # as player_state_stuck 6A: waits for the board's shake_dx to be 0 (0077FD test.h 80[R10], one halfword the C showed as var_80 | var_81)
+local game_mode_stage_clear 000DC8 r11 object object.stage_clear_banner  # the second banner (CLEARED): handler cleared_banner_wait (000DE0, a function of no family), which hands it to stage_clear_banner_reveal; its sparkle_offset is set to 10 in one halfword (000DEE mov.h #10, 80[R11]: stage_clear_banner 80), as the first banner's
+scoped object row_ring 7E spawn_scroll_position u16  # spawn_ring_rows (01E452 "mov.h 6435[R25], 7E[R11]"): scroll_position when the row spawned it; nothing reads it (health's byte and the next one; the rings never use health)
+scoped object ring_spin 7E spawn_scroll_position u16     # as carried_ring 7E: spawn_stage_template_0/spawn_stage_template store scroll_position here (01ED6A, 01EE58); nothing reads it
+local spawn_stage_template_0 01ED12 r11 object object.ring_spin    # allocate_object's object: stage_object_templates[0], handler ring_spin (stage_template_0_handler)
+local spawn_stage_template 01EDF1 r11 object object.ring_spin      # allocate_object's object: any stage_object_templates record (all six are rings; ring_spin is template 0's handler; this function never runs)
+scoped object electric_pole 80 frame_index_word s16  # frame_index (80) with last_frame (81, 0 while the pole rises) as one halfword: electric_pole_draw 00F64D "cmp.h #A, 80[R23]" + blt, the risen test; every other access is a byte (frame_index becomes its overlay, last_frame a part)
+scoped object spiked_roller 80 state_word u16  # state (80) and holding_back (81) as one halfword: spiked_roller_start 080324 "mov.h 70F6[R25], 80[R23]" puts roller_first_state (the kind's first_state: 0, C, E, 0, 0, B) in the leader's state and clears holding_back; the only halfword access (state becomes its overlay, holding_back a part)
+scoped object machine_fire 92 projected_x_fraction u16  # the low word of fixed_projected_x (16.16; projected_x_whole at 94): machine_fire_update 083645 "mov.h #0, 92[R20]" when it sets the whole part from projected_x (as geyser_front 98)
+scoped object propped_board 34 shake_strength_low u8  # the low byte of shake_strength: propped_board_update 082619 "mov.b #3C, 34[R20]" when it is touched (the high byte stays 0); every other access is the halfword (an overlay of shake_strength, as title 32 timer_low)
+scoped object bridge_fire 94 projected_x_fraction u16  # the low word of fixed_projected_x (16.16; projected_x_whole at 96): bridge_fire_start 0872A0 "mov.h #0, 94[R20]" when it sets the whole part from projected_x
+scoped object group_slot_trigger 80 next_trigger_low u16  # the low half of next_trigger (its ROM address): group_slot_trigger_update 091FA3 "mov.h R10, 80[R20]" steps to the next record rewriting only the low half (091F63 reads the whole long); an overlay of next_trigger
+scoped object handle_rod_handle 80 index_word u16  # index (80) and grip (81) as one halfword: handle_rod_init 0114D2 "mov.h R0, 80[R20]" gives each handle its number (handle_count down to 1) and clears grip, which the loop's end sets on the grip; the handles read index as a byte (011822 movz.bw). index becomes its overlay, grip a part
+scoped object checker_pad 80 frame_index_word u16  # frame_index (80) and the byte after it (nothing writes 81: 0) as one halfword: checker_pad_animate 015274 "movz.hw 80[R20], R0", the checker_pad_frames index; every other access is a byte (frame_index becomes its overlay)
+scoped object rising_saw 94 projected_x_fraction u16  # the low word of fixed_projected_x (16.16; projected_x_whole at 96): rising_saw_init 08B418 "mov.h #0, 94[R20]" when it sets the whole part from projected_x
+scoped object grate_step_debris 94 projected_x_fraction u16  # the low word of fixed_projected_x (16.16): spawn_grate_step_debris 08BBCD "mov.h #0, 94[R11]" on each debris piece (handler grate_step_debris_fly, so this family's view) as it sets the whole part
+scoped object build_saw_shaft_base 94 projected_x_fraction u16  # the low word of fixed_projected_x (16.16): build_saw_shaft_base 08BCD0 "mov.h #0, 94[R20]" when it sets the whole part from projected_x
+scoped object character_chooser 10 player_block u32 player  # start_character_chooser 08FA36 "mov.w R18, 10[R3]": the player block of the player choosing (current_player), as ranking_entry 10; nothing reads it back as a long. Its bytes 12/13 keep their names (name_changed, turn_direction: parts of it)
+scoped object join_character_chooser 10 player_block u32 player  # start_join_character_chooser 0900D5 "mov.w R18, 10[R3]" on the player's join_chooser_blocks block (typed object.join_character_chooser): the joining player's block; nothing reads it back as a long
+scoped object join_character_chooser 13 turn_direction s8  # needed with player_block (13 lies inside it; without a name its byte accesses would print as AT8 of player_block): +1 (start_join_character_chooser 527) or the trackball's right minus left turns (join_character_chooser_update 607), added to character to skip taken ones (623); as character_chooser 13 (today the generic hitbox_centre_y)
+field object 2A letter_fraction u8  # projected_x's low byte for the ranking letters: start_ranking_entry 08EBFC/08EC28/08EC54 "mov.b #80, 2A[R3]" (the three letters), enter_ranking_initials_count_down 08EDD3 when the code changed; an overlay of projected_x
+field object 2B letter_code s8  # projected_x's high byte for the ranking letters (0-2B): 08EDBE "cmp.b #2B, 2B[R20]" + bgt (signed, back to 0 above 2B: 08EDC6), compared with piece_frame (the previous code, 08EDCB), ranking_letter_sprites[it] (08EE09 movz.bw), written to the initials (08EDE8); a part of projected_x
+field ranking_record 00 rings_long u32  # rings, character and stages_reached as one long: enter_ranking_initials moves a record with two mov.w (08EE8C "mov.w [R1+], R2", compared as the rings with cmp.h R2, R0; 08EE97 "mov.w R2, [R5+]") and copies ranking to saved_ranking the same way (08EF06 "mov.w [R0+], [R1+]"); rings becomes its overlay, character_and_stages a part
+field ranking_record 02 character_and_stages u16  # character and stages_reached as one halfword: reset_ranking 08F131 "mov.h [R0+], [R1+]" copies default_ranking_record's character_and_stages there; character becomes its overlay, stages_reached a part
+field credit_block 00 counts_long u32  # the whole credit block as one long (coins, credits, bonus_coins, changed): apply_settings 09F75D "mov.w R1, [R13+]" restores the saved credits with the coins cleared and also clears bonus_coins and changed; counts (and coins) become its overlays
+20F038 var frame_counter_long u32  # frame_counter with the three bytes after it (display_off_frames...) as one long: blink_start_prompt 09FD0A/09FD2F "test1 R2, 7038[R25]" (the V60 bit test reads a long; the bit is 4-6, inside frame_counter); every other access is a byte (inc.b, mov.b), so frame_counter becomes its overlay
+scoped object door_roller 82 roll_out_timer s16  # 8 (spawn_door_rollers 082A56 mov.h #8, 82[R20]): frames of the roll-out (door_roller_roll_out, dec.h); off_screen (83) is its high byte, used once the roll-out is over
+scoped object icicle_dropper 96 record_flags u16  # icicle_dropper_record flags (icicle_dropper_start 0882DA mov.h [R10+], 96[R20]): rides_platform (96) and last_dropper (97) in one halfword
+scoped object drop_icicle_row 96 dropper_flags u16  # the dropper's rides_platform and last_dropper, copied as one halfword into each icicle (0886AE mov.h 96[R20], 96[R11])
+local drop_icicle_row 08864B r11 block object.icicle_update  # allocate_object's icicle (handler icicle_update): its 96-97 get the dropper's two flags at once (0886AE)
+scoped object icicle_update 96 dropper_flags u16  # rides_platform and counts_goal as the halfword drop_icicle_row copies from the dropper's record_flags (0886AE mov.h 96[R20], 96[R11])
+local player_state_stuck 0076DE r20 stuck_object object.player_state_stuck  # R20 (current_object) after update_screen_position, only typed: still the stuck player's object, whose touched_by (6A) leads to the propped board (0076E7-0076EB add.h 80[R10], E[R20]: the board's shake_dx)
+
+# ======== numbers by name (constant FUNCTION VALUE NAME): what the code divides by, counts or compares with ========
+constant check_rom_checksums 20000 IC17_BYTES            # IC17, the program ROM's first chip: 000000-01FFFF (compute_crc16)
+constant check_rom_checksums 80000 IC8_START             # IC8, the second: from 080000
+constant check_rom_checksums 1F000 IC8_BYTES             # ... to 09EFFF (the rest of the chip is not checked)
+constant check_rom_checksums 100000 IC18_START           # the data ROM's two chips, every other byte (compute_crc16_alternate_bytes): IC18 from 100000
+constant check_rom_checksums 40000 IC18_BYTES
+constant check_rom_checksums 100001 IC9_START            # IC9 from 100001, one byte less
+constant check_rom_checksums 3FFFF IC9_BYTES
+constant split_frame_count 4E9FA0 FRAMES_PER_DAY         # the game's own divisors: 59.64 frames a second for the first three
+constant split_frame_count 346A7 FRAMES_PER_HOUR
+constant split_frame_count DFB FRAMES_PER_MINUTE
+constant split_frame_count 3C FRAMES_PER_SECOND          # 60, not 59.64: the remainder of the minute, as the original divides it
+constant enter_ranking_initials_save_record 170412 INITIALS_SEX    # three letter codes and a 0 byte (ranking_entry.initials), the first letter in the low byte
+constant enter_ranking_initials_save_record 171717 INITIALS_XXX
+constant enter_ranking_initials_save_record 172B17 INITIALS_X_X
+constant enter_ranking_initials_save_record 2B1717 INITIALS_XX_
+constant enter_ranking_initials_save_record A0013 INITIALS_TAK     # what the four become
+constant run_stage_05_switch 32A03 STAGE_05_SWITCHED_TILE_SETS     # loaded_tile_sets once the switch is done: sets 03, 2A, 03 and 00 in the four slots
 
 # ======== what the C says above each function (build/naming/comments_1..8.txt) ========
 comment add_to_hitter_list Puts current_object at the head of hitter_list (linked by hit_list_next) and clears its flags bits 2 (hit) and 27 (in a zone) for this frame's check_hits and check_zones.
@@ -15808,6 +15980,7 @@ comment flood_fill Unused: scanline flood fill from seed_x, seed_y with fill_col
 comment flood_fill_push_span Unused: fills the run at r14 (x left_x) in the scanned row (flood_fill_span) and queues its flood_fill_record at object_cursor: direction and row y + direction, its right and left ends, the flood_fill_push_parent_* range; object_cursor wraps from 0xCCC4 to bitmap_draw_buffer. right_x and right_address come back at the run's right end.
 comment flood_fill_scan_row Unused: scans row y + direction under or over the current span, from flood_fill_left_x to flood_fill_right_x (copied into the flood_fill_push_parent_* range): every run not in the fill or border colour goes through flood_fill_push_span, the scan going on 2 past its right end; hands back the x the scan reached.
 comment flood_fill_scan_row_skip_parent Unused: a queued span's row in direction: toward its own flood_fill_direction the whole row (flood_fill_scan_row); back toward its parent only the parts left of flood_fill_parent_left_x and right of flood_fill_parent_right_x + 1, each run there through flood_fill_push_span.
+comment flood_fill_skip_parent_right Unused: flood_fill_scan_row_skip_parent's right part: from flood_fill_parent_right_x + 1 to flood_fill_right_x, two pixels at a time, each run of fillable pixels pushed through flood_fill_push_span; hands back scan_x.
 comment flood_fill_scan_seed_rows Unused: the seed span's neighbour rows: flood_fill_scan_row above (direction -1) when y is below window_top, and below (1) when y is above window_bottom; hands back the x the last scan reached.
 comment flood_fill_scan_span_rows Unused: the same as flood_fill_scan_seed_rows for a span taken from the queue, through flood_fill_scan_row_skip_parent.
 comment flood_fill_span Unused: the run through the pixel at r14 (x left_x) at 8 bpp: scans left to window_left and right to window_right up to the fill colour (fill_pattern) or border_color, then fills it (flood_fill_span_fill_run); left_x and r14 come back at its left end, right_x and right_address at its right end. Also fill_span_at_point's 8 bpp path.

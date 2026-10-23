@@ -3,7 +3,7 @@
  *    Description: stage 4's objects: the vines, the catapults, arrow boards, pebbles, the propped board, boulders, the door wall at the start and the rollers behind it, the fireball emitter and the bouncing fireballs, the electric fence and the flame machine at the end
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    21-10-2026
+ *    Modified:    22-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -144,7 +144,7 @@ void vine_swing(void)
 void vine_bar_update(void)
 {
 	uint16_t kind = 0, screen_dy = 0, screen_x = 0, x_int = 0, y_int = 0, z = 0;
-	uint32_t r11 = 0, height = 0, ignored = 0, vine = 0;
+	uint32_t cursor = 0, height = 0, ignored = 0, vine = 0;
 
 	OBJECT(current_object)->vine_bar.holding = OBJECT(LINKED(WORK_RAM, OBJECT(current_object)->vine_bar.vine))->vine_swing.holding;
 	if ((OBJECT(current_object)->flags & 8u) != 0u && OBJECT(current_object)->floor_z_int < 0x800)
@@ -166,7 +166,7 @@ void vine_bar_update(void)
 	screen_dy -= OBJECT(current_object)->screen_y;
 	OBJECT(current_object)->projected_x += screen_x - OBJECT(current_object)->screen_x;
 	OBJECT(current_object)->projected_y_int += screen_dy;
-	unproject_object(&ignored, &ignored, &ignored, &r11);
+	unproject_object(&ignored, &ignored, &ignored, &cursor);
 	height = (OBJECT(object_cursor)->floor_z_int - OBJECT(object_cursor)->z_int) & 0x7Fu;
 	if ((int16_t)height > 0x50)
 	{
@@ -188,7 +188,7 @@ void vine_bar_update(void)
 		y_int = (uint16_t)OBJECT(current_object)->y_int;
 		kind = 7u;
 		z = (uint16_t)(OBJECT(current_object)->z_int + 0x14u);
-		spawn_sign(x_int, y_int, kind, z, &ignored, &r11);
+		spawn_sign(x_int, y_int, kind, z, &ignored, &cursor);
 	}
 }
 
@@ -680,15 +680,15 @@ void flame_machine_back_wall_update(void)
    and flame_machine_arm_rest; frame 0xD ends. */
 void flame_machine_arm_update(void)
 {
-	uint32_t r2 = 0, r3 = 0, r11 = 0, frame_number = 0, ignored = 0;
+	uint32_t block_offset = 0, cursor = 0, frame_number = 0, ignored = 0, slope_height = 0;
 	uint8_t odd_sway_frame = 0;
 	uint16_t odd_frame = 0;
 
 	if ((flame_machine_flags & 0x100000u) != 0u)
 		return;
-	unproject_object(&ignored, &r2, &r3, &r11);
+	unproject_object(&ignored, &block_offset, &slope_height, &cursor);
 	if ((flame_machine_flags & shl32(1u, (int)(OBJECT(current_object)->flame_machine_arm.arm_index + 0xAu))) != 0u)
-		flame_machine_arm_take_disc(r2, r3, r11);
+		flame_machine_arm_take_disc(block_offset, slope_height, cursor);
 	if ((flame_machine_flags & shl32(1u, (int)(OBJECT(current_object)->flame_machine_arm.arm_index + 4u))) == 0u)
 	{
 		flame_machine_arm_draw();
@@ -810,9 +810,9 @@ void flame_machine_arm_draw(void)
    flame_machine_flame_burn and clears the bit. */
 void flame_machine_cannon_update(void)
 {
-	uint32_t r2 = 0, r11 = 0, fire_bit_or_spawned = 0, ignored = 0, object = 0, offset_record = 0, spawn_arg_1 = 0;
+	uint32_t block_offset = 0, cursor = 0, fire_bit_or_spawned = 0, ignored = 0, object = 0, offset_record = 0, spawn_arg_1 = 0;
 
-	unproject_object(&ignored, &r2, &object, &r11);
+	unproject_object(&ignored, &block_offset, &object, &cursor);
 	queue_sprite(0u);
 	OBJECT(current_object)->health = 0x7F;
 	add_to_touchable_list(ignored);
@@ -822,7 +822,7 @@ void flame_machine_cannon_update(void)
 	if ((flame_machine_flags & shl32(1u, (int)(fire_bit_or_spawned))) == 0u)
 		return;
 	spawn_count = 2u;
-	spawn_object_with_pieces(0x010440u, &fire_bit_or_spawned, &ignored, &r2, &object, &r11);
+	spawn_object_with_pieces(0x010440u, &fire_bit_or_spawned, &ignored, &block_offset, &object, &cursor);
 	if ((uint8_t)fire_bit_or_spawned != 0u)
 	{
 		copy_position_to(object);
@@ -974,7 +974,7 @@ void spiked_disc_draw_held(void)
 	move_object_projected(&ignored, &ignored, &ignored, &ignored);
 	bucket = (uint8_t)((OBJECT(current_object)->spawn_arg_1 + 1u) * 2u);
 	queue_sprite_in_bucket(bucket);
-	if ((int16_t)AS16(OBJECT(current_object)->spiked_disc.arm_frame) >= 8)
+	if ((int16_t)(OBJECT(current_object)->spiked_disc.arm_frame | ((uint32_t)(OBJECT(current_object)->spiked_disc.spin_toggle & 0xFFu) << 8u)) >= 8)
 	{
 		spiked_disc_draw_shadow();
 		return;
@@ -1818,7 +1818,7 @@ void propped_board_update(void)
 	}
 	if ((OBJECT(current_object)->flags & 4u) != 0u)
 	{
-		AS8(OBJECT(current_object)->propped_board.shake_strength) = 0x3Cu;
+		OBJECT(current_object)->propped_board.shake_strength_low = 0x3Cu;
 		flags = OBJECT(current_object)->flags;
 		OBJECT(current_object)->flags = flags | 1u;
 		if ((flags & 1u) == 0u)
@@ -2154,7 +2154,7 @@ void spawn_door_rollers(uint32_t *p_block_offset, uint32_t *p_slope_height, uint
 		OBJECT(current_object)->flags = 2u;
 		OBJECT(current_object)->speed_z = -0x80000;
 		OBJECT(current_object)->door_roller.state = 0u;
-		OBJECT(current_object)->var_82 = 8u;
+		OBJECT(current_object)->door_roller.roll_out_timer = 8;
 		OBJECT(current_object)->door_roller.off_screen = 0u;
 		OBJECT(current_object)->animation_speed = 4u;
 		OBJECT(current_object)->animation_timer = 0;
@@ -2194,14 +2194,14 @@ void door_roller_update(void)
 	default:
 		invalid_jump(0x82AC6u + OBJECT(current_object)->door_roller.state * 3u);
 	}
-	if (OBJECT(current_object)->var_83 != 0u)
+	if (OBJECT(current_object)->door_roller.off_screen != 0u)
 	{
 		delete_current_object();
 		return;
 	}
 	animate(&ignored, &ignored, &ignored);
 	project_object(&ignored, &ignored);
-	if (OBJECT(current_object)->var_80 == 0u)
+	if (OBJECT(current_object)->door_roller.state == 0u)
 		return;
 	ignored = queue_sprite_at_base(ignored);
 }

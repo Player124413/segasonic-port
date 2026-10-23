@@ -3,7 +3,7 @@
  *    Description: choosing a character: the PLAYER SELECT chooser at a new game and the chooser of a player joining
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    21-10-2026
+ *    Modified:    22-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -17,8 +17,6 @@ void reset_character_select(void)
 {
 	characters_taken = 0u;
 	players_in_join_chooser = 0u;
-	free_character_count = 0u;
-	character_select_timer = 0;
 	character_select_timer = 0;
 }
 
@@ -29,18 +27,18 @@ void reset_character_select(void)
 void start_character_chooser(uint32_t block)
 {
 	uint16_t chooser_x = 0;
-	uint32_t r2 = 0, character = 0, frame_index = 0, ignored = 0, object = 0, player = 0, x_index = 0;
+	uint32_t character = 0, frame_index = 0, free_count = 0, ignored = 0, object = 0, player = 0, x_index = 0;
 
-	count_free_characters(&ignored, &r2, &object);
+	count_free_characters(&ignored, &free_count, &object);
 	players_choosing_character++;
 	if (character_select_timer <= 0)
 	{
 		mem_write16(video_layer_disable, 0x2Fu);
 		mem_write16(video_backdrop_control, 0u);
-		show_nbg0_picture(&r2, &ignored, &ignored, &block);
+		show_nbg0_picture(&free_count, &ignored, &ignored, &block);
 		spawn_count = 2u;
 		spawn_count = 0xAu;
-		spawn_object_with_pieces(0x08F9E2u, &ignored, &ignored, &r2, &object, &block);
+		spawn_object_with_pieces(0x08F9E2u, &ignored, &ignored, &free_count, &object, &block);
 		OBJECT(object)->screen_x = 0x118;
 		OBJECT(object)->screen_y = 0x1F;
 		OBJECT(object)->sprite_palette = 0x8AD0u;
@@ -54,8 +52,8 @@ void start_character_chooser(uint32_t block)
 	}
 	character_select_timer = 0x258;
 	spawn_count = 8u;
-	spawn_object_with_pieces(0x08FA36u, &ignored, &ignored, &r2, &object, &block);
-	AS32(OBJECT(object)->hitbox_size_x) = current_player;
+	spawn_object_with_pieces(0x08FA36u, &ignored, &ignored, &free_count, &object, &block);
+	OBJECT(object)->character_chooser.player_block = current_player;
 	player = OBJECT(object_cursor)->player;
 	OBJECT(object)->kind = player;
 	character = player;
@@ -297,7 +295,7 @@ void draw_character_chooser_labels(void)
 void character_chooser_turn(void)
 {
 	uint16_t turn_step = 0;
-	uint32_t r1 = 0, character = 0, piece_value = 0, x_index = 0;
+	uint32_t character = 0, piece_value = 0, taken_bit = 0, x_index = 0;
 	uint8_t next_character = 0;
 	uint16_t turn_timer = 0, scale_step = 0;
 
@@ -361,8 +359,8 @@ void character_chooser_turn(void)
 		character = OBJECT(current_object)->character_chooser.character;
 		OBJECT(current_object)->sprite_frame = chooser_portrait_frames[character * 4u];
 		OBJECT(current_object)->sprite_palette = chooser_portrait_palettes[character];
-		r1 = character_taken_bits[character];
-		if ((characters_taken & shl32(1u, (int)(r1))) == 0u)
+		taken_bit = character_taken_bits[character];
+		if ((characters_taken & shl32(1u, (int)(taken_bit))) == 0u)
 		{
 			OBJECT(current_object)->character_chooser.name_changed = 1u;
 			OBJECT(current_object)->handler = character_chooser_wait_ADDRESS;
@@ -385,7 +383,7 @@ void character_chooser_turn(void)
 		OBJECT(current_object)->sprite_scale -= r14;
 	else
 		OBJECT(current_object)->sprite_scale += r14;
-	r1 = queue_sprite(r1);
+	taken_bit = queue_sprite(taken_bit);
 	current_object = LINKED(current_object, OBJECT(current_object)->child);
 	if ((uint8_t)turn_step == 1u)
 	{
@@ -395,7 +393,7 @@ void character_chooser_turn(void)
 	}
 	else
 		OBJECT(current_object)->screen_x -= r14;
-	r1 = queue_sprite(r1);
+	taken_bit = queue_sprite(taken_bit);
 	current_object = LINKED(current_object, OBJECT(current_object)->child);
 	if ((uint8_t)turn_step == 0xFFu)
 	{
@@ -405,7 +403,7 @@ void character_chooser_turn(void)
 	}
 	else
 		OBJECT(current_object)->screen_x -= r14;
-	queue_sprite(r1);
+	queue_sprite(taken_bit);
 	draw_character_chooser_labels();
 }
 
@@ -510,8 +508,8 @@ uint32_t start_join_character_chooser(void)
 		character = ((character & ~0xFFu) | (uint8_t)(character + 1u)) % 3u;
 	}
 	OBJECT(block)->kind = player;
-	AS32(players_in_join_chooser) |= shl32(1u, (int)(player));
-	AS32(OBJECT(block)->hitbox_size_x) = current_player;
+	players_in_join_chooser |= shl32(1u, (int)(player));
+	OBJECT(block)->join_character_chooser.player_block = current_player;
 	x_index = player;
 	if ((cabinet_config & 1u) == 0u)
 		x_index += 3u;
@@ -524,7 +522,7 @@ uint32_t start_join_character_chooser(void)
 	OBJECT(block)->sprite_palette = join_chooser_palettes[character];
 	OBJECT(block)->join_character_chooser.character = character;
 	OBJECT(block)->handler = join_character_chooser_update_ADDRESS;
-	OBJECT(block)->hitbox_centre_y = 1;
+	OBJECT(block)->join_character_chooser.turn_direction = 1;
 	OBJECT(block)->child = block;
 	OBJECT(block)->child += 0xA0u;
 	block = LINKED(block, OBJECT(block)->child);
@@ -551,7 +549,7 @@ void join_character_chooser_update(uint32_t text_x)
 	uint16_t time_left = 0;
 
 	player = OBJECT(object_cursor)->player;
-	if ((AS32(players_in_join_chooser) & shl32(1u, (int)(player))) == 0u)
+	if ((players_in_join_chooser & shl32(1u, (int)(player))) == 0u)
 		return;
 	current_object = join_chooser_blocks[player];
 	time_left = OBJECT(current_object)->join_character_chooser.countdown;
@@ -604,7 +602,7 @@ void join_character_chooser_update(uint32_t text_x)
 		turn = (uint8_t)(right_steps - left_steps);
 		if (right_steps != left_steps)
 		{
-			OBJECT(current_object)->hitbox_centre_y = turn;
+			OBJECT(current_object)->join_character_chooser.turn_direction = turn;
 			OBJECT(current_object)->join_character_chooser.portrait_changed = 1u;
 			next_character = OBJECT(current_object)->join_character_chooser.character + turn;
 			OBJECT(current_object)->join_character_chooser.character = next_character;
@@ -620,7 +618,7 @@ void join_character_chooser_update(uint32_t text_x)
 		if ((characters_taken & shl32(1u, (int)(character_taken_bits[character]))) == 0u)
 			break;
 		OBJECT(current_object)->join_character_chooser.portrait_changed = 1u;
-		OBJECT(current_object)->join_character_chooser.character += OBJECT(current_object)->hitbox_centre_y;
+		OBJECT(current_object)->join_character_chooser.character += OBJECT(current_object)->join_character_chooser.turn_direction;
 		if ((int8_t)OBJECT(current_object)->join_character_chooser.character < 0)
 			OBJECT(current_object)->join_character_chooser.character = 2u;
 		OBJECT(current_object)->join_character_chooser.character = OBJECT(current_object)->join_character_chooser.character % 3u;
@@ -661,7 +659,7 @@ void join_character_chooser_take_character(void)
 		OBJECT(current_object)->join_character_chooser.character = OBJECT(current_object)->join_character_chooser.character % 3u;
 	}
 	characters_taken |= shl32(1u, (int)(taken_bit));
-	AS32(players_in_join_chooser) &= ~shl32(1u, (int)(OBJECT(current_object)->kind));
+	players_in_join_chooser &= ~shl32(1u, (int)(OBJECT(current_object)->kind));
 	current_object = object_cursor;
 }
 

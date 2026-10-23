@@ -119,14 +119,12 @@ void event_0f_show_messages(uint32_t *p_frames, uint32_t *p_box)
 		event_0f_message_cursor = cursor + 2u;
 		*p_box = spawn_message_box(screen_x, screen_y, kind, frames, *p_box);
 	}
-	if (scene_timer < 0x258)
+	if (scene_timer >= 0x258)
 	{
-		*p_frames = (*p_frames & 0xFFFF0000u) | frames;
-		return;
+		scroll_mode = 0u;
+		scroll_speed_low = 5;
+		game_mode = 3u;
 	}
-	scroll_mode = 0u;
-	scroll_speed_low = 5;
-	game_mode = 3u;
 	*p_frames = (*p_frames & 0xFFFF0000u) | frames;
 }
 
@@ -612,13 +610,11 @@ void stage_05_event_step_3_frame(uint32_t part_size, uint32_t wall, uint32_t *p_
 	check_walls(ignored);
 	check_platforms(&ignored, &ignored, &ignored, &sag, &ignored, p_point_y, p_z, p_platform, &ignored);
 	scene_timer++;
-	if (scene_timer < 0xA0)
+	if (scene_timer >= 0xA0)
 	{
-		*p_sag = (*p_sag & 0xFFFF0000u) | (sag & 0xFFFFu);
-		return;
+		scene_step++;
+		scene_timer = 0;
 	}
-	scene_step++;
-	scene_timer = 0;
 	*p_sag = (*p_sag & 0xFFFF0000u) | (sag & 0xFFFFu);
 }
 
@@ -937,34 +933,29 @@ void spawn_stage_06_lightning(uint32_t *p_record, uint32_t *p_bolt)
 	record = stage_06_lightning_cursor;
 	strike_time = STAGE_06_LIGHTNING_STRIKE(record)->strike_time;
 	record += 2u;
-	if (scene_timer < (int16_t)strike_time)
+	if ((int16_t)strike_time <= scene_timer)
 	{
-		*p_record = record;
-		return;
+		allocate_object_outside_loop(&free_count, &bolt);
+		if (free_count != 0u)
+		{
+			OBJECT(bolt)->sprite_flags = 0x1008u;
+			OBJECT(bolt)->sprite_palette = 0x9110u;
+			OBJECT(bolt)->flags = 0u;
+			OBJECT(bolt)->handler = stage_06_lightning_animate_ADDRESS;
+			OBJECT(bolt)->screen_x = STAGE_06_LIGHTNING_STRIKE(record - 0x2u)->screen_x;
+			record += 2u;
+			OBJECT(bolt)->screen_y = STAGE_06_LIGHTNING_STRIKE(record - 0x4u)->screen_y;
+			record += 2u;
+			OBJECT(bolt)->animation = STAGE_06_LIGHTNING_STRIKE(record - 0x6u)->animation;
+			OBJECT(bolt)->animation_frame = 0u;
+			OBJECT(bolt)->animation_timer = 0;
+			OBJECT(bolt)->animation_speed = 4u;
+			record += 4u;
+			stage_06_lightning_cursor = record;
+			sound_id = 0xBu;
+			play_sound(sound_id, &ignored, &ignored);
+		}
 	}
-	allocate_object_outside_loop(&free_count, &bolt);
-	if (free_count == 0u)
-	{
-		*p_record = record;
-		*p_bolt = bolt;
-		return;
-	}
-	OBJECT(bolt)->sprite_flags = 0x1008u;
-	OBJECT(bolt)->sprite_palette = 0x9110u;
-	OBJECT(bolt)->flags = 0u;
-	OBJECT(bolt)->handler = stage_06_lightning_animate_ADDRESS;
-	OBJECT(bolt)->screen_x = STAGE_06_LIGHTNING_STRIKE(record - 0x2u)->screen_x;
-	record += 2u;
-	OBJECT(bolt)->screen_y = STAGE_06_LIGHTNING_STRIKE(record - 0x4u)->screen_y;
-	record += 2u;
-	OBJECT(bolt)->animation = STAGE_06_LIGHTNING_STRIKE(record - 0x6u)->animation;
-	OBJECT(bolt)->animation_frame = 0u;
-	OBJECT(bolt)->animation_timer = 0;
-	OBJECT(bolt)->animation_speed = 4u;
-	record += 4u;
-	stage_06_lightning_cursor = record;
-	sound_id = 0xBu;
-	play_sound(sound_id, &ignored, &ignored);
 	*p_record = record;
 	*p_bolt = bolt;
 }

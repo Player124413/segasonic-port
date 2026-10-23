@@ -3,7 +3,7 @@
  *    Description: the registers the whole program shares, the code calls through memory slots reach (by address), and the reset entry
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    19-10-2026
+ *    Modified:    22-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -38,16 +38,16 @@ static void call_01130E(void)
    takes, and what it hands back dropped. */
 static void call_080000(void)
 {
-	uint32_t r1 = 0, r10 = 0, r11 = 0;
-	spawn_objects_by_handler(&r1, &r10, &r11);
+	uint32_t list_offset = 0, record = 0, object = 0;
+	spawn_objects_by_handler(&list_offset, &record, &object);
 }
 
 /* How call_code() runs delete_object_and_children from a slot that holds its address: with 0 for what it
    takes, and what it hands back dropped. */
 static void call_08E0CE(void)
 {
-	uint32_t r0 = 0, r2 = 0, r3 = 0;
-	delete_object_and_children(&r0, &r2, &r3);
+	uint32_t deleted = 0, block_offset = 0, slope_height = 0;
+	delete_object_and_children(&deleted, &block_offset, &slope_height);
 }
 
 /* How call_code() runs join_character_chooser_update from a slot that holds its address: with 0 for what
