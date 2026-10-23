@@ -3,7 +3,7 @@
  *    Description: the sequence players stepped at every tick (their events into the MIDI queue, the playlist commands) and the V60's sound commands (songs and sequences started on players, volume fades)
  *    Version:     0.1.0
  *    Created:     13-10-2026
- *    Modified:    22-10-2026
+ *    Modified:    23-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the Z80 sound program decompiled into C by
@@ -189,7 +189,6 @@ void step_player_if_playing(uint16_t player_address, uint16_t mailbox_page)
    playlist (flags bit 5) or stop. */
 void step_player(uint16_t player_address, uint16_t mailbox_page)
 {
-	bool end_of_sequence = false, system_event_other = false;
 	uint32_t carry = 0;
 	uint8_t delta_time_high = 0, delta_time_low = 0, event_byte = 0, meta_bytes_left = 0, new_delta_high = 0, queue_page = 0, queued_byte = 0, sysex_bytes_left = 0, volume_value = 0, write_index = 0;
 	uint16_t cursor = 0, player = 0, player_2 = 0, queue_pointer = 0;
@@ -248,48 +247,46 @@ void step_player(uint16_t player_address, uint16_t mailbox_page)
 				cursor = next_sequence_byte(cursor, player);
 				z80_block(24);
 				event_byte = z80_read8(cursor);
-				end_of_sequence = event_byte == 0x2Fu;
-				if (!end_of_sequence)
+				if (event_byte == 0x2Fu)
+					break;
+				z80_block(17);
+				if (event_byte == 0x51u)
 				{
 					z80_block(17);
-					if (event_byte == 0x51u)
+					cursor = next_sequence_byte(cursor, player);
+					z80_block(17);
+					cursor = next_sequence_byte(cursor, player);
+					z80_block(25);
+					event_byte = z80_read8(cursor);
+					if (event_byte >> 7)
+					{
+						z80_block(23);
+						event_byte = (0u - event_byte) | 0x80u;
+					}
+					z80_block(36);
+					SEQUENCE_PLAYER(player)->meta_51_value = event_byte;
+					cursor = next_sequence_byte(cursor, player);
+					z80_block(10);
+				}
+				else
+				{
+					z80_block(17);
+					cursor = next_sequence_byte(cursor, player);
+					z80_block(7);
+					meta_bytes_left = z80_read8(cursor);
+					for (;;)
 					{
 						z80_block(17);
 						cursor = next_sequence_byte(cursor, player);
-						z80_block(17);
-						cursor = next_sequence_byte(cursor, player);
-						z80_block(25);
-						event_byte = z80_read8(cursor);
-						if (event_byte >> 7)
-						{
-							z80_block(23);
-							event_byte = (0u - event_byte) | 0x80u;
-						}
-						z80_block(36);
-						SEQUENCE_PLAYER(player)->meta_51_value = event_byte;
-						cursor = next_sequence_byte(cursor, player);
-						z80_block(10);
+						z80_block(8);
+						meta_bytes_left--;
+						if (meta_bytes_left == 0u)
+							break;
+						z80_cycles(5);
 					}
-					else
-					{
-						z80_block(17);
-						cursor = next_sequence_byte(cursor, player);
-						z80_block(7);
-						meta_bytes_left = z80_read8(cursor);
-						for (;;)
-						{
-							z80_block(17);
-							cursor = next_sequence_byte(cursor, player);
-							z80_block(8);
-							meta_bytes_left--;
-							if (meta_bytes_left == 0u)
-								break;
-							z80_cycles(5);
-						}
-						z80_block(17);
-						cursor = next_sequence_byte(cursor, player);
-						z80_block(10);
-					}
+					z80_block(17);
+					cursor = next_sequence_byte(cursor, player);
+					z80_block(10);
 				}
 			}
 			else
@@ -324,22 +321,23 @@ void step_player(uint16_t player_address, uint16_t mailbox_page)
 					else
 					{
 						z80_block(17);
-						system_event_other = event_byte != 0xF0u;
-						if (!system_event_other)
+						if (event_byte != 0xF0u)
 						{
-							for (;;)
-							{
-								z80_block(24);
-								event_byte = z80_read8(cursor);
-								cursor = next_sequence_byte(cursor, player);
-								z80_block(17);
-								if (event_byte == 0xF7u)
-									break;
-								z80_block(10);
-							}
-							z80_block(33);
-							midi_queue_count++;
+							z80_block(10);
+							break;
 						}
+						for (;;)
+						{
+							z80_block(24);
+							event_byte = z80_read8(cursor);
+							cursor = next_sequence_byte(cursor, player);
+							z80_block(17);
+							if (event_byte == 0xF7u)
+								break;
+							z80_block(10);
+						}
+						z80_block(33);
+						midi_queue_count++;
 					}
 				}
 				else
@@ -451,10 +449,6 @@ void step_player(uint16_t player_address, uint16_t mailbox_page)
 					}
 				}
 			}
-			if (end_of_sequence)
-				break;
-			if (system_event_other)
-				break;
 			z80_block(30);
 			if (((SEQUENCE_PLAYER(player)->flags >> 6) & 1u) != 0u)
 				continue;
@@ -462,103 +456,88 @@ void step_player(uint16_t player_address, uint16_t mailbox_page)
 			event_byte = z80_read8(cursor);
 			cursor = next_sequence_byte(cursor, player);
 			z80_block(14);
-			if (event_byte != 0u)
-				break;
-		}
-		if (end_of_sequence || !system_event_other)
-		{
-			if (!end_of_sequence)
-				break;
-		}
-		for (;;)
-		{
-			if (!system_event_other)
+			if (event_byte == 0u)
+				continue;
+			z80_block(18);
+			if (event_byte >> 7)
 			{
-				end_of_sequence = false;
-				z80_block(30);
-				if (((SEQUENCE_PLAYER(player)->flags >> 5) & 1u) == 0u)
+				z80_block(37);
+				event_byte &= 0x7Fu;
+				carry = event_byte & 1u;
+				new_delta_high = event_byte >> 1;
+				event_byte = z80_read8(cursor);
+				if (carry)
 				{
-					z80_block(30);
-					if (((SEQUENCE_PLAYER(player)->flags >> 4) & 1u) != 0u)
-					{
-						z80_cycles(7);
-						clear_player_end_flag(mailbox_page);
-					}
-					z80_block(100);
-					SEQUENCE_PLAYER(player)->flags = 0u;
-					midi_queue_write = write_index;
-					port_out(ROM_BANK_HIGH, rom_bank_high);
-					port_out(ROM_BANK_LOW, rom_bank_low);
-					return;
+					z80_block(8);
+					event_byte |= 0x80u;
 				}
-				z80_block(62);
-				cursor = SEQUENCE_PLAYER(player)->playlist;
-				event_byte = PLAYLIST_BYTES(cursor)[0];
-				cursor = next_sequence_byte(cursor, player);
 				z80_block(17);
-				if (event_byte >= 0xF0u)
-				{
-					z80_cycles(7);
-					queue_pointer = (uint32_t)queue_page << 8;
-					playlist_command(queue_pointer, player, mailbox_page, &cursor, &event_byte);
-				}
-				z80_block(14);
-				if (event_byte == 0u)
-				{
-					z80_block(30);
-					if (((SEQUENCE_PLAYER(player)->flags >> 4) & 1u) != 0u)
-					{
-						z80_cycles(7);
-						clear_player_end_flag(mailbox_page);
-					}
-					z80_block(100);
-					SEQUENCE_PLAYER(player)->flags = 0u;
-					midi_queue_write = write_index;
-					port_out(ROM_BANK_HIGH, rom_bank_high);
-					port_out(ROM_BANK_LOW, rom_bank_low);
-					return;
-				}
-				z80_block(91);
-				SEQUENCE_PLAYER(player)->playlist = cursor;
-				saved_queue_page = queue_page;
-				saved_write_index = write_index;
-				saved_player = player;
-				player_2 = (uint32_t)(saved_player >> 8) << 8;
-				start_song(player_2, event_byte);
-				z80_block(20);
-				queue_page = saved_queue_page;
-				write_index = saved_write_index;
-				break;
+				cursor = next_sequence_byte(cursor, player);
+				z80_block(19);
+				SEQUENCE_PLAYER(player)->delta_time_high = new_delta_high;
 			}
-			system_event_other = false;
-			z80_block(10);
+			z80_block(134);
+			SEQUENCE_PLAYER(player)->delta_time_low = event_byte;
+			SEQUENCE_PLAYER(player)->position = cursor;
+			midi_queue_write = write_index;
+			port_out(ROM_BANK_HIGH, rom_bank_high);
+			port_out(ROM_BANK_LOW, rom_bank_low);
+			return;
 		}
-		continue;
-	}
-	z80_block(18);
-	if (event_byte >> 7)
-	{
-		z80_block(37);
-		event_byte &= 0x7Fu;
-		carry = event_byte & 1u;
-		new_delta_high = event_byte >> 1;
-		event_byte = z80_read8(cursor);
-		if (carry)
+		z80_block(30);
+		if (((SEQUENCE_PLAYER(player)->flags >> 5) & 1u) == 0u)
 		{
-			z80_block(8);
-			event_byte |= 0x80u;
+			z80_block(30);
+			if (((SEQUENCE_PLAYER(player)->flags >> 4) & 1u) != 0u)
+			{
+				z80_cycles(7);
+				clear_player_end_flag(mailbox_page);
+			}
+			z80_block(100);
+			SEQUENCE_PLAYER(player)->flags = 0u;
+			midi_queue_write = write_index;
+			port_out(ROM_BANK_HIGH, rom_bank_high);
+			port_out(ROM_BANK_LOW, rom_bank_low);
+			return;
 		}
-		z80_block(17);
+		z80_block(62);
+		cursor = SEQUENCE_PLAYER(player)->playlist;
+		event_byte = PLAYLIST_BYTES(cursor)[0];
 		cursor = next_sequence_byte(cursor, player);
-		z80_block(19);
-		SEQUENCE_PLAYER(player)->delta_time_high = new_delta_high;
+		z80_block(17);
+		if (event_byte >= 0xF0u)
+		{
+			z80_cycles(7);
+			queue_pointer = (uint32_t)queue_page << 8;
+			playlist_command(queue_pointer, player, mailbox_page, &cursor, &event_byte);
+		}
+		z80_block(14);
+		if (event_byte == 0u)
+		{
+			z80_block(30);
+			if (((SEQUENCE_PLAYER(player)->flags >> 4) & 1u) != 0u)
+			{
+				z80_cycles(7);
+				clear_player_end_flag(mailbox_page);
+			}
+			z80_block(100);
+			SEQUENCE_PLAYER(player)->flags = 0u;
+			midi_queue_write = write_index;
+			port_out(ROM_BANK_HIGH, rom_bank_high);
+			port_out(ROM_BANK_LOW, rom_bank_low);
+			return;
+		}
+		z80_block(91);
+		SEQUENCE_PLAYER(player)->playlist = cursor;
+		saved_queue_page = queue_page;
+		saved_write_index = write_index;
+		saved_player = player;
+		player_2 = (uint32_t)(saved_player >> 8) << 8;
+		start_song(player_2, event_byte);
+		z80_block(20);
+		queue_page = saved_queue_page;
+		write_index = saved_write_index;
 	}
-	z80_block(134);
-	SEQUENCE_PLAYER(player)->delta_time_low = event_byte;
-	SEQUENCE_PLAYER(player)->position = cursor;
-	midi_queue_write = write_index;
-	port_out(ROM_BANK_HIGH, rom_bank_high);
-	port_out(ROM_BANK_LOW, rom_bank_low);
 }
 
 /* Hands back data_byte without bit 7, which marks it as chained: the player's flags bit 6 is set so

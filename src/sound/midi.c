@@ -3,7 +3,7 @@
  *    Description: the MIDI messages of the queue for each part on their channel: note on and off, pitch bend, control and program changes, picking a sample voice, retuning, FM modulation; the unused MIDI port on an 8251 USART (ports F0 and F1)
  *    Version:     0.1.0
  *    Created:     13-10-2026
- *    Modified:    21-10-2026
+ *    Modified:    23-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the Z80 sound program decompiled into C by
@@ -119,10 +119,9 @@ void skip_midi_data(uint8_t first_byte)
    loops of CC 0x7B and CC 0x50 0x7E never leave the first voice. */
 void play_midi_message(uint8_t message_byte, uint16_t part)
 {
-	bool note_off = false, vibrato_preset_check_channel = false, vibrato_preset_check_voice = false, vibrato_preset_next_voice = false;
 	uint32_t carry = 0;
-	uint8_t bend = 0, bend_high = 0, bend_low = 0, bend_sign = 0, bend_steps = 0, channel = 0, channel_index = 0, channels_left = 0, chip_channel = 0, control_value = 0, controller = 0, controller_number = 0, controls = 0, depth = 0, detune_low = 0, detune_sign = 0, effective_volume = 0, event = 0, first_byte = 0, first_data_byte = 0, flags = 0, fm_detune = 0, fm_register = 0, ignored8 = 0, level = 0, level_register = 0, modulation_depth = 0, note = 0, note_number = 0, note_to_mark = 0, note_velocity = 0, old_controls = 0, operators_left = 0, part_channel = 0, parts_left = 0, pcm_register = 0, pitch_bend_high = 0, pitch_bend_low = 0, preset = 0, program = 0, register_number = 0, register_value = 0, rounded_volume = 0, sample = 0, scale = 0, setup = 0, total_level = 0, velocity = 0, velocity_then_steal_low = 0, vibrato_preset = 0, voice_channel = 0, voice_chip_channel = 0, voice_note = 0, voices_left = 0, voices_or_bytes_left = 0, voices_unchecked = 0, volume = 0, volume_curve = 0, volume_scale = 0;
-	uint16_t bend_entry = 0, bend_index = 0, byte_copy = 0, channel_in_part = 0, channel_offset = 0, controls_entry = 0, each_part = 0, fnum = 0, fnum_entry = 0, fnum_table_entry = 0, free_fm_voice = 0, ignored16 = 0, instrument = 0, kept_channel = 0, kit_note = 0, level_product = 0, new_voice = 0, new_voice_field = 0, note_index = 0, patch_levels = 0, preset_address = 0, preset_data = 0, preset_target = 0, register_channel = 0, register_list = 0, scaled_part_volume = 0, setup_data = 0, velocity_index = 0, voice = 0, voice_field = 0, voice_size = 0, voices_left_pair = 0, voices_to_end_at = 0;
+	uint8_t bend = 0, bend_high = 0, bend_low = 0, bend_sign = 0, bend_steps = 0, channel = 0, channels_left = 0, chip_channel = 0, control_value = 0, controller = 0, controller_number = 0, controls = 0, depth = 0, detune_low = 0, detune_sign = 0, effective_volume = 0, event = 0, first_byte = 0, first_data_byte = 0, fm_detune = 0, fm_register = 0, ignored8 = 0, level = 0, level_register = 0, modulation_depth = 0, note = 0, note_number = 0, note_to_mark = 0, note_velocity = 0, old_controls = 0, operators_left = 0, part_channel = 0, parts_left = 0, pcm_register = 0, pitch_bend_high = 0, pitch_bend_low = 0, preset = 0, program = 0, register_number = 0, register_value = 0, rounded_volume = 0, sample = 0, scale = 0, setup = 0, total_level = 0, velocity = 0, velocity_then_steal_low = 0, vibrato_preset = 0, voice_channel = 0, voice_chip_channel = 0, voice_note = 0, voices_left = 0, voices_or_bytes_left = 0, voices_unchecked = 0, volume = 0, volume_curve = 0, volume_scale = 0;
+	uint16_t bend_entry = 0, bend_index = 0, byte_copy = 0, channel_in_part = 0, channel_offset = 0, controls_entry = 0, each_part = 0, fnum = 0, fnum_entry = 0, fnum_table_entry = 0, free_fm_voice = 0, ignored16 = 0, ignored16_2 = 0, instrument = 0, kept_channel = 0, kit_note = 0, level_product = 0, new_voice = 0, new_voice_field = 0, note_index = 0, patch_levels = 0, preset_address = 0, preset_data = 0, preset_target = 0, register_channel = 0, register_list = 0, scaled_part_volume = 0, setup_data = 0, velocity_index = 0, voice = 0, voice_field = 0, voice_size = 0, voices_left_pair = 0, voices_to_end_at = 0;
 	uint8_t saved_channel = 0, saved_count = 0, saved_value = 0, saved_voices_left = 0;
 	uint16_t saved_outer = 0, saved_inner = 0;
 	uint8_t old_voices_to_end = 0, note_level_byte = 0, level_rotated = 0, fm_detune_byte = 0, negated_bend = 0, negated_steps = 0, modulation_value = 0, modulation_rotated_1 = 0, modulation_rotated_2 = 0, doubled_volume = 0, doubled_music_volume = 0;
@@ -130,344 +129,280 @@ void play_midi_message(uint8_t message_byte, uint16_t part)
 	first_data_byte = (uint8_t)message_byte;
 	z80_block(37);
 	event = midi_status & ~0xFu;
-	do
+	if (event == 0x90u)
 	{
-		if (note_off || event == 0x90u)
+		z80_block(18);
+		if (first_data_byte >> 7)
 		{
-			if (!note_off)
+			z80_block(17);
+			read_midi_byte(&byte_copy, &ignored16, &ignored8);
+			first_data_byte = (uint8_t)byte_copy;
+		}
+		z80_block(96);
+		note_number = first_data_byte;
+		note_code = note_codes[(uint8_t)(MIDI_PART(part)->transpose + first_data_byte)];
+		read_midi_byte(&byte_copy, &ignored16, &velocity);
+		velocity_then_steal_low = (uint8_t)byte_copy;
+		z80_block(14);
+		if (velocity == 0u)
+		{
+			note_off(part);
+			return;
+		}
+		z80_block(88);
+		velocity_index = velocity;
+		note_level = velocity_levels[velocity_index];
+		program = MIDI_PART(part)->program;
+		if (program < 0xF0u)
+		{
+			z80_block(27);
+			instrument = instruments_ADDRESS;
+			instrument = read_table_word(instrument, program);
+			z80_block(22);
+			if (((INSTRUMENT(instrument)->flags >> 1) & 1u) != 0u)
 			{
-				z80_block(18);
-				if (first_data_byte >> 7)
-				{
-					z80_block(17);
-					read_midi_byte(&byte_copy, &ignored16, &ignored8);
-					first_data_byte = (uint8_t)byte_copy;
-				}
-				z80_block(96);
-				note_number = first_data_byte;
-				note_code = note_codes[(uint8_t)(MIDI_PART(part)->transpose + first_data_byte)];
-				read_midi_byte(&byte_copy, &ignored16, &velocity);
-				velocity_then_steal_low = (uint8_t)byte_copy;
-				z80_block(14);
-			}
-			if (note_off || velocity == 0u)
-			{
-				z80_block(31);
-				program = MIDI_PART(part)->program;
-				if (program >= 0xF0u)
-				{
-					z80_cycles(6);
-					return;
-				}
-				z80_block(27);
-				instrument = instruments_ADDRESS;
-				instrument = read_table_word(instrument, program);
-				z80_block(22);
-				if (((INSTRUMENT(instrument)->flags >> 1) & 1u) != 0u)
-				{
-					fm_note_off(&ignored16, &ignored16, &ignored8);
-					return;
-				}
-				z80_block(51);
-				voice = SAMPLE_VOICE_ADDRESS(0);
+				z80_block(76);
+				sample_or_patch = INSTRUMENT(instrument)->sample_or_fm_patch;
+				free_fm_voice = next_fm_voice;
 				voice_size = 0x12u;
-				voices_left = 8u;
-				channel = midi_status & 0xFu;
+				voices_left = fm_voices_to_end;
+				voices_unchecked = 0xCu;
 				for (;;)
 				{
-					z80_block(29);
-					if (channel == SAMPLE_VOICE(voice)->midi_channel)
-					{
-						z80_block(46);
-						channel_index = channel;
-						if (note_code == SAMPLE_VOICE(voice)->note)
-						{
-							z80_block(37);
-							flags = SAMPLE_VOICE(voice)->flags;
-							if (((flags >> 1) & 1u) == 0u)
-							{
-								z80_block(17);
-								if ((flags & 0x7Fu) != 0u)
-									break;
-							}
-						}
-						z80_block(4);
-						channel = (uint8_t)channel_index;
-					}
+					z80_block(21);
+					if (FM_VOICE(free_fm_voice)->flags == 0u)
+						break;
 					z80_block(23);
-					voice += voice_size;
+					voices_unchecked--;
+					free_fm_voice += voice_size;
 					voices_left--;
-					if (voices_left == 0u)
+					if (voices_left != 0u)
 					{
-						z80_block(10);
+						z80_cycles(5);
+						continue;
+					}
+					z80_block(18);
+					if (voices_unchecked == 0u)
+					{
+						z80_block(14);
 						return;
 					}
-					z80_cycles(5);
-				}
-				z80_block(65);
-				if (channel_controls[channel_index] >> 7 == 0u)
-				{
-					stop_pcm_voice(voice);
-					return;
-				}
-				z80_block(33);
-				SAMPLE_VOICE(voice)->flags |= 2u;
-				return;
-			}
-			z80_block(88);
-			velocity_index = velocity;
-			note_level = velocity_levels[velocity_index];
-			program = MIDI_PART(part)->program;
-			if (program < 0xF0u)
-			{
-				z80_block(27);
-				instrument = instruments_ADDRESS;
-				instrument = read_table_word(instrument, program);
-				z80_block(22);
-				if (((INSTRUMENT(instrument)->flags >> 1) & 1u) != 0u)
-				{
-					z80_block(76);
-					sample_or_patch = INSTRUMENT(instrument)->sample_or_fm_patch;
-					free_fm_voice = next_fm_voice;
+					z80_block(24);
+					free_fm_voice = FM_VOICE_ADDRESS(0);
 					voice_size = 0x12u;
-					voices_left = fm_voices_to_end;
-					voices_unchecked = 0xCu;
+					voices_left = voices_unchecked;
 					for (;;)
 					{
 						z80_block(21);
 						if (FM_VOICE(free_fm_voice)->flags == 0u)
 							break;
 						z80_block(23);
-						voices_unchecked--;
 						free_fm_voice += voice_size;
 						voices_left--;
-						if (voices_left != 0u)
-						{
-							z80_cycles(5);
-							continue;
-						}
-						z80_block(18);
-						if (voices_unchecked == 0u)
+						if (voices_left == 0u)
 						{
 							z80_block(14);
 							return;
 						}
-						z80_block(24);
-						free_fm_voice = FM_VOICE_ADDRESS(0);
-						voice_size = 0x12u;
-						voices_left = voices_unchecked;
-						for (;;)
-						{
-							z80_block(21);
-							if (FM_VOICE(free_fm_voice)->flags == 0u)
-								break;
-							z80_block(23);
-							free_fm_voice += voice_size;
-							voices_left--;
-							if (voices_left == 0u)
-							{
-								z80_block(14);
-								return;
-							}
-							z80_cycles(5);
-						}
-						break;
-					}
-					z80_block(89);
-					new_fm_voice = free_fm_voice;
-					vibrato_preset = channel_vibrato_presets[midi_status & 0xFu];
-					if (vibrato_preset != 0u)
-					{
-						z80_block(27);
-						preset_address = vibrato_presets_ADDRESS;
-						preset_address = read_table_word(preset_address, vibrato_preset);
-						z80_block(353);
-						preset_data = preset_address;
-						preset_target = new_fm_voice + 7u;
-						FM_VOICE(preset_target - 0x7u)->vibrato_delay = VIBRATO_PRESET(preset_data)->delay;
-						preset_data++;
-						preset_target++;
-						FM_VOICE(preset_target - 0x8u)->vibrato_wait = VIBRATO_PRESET(preset_data - 0x1u)->wait;
-						preset_data++;
-						preset_target++;
-						FM_VOICE(preset_target - 0x9u)->vibrato_range = VIBRATO_PRESET(preset_data - 0x2u)->range;
-						preset_data++;
-						preset_target++;
-						FM_VOICE(preset_target - 0xAu)->vibrato_depth = VIBRATO_PRESET(preset_data - 0x3u)->depth;
-						preset_data++;
-						preset_target++;
-						FM_VOICE(preset_target - 0xBu)->vibrato_rise = VIBRATO_PRESET(preset_data - 0x4u)->rise;
-						preset_data++;
-						preset_target++;
-						FM_VOICE(preset_target - 0xCu)->vibrato_fall = VIBRATO_PRESET(preset_data - 0x5u)->fall;
-						FM_VOICE(preset_target - 0xCu)->vibrato_phase = VIBRATO_PRESET(preset_data - 0x5u)->phase;
-						new_voice = new_fm_voice;
-						FM_VOICE(new_voice)->vibrato_phase += FM_VOICE(new_voice)->vibrato_range & ~0xFu;
-						FM_VOICE(new_voice)->vibrato_rate = FM_VOICE(new_voice)->vibrato_wait;
-					}
-					z80_block(31);
-					voices_to_end_at = fm_voices_to_end_ADDRESS;
-					old_voices_to_end = fm_voices_to_end;
-					fm_voices_to_end = old_voices_to_end - 1u;
-					if (old_voices_to_end != 1u)
-					{
-						z80_block(53);
-						next_fm_voice += 0x12u;
-					}
-					else
-					{
-						z80_block(46);
-						fm_voices_to_end = 0xCu;
-						next_fm_voice = FM_VOICE_ADDRESS(0);
-					}
-					z80_block(218);
-					new_voice_field = new_fm_voice;
-					FM_VOICE(new_voice_field)->flags = 0x40u;
-					new_voice_field++;
-					fm_channel = FM_VOICE(new_voice_field - 0x1u)->chip_channel;
-					new_voice_field++;
-					note = note_code;
-					FM_VOICE(new_voice_field - 0x2u)->note = note;
-					voice_note = note;
-					new_voice_field++;
-					channel = midi_status & 0xFu;
-					FM_VOICE(new_voice_field - 0x3u)->midi_channel = channel;
-					voice_channel = channel;
-					new_voice_field += 2u;
-					note_level_byte = note_level;
-					carry = note_level_byte & 1u;
-					level_rotated = note_level_byte >> 1;
-					level = (level_rotated >> 1) | (carry << 7);
-					carry = level_rotated & 1u;
-					level = (((level >> 1) | (carry << 7)) & 0x1Fu) - 0x20u;
-					FM_VOICE(new_voice_field - 0x5u)->level = level;
-					level_product = (new_voice_field & 0xFFu) | ((uint32_t)level << 8);
-					effective_volume = MIDI_PART(part)->effective_volume;
-					volume_curve = effective_volume;
-					if (effective_volume != 0u)
-					{
-						z80_block(20);
-						volume_curve += (uint8_t)~effective_volume >> 1;
-					}
-					z80_block(17);
-					level_product = multiply_bytes(volume_curve, level_product);
-					z80_block(425);
-					note_level = 0x7Fu - ((uint16_t)((uint32_t)((level_product >> 8) >> 1) << 8) >> 8);
-					channel_offset = voice_channel;
-					fm_pan_modulation = (z80_read8((uint16_t)(channel_controls_ADDRESS + channel_offset)) & 7u) | 0xC0u;
-					bend_entry = channel_pitch_bends_ADDRESS + channel_offset + channel_offset;
-					fm_detune = MIDI_PART(part)->fm_detune;
-					detune_low = fm_detune;
-					fm_detune_byte = fm_detune;
-					detune_sign = ((uint32_t)fm_detune_byte << 1) | (fm_detune_byte >> 7);
-					carry = fm_detune_byte >> 7;
-					saved_outer = z80_read16(bend_entry) + (detune_low | ((uint32_t)(uint8_t)(0u - carry) << 8));
-					fnum_table_entry = fm_fnum_tables_ADDRESS + (uint8_t)((voice_note & 0xFu) * 2u);
-					bend_index = saved_outer;
-					fnum_entry = FM_FNUMBER_RUNS(fnum_table_entry)[0] + bend_index;
-					carry = (uint16_t)(fnum_entry + bend_index) < fnum_entry;
-					fnum_entry += bend_index;
-					fnum = FM_FNUMBERS(fnum_entry)[0];
-					fnum = (fnum & 0xFFu) | ((uint32_t)(uint8_t)((((voice_note >> 1) | (carry << 7)) & 0x38u) + (fnum >> 8)) << 8);
-					register_channel = (fm_channel & 3u) << 8;
-					register_value = (uint8_t)(fnum >> 8);
-					fm_register = 0xA4u | (register_channel >> 8);
-					write_fm_channel(fm_register, register_value);
-					z80_block(36);
-					register_value = (uint8_t)fnum;
-					fm_register = 0xA0u | (register_channel >> 8);
-					write_fm_channel(fm_register, register_value);
-					z80_block(17);
-					load_fm_patch(&channel_in_part, &register_list, &patch_levels);
-					part_channel = (uint8_t)channel_in_part;
-					z80_block(7);
-					operators_left = 4u;
-					for (;;)
-					{
-						z80_block(63);
-						saved_count = operators_left;
-						saved_value = part_channel;
-						register_number = FM_REGISTER_NUMBERS(register_list)[0] + part_channel;
-						register_list++;
-						level_register = register_number;
-						total_level = FM_PATCH_BYTES(patch_levels)[0];
-						patch_levels++;
-						if (total_level >> 7 == 0u)
-						{
-							z80_block(21);
-							total_level += note_level;
-						}
-						z80_block(24);
-						total_level &= 0x7Fu;
-						fm_register = level_register;
-						write_fm_channel(fm_register, total_level);
-						z80_block(18);
-						part_channel = saved_value;
-						operators_left = saved_count - 1u;
-						if (operators_left == 0u)
-							break;
 						z80_cycles(5);
 					}
-					z80_block(45);
-					register_value = fm_pan_modulation;
-					fm_register = (uint8_t)(0xB4u + part_channel);
-					write_fm_channel(fm_register, register_value);
-					z80_block(44);
-					register_value = (fm_channel & 7u) | 0xF0u;
-					fm_register = 0x28u;
-					register_value = write_fm_global(fm_register, register_value);
-					return;
+					break;
 				}
-				z80_block(84);
-				instrument++;
-				sample_or_patch = INSTRUMENT(instrument - 0x1u)->sample_or_fm_patch;
-				instrument += 2u;
-				note_pan = INSTRUMENT(instrument - 0x3u)->pan;
-				sample_detune = INSTRUMENT(instrument - 0x3u)->detune;
-				note_velocity = velocity_then_steal_low;
-				allocate_sample_voice(note_velocity, part);
+				z80_block(89);
+				new_fm_voice = free_fm_voice;
+				vibrato_preset = channel_vibrato_presets[midi_status & 0xFu];
+				if (vibrato_preset != 0u)
+				{
+					z80_block(27);
+					preset_address = vibrato_presets_ADDRESS;
+					preset_address = read_table_word(preset_address, vibrato_preset);
+					z80_block(353);
+					preset_data = preset_address;
+					preset_target = new_fm_voice + 7u;
+					FM_VOICE(preset_target - 0x7u)->vibrato_delay = VIBRATO_PRESET(preset_data)->delay;
+					preset_data++;
+					preset_target++;
+					FM_VOICE(preset_target - 0x8u)->vibrato_wait = VIBRATO_PRESET(preset_data - 0x1u)->wait;
+					preset_data++;
+					preset_target++;
+					FM_VOICE(preset_target - 0x9u)->vibrato_range = VIBRATO_PRESET(preset_data - 0x2u)->range;
+					preset_data++;
+					preset_target++;
+					FM_VOICE(preset_target - 0xAu)->vibrato_depth = VIBRATO_PRESET(preset_data - 0x3u)->depth;
+					preset_data++;
+					preset_target++;
+					FM_VOICE(preset_target - 0xBu)->vibrato_rise = VIBRATO_PRESET(preset_data - 0x4u)->rise;
+					preset_data++;
+					preset_target++;
+					FM_VOICE(preset_target - 0xCu)->vibrato_fall = VIBRATO_PRESET(preset_data - 0x5u)->fall;
+					FM_VOICE(preset_target - 0xCu)->vibrato_phase = VIBRATO_PRESET(preset_data - 0x5u)->phase;
+					new_voice = new_fm_voice;
+					FM_VOICE(new_voice)->vibrato_phase += FM_VOICE(new_voice)->vibrato_range & ~0xFu;
+					FM_VOICE(new_voice)->vibrato_rate = FM_VOICE(new_voice)->vibrato_wait;
+				}
+				z80_block(31);
+				voices_to_end_at = fm_voices_to_end_ADDRESS;
+				old_voices_to_end = fm_voices_to_end;
+				fm_voices_to_end = old_voices_to_end - 1u;
+				if (old_voices_to_end != 1u)
+				{
+					z80_block(53);
+					next_fm_voice += 0x12u;
+				}
+				else
+				{
+					z80_block(46);
+					fm_voices_to_end = 0xCu;
+					next_fm_voice = FM_VOICE_ADDRESS(0);
+				}
+				z80_block(218);
+				new_voice_field = new_fm_voice;
+				FM_VOICE(new_voice_field)->flags = 0x40u;
+				new_voice_field++;
+				fm_channel = FM_VOICE(new_voice_field - 0x1u)->chip_channel;
+				new_voice_field++;
+				note = note_code;
+				FM_VOICE(new_voice_field - 0x2u)->note = note;
+				voice_note = note;
+				new_voice_field++;
+				channel = midi_status & 0xFu;
+				FM_VOICE(new_voice_field - 0x3u)->midi_channel = channel;
+				voice_channel = channel;
+				new_voice_field += 2u;
+				note_level_byte = note_level;
+				carry = note_level_byte & 1u;
+				level_rotated = note_level_byte >> 1;
+				level = (level_rotated >> 1) | (carry << 7);
+				carry = level_rotated & 1u;
+				level = (((level >> 1) | (carry << 7)) & 0x1Fu) - 0x20u;
+				FM_VOICE(new_voice_field - 0x5u)->level = level;
+				level_product = (new_voice_field & 0xFFu) | ((uint32_t)level << 8);
+				effective_volume = MIDI_PART(part)->effective_volume;
+				volume_curve = effective_volume;
+				if (effective_volume != 0u)
+				{
+					z80_block(20);
+					volume_curve += (uint8_t)~effective_volume >> 1;
+				}
+				z80_block(17);
+				level_product = multiply_bytes(volume_curve, level_product);
+				z80_block(425);
+				note_level = 0x7Fu - ((uint16_t)((uint32_t)((level_product >> 8) >> 1) << 8) >> 8);
+				channel_offset = voice_channel;
+				fm_pan_modulation = (z80_read8((uint16_t)(channel_controls_ADDRESS + channel_offset)) & 7u) | 0xC0u;
+				bend_entry = channel_pitch_bends_ADDRESS + channel_offset + channel_offset;
+				fm_detune = MIDI_PART(part)->fm_detune;
+				detune_low = fm_detune;
+				fm_detune_byte = fm_detune;
+				detune_sign = ((uint32_t)fm_detune_byte << 1) | (fm_detune_byte >> 7);
+				carry = fm_detune_byte >> 7;
+				saved_outer = z80_read16(bend_entry) + (detune_low | ((uint32_t)(uint8_t)(0u - carry) << 8));
+				fnum_table_entry = fm_fnum_tables_ADDRESS + (uint8_t)((voice_note & 0xFu) * 2u);
+				bend_index = saved_outer;
+				fnum_entry = FM_FNUMBER_RUNS(fnum_table_entry)[0] + bend_index;
+				carry = (uint16_t)(fnum_entry + bend_index) < fnum_entry;
+				fnum_entry += bend_index;
+				fnum = FM_FNUMBERS(fnum_entry)[0];
+				fnum = (fnum & 0xFFu) | ((uint32_t)(uint8_t)((((voice_note >> 1) | (carry << 7)) & 0x38u) + (fnum >> 8)) << 8);
+				register_channel = (fm_channel & 3u) << 8;
+				register_value = (uint8_t)(fnum >> 8);
+				fm_register = 0xA4u | (register_channel >> 8);
+				write_fm_channel(fm_register, register_value);
+				z80_block(36);
+				register_value = (uint8_t)fnum;
+				fm_register = 0xA0u | (register_channel >> 8);
+				write_fm_channel(fm_register, register_value);
+				z80_block(17);
+				load_fm_patch(&channel_in_part, &register_list, &patch_levels);
+				part_channel = (uint8_t)channel_in_part;
+				z80_block(7);
+				operators_left = 4u;
+				for (;;)
+				{
+					z80_block(63);
+					saved_count = operators_left;
+					saved_value = part_channel;
+					register_number = FM_REGISTER_NUMBERS(register_list)[0] + part_channel;
+					register_list++;
+					level_register = register_number;
+					total_level = FM_PATCH_BYTES(patch_levels)[0];
+					patch_levels++;
+					if (total_level >> 7 == 0u)
+					{
+						z80_block(21);
+						total_level += note_level;
+					}
+					z80_block(24);
+					total_level &= 0x7Fu;
+					fm_register = level_register;
+					write_fm_channel(fm_register, total_level);
+					z80_block(18);
+					part_channel = saved_value;
+					operators_left = saved_count - 1u;
+					if (operators_left == 0u)
+						break;
+					z80_cycles(5);
+				}
+				z80_block(45);
+				register_value = fm_pan_modulation;
+				fm_register = (uint8_t)(0xB4u + part_channel);
+				write_fm_channel(fm_register, register_value);
+				z80_block(44);
+				register_value = (fm_channel & 7u) | 0xF0u;
+				fm_register = 0x28u;
+				register_value = write_fm_global(fm_register, register_value);
 				return;
 			}
-			z80_block(34);
-			program += 0x10u;
-			kit_note = drum_kits_ADDRESS;
-			kit_note = read_table_word(kit_note, program);
-			z80_block(158);
-			note_index = note_number;
-			kit_note = kit_note + note_index + note_index + note_index + note_index;
-			kit_pitch_low = DRUM_NOTE(kit_note)->pitch_low;
-			kit_note++;
-			kit_pitch_high = DRUM_NOTE(kit_note - 0x1u)->pitch_high;
-			kit_note++;
-			note_pan = DRUM_NOTE(kit_note - 0x2u)->pan;
-			sample = DRUM_NOTE(kit_note - 0x2u)->sample;
-			sample_or_patch = sample;
-			if (sample == 0xFFu)
-			{
-				z80_cycles(6);
-				return;
-			}
-			z80_block(10);
+			z80_block(84);
+			instrument++;
+			sample_or_patch = INSTRUMENT(instrument - 0x1u)->sample_or_fm_patch;
+			instrument += 2u;
+			note_pan = INSTRUMENT(instrument - 0x3u)->pan;
+			sample_detune = INSTRUMENT(instrument - 0x3u)->detune;
 			note_velocity = velocity_then_steal_low;
 			allocate_sample_voice(note_velocity, part);
 			return;
 		}
-		z80_block(17);
-		if (event == 0x80u)
+		z80_block(34);
+		program += 0x10u;
+		kit_note = drum_kits_ADDRESS;
+		kit_note = read_table_word(kit_note, program);
+		z80_block(158);
+		note_index = note_number;
+		kit_note = kit_note + note_index + note_index + note_index + note_index;
+		kit_pitch_low = DRUM_NOTE(kit_note)->pitch_low;
+		kit_note++;
+		kit_pitch_high = DRUM_NOTE(kit_note - 0x1u)->pitch_high;
+		kit_note++;
+		note_pan = DRUM_NOTE(kit_note - 0x2u)->pan;
+		sample = DRUM_NOTE(kit_note - 0x2u)->sample;
+		sample_or_patch = sample;
+		if (sample == 0xFFu)
 		{
-			z80_block(18);
-			if (first_data_byte >> 7)
-			{
-				z80_block(17);
-				read_midi_byte(&byte_copy, &ignored16, &ignored8);
-				first_data_byte = (uint8_t)byte_copy;
-			}
-			z80_block(96);
-			note_code = note_codes[(uint8_t)(MIDI_PART(part)->transpose + first_data_byte)];
-			midi_queue_read++;
-			note_off = true;
+			z80_cycles(6);
+			return;
 		}
-	} while (note_off);
+		z80_block(10);
+		note_velocity = velocity_then_steal_low;
+		allocate_sample_voice(note_velocity, part);
+		return;
+	}
+	z80_block(17);
+	if (event == 0x80u)
+	{
+		z80_block(18);
+		if (first_data_byte >> 7)
+		{
+			z80_block(17);
+			read_midi_byte(&byte_copy, &ignored16, &ignored8);
+			first_data_byte = (uint8_t)byte_copy;
+		}
+		z80_block(96);
+		note_code = note_codes[(uint8_t)(MIDI_PART(part)->transpose + first_data_byte)];
+		midi_queue_read++;
+		note_off(part);
+		return;
+	}
 	z80_block(17);
 	if (event == 0xE0u)
 	{
@@ -480,7 +415,7 @@ void play_midi_message(uint8_t message_byte, uint16_t part)
 		}
 		z80_block(21);
 		bend_low = first_data_byte;
-		read_midi_byte(&ignored16, &ignored16, &bend_high);
+		read_midi_byte(&ignored16_2, &ignored16, &bend_high);
 		z80_block(26);
 		carry = bend_high & 1u;
 		bend_sign = bend_high >> 1;
@@ -1129,117 +1064,106 @@ void play_midi_message(uint8_t message_byte, uint16_t part)
 			if (controller == 0x11u)
 			{
 				z80_block(18);
-				for (;;)
+				if (control_value == 0u)
 				{
-					if (vibrato_preset_check_voice || control_value == 0u)
+					z80_block(87);
+					control_value = 0u;
+					channel = midi_status & 0xFu;
+					channel_vibrato_presets[channel] = 0u;
+					voices_left = 0xCu;
+					voice = FM_VOICE_ADDRESS(0);
+					for (;;)
 					{
-						do
+						z80_block(29);
+						if (channel == FM_VOICE(voice)->midi_channel)
+							break;
+						z80_block(33);
+						voice += 0x12u;
+						voices_left--;
+						if (voices_left == 0u)
 						{
-							if (vibrato_preset_check_channel || !vibrato_preset_check_voice)
-							{
-								if (!vibrato_preset_check_channel)
-								{
-									z80_block(87);
-									control_value = 0u;
-									channel = midi_status & 0xFu;
-									channel_vibrato_presets[channel] = 0u;
-									voices_left = 0xCu;
-									voice = FM_VOICE_ADDRESS(0);
-									for (;;)
-									{
-										z80_block(29);
-										if (channel == FM_VOICE(voice)->midi_channel)
-											break;
-										z80_block(33);
-										voice += 0x12u;
-										voices_left--;
-										if (voices_left == 0u)
-										{
-											z80_block(10);
-											return;
-										}
-										z80_cycles(5);
-									}
-									z80_block(36);
-									voice += 4u;
-									voices_or_bytes_left = 6u;
-									for (;;)
-									{
-										z80_block(37);
-										z80_write8(voice, control_value);
-										voice++;
-										voices_or_bytes_left--;
-										if (voices_or_bytes_left == 0u)
-											break;
-										z80_cycles(5);
-									}
-									z80_block(39);
-									voice += 8u;
-								}
-								vibrato_preset_check_channel = false;
-								z80_block(49);
-							}
-							for (;;)
-							{
-								if (vibrato_preset_next_voice || vibrato_preset_check_voice || (midi_status & 0xFu) == FM_VOICE(voice)->midi_channel)
-								{
-									do
-									{
-										if (vibrato_preset_next_voice || vibrato_preset_next_voice || !vibrato_preset_check_voice)
-										{
-											if (!vibrato_preset_next_voice)
-											{
-												if (!vibrato_preset_next_voice)
-												{
-													z80_block(31);
-													preset_address = vibrato_presets_ADDRESS;
-													preset = control_value;
-													preset_address = read_table_word(preset_address, preset);
-													z80_block(344);
-													preset_data = preset_address;
-													FM_VOICE(voice)->vibrato_delay = VIBRATO_PRESET(preset_data)->delay;
-													preset_data++;
-													FM_VOICE(voice)->vibrato_wait = VIBRATO_PRESET(preset_data - 0x1u)->wait;
-													preset_data++;
-													FM_VOICE(voice)->vibrato_range = VIBRATO_PRESET(preset_data - 0x2u)->range;
-													preset_data++;
-													FM_VOICE(voice)->vibrato_depth = VIBRATO_PRESET(preset_data - 0x3u)->depth;
-													preset_data++;
-													FM_VOICE(voice)->vibrato_rise = VIBRATO_PRESET(preset_data - 0x4u)->rise;
-													preset_data++;
-													FM_VOICE(voice)->vibrato_fall = VIBRATO_PRESET(preset_data - 0x5u)->fall;
-													FM_VOICE(voice)->vibrato_phase = VIBRATO_PRESET(preset_data - 0x5u)->phase;
-													FM_VOICE(voice)->vibrato_rate = FM_VOICE(voice)->vibrato_wait;
-													FM_VOICE(voice)->vibrato_phase = (FM_VOICE(voice)->vibrato_phase & 1u) + FM_VOICE(voice)->vibrato_range;
-												}
-											}
-											z80_block(33);
-											voice += 0x12u;
-											voices_or_bytes_left--;
-											if (voices_or_bytes_left == 0u)
-											{
-												z80_block(10);
-												return;
-											}
-											z80_cycles(5);
-										}
-										vibrato_preset_check_voice = false;
-										z80_block(36);
-										vibrato_preset_next_voice = (FM_VOICE(voice)->flags & 0x40u) == 0u;
-									} while (vibrato_preset_next_voice);
-									vibrato_preset_check_channel = true;
-								}
-								if (vibrato_preset_check_channel)
-									break;
-								vibrato_preset_next_voice = true;
-							}
-						} while (vibrato_preset_check_channel);
+							z80_block(10);
+							return;
+						}
+						z80_cycles(5);
 					}
+					z80_block(36);
+					voice += 4u;
+					voices_or_bytes_left = 6u;
+					for (;;)
+					{
+						z80_block(37);
+						z80_write8(voice, control_value);
+						voice++;
+						voices_or_bytes_left--;
+						if (voices_or_bytes_left == 0u)
+							break;
+						z80_cycles(5);
+					}
+					z80_block(39);
+					voice += 8u;
+				}
+				else
+				{
 					z80_block(80);
 					channel_vibrato_presets[midi_status & 0xFu] = control_value;
 					voices_or_bytes_left = 0xCu;
 					voice = FM_VOICE_ADDRESS(0);
-					vibrato_preset_check_voice = true;
+					for (;;)
+					{
+						z80_block(36);
+						if ((FM_VOICE(voice)->flags & 0x40u) != 0u)
+							break;
+						z80_block(33);
+						voice += 0x12u;
+						voices_or_bytes_left--;
+						if (voices_or_bytes_left == 0u)
+						{
+							z80_block(10);
+							return;
+						}
+						z80_cycles(5);
+					}
+				}
+				for (;;)
+				{
+					z80_block(49);
+					if ((midi_status & 0xFu) == FM_VOICE(voice)->midi_channel)
+					{
+						z80_block(31);
+						preset_address = vibrato_presets_ADDRESS;
+						preset = control_value;
+						preset_address = read_table_word(preset_address, preset);
+						z80_block(344);
+						preset_data = preset_address;
+						FM_VOICE(voice)->vibrato_delay = VIBRATO_PRESET(preset_data)->delay;
+						preset_data++;
+						FM_VOICE(voice)->vibrato_wait = VIBRATO_PRESET(preset_data - 0x1u)->wait;
+						preset_data++;
+						FM_VOICE(voice)->vibrato_range = VIBRATO_PRESET(preset_data - 0x2u)->range;
+						preset_data++;
+						FM_VOICE(voice)->vibrato_depth = VIBRATO_PRESET(preset_data - 0x3u)->depth;
+						preset_data++;
+						FM_VOICE(voice)->vibrato_rise = VIBRATO_PRESET(preset_data - 0x4u)->rise;
+						preset_data++;
+						FM_VOICE(voice)->vibrato_fall = VIBRATO_PRESET(preset_data - 0x5u)->fall;
+						FM_VOICE(voice)->vibrato_phase = VIBRATO_PRESET(preset_data - 0x5u)->phase;
+						FM_VOICE(voice)->vibrato_rate = FM_VOICE(voice)->vibrato_wait;
+						FM_VOICE(voice)->vibrato_phase = (FM_VOICE(voice)->vibrato_phase & 1u) + FM_VOICE(voice)->vibrato_range;
+					}
+					do
+					{
+						z80_block(33);
+						voice += 0x12u;
+						voices_or_bytes_left--;
+						if (voices_or_bytes_left == 0u)
+						{
+							z80_block(10);
+							return;
+						}
+						z80_cycles(5);
+						z80_block(36);
+					} while ((FM_VOICE(voice)->flags & 0x40u) == 0u);
 				}
 			}
 			z80_block(17);
@@ -1606,6 +1530,77 @@ void allocate_sample_voice(uint8_t note_velocity, uint16_t part)
 	write_pcm_register(pcm_register, keys_on);
 }
 
+/* A note off for part (MIDI 0x80, or a note on with velocity 0): nothing for a drum kit (program 0xF0
+   and up); an FM instrument's goes to fm_note_off; else the sample voice on midi_status's channel
+   playing note_code, if it is sounding and not already released, is stopped (stop_pcm_voice) unless the
+   channel's sustain pedal is down (channel_controls bit 7), which only marks it released (flags bit 1). */
+void note_off(uint16_t part)
+{
+	uint8_t channel = 0, channel_index = 0, flags = 0, ignored8 = 0, program = 0, voices_left = 0;
+	uint16_t ignored16 = 0, ignored16_2 = 0, instrument = 0, voice = 0, voice_size = 0;
+
+	z80_block(31);
+	program = MIDI_PART(part)->program;
+	if (program >= 0xF0u)
+	{
+		z80_cycles(6);
+		return;
+	}
+	z80_block(27);
+	instrument = instruments_ADDRESS;
+	instrument = read_table_word(instrument, program);
+	z80_block(22);
+	if (((INSTRUMENT(instrument)->flags >> 1) & 1u) != 0u)
+	{
+		fm_note_off(&ignored16, &ignored16_2, &ignored8);
+		return;
+	}
+	z80_block(51);
+	voice = SAMPLE_VOICE_ADDRESS(0);
+	voice_size = 0x12u;
+	voices_left = 8u;
+	channel = midi_status & 0xFu;
+	for (;;)
+	{
+		z80_block(29);
+		if (channel == SAMPLE_VOICE(voice)->midi_channel)
+		{
+			z80_block(46);
+			channel_index = channel;
+			if (note_code == SAMPLE_VOICE(voice)->note)
+			{
+				z80_block(37);
+				flags = SAMPLE_VOICE(voice)->flags;
+				if (((flags >> 1) & 1u) == 0u)
+				{
+					z80_block(17);
+					if ((flags & 0x7Fu) != 0u)
+						break;
+				}
+			}
+			z80_block(4);
+			channel = (uint8_t)channel_index;
+		}
+		z80_block(23);
+		voice += voice_size;
+		voices_left--;
+		if (voices_left == 0u)
+		{
+			z80_block(10);
+			return;
+		}
+		z80_cycles(5);
+	}
+	z80_block(65);
+	if (channel_controls[channel_index] >> 7 == 0u)
+	{
+		stop_pcm_voice(voice);
+		return;
+	}
+	z80_block(33);
+	SAMPLE_VOICE(voice)->flags |= 2u;
+}
+
 /* Retunes a sounding voice to pitch_bend: FM (chip_channel bit 7), registers A4/A0 from fm_fnum_tables
    plus part's fm_detune; a sample voice, RF5C68 registers 3/2 from pcm_pitch_tables shifted by its
    octave, pitch_step and stream_position following. A sample voice of a nonzero octave uses up the
@@ -1769,23 +1764,23 @@ void update_fm_modulation(uint16_t *p_loop_count, uint16_t *p_voice)
 	{
 		z80_cycles(6);
 		loop_count = (loop_count & ~0xFFu) | voice_chip_channel;
-		*p_loop_count = loop_count;
-		*p_voice = voice;
-		return;
 	}
-	z80_block(10);
-	z80_block(90);
-	saved_count = loop_count >> 8;
-	saved_voice_chip_channel = voice_chip_channel;
-	chip_channel = voice_chip_channel;
-	fm_channel = chip_channel;
-	pan_register = (chip_channel & 3u) - 0x4Cu;
-	register_value = (fm_pan_modulation & 7u) | 0xC0u;
-	fm_register = pan_register;
-	write_fm_channel(fm_register, register_value);
-	z80_block(26);
-	voice--;
-	loop_count = ((uint32_t)saved_count << 8) | saved_voice_chip_channel;
+	else
+	{
+		z80_block(10);
+		z80_block(90);
+		saved_count = loop_count >> 8;
+		saved_voice_chip_channel = voice_chip_channel;
+		chip_channel = voice_chip_channel;
+		fm_channel = chip_channel;
+		pan_register = (chip_channel & 3u) - 0x4Cu;
+		register_value = (fm_pan_modulation & 7u) | 0xC0u;
+		fm_register = pan_register;
+		write_fm_channel(fm_register, register_value);
+		z80_block(26);
+		voice--;
+		loop_count = ((uint32_t)saved_count << 8) | saved_voice_chip_channel;
+	}
 	*p_loop_count = loop_count;
 	*p_voice = voice;
 }

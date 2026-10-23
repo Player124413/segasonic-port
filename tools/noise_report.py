@@ -9,8 +9,9 @@ Author:      Sebastian Toyos
 
 Every kind of leftover the C can still have, counted in one pass over the generated C, so a round of work
 shows what it took away and nothing comes back unseen: gotos, functions and locals named after an address
-or a register, fields without a name, memory reached through computed addresses, results copied back at
-every return, jumps out of a table, ROM addresses printed as numbers, functions without a comment, data
+or a register, fields without a name, memory reached through computed addresses, results written back again
+before an early return (a function writes them once, at its end, where its ways out can meet), jumps out of a
+table, ROM addresses printed as numbers, functions without a comment, data
 read through its ROM address instead of a table or structure with a name, functions the board puts its own
 in place of. The
 counts are compared with tools/noise_baseline.txt; a count that went up makes the run fail.
@@ -29,6 +30,9 @@ BASELINE = Path(__file__).resolve().parent / "noise_baseline.txt"
 UNNAMED_ADDRESSES = ROOT / "build" / "decompile" / "unnamed_addresses.txt"
 
 FUNCTION = re.compile(r"^(?:static )?\w[\w ]*?\b(\w+)\((.*)\)$")
+# a result written back through its pointer from the function's variable for it, whole or the part the
+# function writes: *p_x = x; *p_x = (*p_x & 0xFFFF0000u) | x; *p_x = (*p_x & 0xFFFF0000u) | (x & 0xFFFFu);
+COPY_BACK = re.compile(r"^\t+\*p_(\w+) = (?:\w+|\(\*p_\1 & 0x[0-9A-F]+u\) \| (?:\w+|\(\w+ & 0x[0-9A-F]+u\)));$")
 # kind -> (what it is, pattern counted in the code lines; None: counted below)
 KINDS = {
     "goto": ("goto statements", re.compile(r"\bgoto\b")),
@@ -40,7 +44,7 @@ KINDS = {
     "mem_access": ("memory reached through a computed address (mem_read/mem_write)",
                    re.compile(r"\bmem_(?:read|write)\d+\(")),
     "wide_access": ("several fields read or written at once (AS/AT)", re.compile(r"\bA[ST]\d+\(")),
-    "copy_backs": ("results copied back before a return (*p_x = x;)", re.compile(r"^\t+\*p_\w+ = [^;]*;$")),
+    "copy_backs": ("results written back again before an early return (*p_x = x; return;)", None),
     "invalid_jump": ("jumps through a table with an index it does not have", re.compile(r"\binvalid_jump\(")),
     "unknown_code": ("calls to code the analysis does not know", re.compile(r"\bunknown_code\(")),
     "raw_rom_addresses": ("ROM addresses printed as numbers (build/decompile/unnamed_addresses.txt)", None),
@@ -87,6 +91,14 @@ def count(paths):
                 counts["register_names"] += len(re.findall(r"\br\d+(?:_\d+)? = ", line))
             if line.startswith("\tbool "):
                 counts["control_variables"] += 1
+            if COPY_BACK.match(line) and not COPY_BACK.match(lines[index - 1]):
+                # a run of results written back: counted when a return follows it (a way out before the
+                # end, which writes them again), not at the end of the function, where they are written once
+                end = index
+                while end < len(lines) and COPY_BACK.match(lines[end]):
+                    end += 1
+                if end < len(lines) and lines[end].strip().startswith("return"):
+                    counts["copy_backs"] += end - index
             counts["casts"] += len(re.findall(r"\((?:u?int\d+_t)\)", line))
             counts["partial_writes"] += len(re.findall(r"& ~0xF+u\) \|", line))
     return counts

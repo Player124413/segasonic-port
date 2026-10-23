@@ -3,7 +3,7 @@
  *    Description: the voices: the RF5C68's sample voices (starting a sample, refilling its pages, stopping it) and the YM3438's FM voices (note off, release with the sustain pedal, volumes, patches, the vibrato)
  *    Version:     0.1.0
  *    Created:     13-10-2026
- *    Modified:    21-10-2026
+ *    Modified:    23-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the Z80 sound program decompiled into C by
@@ -71,7 +71,6 @@ void start_pcm_sample(uint16_t voice)
    0xC000; a page ending in 0xFF ends the sample (stop_pcm_voice). */
 void refill_pcm_voice(void)
 {
-	bool copy_pages = false;
 	uint8_t bank_high = 0, bank_low = 0, four_pages = 0, wave_offset = 0, wave_page = 0;
 	uint16_t progress = 0, sample_address = 0, voice = 0, voices_left_at = 0, wave_address = 0;
 	uint8_t old_voices_left = 0;
@@ -99,168 +98,12 @@ void refill_pcm_voice(void)
 	}
 	z80_block(105);
 	progress = SAMPLE_VOICE(voice)->stream_position + SAMPLE_VOICE(voice)->pitch_step;
-	for (;;)
+	if ((((progress >> 8) >> 4) & 1u) == 0u)
 	{
-		if (copy_pages || (((progress >> 8) >> 4) & 1u) == 0u)
+		z80_block(25);
+		four_pages = 0u;
+		if ((((progress >> 8) >> 3) & 1u) == 0u)
 		{
-			if (!copy_pages)
-			{
-				z80_block(25);
-				four_pages = 0u;
-			}
-			if (copy_pages || (((progress >> 8) >> 3) & 1u) != 0u)
-			{
-				z80_block(252);
-				progress = (progress & 0xFFu) | (((progress >> 8) & ~8u) << 8);
-				SAMPLE_VOICE(voice)->stream_position = progress;
-				z80_write8(PCM_CONTROL, (SAMPLE_VOICE(voice)->chip_channel * 2u) | 0x80u);
-				bank_high = SAMPLE_VOICE(voice)->sample_bank_high & 7u;
-				rom_bank_high = bank_high;
-				port_out(ROM_BANK_HIGH, bank_high);
-				bank_low = SAMPLE_VOICE(voice)->sample_bank_low;
-				rom_bank_low = bank_low;
-				port_out(ROM_BANK_LOW, bank_low);
-				wave_page = SAMPLE_VOICE(voice)->wave_page;
-				wave_offset = 0u;
-				sample_address = (uint32_t)SAMPLE_VOICE(voice)->source_page << 8;
-				if (four_pages)
-				{
-					z80_block(17);
-					wave_address = ((uint32_t)wave_page << 8) | wave_offset;
-					copy_sample_page(&wave_address, &sample_address);
-					wave_page = (uint8_t)(wave_address >> 8);
-					wave_offset = (uint8_t)wave_address;
-					z80_block(30);
-					sample_address--;
-					if (z80_read8(sample_address) == 0xFFu)
-					{
-						stop_pcm_voice(voice);
-						return;
-					}
-					z80_block(27);
-					sample_address++;
-					if (0xC0u == sample_address >> 8)
-					{
-						z80_block(73);
-						sample_address = (sample_address & 0xFFu) | 0xA000u;
-						SAMPLE_VOICE(voice)->sample_bank_low++;
-						bank_low = SAMPLE_VOICE(voice)->sample_bank_low;
-						rom_bank_low = bank_low;
-						port_out(ROM_BANK_LOW, bank_low);
-					}
-					z80_block(21);
-					if (0xE0u == wave_page)
-					{
-						z80_block(7);
-						wave_page = 0xD0u;
-					}
-					z80_block(17);
-					wave_address = ((uint32_t)wave_page << 8) | wave_offset;
-					copy_sample_page(&wave_address, &sample_address);
-					wave_page = (uint8_t)(wave_address >> 8);
-					wave_offset = (uint8_t)wave_address;
-					z80_block(27);
-					sample_address--;
-					if (z80_read8(sample_address) == 0xFFu)
-					{
-						z80_cycles(5);
-						stop_pcm_voice(voice);
-						return;
-					}
-					z80_block(27);
-					sample_address++;
-					if (0xC0u == sample_address >> 8)
-					{
-						z80_block(73);
-						sample_address = (sample_address & 0xFFu) | 0xA000u;
-						SAMPLE_VOICE(voice)->sample_bank_low++;
-						bank_low = SAMPLE_VOICE(voice)->sample_bank_low;
-						rom_bank_low = bank_low;
-						port_out(ROM_BANK_LOW, bank_low);
-					}
-					z80_block(21);
-					if (0xE0u == wave_page)
-					{
-						z80_block(7);
-						wave_page = 0xD0u;
-					}
-				}
-				z80_block(17);
-				wave_address = ((uint32_t)wave_page << 8) | wave_offset;
-				copy_sample_page(&wave_address, &sample_address);
-				wave_page = (uint8_t)(wave_address >> 8);
-				wave_offset = (uint8_t)wave_address;
-				z80_block(27);
-				sample_address--;
-				if (z80_read8(sample_address) == 0xFFu)
-				{
-					z80_cycles(5);
-					stop_pcm_voice(voice);
-					return;
-				}
-				z80_block(27);
-				sample_address++;
-				if (0xC0u == sample_address >> 8)
-				{
-					z80_block(73);
-					sample_address = (sample_address & 0xFFu) | 0xA000u;
-					SAMPLE_VOICE(voice)->sample_bank_low++;
-					bank_low = SAMPLE_VOICE(voice)->sample_bank_low;
-					rom_bank_low = bank_low;
-					port_out(ROM_BANK_LOW, bank_low);
-				}
-				z80_block(21);
-				if (0xE0u == wave_page)
-				{
-					z80_block(7);
-					wave_page = 0xD0u;
-				}
-				z80_block(17);
-				wave_address = ((uint32_t)wave_page << 8) | wave_offset;
-				copy_sample_page(&wave_address, &sample_address);
-				wave_page = (uint8_t)(wave_address >> 8);
-				z80_block(27);
-				sample_address--;
-				if (z80_read8(sample_address) == 0xFFu)
-				{
-					z80_cycles(5);
-					stop_pcm_voice(voice);
-					return;
-				}
-				z80_block(27);
-				sample_address++;
-				if (0xC0u == sample_address >> 8)
-				{
-					z80_block(30);
-					sample_address = ROM_BANK_WINDOW;
-					SAMPLE_VOICE(voice)->sample_bank_low++;
-				}
-				z80_block(21);
-				if (0xE0u == wave_page)
-				{
-					z80_block(7);
-					wave_page = 0xD0u;
-				}
-				z80_block(38);
-				SAMPLE_VOICE(voice)->wave_page = wave_page;
-				SAMPLE_VOICE(voice)->source_page = sample_address >> 8;
-				z80_block(53);
-				voice += 0x12u;
-				voices_left_at = refill_voices_left_ADDRESS;
-				old_voices_left = refill_voices_left;
-				refill_voices_left = old_voices_left - 1u;
-				if (old_voices_left != 1u)
-				{
-					z80_block(30);
-					refill_voice = voice;
-					return;
-				}
-				z80_cycles(5);
-				z80_block(46);
-				refill_voices_left = 8u;
-				refill_voice = SAMPLE_VOICE_ADDRESS(0);
-				return;
-			}
 			z80_block(48);
 			SAMPLE_VOICE(voice)->stream_position = progress;
 			z80_block(53);
@@ -280,11 +123,162 @@ void refill_pcm_voice(void)
 			refill_voice = SAMPLE_VOICE_ADDRESS(0);
 			return;
 		}
+	}
+	else
+	{
 		z80_block(25);
 		progress = (progress & 0xFFu) | (((progress >> 8) & 0xEFu) << 8);
 		four_pages = 1u;
-		copy_pages = true;
 	}
+	z80_block(252);
+	progress = (progress & 0xFFu) | (((progress >> 8) & ~8u) << 8);
+	SAMPLE_VOICE(voice)->stream_position = progress;
+	z80_write8(PCM_CONTROL, (SAMPLE_VOICE(voice)->chip_channel * 2u) | 0x80u);
+	bank_high = SAMPLE_VOICE(voice)->sample_bank_high & 7u;
+	rom_bank_high = bank_high;
+	port_out(ROM_BANK_HIGH, bank_high);
+	bank_low = SAMPLE_VOICE(voice)->sample_bank_low;
+	rom_bank_low = bank_low;
+	port_out(ROM_BANK_LOW, bank_low);
+	wave_page = SAMPLE_VOICE(voice)->wave_page;
+	wave_offset = 0u;
+	sample_address = (uint32_t)SAMPLE_VOICE(voice)->source_page << 8;
+	if (four_pages)
+	{
+		z80_block(17);
+		wave_address = ((uint32_t)wave_page << 8) | wave_offset;
+		copy_sample_page(&wave_address, &sample_address);
+		wave_page = (uint8_t)(wave_address >> 8);
+		wave_offset = (uint8_t)wave_address;
+		z80_block(30);
+		sample_address--;
+		if (z80_read8(sample_address) == 0xFFu)
+		{
+			stop_pcm_voice(voice);
+			return;
+		}
+		z80_block(27);
+		sample_address++;
+		if (0xC0u == sample_address >> 8)
+		{
+			z80_block(73);
+			sample_address = (sample_address & 0xFFu) | 0xA000u;
+			SAMPLE_VOICE(voice)->sample_bank_low++;
+			bank_low = SAMPLE_VOICE(voice)->sample_bank_low;
+			rom_bank_low = bank_low;
+			port_out(ROM_BANK_LOW, bank_low);
+		}
+		z80_block(21);
+		if (0xE0u == wave_page)
+		{
+			z80_block(7);
+			wave_page = 0xD0u;
+		}
+		z80_block(17);
+		wave_address = ((uint32_t)wave_page << 8) | wave_offset;
+		copy_sample_page(&wave_address, &sample_address);
+		wave_page = (uint8_t)(wave_address >> 8);
+		wave_offset = (uint8_t)wave_address;
+		z80_block(27);
+		sample_address--;
+		if (z80_read8(sample_address) == 0xFFu)
+		{
+			z80_cycles(5);
+			stop_pcm_voice(voice);
+			return;
+		}
+		z80_block(27);
+		sample_address++;
+		if (0xC0u == sample_address >> 8)
+		{
+			z80_block(73);
+			sample_address = (sample_address & 0xFFu) | 0xA000u;
+			SAMPLE_VOICE(voice)->sample_bank_low++;
+			bank_low = SAMPLE_VOICE(voice)->sample_bank_low;
+			rom_bank_low = bank_low;
+			port_out(ROM_BANK_LOW, bank_low);
+		}
+		z80_block(21);
+		if (0xE0u == wave_page)
+		{
+			z80_block(7);
+			wave_page = 0xD0u;
+		}
+	}
+	z80_block(17);
+	wave_address = ((uint32_t)wave_page << 8) | wave_offset;
+	copy_sample_page(&wave_address, &sample_address);
+	wave_page = (uint8_t)(wave_address >> 8);
+	wave_offset = (uint8_t)wave_address;
+	z80_block(27);
+	sample_address--;
+	if (z80_read8(sample_address) == 0xFFu)
+	{
+		z80_cycles(5);
+		stop_pcm_voice(voice);
+		return;
+	}
+	z80_block(27);
+	sample_address++;
+	if (0xC0u == sample_address >> 8)
+	{
+		z80_block(73);
+		sample_address = (sample_address & 0xFFu) | 0xA000u;
+		SAMPLE_VOICE(voice)->sample_bank_low++;
+		bank_low = SAMPLE_VOICE(voice)->sample_bank_low;
+		rom_bank_low = bank_low;
+		port_out(ROM_BANK_LOW, bank_low);
+	}
+	z80_block(21);
+	if (0xE0u == wave_page)
+	{
+		z80_block(7);
+		wave_page = 0xD0u;
+	}
+	z80_block(17);
+	wave_address = ((uint32_t)wave_page << 8) | wave_offset;
+	copy_sample_page(&wave_address, &sample_address);
+	wave_page = (uint8_t)(wave_address >> 8);
+	z80_block(27);
+	sample_address--;
+	if (z80_read8(sample_address) == 0xFFu)
+	{
+		z80_cycles(5);
+		stop_pcm_voice(voice);
+		return;
+	}
+	z80_block(27);
+	sample_address++;
+	if (0xC0u == sample_address >> 8)
+	{
+		z80_block(30);
+		sample_address = ROM_BANK_WINDOW;
+		SAMPLE_VOICE(voice)->sample_bank_low++;
+	}
+	z80_block(21);
+	if (0xE0u == wave_page)
+	{
+		z80_block(7);
+		wave_page = 0xD0u;
+	}
+	z80_block(38);
+	SAMPLE_VOICE(voice)->wave_page = wave_page;
+	SAMPLE_VOICE(voice)->source_page = sample_address >> 8;
+	z80_block(53);
+	voice += 0x12u;
+	voices_left_at = refill_voices_left_ADDRESS;
+	old_voices_left = refill_voices_left;
+	refill_voices_left = old_voices_left - 1u;
+	if (old_voices_left != 1u)
+	{
+		z80_block(30);
+		refill_voice = voice;
+		return;
+	}
+	z80_cycles(5);
+	z80_block(46);
+	refill_voices_left = 8u;
+	refill_voice = SAMPLE_VOICE_ADDRESS(0);
 }
 
 /* Stops a sample voice: its RF5C68 channel's loop (register 5) to channel * 0x20 + 0x18, a stretch
@@ -351,8 +345,8 @@ void stop_pcm_voice(uint16_t voice)
 void fm_note_off(uint16_t *p_de, uint16_t *p_saved_channel, uint8_t *p_a)
 {
 	uint16_t saved_channel = (uint16_t)*p_saved_channel;
-	uint8_t channel = 0, flags = 0, key_off_value = 0, voices_left = 0;
-	uint16_t channel_offset = 0, controls_entry = 0, voice = 0, voice_size = 0;
+	uint8_t channel = 0, flags = 0, voices_left = 0;
+	uint16_t voice = 0, voice_size = 0;
 
 	z80_block(51);
 	voice = FM_VOICE_ADDRESS(0);
@@ -395,20 +389,17 @@ void fm_note_off(uint16_t *p_de, uint16_t *p_saved_channel, uint8_t *p_a)
 	}
 	z80_block(65);
 	channel = (uint8_t)saved_channel;
-	channel_offset = channel;
-	controls_entry = channel_controls_ADDRESS + channel_offset;
-	if (z80_read8(controls_entry) >> 7 == 0u)
+	voice_size = channel;
+	saved_channel = channel_controls_ADDRESS + voice_size;
+	if (z80_read8(saved_channel) >> 7 == 0u)
+		channel = stop_fm_voice(voice);
+	else
 	{
-		key_off_value = stop_fm_voice(voice);
-		*p_de = channel_offset;
-		*p_saved_channel = controls_entry;
-		*p_a = key_off_value;
-		return;
+		z80_block(33);
+		FM_VOICE(voice)->flags |= 2u;
 	}
-	z80_block(33);
-	FM_VOICE(voice)->flags |= 2u;
-	*p_de = channel_offset;
-	*p_saved_channel = controls_entry;
+	*p_de = voice_size;
+	*p_saved_channel = saved_channel;
 	*p_a = channel;
 }
 
@@ -639,7 +630,7 @@ void load_fm_patch(uint16_t *p_channel_in_part, uint16_t *p_register_list, uint1
    (vibrato_range, vibrato_depth), shifting vibrato_block; then registers A4/A0. */
 void step_fm_vibrato(uint16_t voice)
 {
-	bool fall_block_check = false, fall_into_last_octave = false, rise_into_last_octave = false;
+	bool fall_block_check = false;
 	uint8_t center_high = 0, center_low = 0, fall_block = 0, fall_limit = 0, fm_register = 0, rise_block = 0, rise_limit = 0, value = 0;
 	uint16_t fnumber = 0, frequency = 0;
 	uint8_t saved_center_high = 0, saved_center_low = 0;
@@ -725,8 +716,7 @@ void step_fm_vibrato(uint16_t voice)
 				if (!fall_block_check)
 				{
 					z80_block(18);
-					fall_into_last_octave = fall_block <= fall_limit;
-					if (!fall_into_last_octave)
+					if (fall_limit < fall_block)
 					{
 						z80_block(10);
 						z80_block(59);
@@ -766,13 +756,9 @@ void step_fm_vibrato(uint16_t voice)
 					z80_block(10);
 					return;
 				}
-				fall_into_last_octave = true;
 			}
-			if (fall_into_last_octave)
-			{
-				z80_block(49);
-				FM_VOICE(voice)->vibrato_block -= 8u;
-			}
+			z80_block(49);
+			FM_VOICE(voice)->vibrato_block -= 8u;
 		}
 		z80_block(167);
 		FM_VOICE(voice)->vibrato_range &= 0xFu;
@@ -896,13 +882,11 @@ void step_fm_vibrato(uint16_t voice)
 					z80_block(10);
 					return;
 				}
-				rise_into_last_octave = true;
 			}
 			else
 			{
 				z80_block(18);
-				rise_into_last_octave = rise_limit < rise_block;
-				if (!rise_into_last_octave)
+				if (rise_block <= rise_limit)
 				{
 					z80_block(10);
 					z80_block(45);
@@ -921,11 +905,8 @@ void step_fm_vibrato(uint16_t voice)
 					return;
 				}
 			}
-			if (rise_into_last_octave)
-			{
-				z80_block(45);
-				FM_VOICE(voice)->vibrato_block += 8u;
-			}
+			z80_block(45);
+			FM_VOICE(voice)->vibrato_block += 8u;
 		}
 		z80_block(170);
 		FM_VOICE(voice)->vibrato_range &= 0xFu;

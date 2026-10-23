@@ -3,7 +3,7 @@
  *    Description: the title screen: the SEGA logo, the emblem, the land, the craft, Sonic's loop, the clouds and the sky
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    21-10-2026
+ *    Modified:    23-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -17,7 +17,7 @@
    title_emblem_animate, timed_spawner_run and title_sky_wave. */
 void run_title_screen(uint32_t text_position, uint32_t *p_color, uint32_t *p_row_pairs_left, uint32_t *p_blocks_per_row, uint32_t *p_text)
 {
-	uint32_t ignored = 0, object = 0, palette_list = 0, script = 0;
+	uint32_t ignored_2 = 0, ignored_3 = 0, ignored_4 = 0, object = 0, palette_list = 0, script = 0;
 	uint8_t cnt_bits = 0;
 
 	run_sega_logo(text_position, p_color, p_row_pairs_left, p_blocks_per_row, p_text);
@@ -52,11 +52,11 @@ void run_title_screen(uint32_t text_position, uint32_t *p_color, uint32_t *p_row
 	vblank_copies_pending = 0u;
 	vblank_copy_count = 0u;
 	palette_list = tile_bank_1_palette_list_ADDRESS;
-	load_palette_list(palette_list, &ignored, &object);
+	load_palette_list(palette_list, &ignored_2, &object);
 	script = title_sky_script_ADDRESS;
-	run_vram_script(&ignored, &script, &object);
+	run_vram_script(&ignored_3, &script, &object);
 	*p_text = title_waving_background_script_ADDRESS;
-	run_vram_script(&ignored, p_text, &object);
+	run_vram_script(&ignored_3, p_text, &object);
 	nbg2_scroll_x = 0u;
 	nbg2_scroll_y = 0xFFE8u;
 	nbg3_scroll_x = 0u;
@@ -69,13 +69,13 @@ void run_title_screen(uint32_t text_position, uint32_t *p_color, uint32_t *p_row
 	object = allocate_object_or_start_list(object);
 	OBJECT(object)->handler = title_land_slide_ADDRESS;
 	OBJECT(object)->title.started = 0u;
-	allocate_object(&ignored, &object);
+	allocate_object(&ignored_4, &object);
 	OBJECT(object)->handler = title_emblem_animate_ADDRESS;
 	OBJECT(object)->title.started = 0u;
-	allocate_object(&ignored, &object);
+	allocate_object(&ignored_4, &object);
 	OBJECT(object)->handler = timed_spawner_run_ADDRESS;
 	OBJECT(object)->timed_spawner.started = 0u;
-	allocate_object(&ignored, &object);
+	allocate_object(&ignored_4, &object);
 	OBJECT(object)->handler = title_sky_wave_ADDRESS;
 	OBJECT(object)->title.started = 0u;
 	title_scene_built = 1u;
@@ -91,23 +91,23 @@ void run_title_screen(uint32_t text_position, uint32_t *p_color, uint32_t *p_row
 void title_emblem_animate(void)
 {
 	uint16_t animation = 0, emblem_bottom_left = 0, floor_z = 0, sonic_frame = 0, sonic_y = 0, speed_y = 0, x = 0, y = 0, z = 0;
-	uint32_t emblem_part = 0, ignored = 0, loop_entry = 0, sonic_step = 0;
+	uint32_t emblem_part = 0, ignored = 0, ignored_2 = 0, loop_entry = 0, sonic_step = 0;
 
 	if (OBJECT(current_object)->title.started == 0u)
 	{
-		allocate_object_2(&ignored, &ignored, &emblem_part);
+		allocate_object_2(&ignored, &ignored_2, &emblem_part);
 		OBJECT(current_object)->speed_y = emblem_part;
-		allocate_object_2(&ignored, &ignored, &emblem_part);
+		allocate_object_2(&ignored, &ignored_2, &emblem_part);
 		OBJECT(current_object)->z = emblem_part;
-		allocate_object_2(&ignored, &ignored, &emblem_part);
+		allocate_object_2(&ignored, &ignored_2, &emblem_part);
 		OBJECT(current_object)->title.emblem_bottom_left = emblem_part;
-		allocate_object_2(&ignored, &ignored, &emblem_part);
+		allocate_object_2(&ignored, &ignored_2, &emblem_part);
 		OBJECT(current_object)->animation = emblem_part;
-		allocate_object_2(&ignored, &ignored, &emblem_part);
+		allocate_object_2(&ignored, &ignored_2, &emblem_part);
 		OBJECT(current_object)->x = emblem_part;
-		allocate_object_2(&ignored, &ignored, &emblem_part);
+		allocate_object_2(&ignored, &ignored_2, &emblem_part);
 		OBJECT(current_object)->y = emblem_part;
-		allocate_object_2(&ignored, &ignored, &emblem_part);
+		allocate_object_2(&ignored, &ignored_2, &emblem_part);
 		OBJECT(current_object)->floor_z = emblem_part;
 		OBJECT(current_object)->title.started = 1u;
 	}
@@ -423,7 +423,7 @@ void init_title_puff_sprite(uint32_t puff)
 void title_clouds_1_drift(void)
 {
 	uint16_t animation = 0, cloud_4 = 0, floor_block = 0, floor_z = 0, previous_floor_z = 0, speed_x = 0, speed_y = 0, speed_z = 0, x = 0, y = 0, z = 0;
-	uint32_t ignored = 0, object = 0;
+	uint32_t ignored = 0, ignored_2 = 0, object = 0;
 
 	if (OBJECT(current_object)->title_clouds.started == 0u)
 	{
@@ -435,7 +435,7 @@ void title_clouds_1_drift(void)
 		OBJECT(current_object)->sprite_flags = 0u;
 		OBJECT(current_object)->sprite_layer = 8u;
 		OBJECT(current_object)->sprite_palette = 0xD80u;
-		allocate_object_2(&ignored, &ignored, &object);
+		allocate_object_2(&ignored, &ignored_2, &object);
 		OBJECT(current_object)->speed_z = object;
 		OBJECT(object)->screen_x = 0xB3;
 		OBJECT(object)->screen_y = 0x2A;
@@ -444,7 +444,7 @@ void title_clouds_1_drift(void)
 		OBJECT(object)->sprite_flags = 0u;
 		OBJECT(object)->sprite_layer = 8u;
 		OBJECT(object)->sprite_palette = 0xD80u;
-		allocate_object_2(&ignored, &ignored, &object);
+		allocate_object_2(&ignored, &ignored_2, &object);
 		OBJECT(current_object)->z = object;
 		OBJECT(object)->screen_x = 0xB3;
 		OBJECT(object)->screen_y = 0x2A;
@@ -453,7 +453,7 @@ void title_clouds_1_drift(void)
 		OBJECT(object)->sprite_flags = 0u;
 		OBJECT(object)->sprite_layer = 8u;
 		OBJECT(object)->sprite_palette = 0xD80u;
-		allocate_object_2(&ignored, &ignored, &object);
+		allocate_object_2(&ignored, &ignored_2, &object);
 		OBJECT(current_object)->title_clouds.cloud_4 = object;
 		OBJECT(object)->screen_x = 0x113;
 		OBJECT(object)->screen_y = 0x20;
@@ -462,7 +462,7 @@ void title_clouds_1_drift(void)
 		OBJECT(object)->sprite_flags = 0u;
 		OBJECT(object)->sprite_layer = 8u;
 		OBJECT(object)->sprite_palette = 0xD80u;
-		allocate_object_2(&ignored, &ignored, &object);
+		allocate_object_2(&ignored, &ignored_2, &object);
 		OBJECT(current_object)->animation = object;
 		OBJECT(object)->screen_x = 0x3A;
 		OBJECT(object)->screen_y = 0x5A;
@@ -471,7 +471,7 @@ void title_clouds_1_drift(void)
 		OBJECT(object)->sprite_flags = 0u;
 		OBJECT(object)->sprite_layer = 8u;
 		OBJECT(object)->sprite_palette = 0xD80u;
-		allocate_object_2(&ignored, &ignored, &object);
+		allocate_object_2(&ignored, &ignored_2, &object);
 		OBJECT(current_object)->x = object;
 		OBJECT(object)->screen_x = 0x61;
 		OBJECT(object)->screen_y = 0x46;
@@ -480,7 +480,7 @@ void title_clouds_1_drift(void)
 		OBJECT(object)->sprite_flags = 0u;
 		OBJECT(object)->sprite_layer = 8u;
 		OBJECT(object)->sprite_palette = 0xD80u;
-		allocate_object_2(&ignored, &ignored, &object);
+		allocate_object_2(&ignored, &ignored_2, &object);
 		OBJECT(current_object)->y = object;
 		OBJECT(object)->screen_x = 0xD0;
 		OBJECT(object)->screen_y = 0x4D;
@@ -489,7 +489,7 @@ void title_clouds_1_drift(void)
 		OBJECT(object)->sprite_flags = 0u;
 		OBJECT(object)->sprite_layer = 8u;
 		OBJECT(object)->sprite_palette = 0xD80u;
-		allocate_object_2(&ignored, &ignored, &object);
+		allocate_object_2(&ignored, &ignored_2, &object);
 		OBJECT(current_object)->floor_z = object;
 		OBJECT(object)->screen_x = 0x8E;
 		OBJECT(object)->screen_y = 0x63;
@@ -498,7 +498,7 @@ void title_clouds_1_drift(void)
 		OBJECT(object)->sprite_flags = 0u;
 		OBJECT(object)->sprite_layer = 8u;
 		OBJECT(object)->sprite_palette = 0xD80u;
-		allocate_object_2(&ignored, &ignored, &object);
+		allocate_object_2(&ignored, &ignored_2, &object);
 		OBJECT(current_object)->previous_floor_z = object;
 		OBJECT(object)->screen_x = 0x40;
 		OBJECT(object)->screen_y = 0x7F;
@@ -507,7 +507,7 @@ void title_clouds_1_drift(void)
 		OBJECT(object)->sprite_flags = 0u;
 		OBJECT(object)->sprite_layer = 8u;
 		OBJECT(object)->sprite_palette = 0xD80u;
-		allocate_object_2(&ignored, &ignored, &object);
+		allocate_object_2(&ignored, &ignored_2, &object);
 		OBJECT(current_object)->floor_block = object;
 		OBJECT(object)->screen_x = 0x7D;
 		OBJECT(object)->screen_y = 0x7A;
@@ -516,7 +516,7 @@ void title_clouds_1_drift(void)
 		OBJECT(object)->sprite_flags = 0u;
 		OBJECT(object)->sprite_layer = 8u;
 		OBJECT(object)->sprite_palette = 0xD80u;
-		allocate_object_2(&ignored, &ignored, &object);
+		allocate_object_2(&ignored, &ignored_2, &object);
 		OBJECT(current_object)->speed_x = object;
 		OBJECT(object)->screen_x = 0x115;
 		OBJECT(object)->screen_y = 0x74;
@@ -525,7 +525,7 @@ void title_clouds_1_drift(void)
 		OBJECT(object)->sprite_flags = 0u;
 		OBJECT(object)->sprite_layer = 8u;
 		OBJECT(object)->sprite_palette = 0xD80u;
-		allocate_object_2(&ignored, &ignored, &object);
+		allocate_object_2(&ignored, &ignored_2, &object);
 		OBJECT(current_object)->speed_y = object;
 		OBJECT(object)->screen_x = 0x10D;
 		OBJECT(object)->screen_y = 0x3E;
@@ -624,7 +624,7 @@ void title_clouds_1_drift(void)
 void title_clouds_2_drift(void)
 {
 	uint16_t animation = 0, cloud_4 = 0, speed_z = 0, x = 0, y = 0, z = 0;
-	uint32_t ignored = 0, object = 0;
+	uint32_t ignored = 0, ignored_2 = 0, object = 0;
 
 	if (OBJECT(current_object)->title_clouds.started == 0u)
 	{
@@ -636,7 +636,7 @@ void title_clouds_2_drift(void)
 		OBJECT(current_object)->sprite_flags = 0u;
 		OBJECT(current_object)->sprite_layer = 8u;
 		OBJECT(current_object)->sprite_palette = 0xD80u;
-		allocate_object_2(&ignored, &ignored, &object);
+		allocate_object_2(&ignored, &ignored_2, &object);
 		OBJECT(current_object)->speed_z = object;
 		OBJECT(object)->screen_x = 0xB6;
 		OBJECT(object)->screen_y = 0x40;
@@ -645,7 +645,7 @@ void title_clouds_2_drift(void)
 		OBJECT(object)->sprite_flags = 0u;
 		OBJECT(object)->sprite_layer = 8u;
 		OBJECT(object)->sprite_palette = 0xD80u;
-		allocate_object_2(&ignored, &ignored, &object);
+		allocate_object_2(&ignored, &ignored_2, &object);
 		OBJECT(current_object)->z = object;
 		OBJECT(object)->screen_x = 0xFC;
 		OBJECT(object)->screen_y = 0x36;
@@ -654,7 +654,7 @@ void title_clouds_2_drift(void)
 		OBJECT(object)->sprite_flags = 0u;
 		OBJECT(object)->sprite_layer = 8u;
 		OBJECT(object)->sprite_palette = 0xD80u;
-		allocate_object_2(&ignored, &ignored, &object);
+		allocate_object_2(&ignored, &ignored_2, &object);
 		OBJECT(current_object)->title_clouds.cloud_4 = object;
 		OBJECT(object)->screen_x = 0x5B;
 		OBJECT(object)->screen_y = 0x56;
@@ -663,7 +663,7 @@ void title_clouds_2_drift(void)
 		OBJECT(object)->sprite_flags = 0u;
 		OBJECT(object)->sprite_layer = 8u;
 		OBJECT(object)->sprite_palette = 0xD80u;
-		allocate_object_2(&ignored, &ignored, &object);
+		allocate_object_2(&ignored, &ignored_2, &object);
 		OBJECT(current_object)->animation = object;
 		OBJECT(object)->screen_x = 0xE6;
 		OBJECT(object)->screen_y = 0x51;
@@ -672,7 +672,7 @@ void title_clouds_2_drift(void)
 		OBJECT(object)->sprite_flags = 0u;
 		OBJECT(object)->sprite_layer = 8u;
 		OBJECT(object)->sprite_palette = 0xD80u;
-		allocate_object_2(&ignored, &ignored, &object);
+		allocate_object_2(&ignored, &ignored_2, &object);
 		OBJECT(current_object)->x = object;
 		OBJECT(object)->screen_x = 0x69;
 		OBJECT(object)->screen_y = 0x71;
@@ -681,7 +681,7 @@ void title_clouds_2_drift(void)
 		OBJECT(object)->sprite_flags = 0u;
 		OBJECT(object)->sprite_layer = 8u;
 		OBJECT(object)->sprite_palette = 0xD80u;
-		allocate_object_2(&ignored, &ignored, &object);
+		allocate_object_2(&ignored, &ignored_2, &object);
 		OBJECT(current_object)->y = object;
 		OBJECT(object)->screen_x = 0xC1;
 		OBJECT(object)->screen_y = 0x71;
@@ -750,7 +750,7 @@ void title_clouds_2_drift(void)
 void title_clouds_3_drift(void)
 {
 	uint16_t animation = 0, cloud_4 = 0, speed_z = 0, x = 0, y = 0, z = 0;
-	uint32_t ignored = 0, object = 0;
+	uint32_t ignored = 0, ignored_2 = 0, object = 0;
 
 	if (OBJECT(current_object)->title_clouds.started == 0u)
 	{
@@ -762,7 +762,7 @@ void title_clouds_3_drift(void)
 		OBJECT(current_object)->sprite_flags = 0u;
 		OBJECT(current_object)->sprite_layer = 8u;
 		OBJECT(current_object)->sprite_palette = 0xD80u;
-		allocate_object_2(&ignored, &ignored, &object);
+		allocate_object_2(&ignored, &ignored_2, &object);
 		OBJECT(current_object)->speed_z = object;
 		OBJECT(object)->screen_x = 0x1A1;
 		OBJECT(object)->screen_y = 0x5E;
@@ -771,7 +771,7 @@ void title_clouds_3_drift(void)
 		OBJECT(object)->sprite_flags = 0u;
 		OBJECT(object)->sprite_layer = 8u;
 		OBJECT(object)->sprite_palette = 0xD80u;
-		allocate_object_2(&ignored, &ignored, &object);
+		allocate_object_2(&ignored, &ignored_2, &object);
 		OBJECT(current_object)->z = object;
 		OBJECT(object)->screen_x = 0x1E7;
 		OBJECT(object)->screen_y = 0x54;
@@ -780,7 +780,7 @@ void title_clouds_3_drift(void)
 		OBJECT(object)->sprite_flags = 0u;
 		OBJECT(object)->sprite_layer = 8u;
 		OBJECT(object)->sprite_palette = 0xD80u;
-		allocate_object_2(&ignored, &ignored, &object);
+		allocate_object_2(&ignored, &ignored_2, &object);
 		OBJECT(current_object)->title_clouds.cloud_4 = object;
 		OBJECT(object)->screen_x = 0x146;
 		OBJECT(object)->screen_y = 0x74;
@@ -789,7 +789,7 @@ void title_clouds_3_drift(void)
 		OBJECT(object)->sprite_flags = 0u;
 		OBJECT(object)->sprite_layer = 8u;
 		OBJECT(object)->sprite_palette = 0xD80u;
-		allocate_object_2(&ignored, &ignored, &object);
+		allocate_object_2(&ignored, &ignored_2, &object);
 		OBJECT(current_object)->animation = object;
 		OBJECT(object)->screen_x = 0x1D1;
 		OBJECT(object)->screen_y = 0x6F;
@@ -798,7 +798,7 @@ void title_clouds_3_drift(void)
 		OBJECT(object)->sprite_flags = 0u;
 		OBJECT(object)->sprite_layer = 8u;
 		OBJECT(object)->sprite_palette = 0xD80u;
-		allocate_object_2(&ignored, &ignored, &object);
+		allocate_object_2(&ignored, &ignored_2, &object);
 		OBJECT(current_object)->x = object;
 		OBJECT(object)->screen_x = 0x154;
 		OBJECT(object)->screen_y = 0x8F;
@@ -807,7 +807,7 @@ void title_clouds_3_drift(void)
 		OBJECT(object)->sprite_flags = 0u;
 		OBJECT(object)->sprite_layer = 8u;
 		OBJECT(object)->sprite_palette = 0xD80u;
-		allocate_object_2(&ignored, &ignored, &object);
+		allocate_object_2(&ignored, &ignored_2, &object);
 		OBJECT(current_object)->y = object;
 		OBJECT(object)->screen_x = 0x1AC;
 		OBJECT(object)->screen_y = 0x8F;
@@ -907,7 +907,7 @@ void drift_title_cloud_2(void)
 void title_sky_wave(void)
 {
 	uint16_t halfwords = 0;
-	uint32_t cycle = 0, dest = 0, ignored = 0, palette_count = 0, row_offset = 0, row_scroll = 0, sine_cursor = 0, source = 0, wave_rows_left = 0;
+	uint32_t cycle = 0, dest = 0, ignored_3 = 0, ignored_4 = 0, palette_count = 0, row_offset = 0, row_scroll = 0, sine_cursor = 0, source = 0, wave_rows_left = 0;
 
 	if (OBJECT(current_object)->title.started == 0u)
 	{
@@ -947,7 +947,7 @@ void title_sky_wave(void)
 	cycle = palette_cycle_0_ADDRESS;
 	palette_cycle_0 = 3u;
 	palette_cycle_0_frames = 0x10u;
-	cycle_palette(cycle, halfwords, &ignored, &ignored, &palette_count, &source, &dest);
+	cycle_palette(cycle, halfwords, &ignored_3, &ignored_4, &palette_count, &source, &dest);
 }
 
 /* The SEGA logo, by sega_logo_step: 0 set-up (8 bpp bitmap filled with 0x8E, colour offsets 0x20), 1
@@ -958,7 +958,7 @@ void run_sega_logo(uint32_t logo_block, uint32_t *p_color, uint32_t *p_row_pairs
 {
 	uint8_t is_8bpp = 0;
 	uint16_t object = 0, scroll_x = 0, scroll_y = 0;
-	uint32_t r0 = 0, ignored = 0;
+	uint32_t end_mark = 0, ignored = 0, ignored_2 = 0, ignored_5 = 0, ignored_6 = 0;
 	uint8_t cnt_bits = 0;
 
 	if (sega_logo_step == 7u)
@@ -968,9 +968,9 @@ void run_sega_logo(uint32_t logo_block, uint32_t *p_color, uint32_t *p_row_pairs
 		cnt_bits = mem_read8(io_cnt);
 		mem_write8(io_cnt, cnt_bits & ~2u);
 		display_off_frames = 5u;
-		init_sprites(&r0, p_lower_row_cursor);
+		init_sprites(&end_mark, p_lower_row_cursor);
 		logo_block = clear_sprite_buckets();
-		clear_bitmap_layer((uint8_t)r0, &ignored, p_color, &ignored, p_row_pairs_left, p_blocks_per_row, p_lower_row_cursor);
+		clear_bitmap_layer((uint8_t)end_mark, &ignored, p_color, &ignored_2, p_row_pairs_left, p_blocks_per_row, p_lower_row_cursor);
 		title_scene_built = 1u;
 		title_done = 0u;
 		scroll_x = 0u;
@@ -994,7 +994,7 @@ void run_sega_logo(uint32_t logo_block, uint32_t *p_color, uint32_t *p_row_pairs
 		set_halfwords(VIDEO_RAM, 0xE000u, fill_value);
 		sega_logo_step++;
 	}
-	allocate_object_2(&ignored, &ignored, &logo_block);
+	allocate_object_2(&ignored_5, &ignored_6, &logo_block);
 	current_object = logo_block;
 	screen_sprite_block = current_object;
 	switch (sega_logo_step)

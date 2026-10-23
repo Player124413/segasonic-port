@@ -3,7 +3,7 @@
  *    Description: stage 5's objects: the exit door, the floor patch, the bubbles, the spiked press, the cage
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    21-10-2026
+ *    Modified:    23-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -15,7 +15,7 @@
    exit_door_wait_for_switch. */
 void exit_door_start(void)
 {
-	uint32_t ignored = 0;
+	uint32_t ignored = 0, ignored_2 = 0;
 
 	OBJECT(current_object)->sprite_frame = 0x7348u;
 	OBJECT(current_object)->sprite_palette = 0x91A0u;
@@ -25,14 +25,14 @@ void exit_door_start(void)
 	OBJECT(current_object)->flags = 0u;
 	OBJECT(current_object)->handler = exit_door_wait_for_switch_ADDRESS;
 	OBJECT(current_object)->z = 0;
-	project_object(&ignored, &ignored);
+	project_object(&ignored, &ignored_2);
 }
 
 /* exit_door_show until stage_05_switch_step is 2; then it becomes sprite 0x71A0, palette 0x9140, moved
    to x 0x1E2, y 0x154C and projected, with exit_door_show from then on. */
 void exit_door_wait_for_switch(void)
 {
-	uint32_t ignored = 0;
+	uint32_t ignored = 0, ignored_2 = 0;
 
 	if ((uint8_t)stage_05_switch_step != 2u)
 	{
@@ -44,7 +44,7 @@ void exit_door_wait_for_switch(void)
 	OBJECT(current_object)->x = 0x1E20000;
 	OBJECT(current_object)->y = 0x154C0000;
 	OBJECT(current_object)->handler = exit_door_show_ADDRESS;
-	project_object(&ignored, &ignored);
+	project_object(&ignored, &ignored_2);
 }
 
 /* Drawn (queue_sprite) until its screen_y reaches 0x130, then removed. */
@@ -65,7 +65,7 @@ void exit_door_show(void)
    sprite_flags 0x1008), z 0; projected, then stage_05_floor_patch_show. */
 void stage_05_floor_patch_start(void)
 {
-	uint32_t ignored = 0;
+	uint32_t ignored = 0, ignored_2 = 0;
 
 	OBJECT(current_object)->sprite_frame = 0x7050u;
 	OBJECT(current_object)->sprite_palette = 0xB0E0u;
@@ -75,7 +75,7 @@ void stage_05_floor_patch_start(void)
 	OBJECT(current_object)->flags = 0u;
 	OBJECT(current_object)->handler = stage_05_floor_patch_show_ADDRESS;
 	OBJECT(current_object)->z = 0;
-	project_object(&ignored, &ignored);
+	project_object(&ignored, &ignored_2);
 }
 
 /* Drawn (queue_sprite) while stage is 5, else removed. */
@@ -97,7 +97,7 @@ void stage_05_floor_patch_show(void)
    in stage 8, 0x10B0 outside stages 5 and 8); projected, then bubble_update. */
 void bubble_start(void)
 {
-	uint32_t ignored = 0;
+	uint32_t ignored = 0, ignored_2 = 0;
 
 	OBJECT(current_object)->z_int = bubble_heights[OBJECT(current_object)->sprite_frame];
 	OBJECT(current_object)->z_fraction = 0u;
@@ -118,7 +118,7 @@ void bubble_start(void)
 	OBJECT(current_object)->animation = bubble_animation_ADDRESS;
 	OBJECT(current_object)->animation_timer = 0;
 	OBJECT(current_object)->animation_speed = 4u;
-	project_object(&ignored, &ignored);
+	project_object(&ignored, &ignored_2);
 }
 
 /* In stages 5, 8, 0xB and 0xC outside game mode 0x20 (YOU FAILED): draw_depth = screen_y, then
@@ -154,7 +154,7 @@ void bubble_near_parent_update(void)
 void bubble_pop(void)
 {
 	uint16_t jitter_y = 0;
-	uint32_t depth = 0, ignored = 0, jitter = 0, off_screen = 0, wrapped = 0;
+	uint32_t depth = 0, ignored = 0, ignored_2 = 0, ignored_3 = 0, ignored_4 = 0, ignored_5 = 0, jitter = 0, off_screen = 0, wrapped = 0;
 
 	if (map_screen_active != 0u)
 	{
@@ -167,15 +167,15 @@ void bubble_pop(void)
 		delete_current_object();
 		return;
 	}
-	update_screen_position(&ignored, &ignored);
-	animate(&ignored, &wrapped, &ignored);
+	update_screen_position(&ignored, &ignored_2);
+	animate(&ignored_2, &wrapped, &ignored_3);
 	if ((uint8_t)wrapped == 0u)
 	{
 		depth = OBJECT(current_object)->bubble_pop.draw_depth;
 		queue_sprite_at_depth(&ignored, &depth);
 		return;
 	}
-	next_random(&jitter, &ignored, &ignored);
+	next_random(&jitter, &ignored_4, &ignored_5);
 	if (OBJECT(current_object)->bubble_pop.variant == 6u)
 	{
 		OBJECT(current_object)->animation_speed = (jitter & 7u) + 1u;
@@ -190,7 +190,7 @@ void bubble_pop(void)
 	jitter = (uint16_t)(jitter + OBJECT(current_object)->bubble_pop.base_x);
 	OBJECT(current_object)->x_int = jitter;
 	OBJECT(current_object)->y_int = jitter_y + OBJECT(current_object)->bubble_pop.base_y;
-	project_object(&ignored, &ignored);
+	project_object(&ignored, &ignored_2);
 	OBJECT(current_object)->animation_speed = (jitter & 7u) + 1u;
 	depth = OBJECT(current_object)->bubble_pop.draw_depth;
 	queue_sprite_at_depth(&ignored, &depth);
@@ -201,7 +201,7 @@ void bubble_pop(void)
    freezes the players and spawns Eggman's booth (spawn_eggman_booth); then spiked_press_update. */
 void spiked_press_start(void)
 {
-	uint32_t r0 = 0, r2 = 0, r3 = 0, r11 = 0, ignored = 0;
+	uint32_t block_offset = 0, cursor = 0, ignored = 0, slope_height = 0, x = 0;
 
 	OBJECT(current_object)->sprite_flags = 0x1104u;
 	OBJECT(current_object)->sprite_frame = 0x7070u;
@@ -223,12 +223,12 @@ void spiked_press_start(void)
 	OBJECT(current_object)->speed_x = 0;
 	OBJECT(current_object)->speed_y = 0x2000;
 	OBJECT(current_object)->direction = 0x200u;
-	find_floor(&r0, &ignored, &r2, &r3, &r11);
+	find_floor(&x, &ignored, &block_offset, &slope_height, &cursor);
 	OBJECT(current_object)->z = OBJECT(current_object)->floor_z;
 	spiked_press_object = current_object;
 	scroll_mode = 1u;
 	players_frozen = 0xFFu;
-	spawn_eggman_booth(r0, ignored, r3, &r2, &r11);
+	spawn_eggman_booth(x, ignored, slope_height, &block_offset, &cursor);
 }
 
 /* Counts frames in game modes 3 and 0xA: at 0x14 a message box and at 0x50 a voice by caged_character,
@@ -239,7 +239,7 @@ void spiked_press_update(void)
 {
 	uint8_t sound = 0;
 	uint16_t frames = 0, kind = 0, screen_x = 0, screen_y = 0, x = 0, y = 0, z = 0;
-	uint32_t depth = 0, ignored = 0, player = 0, player_index = 0, players_left = 0, sign = 0, status_cursor = 0;
+	uint32_t depth = 0, ignored = 0, ignored_2 = 0, ignored_3 = 0, player = 0, player_index = 0, players_left = 0, sign = 0, status_cursor = 0;
 	uint8_t hold_timer = 0, status = 0;
 	uint16_t sound_timer = 0;
 
@@ -317,7 +317,7 @@ void spiked_press_update(void)
 	if ((uint16_t)OBJECT(current_object)->spiked_press.frame_count == 0x14u)
 	{
 		sound = 0x34u;
-		play_sound(sound, &ignored, &ignored);
+		play_sound(sound, &ignored, &ignored_2);
 	}
 	if ((uint16_t)OBJECT(current_object)->spiked_press.frame_count == 0x50u)
 	{
@@ -328,7 +328,7 @@ void spiked_press_update(void)
 			if (caged_character != 1u)
 				sound = 0x40u;
 		}
-		play_sound(sound, &ignored, &ignored);
+		play_sound(sound, &ignored, &ignored_2);
 	}
 	if (OBJECT(current_object)->y_int >= 0x3D0)
 	{
@@ -350,14 +350,14 @@ void spiked_press_update(void)
 		{
 			OBJECT(current_object)->spiked_press.sound_timer = 0x3C;
 			sound = 0xDu;
-			play_sound(sound, &ignored, &ignored);
+			play_sound(sound, &ignored, &ignored_2);
 		}
 	}
 	OBJECT(current_object)->health = 0x7F;
-	project_object(&ignored, &ignored);
-	add_to_touchable_list(ignored);
+	project_object(&ignored_3, &ignored);
+	add_to_touchable_list(ignored_3);
 	depth = (uint16_t)(OBJECT(current_object)->screen_y - 0x50u);
-	queue_sprite_at_depth(&ignored, &depth);
+	queue_sprite_at_depth(&ignored_3, &depth);
 }
 
 /* Stage list object of stage 5: once ten objects are free, ten bars 0x18 apart in x from its position
@@ -409,9 +409,9 @@ void cage_start(void)
 /* Projects the bar, then cage_bar_update from this frame on. */
 void cage_bar_start(void)
 {
-	uint32_t ignored = 0;
+	uint32_t ignored = 0, ignored_2 = 0;
 
-	project_object(&ignored, &ignored);
+	project_object(&ignored, &ignored_2);
 	OBJECT(current_object)->handler = cage_bar_update_ADDRESS;
 	cage_bar_update();
 }
@@ -423,7 +423,7 @@ void cage_bar_start(void)
 void cage_bar_update(void)
 {
 	uint8_t sound_id = 0;
-	uint32_t animation_frame = 0, depth = 0, ignored = 0, off_screen = 0, step_list = 0;
+	uint32_t animation_frame = 0, depth = 0, ignored = 0, ignored_2 = 0, ignored_3 = 0, off_screen = 0, step_list = 0;
 	uint8_t animation_timer = 0;
 	uint16_t last_step = 0;
 
@@ -447,7 +447,7 @@ void cage_bar_update(void)
 			OBJECT(current_object)->animation_frame = 0xFFu;
 		}
 		sound_id = 0x21u;
-		play_sound(sound_id, &ignored, &ignored);
+		play_sound(sound_id, &ignored, &ignored_2);
 	}
 	if ((int8_t)OBJECT(current_object)->animation_frame < 0 && OBJECT(current_object)->animation_timer >= 0)
 	{
@@ -459,7 +459,7 @@ void cage_bar_update(void)
 			OBJECT(current_object)->projected_x++;
 		}
 	}
-	update_screen_position(&ignored, &ignored);
+	update_screen_position(&ignored_3, &ignored);
 	if (stage != 5u)
 	{
 		delete_current_object();
@@ -472,7 +472,7 @@ void cage_bar_update(void)
 		return;
 	}
 	if ((int8_t)OBJECT(current_object)->animation_frame >= 0)
-		add_to_touchable_list(ignored);
+		add_to_touchable_list(ignored_3);
 	depth = (uint16_t)(OBJECT(current_object)->screen_y - 8u);
-	queue_sprite_at_depth(&ignored, &depth);
+	queue_sprite_at_depth(&ignored_3, &depth);
 }

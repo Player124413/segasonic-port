@@ -3,7 +3,7 @@
  *    Description: what the board keeps when it is off: the settings in the 93C46 EEPROM and the bookkeeping in the backup RAM, with their checksums
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    21-10-2026
+ *    Modified:    23-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -100,7 +100,7 @@ uint32_t eeprom_read_word_at(uint32_t data, uint8_t command)
    clear bookkeeping_rom_stamp, then save. crc is only scratch. */
 void load_settings(uint32_t crc)
 {
-	uint32_t ignored = 0;
+	uint32_t ignored_3 = 0, ignored_4 = 0;
 	uint8_t port_f_bits = 0;
 
 	eeprom_read_all(crc);
@@ -117,9 +117,9 @@ void load_settings(uint32_t crc)
 		mem_write8(moving_seat_dip, port_f_bits & 1u);
 		mem_write16(bookkeeping_rom_stamp, 0u);
 		eeprom_rom_stamp = rom_checksums + rom_checksum_ic8;
-		compute_eeprom_checksum(&crc, &ignored);
+		compute_eeprom_checksum(&crc, &ignored_3);
 		eeprom_checksum = crc;
-		eeprom_save(&ignored, &ignored);
+		eeprom_save(&ignored_3, &ignored_4);
 		return;
 	}
 	if (eeprom_rom_stamp != (uint16_t)(rom_checksums + rom_checksum_ic8))
@@ -129,18 +129,18 @@ void load_settings(uint32_t crc)
 		mem_write8(moving_seat_dip, port_f_bits & 1u);
 		mem_write16(bookkeeping_rom_stamp, 0u);
 		eeprom_rom_stamp = rom_checksums + rom_checksum_ic8;
-		compute_eeprom_checksum(&crc, &ignored);
+		compute_eeprom_checksum(&crc, &ignored_3);
 		eeprom_checksum = crc;
-		eeprom_save(&ignored, &ignored);
+		eeprom_save(&ignored_3, &ignored_4);
 		return;
 	}
-	compute_eeprom_checksum(&crc, &ignored);
+	compute_eeprom_checksum(&crc, &ignored_3);
 	if ((uint16_t)crc == eeprom_checksum)
 	{
 		crc = compute_eeprom_backup_checksum();
 		if ((uint16_t)crc != eeprom_backup_checksum || (uint16_t)crc != eeprom_checksum)
 		{
-			eeprom_save(&ignored, &ignored);
+			eeprom_save(&ignored_3, &ignored_4);
 			return;
 		}
 		return;
@@ -149,7 +149,7 @@ void load_settings(uint32_t crc)
 	if ((uint16_t)crc == eeprom_backup_checksum)
 	{
 		move_halfwords(eeprom_magic_ADDRESS, eeprom_backup_ADDRESS, 0x20u);
-		eeprom_save(&ignored, &ignored);
+		eeprom_save(&ignored_3, &ignored_4);
 		return;
 	}
 	move_halfwords(setting_advertise_sound_ADDRESS, default_settings_ADDRESS, 0x19u);
@@ -157,9 +157,9 @@ void load_settings(uint32_t crc)
 	mem_write8(moving_seat_dip, port_f_bits & 1u);
 	mem_write16(bookkeeping_rom_stamp, 0u);
 	eeprom_rom_stamp = rom_checksums + rom_checksum_ic8;
-	compute_eeprom_checksum(&crc, &ignored);
+	compute_eeprom_checksum(&crc, &ignored_3);
 	eeprom_checksum = crc;
-	eeprom_save(&ignored, &ignored);
+	eeprom_save(&ignored_3, &ignored_4);
 }
 
 /* Unused: eeprom_read_all, then interrupts on. */
@@ -216,14 +216,14 @@ void eeprom_save_and_lock(uint32_t *p_command, uint32_t *p_words_left)
 void eeprom_save(uint32_t *p_command, uint32_t *p_words_left)
 {
 	uint16_t data = 0;
-	uint32_t command = 0, crc = 0, ignored = 0, lines = 0, polynomial = 0, port_d = 0, port_f = 0, word_source = 0, words_left = 0;
+	uint32_t command = 0, crc = 0, ignored_3 = 0, lines = 0, polynomial = 0, port_d = 0, port_f = 0, word_source = 0, words_left = 0;
 
 	eeprom_write_count++;
 	compute_eeprom_checksum(&crc, &polynomial);
 	eeprom_checksum = crc;
 	move_halfwords(eeprom_backup_ADDRESS, eeprom_magic_ADDRESS, 0x20u);
 	command = (polynomial & ~0xFFu) | 0x30u;
-	eeprom_select(&lines, &ignored, &port_d);
+	eeprom_select(&lines, &ignored_3, &port_d);
 	eeprom_send_command(lines, (uint8_t)command, port_d);
 	word_source = eeprom_magic_ADDRESS;
 	command = (command & ~0xFFu) | 0x40u;
@@ -487,14 +487,14 @@ void load_bookkeeping(void)
 void reset_bookkeeping(void)
 {
 	uint16_t rom_stamp = 0;
-	uint32_t ignored = 0;
+	uint32_t ignored_3 = 0;
 
 	move_halfwords(bookkeeping_coin_credits, bookkeeping_defaults_ADDRESS, 0x20u);
 	move_halfwords(bookkeeping_backup, bookkeeping_defaults_ADDRESS, 0x20u);
 	rom_stamp = (uint16_t)(rom_checksums + rom_checksum_ic8);
 	mem_write16(bookkeeping_rom_stamp, rom_stamp);
 	mem_write16(bookkeeping_backup_rom_stamp, rom_stamp);
-	ignored = update_bookkeeping_checksum();
+	ignored_3 = update_bookkeeping_checksum();
 }
 
 /* Sets bookkeeping_checksum to compute_bookkeeping_crc of the bookkeeping block and hands the CRC back. */

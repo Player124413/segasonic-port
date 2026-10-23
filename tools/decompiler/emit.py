@@ -28,6 +28,7 @@ uses as values print as NAME_ADDRESS, TEXT_CELL(column, row) or a place in one o
 The control flow is the tree of structure.py; every value is computed at its V60 width, with the casts
 that make the C exact on any compiler.
 """
+import bisect
 import re
 
 from v60 import ir
@@ -223,8 +224,13 @@ class Names:
         return found is not None and found[1] == 16
 
     def memory(self, load):
-        """(C text, signed) for memory with a name, or None."""
+        """(C text, signed) for memory with a name, or None. A read of several fields' bytes at once is
+        those fields put together (composed_read)."""
         found = self.writer.memory(load.address, load.bits, id(load))
+        if found is not None and found[0].startswith(("AS", "AT")) and cprint.part_read(found[0]) is None:
+            composed = self.writer.composed_read(load.address, load.bits, id(load))
+            if composed is not None:
+                return composed, False
         return found[:2] if found is not None else None
 
     def board_register(self, address):
@@ -241,6 +247,12 @@ class Printer(cprint.Printer):
         return self.writer.rom_address_name(node)
 
     def emit(self, node):
+        if isinstance(node, ir.Const):
+            named = self.writer.emitter.constants.get((self.writer.function.name, node.value))
+            if named is not None:
+                # a number the function uses, by its name (symbols.txt constant lines)
+                self.writer.emitter.constants_used.add((self.writer.function.name, node.value))
+                return cprint.Value(named, cprint.PRIMARY, True, "u64" if node.bits == 64 else "u32")
         if isinstance(node, ir.Op) and node.name == "stack_address":
             raise EmitError(f"{self.writer.function.name}: a stack address is used as a value")
         if isinstance(node, ir.EntryPoint):
@@ -258,6 +270,11 @@ class Printer(cprint.Printer):
                 return cprint.Value(named[0], named[1], True, "u32")
             if 0x10000 <= node.value < 0x200000 and node.value & 0xFFFF and id(node) not in self.writer.sum_operands() \
                     or 0x100000 <= node.value < 0x200000 and node.value & 0xFFFF:
+                near = self.writer.emitter.label_before(node.value) \
+                    if id(node) in self.writer.sum_operands() else None
+                if near is not None:
+                    # a table's address plus a few bytes, plus an index: the bytes into the data label
+                    return cprint.Value(f"{near[0]}_ADDRESS + 0x{near[1]:X}u", cprint.ADD, True, "u32")
                 # an address in the ROM nothing names yet
                 self.writer.emitter.raw_addresses.setdefault(node.value, set()).add(self.writer.function.name)
         return super().emit(node)
@@ -864,7 +881,9 @@ class FunctionWriter:
             item = self.emitter.memory.tables.get(memory.own_copy(field[1]))
             size = bits // 8
             if item is not None and item.bits == bits and field[3] % size == 0:
-                register = self.printer.any(field[2]).text
+                # (the register's read in this address: a copy of the code has reads of its own)
+                read = next((node for node in ir.walk(address) if node == field[2]), field[2])
+                register = self.printer.any(read).text
                 return (f"{item.name}[{register}]" if size == 1 else f"{item.name}[{register} / {size}u]"), item.signed, False
             field = (pointers.REGIONS and next(iter(pointers.REGIONS)), 0, address, 0, None)
         if field is not None and field[0] in pointers.REGIONS:
@@ -994,6 +1013,114 @@ class FunctionWriter:
             pieces.append((position - start, piece[1], piece[0]))
             position += piece[1] // 8
         return pieces
+
+    def covering(self, address, bits, key):
+        """The named fields or variables an access of 'bits' at 'address' reads or writes bytes of, one after
+        the other, wholly or in part (an access that starts inside one, or runs on into the next):
+        [(byte in the access, bytes, C, the field's bits, its signedness, byte in the field)], or None when
+        some byte has no name."""
+        size = bits // 8
+        pieces = []
+        field = self.fields.get(key)
+        if field is not None and field[0] in pointers.STRUCTS:
+            struct, offset, base, base_offset, kind_family = field[:5]
+            layouts = self.emitter.layouts
+            family = self.field_family(field)
+            position = offset
+            while position < offset + size:
+                scoped = layouts.scoped_field(struct, family, position) if family else None
+                found = (scoped[2], scoped[3]) if scoped is not None else layouts.lookup(struct, position)
+                if found is None:
+                    return None
+                start, width = found
+                count = min(start + width // 8, offset + size) - position
+                if position == start and count * 8 < width and (
+                        layouts.overlay(struct, start, count * 8) if scoped is None
+                        else layouts.scoped_overlay(struct, family, start, count * 8)) is not None:
+                    width = count * 8    # the narrower name its first bytes have (sprite_frame in part_list)
+                text, signed = self.field_access((struct, start, base, base_offset, kind_family) + field[5:], width)
+                if text.startswith(("AS", "AT")):
+                    return None
+                pieces.append((position - offset, count, text, width, signed, position - start))
+                position += count
+            return pieces
+        first = memory.constant_address(address)
+        if field is not None or first is None:
+            return None
+        position = first
+        while position < first + size:
+            found = next((self.variable_at(start) + (start,) for start in range(position, position - 4, -1)
+                          if self.variable_at(start) is not None
+                          and start + self.variable_at(start)[1] // 8 > position), None)
+            if found is None or memory.bus_only(found[3], found[1]):
+                return None
+            text, width, signed, start = found
+            count = min(start + width // 8, first + size) - position
+            pieces.append((position - first, count, text, width, signed, position - start))
+            position += count
+        return pieces
+
+    def composed_read(self, address, bits, key):
+        """C for a read of the bytes of several named fields or variables at once (a long over two
+        halfwords, a halfword from a field's second byte on), as those fields shifted into place and ORed:
+        (uint32_t)OBJECT(o)->sprite_flags | (uint32_t)OBJECT(o)->sprite_frame << 16u. None when it is not
+        that."""
+        pieces = self.covering(address, bits, key)
+        if pieces is None or len(pieces) < 2:
+            return None
+        terms = []
+        for position, count, text, width, signed, within in pieces:
+            value = f"({cprint.UNSIGNED[width]}){text}" if signed else text
+            if within:
+                value = f"({value} >> {within * 8}u)"
+            if count * 8 < width - within * 8:
+                value = f"({value} & 0x{(1 << count * 8) - 1:X}u)"
+            if position:
+                value = f"((uint32_t){value} << {position * 8}u)"
+            terms.append(value)
+        return "(" + " | ".join(terms) + ")"
+
+    def composed_store(self, statement):
+        """A store over the bytes of several named fields or variables, or over a part of one, as one
+        assignment each: the whole ones get their bytes of the value, the others keep the bytes the store
+        does not reach. None when some byte has no name."""
+        pieces = self.covering(statement.address, statement.bits, id(statement))
+        if pieces is None:
+            return None
+        value = statement.value
+        while isinstance(value, ir.Op) and value.name in ("trunc", "fits") and value.bits == statement.bits:
+            value = value.args[0]
+        lines = []
+        if isinstance(value, ir.Const):
+            text = None
+        else:
+            text = self.expr(value)
+            if len(pieces) > 1 and not re.fullmatch(r"\w+", text):
+                # (the value once, before its bytes go to their fields)
+                temp = self.fresh("stored")
+                lines.append(f"{temp} = {text};")
+                text = temp
+        for position, count, target, width, signed, within in pieces:
+            mask = (1 << count * 8) - 1
+            whole = not within and count * 8 == width
+            keep = ~(mask << within * 8) & ((1 << width) - 1)
+            if text is None:
+                part = (value.value >> (position * 8)) & mask
+                if whole:
+                    literal = cprint.signed_literal(part, width) if signed else cprint.literal(part, width)
+                    lines.append(f"{target} = {literal};")
+                elif part == 0:
+                    lines.append(f"{target} &= 0x{keep:X}u;")
+                else:
+                    lines.append(f"{target} = ({target} & 0x{keep:X}u) | 0x{part << within * 8:X}u;")
+                continue
+            part = text if not position else f"({text} >> {position * 8}u)"
+            if whole:
+                lines.append(f"{target} = ({cprint.UNSIGNED[width]}){part};")
+                continue
+            shifted = f"({part} & 0x{mask:X}u)" if not within else f"(({part} & 0x{mask:X}u) << {within * 8}u)"
+            lines.append(f"{target} = ({target} & 0x{keep:X}u) | {shifted};")
+        return lines
 
     def variable_at(self, address):
         """(C, bits, signed) of the variable that starts at a work RAM address, or of the element of an
@@ -1416,11 +1543,17 @@ class FunctionWriter:
             target = self.memory(statement.address, statement.bits, id(statement))
             address = memory.constant_address(statement.address)
             if target is not None and target[2] and (address is None or not memory.bus_only(address, statement.bits)):
-                if target[0].startswith("AS") or self.family_splits(statement):
+                if target[0].startswith(("AS", "AT")) or self.family_splits(statement):
                     split = self.split_store(statement)
                     if split is not None:
                         return split
-                return [self.assignment(target[0], statement, target[1])]
+                assigned = self.assignment(target[0], statement, target[1])
+                if assigned.startswith(("AS", "AT")):
+                    # (no name covers what it writes: the fields it writes bytes of, each by its name)
+                    composed = self.composed_store(statement)
+                    if composed is not None:
+                        return composed
+                return [assigned]
             text = self.stored(value, statement.bits)
             where = self.emitter.memory.register(address) if address is not None else None
             return [f"mem_write{statement.bits}({where or self.expr(statement.address)}, {text});"]
@@ -2059,7 +2192,7 @@ class FunctionWriter:
     def write(self):
         """The function's C. Written again (once emitter.shared_results is known), only its last steps run."""
         if self.written is None:
-            tree, self.labels = structure.structure(self.function, self.control_name)
+            tree, self.labels = structure.structured(self.function, self.control_name)
             self.written = self.name_controls(self.nodes(tree, 1))
         body = self.forward_results(list(self.written))
         if body and body[-1] == "\treturn;":
@@ -2148,6 +2281,8 @@ class Emitter:
                                     # CONSOLE_ORIGINAL):
                                     # something else puts its own in its place (decompile.py, replaced_functions)
         self.raw_addresses = {}     # ROM address printed as a number -> the functions that use it
+        self.constants = {}         # (function name, value) -> its name (symbols.txt constant lines)
+        self.constants_used = set()  # the (function name, value) of those the C printed
         self.writes = {}            # entry -> what a function may write (dataflow summaries)
         self.always = always    # entry -> what a function writes on every path (dataflow summaries)
         self.functions = functions
@@ -2320,6 +2455,17 @@ class Emitter:
                 return (region, cprint.PRIMARY) if not offset else (f"{region} + 0x{offset:X}u", cprint.ADD)
         return None
 
+    def label_before(self, value):
+        """(data label, bytes into it) for an address up to 0xF bytes past the start of a piece of data
+        symbols.txt labels (and before the next label), or None."""
+        if not hasattr(self, "_labels"):
+            self._labels = sorted(self.data_labels)
+        position = bisect.bisect_right(self._labels, value) - 1
+        if position < 0:
+            return None
+        start = self._labels[position]
+        return (self.data_labels[start], value - start) if 0 < value - start <= 0xF else None
+
     def resolve(self, target, entry=None):
         """The function a call to 'target' runs, and the way into it: a function that is only a jump to
         another one (an entry of a table of "br" instructions) hands the call on."""
@@ -2455,9 +2601,10 @@ class Emitter:
         lines = comment_lines(f"How call_code() runs {self.names[entry]} from a slot that holds its address: with 0 "
                               "for what it takes, and what it hands back dropped.")
         lines += [f"static void call_{entry:06X}(void)", "{"]
+        # what it hands back goes into variables named as the function names its result pointers
         if by_pointer:
-            lines.append("\tuint32_t " + ", ".join(f"{value_name(value)} = 0" for value in by_pointer) + ";")
-        values = ["0"] * len(by_value) + [f"&{value_name(value)}" for value in by_pointer]
+            lines.append("\tuint32_t " + ", ".join(f"{self.param_name(entry, value)} = 0" for value in by_pointer) + ";")
+        values = ["0"] * len(by_value) + [f"&{self.param_name(entry, value)}" for value in by_pointer]
         if self.second_entries.get(entry):
             values.insert(0, "0u")
         lines.append(f"\t{self.names[entry]}({', '.join(values)});")

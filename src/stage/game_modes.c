@@ -3,7 +3,7 @@
  *    Description: the game modes (run_game_mode) and what a stage frame runs: starting a stage, layer blending, the stage clear check, the player summary, stage slots and events, restart points, the player objects, the GAME OVER banner and the demo prompt
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    21-10-2026
+ *    Modified:    23-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -123,13 +123,13 @@ void CONSOLE_ORIGINAL(run_game_mode)(uint32_t pressed, uint32_t position, uint32
 void game_mode_start_game(uint32_t *p_count, uint32_t *p_list_cursor)
 {
 	uint8_t mode = 0, next_game_mode = 0;
-	uint32_t control_register = 0, ignored = 0;
+	uint32_t control_register = 0, ignored = 0, ignored_2 = 0, ignored_3 = 0;
 	uint8_t new_game_cnt_bits = 0;
 
 	display_off_frames = 2u;
 	new_game_cnt_bits = mem_read8(io_cnt);
 	mem_write8(io_cnt, new_game_cnt_bits & ~2u);
-	clear_text_layer(&ignored, &ignored, &ignored);
+	clear_text_layer(&ignored, &ignored_2, &ignored_3);
 	clear_page_0_and_scroll();
 	if ((int8_t)game_in_progress < 0)
 	{
@@ -173,7 +173,7 @@ void game_mode_start_game(uint32_t *p_count, uint32_t *p_list_cursor)
 void start_stage(uint32_t stage_offset, uint32_t *p_write_index_address, uint32_t *p_floor_block, uint32_t *p_bounds_offset, uint32_t *p_corners_left, uint32_t *p_palette_record, uint32_t *p_source, uint32_t *p_object)
 {
 	uint8_t cabinet_event = 0, sound_id = 0, stages_past_2 = 0;
-	uint32_t ignored = 0;
+	uint32_t ignored = 0, ignored_2 = 0, ignored_3 = 0, ignored_4 = 0;
 	uint16_t cleared_count = 0;
 
 	if (stage_start_kind == 0u)
@@ -251,12 +251,12 @@ void start_stage(uint32_t stage_offset, uint32_t *p_write_index_address, uint32_
 		move_camera_to_start_section(p_write_index_address, p_floor_block, &ignored);
 		demo_input += 0x10u;
 	}
-	load_stage_map_pointers(&ignored, &ignored);
+	load_stage_map_pointers(&ignored_2, &ignored_3);
 	load_stage_goal();
-	find_nearby_floor_blocks(&ignored, p_floor_block, p_bounds_offset, &ignored, p_corners_left, &ignored, &ignored);
+	find_nearby_floor_blocks(&ignored_2, p_floor_block, p_bounds_offset, &ignored, p_corners_left, &ignored_3, &ignored_4);
 	start_spawns_by_type();
 	sound_id = stage_start_sounds[stage];
-	play_sound(sound_id, &ignored, p_write_index_address);
+	play_sound(sound_id, &ignored_2, p_write_index_address);
 	game_mode = 3u;
 	current_game_mode = 2u;
 	stage_start_kind = 0u;
@@ -339,7 +339,7 @@ void game_mode_play_stage(uint32_t pressed, uint32_t position, uint32_t in_play_
 void game_mode_intro(uint32_t position, uint32_t speed, uint32_t object, uint32_t *p_speed_value, uint32_t *p_count, uint32_t *p_cycle, uint32_t *p_list_cursor)
 {
 	uint8_t sound_id = 0;
-	uint32_t ignored = 0;
+	uint32_t ignored = 0, ignored_2 = 0, ignored_3 = 0, ignored_4 = 0, ignored_5 = 0, ignored_6 = 0;
 	uint8_t p2_status = 0, p3_status = 0;
 	uint32_t intro_init_flags = 0;
 
@@ -372,27 +372,27 @@ void game_mode_intro(uint32_t position, uint32_t speed, uint32_t object, uint32_
 		players_pulled_word = 0u;
 		stage_exit_started = 0u;
 		stage_06_shake = 0u;
-		start_stage_view(&ignored, &ignored, p_speed_value, &ignored);
+		start_stage_view(&ignored, &ignored_2, p_speed_value, &ignored_3);
 		stage_start_section = 6u;
-		move_camera_to_start_section(&position, &speed, &ignored);
-		load_stage_map_pointers(&ignored, &ignored);
+		move_camera_to_start_section(&position, &speed, &ignored_3);
+		load_stage_map_pointers(&ignored_4, &ignored_5);
 		load_stage_goal();
-		find_nearby_floor_blocks(&ignored, &speed, p_speed_value, &ignored, p_count, &ignored, &ignored);
+		find_nearby_floor_blocks(&ignored_4, &speed, p_speed_value, &ignored_3, p_count, &ignored_5, &ignored_6);
 		start_spawns_by_type();
-		load_stage_palette(p_cycle, &ignored, &object);
+		load_stage_palette(p_cycle, &ignored_5, &object);
 		current_game_mode = 1u;
 		sound_id = stage_start_sounds[stage];
-		play_sound(sound_id, &ignored, &position);
+		play_sound(sound_id, &ignored_4, &position);
 	}
-	update_scroll(&position, &speed, p_speed_value, &ignored, p_count, p_cycle, &ignored, &object);
-	update_stage_tile_layers(&ignored, &position, &speed, p_speed_value, &ignored, p_count, p_cycle, &ignored, &object);
-	find_nearby_floor_blocks(&ignored, &speed, p_speed_value, &ignored, p_count, &ignored, &object);
+	update_scroll(&position, &speed, p_speed_value, &ignored_3, p_count, p_cycle, &ignored_5, &object);
+	update_stage_tile_layers(&ignored_4, &position, &speed, p_speed_value, &ignored_3, p_count, p_cycle, &ignored_5, &object);
+	find_nearby_floor_blocks(&ignored_4, &speed, p_speed_value, &ignored_3, p_count, &ignored_5, &object);
 	*p_speed_value = update_restart_point(*p_speed_value);
-	spawn_objects_by_type(&ignored, &position, &speed, p_speed_value, &ignored, p_count, &object);
-	spawn_objects_by_handler(&ignored, &ignored, &object);
-	check_hits(&ignored, &position, &ignored, p_speed_value, &ignored, p_count, &ignored);
-	check_walls(ignored);
-	check_platforms(&ignored, &ignored, &ignored, p_speed_value, &ignored, p_count, p_cycle, &ignored, &ignored);
+	spawn_objects_by_type(&ignored_4, &position, &speed, p_speed_value, &ignored_3, p_count, &object);
+	spawn_objects_by_handler(&ignored_4, &ignored_5, &object);
+	check_hits(&ignored_4, &position, &ignored_2, p_speed_value, &ignored_3, p_count, &ignored_6);
+	check_walls(ignored_4);
+	check_platforms(&ignored_4, &ignored, &ignored_2, p_speed_value, &ignored_3, p_count, p_cycle, &ignored_5, &ignored_6);
 	*p_list_cursor = player_2_status_ADDRESS;
 	if (player_status[0] != 0xFFu || (inputs_pressed & 0x10000u) == 0u)
 	{
@@ -424,7 +424,7 @@ void game_mode_continue(uint32_t position, uint32_t *p_speed_value, uint32_t *p_
 {
 	uint32_t speed_value = *p_speed_value;
 	uint16_t attribute = 0, cell = 0;
-	uint32_t ignored = 0, text = 0, text_position = 0, value = 0;
+	uint32_t ignored = 0, ignored_2 = 0, ignored_3 = 0, ignored_4 = 0, ignored_5 = 0, text = 0, text_position = 0, value = 0;
 	uint8_t old_continue_count = 0;
 
 	if (continue_count == 9u)
@@ -433,10 +433,10 @@ void game_mode_continue(uint32_t position, uint32_t *p_speed_value, uint32_t *p_
 		print_text(&text, &ignored);
 	}
 	current_game_mode = 0xEu;
-	ignored = check_zones(0u);
-	check_hits(&ignored, &position, &ignored, &speed_value, &ignored, p_count, &ignored);
-	check_walls(ignored);
-	check_platforms(&ignored, &ignored, &ignored, &speed_value, &ignored, p_count, p_cycle, p_list_cursor, &ignored);
+	ignored_2 = check_zones(0u);
+	check_hits(&ignored_2, &position, &ignored_3, &speed_value, &ignored_4, p_count, &ignored);
+	check_walls(ignored_2);
+	check_platforms(&ignored_2, &ignored_5, &ignored_3, &speed_value, &ignored_4, p_count, p_cycle, p_list_cursor, &ignored);
 	if ((inputs_pressed & 0x10000u) != 0u || (inputs_pressed & 0x1000000u) != 0u || (inputs_pressed & 0x40000u) != 0u)
 		continue_second_frames = 0x3C;
 	continue_second_frames++;
@@ -520,28 +520,26 @@ void game_mode_continue(uint32_t position, uint32_t *p_speed_value, uint32_t *p_
 	case 3:
 		if (p3_credits == 0u || (inputs_pressed & 0x80u) == 0u)
 		{
-			if ((p2_credits == 0u || (inputs_pressed & 0x20u) == 0u) && (p1_credits == 0u || (inputs_pressed & 0x10u) == 0u))
+			if ((p2_credits != 0u && (inputs_pressed & 0x20u) != 0u) || (p1_credits != 0u && (inputs_pressed & 0x10u) != 0u))
 			{
-				*p_speed_value = (*p_speed_value & 0xFFFF0000u) | (speed_value & 0xFFFFu);
-				return;
+				game_mode = saved_game_mode;
+				player_status[0] = 0u;
+				player_2_status = 0u;
+				player_3_status = 0u;
+				player_status_spare = 0xFFu;
+				hitter_list = 0xFFFFu;
+				touchable_list = 0xFFFFu;
+				wall_list = 0xFFFFu;
+				rider_list = 0xFFFFu;
+				platform_list = 0xFFFFu;
+				zone_list = 0xFFFFu;
+				text = continue_text_ADDRESS;
+				erase_text(text);
+				cell = 0u;
+				*p_list_cursor = 0x25C4u;
+				text_position = TEXT_CELL(24, 14);
+				erase_text_here(cell, p_list_cursor, &text_position);
 			}
-			game_mode = saved_game_mode;
-			player_status[0] = 0u;
-			player_2_status = 0u;
-			player_3_status = 0u;
-			player_status_spare = 0xFFu;
-			hitter_list = 0xFFFFu;
-			touchable_list = 0xFFFFu;
-			wall_list = 0xFFFFu;
-			rider_list = 0xFFFFu;
-			platform_list = 0xFFFFu;
-			zone_list = 0xFFFFu;
-			text = continue_text_ADDRESS;
-			erase_text(text);
-			cell = 0u;
-			*p_list_cursor = 0x25C4u;
-			text_position = TEXT_CELL(24, 14);
-			erase_text_here(cell, p_list_cursor, &text_position);
 			*p_speed_value = (*p_speed_value & 0xFFFF0000u) | (speed_value & 0xFFFFu);
 			return;
 		}
@@ -575,14 +573,14 @@ void game_mode_continue(uint32_t position, uint32_t *p_speed_value, uint32_t *p_
 uint32_t game_mode_stage_end_fade(uint32_t bottom_speed, uint32_t object)
 {
 	uint8_t sound_id = 0;
-	uint32_t ignored = 0;
+	uint32_t ignored = 0, ignored_2 = 0;
 
 	if (current_game_mode != 4u)
 	{
 		sound_id = 0x95u;
-		play_sound(sound_id, &ignored, &ignored);
+		play_sound(sound_id, &ignored, &ignored_2);
 		sound_id = 3u;
-		play_sound(sound_id, &ignored, &ignored);
+		play_sound(sound_id, &ignored, &ignored_2);
 	}
 	current_game_mode = 4u;
 	mixer_blend &= 0xF7FFu;
@@ -598,26 +596,26 @@ uint32_t game_mode_stage_end_fade(uint32_t bottom_speed, uint32_t object)
    all four edges in place (0xF). */
 void game_mode_screen_wipe(uint32_t position, uint32_t speed, uint32_t edges_done, uint32_t object, uint32_t *p_speed_value, uint32_t *p_count, uint32_t *p_cycle, uint32_t *p_list_cursor)
 {
-	uint32_t ignored = 0;
+	uint32_t ignored = 0, ignored_2 = 0, ignored_3 = 0, ignored_4 = 0, ignored_5 = 0;
 
 	current_game_mode = 0x11u;
 	if (stage == 4u)
 		scroll_mode = 1u;
 	update_scroll(&position, &speed, p_speed_value, &edges_done, p_count, p_cycle, &ignored, &object);
-	update_stage_tile_layers(&ignored, &position, &speed, p_speed_value, &edges_done, p_count, p_cycle, &ignored, &object);
-	find_nearby_floor_blocks(&ignored, &speed, p_speed_value, &edges_done, p_count, &ignored, &object);
+	update_stage_tile_layers(&ignored_2, &position, &speed, p_speed_value, &edges_done, p_count, p_cycle, &ignored, &object);
+	find_nearby_floor_blocks(&ignored_2, &speed, p_speed_value, &edges_done, p_count, &ignored, &object);
 	*p_speed_value = update_restart_point(*p_speed_value);
-	spawn_objects_by_type(&ignored, &position, &speed, p_speed_value, &edges_done, p_count, &object);
-	spawn_ring_rows(&ignored, &position, &ignored, &object);
-	spawn_walls(&ignored, &position, &edges_done, p_count, p_cycle, &object);
-	spawn_object_groups_2(&ignored, p_count, &object);
-	spawn_object_groups(&ignored, &position, &ignored, p_count, &object);
-	spawn_objects_by_handler(&ignored, &ignored, &object);
-	ignored = check_zones(ignored);
-	check_hits(&ignored, &position, &ignored, p_speed_value, &edges_done, p_count, &ignored);
-	check_walls(ignored);
-	check_platforms(&ignored, &ignored, &ignored, p_speed_value, &edges_done, p_count, p_cycle, p_list_cursor, &ignored);
-	update_screen_wipe(&ignored, &ignored, &ignored, &edges_done);
+	spawn_objects_by_type(&ignored_2, &position, &speed, p_speed_value, &edges_done, p_count, &object);
+	spawn_ring_rows(&ignored_2, &position, &ignored_3, &object);
+	spawn_walls(&ignored_2, &position, &edges_done, p_count, p_cycle, &object);
+	spawn_object_groups_2(&ignored_2, p_count, &object);
+	spawn_object_groups(&ignored_2, &position, &ignored_3, p_count, &object);
+	spawn_objects_by_handler(&ignored_2, &ignored, &object);
+	ignored_2 = check_zones(ignored_2);
+	check_hits(&ignored_2, &position, &ignored_3, p_speed_value, &edges_done, p_count, &ignored_4);
+	check_walls(ignored_2);
+	check_platforms(&ignored_2, &ignored_5, &ignored_3, p_speed_value, &edges_done, p_count, p_cycle, p_list_cursor, &ignored_4);
+	update_screen_wipe(&ignored_2, &ignored_5, &ignored_3, &edges_done);
 	if ((edges_done & 0xFu) != 0xFu)
 	{
 		return;
@@ -632,7 +630,7 @@ void game_mode_screen_wipe(uint32_t position, uint32_t speed, uint32_t edges_don
 void game_mode_stage_clear(uint32_t position, uint32_t speed, uint32_t object, uint32_t *p_speed_value, uint32_t *p_count, uint32_t *p_cycle, uint32_t *p_list_cursor)
 {
 	uint8_t sound_id = 0;
-	uint32_t banner_record = 0, free_count = 0, ignored = 0;
+	uint32_t banner_record = 0, free_count = 0, ignored = 0, ignored_2 = 0, ignored_3 = 0, ignored_4 = 0, ignored_5 = 0, ignored_6 = 0;
 	uint16_t old_clear_timer = 0;
 	uint32_t stage_clear_init_flags = 0;
 
@@ -668,8 +666,7 @@ void game_mode_stage_clear(uint32_t position, uint32_t speed, uint32_t object, u
 				OBJECT(object)->sprite_palette = 0x89A0u;
 				OBJECT(object)->handler = cleared_banner_wait_ADDRESS;
 				OBJECT(object)->flags = 1u;
-				OBJECT(object)->var_80 = 0x10u;
-				OBJECT(object)->var_81 = 0u;
+				OBJECT(object)->stage_clear_banner.sparkle_offset = 0x10u;
 				OBJECT(object)->screen_x = cleared_banner_x;
 				OBJECT(object)->screen_y = cleared_banner_y;
 				OBJECT(object)->animation = cleared_banner_animation_ADDRESS;
@@ -687,20 +684,20 @@ void game_mode_stage_clear(uint32_t position, uint32_t speed, uint32_t object, u
 		banner_break = 0xFFu;
 	current_game_mode = 0x17u;
 	next_stage_slot_request = 0u;
-	update_scroll(&position, &speed, p_speed_value, &ignored, p_count, p_cycle, &ignored, &object);
-	update_stage_tile_layers(&ignored, &position, &speed, p_speed_value, &ignored, p_count, p_cycle, &ignored, &object);
-	find_nearby_floor_blocks(&ignored, &speed, p_speed_value, &ignored, p_count, &ignored, &object);
+	update_scroll(&position, &speed, p_speed_value, &ignored_2, p_count, p_cycle, &ignored_3, &object);
+	update_stage_tile_layers(&ignored, &position, &speed, p_speed_value, &ignored_2, p_count, p_cycle, &ignored_3, &object);
+	find_nearby_floor_blocks(&ignored, &speed, p_speed_value, &ignored_2, p_count, &ignored_3, &object);
 	*p_speed_value = update_restart_point(*p_speed_value);
-	spawn_objects_by_type(&ignored, &position, &speed, p_speed_value, &ignored, p_count, &object);
-	spawn_ring_rows(&ignored, &position, &ignored, &object);
-	spawn_walls(&ignored, &position, &ignored, p_count, p_cycle, &object);
+	spawn_objects_by_type(&ignored, &position, &speed, p_speed_value, &ignored_2, p_count, &object);
+	spawn_ring_rows(&ignored, &position, &ignored_4, &object);
+	spawn_walls(&ignored, &position, &ignored_2, p_count, p_cycle, &object);
 	spawn_object_groups_2(&ignored, p_count, &object);
-	spawn_object_groups(&ignored, &position, &ignored, p_count, &object);
-	spawn_objects_by_handler(&ignored, &ignored, &object);
+	spawn_object_groups(&ignored, &position, &ignored_4, p_count, &object);
+	spawn_objects_by_handler(&ignored, &ignored_3, &object);
 	ignored = check_zones(ignored);
-	check_hits(&ignored, &position, &ignored, p_speed_value, &ignored, p_count, &ignored);
+	check_hits(&ignored, &position, &ignored_4, p_speed_value, &ignored_2, p_count, &ignored_5);
 	check_walls(ignored);
-	check_platforms(&ignored, &ignored, &ignored, p_speed_value, &ignored, p_count, p_cycle, p_list_cursor, &ignored);
+	check_platforms(&ignored, &ignored_6, &ignored_4, p_speed_value, &ignored_2, p_count, p_cycle, p_list_cursor, &ignored_5);
 	old_clear_timer = stage_clear_timer;
 	stage_clear_timer = old_clear_timer - 1u;
 	if ((int16_t)old_clear_timer > 1)
@@ -717,13 +714,13 @@ void game_mode_stage_clear(uint32_t position, uint32_t speed, uint32_t object, u
 void game_mode_game_over(uint32_t box_edge, uint32_t position, uint16_t scale, uint32_t *p_speed_value, uint32_t *p_count, uint32_t *p_cycle, uint32_t *p_list_cursor)
 {
 	uint8_t credits_needed = 0, sound_id = 0;
-	uint32_t ignored = 0, record = 0;
+	uint32_t ignored = 0, ignored_2 = 0, ignored_3 = 0, ignored_4 = 0, ignored_5 = 0, record = 0;
 	uint8_t game_over_cnt_bits = 0;
 
 	if ((uint16_t)game_mode_timer == 0u)
 	{
 		sound_id = 0x94u;
-		queue_sound(sound_id, &ignored, &ignored);
+		queue_sound(sound_id, &ignored, &ignored_2);
 		sound_id = 0x73u;
 		if (stage == 0x11u)
 			sound_id = 0x76u;
@@ -741,9 +738,9 @@ void game_mode_game_over(uint32_t box_edge, uint32_t position, uint16_t scale, u
 		queue_string_record(record, (uint16_t)box_edge, scale, &position, p_speed_value);
 	}
 	box_edge = check_zones(box_edge);
-	check_hits(&box_edge, &position, &ignored, p_speed_value, &ignored, p_count, &ignored);
+	check_hits(&box_edge, &position, &ignored_3, p_speed_value, &ignored_4, p_count, &ignored_5);
 	check_walls(box_edge);
-	check_platforms(&ignored, &ignored, &ignored, p_speed_value, &ignored, p_count, p_cycle, p_list_cursor, &ignored);
+	check_platforms(&ignored, &ignored_2, &ignored_3, p_speed_value, &ignored_4, p_count, p_cycle, p_list_cursor, &ignored_5);
 	game_mode_timer++;
 	if (game_mode_timer >= 0x78)
 	{
@@ -821,7 +818,7 @@ void game_mode_game_over(uint32_t box_edge, uint32_t position, uint16_t scale, u
    least 3 frames, once character_select_timer is 0. */
 void game_mode_character_select(uint32_t position, uint32_t speed, uint32_t object, uint32_t *p_speed_value, uint32_t *p_count, uint32_t *p_cycle, uint32_t *p_list_cursor)
 {
-	uint32_t ignored = 0;
+	uint32_t ignored = 0, ignored_2 = 0, ignored_3 = 0, ignored_4 = 0, ignored_5 = 0, ignored_6 = 0;
 	uint32_t character_select_init_flags = 0;
 
 	character_select_init_flags = stage_init_flags;
@@ -856,19 +853,19 @@ void game_mode_character_select(uint32_t position, uint32_t speed, uint32_t obje
 		nearby_floor_block_count = 0u;
 		characters_taken = 0u;
 		start_stage_view(&position, &speed, p_speed_value, &ignored);
-		load_stage_map_pointers(&ignored, &ignored);
+		load_stage_map_pointers(&ignored_2, &ignored_3);
 		load_stage_goal();
 		start_spawns_by_type();
-		load_stage_palette(p_cycle, &ignored, &object);
+		load_stage_palette(p_cycle, &ignored_3, &object);
 		current_game_mode = 0x1Bu;
 		mem_write8(cabinet_events, 0x15u);
 	}
 	*p_speed_value = update_restart_point(*p_speed_value);
-	spawn_objects_by_type(&ignored, &position, &speed, p_speed_value, &ignored, p_count, &object);
-	spawn_objects_by_handler(&ignored, &ignored, &object);
-	check_hits(&ignored, &position, &ignored, p_speed_value, &ignored, p_count, &ignored);
-	check_walls(ignored);
-	check_platforms(&ignored, &ignored, &ignored, p_speed_value, &ignored, p_count, p_cycle, p_list_cursor, &ignored);
+	spawn_objects_by_type(&ignored_2, &position, &speed, p_speed_value, &ignored, p_count, &object);
+	spawn_objects_by_handler(&ignored_2, &ignored_3, &object);
+	check_hits(&ignored_2, &position, &ignored_4, p_speed_value, &ignored, p_count, &ignored_5);
+	check_walls(ignored_2);
+	check_platforms(&ignored_2, &ignored_6, &ignored_4, p_speed_value, &ignored, p_count, p_cycle, p_list_cursor, &ignored_5);
 	game_mode_timer++;
 	if ((uint16_t)game_mode_timer < 3u || (uint16_t)character_select_timer != 0u)
 	{
@@ -883,7 +880,7 @@ void game_mode_character_select(uint32_t position, uint32_t speed, uint32_t obje
    screen). */
 void game_mode_stage_results(uint32_t position, uint32_t speed, uint32_t object, uint32_t *p_speed_value, uint32_t *p_count, uint32_t *p_cycle, uint32_t *p_list_cursor)
 {
-	uint32_t ignored = 0;
+	uint32_t ignored = 0, ignored_2 = 0, ignored_3 = 0, ignored_4 = 0, ignored_5 = 0, ignored_6 = 0;
 	uint32_t stage_results_init_flags = 0;
 
 	stage_results_init_flags = stage_init_flags;
@@ -895,20 +892,20 @@ void game_mode_stage_results(uint32_t position, uint32_t speed, uint32_t object,
 	}
 	current_game_mode = 0x1Du;
 	next_stage_slot_request = 0u;
-	update_scroll(&position, &speed, p_speed_value, &ignored, p_count, p_cycle, &ignored, &object);
-	update_stage_tile_layers(&ignored, &position, &speed, p_speed_value, &ignored, p_count, p_cycle, &ignored, &object);
-	find_nearby_floor_blocks(&ignored, &speed, p_speed_value, &ignored, p_count, &ignored, &object);
+	update_scroll(&position, &speed, p_speed_value, &ignored, p_count, p_cycle, &ignored_2, &object);
+	update_stage_tile_layers(&ignored_3, &position, &speed, p_speed_value, &ignored, p_count, p_cycle, &ignored_2, &object);
+	find_nearby_floor_blocks(&ignored_3, &speed, p_speed_value, &ignored, p_count, &ignored_2, &object);
 	*p_speed_value = update_restart_point(*p_speed_value);
-	spawn_objects_by_type(&ignored, &position, &speed, p_speed_value, &ignored, p_count, &object);
-	spawn_ring_rows(&ignored, &position, &ignored, &object);
-	spawn_walls(&ignored, &position, &ignored, p_count, p_cycle, &object);
-	spawn_object_groups_2(&ignored, p_count, &object);
-	spawn_object_groups(&ignored, &position, &ignored, p_count, &object);
-	spawn_objects_by_handler(&ignored, &ignored, &object);
-	ignored = check_zones(ignored);
-	check_hits(&ignored, &position, &ignored, p_speed_value, &ignored, p_count, &ignored);
-	check_walls(ignored);
-	check_platforms(&ignored, &ignored, &ignored, p_speed_value, &ignored, p_count, p_cycle, p_list_cursor, &ignored);
+	spawn_objects_by_type(&ignored_3, &position, &speed, p_speed_value, &ignored, p_count, &object);
+	spawn_ring_rows(&ignored_3, &position, &ignored_4, &object);
+	spawn_walls(&ignored_3, &position, &ignored, p_count, p_cycle, &object);
+	spawn_object_groups_2(&ignored_3, p_count, &object);
+	spawn_object_groups(&ignored_3, &position, &ignored_4, p_count, &object);
+	spawn_objects_by_handler(&ignored_3, &ignored_2, &object);
+	ignored_3 = check_zones(ignored_3);
+	check_hits(&ignored_3, &position, &ignored_4, p_speed_value, &ignored, p_count, &ignored_5);
+	check_walls(ignored_3);
+	check_platforms(&ignored_3, &ignored_6, &ignored_4, p_speed_value, &ignored, p_count, p_cycle, p_list_cursor, &ignored_5);
 	if (stage_results_done == 0u)
 	{
 		return;
@@ -923,7 +920,7 @@ void game_mode_stage_results(uint32_t position, uint32_t speed, uint32_t object,
    colour offsets are on during the fades. */
 void game_mode_stage_change_fade(uint32_t delta, uint32_t position, uint32_t in_play_count, uint16_t next_scroll_position, uint32_t object, uint32_t *p_speed_value, uint32_t *p_count, uint32_t *p_cycle, uint32_t *p_list_cursor)
 {
-	uint32_t ignored = 0;
+	uint32_t ignored = 0, ignored_2 = 0, ignored_3 = 0, ignored_4 = 0, ignored_5 = 0, ignored_6 = 0;
 
 	if ((uint16_t)game_mode_timer == 0u)
 	{
@@ -946,21 +943,21 @@ void game_mode_stage_change_fade(uint32_t delta, uint32_t position, uint32_t in_
 			current_game_mode = 0x1Eu;
 			next_stage_slot_request = 0u;
 			update_player_summary(&in_play_count, p_count, &ignored, &object);
-			update_scroll(&position, &in_play_count, p_speed_value, &ignored, p_count, p_cycle, &ignored, &object);
-			update_stage_tile_layers(&ignored, &position, &in_play_count, p_speed_value, &ignored, p_count, p_cycle, &ignored, &object);
-			find_nearby_floor_blocks(&ignored, &in_play_count, p_speed_value, &ignored, p_count, &ignored, &object);
-			continue_to_next_stage_slot(&ignored, &ignored, &object);
+			update_scroll(&position, &in_play_count, p_speed_value, &ignored_2, p_count, p_cycle, &ignored, &object);
+			update_stage_tile_layers(&ignored_3, &position, &in_play_count, p_speed_value, &ignored_2, p_count, p_cycle, &ignored, &object);
+			find_nearby_floor_blocks(&ignored_3, &in_play_count, p_speed_value, &ignored_2, p_count, &ignored, &object);
+			continue_to_next_stage_slot(&ignored_3, &ignored, &object);
 			*p_speed_value = update_restart_point(*p_speed_value);
-			spawn_objects_by_type(&ignored, &position, &in_play_count, p_speed_value, &ignored, p_count, &object);
-			spawn_ring_rows(&ignored, &position, &ignored, &object);
-			spawn_walls(&ignored, &position, &ignored, p_count, p_cycle, &object);
-			spawn_object_groups_2(&ignored, p_count, &object);
-			spawn_object_groups(&ignored, &position, &ignored, p_count, &object);
-			spawn_objects_by_handler(&ignored, &ignored, &object);
-			ignored = check_zones(ignored);
-			check_hits(&ignored, &position, &ignored, p_speed_value, &ignored, p_count, &ignored);
-			check_walls(ignored);
-			check_platforms(&ignored, &ignored, &ignored, p_speed_value, &ignored, p_count, p_cycle, p_list_cursor, &ignored);
+			spawn_objects_by_type(&ignored_3, &position, &in_play_count, p_speed_value, &ignored_2, p_count, &object);
+			spawn_ring_rows(&ignored_3, &position, &ignored_4, &object);
+			spawn_walls(&ignored_3, &position, &ignored_2, p_count, p_cycle, &object);
+			spawn_object_groups_2(&ignored_3, p_count, &object);
+			spawn_object_groups(&ignored_3, &position, &ignored_4, p_count, &object);
+			spawn_objects_by_handler(&ignored_3, &ignored, &object);
+			ignored_3 = check_zones(ignored_3);
+			check_hits(&ignored_3, &position, &ignored_4, p_speed_value, &ignored_2, p_count, &ignored_5);
+			check_walls(ignored_3);
+			check_platforms(&ignored_3, &ignored_6, &ignored_4, p_speed_value, &ignored_2, p_count, p_cycle, p_list_cursor, &ignored_5);
 			return;
 		}
 		game_mode = 3u;
@@ -981,21 +978,21 @@ void game_mode_stage_change_fade(uint32_t delta, uint32_t position, uint32_t in_
 		current_game_mode = 0x1Eu;
 		next_stage_slot_request = 0u;
 		update_player_summary(&in_play_count, p_count, &ignored, &object);
-		update_scroll(&position, &in_play_count, p_speed_value, &ignored, p_count, p_cycle, &ignored, &object);
-		update_stage_tile_layers(&ignored, &position, &in_play_count, p_speed_value, &ignored, p_count, p_cycle, &ignored, &object);
-		find_nearby_floor_blocks(&ignored, &in_play_count, p_speed_value, &ignored, p_count, &ignored, &object);
-		continue_to_next_stage_slot(&ignored, &ignored, &object);
+		update_scroll(&position, &in_play_count, p_speed_value, &ignored_2, p_count, p_cycle, &ignored, &object);
+		update_stage_tile_layers(&ignored_3, &position, &in_play_count, p_speed_value, &ignored_2, p_count, p_cycle, &ignored, &object);
+		find_nearby_floor_blocks(&ignored_3, &in_play_count, p_speed_value, &ignored_2, p_count, &ignored, &object);
+		continue_to_next_stage_slot(&ignored_3, &ignored, &object);
 		*p_speed_value = update_restart_point(*p_speed_value);
-		spawn_objects_by_type(&ignored, &position, &in_play_count, p_speed_value, &ignored, p_count, &object);
-		spawn_ring_rows(&ignored, &position, &ignored, &object);
-		spawn_walls(&ignored, &position, &ignored, p_count, p_cycle, &object);
-		spawn_object_groups_2(&ignored, p_count, &object);
-		spawn_object_groups(&ignored, &position, &ignored, p_count, &object);
-		spawn_objects_by_handler(&ignored, &ignored, &object);
-		ignored = check_zones(ignored);
-		check_hits(&ignored, &position, &ignored, p_speed_value, &ignored, p_count, &ignored);
-		check_walls(ignored);
-		check_platforms(&ignored, &ignored, &ignored, p_speed_value, &ignored, p_count, p_cycle, p_list_cursor, &ignored);
+		spawn_objects_by_type(&ignored_3, &position, &in_play_count, p_speed_value, &ignored_2, p_count, &object);
+		spawn_ring_rows(&ignored_3, &position, &ignored_4, &object);
+		spawn_walls(&ignored_3, &position, &ignored_2, p_count, p_cycle, &object);
+		spawn_object_groups_2(&ignored_3, p_count, &object);
+		spawn_object_groups(&ignored_3, &position, &ignored_4, p_count, &object);
+		spawn_objects_by_handler(&ignored_3, &ignored, &object);
+		ignored_3 = check_zones(ignored_3);
+		check_hits(&ignored_3, &position, &ignored_4, p_speed_value, &ignored_2, p_count, &ignored_5);
+		check_walls(ignored_3);
+		check_platforms(&ignored_3, &ignored_6, &ignored_4, p_speed_value, &ignored_2, p_count, p_cycle, p_list_cursor, &ignored_5);
 		return;
 	}
 	start_stage(next_scroll_position, &position, &in_play_count, p_speed_value, p_count, p_cycle, p_list_cursor, &object);
@@ -1014,21 +1011,21 @@ void game_mode_stage_change_fade(uint32_t delta, uint32_t position, uint32_t in_
 		current_game_mode = 0x1Eu;
 		next_stage_slot_request = 0u;
 		update_player_summary(&in_play_count, p_count, &ignored, &object);
-		update_scroll(&position, &in_play_count, p_speed_value, &ignored, p_count, p_cycle, &ignored, &object);
-		update_stage_tile_layers(&ignored, &position, &in_play_count, p_speed_value, &ignored, p_count, p_cycle, &ignored, &object);
-		find_nearby_floor_blocks(&ignored, &in_play_count, p_speed_value, &ignored, p_count, &ignored, &object);
-		continue_to_next_stage_slot(&ignored, &ignored, &object);
+		update_scroll(&position, &in_play_count, p_speed_value, &ignored_2, p_count, p_cycle, &ignored, &object);
+		update_stage_tile_layers(&ignored_3, &position, &in_play_count, p_speed_value, &ignored_2, p_count, p_cycle, &ignored, &object);
+		find_nearby_floor_blocks(&ignored_3, &in_play_count, p_speed_value, &ignored_2, p_count, &ignored, &object);
+		continue_to_next_stage_slot(&ignored_3, &ignored, &object);
 		*p_speed_value = update_restart_point(*p_speed_value);
-		spawn_objects_by_type(&ignored, &position, &in_play_count, p_speed_value, &ignored, p_count, &object);
-		spawn_ring_rows(&ignored, &position, &ignored, &object);
-		spawn_walls(&ignored, &position, &ignored, p_count, p_cycle, &object);
-		spawn_object_groups_2(&ignored, p_count, &object);
-		spawn_object_groups(&ignored, &position, &ignored, p_count, &object);
-		spawn_objects_by_handler(&ignored, &ignored, &object);
-		ignored = check_zones(ignored);
-		check_hits(&ignored, &position, &ignored, p_speed_value, &ignored, p_count, &ignored);
-		check_walls(ignored);
-		check_platforms(&ignored, &ignored, &ignored, p_speed_value, &ignored, p_count, p_cycle, p_list_cursor, &ignored);
+		spawn_objects_by_type(&ignored_3, &position, &in_play_count, p_speed_value, &ignored_2, p_count, &object);
+		spawn_ring_rows(&ignored_3, &position, &ignored_4, &object);
+		spawn_walls(&ignored_3, &position, &ignored_2, p_count, p_cycle, &object);
+		spawn_object_groups_2(&ignored_3, p_count, &object);
+		spawn_object_groups(&ignored_3, &position, &ignored_4, p_count, &object);
+		spawn_objects_by_handler(&ignored_3, &ignored, &object);
+		ignored_3 = check_zones(ignored_3);
+		check_hits(&ignored_3, &position, &ignored_4, p_speed_value, &ignored_2, p_count, &ignored_5);
+		check_walls(ignored_3);
+		check_platforms(&ignored_3, &ignored_6, &ignored_4, p_speed_value, &ignored_2, p_count, p_cycle, p_list_cursor, &ignored_5);
 		return;
 	}
 	game_mode = 3u;
@@ -1041,7 +1038,7 @@ void game_mode_stage_change_fade(uint32_t delta, uint32_t position, uint32_t in_
 void game_mode_you_failed(uint32_t box_edge, uint32_t position, uint32_t in_play_count, uint32_t object, uint32_t *p_speed_value, uint32_t *p_count, uint32_t *p_cycle, uint32_t *p_list_cursor)
 {
 	uint8_t sound_id = 0;
-	uint32_t ignored = 0, record = 0;
+	uint32_t ignored = 0, ignored_2 = 0, ignored_3 = 0, record = 0;
 
 	if ((uint16_t)game_mode_timer == 0u)
 	{
@@ -1064,18 +1061,18 @@ void game_mode_you_failed(uint32_t box_edge, uint32_t position, uint32_t in_play
 	}
 	next_stage_slot_request = 0u;
 	update_player_summary(&in_play_count, p_count, &ignored, &object);
-	find_nearby_floor_blocks(&box_edge, &in_play_count, p_speed_value, &ignored, p_count, &ignored, &object);
+	find_nearby_floor_blocks(&box_edge, &in_play_count, p_speed_value, &ignored_2, p_count, &ignored, &object);
 	*p_speed_value = update_restart_point(*p_speed_value);
-	spawn_objects_by_type(&box_edge, &position, &in_play_count, p_speed_value, &ignored, p_count, &object);
+	spawn_objects_by_type(&box_edge, &position, &in_play_count, p_speed_value, &ignored_2, p_count, &object);
 	spawn_ring_rows(&box_edge, &position, &in_play_count, &object);
-	spawn_walls(&box_edge, &position, &ignored, p_count, p_cycle, &object);
+	spawn_walls(&box_edge, &position, &ignored_2, p_count, p_cycle, &object);
 	spawn_object_groups_2(&box_edge, p_count, &object);
 	spawn_object_groups(&box_edge, &position, &in_play_count, p_count, &object);
 	spawn_objects_by_handler(&box_edge, &ignored, &object);
 	box_edge = check_zones(box_edge);
-	check_hits(&box_edge, &position, &in_play_count, p_speed_value, &ignored, p_count, &ignored);
+	check_hits(&box_edge, &position, &in_play_count, p_speed_value, &ignored_2, p_count, &ignored_3);
 	box_edge = check_walls(box_edge);
-	check_platforms(&box_edge, &position, &in_play_count, p_speed_value, &ignored, p_count, p_cycle, p_list_cursor, &ignored);
+	check_platforms(&box_edge, &position, &in_play_count, p_speed_value, &ignored_2, p_count, p_cycle, p_list_cursor, &ignored_3);
 	if ((int16_t)color_offset_red < 0x1F)
 	{
 		you_failed_fade_red++;
@@ -1224,12 +1221,12 @@ void CONSOLE_ORIGINAL(game_mode_stage_select)(uint32_t *p_count, uint32_t *p_lis
    continue_to_next_stage_slot and the nearby floor blocks; nothing changes the mode. */
 void game_mode_event_09(uint32_t speed, uint32_t object, uint32_t *p_speed_value, uint32_t *p_count, uint32_t *p_cycle, uint32_t *p_list_cursor)
 {
-	uint32_t ignored = 0;
+	uint32_t ignored = 0, ignored_2 = 0, ignored_3 = 0, ignored_4 = 0, ignored_5 = 0;
 
-	update_scroll(&ignored, &speed, p_speed_value, &ignored, p_count, p_cycle, p_list_cursor, &object);
-	update_stage_tile_layers(&ignored, &ignored, &ignored, p_speed_value, &ignored, p_count, p_cycle, p_list_cursor, &object);
-	continue_to_next_stage_slot(&ignored, p_list_cursor, &ignored);
-	find_nearby_floor_blocks(&ignored, &ignored, p_speed_value, &ignored, p_count, p_list_cursor, &ignored);
+	update_scroll(&ignored, &speed, p_speed_value, &ignored_2, p_count, p_cycle, p_list_cursor, &object);
+	update_stage_tile_layers(&ignored_3, &ignored, &ignored_4, p_speed_value, &ignored_2, p_count, p_cycle, p_list_cursor, &object);
+	continue_to_next_stage_slot(&ignored_3, p_list_cursor, &ignored_5);
+	find_nearby_floor_blocks(&ignored_3, &ignored_4, p_speed_value, &ignored_2, p_count, p_list_cursor, &ignored_5);
 }
 
 /* Game modes 0xA and 0xB (only 0xA is ever set: stage 5's event at scroll 0x100): with a player left,
@@ -1253,7 +1250,7 @@ void game_mode_event_0A(uint32_t pressed, uint32_t position, uint32_t speed, uin
    and the hit, wall and platform checks (no spawners). */
 void game_mode_event_0C(uint32_t position, uint32_t speed, uint32_t object, uint32_t *p_speed_value, uint32_t *p_count, uint32_t *p_cycle, uint32_t *p_list_cursor)
 {
-	uint32_t ignored = 0;
+	uint32_t ignored = 0, ignored_2 = 0, ignored_3 = 0, ignored_4 = 0, ignored_5 = 0, ignored_6 = 0;
 
 	current_game_mode = 0xCu;
 	switch (scene_step)
@@ -1276,12 +1273,12 @@ void game_mode_event_0C(uint32_t position, uint32_t speed, uint32_t object, uint
 	default:
 		invalid_jump(0x9487Cu + scene_step * 3u);
 	}
-	update_scroll(&position, &speed, p_speed_value, &ignored, p_count, p_cycle, &ignored, &object);
-	update_stage_tile_layers(&ignored, &position, &ignored, p_speed_value, &ignored, p_count, p_cycle, &ignored, &object);
+	update_scroll(&position, &speed, p_speed_value, &ignored, p_count, p_cycle, &ignored_2, &object);
+	update_stage_tile_layers(&ignored_3, &position, &ignored_4, p_speed_value, &ignored, p_count, p_cycle, &ignored_2, &object);
 	*p_speed_value = update_restart_point(*p_speed_value);
-	check_hits(&ignored, &position, &ignored, p_speed_value, &ignored, p_count, &ignored);
-	check_walls(ignored);
-	check_platforms(&ignored, &ignored, &ignored, p_speed_value, &ignored, p_count, p_cycle, p_list_cursor, &ignored);
+	check_hits(&ignored_3, &position, &ignored_4, p_speed_value, &ignored, p_count, &ignored_5);
+	check_walls(ignored_3);
+	check_platforms(&ignored_3, &ignored_6, &ignored_4, p_speed_value, &ignored, p_count, p_cycle, p_list_cursor, &ignored_5);
 }
 
 /* Game mode 0xD, stage 8's event at scroll 0: the players frozen (players_frozen, event_0d_active) for
@@ -1289,7 +1286,7 @@ void game_mode_event_0C(uint32_t position, uint32_t speed, uint32_t object, uint
    zones), at scroll_position 0xA00 game_mode 3, the players free and scroll mode 7. */
 void game_mode_event_0D(uint32_t position, uint32_t speed, uint32_t object, uint32_t *p_speed_value, uint32_t *p_count, uint32_t *p_cycle, uint32_t *p_list_cursor)
 {
-	uint32_t ignored = 0;
+	uint32_t ignored = 0, ignored_2 = 0, ignored_3 = 0, ignored_4 = 0, ignored_5 = 0, ignored_6 = 0;
 	uint16_t event_0d_timer = 0;
 
 	current_game_mode = 0xDu;
@@ -1314,18 +1311,18 @@ void game_mode_event_0D(uint32_t position, uint32_t speed, uint32_t object, uint
 		scene_timer = event_0d_timer - 1u;
 		if ((int16_t)event_0d_timer > 1)
 		{
-			find_nearby_floor_blocks(&ignored, &speed, p_speed_value, &ignored, p_count, &ignored, &object);
-			update_scroll(&position, &speed, p_speed_value, &ignored, p_count, p_cycle, &ignored, &object);
-			update_stage_tile_layers(&ignored, &position, &speed, p_speed_value, &ignored, p_count, p_cycle, &ignored, &object);
-			spawn_objects_by_type(&ignored, &position, &speed, p_speed_value, &ignored, p_count, &object);
-			spawn_ring_rows(&ignored, &position, &ignored, &object);
-			spawn_walls(&ignored, &position, &ignored, p_count, p_cycle, &object);
+			find_nearby_floor_blocks(&ignored, &speed, p_speed_value, &ignored_2, p_count, &ignored_3, &object);
+			update_scroll(&position, &speed, p_speed_value, &ignored_2, p_count, p_cycle, &ignored_3, &object);
+			update_stage_tile_layers(&ignored, &position, &speed, p_speed_value, &ignored_2, p_count, p_cycle, &ignored_3, &object);
+			spawn_objects_by_type(&ignored, &position, &speed, p_speed_value, &ignored_2, p_count, &object);
+			spawn_ring_rows(&ignored, &position, &ignored_4, &object);
+			spawn_walls(&ignored, &position, &ignored_2, p_count, p_cycle, &object);
 			spawn_object_groups_2(&ignored, p_count, &object);
-			spawn_object_groups(&ignored, &position, &ignored, p_count, &object);
-			spawn_objects_by_handler(&ignored, &ignored, &object);
-			check_hits(&ignored, &position, &ignored, p_speed_value, &ignored, p_count, &ignored);
+			spawn_object_groups(&ignored, &position, &ignored_4, p_count, &object);
+			spawn_objects_by_handler(&ignored, &ignored_3, &object);
+			check_hits(&ignored, &position, &ignored_4, p_speed_value, &ignored_2, p_count, &ignored_5);
 			check_walls(ignored);
-			check_platforms(&ignored, &ignored, &ignored, p_speed_value, &ignored, p_count, p_cycle, p_list_cursor, &ignored);
+			check_platforms(&ignored, &ignored_6, &ignored_4, p_speed_value, &ignored_2, p_count, p_cycle, p_list_cursor, &ignored_5);
 			if (scroll_position < 0xA00u)
 			{
 				return;
@@ -1340,18 +1337,18 @@ void game_mode_event_0D(uint32_t position, uint32_t speed, uint32_t object, uint
 	}
 	scroll_mode = 0u;
 	scroll_speed = 0x1Cu;
-	find_nearby_floor_blocks(&ignored, &speed, p_speed_value, &ignored, p_count, &ignored, &object);
-	update_scroll(&position, &speed, p_speed_value, &ignored, p_count, p_cycle, &ignored, &object);
-	update_stage_tile_layers(&ignored, &position, &speed, p_speed_value, &ignored, p_count, p_cycle, &ignored, &object);
-	spawn_objects_by_type(&ignored, &position, &speed, p_speed_value, &ignored, p_count, &object);
-	spawn_ring_rows(&ignored, &position, &ignored, &object);
-	spawn_walls(&ignored, &position, &ignored, p_count, p_cycle, &object);
+	find_nearby_floor_blocks(&ignored, &speed, p_speed_value, &ignored_2, p_count, &ignored_3, &object);
+	update_scroll(&position, &speed, p_speed_value, &ignored_2, p_count, p_cycle, &ignored_3, &object);
+	update_stage_tile_layers(&ignored, &position, &speed, p_speed_value, &ignored_2, p_count, p_cycle, &ignored_3, &object);
+	spawn_objects_by_type(&ignored, &position, &speed, p_speed_value, &ignored_2, p_count, &object);
+	spawn_ring_rows(&ignored, &position, &ignored_4, &object);
+	spawn_walls(&ignored, &position, &ignored_2, p_count, p_cycle, &object);
 	spawn_object_groups_2(&ignored, p_count, &object);
-	spawn_object_groups(&ignored, &position, &ignored, p_count, &object);
-	spawn_objects_by_handler(&ignored, &ignored, &object);
-	check_hits(&ignored, &position, &ignored, p_speed_value, &ignored, p_count, &ignored);
+	spawn_object_groups(&ignored, &position, &ignored_4, p_count, &object);
+	spawn_objects_by_handler(&ignored, &ignored_3, &object);
+	check_hits(&ignored, &position, &ignored_4, p_speed_value, &ignored_2, p_count, &ignored_5);
 	check_walls(ignored);
-	check_platforms(&ignored, &ignored, &ignored, p_speed_value, &ignored, p_count, p_cycle, p_list_cursor, &ignored);
+	check_platforms(&ignored, &ignored_6, &ignored_4, p_speed_value, &ignored_2, p_count, p_cycle, p_list_cursor, &ignored_5);
 	if (scroll_position < 0xA00u)
 	{
 		return;
@@ -1368,7 +1365,7 @@ void game_mode_event_0D(uint32_t position, uint32_t speed, uint32_t object, uint
    over with no player left; at scroll 0x6080 game_mode 3, scroll mode 7, speed 5. */
 void game_mode_event_1A(uint32_t pressed, uint32_t position, uint32_t in_play_count, uint16_t next_scroll_position, uint32_t object, uint32_t *p_speed_value, uint32_t *p_count, uint32_t *p_cycle, uint32_t *p_list_cursor)
 {
-	uint32_t ignored = 0, scroll_script = 0;
+	uint32_t ignored = 0, ignored_2 = 0, ignored_3 = 0, ignored_4 = 0, ignored_5 = 0, ignored_6 = 0, scroll_script = 0;
 	uint16_t event_1a_timer = 0;
 
 	current_game_mode = 0x1Au;
@@ -1425,20 +1422,20 @@ void game_mode_event_1A(uint32_t pressed, uint32_t position, uint32_t in_play_co
 	}
 	scroll_mode = event_1a_scroll_mode;
 	scroll_speed = event_1a_scroll_speed;
-	update_scroll(&position, &in_play_count, p_speed_value, &ignored, p_count, p_cycle, &ignored, &scroll_script);
-	update_stage_tile_layers(&ignored, &position, &in_play_count, p_speed_value, &ignored, p_count, p_cycle, &ignored, &scroll_script);
-	find_nearby_floor_blocks(&ignored, &in_play_count, p_speed_value, &ignored, p_count, &ignored, &scroll_script);
+	update_scroll(&position, &in_play_count, p_speed_value, &ignored, p_count, p_cycle, &ignored_2, &scroll_script);
+	update_stage_tile_layers(&ignored_3, &position, &in_play_count, p_speed_value, &ignored, p_count, p_cycle, &ignored_2, &scroll_script);
+	find_nearby_floor_blocks(&ignored_3, &in_play_count, p_speed_value, &ignored, p_count, &ignored_2, &scroll_script);
 	*p_speed_value = update_restart_point(*p_speed_value);
-	spawn_objects_by_type(&ignored, &position, &in_play_count, p_speed_value, &ignored, p_count, &scroll_script);
-	spawn_ring_rows(&ignored, &position, &ignored, &scroll_script);
-	spawn_walls(&ignored, &position, &ignored, p_count, p_cycle, &scroll_script);
-	spawn_object_groups_2(&ignored, p_count, &scroll_script);
-	spawn_object_groups(&ignored, &position, &ignored, p_count, &scroll_script);
-	spawn_objects_by_handler(&ignored, &ignored, &scroll_script);
-	ignored = check_zones(ignored);
-	check_hits(&ignored, &position, &ignored, p_speed_value, &ignored, p_count, &ignored);
-	check_walls(ignored);
-	check_platforms(&ignored, &ignored, &ignored, p_speed_value, &ignored, p_count, p_cycle, p_list_cursor, &ignored);
+	spawn_objects_by_type(&ignored_3, &position, &in_play_count, p_speed_value, &ignored, p_count, &scroll_script);
+	spawn_ring_rows(&ignored_3, &position, &ignored_4, &scroll_script);
+	spawn_walls(&ignored_3, &position, &ignored, p_count, p_cycle, &scroll_script);
+	spawn_object_groups_2(&ignored_3, p_count, &scroll_script);
+	spawn_object_groups(&ignored_3, &position, &ignored_4, p_count, &scroll_script);
+	spawn_objects_by_handler(&ignored_3, &ignored_2, &scroll_script);
+	ignored_3 = check_zones(ignored_3);
+	check_hits(&ignored_3, &position, &ignored_4, p_speed_value, &ignored, p_count, &ignored_5);
+	check_walls(ignored_3);
+	check_platforms(&ignored_3, &ignored_6, &ignored_4, p_speed_value, &ignored, p_count, p_cycle, p_list_cursor, &ignored_5);
 	if (scroll_position < 0x6080u)
 	{
 		return;
@@ -1453,7 +1450,7 @@ void game_mode_event_1A(uint32_t pressed, uint32_t position, uint32_t in_play_co
    the hit, wall and platform checks. */
 void game_mode_event_0F(uint32_t position, uint32_t speed, uint32_t object, uint32_t *p_speed_value, uint32_t *p_count, uint32_t *p_cycle, uint32_t *p_list_cursor)
 {
-	uint32_t ignored = 0;
+	uint32_t ignored = 0, ignored_2 = 0, ignored_3 = 0, ignored_4 = 0, ignored_5 = 0, ignored_6 = 0;
 
 	current_game_mode = 0xFu;
 	switch (scene_step)
@@ -1473,13 +1470,13 @@ void game_mode_event_0F(uint32_t position, uint32_t speed, uint32_t object, uint
 	default:
 		invalid_jump(0x94606u + scene_step * 3u);
 	}
-	update_scroll(&position, &speed, p_speed_value, &ignored, p_count, p_cycle, &ignored, &object);
-	update_stage_tile_layers(&ignored, &position, &ignored, p_speed_value, &ignored, p_count, p_cycle, &ignored, &object);
+	update_scroll(&position, &speed, p_speed_value, &ignored, p_count, p_cycle, &ignored_2, &object);
+	update_stage_tile_layers(&ignored_3, &position, &ignored_4, p_speed_value, &ignored, p_count, p_cycle, &ignored_2, &object);
 	*p_speed_value = update_restart_point(*p_speed_value);
-	spawn_walls(&ignored, &position, &ignored, p_count, p_cycle, &object);
-	check_hits(&ignored, &position, &ignored, p_speed_value, &ignored, p_count, &ignored);
-	check_walls(ignored);
-	check_platforms(&ignored, &ignored, &ignored, p_speed_value, &ignored, p_count, p_cycle, p_list_cursor, &ignored);
+	spawn_walls(&ignored_3, &position, &ignored, p_count, p_cycle, &object);
+	check_hits(&ignored_3, &position, &ignored_4, p_speed_value, &ignored, p_count, &ignored_5);
+	check_walls(ignored_3);
+	check_platforms(&ignored_3, &ignored_6, &ignored_4, p_speed_value, &ignored, p_count, p_cycle, p_list_cursor, &ignored_5);
 }
 
 /* Game mode 0x10, stage 6's opening scene (the first of a game): by scene_step, the opening objects and
@@ -1488,7 +1485,7 @@ void game_mode_event_0F(uint32_t position, uint32_t speed, uint32_t object, uint
    lightning (spawn_stage_06_lightning); then game_mode 2. */
 void game_mode_event_10(uint32_t random_value, uint32_t object, uint32_t *p_rolls_left, uint32_t *p_words_left, uint32_t *p_list_cursor)
 {
-	uint32_t ignored = 0;
+	uint32_t ignored = 0, ignored_2 = 0;
 
 	current_game_mode = 0x10u;
 	switch (scene_step)
@@ -1544,7 +1541,7 @@ void game_mode_event_10(uint32_t random_value, uint32_t object, uint32_t *p_roll
 		color_offset_green = 0u;
 		color_offset_blue = 0u;
 		scene_timer++;
-		spawn_objects_by_handler(&ignored, &ignored, &object);
+		spawn_objects_by_handler(&ignored, &ignored_2, &object);
 		spawn_stage_06_lightning(p_list_cursor, &object);
 		update_stage_06_background(random_value, object, p_rolls_left, p_words_left, p_list_cursor);
 		if (scene_timer < 0x12C)
@@ -1555,7 +1552,7 @@ void game_mode_event_10(uint32_t random_value, uint32_t object, uint32_t *p_roll
 		return;
 	case 3:
 		scene_timer++;
-		spawn_objects_by_handler(&ignored, &ignored, &object);
+		spawn_objects_by_handler(&ignored, &ignored_2, &object);
 		spawn_stage_06_lightning(p_list_cursor, &object);
 		update_stage_06_background(random_value, object, p_rolls_left, p_words_left, p_list_cursor);
 		if (scene_timer < 0x12C)
@@ -1680,7 +1677,7 @@ void game_mode_event_14(uint32_t pressed, uint32_t position, uint32_t unbounced_
 {
 	uint8_t playing_count = 0;
 	uint16_t kind = 0, y = 0;
-	uint32_t ignored = 0;
+	uint32_t ignored = 0, ignored_2 = 0, ignored_3 = 0, ignored_4 = 0, ignored_5 = 0, ignored_6 = 0, ignored_7 = 0;
 	uint8_t event_14_status = 0;
 	uint16_t event_14_timer = 0;
 
@@ -1764,27 +1761,27 @@ void game_mode_event_14(uint32_t pressed, uint32_t position, uint32_t unbounced_
 		run_game_mode(pressed, position, unbounced_count, x, object, p_speed_value, p_count, p_cycle, p_list_cursor);
 		return;
 	}
-	update_scroll(&position, &unbounced_count, p_speed_value, &ignored, p_count, p_cycle, &ignored, &object);
-	update_stage_tile_layers(&ignored, &position, &unbounced_count, p_speed_value, &ignored, p_count, p_cycle, &ignored, &object);
-	find_nearby_floor_blocks(&ignored, &unbounced_count, p_speed_value, &ignored, p_count, &ignored, &object);
+	update_scroll(&position, &unbounced_count, p_speed_value, &ignored_2, p_count, p_cycle, &ignored_3, &object);
+	update_stage_tile_layers(&ignored_4, &position, &unbounced_count, p_speed_value, &ignored_2, p_count, p_cycle, &ignored_3, &object);
+	find_nearby_floor_blocks(&ignored_4, &unbounced_count, p_speed_value, &ignored_2, p_count, &ignored_3, &object);
 	*p_speed_value = update_restart_point(*p_speed_value);
-	spawn_objects_by_type(&ignored, &position, &unbounced_count, p_speed_value, &ignored, p_count, &object);
-	spawn_ring_rows(&ignored, &position, &ignored, &object);
-	spawn_walls(&ignored, &position, &ignored, p_count, p_cycle, &object);
-	spawn_object_groups_2(&ignored, p_count, &object);
-	spawn_object_groups(&ignored, &position, &ignored, p_count, &object);
-	spawn_objects_by_handler(&ignored, &ignored, &object);
-	ignored = check_zones(ignored);
-	check_hits(&ignored, &position, &ignored, p_speed_value, &ignored, p_count, &ignored);
-	check_walls(ignored);
-	check_platforms(&ignored, &ignored, &ignored, p_speed_value, &ignored, p_count, p_cycle, p_list_cursor, &ignored);
+	spawn_objects_by_type(&ignored_4, &position, &unbounced_count, p_speed_value, &ignored_2, p_count, &object);
+	spawn_ring_rows(&ignored_4, &position, &ignored_5, &object);
+	spawn_walls(&ignored_4, &position, &ignored_2, p_count, p_cycle, &object);
+	spawn_object_groups_2(&ignored_4, p_count, &object);
+	spawn_object_groups(&ignored_4, &position, &ignored_5, p_count, &object);
+	spawn_objects_by_handler(&ignored_4, &ignored_3, &object);
+	ignored_4 = check_zones(ignored_4);
+	check_hits(&ignored_4, &position, &ignored_5, p_speed_value, &ignored_2, p_count, &ignored_6);
+	check_walls(ignored_4);
+	check_platforms(&ignored_4, &ignored_7, &ignored_5, p_speed_value, &ignored_2, p_count, p_cycle, p_list_cursor, &ignored_6);
 }
 
 /* Game mode 0x15, stage 3's event at scroll 0xA360: the stage frame with the scroll stopped (scroll_mode
    1) until check_stage_clear changes game_mode (run at once); game over with no player left. */
 void game_mode_event_15(uint32_t pressed, uint32_t position, uint32_t speed, uint16_t next_scroll_position, uint32_t object, uint32_t *p_speed_value, uint32_t *p_count, uint32_t *p_cycle, uint32_t *p_list_cursor)
 {
-	uint32_t ignored = 0;
+	uint32_t ignored = 0, ignored_2 = 0, ignored_3 = 0, ignored_4 = 0, ignored_5 = 0, ignored_6 = 0;
 
 	current_game_mode = 0x15u;
 	next_stage_slot_request = 0u;
@@ -1803,20 +1800,20 @@ void game_mode_event_15(uint32_t pressed, uint32_t position, uint32_t speed, uin
 		return;
 	}
 	scroll_mode = 1u;
-	update_scroll(&position, &speed, p_speed_value, &ignored, p_count, p_cycle, &ignored, &object);
-	update_stage_tile_layers(&ignored, &position, &speed, p_speed_value, &ignored, p_count, p_cycle, &ignored, &object);
-	find_nearby_floor_blocks(&ignored, &speed, p_speed_value, &ignored, p_count, &ignored, &object);
+	update_scroll(&position, &speed, p_speed_value, &ignored, p_count, p_cycle, &ignored_2, &object);
+	update_stage_tile_layers(&ignored_3, &position, &speed, p_speed_value, &ignored, p_count, p_cycle, &ignored_2, &object);
+	find_nearby_floor_blocks(&ignored_3, &speed, p_speed_value, &ignored, p_count, &ignored_2, &object);
 	*p_speed_value = update_restart_point(*p_speed_value);
-	spawn_objects_by_type(&ignored, &position, &speed, p_speed_value, &ignored, p_count, &object);
-	spawn_ring_rows(&ignored, &position, &ignored, &object);
-	spawn_walls(&ignored, &position, &ignored, p_count, p_cycle, &object);
-	spawn_object_groups_2(&ignored, p_count, &object);
-	spawn_object_groups(&ignored, &position, &ignored, p_count, &object);
-	spawn_objects_by_handler(&ignored, &ignored, &object);
-	ignored = check_zones(ignored);
-	check_hits(&ignored, &position, &ignored, p_speed_value, &ignored, p_count, &ignored);
-	check_walls(ignored);
-	check_platforms(&ignored, &ignored, &ignored, p_speed_value, &ignored, p_count, p_cycle, p_list_cursor, &ignored);
+	spawn_objects_by_type(&ignored_3, &position, &speed, p_speed_value, &ignored, p_count, &object);
+	spawn_ring_rows(&ignored_3, &position, &ignored_4, &object);
+	spawn_walls(&ignored_3, &position, &ignored, p_count, p_cycle, &object);
+	spawn_object_groups_2(&ignored_3, p_count, &object);
+	spawn_object_groups(&ignored_3, &position, &ignored_4, p_count, &object);
+	spawn_objects_by_handler(&ignored_3, &ignored_2, &object);
+	ignored_3 = check_zones(ignored_3);
+	check_hits(&ignored_3, &position, &ignored_4, p_speed_value, &ignored, p_count, &ignored_5);
+	check_walls(ignored_3);
+	check_platforms(&ignored_3, &ignored_6, &ignored_4, p_speed_value, &ignored, p_count, p_cycle, p_list_cursor, &ignored_5);
 }
 
 /* Game mode 0x16, stage 3's event at scroll 0x1B80 and 0x8610: the stage frame without the scroll or
@@ -1824,7 +1821,7 @@ void game_mode_event_15(uint32_t pressed, uint32_t position, uint32_t speed, uin
    player left. */
 void game_mode_event_16(uint32_t box_edge, uint32_t position, uint32_t in_play_count, uint16_t next_scroll_position, uint32_t object, uint32_t *p_speed_value, uint32_t *p_count, uint32_t *p_cycle, uint32_t *p_list_cursor)
 {
-	uint32_t ignored = 0;
+	uint32_t ignored = 0, ignored_2 = 0, ignored_3 = 0, ignored_4 = 0, ignored_5 = 0, ignored_6 = 0;
 
 	current_game_mode = 0x16u;
 	update_player_summary(&in_play_count, p_count, p_list_cursor, &object);
@@ -1836,18 +1833,18 @@ void game_mode_event_16(uint32_t box_edge, uint32_t position, uint32_t in_play_c
 		run_game_mode(box_edge, position, in_play_count, next_scroll_position, object, p_speed_value, p_count, p_cycle, p_list_cursor);
 		return;
 	}
-	find_nearby_floor_blocks(&box_edge, &in_play_count, p_speed_value, &ignored, p_count, &ignored, &object);
+	find_nearby_floor_blocks(&box_edge, &in_play_count, p_speed_value, &ignored, p_count, &ignored_2, &object);
 	*p_speed_value = update_restart_point(*p_speed_value);
 	spawn_objects_by_type(&box_edge, &position, &in_play_count, p_speed_value, &ignored, p_count, &object);
-	spawn_ring_rows(&box_edge, &position, &ignored, &object);
+	spawn_ring_rows(&box_edge, &position, &ignored_3, &object);
 	spawn_walls(&box_edge, &position, &ignored, p_count, p_cycle, &object);
 	spawn_object_groups_2(&box_edge, p_count, &object);
-	spawn_object_groups(&box_edge, &position, &ignored, p_count, &object);
-	spawn_objects_by_handler(&box_edge, &ignored, &object);
+	spawn_object_groups(&box_edge, &position, &ignored_3, p_count, &object);
+	spawn_objects_by_handler(&box_edge, &ignored_2, &object);
 	box_edge = check_zones(box_edge);
-	check_hits(&box_edge, &position, &ignored, p_speed_value, &ignored, p_count, &ignored);
+	check_hits(&box_edge, &position, &ignored_3, p_speed_value, &ignored, p_count, &ignored_4);
 	check_walls(box_edge);
-	check_platforms(&ignored, &ignored, &ignored, p_speed_value, &ignored, p_count, p_cycle, p_list_cursor, &ignored);
+	check_platforms(&ignored_5, &ignored_6, &ignored_3, p_speed_value, &ignored, p_count, p_cycle, p_list_cursor, &ignored_4);
 	if (scroll_resume_request == 0u)
 	{
 		return;
@@ -1915,7 +1912,7 @@ void game_mode_event_19(uint32_t pressed, uint32_t position, uint32_t in_play_co
    0x84A0 game_mode 3 at scroll speed 5, and bridge_0_plank_count 0. */
 void game_mode_event_1C(uint32_t pressed, uint32_t position, uint32_t in_play_count, uint16_t next_scroll_position, uint32_t object, uint32_t *p_speed_value, uint32_t *p_count, uint32_t *p_cycle, uint32_t *p_list_cursor)
 {
-	uint32_t ignored = 0;
+	uint32_t ignored = 0, ignored_2 = 0, ignored_3 = 0, ignored_4 = 0, ignored_5 = 0, ignored_6 = 0;
 
 	current_game_mode = 0x1Cu;
 	if (scene_step == 0u)
@@ -1953,20 +1950,20 @@ void game_mode_event_1C(uint32_t pressed, uint32_t position, uint32_t in_play_co
 	default:
 		invalid_jump(0x9510Eu + scene_step * 2u);
 	}
-	update_scroll(&position, &in_play_count, p_speed_value, &ignored, p_count, p_cycle, &ignored, &object);
-	update_stage_tile_layers(&ignored, &position, &in_play_count, p_speed_value, &ignored, p_count, p_cycle, &ignored, &object);
-	find_nearby_floor_blocks(&ignored, &in_play_count, p_speed_value, &ignored, p_count, &ignored, &object);
+	update_scroll(&position, &in_play_count, p_speed_value, &ignored, p_count, p_cycle, &ignored_2, &object);
+	update_stage_tile_layers(&ignored_3, &position, &in_play_count, p_speed_value, &ignored, p_count, p_cycle, &ignored_2, &object);
+	find_nearby_floor_blocks(&ignored_3, &in_play_count, p_speed_value, &ignored, p_count, &ignored_2, &object);
 	*p_speed_value = update_restart_point(*p_speed_value);
-	spawn_objects_by_type(&ignored, &position, &in_play_count, p_speed_value, &ignored, p_count, &object);
-	spawn_ring_rows(&ignored, &position, &ignored, &object);
-	spawn_walls(&ignored, &position, &ignored, p_count, p_cycle, &object);
-	spawn_object_groups_2(&ignored, p_count, &object);
-	spawn_object_groups(&ignored, &position, &ignored, p_count, &object);
-	spawn_objects_by_handler(&ignored, &ignored, &object);
-	ignored = check_zones(ignored);
-	check_hits(&ignored, &position, &ignored, p_speed_value, &ignored, p_count, &ignored);
-	check_walls(ignored);
-	check_platforms(&ignored, &ignored, &ignored, p_speed_value, &ignored, p_count, p_cycle, p_list_cursor, &ignored);
+	spawn_objects_by_type(&ignored_3, &position, &in_play_count, p_speed_value, &ignored, p_count, &object);
+	spawn_ring_rows(&ignored_3, &position, &ignored_4, &object);
+	spawn_walls(&ignored_3, &position, &ignored, p_count, p_cycle, &object);
+	spawn_object_groups_2(&ignored_3, p_count, &object);
+	spawn_object_groups(&ignored_3, &position, &ignored_4, p_count, &object);
+	spawn_objects_by_handler(&ignored_3, &ignored_2, &object);
+	ignored_3 = check_zones(ignored_3);
+	check_hits(&ignored_3, &position, &ignored_4, p_speed_value, &ignored, p_count, &ignored_5);
+	check_walls(ignored_3);
+	check_platforms(&ignored_3, &ignored_6, &ignored_4, p_speed_value, &ignored, p_count, p_cycle, p_list_cursor, &ignored_5);
 	if (scroll_position < 0x84A0u)
 	{
 		return;
@@ -1983,7 +1980,7 @@ void game_mode_event_1C(uint32_t pressed, uint32_t position, uint32_t in_play_co
 void game_mode_event_1F(uint32_t pressed, uint32_t position, uint32_t in_play_count, uint16_t next_scroll_position, uint32_t object, uint32_t *p_speed_value, uint32_t *p_count, uint32_t *p_cycle, uint32_t *p_list_cursor)
 {
 	uint8_t sound_id = 0;
-	uint32_t exit_status_cursor = 0, ignored = 0;
+	uint32_t exit_status_cursor = 0, ignored = 0, ignored_2 = 0, ignored_3 = 0, ignored_4 = 0, ignored_5 = 0;
 
 	current_game_mode = 0x1Fu;
 	if (scene_step == 0u)
@@ -2009,36 +2006,36 @@ void game_mode_event_1F(uint32_t pressed, uint32_t position, uint32_t in_play_co
 		run_game_mode(pressed, position, in_play_count, next_scroll_position, object, p_speed_value, p_count, p_cycle, p_list_cursor);
 		return;
 	}
-	update_scroll(&position, &in_play_count, p_speed_value, &ignored, p_count, p_cycle, &ignored, &object);
-	update_stage_tile_layers(&ignored, &position, &in_play_count, p_speed_value, &ignored, p_count, p_cycle, &ignored, &object);
-	find_nearby_floor_blocks(&ignored, &in_play_count, p_speed_value, &ignored, p_count, &ignored, &object);
+	update_scroll(&position, &in_play_count, p_speed_value, &ignored, p_count, p_cycle, &ignored_2, &object);
+	update_stage_tile_layers(&ignored_3, &position, &in_play_count, p_speed_value, &ignored, p_count, p_cycle, &ignored_2, &object);
+	find_nearby_floor_blocks(&ignored_3, &in_play_count, p_speed_value, &ignored, p_count, &ignored_2, &object);
 	*p_speed_value = update_restart_point(*p_speed_value);
-	spawn_objects_by_type(&ignored, &position, &in_play_count, p_speed_value, &ignored, p_count, &object);
-	spawn_ring_rows(&ignored, &position, &ignored, &object);
-	spawn_walls(&ignored, &position, &ignored, p_count, p_cycle, &object);
-	spawn_object_groups_2(&ignored, p_count, &object);
-	spawn_object_groups(&ignored, &position, &ignored, p_count, &object);
-	spawn_objects_by_handler(&ignored, &ignored, &object);
-	ignored = check_zones(ignored);
-	check_hits(&ignored, &position, &ignored, p_speed_value, &ignored, p_count, &object);
-	check_walls(ignored);
-	check_platforms(&ignored, &ignored, &ignored, p_speed_value, &ignored, p_count, p_cycle, p_list_cursor, &object);
+	spawn_objects_by_type(&ignored_3, &position, &in_play_count, p_speed_value, &ignored, p_count, &object);
+	spawn_ring_rows(&ignored_3, &position, &ignored_4, &object);
+	spawn_walls(&ignored_3, &position, &ignored, p_count, p_cycle, &object);
+	spawn_object_groups_2(&ignored_3, p_count, &object);
+	spawn_object_groups(&ignored_3, &position, &ignored_4, p_count, &object);
+	spawn_objects_by_handler(&ignored_3, &ignored_2, &object);
+	ignored_3 = check_zones(ignored_3);
+	check_hits(&ignored_3, &position, &ignored_4, p_speed_value, &ignored, p_count, &object);
+	check_walls(ignored_3);
+	check_platforms(&ignored_3, &ignored_5, &ignored_4, p_speed_value, &ignored, p_count, p_cycle, p_list_cursor, &object);
 	if (escape_started != 0u)
 	{
 		escape_alarm_timer++;
 		if (escape_alarm_timer == 0x30Cu)
 		{
 			sound_id = 0x7Cu;
-			play_sound(sound_id, &ignored, &ignored);
+			play_sound(sound_id, &ignored_3, &ignored_5);
 		}
 		else if (escape_alarm_timer == 1u)
 		{
 			start_escape_alarm_flash(object);
 			camera_shake_active = 1u;
 			sound_id = 0xFu;
-			play_sound(sound_id, &ignored, &ignored);
+			play_sound(sound_id, &ignored_3, &ignored_5);
 			sound_id = 0x7Cu;
-			play_sound(sound_id, &ignored, &ignored);
+			play_sound(sound_id, &ignored_3, &ignored_5);
 		}
 	}
 	if (stage_exit_started == 0u)
@@ -2049,7 +2046,7 @@ void game_mode_event_1F(uint32_t pressed, uint32_t position, uint32_t in_play_co
 	else
 	{
 		exit_status_cursor = player_status_ADDRESS;
-		*p_list_cursor = AS32(players_finished[0]);
+		*p_list_cursor = (players_finished[0] | ((uint32_t)players_finished[1] << 8u) | ((uint32_t)players_finished[2] << 16u) | ((uint32_t)goal_unlocked << 24u));
 		*p_count = (*p_count & ~0xFFu) | 3u;
 		do
 		{
@@ -2094,7 +2091,7 @@ void cleared_banner_wait(void)
 void stage_clear_banner_reveal(void)
 {
 	uint16_t sparkle_offset = 0;
-	uint32_t at_last_step = 0, ignored = 0;
+	uint32_t at_last_step = 0, ignored = 0, ignored_2 = 0;
 
 	if ((uint8_t)OBJECT(current_object)->animation_timer == OBJECT(current_object)->animation_speed)
 	{
@@ -2102,7 +2099,7 @@ void stage_clear_banner_reveal(void)
 		spawn_banner_sparkle(sparkle_offset);
 		OBJECT(current_object)->stage_clear_banner.sparkle_offset += 0x10u;
 	}
-	animate(&ignored, &ignored, &at_last_step);
+	animate(&ignored, &ignored_2, &at_last_step);
 	if ((uint8_t)at_last_step == 0u)
 	{
 		stage_clear_banner_hold();
@@ -2126,7 +2123,7 @@ void stage_clear_banner_reveal(void)
 void stage_clear_banner_hold(void)
 {
 	uint8_t sound_id = 0;
-	uint32_t depth = 0, free_count = 0, ignored = 0, object = 0;
+	uint32_t depth = 0, free_count = 0, ignored = 0, ignored_2 = 0, ignored_3 = 0, object = 0;
 	uint16_t letters_left = 0;
 
 	if (banner_break == 0u)
@@ -2134,11 +2131,11 @@ void stage_clear_banner_hold(void)
 		if ((int8_t)OBJECT(current_object)->animation_frame < 0)
 			return;
 		depth = 0xFFu;
-		queue_sprite_at_depth(&ignored, &depth);
+		queue_sprite_at_depth(&ignored_3, &depth);
 		return;
 	}
 	sound_id = 0x1Bu;
-	play_sound(sound_id, &ignored, &ignored);
+	play_sound(sound_id, &ignored, &ignored_2);
 	banner_letters_left = FRAME_ANIMATION(OBJECT(current_object)->animation)->last_frame;
 	banner_letter_offset_x = 8u;
 	object = current_object;
@@ -2168,7 +2165,7 @@ void stage_clear_banner_hold(void)
 	if ((int8_t)OBJECT(current_object)->animation_frame < 0)
 		return;
 	depth = 0xFFu;
-	queue_sprite_at_depth(&ignored, &depth);
+	queue_sprite_at_depth(&ignored_3, &depth);
 }
 
 /* Spawns a ring sparkle (ring_sparkle_animation, palette 0x81B0, handler banner_sparkle_animate)
@@ -2198,13 +2195,13 @@ void spawn_banner_sparkle(uint16_t offset_x)
 /* A banner sparkle: animates, queued at depth 0xFF, and is removed when its animation wraps. */
 void banner_sparkle_animate(void)
 {
-	uint32_t depth = 0, ignored = 0, wrapped = 0;
+	uint32_t depth = 0, ignored = 0, ignored_2 = 0, ignored_3 = 0, wrapped = 0;
 
-	animate(&ignored, &wrapped, &ignored);
+	animate(&ignored, &wrapped, &ignored_2);
 	if ((uint8_t)wrapped == 0u)
 	{
 		depth = 0xFFu;
-		queue_sprite_at_depth(&ignored, &depth);
+		queue_sprite_at_depth(&ignored_3, &depth);
 		return;
 	}
 	delete_current_object();
@@ -2215,18 +2212,18 @@ void banner_sparkle_animate(void)
    (banner_sparkle_animation, y-flipped when kind bit 1 is set). */
 void banner_letter_spin(void)
 {
-	uint32_t depth = 0, free_count = 0, ignored = 0, object = 0, wrapped = 0;
+	uint32_t depth = 0, free_count = 0, ignored = 0, ignored_2 = 0, ignored_3 = 0, object = 0, wrapped = 0;
 
 	if (OBJECT(current_object)->animation_speed == (uint8_t)OBJECT(current_object)->animation_timer && OBJECT(current_object)->animation_frame == 0xCu && (OBJECT(current_object)->kind & 1u) != 0u)
 	{
 		allocate_object(&free_count, &object);
 		if (free_count == 0u)
 		{
-			animate(&ignored, &wrapped, &ignored);
+			animate(&ignored, &wrapped, &ignored_2);
 			if ((uint8_t)wrapped == 0u)
 			{
 				depth = 0xFFu;
-				queue_sprite_at_depth(&ignored, &depth);
+				queue_sprite_at_depth(&ignored_3, &depth);
 				return;
 			}
 			delete_current_object();
@@ -2245,11 +2242,11 @@ void banner_letter_spin(void)
 		OBJECT(object)->screen_x = OBJECT(current_object)->screen_x;
 		OBJECT(object)->screen_y = OBJECT(current_object)->screen_y;
 	}
-	animate(&ignored, &wrapped, &ignored);
+	animate(&ignored, &wrapped, &ignored_2);
 	if ((uint8_t)wrapped == 0u)
 	{
 		depth = 0xFFu;
-		queue_sprite_at_depth(&ignored, &depth);
+		queue_sprite_at_depth(&ignored_3, &depth);
 		return;
 	}
 	delete_current_object();
@@ -2273,30 +2270,28 @@ void apply_stage_layer_blending(uint32_t *p_layer_bit, uint32_t *p_count)
 		count--;
 	} while (count != 0u);
 	cursor = stage_layer_blending_ADDRESS + stage_layer_blending[stage];
-	if (LAYER_BLEND_LIST(cursor)->count == 0u)
+	if (LAYER_BLEND_LIST(cursor)->count != 0u)
 	{
-		*p_count = count;
-		return;
+		count = LAYER_BLEND_LIST(cursor)->count;
+		cursor++;
+		do
+		{
+			blend_mask = LAYER_BLEND_RECORD(cursor)->blend_mask;
+			cursor++;
+			*p_layer_bit = LAYER_BLEND_RECORD(cursor - 0x1u)->layer_bit;
+			cursor++;
+			layer_shadow = GAME_VARIABLES + LAYER_BLEND_RECORD(cursor - 0x2u)->shadow_offset;
+			mem_write16(layer_shadow, mem_read16(layer_shadow) & ~0x3Fu);
+			mem_write16(layer_shadow, mem_read16(layer_shadow) | blend_mask);
+			mem_write32(layer_shadow, mem_read32(layer_shadow) | shl32(1u, (int)(*p_layer_bit)));
+			mixer_blend &= ~0xF00u;
+			cursor += 2u;
+			mixer_blend |= LAYER_BLEND_RECORD(cursor - 0x4u)->blend_factor;
+			mixer_blend |= 0x800u;
+			count--;
+			cursor += 2u;
+		} while (count != 0u);
 	}
-	count = LAYER_BLEND_LIST(cursor)->count;
-	cursor++;
-	do
-	{
-		blend_mask = LAYER_BLEND_RECORD(cursor)->blend_mask;
-		cursor++;
-		*p_layer_bit = LAYER_BLEND_RECORD(cursor - 0x1u)->layer_bit;
-		cursor++;
-		layer_shadow = GAME_VARIABLES + LAYER_BLEND_RECORD(cursor - 0x2u)->shadow_offset;
-		mem_write16(layer_shadow, mem_read16(layer_shadow) & ~0x3Fu);
-		mem_write16(layer_shadow, mem_read16(layer_shadow) | blend_mask);
-		mem_write32(layer_shadow, mem_read32(layer_shadow) | shl32(1u, (int)(*p_layer_bit)));
-		mixer_blend &= ~0xF00u;
-		cursor += 2u;
-		mixer_blend |= LAYER_BLEND_RECORD(cursor - 0x4u)->blend_factor;
-		mixer_blend |= 0x800u;
-		count--;
-		cursor += 2u;
-	} while (count != 0u);
 	*p_count = count;
 }
 
@@ -2306,32 +2301,35 @@ void apply_stage_layer_blending(uint32_t *p_layer_bit, uint32_t *p_count)
    game_mode 0x17, or 0x1E on stages 0xB-0xF. */
 void check_stage_clear(uint32_t *p_count, uint32_t *p_finished_flag, uint32_t *p_status)
 {
+	uint32_t count = *p_count;
+	uint32_t finished_flag = *p_finished_flag;
 	uint32_t status = *p_status;
 	uint8_t next_game_mode = 0;
 
-	if (scroll_position < goal_scroll_position || player_status_spare != 0u || stage_exit_started == 0u)
-		return;
-	*p_finished_flag = players_finished_ADDRESS;
-	status = player_status_ADDRESS;
-	*p_count = (*p_count & ~0xFFu) | 3u;
-	do
+	if (goal_scroll_position <= scroll_position && player_status_spare == 0u && stage_exit_started != 0u)
 	{
-		if (mem_read8(status) == 0u || mem_read8(status) == 0x82u || mem_read8(status) == 3u || mem_read8(status) == 4u || mem_read8(status) == 2u)
-			mem_write8(*p_finished_flag, 0xFFu);
-		(*p_finished_flag)++;
-		status++;
-		(*p_count)--;
-	} while (*p_count != 0u);
-	if (AS32(players_finished[0]) != 0xFFFFFFFFu)
-	{
-		*p_status = status;
-		return;
+		finished_flag = players_finished_ADDRESS;
+		status = player_status_ADDRESS;
+		count = (count & ~0xFFu) | 3u;
+		do
+		{
+			if (mem_read8(status) == 0u || mem_read8(status) == 0x82u || mem_read8(status) == 3u || mem_read8(status) == 4u || mem_read8(status) == 2u)
+				mem_write8(finished_flag, 0xFFu);
+			finished_flag++;
+			status++;
+			count--;
+		} while (count != 0u);
+		if ((players_finished[0] | ((uint32_t)players_finished[1] << 8u) | ((uint32_t)players_finished[2] << 16u) | ((uint32_t)goal_unlocked << 24u)) == 0xFFFFFFFFu)
+		{
+			game_mode_timer = 0;
+			next_game_mode = 0x17u;
+			if (stage == 0xBu || stage == 0xCu || stage == 0xDu || stage == 0xEu || stage == 0xFu)
+				next_game_mode = 0x1Eu;
+			game_mode = next_game_mode;
+		}
 	}
-	game_mode_timer = 0;
-	next_game_mode = 0x17u;
-	if (stage == 0xBu || stage == 0xCu || stage == 0xDu || stage == 0xEu || stage == 0xFu)
-		next_game_mode = 0x1Eu;
-	game_mode = next_game_mode;
+	*p_count = count;
+	*p_finished_flag = finished_flag;
 	*p_status = status;
 }
 
@@ -2499,10 +2497,8 @@ void update_player_summary(uint32_t *p_in_play_count, uint32_t *p_count, uint32_
    stage_init_flags bits 0-3 cleared. */
 void continue_to_next_stage_slot(uint32_t *p_table_offset, uint32_t *p_link_record, uint32_t *p_block)
 {
-	uint32_t table_offset = *p_table_offset;
-	uint32_t link_record = *p_link_record;
 	uint32_t block = *p_block;
-	uint32_t bounds_list = 0, current_stage = 0, from_block = 0, from_record = 0, link_point = 0, to_block = 0;
+	uint32_t current_stage = 0, from_block = 0, from_record = 0, link_point = 0, to_block = 0;
 
 	if (next_stage_slot_request == 0u)
 		return;
@@ -2522,10 +2518,8 @@ void continue_to_next_stage_slot(uint32_t *p_table_offset, uint32_t *p_link_reco
 	stage_link_to_y = FLOOR_BLOCK(block)->y_min;
 	stage_link_to_height = FLOOR_BLOCK(block)->height;
 	stage++;
-	load_stage_map_pointers(&table_offset, &bounds_list);
+	load_stage_map_pointers(p_table_offset, p_link_record);
 	stage_init_flags &= 0xFFFFFFF0u;
-	*p_table_offset = table_offset;
-	*p_link_record = bounds_list;
 	*p_block = block;
 }
 
@@ -2534,16 +2528,14 @@ void continue_to_next_stage_slot(uint32_t *p_table_offset, uint32_t *p_link_reco
    table_offset and bounds_list. */
 void load_stage_map_pointers(uint32_t *p_table_offset, uint32_t *p_bounds_list)
 {
-	uint32_t bounds_list = 0, stage_index = 0, table_offset = 0;
+	uint32_t stage_index = 0;
 
 	current_restart_point = stage_restart_points_ADDRESS + stage_restart_points[stage];
 	stage_index = stage;
 	floor_blocks = stage_floor_blocks_ADDRESS + stage_floor_blocks[stage_index];
-	table_offset = stage_floor_block_bounds[stage_index];
-	bounds_list = stage_floor_block_bounds_ADDRESS + table_offset;
-	floor_block_bounds = bounds_list;
-	*p_table_offset = table_offset;
-	*p_bounds_list = bounds_list;
+	*p_table_offset = stage_floor_block_bounds[stage_index];
+	*p_bounds_list = stage_floor_block_bounds_ADDRESS + *p_table_offset;
+	floor_block_bounds = *p_bounds_list;
 }
 
 /* The stage's events: once scroll_position reaches the next (scroll position, game mode) record of
@@ -2563,20 +2555,18 @@ void run_stage_events(uint32_t *p_table_offset, uint32_t *p_event)
 		stage_event_cursor = stage_events_ADDRESS + *p_table_offset;
 	}
 	event = stage_event_cursor;
-	if (scroll_position < STAGE_EVENT(event)->position)
+	if (STAGE_EVENT(event)->position <= scroll_position)
 	{
-		*p_event = event;
-		return;
+		distance_past = (uint16_t)(scroll_position - STAGE_EVENT(event)->position);
+		event += 2u;
+		if (stage == 0x11u || distance_past < 0x100u)
+		{
+			game_mode = STAGE_EVENT(event - 0x2u)->next_game_mode;
+			scene_step = 0u;
+			scene_timer = 0;
+		}
+		stage_event_cursor += 4u;
 	}
-	distance_past = (uint16_t)(scroll_position - STAGE_EVENT(event)->position);
-	event += 2u;
-	if (stage == 0x11u || distance_past < 0x100u)
-	{
-		game_mode = STAGE_EVENT(event - 0x2u)->next_game_mode;
-		scene_step = 0u;
-		scene_timer = 0;
-	}
-	stage_event_cursor += 4u;
 	*p_event = event;
 }
 
@@ -2612,13 +2602,11 @@ void read_trackball_step(uint32_t *p_player_number, uint32_t *p_trackball)
 		*p_player_number = (*p_player_number & 0xFFFF0000u) | step;
 		return;
 	}
-	if ((int16_t)mem_read16(step_sum) > -0x40)
+	if ((int16_t)mem_read16(step_sum) <= -0x40)
 	{
-		*p_player_number = (*p_player_number & 0xFFFF0000u) | step;
-		return;
+		step = 0xFFFFu;
+		mem_write16(step_sum, 0u);
 	}
-	step = 0xFFFFu;
-	mem_write16(step_sum, 0u);
 	*p_player_number = (*p_player_number & 0xFFFF0000u) | step;
 }
 
@@ -2668,11 +2656,11 @@ uint32_t start_player_objects(uint32_t object)
 void reset_objects_from_list(uint32_t object, uint32_t *p_player_number, uint32_t *p_handler_cursor)
 {
 	uint8_t status = 0;
-	uint32_t free_count = 0, handler_cursor = 0, handlers_left = 0, ignored = 0;
+	uint32_t free_count = 0, handler_cursor = 0, handlers_left = 0, ignored = 0, player_number = 0;
 	uint32_t handler_count = 0;
 
 	player_block_cursor = PLAYER_BLOCK(1);
-	reset_objects(&ignored, p_player_number);
+	reset_objects(&ignored, &player_number);
 	handler_cursor = object_handler_list;
 	handlers_left = OBJECT_START_LIST(handler_cursor)->count;
 	handler_cursor += 2u;
@@ -2693,38 +2681,34 @@ void reset_objects_from_list(uint32_t object, uint32_t *p_player_number, uint32_
 	player_block_cursor += 0x200u;
 	handler_count = handlers_left;
 	handlers_left = handler_count - 1u;
-	if ((int32_t)handler_count <= 1)
+	if ((int32_t)handler_count > 1)
 	{
-		*p_handler_cursor = handler_cursor;
-		return;
-	}
-	do
-	{
-		allocate_object(&free_count, &object);
-		if (free_count == 0u)
+		do
 		{
-			*p_handler_cursor = handler_cursor;
-			return;
-		}
-		OBJECT(object)->handler = OBJECT_START_HANDLERS(handler_cursor)[0];
-		handler_cursor += 4u;
-		if (OBJECT(object)->handler == player_start_stage_ADDRESS)
-		{
-			if (mem_read8(player_block_cursor + 9u) == 0u)
+			allocate_object(&free_count, &object);
+			if (free_count == 0u)
+				break;
+			OBJECT(object)->handler = OBJECT_START_HANDLERS(handler_cursor)[0];
+			handler_cursor += 4u;
+			if (OBJECT(object)->handler == player_start_stage_ADDRESS)
 			{
-				*p_player_number = 1u;
-				if (player_block_cursor != PLAYER_BLOCK(2))
-					*p_player_number = 2u;
-				status = player_status[*p_player_number];
-				if (status == 2u || status == 1u || status == 3u)
-					OBJECT(object)->handler = player_resume_ADDRESS;
+				if (mem_read8(player_block_cursor + 9u) == 0u)
+				{
+					player_number = 1u;
+					if (player_block_cursor != PLAYER_BLOCK(2))
+						player_number = 2u;
+					status = player_status[player_number];
+					if (status == 2u || status == 1u || status == 3u)
+						OBJECT(object)->handler = player_resume_ADDRESS;
+				}
+				else
+					OBJECT(object)->handler = player_join_ADDRESS;
 			}
-			else
-				OBJECT(object)->handler = player_join_ADDRESS;
-		}
-		player_block_cursor += 0x200u;
-		handlers_left--;
-	} while (handlers_left != 0u);
+			player_block_cursor += 0x200u;
+			handlers_left--;
+		} while (handlers_left != 0u);
+	}
+	*p_player_number = player_number;
 	*p_handler_cursor = handler_cursor;
 }
 

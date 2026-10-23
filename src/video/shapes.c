@@ -3,7 +3,7 @@
  *    Description: shapes on the bitmap layer, mostly unused: triangles, quadrilaterals, circles, flood fill, saved rectangles, and the clipping the lines and rectangles use
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    21-10-2026
+ *    Modified:    23-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -1225,39 +1225,31 @@ void flood_fill_span(uint8_t border_color, uint32_t window_left, uint32_t window
 {
 	uint32_t left_x = *p_left_x;
 	uint8_t pixel_count = 0, pixels = 0;
-	uint32_t right_address = 0, right_x = 0, scan_count = 0, seed_address = 0;
+	uint32_t scan_count = 0, seed_address = 0;
 	uint32_t start_x = 0;
 
 	seed_address = r14;
-	right_x = left_x;
+	*p_right_x = left_x;
 	start_x = left_x;
 	scan_count = start_x - window_left;
 	if ((int32_t)start_x <= (int32_t)window_left)
+		flood_fill_span_scan_right(border_color, window_right, left_x, fill_pattern, seed_address, p_right_address, p_right_x);
+	else
 	{
-		flood_fill_span_scan_right(border_color, window_right, left_x, fill_pattern, seed_address, &right_address, &right_x);
-		*p_left_x = (*p_left_x & 0xFFFF0000u) | (left_x & 0xFFFFu);
-		*p_right_address = right_address;
-		*p_right_x = right_x;
-		return;
+		pixel_count = (uint8_t)(uint16_t)scan_count;
+		scan_count = (scan_count & ~0xFFFFu) | ((uint16_t)scan_count >> 1);
+		if ((r14 & 1u) == 0u)
+			flood_fill_span_left_pair(scan_count, pixel_count, border_color, window_right, fill_pattern, seed_address, &left_x, p_right_address, p_right_x);
+		else
+		{
+			pixel_count--;
+			scan_count = (scan_count & ~0xFFFFu) | (uint16_t)(scan_count + 1u);
+			r14 = r14 - 1u;
+			pixels = mem_read8(r14);
+			flood_fill_span_left_pixel(pixels, scan_count, pixel_count, border_color, window_right, fill_pattern, seed_address, &left_x, p_right_address, p_right_x);
+		}
 	}
-	pixel_count = (uint8_t)(uint16_t)scan_count;
-	scan_count = (scan_count & ~0xFFFFu) | ((uint16_t)scan_count >> 1);
-	if ((r14 & 1u) == 0u)
-	{
-		flood_fill_span_left_pair(scan_count, pixel_count, border_color, window_right, fill_pattern, seed_address, &left_x, &right_address, &right_x);
-		*p_left_x = (*p_left_x & 0xFFFF0000u) | (left_x & 0xFFFFu);
-		*p_right_address = right_address;
-		*p_right_x = right_x;
-		return;
-	}
-	pixel_count--;
-	scan_count = (scan_count & ~0xFFFFu) | (uint16_t)(scan_count + 1u);
-	r14 = r14 - 1u;
-	pixels = mem_read8(r14);
-	flood_fill_span_left_pixel(pixels, scan_count, pixel_count, border_color, window_right, fill_pattern, seed_address, &left_x, &right_address, &right_x);
 	*p_left_x = (*p_left_x & 0xFFFF0000u) | (left_x & 0xFFFFu);
-	*p_right_address = right_address;
-	*p_right_x = right_x;
 }
 
 /* Unused: flood_fill_span's left scan: the next two pixels to the left (a halfword before r14), the
@@ -1276,12 +1268,12 @@ void flood_fill_span_left_pair(uint32_t scan_count, uint8_t pixel_count, uint8_t
 	{
 		r14 = r14 + 2u;
 		flood_fill_span_set_left_x(border_color, window_right, fill_pattern, seed_address, &left_x, p_right_address, &right_x);
-		*p_left_x = (*p_left_x & 0xFFFF0000u) | (left_x & 0xFFFFu);
-		*p_right_x = (*p_right_x & 0xFFFF0000u) | (right_x & 0xFFFFu);
-		return;
 	}
-	pixels = (uint16_t)(((uint32_t)pixels << 8) | (pixels >> 8));
-	flood_fill_span_left_pixel((uint8_t)pixels, scan_count, pixel_count, border_color, window_right, fill_pattern, seed_address, &left_x, p_right_address, &right_x);
+	else
+	{
+		pixels = (uint16_t)(((uint32_t)pixels << 8) | (pixels >> 8));
+		flood_fill_span_left_pixel((uint8_t)pixels, scan_count, pixel_count, border_color, window_right, fill_pattern, seed_address, &left_x, p_right_address, &right_x);
+	}
 	*p_left_x = (*p_left_x & 0xFFFF0000u) | (left_x & 0xFFFFu);
 	*p_right_x = (*p_right_x & 0xFFFF0000u) | (right_x & 0xFFFFu);
 }
@@ -1361,32 +1353,31 @@ void flood_fill_span_scan_right(uint8_t border_color, uint32_t window_right, uin
 {
 	uint32_t right_x = *p_right_x;
 	uint8_t pixel_count = 0, pixels = 0;
-	uint32_t scan_count = 0;
+	uint32_t right_address = 0, scan_count = 0;
 	uint16_t right_limit = 0;
 
 	scan_count = window_right;
 	right_limit = scan_count;
 	scan_count = (scan_count & ~0xFFFFu) | (uint16_t)(right_limit - right_x);
 	if ((int16_t)right_limit <= (int16_t)right_x)
+		right_address = flood_fill_span_fill_run(left_x, fill_pattern, right_x);
+	else
 	{
-		*p_right_address = flood_fill_span_fill_run(left_x, fill_pattern, right_x);
-		*p_right_x = (*p_right_x & 0xFFFF0000u) | (right_x & 0xFFFFu);
-		return;
+		right_address = seed_address + 1u;
+		pixel_count = (uint8_t)scan_count;
+		scan_count = (scan_count & ~0xFFFFu) | ((uint16_t)scan_count >> 1);
+		if ((right_address & 1u) == 0u)
+			flood_fill_span_right_pair(scan_count, pixel_count, border_color, left_x, fill_pattern, (uint16_t)seed_address, &right_address, &right_x);
+		else
+		{
+			pixel_count--;
+			scan_count = (scan_count & ~0xFFFFu) | (uint16_t)(scan_count + 1u);
+			pixels = mem_read8(right_address);
+			right_address++;
+			flood_fill_span_right_pixel(pixels, scan_count, pixel_count, border_color, left_x, fill_pattern, (uint16_t)seed_address, &right_address, &right_x);
+		}
 	}
-	*p_right_address = seed_address + 1u;
-	pixel_count = (uint8_t)scan_count;
-	scan_count = (scan_count & ~0xFFFFu) | ((uint16_t)scan_count >> 1);
-	if ((*p_right_address & 1u) == 0u)
-	{
-		flood_fill_span_right_pair(scan_count, pixel_count, border_color, left_x, fill_pattern, (uint16_t)seed_address, p_right_address, &right_x);
-		*p_right_x = (*p_right_x & 0xFFFF0000u) | (right_x & 0xFFFFu);
-		return;
-	}
-	pixel_count--;
-	scan_count = (scan_count & ~0xFFFFu) | (uint16_t)(scan_count + 1u);
-	pixels = mem_read8(*p_right_address);
-	(*p_right_address)++;
-	flood_fill_span_right_pixel(pixels, scan_count, pixel_count, border_color, left_x, fill_pattern, (uint16_t)seed_address, p_right_address, &right_x);
+	*p_right_address = right_address;
 	*p_right_x = (*p_right_x & 0xFFFF0000u) | (right_x & 0xFFFFu);
 }
 
@@ -1395,20 +1386,23 @@ void flood_fill_span_scan_right(uint8_t border_color, uint32_t window_right, uin
    flood_fill_span_right_pixel for the farther one. */
 void flood_fill_span_right_pair(uint32_t scan_count, uint8_t pixel_count, uint8_t border_color, uint32_t left_x, uint32_t fill_pattern, uint16_t seed_address, uint32_t *p_right_cursor, uint32_t *p_right_x)
 {
+	uint32_t right_cursor = *p_right_cursor;
 	uint32_t right_x = *p_right_x;
 	uint16_t pixels = 0;
 
-	pixels = mem_read16(*p_right_cursor);
-	*p_right_cursor += 2u;
+	pixels = mem_read16(right_cursor);
+	right_cursor += 2u;
 	if ((uint8_t)pixels == (uint8_t)fill_pattern || (uint8_t)pixels == (uint8_t)border_color)
 	{
-		*p_right_cursor = *p_right_cursor - 1u - 1u - 1u;
-		flood_fill_span_set_right_x(left_x, fill_pattern, seed_address, p_right_cursor, &right_x);
-		*p_right_x = (*p_right_x & 0xFFFF0000u) | (right_x & 0xFFFFu);
-		return;
+		right_cursor = right_cursor - 1u - 1u - 1u;
+		flood_fill_span_set_right_x(left_x, fill_pattern, seed_address, &right_cursor, &right_x);
 	}
-	pixels = (uint16_t)(((uint32_t)pixels << 8) | (pixels >> 8));
-	flood_fill_span_right_pixel((uint8_t)pixels, scan_count, pixel_count, border_color, left_x, fill_pattern, seed_address, p_right_cursor, &right_x);
+	else
+	{
+		pixels = (uint16_t)(((uint32_t)pixels << 8) | (pixels >> 8));
+		flood_fill_span_right_pixel((uint8_t)pixels, scan_count, pixel_count, border_color, left_x, fill_pattern, seed_address, &right_cursor, &right_x);
+	}
+	*p_right_cursor = right_cursor;
 	*p_right_x = (*p_right_x & 0xFFFF0000u) | (right_x & 0xFFFFu);
 }
 
@@ -1581,7 +1575,6 @@ uint32_t flood_fill_scan_seed_rows(uint8_t border_color, uint32_t window_left, u
    the x the scan reached. */
 uint32_t flood_fill_scan_row(uint8_t border_color, uint32_t window_left, uint32_t window_right, uint32_t direction, uint8_t y, uint32_t fill_pattern)
 {
-	bool back_to_pixel = false, first_of_pair = false;
 	uint8_t pixel = 0, pixel_count = 0;
 	uint16_t pixels = 0;
 	uint32_t right_address = 0, right_x = 0, scan_count = 0, scan_start = 0, scan_x = 0;
@@ -1642,46 +1635,35 @@ uint32_t flood_fill_scan_row(uint8_t border_color, uint32_t window_left, uint32_
 		scan_count = (uint16_t)(scan_count + 1u);
 		pixel_count = (uint8_t)scan_count;
 		scan_count = scan_count >> 1;
-		do
+		for (;;)
 		{
 			pixels = mem_read16(r14);
 			r14 = r14 + 2u;
-			first_of_pair = (uint8_t)pixels != (uint8_t)fill_pattern && (uint8_t)pixels != (uint8_t)border_color;
-			if (first_of_pair)
-				break;
-			pixels = (uint16_t)(((uint32_t)pixels << 8) | (pixels >> 8));
-			back_to_pixel = (uint8_t)pixels != (uint8_t)fill_pattern && (uint8_t)pixels != (uint8_t)border_color;
-			if (back_to_pixel)
-				break;
-			scan_count--;
-		} while (scan_count != 0u);
-		if (first_of_pair || !back_to_pixel)
-		{
-			if (!first_of_pair)
+			if ((uint8_t)pixels != (uint8_t)fill_pattern && (uint8_t)pixels != (uint8_t)border_color)
 			{
-				if ((pixel_count & 1u) == 0u)
-					break;
-				pixel = mem_read8(r14);
-				if (pixel == (uint8_t)fill_pattern || pixel == (uint8_t)border_color)
-					break;
+				r14 = (r14 & ~0xFFFFu) | (uint16_t)(r14 - 1u);
+				r14 = (r14 & ~0xFFFFu) | (uint16_t)(r14 - 1u);
 				scan_x = scan_x + r14 - scan_start;
-				flood_fill_push_span(border_color, window_left, window_right, (uint8_t)direction, scan_x, y, fill_pattern, &right_address, &right_x);
-				scan_count = flood_fill_push_parent_right_x;
-				scan_count = (uint16_t)(scan_count - 1u);
-				if ((int16_t)scan_count <= (int16_t)right_x)
-					break;
-				scan_x = right_x + 2u;
-				r14 = right_address + 2u;
-				flood_fill_push_parent_left_x = scan_x;
-				flood_fill_push_parent_left_address = r14;
-				scan_count = flood_fill_push_parent_right_x;
-				continue;
+				break;
 			}
-			r14 = (r14 & ~0xFFFFu) | (uint16_t)(r14 - 1u);
+			pixels = (uint16_t)(((uint32_t)pixels << 8) | (pixels >> 8));
+			if ((uint8_t)pixels != (uint8_t)fill_pattern && (uint8_t)pixels != (uint8_t)border_color)
+			{
+				r14 = (r14 & ~0xFFFFu) | (uint16_t)(r14 - 1u);
+				scan_x = scan_x + r14 - scan_start;
+				break;
+			}
+			scan_count--;
+			if (scan_count != 0u)
+				continue;
+			if ((pixel_count & 1u) == 0u)
+				return scan_x;
+			pixel = mem_read8(r14);
+			if (pixel == (uint8_t)fill_pattern || pixel == (uint8_t)border_color)
+				return scan_x;
+			scan_x = scan_x + r14 - scan_start;
+			break;
 		}
-		back_to_pixel = false;
-		r14 = (r14 & ~0xFFFFu) | (uint16_t)(r14 - 1u);
-		scan_x = scan_x + r14 - scan_start;
 		flood_fill_push_span(border_color, window_left, window_right, (uint8_t)direction, scan_x, y, fill_pattern, &right_address, &right_x);
 		scan_count = flood_fill_push_parent_right_x;
 		scan_count = (uint16_t)(scan_count - 1u);
@@ -1718,11 +1700,10 @@ uint32_t flood_fill_scan_span_rows(uint8_t border_color, uint32_t window_left, u
    right of flood_fill_parent_right_x + 1, each run there through flood_fill_push_span. */
 uint32_t flood_fill_scan_row_skip_parent(uint8_t border_color, uint32_t window_left, uint32_t window_right, uint32_t direction, uint32_t scan_x, uint8_t y, uint32_t fill_pattern)
 {
-	bool left_back_to_pixel = false, left_found = false, left_odd_pixel = false, left_pairs_2 = false, right_found = false;
 	uint8_t pixel = 0, pixel_count = 0;
 	uint16_t pixels = 0;
 	uint32_t right_address = 0, right_x = 0, scan_count = 0, scan_start = 0;
-	uint16_t left_count_before = 0, left_pairs = 0, span_right_x = 0, right_limit = 0, right_count_before = 0, right_pairs = 0;
+	uint16_t left_count_before = 0, left_pairs = 0;
 
 	if ((uint8_t)direction == flood_fill_direction)
 		return flood_fill_scan_row(border_color, window_left, window_right, direction, y, fill_pattern);
@@ -1731,105 +1712,102 @@ uint32_t flood_fill_scan_row_skip_parent(uint8_t border_color, uint32_t window_l
 	flood_fill_push_parent_left_x = flood_fill_left_x;
 	flood_fill_push_parent_left_address = flood_fill_left_address;
 	scan_x = (scan_x & ~0xFFFFu) | flood_fill_left_x;
-	if ((uint16_t)scan_x < flood_fill_parent_left_x)
+	if (flood_fill_parent_left_x <= (uint16_t)scan_x)
+		return flood_fill_skip_parent_right(border_color, window_left, window_right, (uint8_t)direction, scan_x, y, fill_pattern);
+	r14 = flood_fill_left_address + (direction << 9);
+	for (;;)
 	{
-		r14 = flood_fill_left_address + (direction << 9);
-		for (;;)
+		scan_count = flood_fill_parent_left_x;
+		scan_start = r14;
+		scan_count = (uint16_t)(scan_count - scan_x);
+		if ((r14 & 1u) != 0u)
 		{
-			scan_count = flood_fill_parent_left_x;
-			scan_start = r14;
-			scan_count = (uint16_t)(scan_count - scan_x);
-			if ((r14 & 1u) == 0u)
-				left_pairs_2 = true;
-			else
+			pixel = mem_read8(r14);
+			if (pixel != (uint8_t)fill_pattern && pixel != (uint8_t)border_color)
 			{
-				pixel = mem_read8(r14);
-				if (pixel == (uint8_t)fill_pattern || pixel == (uint8_t)border_color)
-				{
-					left_count_before = scan_count;
-					scan_count = (uint16_t)(left_count_before - 1u);
-					if ((int16_t)left_count_before <= 1)
-						break;
-					r14 = (r14 & ~0xFFFFu) | (uint16_t)(r14 + 1u);
-					left_pairs_2 = true;
-				}
-				if (!left_pairs_2)
-				{
-					flood_fill_push_span(border_color, window_left, window_right, (uint8_t)direction, scan_x, y, fill_pattern, &right_address, &right_x);
-					if ((int16_t)(flood_fill_parent_left_x - 2u) <= (int16_t)right_x)
-						break;
-					scan_x = right_x + 2u;
-					r14 = right_address + 2u;
-				}
+				flood_fill_push_span(border_color, window_left, window_right, (uint8_t)direction, scan_x, y, fill_pattern, &right_address, &right_x);
+				if ((int16_t)(flood_fill_parent_left_x - 2u) <= (int16_t)right_x)
+					break;
+				scan_x = right_x + 2u;
+				r14 = right_address + 2u;
+				continue;
 			}
-			if (left_pairs_2)
-			{
-				left_pairs_2 = false;
-				pixel_count = (uint8_t)scan_count;
-				left_pairs = scan_count >> 1;
-				scan_count = left_pairs;
-				if (left_pairs == 0u)
-					left_odd_pixel = true;
-				else
-				{
-					for (;;)
-					{
-						pixels = mem_read16(r14);
-						r14 = r14 + 2u;
-						if ((uint8_t)pixels == (uint8_t)fill_pattern || (uint8_t)pixels == (uint8_t)border_color)
-						{
-							pixels = (uint16_t)(((uint32_t)pixels << 8) | (pixels >> 8));
-							if ((uint8_t)pixels == (uint8_t)fill_pattern || (uint8_t)pixels == (uint8_t)border_color)
-							{
-								scan_count--;
-								if (scan_count != 0u)
-									continue;
-								left_odd_pixel = true;
-							}
-							if (!left_odd_pixel)
-								left_back_to_pixel = true;
-						}
-						else
-						{
-							r14 = (r14 & ~0xFFFFu) | (uint16_t)(r14 - 1u);
-							left_back_to_pixel = true;
-						}
-						if (left_odd_pixel)
-							break;
-						if (left_back_to_pixel)
-						{
-							left_back_to_pixel = false;
-							r14 = (r14 & ~0xFFFFu) | (uint16_t)(r14 - 1u);
-							left_found = true;
-						}
-						if (left_found)
-							break;
-					}
-				}
-				if (left_odd_pixel)
-				{
-					left_odd_pixel = false;
-					if ((pixel_count & 1u) == 0u)
-						break;
-					pixel = mem_read8(r14);
-					if (pixel == (uint8_t)fill_pattern || pixel == (uint8_t)border_color)
-						break;
-					left_found = true;
-				}
-				if (left_found)
-				{
-					left_found = false;
-					scan_x = scan_x + r14 - scan_start;
-					flood_fill_push_span(border_color, window_left, window_right, (uint8_t)direction, scan_x, y, fill_pattern, &right_address, &right_x);
-					if ((int16_t)(flood_fill_parent_left_x - 2u) <= (int16_t)right_x)
-						break;
-					scan_x = right_x + 2u;
-					r14 = right_address + 2u;
-					continue;
-				}
-			}
+			left_count_before = scan_count;
+			scan_count = (uint16_t)(left_count_before - 1u);
+			if ((int16_t)left_count_before <= 1)
+				break;
+			r14 = (r14 & ~0xFFFFu) | (uint16_t)(r14 + 1u);
 		}
+		pixel_count = (uint8_t)scan_count;
+		left_pairs = scan_count >> 1;
+		scan_count = left_pairs;
+		if (left_pairs != 0u)
+		{
+			for (;;)
+			{
+				pixels = mem_read16(r14);
+				r14 = r14 + 2u;
+				if ((uint8_t)pixels == (uint8_t)fill_pattern || (uint8_t)pixels == (uint8_t)border_color)
+				{
+					pixels = (uint16_t)(((uint32_t)pixels << 8) | (pixels >> 8));
+					if ((uint8_t)pixels == (uint8_t)fill_pattern || (uint8_t)pixels == (uint8_t)border_color)
+					{
+						scan_count--;
+						if (scan_count != 0u)
+							continue;
+						if ((pixel_count & 1u) == 0u)
+							return flood_fill_skip_parent_right(border_color, window_left, window_right, (uint8_t)direction, scan_x, y, fill_pattern);
+						pixel = mem_read8(r14);
+						if (pixel == (uint8_t)fill_pattern)
+							return flood_fill_skip_parent_right(border_color, window_left, window_right, (uint8_t)direction, scan_x, y, fill_pattern);
+						if (pixel == (uint8_t)border_color)
+							return flood_fill_skip_parent_right(border_color, window_left, window_right, (uint8_t)direction, scan_x, y, fill_pattern);
+						scan_x = scan_x + r14 - scan_start;
+						break;
+					}
+					r14 = (r14 & ~0xFFFFu) | (uint16_t)(r14 - 1u);
+					scan_x = scan_x + r14 - scan_start;
+					break;
+				}
+				r14 = (r14 & ~0xFFFFu) | (uint16_t)(r14 - 1u);
+				r14 = (r14 & ~0xFFFFu) | (uint16_t)(r14 - 1u);
+				scan_x = scan_x + r14 - scan_start;
+				break;
+			}
+			flood_fill_push_span(border_color, window_left, window_right, (uint8_t)direction, scan_x, y, fill_pattern, &right_address, &right_x);
+			if ((int16_t)(flood_fill_parent_left_x - 2u) <= (int16_t)right_x)
+				break;
+			scan_x = right_x + 2u;
+			r14 = right_address + 2u;
+			continue;
+		}
+		if ((pixel_count & 1u) == 0u)
+			break;
+		pixel = mem_read8(r14);
+		if (pixel == (uint8_t)fill_pattern)
+			break;
+		if (pixel == (uint8_t)border_color)
+			return flood_fill_skip_parent_right(border_color, window_left, window_right, (uint8_t)direction, scan_x, y, fill_pattern);
+		scan_x = scan_x + r14 - scan_start;
+		flood_fill_push_span(border_color, window_left, window_right, (uint8_t)direction, scan_x, y, fill_pattern, &right_address, &right_x);
+		if ((int16_t)(flood_fill_parent_left_x - 2u) <= (int16_t)right_x)
+			break;
+		scan_x = right_x + 2u;
+		r14 = right_address + 2u;
 	}
+	return flood_fill_skip_parent_right(border_color, window_left, window_right, (uint8_t)direction, scan_x, y, fill_pattern);
+}
+
+/* Unused: flood_fill_scan_row_skip_parent's right part: from flood_fill_parent_right_x + 1 to
+   flood_fill_right_x, two pixels at a time, each run of fillable pixels pushed through
+   flood_fill_push_span; hands back scan_x. */
+uint32_t flood_fill_skip_parent_right(uint8_t border_color, uint32_t window_left, uint32_t window_right, uint8_t direction, uint32_t scan_x, uint8_t y, uint32_t fill_pattern)
+{
+	uint8_t pixel = 0, pixel_count = 0;
+	uint16_t pixels = 0;
+	uint32_t right_address = 0, right_x = 0, scan_count = 0, scan_start = 0;
+	uint16_t span_right_x = 0, right_limit = 0, right_count_before = 0, right_pairs = 0;
+
 	scan_x = (scan_x & ~0xFFFFu) | flood_fill_parent_right_x;
 	scan_count = flood_fill_right_x;
 	scan_x = (scan_x & ~0xFFFFu) | (uint16_t)(scan_x + 1u);
@@ -1848,7 +1826,7 @@ uint32_t flood_fill_scan_row_skip_parent(uint8_t border_color, uint32_t window_l
 			pixel = mem_read8(r14);
 			if (pixel != (uint8_t)fill_pattern && pixel != (uint8_t)border_color)
 			{
-				flood_fill_push_span(border_color, window_left, window_right, (uint8_t)direction, scan_x, y, fill_pattern, &right_address, &right_x);
+				flood_fill_push_span(border_color, window_left, window_right, direction, scan_x, y, fill_pattern, &right_address, &right_x);
 				scan_count = flood_fill_right_x;
 				scan_count = (uint16_t)(scan_count - 1u);
 				right_limit = scan_count;
@@ -1880,29 +1858,43 @@ uint32_t flood_fill_scan_row_skip_parent(uint8_t border_color, uint32_t window_l
 					if ((uint8_t)pixels == (uint8_t)fill_pattern || (uint8_t)pixels == (uint8_t)border_color)
 					{
 						scan_count--;
-						if (scan_count == 0u)
-							break;
-						continue;
+						if (scan_count != 0u)
+							continue;
+						if ((pixel_count & 1u) == 0u)
+							return scan_x;
+						pixel = mem_read8(r14);
+						if (pixel == (uint8_t)fill_pattern || pixel == (uint8_t)border_color)
+							return scan_x;
+						scan_x = scan_x + r14 - scan_start;
+						break;
 					}
-				}
-				else
 					r14 = (r14 & ~0xFFFFu) | (uint16_t)(r14 - 1u);
+					scan_x = scan_x + r14 - scan_start;
+					break;
+				}
 				r14 = (r14 & ~0xFFFFu) | (uint16_t)(r14 - 1u);
-				right_found = true;
+				r14 = (r14 & ~0xFFFFu) | (uint16_t)(r14 - 1u);
+				scan_x = scan_x + r14 - scan_start;
 				break;
 			}
-		}
-		if (!right_found)
-		{
-			if ((pixel_count & 1u) == 0u)
+			flood_fill_push_span(border_color, window_left, window_right, direction, scan_x, y, fill_pattern, &right_address, &right_x);
+			scan_count = flood_fill_right_x;
+			scan_count = (uint16_t)(scan_count - 1u);
+			right_limit = scan_count;
+			scan_count = (uint16_t)(right_limit - right_x);
+			if ((int16_t)right_limit <= (int16_t)right_x)
 				break;
-			pixel = mem_read8(r14);
-			if (pixel == (uint8_t)fill_pattern || pixel == (uint8_t)border_color)
-				break;
+			scan_x = right_x + 2u;
+			r14 = right_address + 2u;
+			continue;
 		}
-		right_found = false;
+		if ((pixel_count & 1u) == 0u)
+			break;
+		pixel = mem_read8(r14);
+		if (pixel == (uint8_t)fill_pattern || pixel == (uint8_t)border_color)
+			break;
 		scan_x = scan_x + r14 - scan_start;
-		flood_fill_push_span(border_color, window_left, window_right, (uint8_t)direction, scan_x, y, fill_pattern, &right_address, &right_x);
+		flood_fill_push_span(border_color, window_left, window_right, direction, scan_x, y, fill_pattern, &right_address, &right_x);
 		scan_count = flood_fill_right_x;
 		scan_count = (uint16_t)(scan_count - 1u);
 		right_limit = scan_count;
@@ -1922,7 +1914,7 @@ uint32_t flood_fill_scan_row_skip_parent(uint8_t border_color, uint32_t window_l
 void fill_span_at_point(uint32_t point_x, uint32_t point_y, uint8_t fill_color, uint8_t border_color, uint32_t right_cursor)
 {
 	uint8_t pixel_byte = 0, point_pixel = 0;
-	uint32_t fill_pattern = 0, ignored = 0, left_x = 0, outcode = 0, right_x = 0, scan_count = 0, window_left = 0, window_right = 0;
+	uint32_t fill_pattern = 0, ignored = 0, ignored_2 = 0, left_x = 0, outcode = 0, right_x = 0, scan_count = 0, window_left = 0, window_right = 0;
 	uint32_t start_x = 0;
 
 	get_point_outcode(&point_x, &point_y, &outcode);
@@ -1938,7 +1930,7 @@ void fill_span_at_point(uint32_t point_x, uint32_t point_y, uint8_t fill_color, 
 		fill_pattern = (uint8_t)fill_color * 0x1010101u;
 		window_left = (uint16_t)bitmap_window_left;
 		window_right = (uint16_t)bitmap_window_right;
-		flood_fill_span(border_color, window_left, window_right, fill_pattern, &left_x, &ignored, &ignored);
+		flood_fill_span(border_color, window_left, window_right, fill_pattern, &left_x, &ignored, &ignored_2);
 		return;
 	}
 	r14 = (point_y << 8) + (point_x >> 1) + bitmap_address;
@@ -2266,16 +2258,8 @@ void get_point_outcode(uint32_t *p_point_x, uint32_t *p_point_y, uint32_t *p_out
 		outcode = (uint8_t)(outcode + 2u);
 	if ((int16_t)point_y < bitmap_window_top)
 		outcode = (uint8_t)(outcode + 4u);
-	if ((int16_t)point_y <= bitmap_window_bottom)
-	{
-		point_x = (int16_t)point_x;
-		point_y = (int16_t)point_y;
-		*p_point_x = point_x;
-		*p_point_y = point_y;
-		*p_outcode = outcode;
-		return;
-	}
-	outcode = (uint8_t)(outcode + 8u);
+	if (bitmap_window_bottom < (int16_t)point_y)
+		outcode = (uint8_t)(outcode + 8u);
 	point_x = (int16_t)point_x;
 	point_y = (int16_t)point_y;
 	*p_point_x = point_x;

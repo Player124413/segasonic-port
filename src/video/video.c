@@ -3,7 +3,7 @@
  *    Description: the board's video: the video registers and the screen mode, block copies and fills, palette RAM and its copies at VBLANK, the VRAM scripts that build the tilemaps
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    21-10-2026
+ *    Modified:    23-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -19,7 +19,7 @@ void init_video_registers(void)
 {
 	uint8_t mode = 0;
 	uint16_t value = 0;
-	uint32_t count = 0, defaults_cursor = 0, ignored = 0, rects_left = 0, register_cursor = 0, right_bottom = 0;
+	uint32_t count = 0, defaults_cursor = 0, ignored = 0, ignored_2 = 0, rects_left = 0, register_cursor = 0, right_bottom = 0;
 
 	vblank_start_hook = apply_video_registers_ADDRESS;
 	defaults_cursor = video_register_defaults_ADDRESS;
@@ -48,7 +48,7 @@ void init_video_registers(void)
 	mem_write32(register_cursor + 4u, VIDEO_REGISTER_DEFAULTS_TAIL(defaults_cursor - 0x4u)->bitmap_control);
 	mode = 0u;
 	set_screen_mode(mode);
-	ignored = clear_page_0_and_scroll();
+	ignored_2 = clear_page_0_and_scroll();
 }
 
 /* Zeroes the first 0x400 bytes of video RAM (0x300000) and the 0x80 bytes of scroll and register shadows

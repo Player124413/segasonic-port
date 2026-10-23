@@ -79,6 +79,8 @@ Package: 132-pin PGA, 200-pin QFP
 
 #include "corefloat.h"
 
+#include <cmath>    // roundf, floorf, ceilf, truncf (op2.hxx): GCC 15's headers no longer bring it in
+
 
 DEFINE_DEVICE_TYPE(V60, v60_device, "v60", "NEC V60")
 DEFINE_DEVICE_TYPE(V70, v70_device, "v70", "NEC V70")

@@ -3,7 +3,7 @@
  *    Description: text: the text layer's font, printing and erasing text, lines, fractions and digits, and the strings drawn with sprites
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    21-10-2026
+ *    Modified:    23-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -172,7 +172,7 @@ void load_text_font(uint32_t *p_pixels, uint32_t *p_color_index)
 {
 	uint8_t color = 0;
 	uint16_t count = 0;
-	uint32_t dest = 0, dest_end = 0, ignored = 0, source = 0, source_end = 0;
+	uint32_t dest = 0, dest_end = 0, ignored = 0, ignored_2 = 0, ignored_3 = 0, source = 0, source_end = 0;
 
 	mem_write16(video_text_control, 0x1F7u);
 	move_string(text_font_ADDRESS, 0x9A0u, VIDEO_RAM + 0x1C000u, 0x9A0u, 2u, 0u, 0u, fill_value, &dest_end, &source_end);
@@ -181,20 +181,15 @@ void load_text_font(uint32_t *p_pixels, uint32_t *p_color_index)
 	count = 0x5Bu;
 	color = 1u;
 	expand_font(color, count, source, dest, p_pixels, p_color_index);
-	clear_text_layer(&ignored, &ignored, &ignored);
+	clear_text_layer(&ignored, &ignored_2, &ignored_3);
 }
 
 /* Zeroes the text map: 0xE0 blocks of 16 bytes from its first cell (clear_blocks). */
 void clear_text_layer(uint32_t *p_value, uint32_t *p_count, uint32_t *p_dest)
 {
-	uint32_t count = 0, dest = 0, value = 0;
-
-	dest = TEXT_CELL(0, 0);
-	count = 0xE0u;
-	clear_blocks(&value, &count, &dest);
-	*p_value = value;
-	*p_count = count;
-	*p_dest = dest;
+	*p_dest = TEXT_CELL(0, 0);
+	*p_count = 0xE0u;
+	clear_blocks(p_value, p_count, p_dest);
 }
 
 /* Expands count 1-bit characters, 8 rows of a byte, from source into 4-bit characters at dest in color &
@@ -372,20 +367,17 @@ void print_text_here(uint32_t *p_cell, uint32_t *p_text, uint32_t *p_text_positi
 	text++;
 	cell |= TEXT_LAYER_STRING(text)[0];
 	text++;
-	if ((uint8_t)cell == 0u)
+	if ((uint8_t)cell != 0u)
 	{
-		*p_cell = (*p_cell & 0xFFFF0000u) | cell;
-		*p_text = text;
-		return;
+		do
+		{
+			mem_write16(*p_text_position, cell);
+			next_char = TEXT_LAYER_STRING(text)[0];
+			text++;
+			cell = (uint16_t)((cell & ~0xFFu) | next_char);
+			*p_text_position += 2u;
+		} while ((uint8_t)cell != 0u);
 	}
-	do
-	{
-		mem_write16(*p_text_position, cell);
-		next_char = TEXT_LAYER_STRING(text)[0];
-		text++;
-		cell = (uint16_t)((cell & ~0xFFu) | next_char);
-		*p_text_position += 2u;
-	} while ((uint8_t)cell != 0u);
 	*p_cell = (*p_cell & 0xFFFF0000u) | cell;
 	*p_text = text;
 }
@@ -423,18 +415,16 @@ void erase_text_here(uint16_t cell, uint32_t *p_text, uint32_t *p_text_position)
 	text++;
 	first_char = TEXT_LAYER_STRING(text)[0];
 	text++;
-	if (first_char == 0u)
+	if (first_char != 0u)
 	{
-		*p_text = text;
-		return;
+		do
+		{
+			mem_write16(*p_text_position, cell);
+			next_char = TEXT_LAYER_STRING(text)[0];
+			text++;
+			*p_text_position += 2u;
+		} while (next_char != 0u);
 	}
-	do
-	{
-		mem_write16(*p_text_position, cell);
-		next_char = TEXT_LAYER_STRING(text)[0];
-		text++;
-		*p_text_position += 2u;
-	} while (next_char != 0u);
 	*p_text = text;
 }
 
@@ -1191,6 +1181,7 @@ void draw_hex_8(uint32_t value, uint32_t attribute, uint32_t text_position)
    to 0 (the last digit is always drawn). Hands back text_position at the first cell. */
 void draw_hex_digits(uint32_t digit_count, uint32_t *p_value, uint32_t *p_attribute, uint32_t *p_text_position)
 {
+	uint32_t value = *p_value;
 	uint16_t attribute = (uint16_t)*p_attribute;
 	uint32_t text_position = *p_text_position;
 	uint32_t remaining = 0;
@@ -1198,29 +1189,27 @@ void draw_hex_digits(uint32_t digit_count, uint32_t *p_value, uint32_t *p_attrib
 	text_position += digit_count * 2u;
 	do
 	{
-		attribute = (uint16_t)((attribute & ~0xFFu) | (uint8_t)*p_value);
+		attribute = (uint16_t)((attribute & ~0xFFu) | (uint8_t)value);
 		attribute = (uint16_t)((attribute & ~0xFFu) | (attribute & 0xFu));
 		if ((uint8_t)attribute >= 0xAu)
 			attribute = (uint16_t)((attribute & ~0xFFu) | (uint8_t)(attribute + 7u));
 		attribute = (uint16_t)((attribute & ~0xFFu) | (uint8_t)(attribute + 0x30u));
 		text_position -= 2u;
 		mem_write16(text_position, attribute);
-		remaining = *p_value >> 4;
-		*p_value = remaining;
+		remaining = value >> 4;
+		value = remaining;
 		digit_count--;
 	} while ((digit_count != 0u) & (remaining != 0u));
-	if (digit_count == 0u)
+	if (digit_count != 0u)
 	{
-		*p_attribute = (*p_attribute & 0xFFFFFF00u) | (attribute & 0xFFu);
-		*p_text_position = text_position;
-		return;
+		do
+		{
+			text_position -= 2u;
+			mem_write16(text_position, value);
+			digit_count--;
+		} while (digit_count != 0u);
 	}
-	do
-	{
-		text_position -= 2u;
-		mem_write16(text_position, *p_value);
-		digit_count--;
-	} while (digit_count != 0u);
+	*p_value = value;
 	*p_attribute = (*p_attribute & 0xFFFFFF00u) | (attribute & 0xFFu);
 	*p_text_position = text_position;
 }
@@ -1290,18 +1279,15 @@ void draw_bcd_digits(uint32_t value, uint32_t digit_count, uint32_t *p_attribute
 		value = remaining;
 		digit_count--;
 	} while ((digit_count != 0u) & (remaining != 0u));
-	if (digit_count == 0u)
+	if (digit_count != 0u)
 	{
-		*p_attribute = (*p_attribute & 0xFFFFFF00u) | (attribute & 0xFFu);
-		*p_text_position = text_position;
-		return;
+		do
+		{
+			text_position -= 2u;
+			mem_write16(text_position, value);
+			digit_count--;
+		} while (digit_count != 0u);
 	}
-	do
-	{
-		text_position -= 2u;
-		mem_write16(text_position, value);
-		digit_count--;
-	} while (digit_count != 0u);
 	*p_attribute = (*p_attribute & 0xFFFFFF00u) | (attribute & 0xFFu);
 	*p_text_position = text_position;
 }

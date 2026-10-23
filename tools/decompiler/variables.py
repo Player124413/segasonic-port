@@ -276,7 +276,21 @@ class Variables:
         for register in sorted(by_register):
             if register in self.entry_registers and register in self.entry_names:
                 self.unused(self.entry_names[register])
-        ignored = {}    # by the register's width: a call writes the whole register through its pointer
+        # by the register: a call writes the whole register through its pointer, and two registers a call
+        # hands back that nothing reads are two variables, so that the call never gets one pointer twice (it
+        # can then work on its results through their pointers)
+        ignored = {}
+        # (numbered as the function first leaves them unread, then by register: a call's in its arguments' order)
+        firsts = []
+        for register, webs in by_register.items():
+            positions = [self.first_position(items) for _, items in webs
+                         if not (any(item == ("entry", register) for item in items) and register in self.entry_registers)
+                         and self.chosen_name(register, items) is None and self.ignored(items)]
+            if positions:
+                firsts.append((min(positions), register))
+        for _, register in sorted(firsts):
+            whole = cpu.current.register_bits.get(register, 32)
+            ignored[register] = self.unused("ignored" if whole == 32 else f"ignored{whole}")
         for register, webs in by_register.items():
             # the web with the parameter or result keeps the parameter's name; the rest by where they
             # start. Webs of one register never hold their values at the same time (each read is where the
@@ -292,9 +306,9 @@ class Variables:
                 entry = any(item == ("entry", register) for item in items) and register in self.entry_registers
                 if not entry and self.chosen_name(register, items) is None and self.ignored(items):
                     whole = cpu.current.register_bits.get(register, 32)
-                    if whole not in ignored:
-                        ignored[whole] = self.unused("ignored" if whole == 32 else f"ignored{whole}")
-                    self.names[root] = ignored[whole]
+                    if register not in ignored:
+                        ignored[register] = self.unused("ignored" if whole == 32 else f"ignored{whole}")
+                    self.names[root] = ignored[register]
                     self.widths[root] = whole
                     continue
                 named = None if entry else self.chosen_name(register, items)

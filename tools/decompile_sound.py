@@ -39,11 +39,14 @@ sys.path.insert(0, str(TOOLS))
 import disassemble  # noqa: E402
 from decompile import call_results  # noqa: E402
 from decompile import grouped_prototypes  # noqa: E402
+from decompile import fewer_write_backs  # noqa: E402
+from decompile import twin  # noqa: E402
 from decompile import source_files  # noqa: E402
 from decompile import write_sources  # noqa: E402
 from decompile import write_variables  # noqa: E402
 import sonic_rom  # noqa: E402
 from decompiler import cleanup  # noqa: E402
+from decompiler.gotos import GotoError  # noqa: E402
 from decompiler import cprint  # noqa: E402
 from decompiler import memory  # noqa: E402
 from decompiler import pointers  # noqa: E402
@@ -328,8 +331,19 @@ def write_c(program, out_dir, variables_path=None):
     emitter.local_names = {(entries_by_name[function], spot, value): name
                            for (function, spot, value), name in known.locals.items()
                            if spot == "entry" and function in entries_by_name}
+    # a function that hands results back through pointers is written both ways, as the game's (decompile.py):
+    # the C keeps the one that writes them back before fewer early returns
+    joined = {}
     for entry, function in built.items():
-        structure.split_loop_entries(function, (live_after[entry], fields[entry]))
+        notes = (live_after[entry], fields[entry])
+        if emitter.by_pointer(entry):
+            joined[entry] = []
+            for tail_calls in (False, True):
+                way = twin(function, notes)
+                structure.join_exits(way, notes, tail_calls)
+                structure.split_loop_entries(way, notes)
+                joined[entry].append(way)
+        structure.split_loop_entries(function, notes)
     writers = {entry: emit.SoundWriter(emitter, function, live_after[entry], fields[entry], live_at_start[entry])
                for entry, function in built.items()}
     texts = {}
@@ -343,6 +357,20 @@ def write_c(program, out_dir, variables_path=None):
     emitter.shared_results = emit.emit.shared_results(texts.values())
     for entry in texts:
         if emitter.shared_results.get(emitter.names.get(entry)):
+            texts[entry] = writers[entry].write()
+    # (the second way, once the shared results are known; then those of the C kept)
+    for entry in joined:
+        for way in joined[entry] if entry in texts else ():
+            other = emit.SoundWriter(emitter, way, live_after[entry], fields[entry], live_at_start[entry])
+            try:
+                text = other.write()
+            except (emit.emit.EmitError, GotoError):
+                continue    # (a way of writing it the structure cannot take: the other one stays)
+            if fewer_write_backs(text, texts[entry]):
+                writers[entry], texts[entry] = other, text
+    emitter.shared_results = emit.emit.shared_results(texts.values())
+    for entry in joined:
+        if entry in texts and emitter.shared_results.get(emitter.names.get(entry)):
             texts[entry] = writers[entry].write()
     if problems:
         for entry, problem in problems[:20]:

@@ -3,7 +3,7 @@
  *    Description: the scenes that start a game: stage 6's opening (the rushing ground, the giant machine head) and stage 7's how to play (the panel, the hands on the button and the trackball, the metal wall that rises and breaks)
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    21-10-2026
+ *    Modified:    23-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -115,7 +115,7 @@ void metal_wall_rise(uint32_t octant)
 void metal_wall_update(uint32_t octant)
 {
 	uint8_t last_health_or_debris = 0;
-	uint32_t r11 = 0, deleted = 0, health = 0, ignored = 0, last_health_or_debris_2 = 0, ring_count = 0, spawn_arg_1 = 0;
+	uint32_t allocated = 0, deleted = 0, health = 0, ignored = 0, ignored_2 = 0, ignored_3 = 0, ignored_4 = 0, ignored_5 = 0, ignored_6 = 0, last_health_or_debris_2 = 0, ring_count = 0, spawn_arg_1 = 0;
 
 	if (OBJECT(current_object)->health <= 0)
 	{
@@ -124,7 +124,7 @@ void metal_wall_update(uint32_t octant)
 		if (OBJECT(current_object)->metal_wall.ring_count != 0u)
 		{
 			ring_count = OBJECT(current_object)->metal_wall.ring_count;
-			scatter_rings_random(octant, ring_count, &r11, &ignored);
+			scatter_rings_random(octant, ring_count, &allocated, &ignored);
 		}
 	}
 	health = (uint8_t)OBJECT(current_object)->health;
@@ -139,19 +139,19 @@ void metal_wall_update(uint32_t octant)
 		spawn_arg_1 = OBJECT(current_object)->spawn_arg_1;
 		last_health_or_debris_2 = (4u - spawn_arg_1) * 2u;
 		if ((int32_t)last_health_or_debris_2 > 0)
-			spawn_debris(spawn_arg_1, (uint16_t)last_health_or_debris_2, r11);
+			spawn_debris(spawn_arg_1, (uint16_t)last_health_or_debris_2, allocated);
 	}
-	delete_if_off_screen(&deleted, &ignored, &ignored);
+	delete_if_off_screen(&deleted, &ignored_2, &ignored_3);
 	if ((uint8_t)deleted == 1u)
 		return;
-	move_object_projected(&ignored, &ignored, &ignored, &ignored);
-	fall_to_floor(&ignored, &ignored, &ignored);
+	move_object_projected(&ignored_4, &ignored_2, &ignored_3, &ignored_5);
+	fall_to_floor(&ignored_4, &ignored_6, &ignored_2);
 	if ((uint8_t)OBJECT(current_object)->health == 0u)
 	{
 		metal_wall_draw();
 		return;
 	}
-	add_to_touchable_list(ignored);
+	add_to_touchable_list(ignored_4);
 	metal_wall_draw();
 }
 
@@ -159,9 +159,9 @@ void metal_wall_update(uint32_t octant)
    (update_screen_position_no_offset) and drawn (metal_wall_draw). */
 void metal_wall_broken(void)
 {
-	uint32_t deleted = 0, ignored = 0;
+	uint32_t deleted = 0, ignored = 0, ignored_2 = 0;
 
-	delete_if_off_screen(&deleted, &ignored, &ignored);
+	delete_if_off_screen(&deleted, &ignored, &ignored_2);
 	if ((uint8_t)deleted == 1u)
 		return;
 	update_screen_position_no_offset();
@@ -367,7 +367,7 @@ void how_to_play_trackball_hand_update(void)
 {
 	uint8_t last_step = 0;
 	uint16_t child = 0, child_palette = 0, frames = 0, kind = 0, screen_x = 0, screen_y = 0;
-	uint32_t box = 0, depth = 0, ignored = 0, next_step = 0, step_list = 0;
+	uint32_t box = 0, depth = 0, ignored_2 = 0, next_step = 0, step_list = 0;
 	uint8_t pause_timer = 0, animation_timer = 0;
 
 	if (stage != 7u)
@@ -433,7 +433,7 @@ void how_to_play_trackball_hand_update(void)
 		scroll_speed_low = 0x10;
 	}
 	depth = 0xEEu;
-	queue_sprite_at_depth(&ignored, &depth);
+	queue_sprite_at_depth(&ignored_2, &depth);
 	current_object = LINKED(current_object, OBJECT(current_object)->child);
 	if ((uint16_t)current_object == 0u)
 		return;
@@ -448,7 +448,7 @@ void how_to_play_trackball_hand_update(void)
 				child_palette = 0x8550u;
 			OBJECT(current_object)->sprite_palette = child_palette;
 			depth = 0xEDu;
-			queue_sprite_at_depth(&ignored, &depth);
+			queue_sprite_at_depth(&ignored_2, &depth);
 			return;
 		}
 		OBJECT(object_cursor)->animation_timer = OBJECT(object_cursor)->animation_speed;
@@ -467,7 +467,7 @@ void how_to_play_trackball_hand_update(void)
 		child_palette = 0x8550u;
 	OBJECT(current_object)->sprite_palette = child_palette;
 	depth = 0xEDu;
-	queue_sprite_at_depth(&ignored, &depth);
+	queue_sprite_at_depth(&ignored_2, &depth);
 }
 
 /* Sets up stage 7's control panel strip (sprite 0x71F0, palette 0x8780) at screen 0, 0x88 and shows it:
@@ -520,7 +520,7 @@ void opening_ground_start(void)
 void opening_ground_run(void)
 {
 	uint16_t shake_dy = 0;
-	uint32_t depth = 0, ignored = 0;
+	uint32_t depth = 0, ignored = 0, ignored_2 = 0, ignored_3 = 0, ignored_4 = 0;
 
 	if ((int8_t)scene_step >= 2)
 	{
@@ -534,9 +534,9 @@ void opening_ground_run(void)
 	if (stage_06_shake_sign < 0)
 		shake_dy = (uint16_t)(0u - shake_dy);
 	OBJECT(current_object)->screen_y += shake_dy;
-	animate(&ignored, &ignored, &ignored);
+	animate(&ignored, &ignored_2, &ignored_3);
 	depth = 0x20u;
-	queue_sprite_at_depth(&ignored, &depth);
+	queue_sprite_at_depth(&ignored_4, &depth);
 }
 
 /* Sets up stage 6's opening machine: scene_step_seen = 0xFF, so that its handler, opening_machine_update
@@ -555,7 +555,7 @@ void opening_machine_start(void)
 void opening_machine_update(void)
 {
 	uint16_t shake_dy = 0;
-	uint32_t depth = 0, free_count = 0, ignored = 0, object = 0, scale = 0;
+	uint32_t depth = 0, free_count = 0, ignored = 0, ignored_2 = 0, object = 0, scale = 0;
 
 	switch (scene_step)
 	{
@@ -616,7 +616,7 @@ void opening_machine_update(void)
 		if (OBJECT(current_object)->opening_machine.phase < 3)
 			animate_part_list();
 		depth = OBJECT(current_object)->opening_machine.draw_depth;
-		queue_sprite_at_depth(&ignored, &depth);
+		queue_sprite_at_depth(&ignored_2, &depth);
 		return;
 	case 2:
 	case 3:
@@ -666,7 +666,7 @@ void opening_machine_update(void)
 void opening_machine_leap_in(void)
 {
 	uint8_t sound_id = 0;
-	uint32_t ignored = 0;
+	uint32_t ignored = 0, ignored_2 = 0;
 
 	if (OBJECT(current_object)->speed_y_int < 0)
 		OBJECT(current_object)->opening_machine.draw_depth = 0x10u;
@@ -684,7 +684,7 @@ void opening_machine_leap_in(void)
 			OBJECT(current_object)->animation_timer = 0;
 			OBJECT(current_object)->animation_speed = 2u;
 			sound_id = 0xAu;
-			play_sound(sound_id, &ignored, &ignored);
+			play_sound(sound_id, &ignored, &ignored_2);
 			OBJECT(current_object)->opening_machine.phase++;
 		}
 	}

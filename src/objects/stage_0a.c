@@ -3,7 +3,7 @@
  *    Description: stage A's objects, the sand: the cactus, the centipede, the wall pieces, the shaking blocks, the sand rock, the sand arch, the stepped wall, the tornado and the whirlwinds it throws, quicksand, sinkholes, the collapsing sand blocks
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    21-10-2026
+ *    Modified:    23-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -32,10 +32,10 @@ void cactus_init(void)
    test has already failed. */
 void cactus_update(void)
 {
-	uint32_t bucket = 0, deleted = 0, direction = 0, ignored = 0, speed_x = 0, speed_y = 0, spin_speed = 0;
+	uint32_t bucket = 0, deleted = 0, direction = 0, ignored = 0, ignored_2 = 0, ignored_3 = 0, ignored_4 = 0, ignored_5 = 0, speed_x = 0, speed_y = 0, spin_speed = 0;
 
-	move_object_projected(&ignored, &ignored, &ignored, &ignored);
-	delete_if_off_screen(&deleted, &ignored, &ignored);
+	move_object_projected(&ignored, &ignored_2, &ignored_3, &ignored_4);
+	delete_if_off_screen(&deleted, &ignored_2, &ignored_3);
 	if ((uint8_t)deleted == 1u)
 		return;
 	if (OBJECT(current_object)->cactus.lifted != 0u)
@@ -77,7 +77,7 @@ void cactus_update(void)
 		queue_sprite_in_bucket(bucket);
 		return;
 	}
-	fall_to_floor(&ignored, &ignored, &ignored);
+	fall_to_floor(&ignored, &ignored_5, &ignored_2);
 	if (nearest_player_distance > 0x60 || (uint16_t)OBJECT(current_object)->floor_z_int != (uint16_t)OBJECT(current_object)->z_int)
 	{
 		queue_sprite_at_floor();
@@ -150,7 +150,7 @@ void whirlwind_aim(void)
    off screen. Then whirlwind_vanish. */
 void whirlwind_move(void)
 {
-	uint32_t aim_speed = 0, deleted = 0, direction = 0, frame_index = 0, ignored = 0, speed = 0, speed_x = 0, speed_y = 0, spin_angle = 0;
+	uint32_t aim_speed = 0, deleted = 0, direction = 0, frame_index = 0, ignored = 0, ignored_2 = 0, ignored_3 = 0, ignored_4 = 0, speed = 0, speed_x = 0, speed_y = 0, spin_angle = 0;
 
 	if (OBJECT(current_object)->whirlwind.timer <= 0)
 	{
@@ -171,8 +171,8 @@ void whirlwind_move(void)
 		whirlwind_vanish();
 		return;
 	}
-	move_object_projected(&ignored, &ignored, &ignored, &ignored);
-	delete_if_off_screen(&deleted, &ignored, &ignored);
+	move_object_projected(&ignored, &ignored_2, &ignored_3, &ignored_4);
+	delete_if_off_screen(&deleted, &ignored_2, &ignored_3);
 	if ((uint8_t)deleted != 1u)
 	{
 		spin_angle = (OBJECT(current_object)->whirlwind.spin_angle + OBJECT(current_object)->whirlwind.spin_step) & 0x3FFu;
@@ -200,10 +200,10 @@ void whirlwind_move(void)
    drawn and touchable meanwhile. */
 void whirlwind_vanish(void)
 {
-	uint32_t ignored = 0;
+	uint32_t ignored = 0, ignored_2 = 0, ignored_3 = 0, ignored_4 = 0;
 	uint16_t odd_frame = 0;
 
-	move_object_projected(&ignored, &ignored, &ignored, &ignored);
+	move_object_projected(&ignored, &ignored_2, &ignored_3, &ignored_4);
 	OBJECT(current_object)->whirlwind.timer++;
 	odd_frame = OBJECT(current_object)->whirlwind.timer & 1u;
 	OBJECT(current_object)->whirlwind.timer = odd_frame;
@@ -213,7 +213,7 @@ void whirlwind_vanish(void)
 		OBJECT(current_object)->whirlwind.frame_index++;
 		if (OBJECT(current_object)->whirlwind.frame_index > 7)
 		{
-			delete_object_and_children(&ignored, &ignored, &ignored);
+			delete_object_and_children(&ignored, &ignored_2, &ignored_3);
 			return;
 		}
 	}
@@ -228,7 +228,7 @@ void whirlwind_vanish(void)
 void centipede_init(void)
 {
 	uint16_t follow_delay = 0;
-	uint32_t block = 0, free_count = 0, ignored = 0, object = 0, previous_segment = 0;
+	uint32_t block = 0, free_count = 0, ignored = 0, ignored_2 = 0, object = 0, previous_segment = 0;
 
 	OBJECT(current_object)->hitbox_size_x = 0x10u;
 	OBJECT(current_object)->hitbox_height = 0x32u;
@@ -244,7 +244,7 @@ void centipede_init(void)
 	{
 		previous_segment = current_object;
 		spawn_count = 2u;
-		spawn_object_with_pieces(0x012351u, &ignored, &ignored, &free_count, &object, &block);
+		spawn_object_with_pieces(0x012351u, &ignored, &ignored_2, &free_count, &object, &block);
 		copy_position_to(object);
 		OBJECT(object)->sprite_frame = 0x7980u;
 		OBJECT(object)->sprite_palette = 0x9270u;
@@ -275,10 +275,10 @@ void centipede_init(void)
    stores are never read. */
 void centipede_chase(void)
 {
-	uint32_t r0 = 0, r2 = 0, r3 = 0, r11 = 0, path_cursor = 0;
+	uint32_t block_offset = 0, cursor = 0, path_cursor = 0, screen_y = 0, slope_height = 0;
 	uint32_t path_write_index = 0;
 
-	move_object_projected(&r0, &r2, &r3, &r11);
+	move_object_projected(&screen_y, &block_offset, &slope_height, &cursor);
 	if (scroll_position <= OBJECT(current_object)->spawn_arg_1)
 	{
 		if ((int8_t)active_player_count > 0)
@@ -287,16 +287,16 @@ void centipede_chase(void)
 			centipede_command = 0u;
 			if (OBJECT(current_object)->speed_z <= 0)
 			{
-				r0 = add_to_touchable_list(r0);
-				face_nearest_player(r0, r3);
+				screen_y = add_to_touchable_list(screen_y);
+				face_nearest_player(screen_y, slope_height);
 				if (nearest_player_floor_z >= 0x800)
 				{
 					OBJECT(current_object)->anchor_y = 0;
-					centipede_move(r11);
+					centipede_move(cursor);
 					return;
 				}
 			}
-			centipede_move(r11);
+			centipede_move(cursor);
 			return;
 		}
 		path_write_index = (uint8_t)OBJECT(current_object)->centipede.path_write_index;
@@ -315,9 +315,9 @@ void centipede_chase(void)
 		OBJECT(current_object)->anchor_y = 0x280;
 		centipede_command = 1u;
 		path_cursor += 2u;
-		centipede_hop(&path_cursor, &r2);
+		centipede_hop(&path_cursor, &block_offset);
 		if (OBJECT(current_object)->centipede.hop_timer == 0x5Au)
-			spawn_centipede_sand_puff(path_cursor, r2, r3, r11);
+			spawn_centipede_sand_puff(path_cursor, block_offset, slope_height, cursor);
 		draw_centipede_piece();
 		return;
 	}
@@ -326,16 +326,16 @@ void centipede_chase(void)
 	centipede_command = 0u;
 	if (OBJECT(current_object)->speed_z <= 0)
 	{
-		r0 = add_to_touchable_list(r0);
-		face_nearest_player(r0, r3);
+		screen_y = add_to_touchable_list(screen_y);
+		face_nearest_player(screen_y, slope_height);
 		if (nearest_player_floor_z >= 0x800)
 		{
 			OBJECT(current_object)->anchor_y = 0;
-			centipede_move(r11);
+			centipede_move(cursor);
 			return;
 		}
 	}
-	centipede_move(r11);
+	centipede_move(cursor);
 }
 
 /* The head once scroll_position has passed spawn_arg_1: heads along spawn_arg_2 with centipede_move at
@@ -343,10 +343,10 @@ void centipede_chase(void)
    is removed off screen, which removes the body. */
 void centipede_leave(void)
 {
-	uint32_t r11 = 0, deleted = 0, ignored = 0;
+	uint32_t cursor = 0, deleted = 0, ignored = 0, ignored_2 = 0, ignored_3 = 0;
 
-	move_object_projected(&ignored, &ignored, &ignored, &r11);
-	delete_if_off_screen(&deleted, &ignored, &ignored);
+	move_object_projected(&ignored, &ignored_2, &ignored_3, &cursor);
+	delete_if_off_screen(&deleted, &ignored_2, &ignored_3);
 	if ((uint8_t)deleted == 1u)
 	{
 		centipede_command = 9u;
@@ -356,7 +356,7 @@ void centipede_leave(void)
 	OBJECT(current_object)->direction = OBJECT(current_object)->spawn_arg_2;
 	nearest_player_distance = 0x1F;
 	nearest_player_dx = 0;
-	centipede_move(r11);
+	centipede_move(cursor);
 }
 
 /* The head's step: sprite centipede_head_frames[(direction / 0x92 + 1) & 7]; speed
@@ -410,7 +410,7 @@ void centipede_move(uint32_t block)
    centipede_segment_follow. */
 void centipede_segment_wait(void)
 {
-	uint32_t r0 = 0, r2 = 0;
+	uint32_t height = 0, z = 0;
 
 	OBJECT(current_object)->centipede_segment.path_index--;
 	if (OBJECT(current_object)->centipede_segment.path_index <= 0)
@@ -419,9 +419,9 @@ void centipede_segment_wait(void)
 		centipede_segment_follow();
 		return;
 	}
-	centipede_hop(&r0, &r2);
+	centipede_hop(&height, &z);
 	if (OBJECT(current_object)->centipede_segment.hop_timer == 0x5Au)
-		spawn_centipede_sand_puff(r0, r2, 0u, 0u);
+		spawn_centipede_sand_puff(height, z, 0u, 0u);
 	draw_centipede_piece();
 }
 
@@ -430,19 +430,19 @@ void centipede_segment_wait(void)
    landing) and is drawn like the head. */
 void centipede_segment_follow(void)
 {
-	uint32_t r0 = 0, r2 = 0, r3 = 0, r11 = 0, ignored = 0;
+	uint32_t block_offset = 0, cursor = 0, ignored = 0, ignored_2 = 0, ignored_3 = 0, path_cursor = 0, slope_height = 0;
 
-	move_object_projected(&r0, &r2, &r3, &r11);
+	move_object_projected(&path_cursor, &block_offset, &slope_height, &cursor);
 	if (centipede_command == 9u)
 	{
-		delete_object_and_children(&ignored, &ignored, &ignored);
+		delete_object_and_children(&ignored, &ignored_2, &ignored_3);
 		return;
 	}
 	if (centipede_command != 1u)
-		r0 = centipede_follow_path();
-	centipede_hop(&r0, &r2);
+		path_cursor = centipede_follow_path();
+	centipede_hop(&path_cursor, &block_offset);
 	if (OBJECT(current_object)->centipede_segment.hop_timer == 0x5Au)
-		spawn_centipede_sand_puff(r0, r2, r3, r11);
+		spawn_centipede_sand_puff(path_cursor, block_offset, slope_height, cursor);
 	draw_centipede_piece();
 }
 
@@ -450,7 +450,7 @@ void centipede_segment_follow(void)
    centipede_tail_follow. */
 void centipede_tail_wait(void)
 {
-	uint32_t r0 = 0, r2 = 0;
+	uint32_t height = 0, z = 0;
 
 	OBJECT(current_object)->centipede_tail.path_index--;
 	if (OBJECT(current_object)->centipede_tail.path_index <= 0)
@@ -459,9 +459,9 @@ void centipede_tail_wait(void)
 		centipede_tail_follow();
 		return;
 	}
-	centipede_hop(&r0, &r2);
+	centipede_hop(&height, &z);
 	if (OBJECT(current_object)->centipede_tail.hop_timer == 0x5Au)
-		spawn_centipede_sand_puff(r0, r2, 0u, 0u);
+		spawn_centipede_sand_puff(height, z, 0u, 0u);
 	draw_centipede_piece();
 }
 
@@ -469,28 +469,28 @@ void centipede_tail_wait(void)
    (direction_to_object) for its sprite, centipede_tail_frames[(direction / 0x92 + 5) & 7]. */
 void centipede_tail_follow(void)
 {
-	uint32_t r0 = 0, r2 = 0, r3 = 0, r11 = 0, ignored = 0, tail_frame = 0;
+	uint32_t block_offset = 0, cursor = 0, ignored = 0, ignored_2 = 0, ignored_3 = 0, octant = 0, path_cursor = 0, tail_frame = 0;
 
-	move_object_projected(&r0, &r2, &r3, &r11);
+	move_object_projected(&path_cursor, &block_offset, &octant, &cursor);
 	if (centipede_command == 9u)
 	{
-		delete_object_and_children(&ignored, &ignored, &ignored);
+		delete_object_and_children(&ignored, &ignored_2, &ignored_3);
 		return;
 	}
 	if (centipede_command != 1u)
 	{
 		r14 = OBJECT(current_object)->centipede_tail.segment_ahead;
-		r3 = direction_to_object();
+		octant = direction_to_object();
 		tail_frame = OBJECT(current_object)->direction;
 		tail_frame = (uint16_t)((int16_t)tail_frame / 0x92);
 		tail_frame = (uint16_t)(tail_frame + 1u);
 		tail_frame = (uint16_t)(tail_frame + 4u);
 		OBJECT(current_object)->sprite_frame = centipede_tail_frames[tail_frame & 7u];
-		r0 = centipede_follow_path();
+		path_cursor = centipede_follow_path();
 	}
-	centipede_hop(&r0, &r2);
+	centipede_hop(&path_cursor, &block_offset);
 	if (OBJECT(current_object)->centipede_tail.hop_timer == 0x5Au)
-		spawn_centipede_sand_puff(r0, r2, r3, r11);
+		spawn_centipede_sand_puff(path_cursor, block_offset, octant, cursor);
 	draw_centipede_piece();
 }
 
@@ -539,14 +539,14 @@ void centipede_hop(uint32_t *p_height, uint32_t *p_z)
    rider list, and draws its shadow part at its floor at depth screen_y - 0xA. */
 void draw_centipede_piece(void)
 {
-	uint32_t depth = 0, ignored = 0;
+	uint32_t depth = 0, ignored_2 = 0;
 
 	queue_sprite_at_floor();
 	add_to_rider_list();
 	current_object = LINKED(current_object, OBJECT(current_object)->child);
 	place_sprite_at_cursor_floor();
 	depth = (uint16_t)(OBJECT(current_object)->screen_y - 0xAu);
-	queue_sprite_at_depth(&ignored, &depth);
+	queue_sprite_at_depth(&ignored_2, &depth);
 }
 
 /* On the frame a centipede piece lands: a 1-block sand puff at its position, 6 lower (projected_y + 6):
@@ -571,9 +571,9 @@ void spawn_centipede_sand_puff(uint32_t spawned, uint32_t free_count, uint32_t p
 /* unproject_object and the rider list, then sand_puff_animate from the next frame. */
 void sand_puff_start(void)
 {
-	uint32_t ignored = 0;
+	uint32_t ignored = 0, ignored_2 = 0, ignored_3 = 0, ignored_4 = 0;
 
-	unproject_object(&ignored, &ignored, &ignored, &ignored);
+	unproject_object(&ignored, &ignored_2, &ignored_3, &ignored_4);
 	add_to_rider_list();
 	OBJECT(current_object)->handler = sand_puff_animate_ADDRESS;
 }
@@ -582,20 +582,20 @@ void sand_puff_start(void)
    three sand_puff_frames every frame, drawn and in the rider list. */
 void sand_puff_animate(void)
 {
-	uint32_t ignored = 0, next_frame = 0;
+	uint32_t ignored = 0, ignored_2 = 0, ignored_3 = 0, ignored_4 = 0, next_frame = 0;
 	uint16_t lifetime = 0;
 
-	unproject_object(&ignored, &ignored, &ignored, &ignored);
+	unproject_object(&ignored, &ignored_2, &ignored_3, &ignored_4);
 	if (OBJECT(current_object)->floor_z_int >= 0x800)
 	{
-		delete_object_and_children(&ignored, &ignored, &ignored);
+		delete_object_and_children(&ignored, &ignored_2, &ignored_3);
 		return;
 	}
 	lifetime = OBJECT(current_object)->sand_puff.lifetime;
 	OBJECT(current_object)->sand_puff.lifetime = lifetime - 1u;
 	if (lifetime == 0u)
 	{
-		delete_object_and_children(&ignored, &ignored, &ignored);
+		delete_object_and_children(&ignored, &ignored_2, &ignored_3);
 		return;
 	}
 	next_frame = (uint16_t)OBJECT(current_object)->sand_puff.frame_index;
@@ -634,10 +634,10 @@ void wall_piece_init(void)
    is 0xE0 or less, lower down at its screen_y. */
 void wall_piece_draw(void)
 {
-	uint32_t deleted = 0, depth = 0, ignored = 0;
+	uint32_t deleted = 0, depth = 0, ignored = 0, ignored_2 = 0, ignored_3 = 0, ignored_4 = 0;
 
-	unproject_object(&ignored, &ignored, &ignored, &ignored);
-	delete_if_off_screen(&deleted, &ignored, &ignored);
+	unproject_object(&ignored, &ignored_2, &ignored_3, &ignored_4);
+	delete_if_off_screen(&deleted, &ignored_2, &ignored_3);
 	if ((uint8_t)deleted == 1u)
 		return;
 	depth = (uint16_t)OBJECT(current_object)->screen_y;
@@ -655,7 +655,7 @@ void wall_piece_draw(void)
    shaking_block_animate (tried again next frame without a free part). */
 void shaking_block_init(void)
 {
-	uint32_t box_record = 0, ignored = 0, object = 0, spawned = 0;
+	uint32_t box_record = 0, ignored = 0, ignored_2 = 0, object = 0, spawned = 0;
 
 	OBJECT(current_object)->sprite_palette = 0x9050u;
 	OBJECT(current_object)->flags |= 2u;
@@ -668,7 +668,7 @@ void shaking_block_init(void)
 	OBJECT(current_object)->hitbox_offset_x = HITBOX_SIZE_AND_OFFSET(box_record - 0x4u)->offset_x;
 	OBJECT(current_object)->hitbox_offset_y = HITBOX_SIZE_AND_OFFSET(box_record - 0x4u)->offset_y;
 	spawn_count = 1u;
-	add_pieces_to_current_object(&spawned, &ignored, &ignored, &object);
+	add_pieces_to_current_object(&spawned, &ignored, &ignored_2, &object);
 	if ((uint8_t)spawned == 0u)
 		return;
 	if (OBJECT(current_object)->spawn_arg_1 != 0u)
@@ -691,11 +691,11 @@ void shaking_block_animate(void)
 {
 	uint8_t bucket = 0;
 	uint16_t offset_x = 0, offset_y = 0;
-	uint32_t bucket_2 = 0, deleted = 0, ignored = 0;
+	uint32_t bucket_2 = 0, deleted = 0, ignored = 0, ignored_2 = 0, ignored_3 = 0, ignored_4 = 0;
 	uint16_t frame_timer = 0;
 
-	unproject_object(&ignored, &ignored, &ignored, &ignored);
-	delete_if_off_screen(&deleted, &ignored, &ignored);
+	unproject_object(&ignored, &ignored_2, &ignored_3, &ignored_4);
+	delete_if_off_screen(&deleted, &ignored_2, &ignored_3);
 	if ((uint8_t)deleted == 1u)
 		return;
 	frame_timer = OBJECT(current_object)->shaking_block.frame_timer;
@@ -756,11 +756,11 @@ void sand_rock_init(void)
    then sand_rock_draw. */
 void sand_rock_update(void)
 {
-	uint32_t r3 = 0, r11 = 0, deleted = 0, ignored = 0, random_value = 0, ring = 0;
+	uint32_t cursor = 0, deleted = 0, ignored = 0, ignored_2 = 0, ignored_3 = 0, random_value = 0, ring = 0, slope_height = 0;
 
-	unproject_object(&ignored, &ignored, &r3, &r11);
-	fall_to_floor(&ignored, &ignored, &ignored);
-	delete_if_off_screen(&deleted, &ignored, &r3);
+	unproject_object(&ignored, &ignored_2, &slope_height, &cursor);
+	fall_to_floor(&ignored, &ignored_3, &ignored_2);
+	delete_if_off_screen(&deleted, &ignored_2, &slope_height);
 	if ((uint8_t)deleted == 1u)
 		return;
 	if (OBJECT(current_object)->sand_rock.crumbling != 0u)
@@ -782,7 +782,7 @@ void sand_rock_update(void)
 	released_ring_flip = 0u;
 	rings_to_release = OBJECT(current_object)->sand_rock.ring_count;
 	released_ring_angle = OBJECT(current_object)->spawn_arg_2;
-	drop_rings(r3, &r11, &random_value, &ring);
+	drop_rings(slope_height, &cursor, &random_value, &ring);
 	sand_rock_draw();
 }
 
@@ -790,7 +790,7 @@ void sand_rock_update(void)
    on its part, still drawn; past the last the rock and its part are deleted. */
 void sand_rock_crumble(void)
 {
-	uint32_t crumble_frame = 0, ignored = 0;
+	uint32_t crumble_frame = 0, ignored = 0, ignored_2 = 0, ignored_3 = 0;
 
 	OBJECT(current_object)->sand_rock.frame_count++;
 	if (OBJECT(current_object)->sand_rock.frame_count <= 1)
@@ -818,7 +818,7 @@ void sand_rock_crumble(void)
 	OBJECT(current_object)->sand_rock.crumble_frame = 0;
 	OBJECT(current_object)->sand_rock.crumbling = 0u;
 	OBJECT(current_object)->sprite_frame = sand_rock_crumble_frames[(uint8_t)OBJECT(current_object)->sand_rock.crumble_frame];
-	delete_object_and_children(&ignored, &ignored, &ignored);
+	delete_object_and_children(&ignored, &ignored_2, &ignored_3);
 }
 
 /* Drawn at depth screen_y + 0x14; touchable while crumble_frame is 0. */
@@ -851,7 +851,7 @@ void sand_rock_draw_piece(void)
 void sand_arch_init(void)
 {
 	uint16_t ball_phase = 0, phase_spacing = 0;
-	uint32_t balls_left = 0, block = 0, free_count = 0, ignored = 0, object = 0, object_2 = 0;
+	uint32_t balls_left = 0, block = 0, free_count = 0, ignored = 0, ignored_2 = 0, object = 0, object_2 = 0;
 
 	OBJECT(current_object)->direction = OBJECT(current_object)->sand_arch.row_direction * 0x40u;
 	OBJECT(current_object)->sprite_flags = 0u;
@@ -870,7 +870,7 @@ void sand_arch_init(void)
 	do
 	{
 		spawn_count = 2u;
-		spawn_object_with_pieces(0x01369Cu, &ignored, &ignored, &free_count, &object_2, &block);
+		spawn_object_with_pieces(0x01369Cu, &ignored, &ignored_2, &free_count, &object_2, &block);
 		OBJECT(object)->child = object_2;
 		copy_position_to(object_2);
 		OBJECT(object_2)->sprite_flags = 0u;
@@ -899,9 +899,9 @@ void sand_arch_init(void)
    row_position is never read. */
 void sand_arch_update(void)
 {
-	uint32_t bucket = 0, ignored = 0, on_screen = 0;
+	uint32_t bucket = 0, ignored = 0, ignored_2 = 0, ignored_3 = 0, ignored_4 = 0, on_screen = 0;
 
-	unproject_object(&ignored, &ignored, &ignored, &ignored);
+	unproject_object(&ignored, &ignored_2, &ignored_3, &ignored_4);
 	on_screen = is_on_screen();
 	OBJECT(current_object)->sand_arch.row_position += on_screen;
 	OBJECT(current_object)->sand_arch.row_position &= 1u;
@@ -913,21 +913,21 @@ void sand_arch_update(void)
 		current_object = object_cursor;
 		return;
 	}
-	delete_object_and_children(&ignored, &ignored, &ignored);
+	delete_object_and_children(&ignored, &ignored_2, &ignored_3);
 }
 
 /* Moves the ball once by 0x200 x row_position along its direction (each ball 0xC pixels further than the
    one before), then sand_arch_ball_delay. */
 void sand_arch_ball_init(void)
 {
-	uint32_t ball_direction = 0, ignored = 0, speed = 0, speed_x = 0, speed_y = 0;
+	uint32_t ball_direction = 0, ignored = 0, ignored_2 = 0, ignored_3 = 0, ignored_4 = 0, speed = 0, speed_x = 0, speed_y = 0;
 
 	ball_direction = OBJECT(current_object)->direction;
 	speed = 0x200u * OBJECT(current_object)->sand_arch.row_position;
 	direction_to_speed(speed, &ball_direction, &speed_x, &speed_y);
 	OBJECT(current_object)->speed_x = speed_x;
 	OBJECT(current_object)->speed_y = speed_y;
-	move_object_projected(&ignored, &ignored, &ignored, &ignored);
+	move_object_projected(&ignored, &ignored_2, &ignored_3, &ignored_4);
 	OBJECT(current_object)->speed_x = 0;
 	OBJECT(current_object)->speed_y = 0;
 	OBJECT(current_object)->handler = sand_arch_ball_delay_ADDRESS;
@@ -956,10 +956,10 @@ void sand_arch_ball_delay(void)
 void sand_arch_ball_move(void)
 {
 	uint16_t below_floor = 0, offset_x = 0, offset_y = 0;
-	uint32_t depth = 0, ignored = 0;
+	uint32_t depth = 0, ignored = 0, ignored_2 = 0, ignored_3 = 0, ignored_4 = 0, ignored_5 = 0;
 	uint16_t direction = 0;
 
-	move_object_projected(&ignored, &ignored, &ignored, &ignored);
+	move_object_projected(&ignored, &ignored_2, &ignored_3, &ignored_4);
 	add_to_touchable_list(ignored);
 	add_to_rider_list();
 	if (OBJECT(current_object)->floor_z_int < 0x800)
@@ -972,7 +972,7 @@ void sand_arch_ball_move(void)
 			return;
 		}
 		if ((int16_t)below_floor < -8)
-			ignored = queue_sprite_at_floor();
+			ignored_5 = queue_sprite_at_floor();
 	}
 	else
 	{
@@ -983,8 +983,8 @@ void sand_arch_ball_move(void)
 			current_object = object_cursor;
 			OBJECT(current_object)->handler = sand_arch_ball_gone_ADDRESS;
 		}
-		fall_to_floor(&ignored, &ignored, &ignored);
-		ignored = queue_sprite_at_floor();
+		fall_to_floor(&ignored, &ignored_5, &ignored_2);
+		ignored_5 = queue_sprite_at_floor();
 	}
 	if ((int16_t)(OBJECT(current_object)->floor_z_int - OBJECT(current_object)->z_int) <= 0x10)
 	{
@@ -1003,7 +1003,7 @@ void sand_arch_ball_move(void)
 		offset_y = 8u;
 		place_sprite_near_cursor(offset_x, offset_y);
 		OBJECT(current_object)->screen_y -= OBJECT(object_cursor)->z_int - OBJECT(object_cursor)->floor_z_int;
-		queue_sprite(ignored);
+		queue_sprite(ignored_5);
 		sand_arch_ball_gone();
 		return;
 	}
@@ -1054,10 +1054,10 @@ void stepped_wall_init(void)
 /* Unprojects; unless removed off screen, drawn under everything (bucket 0xFF) and touchable. */
 void stepped_wall_draw(void)
 {
-	uint32_t bucket = 0, deleted = 0, ignored = 0;
+	uint32_t bucket = 0, deleted = 0, ignored = 0, ignored_2 = 0, ignored_3 = 0, ignored_4 = 0;
 
-	unproject_object(&ignored, &ignored, &ignored, &ignored);
-	delete_if_off_screen(&deleted, &ignored, &ignored);
+	unproject_object(&ignored, &ignored_2, &ignored_3, &ignored_4);
+	delete_if_off_screen(&deleted, &ignored_2, &ignored_3);
 	if ((uint8_t)deleted == 0u)
 	{
 		bucket = 0xFFu;
@@ -1074,7 +1074,7 @@ void stepped_wall_draw(void)
 void tornado_start(void)
 {
 	uint16_t angle_offset = 0, radius = 0;
-	uint32_t column_slot = 0, columns_left = 0, free_count = 0, ignored = 0, object = 0, object_2 = 0, tornado_record = 0, zone_index = 0;
+	uint32_t column_slot = 0, columns_left = 0, free_count = 0, ignored = 0, ignored_2 = 0, object = 0, object_2 = 0, tornado_record = 0, zone_index = 0;
 
 	if (sand_block_leader_active != 0u && (OBJECT(current_object)->sprite_frame != 1u || scroll_position < 0x9C00u))
 		return;
@@ -1142,7 +1142,7 @@ void tornado_start(void)
 		column_slot += 2u;
 		if ((uint8_t)tornado_kind != 0u)
 		{
-			allocate_object_2(&free_count, &ignored, &object);
+			allocate_object_2(&free_count, &ignored_2, &object);
 			if (free_count != 0u)
 			{
 				OBJECT(object)->sprite_flags = 0x1004u;
@@ -1386,16 +1386,16 @@ void tornado_remove_with_columns(void)
 void tornado_move_step(void)
 {
 	uint16_t hazard_coordinate = 0;
-	uint32_t block_offset = 0, direction = 0, hazard_record = 0, ignored = 0, object = 0, old_head = 0, slope_height = 0, x = 0, y = 0, z = 0;
+	uint32_t block_offset = 0, direction = 0, hazard_record = 0, ignored = 0, ignored_2 = 0, object = 0, old_head = 0, slope_height = 0, x = 0, y = 0, z = 0;
 	uint8_t hold_timer = 0;
 	uint16_t hazard_scroll = 0;
 
-	find_floor(&ignored, &ignored, &block_offset, &slope_height, &object);
+	find_floor(&ignored, &ignored_2, &block_offset, &slope_height, &object);
 	OBJECT(current_object)->z = OBJECT(current_object)->floor_z;
 	OBJECT(current_object)->z_int += 8u;
 	OBJECT(current_object)->tornado.rotation_angle -= 4u;
 	OBJECT(current_object)->tornado.rotation_angle &= 0x3FFu;
-	project_object(&old_head, &ignored);
+	project_object(&old_head, &ignored_2);
 	old_head = add_to_zone_list(old_head);
 	object = tornado_throw_whirlwinds((uint8_t)old_head, block_offset, slope_height, object);
 	hazard_record = OBJECT(current_object)->animation;
@@ -1658,10 +1658,10 @@ void tornado_catch_up_speed(void)
 void tornado_move_at_speed(uint16_t move_speed)
 {
 	uint8_t sound_id = 0;
-	uint32_t direction = 0, ignored = 0;
+	uint32_t direction = 0, ignored = 0, ignored_2 = 0;
 	uint8_t sound_timer = 0;
 
-	if (AS32(players_finished[0]) == 0xFFFFFFu)
+	if ((players_finished[0] | ((uint32_t)players_finished[1] << 8u) | ((uint32_t)players_finished[2] << 16u) | ((uint32_t)goal_unlocked << 24u)) == 0xFFFFFFu)
 		move_speed = (uint16_t)((uint32_t)move_speed << 2);
 	chaser_speed = move_speed;
 	if (OBJECT(current_object)->tornado.wait_timer <= 0)
@@ -1721,7 +1721,7 @@ void tornado_move_at_speed(uint16_t move_speed)
 	if (sound_timer != 0u)
 		return;
 	sound_id = 0x12u;
-	play_sound(sound_id, &ignored, &ignored);
+	play_sound(sound_id, &ignored, &ignored_2);
 	OBJECT(current_object)->tornado.sound_timer = 0x28u;
 }
 
@@ -1732,7 +1732,7 @@ void tornado_move_at_speed(uint16_t move_speed)
 void tornado_column_circle(void)
 {
 	uint16_t radius_limit = 0;
-	uint32_t depth = 0, ignored = 0, object = 0, object_2 = 0, orbit_dx = 0, orbit_dy = 0, radius_rate = 0;
+	uint32_t depth = 0, ignored = 0, ignored_2 = 0, ignored_3 = 0, ignored_4 = 0, ignored_5 = 0, ignored_6 = 0, ignored_7 = 0, ignored_8 = 0, ignored_9 = 0, object = 0, object_2 = 0, orbit_dx = 0, orbit_dy = 0, radius_rate = 0;
 
 	if ((OBJECT(current_object)->flags & 0x400u) != 0u)
 	{
@@ -1742,7 +1742,7 @@ void tornado_column_circle(void)
 	OBJECT(current_object)->speed_z_fraction += OBJECT(current_object)->hitbox_size_y;
 	if ((int16_t)OBJECT(current_object)->speed_z_fraction < 0x1000)
 	{
-		next_random(&radius_rate, &ignored, &ignored);
+		next_random(&radius_rate, &ignored, &ignored_2);
 		radius_rate = (radius_rate + 0x100u) & 0x3FFu;
 		radius_limit = 0x1000u;
 		OBJECT(current_object)->hitbox_size_y = radius_rate;
@@ -1750,7 +1750,7 @@ void tornado_column_circle(void)
 	}
 	else if ((int16_t)OBJECT(current_object)->speed_z_fraction > 0x6800)
 	{
-		next_random(&radius_rate, &ignored, &ignored);
+		next_random(&radius_rate, &ignored, &ignored_2);
 		radius_rate = (uint16_t)(0u - ((radius_rate + 0x100u) & 0x3FFu));
 		radius_limit = 0x6800u;
 		OBJECT(current_object)->hitbox_size_y = radius_rate;
@@ -1761,14 +1761,14 @@ void tornado_column_circle(void)
 	OBJECT(current_object)->y = OBJECT(object_2)->y;
 	orbit_dx = (OBJECT(object_2)->spawn_arg_2 + OBJECT(current_object)->speed_z_int) & 0x3FFu;
 	orbit_dy = OBJECT(current_object)->speed_z_fraction;
-	polar_to_xy(&ignored, &orbit_dx, &orbit_dy);
+	polar_to_xy(&ignored_3, &orbit_dx, &orbit_dy);
 	OBJECT(current_object)->x += orbit_dx;
 	OBJECT(current_object)->y += orbit_dy;
-	animate(&ignored, &ignored, &ignored);
-	find_floor(&ignored, &ignored, &ignored, &ignored, &ignored);
+	animate(&ignored_3, &ignored_4, &ignored_5);
+	find_floor(&ignored_6, &ignored_3, &ignored_7, &ignored_8, &ignored_9);
 	OBJECT(current_object)->z = OBJECT(current_object)->floor_z;
-	project_object(&ignored, &ignored);
-	queue_sprite(ignored);
+	project_object(&ignored_6, &ignored_3);
+	queue_sprite(ignored_3);
 	if ((int16_t)OBJECT(current_object)->child < 0)
 		return;
 	object = LINKED(current_object, OBJECT(current_object)->child);
@@ -1778,14 +1778,14 @@ void tornado_column_circle(void)
 	OBJECT(object)->sprite_frame = tornado_column_top_frames[OBJECT(current_object)->animation_frame];
 	depth = (uint16_t)OBJECT(current_object)->screen_y;
 	current_object = object;
-	queue_sprite_at_depth(&ignored, &depth);
+	queue_sprite_at_depth(&ignored_6, &depth);
 }
 
 /* An invisible box the tornado leaves at x, y, z: kind 0xC, height 0x50, 0xF0 by 0x80 turned with the
    tornado's direction, handler tornado_hazard_update; nothing when no object is free. */
 void spawn_tornado_hazard(uint32_t x, uint32_t y, uint32_t z, uint32_t hazard)
 {
-	uint32_t direction = 0, free_count = 0, ignored = 0;
+	uint32_t direction = 0, free_count = 0, ignored = 0, ignored_2 = 0;
 	uint32_t saved_current_object = 0;
 
 	allocate_object(&free_count, &hazard);
@@ -1821,7 +1821,7 @@ void spawn_tornado_hazard(uint32_t x, uint32_t y, uint32_t z, uint32_t hazard)
 	}
 	saved_current_object = current_object;
 	current_object = hazard;
-	project_object(&ignored, &ignored);
+	project_object(&ignored, &ignored_2);
 	current_object = saved_current_object;
 }
 
@@ -1829,7 +1829,7 @@ void spawn_tornado_hazard(uint32_t x, uint32_t y, uint32_t z, uint32_t hazard)
 void tornado_hazard_update(void)
 {
 	uint16_t margin_x = 0, margin_y = 0;
-	uint32_t ignored = 0, off_screen = 0;
+	uint32_t ignored = 0, ignored_2 = 0, off_screen = 0;
 
 	margin_x = 0xF0u;
 	margin_y = 0xF0u;
@@ -1837,7 +1837,7 @@ void tornado_hazard_update(void)
 	if (off_screen == 0u)
 	{
 		add_to_touchable_list(0u);
-		update_screen_position(&ignored, &ignored);
+		update_screen_position(&ignored, &ignored_2);
 		return;
 	}
 	delete_current_object();
@@ -1937,7 +1937,7 @@ void tornado_rear_zone_follow(void)
    never drawn. */
 void quicksand_start(void)
 {
-	uint32_t ignored = 0, object = 0, object_2 = 0;
+	uint32_t ignored = 0, ignored_2 = 0, ignored_3 = 0, ignored_4 = 0, object = 0, object_2 = 0;
 
 	OBJECT(current_object)->flags = 0u;
 	if (OBJECT(current_object)->sprite_frame != 0u)
@@ -1959,18 +1959,18 @@ void quicksand_start(void)
 	OBJECT(current_object)->animation_speed = 4u;
 	OBJECT(current_object)->animation_timer = 0;
 	OBJECT(current_object)->animation = quicksand_animation_ADDRESS;
-	find_floor(&ignored, &ignored, &ignored, &ignored, &object);
+	find_floor(&ignored, &ignored_2, &ignored_3, &ignored_4, &object);
 	OBJECT(current_object)->z = OBJECT(current_object)->floor_z;
 	OBJECT(current_object)->z_int += 0x30u;
-	project_object(&ignored, &ignored);
+	project_object(&ignored, &ignored_2);
 	OBJECT(current_object)->child = 0xFFFFu;
 	if (free_object_stack_2[0] >= 2)
 	{
-		allocate_object_2(&ignored, &ignored, &object);
+		allocate_object_2(&ignored, &ignored_3, &object);
 		OBJECT(object)->sprite_flags = 0xD000u;
 		OBJECT(current_object)->child = object;
 		object_2 = object;
-		allocate_object_2(&ignored, &ignored, &object);
+		allocate_object_2(&ignored, &ignored_3, &object);
 		move_halfwords(object, quicksand_parts_ADDRESS, 0x11u);
 		OBJECT(object_2)->part_list = object;
 	}
@@ -1982,7 +1982,7 @@ void quicksand_start(void)
 void quicksand_swirl(void)
 {
 	uint16_t margin = 0, object = 0, sprite_frame = 0, step_frame = 0;
-	uint32_t depth = 0, ignored = 0, next_step = 0, object_2 = 0, off_screen = 0, part_cursor = 0, parts_left = 0, step_list = 0;
+	uint32_t depth = 0, ignored_2 = 0, ignored_3 = 0, next_step = 0, object_2 = 0, off_screen = 0, part_cursor = 0, parts_left = 0, step_list = 0;
 	uint8_t animation_timer = 0;
 	uint16_t last_step = 0;
 
@@ -1991,7 +1991,7 @@ void quicksand_swirl(void)
 	if (off_screen == 0u)
 	{
 		add_to_touchable_list(0u);
-		update_screen_position(&ignored, &ignored);
+		update_screen_position(&ignored_2, &ignored_3);
 		if ((OBJECT(current_object)->flags & 1u) != 0u)
 			return;
 		animate_sign();
@@ -1999,7 +1999,7 @@ void quicksand_swirl(void)
 		{
 			current_object = object_cursor;
 			depth = (uint16_t)(OBJECT(current_object)->screen_y - 0x58u);
-			queue_sprite_at_depth(&ignored, &depth);
+			queue_sprite_at_depth(&ignored_2, &depth);
 			return;
 		}
 		animation_timer = OBJECT(current_object)->animation_timer;
@@ -2011,10 +2011,10 @@ void quicksand_swirl(void)
 			OBJECT(object_2)->screen_y = OBJECT(current_object)->screen_y;
 			current_object = LINKED(current_object, OBJECT(current_object)->child);
 			depth = (uint16_t)(OBJECT(current_object)->screen_y - 0x58u);
-			queue_sprite_at_depth(&ignored, &depth);
+			queue_sprite_at_depth(&ignored_2, &depth);
 			current_object = object_cursor;
 			depth = (uint16_t)(OBJECT(current_object)->screen_y - 0x58u);
-			queue_sprite_at_depth(&ignored, &depth);
+			queue_sprite_at_depth(&ignored_2, &depth);
 			return;
 		}
 		OBJECT(current_object)->animation_timer = OBJECT(current_object)->animation_speed;
@@ -2041,10 +2041,10 @@ void quicksand_swirl(void)
 		OBJECT(object_2)->screen_y = OBJECT(current_object)->screen_y;
 		current_object = LINKED(current_object, OBJECT(current_object)->child);
 		depth = (uint16_t)(OBJECT(current_object)->screen_y - 0x58u);
-		queue_sprite_at_depth(&ignored, &depth);
+		queue_sprite_at_depth(&ignored_2, &depth);
 		current_object = object_cursor;
 		depth = (uint16_t)(OBJECT(current_object)->screen_y - 0x58u);
-		queue_sprite_at_depth(&ignored, &depth);
+		queue_sprite_at_depth(&ignored_2, &depth);
 		return;
 	}
 	object_2 = LINKED(current_object, OBJECT(current_object)->child);
@@ -2060,7 +2060,7 @@ void quicksand_swirl(void)
    it; scale 1, kind 0x1B, sinkhole_animation, on its floor; then sinkhole_open. */
 void sinkhole_start(void)
 {
-	uint32_t growth_record = 0, ignored = 0;
+	uint32_t growth_record = 0, ignored = 0, ignored_2 = 0, ignored_3 = 0, ignored_4 = 0, ignored_5 = 0;
 	uint32_t sprite_frame = 0;
 
 	OBJECT(current_object)->sprite_flags = 8u;
@@ -2092,9 +2092,9 @@ void sinkhole_start(void)
 	OBJECT(current_object)->animation_speed = 4u;
 	OBJECT(current_object)->animation_timer = 0;
 	OBJECT(current_object)->animation = sinkhole_animation_ADDRESS;
-	find_floor(&ignored, &ignored, &ignored, &ignored, &ignored);
+	find_floor(&ignored, &ignored_2, &ignored_3, &ignored_4, &ignored_5);
 	OBJECT(current_object)->z = OBJECT(current_object)->floor_z;
-	project_object(&ignored, &ignored);
+	project_object(&ignored, &ignored_2);
 }
 
 /* Removed off screen (margin 0x68). From open_position on: sound 0xF on its first step, then
@@ -2103,7 +2103,7 @@ void sinkhole_start(void)
 void sinkhole_open(void)
 {
 	uint16_t scale = 0;
-	uint32_t ignored = 0, margin_or_scale = 0, off_screen = 0, sound_id = 0;
+	uint32_t ignored = 0, ignored_2 = 0, ignored_3 = 0, ignored_4 = 0, ignored_5 = 0, margin_or_scale = 0, off_screen = 0, sound_id = 0;
 
 	margin_or_scale = 0x68u;
 	off_screen = check_left_screen_margin((uint16_t)margin_or_scale);
@@ -2117,7 +2117,7 @@ void sinkhole_open(void)
 	if ((int16_t)OBJECT(current_object)->sprite_scale >= 0x180)
 	{
 		add_to_touchable_list(sound_id);
-		update_screen_position(&ignored, &margin_or_scale);
+		update_screen_position(&ignored_5, &margin_or_scale);
 		OBJECT(current_object)->draw_depth = OBJECT(current_object)->screen_y;
 		margin_or_scale = queue_sprite(margin_or_scale);
 		return;
@@ -2125,17 +2125,17 @@ void sinkhole_open(void)
 	if (OBJECT(current_object)->sprite_scale == 1u)
 	{
 		sound_id = 0xFu;
-		play_sound((uint8_t)sound_id, &ignored, &ignored);
+		play_sound((uint8_t)sound_id, &ignored, &ignored_2);
 	}
 	OBJECT(current_object)->sprite_scale += OBJECT(current_object)->sinkhole.zoom_step;
 	scale = OBJECT(current_object)->sprite_scale;
 	OBJECT(current_object)->sprite_offset_x = (int32_t)((uint32_t)OBJECT(current_object)->sinkhole.unscaled_offset_x * scale) >> 8;
 	OBJECT(current_object)->sprite_offset_y = (int32_t)((uint32_t)OBJECT(current_object)->sinkhole.unscaled_offset_y * scale) >> 8;
-	animate(&ignored, &ignored, &ignored);
+	animate(&ignored, &ignored_3, &ignored_4);
 	margin_or_scale = OBJECT(current_object)->sprite_scale;
 	OBJECT(current_object)->hitbox_size_x = (int32_t)(OBJECT(current_object)->sinkhole.unscaled_hitbox_size_x * margin_or_scale) >> 8;
 	add_to_touchable_list(sound_id);
-	update_screen_position(&ignored, &margin_or_scale);
+	update_screen_position(&ignored_5, &margin_or_scale);
 	OBJECT(current_object)->draw_depth = OBJECT(current_object)->screen_y;
 	margin_or_scale = queue_sprite(margin_or_scale);
 }
@@ -2144,7 +2144,7 @@ void sinkhole_open(void)
    15 of sprite_frame is set, on its floor; then sand_patch_draw. */
 void sand_patch_start(void)
 {
-	uint32_t ignored = 0;
+	uint32_t ignored = 0, ignored_2 = 0, ignored_3 = 0, ignored_4 = 0, ignored_5 = 0;
 
 	OBJECT(current_object)->sprite_flags = 0x1000u;
 	if ((OBJECT(current_object)->sprite_frame & 0x8000u) != 0u)
@@ -2155,9 +2155,9 @@ void sand_patch_start(void)
 	OBJECT(current_object)->flags = 0u;
 	OBJECT(current_object)->sprite_offset_x = 0;
 	OBJECT(current_object)->sprite_offset_y = 0;
-	find_floor(&ignored, &ignored, &ignored, &ignored, &ignored);
+	find_floor(&ignored, &ignored_2, &ignored_3, &ignored_4, &ignored_5);
 	OBJECT(current_object)->z = OBJECT(current_object)->floor_z;
-	project_object(&ignored, &ignored);
+	project_object(&ignored, &ignored_2);
 }
 
 /* Drawn at depth screen_y - 0x38 until it leaves the screen (check_left_screen_margins: 0x38 once seen,
@@ -2165,14 +2165,14 @@ void sand_patch_start(void)
 void sand_patch_draw(void)
 {
 	uint16_t margin = 0, unseen_margin = 0;
-	uint32_t depth = 0, ignored = 0, off_screen = 0;
+	uint32_t depth = 0, ignored = 0, ignored_2 = 0, off_screen = 0;
 
 	margin = 0x38u;
 	unseen_margin = 0x10u;
 	off_screen = check_left_screen_margins(margin, unseen_margin);
 	if (off_screen == 0u)
 	{
-		update_screen_position(&ignored, &ignored);
+		update_screen_position(&ignored, &ignored_2);
 		depth = (uint16_t)(OBJECT(current_object)->screen_y - 0x38u);
 		queue_sprite_at_depth(&ignored, &depth);
 		return;
@@ -2185,7 +2185,7 @@ void sand_patch_draw(void)
    kind 0x1B, sprite 0x7518) with a pool 2 rim part (sprite 0x7538), handler rimmed_sinkhole_open. */
 void rimmed_sinkhole_start(void)
 {
-	uint32_t free_count = 0, growth_record = 0, ignored = 0, object = 0;
+	uint32_t free_count = 0, growth_record = 0, ignored = 0, ignored_2 = 0, ignored_3 = 0, ignored_4 = 0, object = 0;
 	uint32_t sprite_frame = 0;
 
 	OBJECT(current_object)->sprite_flags = 0x1000u;
@@ -2233,11 +2233,11 @@ void rimmed_sinkhole_start(void)
 	OBJECT(current_object)->animation_frame = 0u;
 	OBJECT(current_object)->animation_speed = 4u;
 	OBJECT(current_object)->animation_timer = 0;
-	find_floor(&ignored, &ignored, &ignored, &ignored, &object);
+	find_floor(&ignored, &ignored_2, &ignored_3, &ignored_4, &object);
 	OBJECT(current_object)->z = OBJECT(current_object)->floor_z;
 	OBJECT(object_cursor)->z = OBJECT(current_object)->floor_z;
-	project_object(&ignored, &ignored);
-	allocate_object_2(&free_count, &ignored, &object);
+	project_object(&ignored, &ignored_2);
+	allocate_object_2(&free_count, &ignored_3, &object);
 	if (free_count == 0u)
 		return;
 	OBJECT(object)->sprite_flags = 0u;
@@ -2255,7 +2255,7 @@ void rimmed_sinkhole_start(void)
 void rimmed_sinkhole_open(void)
 {
 	uint16_t child = 0, margin = 0, unseen_margin = 0;
-	uint32_t depth = 0, ignored = 0, off_screen = 0, sound_id = 0;
+	uint32_t depth = 0, ignored = 0, ignored_2 = 0, ignored_3 = 0, ignored_4 = 0, ignored_5 = 0, off_screen = 0, sound_id = 0;
 
 	margin = 0x58u;
 	unseen_margin = 0x20u;
@@ -2274,40 +2274,40 @@ void rimmed_sinkhole_open(void)
 	if ((int16_t)OBJECT(current_object)->sprite_scale >= 0x100)
 	{
 		add_to_touchable_list(sound_id);
-		update_screen_position(&ignored, &ignored);
+		update_screen_position(&ignored_5, &ignored_2);
 		depth = (uint16_t)(OBJECT(current_object)->screen_y - 0x30u);
 		if ((int16_t)depth <= -0xF)
 			depth = 0xFFF1u;
 		OBJECT(current_object)->draw_depth = depth;
-		queue_sprite_at_depth(&ignored, &depth);
+		queue_sprite_at_depth(&ignored_5, &depth);
 		current_object = LINKED(current_object, OBJECT(current_object)->child);
 		OBJECT(current_object)->screen_x = OBJECT(object_cursor)->screen_x;
 		OBJECT(current_object)->screen_y = OBJECT(object_cursor)->screen_y;
 		depth = (uint16_t)(OBJECT(object_cursor)->draw_depth - 8u);
-		queue_sprite_at_depth(&ignored, &depth);
+		queue_sprite_at_depth(&ignored_5, &depth);
 		return;
 	}
 	if (OBJECT(current_object)->sprite_scale == 1u)
 	{
 		sound_id = 0xFu;
-		play_sound((uint8_t)sound_id, &ignored, &ignored);
+		play_sound((uint8_t)sound_id, &ignored_2, &ignored);
 	}
 	OBJECT(current_object)->sprite_scale += OBJECT(current_object)->rimmed_sinkhole.zoom_step;
 	OBJECT(LINKED(current_object, OBJECT(current_object)->child))->sprite_scale = OBJECT(current_object)->sprite_scale;
-	animate(&ignored, &ignored, &ignored);
+	animate(&ignored_2, &ignored_3, &ignored_4);
 	OBJECT(current_object)->hitbox_size_x = (int32_t)((uint32_t)OBJECT(current_object)->rimmed_sinkhole.unscaled_hitbox_size_x * OBJECT(current_object)->sprite_scale) >> 8;
 	add_to_touchable_list(sound_id);
-	update_screen_position(&ignored, &ignored);
+	update_screen_position(&ignored_5, &ignored_2);
 	depth = (uint16_t)(OBJECT(current_object)->screen_y - 0x30u);
 	if ((int16_t)depth <= -0xF)
 		depth = 0xFFF1u;
 	OBJECT(current_object)->draw_depth = depth;
-	queue_sprite_at_depth(&ignored, &depth);
+	queue_sprite_at_depth(&ignored_5, &depth);
 	current_object = LINKED(current_object, OBJECT(current_object)->child);
 	OBJECT(current_object)->screen_x = OBJECT(object_cursor)->screen_x;
 	OBJECT(current_object)->screen_y = OBJECT(object_cursor)->screen_y;
 	depth = (uint16_t)(OBJECT(object_cursor)->draw_depth - 8u);
-	queue_sprite_at_depth(&ignored, &depth);
+	queue_sprite_at_depth(&ignored_5, &depth);
 }
 
 /* The hole's edge zone: copies the hole's sprite_scale and draw_depth and stays touchable (kind 0x1D)
@@ -2336,35 +2336,33 @@ void spawn_sand_block_leader(uint32_t record, uint32_t *p_spawned, uint32_t *p_l
 	uint32_t leader = *p_leader;
 
 	allocate_object_outside_loop(p_spawned, &leader);
-	if (*p_spawned == 0u)
+	if (*p_spawned != 0u)
 	{
-		*p_leader = leader;
-		return;
+		group_leaders[LEADER_SPAWN(record)->leader & 3u] = leader;
+		record++;
+		OBJECT(leader)->x_int = LEADER_SPAWN(record - 0x1u)->x;
+		OBJECT(leader)->x_fraction = 0u;
+		record += 2u;
+		OBJECT(leader)->y_int = LEADER_SPAWN(record - 0x3u)->y;
+		OBJECT(leader)->y_fraction = 0u;
+		record += 2u;
+		OBJECT(leader)->z_int = LEADER_SPAWN(record - 0x5u)->z;
+		OBJECT(leader)->z_fraction = 0u;
+		OBJECT(leader)->floor_z = OBJECT(leader)->z;
+		record += 2u;
+		OBJECT(leader)->direction = LEADER_SPAWN(record - 0x7u)->direction;
+		OBJECT(leader)->sand_block_leader.path = LEADER_SPAWN(record - 0x7u)->path + group_leader_data_ADDRESS;
+		OBJECT(leader)->handler = sand_block_leader_move_ADDRESS;
+		OBJECT(leader)->flags = 0u;
+		OBJECT(leader)->sprite_offset_x = 0;
+		OBJECT(leader)->sprite_offset_y = 0;
+		OBJECT(leader)->sand_block_leader.holding_back = 0u;
+		OBJECT(leader)->sand_block_leader.wait_timer = 1;
+		sand_block_leader_active = 0xFFu;
+		if (group_leader_0_held != 0u)
+			OBJECT(leader)->handler = sand_block_leader_wait_ADDRESS;
+		*p_spawned = 0xFFFFFFFFu;
 	}
-	group_leaders[LEADER_SPAWN(record)->leader & 3u] = leader;
-	record++;
-	OBJECT(leader)->x_int = LEADER_SPAWN(record - 0x1u)->x;
-	OBJECT(leader)->x_fraction = 0u;
-	record += 2u;
-	OBJECT(leader)->y_int = LEADER_SPAWN(record - 0x3u)->y;
-	OBJECT(leader)->y_fraction = 0u;
-	record += 2u;
-	OBJECT(leader)->z_int = LEADER_SPAWN(record - 0x5u)->z;
-	OBJECT(leader)->z_fraction = 0u;
-	OBJECT(leader)->floor_z = OBJECT(leader)->z;
-	record += 2u;
-	OBJECT(leader)->direction = LEADER_SPAWN(record - 0x7u)->direction;
-	OBJECT(leader)->sand_block_leader.path = LEADER_SPAWN(record - 0x7u)->path + group_leader_data_ADDRESS;
-	OBJECT(leader)->handler = sand_block_leader_move_ADDRESS;
-	OBJECT(leader)->flags = 0u;
-	OBJECT(leader)->sprite_offset_x = 0;
-	OBJECT(leader)->sprite_offset_y = 0;
-	OBJECT(leader)->sand_block_leader.holding_back = 0u;
-	OBJECT(leader)->sand_block_leader.wait_timer = 1;
-	sand_block_leader_active = 0xFFu;
-	if (group_leader_0_held != 0u)
-		OBJECT(leader)->handler = sand_block_leader_wait_ADDRESS;
-	*p_spawned = 0xFFFFFFFFu;
 	*p_leader = leader;
 }
 
@@ -2462,11 +2460,11 @@ void sand_block_leader_read_script(void)
 void sand_block_leader_move_step(void)
 {
 	uint16_t move_speed = 0;
-	uint32_t block_record = 0, ignored = 0;
+	uint32_t block_record = 0, ignored = 0, ignored_2 = 0, ignored_3 = 0, ignored_4 = 0, ignored_5 = 0;
 	uint8_t hold_timer = 0;
 
-	find_floor(&ignored, &ignored, &ignored, &ignored, &ignored);
-	project_object(&ignored, &ignored);
+	find_floor(&ignored, &ignored_2, &ignored_3, &ignored_4, &ignored_5);
+	project_object(&ignored, &ignored_2);
 	add_to_rider_list();
 	if (OBJECT(current_object)->sand_block_leader.holding_back == 0u)
 	{
@@ -2486,7 +2484,7 @@ void sand_block_leader_move_step(void)
 					OBJECT(current_object)->sand_block_leader.screen_threshold = OBJECT(current_object)->sand_block_leader.saved_threshold;
 					OBJECT(current_object)->sand_block_leader.base_speed = OBJECT(current_object)->sand_block_leader.saved_base_speed;
 				}
-				compute_camera_ground_speed(ignored);
+				compute_camera_ground_speed(ignored_4);
 				move_speed = (uint16_t)((uint32_t)camera_ground_speed_int * OBJECT(current_object)->sand_block_leader.catch_up_factor) >> 8;
 				if ((int16_t)move_speed <= OBJECT(current_object)->sand_block_leader.base_speed)
 					move_speed = (uint16_t)OBJECT(current_object)->sand_block_leader.base_speed;
@@ -2503,7 +2501,7 @@ void sand_block_leader_move_step(void)
 					OBJECT(current_object)->sand_block_leader.screen_threshold = OBJECT(current_object)->sand_block_leader.saved_threshold;
 					OBJECT(current_object)->sand_block_leader.base_speed = OBJECT(current_object)->sand_block_leader.saved_base_speed;
 				}
-				compute_camera_ground_speed(ignored);
+				compute_camera_ground_speed(ignored_4);
 				move_speed = (uint16_t)((uint32_t)camera_ground_speed_int * OBJECT(current_object)->sand_block_leader.catch_up_factor) >> 8;
 				if ((int16_t)move_speed <= OBJECT(current_object)->sand_block_leader.base_speed)
 					move_speed = (uint16_t)OBJECT(current_object)->sand_block_leader.base_speed;
@@ -2520,7 +2518,7 @@ void sand_block_leader_move_step(void)
 		OBJECT(current_object)->sand_block_leader.holding_back = 0u;
 		OBJECT(current_object)->sand_block_leader.screen_threshold = OBJECT(current_object)->sand_block_leader.saved_threshold;
 		OBJECT(current_object)->sand_block_leader.base_speed = OBJECT(current_object)->sand_block_leader.saved_base_speed;
-		compute_camera_ground_speed(ignored);
+		compute_camera_ground_speed(ignored_4);
 		move_speed = (uint16_t)((uint32_t)camera_ground_speed_int * OBJECT(current_object)->sand_block_leader.catch_up_factor) >> 8;
 		if ((int16_t)move_speed <= OBJECT(current_object)->sand_block_leader.base_speed)
 			move_speed = (uint16_t)OBJECT(current_object)->sand_block_leader.base_speed;
@@ -2536,7 +2534,7 @@ void sand_block_leader_move_step(void)
 			OBJECT(current_object)->sand_block_leader.holding_back = 0u;
 			OBJECT(current_object)->sand_block_leader.screen_threshold = OBJECT(current_object)->sand_block_leader.saved_threshold;
 			OBJECT(current_object)->sand_block_leader.base_speed = OBJECT(current_object)->sand_block_leader.saved_base_speed;
-			compute_camera_ground_speed(ignored);
+			compute_camera_ground_speed(ignored_4);
 			move_speed = (uint16_t)((uint32_t)camera_ground_speed_int * OBJECT(current_object)->sand_block_leader.catch_up_factor) >> 8;
 			if ((int16_t)move_speed <= OBJECT(current_object)->sand_block_leader.base_speed)
 				move_speed = (uint16_t)OBJECT(current_object)->sand_block_leader.base_speed;
@@ -2559,7 +2557,7 @@ void sand_block_leader_move_step(void)
 						OBJECT(current_object)->sand_block_leader.screen_threshold = OBJECT(current_object)->sand_block_leader.saved_threshold;
 						OBJECT(current_object)->sand_block_leader.base_speed = OBJECT(current_object)->sand_block_leader.saved_base_speed;
 					}
-					compute_camera_ground_speed(ignored);
+					compute_camera_ground_speed(ignored_4);
 					move_speed = (uint16_t)((uint32_t)camera_ground_speed_int * OBJECT(current_object)->sand_block_leader.catch_up_factor) >> 8;
 					if ((int16_t)move_speed <= OBJECT(current_object)->sand_block_leader.base_speed)
 						move_speed = (uint16_t)OBJECT(current_object)->sand_block_leader.base_speed;
@@ -2576,7 +2574,7 @@ void sand_block_leader_move_step(void)
 						OBJECT(current_object)->sand_block_leader.screen_threshold = OBJECT(current_object)->sand_block_leader.saved_threshold;
 						OBJECT(current_object)->sand_block_leader.base_speed = OBJECT(current_object)->sand_block_leader.saved_base_speed;
 					}
-					compute_camera_ground_speed(ignored);
+					compute_camera_ground_speed(ignored_4);
 					move_speed = (uint16_t)((uint32_t)camera_ground_speed_int * OBJECT(current_object)->sand_block_leader.catch_up_factor) >> 8;
 					if ((int16_t)move_speed <= OBJECT(current_object)->sand_block_leader.base_speed)
 						move_speed = (uint16_t)OBJECT(current_object)->sand_block_leader.base_speed;
@@ -2637,13 +2635,13 @@ void sand_block_update(void)
 {
 	uint8_t sound_id = 0;
 	uint16_t child = 0, part_scale = 0, span_y = 0;
-	uint32_t blocks_left = 0, depth = 0, floor_z = 0, ignored = 0, object = 0, object_2 = 0, object_3 = 0, part_cursor = 0, part_list = 0, point_x = 0, point_y = 0, stream_parts_left = 0;
+	uint32_t blocks_left = 0, depth = 0, floor_z = 0, ignored = 0, ignored_2 = 0, ignored_3 = 0, object = 0, object_2 = 0, object_3 = 0, part_cursor = 0, part_list = 0, point_x = 0, point_y = 0, stream_parts_left = 0;
 
 	switch (OBJECT(current_object)->sand_block.state)
 	{
 	case 0:
 	case 4:
-		project_object(&ignored, &ignored);
+		project_object(&ignored, &ignored_2);
 		OBJECT(current_object)->sand_block.state++;
 		current_player = current_object;
 		current_player = LINKED(current_player, OBJECT(current_object)->parent);
@@ -2661,7 +2659,7 @@ void sand_block_update(void)
 		if (OBJECT(current_player)->y_int <= (int16_t)(OBJECT(current_object)->y_int + OBJECT(current_object)->hitbox_size_y - 0x10u))
 			OBJECT(current_object)->sand_block.state++;
 		add_to_platform_list();
-		update_screen_position(&ignored, &ignored);
+		update_screen_position(&ignored, &ignored_2);
 		if ((uint16_t)(OBJECT(current_object)->screen_x + 0x140u) >= 0x281u)
 			return;
 		depth = (uint16_t)(OBJECT(current_object)->screen_y + OBJECT(current_object)->sand_block.depth_offset - OBJECT(current_object)->sprite_offset_y);
@@ -2685,7 +2683,7 @@ void sand_block_update(void)
 		if (OBJECT(current_player)->y_int <= (int16_t)(OBJECT(current_object)->y_int + OBJECT(current_object)->hitbox_size_y - 0x10u))
 			OBJECT(current_object)->sand_block.state++;
 		add_to_platform_list();
-		update_screen_position(&ignored, &ignored);
+		update_screen_position(&ignored, &ignored_2);
 		if ((uint16_t)(OBJECT(current_object)->screen_x + 0x140u) >= 0x281u)
 			return;
 		depth = (uint16_t)(OBJECT(current_object)->screen_y + OBJECT(current_object)->sand_block.depth_offset - OBJECT(current_object)->sprite_offset_y);
@@ -2696,7 +2694,7 @@ void sand_block_update(void)
 		if (free_object_stack < 2 || free_object_stack_2[0] < 3)
 		{
 			add_to_platform_list();
-			update_screen_position(&ignored, &ignored);
+			update_screen_position(&ignored, &ignored_2);
 			if ((uint16_t)(OBJECT(current_object)->screen_x + 0x140u) >= 0x281u)
 				return;
 			depth = (uint16_t)(OBJECT(current_object)->screen_y + OBJECT(current_object)->sand_block.depth_offset - OBJECT(current_object)->sprite_offset_y);
@@ -2723,7 +2721,7 @@ void sand_block_update(void)
 		OBJECT(object_2)->parent = current_object;
 		OBJECT(current_object)->sand_block.face_object = object_2;
 		object_3 = object_2;
-		allocate_object_2(&ignored, &ignored, &object_2);
+		allocate_object_2(&ignored, &ignored_3, &object_2);
 		move_halfwords_backward(object_2, sand_face_parts_ADDRESS, 9u);
 		part_list = OBJECT(current_object)->part_list;
 		OBJECT(object_2)->sprite_scale = SAND_BLOCK_PART_LIST(part_list)->first_palette;
@@ -2752,7 +2750,7 @@ void sand_block_update(void)
 		do
 		{
 			object_3 = object_2;
-			allocate_object_2(&ignored, &ignored, &object_2);
+			allocate_object_2(&ignored, &ignored_3, &object_2);
 			object = object_2 + 2u;
 			OBJECT(object - 0x2u)->sprite_flags = 0x5000u;
 			object += 2u;
@@ -2775,10 +2773,10 @@ void sand_block_update(void)
 		if (OBJECT(current_object)->screen_x <= 0x148 && OBJECT(current_object)->screen_y <= 0x130)
 		{
 			sound_id = 0x11u;
-			play_sound(sound_id, &ignored, &ignored);
+			play_sound(sound_id, &ignored_2, &ignored_3);
 		}
 	case 3:
-		update_screen_position(&ignored, &ignored);
+		update_screen_position(&ignored, &ignored_2);
 		object = LINKED(current_object, OBJECT(current_object)->parent);
 		span_y = (uint16_t)(OBJECT(object)->y_int - OBJECT(current_object)->y_int);
 		OBJECT(current_object)->hitbox_size_y = span_y;
@@ -2787,7 +2785,7 @@ void sand_block_update(void)
 			point_x = OBJECT(current_object)->x + ((uint32_t)OBJECT(current_object)->hitbox_size_x << 16);
 			point_y = OBJECT(object)->y;
 			floor_z = OBJECT(current_object)->floor_z;
-			project_point(floor_z, &ignored, &point_x, &point_y);
+			project_point(floor_z, &ignored_2, &point_x, &point_y);
 			OBJECT(LINKED(current_object, OBJECT(current_object)->child))->sprite_scale = point_x;
 			add_to_platform_list();
 			if ((uint16_t)(OBJECT(current_object)->screen_x + 0x140u) < 0x281u)
@@ -2826,7 +2824,7 @@ void sand_block_update(void)
 void sand_face_update(void)
 {
 	uint16_t part_list = 0;
-	uint32_t depth = 0, ignored = 0, object = 0;
+	uint32_t depth = 0, ignored_2 = 0, ignored_3 = 0, ignored_4 = 0, ignored_5 = 0, object = 0;
 
 	if ((OBJECT(current_object)->flags & 0x400u) == 0u)
 	{
@@ -2834,10 +2832,10 @@ void sand_face_update(void)
 		object = LINKED(object, OBJECT(object)->parent);
 		OBJECT(current_object)->y = OBJECT(object)->y;
 		OBJECT(current_object)->z = OBJECT(object)->z;
-		animate_all_parts(&ignored, &ignored);
-		project_object(&ignored, &ignored);
+		animate_all_parts(&ignored_2, &ignored_3);
+		project_object(&ignored_4, &ignored_5);
 		depth = (uint16_t)(OBJECT(current_object)->screen_y - OBJECT(current_object)->sand_face.depth_offset);
-		queue_sprite_at_depth(&ignored, &depth);
+		queue_sprite_at_depth(&ignored_4, &depth);
 		return;
 	}
 	if (OBJECT(current_object)->screen_y >= 0x150)
@@ -2853,10 +2851,10 @@ void sand_face_update(void)
 	OBJECT(current_object)->animation = sand_face_fall_animation_ADDRESS;
 	OBJECT(current_object)->speed_z += 0x6000u;
 	OBJECT(current_object)->z += OBJECT(current_object)->speed_z;
-	animate_all_parts(&ignored, &ignored);
-	project_object(&ignored, &ignored);
+	animate_all_parts(&ignored_2, &ignored_3);
+	project_object(&ignored_4, &ignored_5);
 	depth = (uint16_t)(OBJECT(current_object)->screen_y - OBJECT(current_object)->sand_face.depth_offset);
-	queue_sprite_at_depth(&ignored, &depth);
+	queue_sprite_at_depth(&ignored_4, &depth);
 }
 
 /* Falling sand under a sand block's face: removed with flag 0x400; else at the face's screen position
@@ -2941,9 +2939,9 @@ uint32_t spawn_sink_swirl(uint32_t allocated)
 /* project_object, then sink_swirl_animate from this frame on. */
 void sink_swirl_start(void)
 {
-	uint32_t ignored = 0;
+	uint32_t ignored = 0, ignored_2 = 0;
 
-	project_object(&ignored, &ignored);
+	project_object(&ignored, &ignored_2);
 	OBJECT(current_object)->handler = sink_swirl_animate_ADDRESS;
 	sink_swirl_animate();
 }
@@ -2953,9 +2951,9 @@ void sink_swirl_start(void)
    removed. */
 void sink_swirl_animate(void)
 {
-	uint32_t at_last_step = 0, depth = 0, ignored = 0;
+	uint32_t at_last_step = 0, depth = 0, ignored = 0, ignored_2 = 0, ignored_3 = 0, ignored_4 = 0;
 
-	animate(&ignored, &ignored, &at_last_step);
+	animate(&ignored, &ignored_2, &at_last_step);
 	if ((uint8_t)at_last_step != 0u)
 	{
 		current_object = LINKED(current_object, OBJECT(current_object)->child);
@@ -2963,14 +2961,14 @@ void sink_swirl_animate(void)
 		delete_current_object();
 		return;
 	}
-	update_screen_position(&ignored, &ignored);
+	update_screen_position(&ignored_3, &ignored);
 	current_object = LINKED(current_object, OBJECT(current_object)->child);
-	animate(&ignored, &ignored, &ignored);
+	animate(&ignored, &ignored_2, &ignored_4);
 	OBJECT(current_object)->screen_x = OBJECT(object_cursor)->screen_x;
 	OBJECT(current_object)->screen_y = OBJECT(object_cursor)->screen_y;
 	depth = (uint16_t)(OBJECT(current_object)->screen_y + OBJECT(object_cursor)->sink_swirl.depth_offset);
-	queue_sprite_at_depth(&ignored, &depth);
+	queue_sprite_at_depth(&ignored_3, &depth);
 	current_object = object_cursor;
 	depth = (uint16_t)(OBJECT(current_object)->screen_y + OBJECT(current_object)->sink_swirl.depth_offset);
-	queue_sprite_at_depth(&ignored, &depth);
+	queue_sprite_at_depth(&ignored_3, &depth);
 }

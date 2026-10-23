@@ -3,7 +3,7 @@
  *    Description: the sound the game asks the Z80 for: init_sound, play_sound and the sound queue
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    19-10-2026
+ *    Modified:    23-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -48,58 +48,47 @@ void set_port_d_bit_3_if_sound_allowed(void)
 void queue_coin_sound(void)
 {
 	uint8_t sound_id = 0;
-	uint32_t ignored = 0;
+	uint32_t ignored = 0, ignored_2 = 0;
 	uint8_t port_d_bits = 0;
 
 	port_d_bits = mem_read8(io_port_d);
 	mem_write8(io_port_d, port_d_bits | 8u);
 	sound_id = 0x7Fu;
-	queue_sound(sound_id, &ignored, &ignored);
+	queue_sound(sound_id, &ignored, &ignored_2);
 }
 
 /* Asks for sound sound_id: during a game (game_in_progress) always through queue_sound; outside one only
    when setting_advertise_sound is on and sound_id's bit is set in attract_sound_mask. */
 void CONSOLE_ORIGINAL(play_sound)(uint8_t sound_id, uint32_t *p_write_index, uint32_t *p_write_index_address)
 {
-	uint32_t write_index = *p_write_index;
-	uint32_t write_index_address = *p_write_index_address;
-	uint32_t mask_bit = 0, mask_index = 0;
-
 	if (game_in_progress != 0u)
 	{
-		queue_sound(sound_id, &write_index, &write_index_address);
-		*p_write_index = write_index;
-		*p_write_index_address = write_index_address;
+		queue_sound(sound_id, p_write_index, p_write_index_address);
 		return;
 	}
 	if (setting_advertise_sound == 0u)
 		return;
-	mask_index = (uint8_t)sound_id;
-	mask_bit = mask_index & 0x1Fu;
-	mask_index = mask_index >> 5;
-	if ((attract_sound_mask[mask_index] & shl32(1u, (int)(mask_bit))) == 0u)
+	*p_write_index_address = (uint8_t)sound_id;
+	*p_write_index = *p_write_index_address & 0x1Fu;
+	*p_write_index_address = *p_write_index_address >> 5;
+	if ((attract_sound_mask[*p_write_index_address] & shl32(1u, (int)(*p_write_index))) == 0u)
 	{
-		*p_write_index = mask_bit;
-		*p_write_index_address = mask_index;
 		return;
 	}
-	queue_sound(sound_id, &write_index, &write_index_address);
-	*p_write_index = write_index;
-	*p_write_index_address = write_index_address;
+	queue_sound(sound_id, p_write_index, p_write_index_address);
 }
 
 /* Puts sound_id in sound_queue at sound_queue_write and moves it on, wrapping at 32, with no filter (the
    test mode and the coins use it directly). */
 void queue_sound(uint8_t sound_id, uint32_t *p_write_index, uint32_t *p_write_index_address)
 {
-	uint32_t write_index = 0, write_index_address = 0;
+	uint32_t write_index = 0;
 
 	write_index = sound_queue_write;
 	sound_queue[write_index] = sound_id;
 	write_index = (uint8_t)(write_index + 1u);
 	write_index = write_index & 0x1Fu;
-	write_index_address = sound_queue_write_ADDRESS;
+	*p_write_index_address = sound_queue_write_ADDRESS;
 	sound_queue_write = write_index;
 	*p_write_index = write_index;
-	*p_write_index_address = write_index_address;
 }

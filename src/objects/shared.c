@@ -3,7 +3,7 @@
  *    Description: objects several stages use: the signs, the scenery sprites, the walls players and objects bounce off, the zones behind the chasers, the pacer that keeps two players together, the hold on a group leader; object types 4 and 13; the crawler, which nothing spawns
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    22-10-2026
+ *    Modified:    23-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -41,15 +41,15 @@ void animate_sign(void)
 void sign_start_from_type(void)
 {
 	uint16_t spawn_arg_1 = 0, x_int = 0, y_int = 0, z_int = 0;
-	uint32_t ignored = 0, object = 0;
+	uint32_t ignored = 0, ignored_2 = 0, ignored_3 = 0, ignored_4 = 0, ignored_5 = 0, object = 0;
 
-	unproject_object(&ignored, &ignored, &ignored, &ignored);
+	unproject_object(&ignored, &ignored_2, &ignored_3, &ignored_4);
 	x_int = (uint16_t)OBJECT(current_object)->x_int;
 	y_int = (uint16_t)OBJECT(current_object)->y_int;
 	spawn_arg_1 = OBJECT(current_object)->spawn_arg_1;
 	z_int = (uint16_t)OBJECT(current_object)->z_int;
 	object = current_object;
-	place_sign(x_int, y_int, spawn_arg_1, z_int, &ignored, &object);
+	place_sign(x_int, y_int, spawn_arg_1, z_int, &ignored_5, &object);
 	OBJECT(object)->speed_x_fraction = OBJECT(current_object)->spawn_arg_2;
 }
 
@@ -61,7 +61,7 @@ void crawler_init(void)
 {
 	uint8_t segment_walk_step = 0;
 	uint16_t segment_x = 0, step_stagger = 0;
-	uint32_t block = 0, free_count = 0, ignored = 0, object = 0, offset_record = 0, rom_record = 0, variant = 0;
+	uint32_t block = 0, free_count = 0, ignored = 0, ignored_2 = 0, object = 0, offset_record = 0, rom_record = 0, variant = 0;
 
 	variant = OBJECT(current_object)->crawler.variant;
 	r14 = 8u;
@@ -72,7 +72,7 @@ void crawler_init(void)
 	do
 	{
 		spawn_count = 2u;
-		spawn_object_with_pieces(0x01276Bu, &ignored, &ignored, &free_count, &object, &block);
+		spawn_object_with_pieces(0x01276Bu, &ignored, &ignored_2, &free_count, &object, &block);
 		copy_position_to(object);
 		offset_record = crawler_segment_offsets_ADDRESS + variant * 4u;
 		segment_x += CRAWLER_PIECE_OFFSET(offset_record)->dx;
@@ -153,12 +153,12 @@ void crawler_init(void)
    0xF, no shadow); then crawler_step. */
 void crawler_head_update(void)
 {
-	uint32_t deleted = 0, depth = 0, ignored = 0, over_pit = 0;
+	uint32_t deleted = 0, depth = 0, ignored = 0, ignored_2 = 0, ignored_3 = 0, ignored_4 = 0, over_pit = 0;
 
-	move_object_projected(&ignored, &ignored, &ignored, &ignored);
-	fall_to_floor(&ignored, &over_pit, &ignored);
+	move_object_projected(&ignored, &ignored_2, &ignored_3, &ignored_4);
+	fall_to_floor(&ignored, &over_pit, &ignored_2);
 	OBJECT(current_object)->crawler_head.over_pit = over_pit;
-	delete_if_off_screen(&deleted, &ignored, &ignored);
+	delete_if_off_screen(&deleted, &ignored_2, &ignored_3);
 	if ((uint8_t)deleted == 1u)
 		return;
 	find_nearest_player_x();
@@ -254,18 +254,18 @@ void crawler_segment_animate(void)
    draw_depth - 0xF. Then crawler_step. */
 void crawler_segment_update(void)
 {
-	uint32_t deleted = 0, depth = 0, ignored = 0, is_over_pit = 0;
+	uint32_t deleted = 0, depth = 0, ignored = 0, ignored_2 = 0, ignored_3 = 0, ignored_4 = 0, is_over_pit = 0;
 
-	move_object_projected(&deleted, &ignored, &ignored, &ignored);
+	move_object_projected(&deleted, &ignored, &ignored_2, &ignored_3);
 	if (OBJECT(LINKED(current_object, OBJECT(current_object)->parent))->crawler_head.over_pit != 0u)
 	{
-		delete_if_off_screen(&deleted, &ignored, &ignored);
+		delete_if_off_screen(&deleted, &ignored, &ignored_2);
 		if ((uint8_t)deleted == 1u)
 			return;
 	}
 	add_to_touchable_list(deleted);
 	add_to_rider_list();
-	fall_to_floor(&ignored, &is_over_pit, &ignored);
+	fall_to_floor(&ignored_4, &is_over_pit, &ignored);
 	if ((uint8_t)is_over_pit == 0u)
 	{
 		if (OBJECT(current_object)->crawler.variant == 0u || (uint8_t)OBJECT(current_object)->crawler.walk_step != 0xFFu)
@@ -273,17 +273,17 @@ void crawler_segment_update(void)
 		else
 		{
 			depth = (uint16_t)(OBJECT(current_object)->screen_y + 8u);
-			queue_sprite_at_depth(&ignored, &depth);
+			queue_sprite_at_depth(&ignored_4, &depth);
 		}
 		current_object = LINKED(current_object, OBJECT(current_object)->child);
 		place_sprite_at_cursor_floor();
 		depth = (uint16_t)(OBJECT(current_object)->screen_y - 0xAu);
-		queue_sprite_at_depth(&ignored, &depth);
+		queue_sprite_at_depth(&ignored_4, &depth);
 		current_object = object_cursor;
 		crawler_step();
 		return;
 	}
-	if (OBJECT(LINKED(WORK_RAM, OBJECT(current_object)->parent))->var_80 == 0u)
+	if (OBJECT(LINKED(WORK_RAM, OBJECT(current_object)->parent))->crawler_head.over_pit == 0u)
 	{
 		OBJECT(current_object)->speed_z = 0;
 		crawler_step();
@@ -292,7 +292,7 @@ void crawler_segment_update(void)
 	if (OBJECT(current_object)->crawler.on_platform != 0u)
 	{
 		depth = (uint16_t)(OBJECT(LINKED(WORK_RAM, OBJECT(current_object)->platform))->draw_depth - 0xFu);
-		queue_sprite_at_depth(&ignored, &depth);
+		queue_sprite_at_depth(&ignored_4, &depth);
 		crawler_step();
 		return;
 	}
@@ -301,12 +301,12 @@ void crawler_segment_update(void)
 	else
 	{
 		depth = (uint16_t)(OBJECT(current_object)->screen_y + 8u);
-		queue_sprite_at_depth(&ignored, &depth);
+		queue_sprite_at_depth(&ignored_4, &depth);
 	}
 	current_object = LINKED(current_object, OBJECT(current_object)->child);
 	place_sprite_at_cursor_floor();
 	depth = (uint16_t)(OBJECT(current_object)->screen_y - 0xAu);
-	queue_sprite_at_depth(&ignored, &depth);
+	queue_sprite_at_depth(&ignored_4, &depth);
 	current_object = object_cursor;
 	crawler_step();
 }
@@ -381,7 +381,7 @@ uint32_t spawn_chaser_back_zone(uint32_t zone_index, uint32_t zone)
 		OBJECT(zone)->kind = 9u;
 		OBJECT(zone)->flags = 0x40000002u;
 		step_record = object_steps_ADDRESS + chaser_zone_index * 3u * 2u;
-		AS16(OBJECT(zone)->var_80) = BACK_ZONE_RECORD(step_record)->limit;
+		OBJECT(zone)->chaser_back_zone.end_position = BACK_ZONE_RECORD(step_record)->limit;
 		OBJECT(zone)->handler = BACK_ZONE_RECORD(step_record)->handler;
 		OBJECT(zone)->parent = current_object;
 	}
@@ -674,33 +674,32 @@ void player_pacer_update(void)
 void get_pacing_axis(uint32_t player, uint32_t *p_axis_field, uint32_t *p_decreasing)
 {
 	uint16_t decreasing = 0;
+	uint32_t axis_field = 0;
 
 	switch (mem_read8(floor_blocks + 2u + OBJECT(LINKED(current_object, PLAYER(player)->object))->floor_block + 0x15u))
 	{
 	case 0:
 	case 4:
-		*p_axis_field = 0x29u;
+		axis_field = 0x29u;
 		decreasing = 0xFFFFu;
-		*p_decreasing = (*p_decreasing & 0xFFFF0000u) | decreasing;
-		return;
+		break;
 	case 1:
-		*p_axis_field = 0x27u;
+		axis_field = 0x27u;
 		decreasing = 0u;
-		*p_decreasing = (*p_decreasing & 0xFFFF0000u) | decreasing;
-		return;
+		break;
 	case 2:
-		*p_axis_field = 0x29u;
+		axis_field = 0x29u;
 		decreasing = 0u;
-		*p_decreasing = (*p_decreasing & 0xFFFF0000u) | decreasing;
-		return;
+		break;
 	case 3:
-		*p_axis_field = 0x27u;
+		axis_field = 0x27u;
 		decreasing = 0xFFFFu;
-		*p_decreasing = (*p_decreasing & 0xFFFF0000u) | decreasing;
-		return;
+		break;
 	default:
 		invalid_jump(0x8451Du + mem_read8(floor_blocks + 2u + OBJECT(LINKED(current_object, PLAYER(player)->object))->floor_block + 0x15u) * 2u);
 	}
+	*p_axis_field = axis_field;
+	*p_decreasing = (*p_decreasing & 0xFFFF0000u) | decreasing;
 }
 
 /* Stage list object made a sign: its z from record sprite_frame of object_kinds, the rest of the record
@@ -880,10 +879,10 @@ void sign_show_unless_stage_0(void)
 void sign_show(void)
 {
 	uint8_t bucket = 0;
-	uint32_t ignored = 0;
+	uint32_t ignored = 0, ignored_2 = 0;
 	uint16_t speed_x_fraction = 0;
 
-	update_screen_position(&ignored, &ignored);
+	update_screen_position(&ignored, &ignored_2);
 	animate_sign();
 	speed_x_fraction = OBJECT(current_object)->speed_x_fraction;
 	OBJECT(current_object)->speed_x_fraction = speed_x_fraction - 1u;
@@ -1024,7 +1023,7 @@ void screen_sign_show(void)
    0x8450, sprite_flags 0x1004, z at its floor (find_floor); projected, then floor_sign_update. */
 void floor_sign_start(void)
 {
-	uint32_t ignored = 0;
+	uint32_t ignored = 0, ignored_2 = 0, ignored_3 = 0, ignored_4 = 0, ignored_5 = 0;
 
 	OBJECT(current_object)->sprite_flags = 0x1004u;
 	OBJECT(current_object)->sprite_palette = 0x8450u;
@@ -1033,22 +1032,22 @@ void floor_sign_start(void)
 	OBJECT(current_object)->flags = 0u;
 	OBJECT(current_object)->handler = floor_sign_update_ADDRESS;
 	OBJECT(current_object)->sprite_frame = floor_sign_sprites[OBJECT(current_object)->sprite_frame];
-	find_floor(&ignored, &ignored, &ignored, &ignored, &ignored);
+	find_floor(&ignored, &ignored_2, &ignored_3, &ignored_4, &ignored_5);
 	OBJECT(current_object)->z = OBJECT(current_object)->floor_z;
-	project_object(&ignored, &ignored);
+	project_object(&ignored, &ignored_2);
 }
 
 /* Unused: drawn (update_screen_position, queue_sprite) until check_left_screen says it has left the
    screen, then removed. */
 void floor_sign_update(void)
 {
-	uint32_t ignored = 0, off_screen = 0;
+	uint32_t ignored = 0, ignored_2 = 0, off_screen = 0;
 
 	off_screen = check_left_screen();
 	if (off_screen == 0u)
 	{
-		update_screen_position(&ignored, &ignored);
-		ignored = queue_sprite(ignored);
+		update_screen_position(&ignored, &ignored_2);
+		ignored_2 = queue_sprite(ignored_2);
 		return;
 	}
 	delete_current_object();
@@ -1059,7 +1058,7 @@ void floor_sign_update(void)
    instead); projected. */
 void scenery_sprite_start(void)
 {
-	uint32_t ignored = 0, kind_record = 0, sprite_kind = 0;
+	uint32_t ignored = 0, ignored_2 = 0, ignored_3 = 0, ignored_4 = 0, ignored_5 = 0, kind_record = 0, sprite_kind = 0;
 
 	sprite_kind = OBJECT(current_object)->sprite_frame;
 	scenery_sprite_kind = sprite_kind;
@@ -1078,12 +1077,12 @@ void scenery_sprite_start(void)
 	OBJECT(current_object)->scenery_sprite.unused_stage = stage;
 	if (scenery_sprite_kind != 0xDu)
 	{
-		find_floor(&ignored, &ignored, &ignored, &ignored, &ignored);
+		find_floor(&ignored, &ignored_2, &ignored_3, &ignored_4, &ignored_5);
 		OBJECT(current_object)->z = OBJECT(current_object)->floor_z;
 	}
 	else
 		OBJECT(current_object)->z = 0x8D0000;
-	project_object(&ignored, &ignored);
+	project_object(&ignored, &ignored_2);
 }
 
 /* Removed once game_mode_timer reaches 0x3C in game mode 0x20 (YOU FAILED); until then
@@ -1101,11 +1100,11 @@ void scenery_sprite_draw_until_you_failed(void)
 /* Drawn at depth screen_y + depth_offset until map_screen_active is set (the map screen), then removed. */
 void scenery_sprite_draw(void)
 {
-	uint32_t depth = 0, ignored = 0;
+	uint32_t depth = 0, ignored = 0, ignored_2 = 0;
 
 	if (map_screen_active == 0u)
 	{
-		update_screen_position(&ignored, &ignored);
+		update_screen_position(&ignored, &ignored_2);
 		depth = (uint16_t)(OBJECT(current_object)->screen_y + OBJECT(current_object)->scenery_sprite.depth_offset);
 		queue_sprite_at_depth(&ignored, &depth);
 		return;
@@ -1117,12 +1116,12 @@ void scenery_sprite_draw(void)
    removed. */
 void scenery_sprite_draw_until_offscreen(void)
 {
-	uint32_t depth = 0, ignored = 0, off_screen = 0;
+	uint32_t depth = 0, ignored = 0, ignored_2 = 0, off_screen = 0;
 
 	off_screen = check_left_screen();
 	if (off_screen == 0u)
 	{
-		update_screen_position(&ignored, &ignored);
+		update_screen_position(&ignored, &ignored_2);
 		depth = (uint16_t)(OBJECT(current_object)->screen_y + OBJECT(current_object)->scenery_sprite.depth_offset);
 		queue_sprite_at_depth(&ignored, &depth);
 		return;
@@ -1134,13 +1133,13 @@ void scenery_sprite_draw_until_offscreen(void)
 void scenery_sprite_draw_wide_margin(void)
 {
 	uint16_t margin = 0;
-	uint32_t depth = 0, ignored = 0, off_screen = 0;
+	uint32_t depth = 0, ignored = 0, ignored_2 = 0, off_screen = 0;
 
 	margin = 0x50u;
 	off_screen = check_left_screen_margin(margin);
 	if (off_screen == 0u)
 	{
-		update_screen_position(&ignored, &ignored);
+		update_screen_position(&ignored, &ignored_2);
 		depth = (uint16_t)(OBJECT(current_object)->screen_y + OBJECT(current_object)->scenery_sprite.depth_offset);
 		queue_sprite_at_depth(&ignored, &depth);
 		return;
@@ -1166,12 +1165,12 @@ void scenery_sprite_cycle_palette_start(void)
    depth_offset like scenery_sprite_draw. */
 void scenery_sprite_cycle_palette(void)
 {
-	uint32_t depth = 0, ignored = 0;
+	uint32_t depth = 0, ignored = 0, ignored_2 = 0;
 
 	if (map_screen_active == 0u)
 	{
 		animate_sign();
-		update_screen_position(&ignored, &ignored);
+		update_screen_position(&ignored, &ignored_2);
 		depth = (uint16_t)(OBJECT(current_object)->screen_y + OBJECT(current_object)->scenery_sprite.depth_offset);
 		queue_sprite_at_depth(&ignored, &depth);
 		return;
@@ -1269,12 +1268,11 @@ void group_leader_hold_wait(void)
    2 blocks it tries again next call. */
 void spawn_walls(uint32_t *p_spawns_offset, uint32_t *p_part_size, uint32_t *p_second_sprite, uint32_t *p_point_y, uint32_t *p_z, uint32_t *p_wall)
 {
-	uint32_t spawns_offset = *p_spawns_offset;
 	uint32_t second_sprite = *p_second_sprite;
 	uint32_t point_y = *p_point_y;
 	uint32_t wall = *p_wall;
 	uint16_t blocks_needed = 0, past_spawn = 0;
-	uint32_t corner_x = 0, free_count = 0, free_count_after = 0, ignored = 0, kind_record = 0, object = 0, record = 0;
+	uint32_t corner_x = 0, free_count = 0, ignored = 0, ignored_2 = 0, kind_record = 0, object = 0, record = 0;
 	uint16_t spawn_position = 0, current_scroll = 0;
 	uint32_t init_flags = 0;
 
@@ -1282,21 +1280,19 @@ void spawn_walls(uint32_t *p_spawns_offset, uint32_t *p_part_size, uint32_t *p_s
 	stage_init_flags = init_flags | 0x20u;
 	if ((init_flags & 0x20u) == 0u)
 	{
-		spawns_offset = wall_spawns[stage];
-		wall_spawn_cursor = wall_spawns_ADDRESS + spawns_offset;
+		*p_spawns_offset = wall_spawns[stage];
+		wall_spawn_cursor = wall_spawns_ADDRESS + *p_spawns_offset;
 	}
 	spawn_position = WALL_SPAWN(wall_spawn_cursor)->position;
 	current_scroll = scroll_position;
 	past_spawn = (uint16_t)(current_scroll - spawn_position);
 	if (current_scroll < spawn_position)
 	{
-		*p_spawns_offset = spawns_offset;
 		return;
 	}
 	if ((int16_t)past_spawn >= 0x100)
 	{
 		wall_spawn_cursor += 0xEu;
-		*p_spawns_offset = spawns_offset;
 		*p_second_sprite = (*p_second_sprite & 0xFFFF0000u) | (second_sprite & 0xFFFFu);
 		*p_point_y = point_y;
 		*p_wall = wall;
@@ -1305,7 +1301,6 @@ void spawn_walls(uint32_t *p_spawns_offset, uint32_t *p_part_size, uint32_t *p_s
 	allocate_object_outside_loop(&free_count, &wall);
 	if (free_count == 0u)
 	{
-		*p_spawns_offset = spawns_offset;
 		*p_wall = wall;
 		return;
 	}
@@ -1338,8 +1333,7 @@ void spawn_walls(uint32_t *p_spawns_offset, uint32_t *p_part_size, uint32_t *p_s
 	if (free_object_stack_2[0] <= (int16_t)blocks_needed)
 	{
 		object = current_object;
-		delete_object_outside_loop(object, &free_count_after, p_part_size);
-		*p_spawns_offset = free_count_after;
+		delete_object_outside_loop(object, p_spawns_offset, p_part_size);
 		*p_wall = wall;
 		return;
 	}
@@ -1353,18 +1347,17 @@ void spawn_walls(uint32_t *p_spawns_offset, uint32_t *p_part_size, uint32_t *p_s
 	kind_record++;
 	OBJECT(current_object)->sprite_offset_y = WALL_KIND_OFFSETS(kind_record - 0x3u)->sprite_offset_y;
 	OBJECT(current_object)->direction = WALL_KIND_OFFSETS(kind_record - 0x3u)->direction;
-	project_object(&ignored, &ignored);
+	project_object(&ignored, &ignored_2);
 	wall_corner_x = OBJECT(current_object)->x + ((uint32_t)OBJECT(current_object)->hitbox_size_x << 16);
 	wall_corner_y = OBJECT(current_object)->y + ((uint32_t)OBJECT(current_object)->hitbox_size_y << 16);
 	*p_z = OBJECT(current_object)->z;
 	corner_x = wall_corner_x;
 	point_y = wall_corner_y;
-	project_point(*p_z, &spawns_offset, &corner_x, &point_y);
+	project_point(*p_z, p_spawns_offset, &corner_x, &point_y);
 	OBJECT(current_object)->speed_z_fraction = corner_x - OBJECT(current_object)->screen_x;
 	point_y = (point_y & ~0xFFFFu) | (uint16_t)(point_y - OBJECT(current_object)->screen_y);
 	OBJECT(current_object)->speed_z_int = point_y;
 	wall_spawn_cursor += 0xEu;
-	*p_spawns_offset = spawns_offset;
 	*p_second_sprite = (*p_second_sprite & 0xFFFF0000u) | (second_sprite & 0xFFFFu);
 	*p_point_y = point_y;
 	*p_wall = wall;
@@ -1376,9 +1369,9 @@ void spawn_walls(uint32_t *p_spawns_offset, uint32_t *p_part_size, uint32_t *p_s
 void wall_update(void)
 {
 	uint16_t child = 0;
-	uint32_t ignored = 0, off_screen = 0;
+	uint32_t ignored = 0, ignored_2 = 0, off_screen = 0;
 
-	update_screen_position(&ignored, &ignored);
+	update_screen_position(&ignored, &ignored_2);
 	if (map_screen_active == 0u)
 	{
 		if (OBJECT(current_object)->wall_update.end_position == 0u)
@@ -1515,7 +1508,7 @@ void wall_editor_set_side_label(void)
 void wall_editor_draw_arrow(uint32_t marker_x, uint32_t marker_y)
 {
 	uint8_t bucket = 0;
-	uint32_t ignored = 0, marker = 0, marker_number = 0;
+	uint32_t ignored = 0, ignored_2 = 0, ignored_3 = 0, ignored_4 = 0, ignored_5 = 0, marker = 0, marker_number = 0;
 	uint32_t saved_current_object = 0;
 
 	marker = wall_editor_arrow_count_ADDRESS;
@@ -1541,9 +1534,9 @@ void wall_editor_draw_arrow(uint32_t marker_x, uint32_t marker_y)
 	OBJECT(marker)->y = marker_y;
 	saved_current_object = current_object;
 	current_object = marker;
-	find_floor(&ignored, &ignored, &ignored, &ignored, &ignored);
+	find_floor(&ignored, &ignored_2, &ignored_3, &ignored_4, &ignored_5);
 	OBJECT(current_object)->z = OBJECT(current_object)->floor_z;
-	project_object(&ignored, &ignored);
+	project_object(&ignored, &ignored_2);
 	bucket = 0u;
 	queue_sprite_in_bucket(bucket);
 	current_object = saved_current_object;
@@ -1553,7 +1546,7 @@ void wall_editor_draw_arrow(uint32_t marker_x, uint32_t marker_y)
 void wall_editor_draw_arrow_at_z(uint32_t marker_x, uint32_t marker_y, uint32_t marker_z)
 {
 	uint8_t bucket = 0;
-	uint32_t ignored = 0, marker = 0, marker_number = 0;
+	uint32_t ignored = 0, ignored_2 = 0, marker = 0, marker_number = 0;
 	uint32_t saved_current_object = 0;
 
 	marker = wall_editor_arrow_count_ADDRESS;
@@ -1580,7 +1573,7 @@ void wall_editor_draw_arrow_at_z(uint32_t marker_x, uint32_t marker_y, uint32_t 
 	OBJECT(marker)->z = marker_z;
 	saved_current_object = current_object;
 	current_object = marker;
-	project_object(&ignored, &ignored);
+	project_object(&ignored, &ignored_2);
 	bucket = 0u;
 	queue_sprite_in_bucket(bucket);
 	current_object = saved_current_object;
@@ -1603,7 +1596,7 @@ void wall_editor_draw_pattern_number(void)
 void wall_editor_rebuild_parts(uint32_t part)
 {
 	uint16_t child = 0;
-	uint32_t ignored = 0;
+	uint32_t ignored = 0, ignored_2 = 0;
 
 	current_player = current_object;
 	while ((int16_t)OBJECT(current_player)->child >= 0)
@@ -1612,7 +1605,7 @@ void wall_editor_rebuild_parts(uint32_t part)
 		free_object_2(child);
 		current_player = LINKED(current_player, OBJECT(current_player)->child);
 	}
-	build_wall_parts(&ignored, &ignored, &part);
+	build_wall_parts(&ignored, &ignored_2, &part);
 }
 
 /* Sets the wall's box and palette from its wall_kinds record (a negative size counts per part: times the
@@ -1626,7 +1619,7 @@ void build_wall_parts(uint32_t *p_part_size, uint32_t *p_second_sprite, uint32_t
 	uint32_t part = *p_part;
 	uint8_t part_step_x = 0, part_step_y = 0, second_offset_x = 0;
 	uint16_t part_sprite = 0;
-	uint32_t free_count = 0, free_stack = 0, object = 0, object_2 = 0, parts_left = 0, record = 0;
+	uint32_t free_count = 0, object = 0, parts_left = 0, record = 0;
 
 	record = OBJECT(current_object)->sprite_frame + 0x90A78u;
 	OBJECT(current_object)->hitbox_size_x = WALL_KIND_PARTS(record)->size_x;
@@ -1661,11 +1654,12 @@ void build_wall_parts(uint32_t *p_part_size, uint32_t *p_second_sprite, uint32_t
 	if ((int16_t)part_sprite < 0)
 	{
 		OBJECT(current_object)->build_wall_parts.invisible = 0xFFu;
-		object = current_object;
-		OBJECT(object)->child = 0xFFFFu;
-		OBJECT(current_object)->speed_y_int = object;
+		part = current_object;
+		OBJECT(part)->child = 0xFFFFu;
+		OBJECT(current_object)->speed_y_int = part;
 		*p_part_size = part_size;
-		*p_part = object;
+		*p_second_sprite = (*p_second_sprite & 0xFFFF0000u) | second_sprite;
+		*p_part = part;
 		return;
 	}
 	second_offset_x = WALL_KIND_PARTS(record - 0xAu)->second_offset_x;
@@ -1675,55 +1669,39 @@ void build_wall_parts(uint32_t *p_part_size, uint32_t *p_second_sprite, uint32_t
 	OBJECT(current_object)->build_wall_parts.no_second_sprite = 0xFFu;
 	if ((int16_t)second_sprite >= 0)
 		OBJECT(current_object)->build_wall_parts.no_second_sprite = 0u;
-	object_2 = current_object;
-	for (;;)
+	object = current_object;
+	do
 	{
-		allocate_object_2(&free_count, &free_stack, &part);
+		allocate_object_2(&free_count, &part_size, &part);
 		if (free_count == 0u)
-		{
-			OBJECT(part)->child = 0xFFFFu;
-			OBJECT(current_object)->speed_y_int = part;
-			*p_part_size = free_stack;
-			*p_second_sprite = (*p_second_sprite & 0xFFFF0000u) | second_sprite;
-			*p_part = part;
-			return;
-		}
+			break;
 		OBJECT(part)->sprite_frame = part_sprite;
 		OBJECT(part)->hitbox_centre_x = part_step_x;
 		OBJECT(part)->hitbox_centre_y = part_step_y;
-		OBJECT(part)->sprite_flags = OBJECT(object_2)->sprite_flags;
+		OBJECT(part)->sprite_flags = OBJECT(object)->sprite_flags;
 		OBJECT(part)->sprite_palette = OBJECT(current_object)->sprite_palette;
-		OBJECT(part)->parent = object_2;
-		OBJECT(object_2)->child = part;
-		object_2 = part;
+		OBJECT(part)->parent = object;
+		OBJECT(object)->child = part;
+		object = part;
 		if ((int16_t)second_sprite >= 0)
 		{
-			allocate_object_2(&free_count, &free_stack, &part);
+			allocate_object_2(&free_count, &part_size, &part);
 			if (free_count == 0u)
 				break;
 			OBJECT(part)->sprite_frame = second_sprite;
 			OBJECT(part)->hitbox_centre_x = second_offset_x;
 			OBJECT(part)->hitbox_centre_y = current_player;
-			OBJECT(part)->sprite_flags = OBJECT(object_2)->sprite_flags;
+			OBJECT(part)->sprite_flags = OBJECT(object)->sprite_flags;
 			OBJECT(part)->sprite_palette = 0x9FFEu;
-			OBJECT(part)->parent = object_2;
-			OBJECT(object_2)->child = part;
-			object_2 = part;
+			OBJECT(part)->parent = object;
+			OBJECT(object)->child = part;
+			object = part;
 		}
 		parts_left--;
-		if (parts_left == 0u)
-		{
-			OBJECT(part)->child = 0xFFFFu;
-			OBJECT(current_object)->speed_y_int = part;
-			*p_part_size = free_stack;
-			*p_second_sprite = (*p_second_sprite & 0xFFFF0000u) | second_sprite;
-			*p_part = part;
-			return;
-		}
-	}
+	} while (parts_left != 0u);
 	OBJECT(part)->child = 0xFFFFu;
 	OBJECT(current_object)->speed_y_int = part;
-	*p_part_size = free_stack;
+	*p_part_size = part_size;
 	*p_second_sprite = (*p_second_sprite & 0xFFFF0000u) | second_sprite;
 	*p_part = part;
 }

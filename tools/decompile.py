@@ -29,6 +29,7 @@ and callees, how much of it the scenarios ran) and unnamed_addresses.txt (ROM ad
 values that symbols.txt does not name yet). Everything it names comes from symbols.txt.
 """
 import bisect
+import copy
 import re
 import sys
 import time
@@ -51,6 +52,7 @@ from decompiler import knownbits  # noqa: E402
 from decompiler import memory  # noqa: E402
 from decompiler import pointers  # noqa: E402
 from decompiler import function as functions  # noqa: E402
+from decompiler.gotos import GotoError  # noqa: E402
 from decompiler import preserved  # noqa: E402
 from decompiler import signatures  # noqa: E402
 from decompiler import structure  # noqa: E402
@@ -571,6 +573,48 @@ def family_accesses(built, names, known):
     return shared, own
 
 
+def twin(function, notes):
+    """A copy of 'function' that 'notes' (dicts keyed by the id of a statement, or ("end", id of a block))
+    know as they know the original: its nodes are its own, the notes about them the original's."""
+    made = {}
+    copied = copy.deepcopy(function, made)
+    for note in notes:
+        for key in list(note):
+            if isinstance(key, int) and key in made:
+                note[id(made[key])] = structure.copied_note(note[key], made)
+            elif isinstance(key, tuple) and len(key) == 2 and key[0] == "end" and key[1] in made:
+                note[("end", id(made[key[1]]))] = note[key]
+    return copied
+
+
+WRITE_BACK = re.compile(r"^\t+\*p_(\w+) = (?:\w+|\(\*p_\1 & 0x[0-9A-F]+u\) \| (?:\w+|\(\w+ & 0x[0-9A-F]+u\)));$")
+
+
+def write_backs(text):
+    """(results written back before an early return, control variables, lines) of a function's C: the
+    lines noise_report.py counts as copy_backs and control_variables."""
+    lines = text.splitlines()
+    early = 0
+    for index, line in enumerate(lines):
+        if WRITE_BACK.match(line) and not WRITE_BACK.match(lines[index - 1]):
+            end = index
+            while end < len(lines) and WRITE_BACK.match(lines[end]):
+                end += 1
+            if end < len(lines) and lines[end].strip().startswith("return"):
+                early += end - index
+    controls = sum(line.count(" = false") for line in lines if line.startswith("\tbool "))
+    return early, controls, len(lines)
+
+
+def fewer_write_backs(text, other):
+    """True when 'text' writes results back before fewer early returns than 'other', with no more control
+    variables."""
+    mine, theirs = write_backs(text), write_backs(other)
+    if len(re.findall(r"\br\d+\b", text)) > len(re.findall(r"\br\d+\b", other)):
+        return False    # (a register the copy's notes do not find a variable for: not the same C)
+    return mine[0] < theirs[0] and mine[1] <= theirs[1]
+
+
 def write_c(program, out_dir, trace=False, variables_path=None, split_webs=False, fields_path=None):
     built, failures = build_functions(program)
     if failures:
@@ -688,6 +732,7 @@ def write_c(program, out_dir, trace=False, variables_path=None, split_webs=False
                            if address not in named.tables and address not in known.record_tables}
     emitter.code_labels = {address: symbol.name for address, symbol in program.symbols.items() if symbol.kind == "code"}
     emitter.comments = dict(known.comments)
+    emitter.constants = dict(known.constants)
     emitter.replaced = replaced_functions([(ROOT / "runtime" / "replaced.txt", "BOARD_ORIGINAL"),
                                          (ROOT / "console" / "replaced.txt", "CONSOLE_ORIGINAL")])
     entries_by_name = {name: entry for entry, name in names.items()}
@@ -714,10 +759,22 @@ def write_c(program, out_dir, trace=False, variables_path=None, split_webs=False
     texts = {}
     problems = []
     # every function's variables first: a call casts what it passes to the width of the callee's parameter
+    # a function that hands results back through pointers is written both ways: with its small exits written
+    # where they are jumped to (each copy can leave out the results that come back unchanged), and with all its
+    # ways back going on to one end (join_exits), where it writes them once; the C keeps the second when it
+    # writes them back again before fewer returns, with no more control variables
+    joined = {}
     for entry, function in built.items():
-        if emitter.by_pointer(entry):    # only where a copy can leave out results that come back unchanged
-            structure.split_small_exits(function, (live_after[entry], fields[entry]))
-        structure.split_loop_entries(function, (live_after[entry], fields[entry]))
+        notes = (live_after[entry], fields[entry])
+        if emitter.by_pointer(entry):
+            joined[entry] = []
+            for tail_calls in (False, True):
+                way = twin(function, notes)
+                structure.join_exits(way, notes, tail_calls)
+                structure.split_loop_entries(way, notes)
+                joined[entry].append(way)
+            structure.split_small_exits(function, notes)
+        structure.split_loop_entries(function, notes)
     writers = {entry: emit.FunctionWriter(emitter, function, live_after[entry], fields[entry], live_at_start[entry])
                for entry, function in built.items()}
     for entry, writer in writers.items():
@@ -729,6 +786,20 @@ def write_c(program, out_dir, trace=False, variables_path=None, split_webs=False
     emitter.shared_results = emit.shared_results(texts.values())
     for entry in texts:
         if emitter.shared_results.get(emitter.names.get(entry)):
+            texts[entry] = writers[entry].write()
+    # (the second way, once the shared results are known; then those of the C kept)
+    for entry in joined:
+        for way in joined[entry] if entry in texts else ():
+            other = emit.FunctionWriter(emitter, way, live_after[entry], fields[entry], live_at_start[entry])
+            try:
+                text = other.write()
+            except (emit.EmitError, GotoError):
+                continue    # (a way of writing it the structure cannot take: the other one stays)
+            if fewer_write_backs(text, texts[entry]):
+                writers[entry], texts[entry] = other, text
+    emitter.shared_results = emit.shared_results(texts.values())
+    for entry in joined:
+        if entry in texts and emitter.shared_results.get(emitter.names.get(entry)):
             texts[entry] = writers[entry].write()
     if variables_path is not None:
         write_variables(variables_path, writers, names, texts)
@@ -768,11 +839,18 @@ def write_c(program, out_dir, trace=False, variables_path=None, split_webs=False
         + "\n".join(addresses) + "\n\n"
         + "\n".join(prototypes) + "\n\n#endif\n", encoding="ascii")
     labels = [f"#define {name}_ADDRESS 0x{address:06X}u" for address, name in sorted(emitter.data_labels.items())]
+    unused = sorted(f"{function} {value:X} {name}" for (function, value), name in emitter.constants.items()
+                    if (function, value) not in emitter.constants_used)
+    if unused:
+        raise SystemExit("symbols.txt names numbers the C does not use: " + ", ".join(unused))
+    numbers = [f"#define {name} 0x{value:X}u" for value, name in sorted({(value, name) for (_, value), name
+                                                                          in emitter.constants.items()})]
     (out_dir / "ram.h").write_text(
         file_header("ram.h", "the game's variables, tables, board registers and structures")
         + "#ifndef SONIC_RAM_H\n#define SONIC_RAM_H\n\n"
         + "\n".join(named.declarations()) + "\n\n/* data in the program ROM symbols.txt labels */\n"
-        + "\n".join(labels) + "\n\n/* the game's structures in work RAM */\n"
+        + "\n".join(labels) + "\n\n/* numbers the code uses, by name (symbols.txt constant lines) */\n"
+        + "\n".join(numbers) + "\n\n/* the game's structures in work RAM */\n"
         + "\n".join(emitter.layouts.declarations()) + "\n\n#endif\n", encoding="ascii")
     write_sources(out_dir, files, texts, "game.h", keep=("sound",))
 
