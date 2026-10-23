@@ -3,7 +3,7 @@
  *    Description: the ranking: entering initials at game over, loading and resetting the table, the TOP15 display
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    22-10-2026
+ *    Modified:    23-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -482,14 +482,14 @@ uint32_t ascii_to_ranking_letter(uint32_t letter)
    build_ranking_display. */
 void start_ranking_display(uint32_t display, uint32_t *p_rows, uint32_t *p_source)
 {
-	uint32_t ignored = 0, object = 0;
+	uint32_t ignored = 0, ignored_2 = 0, object = 0;
 
 	display = allocate_object_or_start_list(display);
 	OBJECT(display)->parent = object_cursor;
 	OBJECT(display)->child = 0xFFFFu;
 	init_object(display);
 	object = display;
-	show_nbg0_picture(&ignored, p_rows, p_source, &ignored);
+	show_nbg0_picture(&ignored, p_rows, p_source, &ignored_2);
 	OBJECT(object)->screen_x = 0xA0;
 	OBJECT(object)->screen_y = -0x1A4;
 	OBJECT(object)->handler = build_ranking_display_ADDRESS;
@@ -501,7 +501,7 @@ void start_ranking_display(uint32_t display, uint32_t *p_rows, uint32_t *p_sourc
    toggled; then ranking_display_scroll_in. */
 void build_ranking_display(void)
 {
-	uint32_t block = 0, character = 0, first_initial = 0, free_count = 0, hundreds_digit = 0, ignored = 0, label_second_char = 0, object = 0, rank_label = 0, record = 0, remainder = 0, rows_left = 0, second_initial = 0, stages = 0, tens_digit = 0, third_initial = 0, thousands_digit = 0;
+	uint32_t block = 0, character = 0, first_initial = 0, free_count = 0, hundreds_digit = 0, ignored = 0, ignored_2 = 0, label_second_char = 0, object = 0, rank_label = 0, record = 0, remainder = 0, rows_left = 0, second_initial = 0, stages = 0, tens_digit = 0, third_initial = 0, thousands_digit = 0;
 
 	record = ranking_ADDRESS;
 	current_player = 0u;
@@ -511,7 +511,7 @@ void build_ranking_display(void)
 	do
 	{
 		spawn_count = 0xCu;
-		spawn_object_with_pieces(0x08F28Bu, &ignored, &ignored, &free_count, &object, &block);
+		spawn_object_with_pieces(0x08F28Bu, &ignored, &ignored_2, &free_count, &object, &block);
 		OBJECT(object)->screen_x = 0xC;
 		rank_label = ranking_row_numbers_ADDRESS + ((current_player & ~0xFFu) | (uint8_t)(current_player * 2u));
 		OBJECT(object)->sprite_frame = ranking_letter_sprites[RANKING_ROW_NUMBER(rank_label)->tens_code];
@@ -595,7 +595,7 @@ void build_ranking_display(void)
 		record += 2u;
 	} while (rows_left != 0u);
 	spawn_count = 5u;
-	spawn_object_with_pieces(0x08F482u, &ignored, &ignored, &free_count, &object, &block);
+	spawn_object_with_pieces(0x08F482u, &ignored, &ignored_2, &free_count, &object, &block);
 	ranking_title_layout++;
 	ranking_title_layout &= 1u;
 	OBJECT(object)->screen_x = 0xA0;
@@ -821,10 +821,10 @@ void drift_ranking_background(void)
 /* Sets ranking_done and removes the TOP15 display object (delete_object_and_children). */
 void ranking_display_end(void)
 {
-	uint32_t ignored = 0;
+	uint32_t ignored = 0, ignored_2 = 0, ignored_3 = 0;
 
 	ranking_done = 1u;
-	delete_object_and_children(&ignored, &ignored, &ignored);
+	delete_object_and_children(&ignored, &ignored_2, &ignored_3);
 }
 
 /* A TOP15 row: at the display's screen_y + row * 0x17, its 12 sprites on top (bucket 0); once
@@ -833,14 +833,14 @@ void ranking_display_end(void)
 void ranking_row_update(void)
 {
 	uint8_t bucket = 0;
-	uint32_t frame_index = 0, ignored = 0, portrait_frames = 0;
+	uint32_t frame_index = 0, ignored = 0, ignored_2 = 0, ignored_3 = 0, portrait_frames = 0;
 	uint16_t direction = 0;
 
 	current_object = LINKED(current_object, OBJECT(current_object)->parent);
 	OBJECT(object_cursor)->ranking_row.animate = OBJECT(current_object)->ranking_display.rows_animate;
 	if (OBJECT(current_object)->ranking_display.rows_remove != 0u)
 	{
-		delete_object_and_children(&ignored, &ignored, &ignored);
+		delete_object_and_children(&ignored, &ignored_2, &ignored_3);
 		return;
 	}
 	OBJECT(object_cursor)->screen_y = OBJECT(current_object)->screen_y;

@@ -477,13 +477,9 @@ void unpack_lz_bytes(uint32_t packed, uint32_t dest)
    fill_rect_unclipped). */
 void clear_bitmap_layer(uint8_t is_8bpp, uint32_t *p_top, uint32_t *p_color, uint32_t *p_inner_count, uint32_t *p_row_pairs_left, uint32_t *p_blocks_per_row, uint32_t *p_lower_row_cursor)
 {
-	uint32_t inner_count = *p_inner_count;
-	uint32_t row_pairs_left = *p_row_pairs_left;
-	uint32_t blocks_per_row = *p_blocks_per_row;
-	uint32_t lower_row_cursor = *p_lower_row_cursor;
 	uint8_t is_8bpp_2 = 0;
 	uint16_t bottom = 0, right = 0, scroll_x = 0, scroll_y = 0, window_top = 0, x = 0, y = 0;
-	uint32_t clip_right_bottom = 0, top = 0, video_base = 0;
+	uint32_t clip_right_bottom = 0, video_base = 0;
 
 	is_8bpp_2 = (uint8_t)is_8bpp != 0u;
 	scroll_x = 0u;
@@ -505,16 +501,11 @@ void clear_bitmap_layer(uint8_t is_8bpp, uint32_t *p_top, uint32_t *p_color, uin
 	bottom = 0xDFu;
 	set_bitmap_window((uint16_t)clip_right_bottom, window_top, right, bottom);
 	clip_right_bottom |= (uint16_t)bitmap_window_left;
-	top = (uint16_t)bitmap_window_top;
+	*p_top = (uint16_t)bitmap_window_top;
 	right = (uint16_t)bitmap_window_right;
 	bottom = (uint16_t)bitmap_window_bottom;
 	*p_color &= ~0xFFu;
-	fill_rect_unclipped(right, bottom, &clip_right_bottom, &top, p_color, &inner_count, &row_pairs_left, &blocks_per_row, &lower_row_cursor);
-	*p_top = top;
-	*p_inner_count = inner_count;
-	*p_row_pairs_left = row_pairs_left;
-	*p_blocks_per_row = blocks_per_row;
-	*p_lower_row_cursor = lower_row_cursor;
+	fill_rect_unclipped(right, bottom, &clip_right_bottom, p_top, p_color, p_inner_count, p_row_pairs_left, p_blocks_per_row, p_lower_row_cursor);
 }
 
 /* Sets bitmap_address to the address of x, y on the bitmap layer: 0x300000 + y x 0x200 + x at 8 bpp,
@@ -1840,12 +1831,12 @@ uint32_t draw_rect_top_bottom_8bpp(uint32_t pixel_address, uint32_t width, uint3
    is inside. The test mode's panels and bars. */
 void fill_rect(uint32_t top, uint32_t right, uint32_t bottom, uint32_t *p_left, uint32_t *p_color, uint32_t *p_blocks_per_row)
 {
-	uint32_t ignored = 0, unclipped_edges = 0;
+	uint32_t ignored = 0, ignored_2 = 0, ignored_3 = 0, unclipped_edges = 0;
 
 	clip_rect_to_window(p_left, &top, &right, &bottom, &ignored, &unclipped_edges);
 	if (unclipped_edges != 0u)
 	{
-		fill_rect_unclipped(right, bottom, p_left, &top, p_color, &ignored, &ignored, p_blocks_per_row, &ignored);
+		fill_rect_unclipped(right, bottom, p_left, &top, p_color, &ignored, &ignored_2, p_blocks_per_row, &ignored_3);
 		return;
 	}
 	*p_left = 0xFFFFFFFFu;
@@ -1861,12 +1852,10 @@ void fill_rect_unclipped(uint32_t right, uint32_t bottom, uint32_t *p_left, uint
 	uint32_t top = *p_top;
 	uint32_t color = *p_color;
 	uint32_t inner_count = *p_inner_count;
-	uint32_t row_pairs_left = *p_row_pairs_left;
-	uint32_t lower_row_cursor = *p_lower_row_cursor;
 	uint32_t carry = 0;
 	uint8_t byte_color = 0, color_low = 0, high_nibble_color = 0, tail_width = 0;
 	uint16_t straddle_keep_mask = 0, tail_keep_mask = 0;
-	uint32_t block_cursor = 0, bottom_copy = 0, column_cursor = 0, first_row = 0, last_column = 0, length = 0, lower_cursor = 0, pair_skip = 0, pixel_columns = 0, right_copy = 0, row_bytes = 0, row_offset_halfwords = 0, row_offset_longs = 0, row_pitch_4bpp = 0, row_pitch_8bpp = 0, row_step = 0, row_step_2 = 0, rows_left = 0, rows_to_fill = 0, span_length = 0, upper_cursor = 0;
+	uint32_t block_cursor = 0, bottom_copy = 0, column_cursor = 0, first_row = 0, last_column = 0, length = 0, lower_cursor = 0, pair_skip = 0, pixel_columns = 0, right_copy = 0, row_bytes = 0, row_offset_halfwords = 0, row_offset_longs = 0, row_pitch_8bpp = 0, row_step = 0, rows_left = 0, rows_to_fill = 0, span_length = 0, upper_cursor = 0;
 	uint16_t block_count = 0, bottom_row = 0, right_column = 0, rect_dx = 0;
 	uint32_t columns_left = 0, tail_columns = 0, tail_pixels = 0;
 
@@ -1887,19 +1876,18 @@ void fill_rect_unclipped(uint32_t right, uint32_t bottom, uint32_t *p_left, uint
 		if (carry)
 		{
 			first_row = top;
-			row_pairs_left = bottom;
+			*p_row_pairs_left = bottom;
 			length = right;
 			fill_span_8bpp(length, &left, &top, &color);
-			if (row_pairs_left == 0u)
+			if (*p_row_pairs_left == 0u)
 			{
 				*p_left = left;
 				*p_top = top;
 				*p_color = color;
-				*p_row_pairs_left = row_pairs_left;
 				return;
 			}
 			top = first_row + row_pitch_8bpp;
-			bottom = row_pairs_left;
+			bottom = *p_row_pairs_left;
 		}
 		if ((top & 1u) != 0u)
 		{
@@ -1921,7 +1909,6 @@ void fill_rect_unclipped(uint32_t right, uint32_t bottom, uint32_t *p_left, uint
 				*p_top = top;
 				*p_color = color;
 				*p_inner_count = inner_count;
-				*p_row_pairs_left = row_pairs_left;
 				return;
 			}
 		}
@@ -1934,13 +1921,13 @@ void fill_rect_unclipped(uint32_t right, uint32_t bottom, uint32_t *p_left, uint
 			if (block_count != 0u)
 			{
 				left = top;
-				row_pairs_left = bottom;
+				*p_row_pairs_left = bottom;
 				top += 0xFFFFFFF0u & right;
 				do
 				{
 					inner_count = *p_blocks_per_row;
 					upper_cursor = left;
-					lower_row_cursor = left + row_pitch_8bpp;
+					*p_lower_row_cursor = left + row_pitch_8bpp;
 					do
 					{
 						mem_write32(upper_cursor, color);
@@ -1950,20 +1937,20 @@ void fill_rect_unclipped(uint32_t right, uint32_t bottom, uint32_t *p_left, uint
 						mem_write32(upper_cursor, color);
 						upper_cursor += 4u;
 						mem_write32(upper_cursor, color);
-						mem_write32(lower_row_cursor, color);
-						lower_row_cursor += 4u;
-						mem_write32(lower_row_cursor, color);
-						lower_row_cursor += 4u;
-						mem_write32(lower_row_cursor, color);
-						lower_row_cursor += 4u;
-						mem_write32(lower_row_cursor, color);
+						mem_write32(*p_lower_row_cursor, color);
+						*p_lower_row_cursor += 4u;
+						mem_write32(*p_lower_row_cursor, color);
+						*p_lower_row_cursor += 4u;
+						mem_write32(*p_lower_row_cursor, color);
+						*p_lower_row_cursor += 4u;
+						mem_write32(*p_lower_row_cursor, color);
 						inner_count--;
 						upper_cursor += 4u;
-						lower_row_cursor += 4u;
+						*p_lower_row_cursor += 4u;
 					} while (inner_count != 0u);
 					left += row_pitch_8bpp * 2u;
-					row_pairs_left--;
-				} while (row_pairs_left != 0u);
+					(*p_row_pairs_left)--;
+				} while (*p_row_pairs_left != 0u);
 			}
 			right &= 0xFu;
 			if (right >= 8u)
@@ -2010,8 +1997,6 @@ void fill_rect_unclipped(uint32_t right, uint32_t bottom, uint32_t *p_left, uint
 				*p_top = top;
 				*p_color = color;
 				*p_inner_count = inner_count;
-				*p_row_pairs_left = row_pairs_left;
-				*p_lower_row_cursor = lower_row_cursor;
 				return;
 			}
 			if (tail_width >= 2u)
@@ -2033,8 +2018,6 @@ void fill_rect_unclipped(uint32_t right, uint32_t bottom, uint32_t *p_left, uint
 					*p_top = top;
 					*p_color = color;
 					*p_inner_count = inner_count;
-					*p_row_pairs_left = row_pairs_left;
-					*p_lower_row_cursor = lower_row_cursor;
 					return;
 				}
 			}
@@ -2050,8 +2033,6 @@ void fill_rect_unclipped(uint32_t right, uint32_t bottom, uint32_t *p_left, uint
 		*p_top = top;
 		*p_color = color;
 		*p_inner_count = inner_count;
-		*p_row_pairs_left = row_pairs_left;
-		*p_lower_row_cursor = lower_row_cursor;
 		return;
 	}
 	color = (color & ~0xFFu) | (color & 0xFu);
@@ -2066,8 +2047,6 @@ void fill_rect_unclipped(uint32_t right, uint32_t bottom, uint32_t *p_left, uint
 		*p_top = top;
 		*p_color = color;
 		*p_inner_count = span_length;
-		*p_row_pairs_left = row_pairs_left;
-		*p_lower_row_cursor = lower_row_cursor;
 		return;
 	}
 	right_copy = (uint16_t)right;
@@ -2075,19 +2054,17 @@ void fill_rect_unclipped(uint32_t right, uint32_t bottom, uint32_t *p_left, uint
 	last_column = (uint16_t)(right_column - left);
 	if (right_column == (uint16_t)left)
 	{
-		row_step_2 = 0x100u;
-		draw_vertical_span_4bpp((uint16_t)left, row_step_2, &top, &color, &rows_left);
+		*p_lower_row_cursor = 0x100u;
+		draw_vertical_span_4bpp((uint16_t)left, *p_lower_row_cursor, &top, &color, &rows_left);
 		*p_left = left;
 		*p_top = top;
 		*p_color = color;
 		*p_inner_count = rows_left;
-		*p_row_pairs_left = row_pairs_left;
-		*p_lower_row_cursor = row_step_2;
 		return;
 	}
 	top = top << 8;
 	top = ((top & ~0xFFFFu) | (uint16_t)(top + ((uint16_t)left >> 1))) + bitmap_address;
-	row_pitch_4bpp = 0x100u;
+	*p_row_pairs_left = 0x100u;
 	rows_left = (uint16_t)(rows_left + 1u);
 	rect_dx = last_column;
 	pixel_columns = (uint16_t)(rect_dx - 1u);
@@ -2098,14 +2075,12 @@ void fill_rect_unclipped(uint32_t right, uint32_t bottom, uint32_t *p_left, uint
 			color_low = (uint8_t)color;
 			color = (color & ~0xFFu) | (uint8_t)(color << 4);
 			color = (color & ~0xFFu) | (uint8_t)(color | color_low);
-			row_step = row_pitch_4bpp;
+			row_step = *p_row_pairs_left;
 			draw_vertical_span_8bpp(row_step, (uint8_t)color, &top, &rows_left);
 			*p_left = left;
 			*p_top = top;
 			*p_color = color;
 			*p_inner_count = rows_left;
-			*p_row_pairs_left = row_pitch_4bpp;
-			*p_lower_row_cursor = lower_row_cursor;
 			return;
 		}
 		color = (color & ~0xFFFFu) | (uint16_t)(color * 0x110u);
@@ -2116,14 +2091,13 @@ void fill_rect_unclipped(uint32_t right, uint32_t bottom, uint32_t *p_left, uint
 			left = (left & ~0xFFFFu) | (left & straddle_keep_mask);
 			left = (left & ~0xFFFFu) | (uint16_t)(left | color);
 			mem_write16(top, left);
-			top += row_pitch_4bpp;
+			top += *p_row_pairs_left;
 			rows_left--;
 		} while (rows_left != 0u);
 		*p_left = left;
 		*p_top = top;
 		*p_color = color;
 		*p_inner_count = rows_left;
-		*p_row_pairs_left = row_pitch_4bpp;
 		return;
 	}
 	pixel_columns = (uint16_t)(pixel_columns + 2u);
@@ -2139,7 +2113,7 @@ void fill_rect_unclipped(uint32_t right, uint32_t bottom, uint32_t *p_left, uint
 			left = (left & ~0xFFu) | (left & 0xFu);
 			left = (left & ~0xFFu) | (uint8_t)(left | high_nibble_color);
 			mem_write8(column_cursor, left);
-			column_cursor += row_pitch_4bpp;
+			column_cursor += *p_row_pairs_left;
 			rows_to_fill--;
 		} while (rows_to_fill != 0u);
 		pixel_columns--;
@@ -2155,7 +2129,7 @@ void fill_rect_unclipped(uint32_t right, uint32_t bottom, uint32_t *p_left, uint
 		do
 		{
 			mem_write8(column_cursor, byte_color);
-			column_cursor += row_pitch_4bpp;
+			column_cursor += *p_row_pairs_left;
 			rows_to_fill--;
 		} while (rows_to_fill != 0u);
 		pixel_columns -= 2u;
@@ -2173,15 +2147,13 @@ void fill_rect_unclipped(uint32_t right, uint32_t bottom, uint32_t *p_left, uint
 			left = (left & ~0xFFFFu) | (left & tail_keep_mask);
 			left = (left & ~0xFFFFu) | (uint16_t)(left | color);
 			mem_write16(top, left);
-			top += row_pitch_4bpp;
+			top += *p_row_pairs_left;
 			rows_left--;
 		} while (rows_left != 0u);
 		*p_left = left;
 		*p_top = top;
 		*p_color = color;
 		*p_inner_count = rows_left;
-		*p_row_pairs_left = row_pitch_4bpp;
-		*p_lower_row_cursor = lower_row_cursor;
 		return;
 	}
 	color = (color & ~0xFFFFu) | (uint16_t)(color * 0x1111u);
@@ -2190,14 +2162,14 @@ void fill_rect_unclipped(uint32_t right, uint32_t bottom, uint32_t *p_left, uint
 	*p_blocks_per_row = pixel_columns >> 2;
 	do
 	{
-		lower_row_cursor = *p_blocks_per_row;
-		block_cursor -= row_pitch_4bpp;
+		*p_lower_row_cursor = *p_blocks_per_row;
+		block_cursor -= *p_row_pairs_left;
 		do
 		{
 			mem_write16(block_cursor, color);
 			block_cursor += 2u;
-			lower_row_cursor--;
-		} while (lower_row_cursor != 0u);
+			(*p_lower_row_cursor)--;
+		} while (*p_lower_row_cursor != 0u);
 		rows_to_fill--;
 	} while (rows_to_fill != 0u);
 	top = block_cursor;
@@ -2209,8 +2181,6 @@ void fill_rect_unclipped(uint32_t right, uint32_t bottom, uint32_t *p_left, uint
 		*p_top = top;
 		*p_color = color;
 		*p_inner_count = rows_left;
-		*p_row_pairs_left = row_pitch_4bpp;
-		*p_lower_row_cursor = lower_row_cursor;
 		return;
 	}
 	color = (color & ~0xFFFFu) | (color & 0xFu);
@@ -2224,13 +2194,11 @@ void fill_rect_unclipped(uint32_t right, uint32_t bottom, uint32_t *p_left, uint
 		left = (left & ~0xFFFFu) | (left & tail_keep_mask);
 		left = (left & ~0xFFFFu) | (uint16_t)(left | color);
 		mem_write16(top, left);
-		top += row_pitch_4bpp;
+		top += *p_row_pairs_left;
 		rows_left--;
 	} while (rows_left != 0u);
 	*p_left = left;
 	*p_top = top;
 	*p_color = color;
 	*p_inner_count = rows_left;
-	*p_row_pairs_left = row_pitch_4bpp;
-	*p_lower_row_cursor = lower_row_cursor;
 }

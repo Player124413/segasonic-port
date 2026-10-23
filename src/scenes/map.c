@@ -3,7 +3,7 @@
  *    Description: the map screen between stages (game mode 4): the wipe, the island map, the trail, the markers, Eggman
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    22-10-2026
+ *    Modified:    23-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -72,9 +72,9 @@ uint32_t run_map_screen(uint32_t bottom_speed, uint32_t object)
    edges are done (edges_done & 0xF = 0xF), then map_screen_step + 1. */
 void run_map_screen_wait_for_wipe(uint32_t edges_done)
 {
-	uint32_t ignored = 0;
+	uint32_t ignored = 0, ignored_2 = 0, ignored_3 = 0;
 
-	update_screen_wipe(&ignored, &ignored, &ignored, &edges_done);
+	update_screen_wipe(&ignored, &ignored_2, &ignored_3, &edges_done);
 	if ((edges_done & 0xFu) == 0xFu)
 		map_screen_step++;
 }
@@ -86,7 +86,7 @@ void run_map_screen_wait_for_wipe(uint32_t edges_done)
 void map_intro_update(void)
 {
 	uint16_t icon_y = 0;
-	uint32_t dest = 0, free_count = 0, ignored = 0, object = 0, palette_list = 0, script = 0, stage_number = 0, step_y = 0;
+	uint32_t dest = 0, free_count = 0, ignored = 0, ignored_2 = 0, object = 0, palette_list = 0, script = 0, stage_number = 0, step_y = 0;
 	uint8_t io_cnt_value = 0;
 
 	switch (OBJECT(current_object)->animation_frame)
@@ -132,11 +132,11 @@ void map_intro_update(void)
 		palette_list = tile_bank_0_palette_list_ADDRESS;
 		load_palette_list(palette_list, &ignored, &dest);
 		script = map_monitor_script_ADDRESS;
-		run_vram_script(&ignored, &script, &dest);
+		run_vram_script(&ignored_2, &script, &dest);
 		script = map_eggman_head_script_ADDRESS;
 		nbg2_scroll_x = 0u;
 		nbg2_scroll_y = 0u;
-		run_vram_script(&ignored, &script, &dest);
+		run_vram_script(&ignored_2, &script, &dest);
 		nbg0_pages = 0x1010101u;
 		nbg2_pages = 0u;
 		fade_kind = 2;
@@ -145,7 +145,7 @@ void map_intro_update(void)
 		OBJECT(current_object)->animation_frame++;
 		mixer_nbg0_blend |= 0x4000u;
 		mixer_nbg3_blend |= 0x4000u;
-		update_fade(ignored);
+		update_fade(ignored_2);
 		return;
 	case 5:
 		mem_write16(video_layer_disable, mem_read16(video_layer_disable) | 0xEu);
@@ -283,7 +283,7 @@ void map_screen_draw_flipping_icon(void)
 void map_screen_update(void)
 {
 	uint16_t next_x = 0;
-	uint32_t edges_done = 0, free_count = 0, ignored = 0, marker_position = 0, next_y = 0, object = 0, record = 0, stage_number = 0;
+	uint32_t edges_done = 0, free_count = 0, ignored_2 = 0, ignored_3 = 0, ignored_4 = 0, marker_position = 0, next_y = 0, object = 0, record = 0, stage_number = 0;
 
 	switch (OBJECT(current_object)->animation_frame)
 	{
@@ -393,7 +393,7 @@ void map_screen_update(void)
 	case 6:
 		if ((uint16_t)OBJECT(current_object)->map_screen.timer == 0u)
 		{
-			update_screen_wipe(&ignored, &ignored, &ignored, &edges_done);
+			update_screen_wipe(&ignored_2, &ignored_3, &ignored_4, &edges_done);
 			if ((edges_done & 0xFu) != 0xFu)
 			{
 				OBJECT(current_object)->sprite_frame = map_stage_icon;
@@ -478,7 +478,7 @@ void map_screen_update(void)
 	case 10:
 		return;
 	case 11:
-		update_screen_wipe(&ignored, &ignored, &ignored, &edges_done);
+		update_screen_wipe(&ignored_2, &ignored_3, &ignored_4, &edges_done);
 		if ((edges_done & 0xFu) == 0xFu)
 			delete_current_object();
 		return;
@@ -495,7 +495,7 @@ void map_eggman_update(void)
 {
 	uint8_t sound_id = 0;
 	uint16_t gesture = 0;
-	uint32_t free_count = 0, ignored = 0, object = 0;
+	uint32_t free_count = 0, ignored = 0, ignored_2 = 0, object = 0;
 	uint16_t timer = 0;
 
 	switch (OBJECT(current_object)->animation_frame)
@@ -516,7 +516,7 @@ void map_eggman_update(void)
 		OBJECT(current_object)->animation_frame++;
 		map_stage_09_sound_count = 0u;
 		sound_id = stage_map_sounds_1[stage];
-		queue_sound(sound_id, &ignored, &ignored);
+		queue_sound(sound_id, &ignored, &ignored_2);
 		return;
 	case 1:
 		timer = OBJECT(current_object)->map_eggman.timer;
@@ -563,7 +563,7 @@ void map_eggman_update(void)
 			if ((uint8_t)MAP_EGGMAN_GESTURES(OBJECT(current_object)->map_eggman.gesture_list)[OBJECT(current_object)->kind] == 7u)
 			{
 				sound_id = 0x21u;
-				queue_sound(sound_id, &ignored, &ignored);
+				queue_sound(sound_id, &ignored, &ignored_2);
 			}
 			gesture = (uint16_t)MAP_EGGMAN_GESTURES(OBJECT(current_object)->map_eggman.gesture_list)[OBJECT(current_object)->kind];
 			if ((int16_t)gesture >= 0)
@@ -613,7 +613,7 @@ void map_eggman_update(void)
 			{
 				OBJECT(current_object)->map_eggman.sound_step = 1u;
 				sound_id = stage_map_sounds_2[stage];
-				queue_sound(sound_id, &ignored, &ignored);
+				queue_sound(sound_id, &ignored, &ignored_2);
 			}
 			OBJECT(current_object)->kind = 3u;
 			OBJECT(current_object)->map_eggman.hold_frames--;
@@ -624,7 +624,7 @@ void map_eggman_update(void)
 		{
 			OBJECT(current_object)->map_eggman.sound_step = 2u;
 			sound_id = stage_map_sounds_3[stage];
-			queue_sound(sound_id, &ignored, &ignored);
+			queue_sound(sound_id, &ignored, &ignored_2);
 			if (stage == 9u)
 			{
 				map_stage_09_sound_count++;
@@ -632,7 +632,7 @@ void map_eggman_update(void)
 				{
 					map_stage_09_sound_count = 0x5Au;
 					sound_id = 0x95u;
-					queue_sound(sound_id, &ignored, &ignored);
+					queue_sound(sound_id, &ignored, &ignored_2);
 				}
 			}
 		}
@@ -768,9 +768,9 @@ void next_map_trail_segment(uint32_t trail_point)
 void draw_map_trail_dot(uint32_t object)
 {
 	uint16_t dot_y = 0, object_2 = 0;
-	uint32_t ignored = 0, next_trail_point = 0;
+	uint32_t ignored = 0, ignored_2 = 0, next_trail_point = 0;
 
-	allocate_object_2(&ignored, &ignored, &object);
+	allocate_object_2(&ignored, &ignored_2, &object);
 	current_object = object;
 	screen_sprite_block_address = object;
 	if (OBJECT(object_cursor)->draw_map_trail_dot.trail_done >= 0)
@@ -919,7 +919,7 @@ void blink_current_map_marker(void)
 uint32_t start_window_wipe(uint32_t record)
 {
 	uint16_t left = 0, right = 0, top = 0;
-	uint32_t bottom = 0, frames = 0, ignored = 0;
+	uint32_t bottom = 0, frames = 0, ignored_3 = 0, ignored_4 = 0, ignored_5 = 0;
 
 	fill_value = (fill_value & ~0xFFFFu) | 0x1111u;
 	set_halfwords(VIDEO_RAM + 0xE000u, 0x7000u, fill_value);
@@ -974,7 +974,7 @@ uint32_t start_window_wipe(uint32_t record)
 		window_wipe_top_speed = 0u - window_wipe_top_speed;
 		window_wipe_bottom_speed = 0u - window_wipe_bottom_speed;
 	}
-	update_screen_wipe(&ignored, &ignored, &ignored, &frames);
+	update_screen_wipe(&ignored_3, &ignored_4, &ignored_5, &frames);
 	mem_write32(video_layer_disable, mem_read32(video_layer_disable) & ~0x20u);
 	return bottom;
 }

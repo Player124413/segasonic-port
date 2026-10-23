@@ -20,7 +20,7 @@ void update_stage_06_background(uint32_t random_value, uint32_t dest, uint32_t *
 	uint32_t source = *p_source;
 	uint8_t sound_id = 0;
 	uint16_t shake_y = 0;
-	uint32_t cycle_set = 0, ignored = 0, palette_stage = 0, script = 0;
+	uint32_t cycle_set = 0, ignored = 0, ignored_3 = 0, ignored_4 = 0, palette_stage = 0, script = 0;
 	uint8_t flipped_sign = 0;
 	uint16_t previous_shake = 0;
 
@@ -44,7 +44,7 @@ void update_stage_06_background(uint32_t random_value, uint32_t dest, uint32_t *
 		}
 		load_default_palettes();
 		palette_stage = 1u;
-		load_palette_set_and_backdrop(palette_stage, &ignored, &source, &dest);
+		load_palette_set_and_backdrop(palette_stage, &ignored_3, &source, &dest);
 		if (mem_read16(palette_color_61D0) == 0x7B0u)
 		{
 			camera_x = 0;
@@ -58,9 +58,9 @@ void update_stage_06_background(uint32_t random_value, uint32_t dest, uint32_t *
 			nbg0_scroll_y = 0xFFA00000u;
 			mem_write8(video_layer_disable, mem_read8(video_layer_disable) | 0x3Fu);
 			script = cloudy_horizon_script_ADDRESS;
-			run_vram_script(&ignored, &script, &dest);
+			run_vram_script(&ignored_4, &script, &dest);
 			source = stage_06_forest_script_ADDRESS;
-			run_vram_script(&ignored, &source, &dest);
+			run_vram_script(&ignored_4, &source, &dest);
 			nbg3_pages = 0u;
 			nbg0_pages = 0x5050505u;
 			mem_write8(video_layer_disable, mem_read8(video_layer_disable) & 0x26u);
@@ -78,13 +78,13 @@ void update_stage_06_background(uint32_t random_value, uint32_t dest, uint32_t *
 		mem_write8(video_layer_disable, mem_read8(video_layer_disable) | 0x3Fu);
 		mixer_blend &= 0x1F00u;
 		script = clear_tile_page_00_script_ADDRESS;
-		run_vram_script(&ignored, &script, &dest);
+		run_vram_script(&ignored_4, &script, &dest);
 		script = stage_06_upper_jaw_script_ADDRESS;
-		run_vram_script(&ignored, &script, &dest);
+		run_vram_script(&ignored_4, &script, &dest);
 		script = clear_tile_page_0a_script_ADDRESS;
-		run_vram_script(&ignored, &script, &dest);
+		run_vram_script(&ignored_4, &script, &dest);
 		source = stage_06_lower_jaw_script_ADDRESS;
-		run_vram_script(&ignored, &source, &dest);
+		run_vram_script(&ignored_4, &source, &dest);
 		nbg0_pages = 1u;
 		nbg3_pages = 6u;
 		mem_write8(video_layer_disable, mem_read8(video_layer_disable) & 0x26u);
@@ -109,7 +109,7 @@ void update_stage_06_background(uint32_t random_value, uint32_t dest, uint32_t *
 			stage_06_shake = 0x800u;
 			stage_06_shake_sign = 0;
 			sound_id = 0x1Eu;
-			play_sound(sound_id, &ignored, &ignored);
+			play_sound(sound_id, &ignored_4, &ignored);
 		}
 		break;
 	case 5:
@@ -143,9 +143,9 @@ void update_stage_06_background(uint32_t random_value, uint32_t dest, uint32_t *
 		nbg0_scroll_y_int = 0u;
 		mem_write8(video_layer_disable, mem_read8(video_layer_disable) | 0x3Fu);
 		script = cloudy_horizon_script_ADDRESS;
-		run_vram_script(&ignored, &script, &dest);
+		run_vram_script(&ignored_4, &script, &dest);
 		source = stage_06_island_tower_script_ADDRESS;
-		run_vram_script(&ignored, &source, &dest);
+		run_vram_script(&ignored_4, &source, &dest);
 		nbg3_pages = 0x3020100u;
 		nbg0_pages = 0x8070605u;
 		mem_write8(video_layer_disable, mem_read8(video_layer_disable) & 0x26u);
@@ -430,27 +430,28 @@ void animate_palette_stage_04(uint32_t *p_copy_offset, uint32_t *p_copy_entry, u
    palette_count rows at dest, 0x20 apart, back to the first after frame_count. */
 void cycle_palette(uint32_t cycle, uint16_t halfwords, uint32_t *p_copy_offset, uint32_t *p_copy_entry, uint32_t *p_palette_count, uint32_t *p_source, uint32_t *p_dest)
 {
-	uint32_t copy_entry = *p_copy_entry;
-	uint32_t frame_offset = 0;
-
-	frame_offset = (uint32_t)(uint8_t)PALETTE_CYCLE(cycle)->frame << 5;
-	*p_source += frame_offset;
-	if (PALETTE_CYCLE(cycle)->timer <= 0)
+	*p_copy_offset = (uint32_t)(uint8_t)PALETTE_CYCLE(cycle)->frame << 5;
+	*p_source += *p_copy_offset;
+	if (PALETTE_CYCLE(cycle)->timer > 0)
 	{
-		do
-		{
-			PALETTE_CYCLE(cycle)->timer = PALETTE_CYCLE(cycle)->delay;
-			queue_vblank_copy(*p_source, *p_dest, halfwords, &frame_offset, &copy_entry);
-			*p_dest += 0x20u;
-			(*p_palette_count)--;
-		} while (*p_palette_count != 0u);
-		PALETTE_CYCLE(cycle)->frame++;
-		if (PALETTE_CYCLE(cycle)->frame_count <= PALETTE_CYCLE(cycle)->frame)
-			PALETTE_CYCLE(cycle)->frame = 0;
+		PALETTE_CYCLE(cycle)->timer--;
+		return;
 	}
+	do
+	{
+		PALETTE_CYCLE(cycle)->timer = PALETTE_CYCLE(cycle)->delay;
+		queue_vblank_copy(*p_source, *p_dest, halfwords, p_copy_offset, p_copy_entry);
+		*p_dest += 0x20u;
+		(*p_palette_count)--;
+	} while (*p_palette_count != 0u);
+	PALETTE_CYCLE(cycle)->frame++;
+	if (PALETTE_CYCLE(cycle)->frame < PALETTE_CYCLE(cycle)->frame_count)
+	{
+		PALETTE_CYCLE(cycle)->timer--;
+		return;
+	}
+	PALETTE_CYCLE(cycle)->frame = 0;
 	PALETTE_CYCLE(cycle)->timer--;
-	*p_copy_offset = frame_offset;
-	*p_copy_entry = copy_entry;
 }
 
 /* cycle_palette_set on the first record (palette_cycle_set = 0x209090), for update_stage_06_background. */
@@ -475,7 +476,7 @@ uint32_t cycle_palette_set_1(uint32_t source)
 uint32_t cycle_palette_set(uint32_t source)
 {
 	uint16_t halfwords = 0;
-	uint32_t cycle_set = 0, dest = 0, ignored = 0;
+	uint32_t cycle_set = 0, dest = 0, ignored = 0, ignored_2 = 0;
 
 	cycle_set = palette_cycle_set;
 	if (PALETTE_SET_CYCLE(cycle_set)->timer != 0u)
@@ -492,7 +493,7 @@ uint32_t cycle_palette_set(uint32_t source)
 		halfwords = 0x10u;
 		dest = PALETTE_SET_CYCLE(cycle_set)->dest + ((uint32_t)(uint8_t)(PALETTE_SET_CYCLE(cycle_set)->rows - PALETTE_SET_CYCLE(cycle_set)->rows_left) << 5);
 		source = PALETTE_SET_CYCLE(cycle_set)->frames + ((uint32_t)(uint8_t)PALETTE_SET_CYCLE(cycle_set)->frame << 5);
-		queue_vblank_copy(source, dest, halfwords, &ignored, &ignored);
+		queue_vblank_copy(source, dest, halfwords, &ignored, &ignored_2);
 		if (PALETTE_SET_CYCLE(cycle_set)->rows_left == 0u)
 			break;
 		PALETTE_SET_CYCLE(cycle_set)->rows_left--;
@@ -507,12 +508,10 @@ uint32_t cycle_palette_set(uint32_t source)
 /* load_palette_set_and_backdrop for the current stage; hands back its tile bank bits and dest. */
 void load_stage_palette_set(uint32_t *p_tile_bank_bits, uint32_t *p_dest)
 {
-	uint32_t ignored = 0, palette_dest = 0, stage_index = 0, tile_bank_bits = 0;
+	uint32_t ignored = 0, stage_index = 0;
 
 	stage_index = stage;
-	load_palette_set_and_backdrop(stage_index, &tile_bank_bits, &ignored, &palette_dest);
-	*p_tile_bank_bits = tile_bank_bits;
-	*p_dest = palette_dest;
+	load_palette_set_and_backdrop(stage_index, p_tile_bank_bits, &ignored, p_dest);
 }
 
 /* Loads stage_index's palettes: video_control's tile bank bit 0x400 from stage_tile_bank_bits, the
@@ -626,7 +625,7 @@ void show_recycle_it_screen(void)
 void show_nbg0_picture(uint32_t *p_copy_entry, uint32_t *p_rows, uint32_t *p_source, uint32_t *p_dest)
 {
 	uint16_t halfwords = 0;
-	uint32_t copy_entry = 0, dest = 0, ignored = 0, rows = 0, script = 0, source = 0;
+	uint32_t dest = 0, ignored = 0, rows = 0, script = 0;
 
 	dest = init_nbg0_picture_screen();
 	nbg0_pages = 0x1010101u;
@@ -634,17 +633,15 @@ void show_nbg0_picture(uint32_t *p_copy_entry, uint32_t *p_rows, uint32_t *p_sou
 	run_vram_script(&ignored, &script, &dest);
 	dest = PALETTE_RAM + 0x8BE0u;
 	rows = 1u;
-	source = nbg0_picture_palette_ADDRESS;
+	*p_source = nbg0_picture_palette_ADDRESS;
 	halfwords = 0x10u;
 	do
 	{
-		queue_vblank_copy(source, dest, halfwords, &ignored, &copy_entry);
+		queue_vblank_copy(*p_source, dest, halfwords, &ignored, p_copy_entry);
 		dest += 0x20u;
 		rows--;
 	} while (rows != 0u);
-	*p_copy_entry = copy_entry;
 	*p_rows = rows;
-	*p_source = source;
 	*p_dest = dest;
 }
 
@@ -1030,7 +1027,7 @@ void set_nbg2_scroll_stage_04(void)
    0xA and 0xC-0x10, cleared pages 5-8 in 9 and 0xB; then its nbg3_pages, mostly with the scroll at 0. */
 void init_nbg3_layer(uint32_t dest)
 {
-	uint32_t ignored = 0, script = 0, stage_index = 0;
+	uint32_t ignored = 0, ignored_2 = 0, script = 0, stage_index = 0;
 
 	stage_index = stage;
 	nbg3_block_map_width = stage_nbg3_widths[stage_index];
@@ -1050,7 +1047,7 @@ void init_nbg3_layer(uint32_t dest)
 		nbg3_pages = 0x6060505u;
 		nbg3_scroll_x = 0u;
 		nbg3_scroll_y = 0u;
-		set_nbg3_page_5_flags(&ignored, &ignored);
+		set_nbg3_page_5_flags(&ignored, &ignored_2);
 		return;
 	case 4:
 		script = stage_04_nbg3_script_ADDRESS;
@@ -1133,7 +1130,7 @@ void init_nbg3_layer(uint32_t dest)
    and puts NBG3 on them, scroll 0, then set_nbg3_page_5_flags. */
 void init_nbg3_layer_cleared_pages(uint32_t dest)
 {
-	uint32_t ignored = 0, script = 0;
+	uint32_t ignored = 0, ignored_2 = 0, script = 0;
 
 	script = clear_tile_page_0a_script_ADDRESS;
 	run_vram_script(&ignored, &script, &dest);
@@ -1146,7 +1143,7 @@ void init_nbg3_layer_cleared_pages(uint32_t dest)
 	nbg3_pages = 0xA0B0C0Du;
 	nbg3_scroll_x = 0u;
 	nbg3_scroll_y = 0u;
-	set_nbg3_page_5_flags(&ignored, &ignored);
+	set_nbg3_page_5_flags(&ignored, &ignored_2);
 }
 
 /* Unused: NBG3 on pages 5, 5, 6, 6 (0x06060505) with scroll 0: the end of init_nbg3_layer's stage 4 case

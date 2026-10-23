@@ -21,6 +21,7 @@ gotos.py takes it out of the tree with a control variable.
 The result is a tree of the node classes below; emit.py prints it.
 """
 import copy
+import copy as copy_module    # (copy_until has a local named copy)
 from dataclasses import dataclass, field
 
 from v60 import ir
@@ -860,6 +861,11 @@ class Structurer:
         its own (a jump into a branch already written, whose code then joins this one's). None otherwise."""
         if stop is None and loop is None:
             return None    # (a tail: copy_tail's)
+        copying = getattr(self, "copying", frozenset())
+        if target in copying:
+            return None    # (already being written again, in the copy this one is part of)
+        # a way out of the loop is copied up to where the loop goes on (break) and the ends of the function
+        leaving = loop is not None and target not in loop.region
         reach = {target}
         stack = [target]
         while stack:
@@ -868,8 +874,10 @@ class Structurer:
                 if successor == stop or successor in reach:
                     continue
                 if loop is not None and (successor == loop.header or successor == loop.follow
-                                         or successor not in loop.region):
+                                         or successor not in loop.region and not leaving):
                     continue    # inside a loop: continue, break, or a way out written as such in the copy
+                if leaving and (self.small_exit(successor) or successor in loop.region):
+                    continue
                 reach.add(successor)
                 stack.append(successor)
         if any(target in successors(self.blocks[label]) for label in reach):
@@ -880,6 +888,11 @@ class Structurer:
         copy.function, copy.blocks, copy.graph = self.function, self.blocks, self.graph
         copy.emitted, copy.labels, copy.pending = set(), set(), []
         copy.meeting_ends, copy.loop_ipdoms, copy.met_past = self.meeting_ends, self.loop_ipdoms, self.met_past
+        copy.copying = copying | {target}
+        if leaving:
+            # (written as if it were in the loop: its jumps to where the loop goes on are break)
+            loop = copy_module.copy(loop)
+            loop.region = set(loop.region) | reach
         nodes = copy.region(target, stop, loop)
         if copy.labels:
             return None
@@ -917,7 +930,8 @@ class Structurer:
                 chain = self.way_out_chain(target, loop) if not loop.in_switch else None
                 if chain is not None:
                     return chain + [Break()], None
-                return self.goto(target), None
+                # (a copy of the way out, from inside the loop: its jumps to where the loop goes on are break)
+                return self.goto(target, None, loop if not loop.in_switch else None), None
         if target == stop:
             return [], None
         if loop is not None and COPY_LATCHES:

@@ -3,7 +3,7 @@
  *    Description: the machine's main program: power-on and boot, the frame loop, the attract mode and the system modes, the frame wait and the controls, the interrupt handlers, the reset vector
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    22-10-2026
+ *    Modified:    23-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -17,7 +17,7 @@
    lasts, then over again from system mode 3, the title. */
 void boot(void)
 {
-	uint32_t bytes_left = 0, count = 0, cursor = 0, dest = 0, height = 0, ignored = 0, input_cursor = 0, pairs_left = 0, pressed = 0, released = 0, scale = 0, source = 0, trackball_cursor = 0, trackball_port = 0;
+	uint32_t bytes_left = 0, count = 0, cursor = 0, dest = 0, height = 0, ignored = 0, ignored_2 = 0, ignored_3 = 0, ignored_4 = 0, input_cursor = 0, pairs_left = 0, pressed = 0, released = 0, scale = 0, source = 0, trackball_cursor = 0, trackball_port = 0;
 	uint32_t stack_100004 = 0;
 	uint32_t psw1 = 0;
 
@@ -68,7 +68,7 @@ void boot(void)
 		start_test_mode(&scale, &height);
 		do
 		{
-			wait_for_frame(&pressed, &ignored, &ignored, &count, &ignored, &ignored);
+			wait_for_frame(&pressed, &ignored, &ignored_2, &count, &ignored_3, &ignored_4);
 			run_test_mode(pressed, (uint16_t)count, &scale, &height);
 		} while (test_mode != 0u);
 		system_mode_and_step = 0x300u;
@@ -429,7 +429,7 @@ void run_frame_start_game(uint32_t credits, uint32_t blink_bit, uint32_t credits
 void attract_title(uint32_t *p_color, uint32_t *p_row_pairs_left, uint32_t *p_blocks_per_row, uint32_t *p_text)
 {
 	uint8_t mode = 0;
-	uint32_t ignored = 0, text_position = 0;
+	uint32_t ignored = 0, ignored_2 = 0, ignored_3 = 0, ignored_4 = 0, text_position = 0;
 	uint8_t cnt_bits = 0;
 
 	switch (system_mode_step)
@@ -441,8 +441,8 @@ void attract_title(uint32_t *p_color, uint32_t *p_row_pairs_left, uint32_t *p_bl
 		mem_write8(io_cnt, cnt_bits & ~2u);
 		mode = 0u;
 		set_screen_mode(mode);
-		clear_text_layer(&ignored, &ignored, &ignored);
-		reset_objects(&ignored, &ignored);
+		clear_text_layer(&ignored_2, &ignored_3, &ignored);
+		reset_objects(&ignored_2, &ignored_4);
 		unused_title_byte_3 = 0u;
 		sega_logo_step = 0u;
 		title_scene_built = 0u;
@@ -475,7 +475,7 @@ void attract_title(uint32_t *p_color, uint32_t *p_row_pairs_left, uint32_t *p_bl
 void attract_ranking(uint32_t *p_rows, uint32_t *p_source)
 {
 	uint8_t mode = 0;
-	uint32_t dest = 0, ignored = 0;
+	uint32_t dest = 0, ignored = 0, ignored_2 = 0, ignored_3 = 0, ignored_4 = 0;
 
 	switch (system_mode_step)
 	{
@@ -483,9 +483,9 @@ void attract_ranking(uint32_t *p_rows, uint32_t *p_source)
 	case 2:
 		mode = 0u;
 		set_screen_mode(mode);
-		clear_text_layer(&ignored, &ignored, &ignored);
+		clear_text_layer(&ignored_2, &ignored_3, &ignored);
 		dest = clear_page_0_and_scroll();
-		reset_objects(&ignored, &ignored);
+		reset_objects(&ignored_2, &ignored_4);
 		ranking_done = 0u;
 		start_ranking_display(dest, p_rows, p_source);
 		current_screen = 2u;
@@ -584,7 +584,7 @@ void advance_attract_screen(void)
    check_moving_seat_dip and init_game_settings; interrupts back on. */
 void init_system(uint32_t *p_polynomial, uint32_t *p_words_left)
 {
-	uint32_t ignored = 0, inputs = 0, sound_hold = 0;
+	uint32_t ignored = 0, ignored_2 = 0, ignored_3 = 0, ignored_4 = 0, ignored_5 = 0, ignored_6 = 0, ignored_7 = 0, ignored_8 = 0, inputs = 0, sound_hold = 0;
 
 	interrupts_off();
 	clear_work_ram();
@@ -609,13 +609,13 @@ void init_system(uint32_t *p_polynomial, uint32_t *p_words_left)
 	apply_settings();
 	init_mixer();
 	load_default_palettes();
-	init_sprites(&ignored, &ignored);
-	load_text_font(&ignored, p_words_left);
+	init_sprites(&ignored_2, &ignored_3);
+	load_text_font(&ignored_4, p_words_left);
 	init_video_registers();
-	reset_objects(&inputs, &ignored);
-	read_controls(&inputs, &ignored, &ignored, &ignored, &ignored, &ignored, &ignored);
-	read_controls(&inputs, &ignored, &ignored, &ignored, &ignored, &ignored, &ignored);
-	read_controls(&inputs, &ignored, &ignored, &ignored, &ignored, &ignored, &ignored);
+	reset_objects(&inputs, &ignored_5);
+	read_controls(&inputs, &ignored_6, &ignored_7, &ignored_5, &ignored_8, &ignored_3, &ignored);
+	read_controls(&inputs, &ignored_6, &ignored_7, &ignored_5, &ignored_8, &ignored_3, &ignored);
+	read_controls(&inputs, &ignored_6, &ignored_7, &ignored_5, &ignored_8, &ignored_3, &ignored);
 	mem_write8(irq_acknowledge, 0u);
 	mem_write8(irq_control_5, 0u);
 	*p_words_left = check_moving_seat_dip(*p_words_left);
@@ -760,10 +760,10 @@ void delay_after_reset(void)
    init_sprites_swapping_every_frame sets 1), so it waits one frame. Hands back wait_for_frame's count. */
 uint32_t wait_for_frames(void)
 {
-	uint32_t count = 0, ignored = 0;
+	uint32_t count = 0, ignored = 0, ignored_2 = 0, ignored_3 = 0, ignored_4 = 0, ignored_5 = 0;
 
 	frames_to_wait = frames_per_wait;
-	wait_for_frame(&ignored, &ignored, &ignored, &count, &ignored, &ignored);
+	wait_for_frame(&ignored, &ignored_2, &ignored_3, &count, &ignored_4, &ignored_5);
 	return count;
 }
 
@@ -773,7 +773,7 @@ uint32_t wait_for_frames(void)
    back. */
 void wait_for_frame(uint32_t *p_pressed, uint32_t *p_released, uint32_t *p_input_cursor, uint32_t *p_count, uint32_t *p_trackball_port, uint32_t *p_trackball_cursor)
 {
-	uint32_t count = 0, input_cursor = 0, inputs = 0, poll_count = 0, pressed = 0, released = 0, trackball_cursor = 0, trackball_port = 0;
+	uint32_t inputs = 0, poll_count = 0;
 	uint8_t frames_left = 0;
 
 	poll_count = 0u;
@@ -791,13 +791,7 @@ void wait_for_frame(uint32_t *p_pressed, uint32_t *p_released, uint32_t *p_input
 	sprite_buffer_flip &= 0xFF04u;
 	sprite_list_start_offset = sprite_back_buffer_offset;
 	attract_timer++;
-	read_controls(&inputs, &pressed, &released, &input_cursor, &count, &trackball_port, &trackball_cursor);
-	*p_pressed = pressed;
-	*p_released = released;
-	*p_input_cursor = input_cursor;
-	*p_count = count;
-	*p_trackball_port = trackball_port;
-	*p_trackball_cursor = trackball_cursor;
+	read_controls(&inputs, p_pressed, p_released, p_input_cursor, p_count, p_trackball_port, p_trackball_cursor);
 }
 
 /* Reads the controls: ports B, A, F, E as one word (B on top) through play_demo_buttons into input_ports
@@ -807,7 +801,7 @@ void wait_for_frame(uint32_t *p_pressed, uint32_t *p_released, uint32_t *p_input
 void read_controls(uint32_t *p_inputs, uint32_t *p_pressed, uint32_t *p_released, uint32_t *p_input_cursor, uint32_t *p_count, uint32_t *p_trackball_port, uint32_t *p_trackball_cursor)
 {
 	uint32_t inputs = *p_inputs;
-	uint32_t axes_left = 0, count = 0, input_cursor = 0, pressed = 0, released = 0, trackball_cursor = 0, trackball_port = 0;
+	uint32_t axes_left = 0, count = 0, pressed = 0, trackball_cursor = 0, trackball_port = 0;
 
 	inputs = (inputs & ~0xFFu) | mem_read8(io_port_b);
 	inputs = (((inputs << 8) | (inputs >> 24)) & ~0xFFu) | mem_read8(io_port_a);
@@ -817,12 +811,12 @@ void read_controls(uint32_t *p_inputs, uint32_t *p_pressed, uint32_t *p_released
 	pressed = input_ports;
 	input_ports = inputs;
 	input_ports_active = ~inputs;
-	released = ~pressed & inputs;
+	*p_released = ~pressed & inputs;
 	inputs = ~inputs;
 	pressed &= inputs;
 	inputs_pressed = pressed;
-	input_cursor = inputs_released_ADDRESS;
-	inputs_released = released;
+	*p_input_cursor = inputs_released_ADDRESS;
+	inputs_released = *p_released;
 	trackball_port = IO_PORTS + 0x40u;
 	trackball_cursor = trackball_1_x_ADDRESS;
 	axes_left = 6u;
@@ -850,8 +844,6 @@ void read_controls(uint32_t *p_inputs, uint32_t *p_pressed, uint32_t *p_released
 	play_demo_trackballs(&count, &trackball_port, &trackball_cursor);
 	*p_inputs = inputs;
 	*p_pressed = pressed;
-	*p_released = released;
-	*p_input_cursor = input_cursor;
 	*p_count = count;
 	*p_trackball_port = trackball_port;
 	*p_trackball_cursor = trackball_cursor;
@@ -862,15 +854,15 @@ void read_controls(uint32_t *p_inputs, uint32_t *p_pressed, uint32_t *p_released
    by one. Hands back inputs. */
 uint32_t play_demo_buttons(uint32_t inputs)
 {
-	uint32_t demo_cursor = 0, ignored = 0;
+	uint32_t demo_cursor = 0, ignored = 0, ignored_2 = 0;
 
 	if ((int8_t)game_in_progress >= 0 && (int8_t)test_mode >= 0 && (current_screen == 4u || current_screen == 5u) && current_game_mode == 3u)
 	{
 		demo_patched_inputs = inputs;
 		demo_cursor = demo_input;
-		move_bits_down(demo_cursor, 0u, temp_0_ADDRESS, 0x19u, 1u, &ignored, &ignored);
-		move_bits_down(demo_cursor, 1u, temp_0_ADDRESS, 0x1Au, 1u, &ignored, &ignored);
-		move_bits_down(demo_cursor, 2u, temp_0_ADDRESS, 0x1Bu, 1u, &ignored, &ignored);
+		move_bits_down(demo_cursor, 0u, temp_0_ADDRESS, 0x19u, 1u, &ignored, &ignored_2);
+		move_bits_down(demo_cursor, 1u, temp_0_ADDRESS, 0x1Au, 1u, &ignored, &ignored_2);
+		move_bits_down(demo_cursor, 2u, temp_0_ADDRESS, 0x1Bu, 1u, &ignored, &ignored_2);
 		inputs = demo_patched_inputs;
 		demo_input++;
 	}
@@ -909,7 +901,7 @@ void play_demo_trackballs(uint32_t *p_count, uint32_t *p_demo_cursor, uint32_t *
    go by (wait_for_frame, attract_timer held still) until start 3 is pressed again; debug_pause - 1. */
 void pause_on_start_3(void)
 {
-	uint32_t ignored = 0;
+	uint32_t ignored = 0, ignored_2 = 0, ignored_3 = 0, ignored_4 = 0, ignored_5 = 0, ignored_6 = 0;
 
 	if ((inputs_pressed & 0x80u) == 0u)
 		return;
@@ -917,7 +909,7 @@ void pause_on_start_3(void)
 	do
 	{
 		attract_timer--;
-		wait_for_frame(&ignored, &ignored, &ignored, &ignored, &ignored, &ignored);
+		wait_for_frame(&ignored, &ignored_2, &ignored_3, &ignored_4, &ignored_5, &ignored_6);
 	} while ((inputs_pressed & 0x80u) == 0u);
 	debug_pause--;
 }
@@ -952,7 +944,7 @@ void split_frame_count(uint32_t frames, uint32_t frames_high, uint32_t *p_second
 void attract_warning(uint32_t *p_pixels, uint32_t *p_text)
 {
 	uint8_t new_mode = 0;
-	uint32_t ignored = 0;
+	uint32_t ignored = 0, ignored_2 = 0, ignored_3 = 0, ignored_4 = 0;
 	uint8_t cnt_bits = 0;
 
 	switch (system_mode_step)
@@ -976,12 +968,12 @@ void attract_warning(uint32_t *p_pixels, uint32_t *p_text)
 	mem_write8(io_cnt, cnt_bits & ~2u);
 	load_text_font(p_pixels, &ignored);
 	init_video_registers();
-	init_sprites(&ignored, &ignored);
+	init_sprites(&ignored_2, &ignored_3);
 	new_mode = 1u;
 	set_screen_mode(new_mode);
 	init_sound();
 	*p_text = warning_screen_text_ADDRESS;
-	print_text_list(p_text, &ignored);
+	print_text_list(p_text, &ignored_4);
 	unused_coin_byte = 0u;
 	current_screen = 0u;
 }
@@ -1010,14 +1002,14 @@ void wait_attract_timer(void)
 void irq_vblank_start(void)
 {
 	uint32_t zero = 0;
-	uint32_t ignored = 0;
+	uint32_t ignored_3 = 0, ignored_4 = 0, ignored_5 = 0, ignored_6 = 0;
 	uint32_t saved_r14 = 0;
 	uint8_t frames_left = 0, cnt_bits = 0;
 
 	saved_r14 = r14;
 	move_halfwords(MIXER_REGISTERS + 0x30u, mixer_text_blend_ADDRESS, 0x10u);
 	if (vblank_copies_pending != 0u)
-		run_vblank_copies(&ignored, &ignored, &ignored, &ignored);
+		run_vblank_copies(&ignored_3, &ignored_4, &ignored_5, &ignored_6);
 	call_code(vblank_start_hook);
 	send_sound_command();
 	if (test_mode == 0u)
@@ -1084,18 +1076,11 @@ void irq_timer1(void)
    halts, then run_vblank_copies). */
 void int_default(uint32_t *p_source, uint32_t *p_dest, uint32_t *p_copies_left, uint32_t *p_copy_entry)
 {
-	uint32_t source = *p_source;
-	uint32_t dest = *p_dest;
-	uint32_t copies_left = 0;
-
 	halt();
 	halt();
 	halt();
 	halt();
-	int_vector_02(&source, &dest, &copies_left, p_copy_entry);
-	*p_source = source;
-	*p_dest = dest;
-	*p_copies_left = copies_left;
+	int_vector_02(p_source, p_dest, p_copies_left, p_copy_entry);
 }
 
 /* Vector 2, the NMI: four halts, then run_vblank_copies, which follows it in the program; int_default
@@ -1114,7 +1099,6 @@ void int_vector_02(uint32_t *p_source, uint32_t *p_dest, uint32_t *p_copies_left
    says; vblank_copy_count and vblank_copies_pending are cleared. */
 void run_vblank_copies(uint32_t *p_source, uint32_t *p_dest, uint32_t *p_copies_left, uint32_t *p_copy_entry)
 {
-	uint32_t source = *p_source;
 	uint32_t dest = *p_dest;
 	uint8_t repeats_left = 0;
 	uint32_t copies_left = 0, copy_entry = 0, copy_halfwords = 0, dest_end = 0, ignored = 0;
@@ -1128,7 +1112,7 @@ void run_vblank_copies(uint32_t *p_source, uint32_t *p_dest, uint32_t *p_copies_
 	{
 		do
 		{
-			source = VBLANK_COPY(copy_entry)->source;
+			*p_source = VBLANK_COPY(copy_entry)->source;
 			copy_entry += 4u;
 			dest = VBLANK_COPY(copy_entry - 0x4u)->dest;
 			copy_entry += 4u;
@@ -1137,7 +1121,7 @@ void run_vblank_copies(uint32_t *p_source, uint32_t *p_dest, uint32_t *p_copies_
 			copy_entry += 2u;
 			for (;;)
 			{
-				move_string(source, copy_halfwords, dest, copy_halfwords, 2u, 0u, 0u, fill_value, &dest_end, &ignored);
+				move_string(*p_source, copy_halfwords, dest, copy_halfwords, 2u, 0u, 0u, fill_value, &dest_end, &ignored);
 				repeats_before = repeats_left;
 				repeats_left = (uint8_t)(repeats_before - 1u);
 				if ((int8_t)repeats_before <= 1)
@@ -1147,7 +1131,6 @@ void run_vblank_copies(uint32_t *p_source, uint32_t *p_dest, uint32_t *p_copies_
 			copies_left--;
 		} while (copies_left != 0u);
 	}
-	*p_source = source;
 	*p_dest = dest;
 	*p_copies_left = copies_left;
 	*p_copy_entry = copy_entry;

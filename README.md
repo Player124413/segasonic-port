@@ -449,9 +449,10 @@ memory is in `runtime/include/game/support.h`.
   OBJECT(current_object)->child)` is the object `child` names, in the work RAM page.
 - **Registers.** `current_object`, `object_cursor`, `current_player`... are the registers the whole program
   keeps (R20, R23, R18): global variables. Everything else a function keeps in registers is a local
-  variable or a parameter. What a call hands back and nothing reads goes to one variable of the function,
-  `ignored`, whatever the register: the call needs somewhere to write it (`animate(&ignored, &ignored,
-  &at_last_step)` when only the animation's last step matters). A value one routine leaves in a register
+  variable or a parameter. What a call hands back and nothing reads goes to a variable of the function kept
+  for that, one for each register (`ignored`, `ignored_2`...): the call needs somewhere to write it, and
+  never gets one pointer twice (`animate(&ignored, &ignored_2, &at_last_step)` when only the animation's
+  last step matters). A value one routine leaves in a register
   and another one, several calls further on, reads has the name of what it holds where it comes from
   (`run_sega_logo` relies on `init_sprites` leaving 0xFFFF in R0, its `end_mark`): the C passes those values
   along explicitly so that it does what the original does; a register the original reads before anything
@@ -461,8 +462,8 @@ memory is in `runtime/include/game/support.h`.
   (`uint32_t *p_depth`); a caller's variable goes in and comes out. A result the function only passes on
   goes straight to the calls (`check_player_step_against_floor(p_height_diff, p_cursor);`), and one it
   copies back from the same variable at every `return`, and uses little else, is read and set through its
-  pointer (`*p_dest += 2u;`). Otherwise, or when some call hands it the same variable as another result
-  (`ignored`), it has a variable of its own, written back through the pointer once, at the function's end,
+  pointer (`*p_dest += 2u;`). Otherwise, or when some call hands it the same variable as another result,
+  it has a variable of its own, written back through the pointer once, at the function's end,
   where its ways back meet; a way out from inside a loop, a `switch` or a branch that cannot reach the end
   without a control variable writes it back before its own `return`.
 - **Comments.** Every function has a comment above it that says what it does in the game's terms and the
@@ -478,10 +479,9 @@ memory is in `runtime/include/game/support.h`.
   ...; } if (within_box_x) { ... }` in `check_hit`, which is how C writes a test with statements between
   its halves. A loop the code enters at two places gets a copy of the piece from one way in to the other,
   before it (the line drawing's odd and even halves), and a way out of a loop that runs into another one
-  is written where it leaves. Six functions of the game have control variables (`check_hit`'s and
-  `fill_span_list`'s tests, the sprite list's multi-part tail, and the unused flood fill's three row scans,
-  where the end of the loop over pixel pairs is also reached when there are none) and one of the sound
-  driver (`step_fm_vibrato`'s test). `default:
+  is written where it leaves, as if it were inside the loop. Three functions of the game have control
+  variables (`check_hit`'s and `fill_span_list`'s tests, the sprite list's multi-part tail) and one of the
+  sound driver (`step_fm_vibrato`'s test). `default:
   invalid_jump(address)` is where a jump table's index would leave the table: the original checks
   nothing and would jump into whatever follows it; the C stops there.
 - **Interrupts and the frame.** `frame_wait()` is where the game waits for the next frame and the board
@@ -516,12 +516,12 @@ of them can go without the C doing something the original does not:
 | What | Count | Why it stays |
 |---|---:|---|
 | `goto`, functions or memory named after an address (`sub_`, `unk_`), functions without a comment, data read through its ROM address (`ROM16(...)`: 1,137 of them before the program's data had names), numbers in the ROM's range left as numbers, parameters and locals named after a register (98 before this round), several fields read or written at once (`AS16`, `AT8`: 67) | 0 | |
-| Results written back again before an early return (`*p_x = x; return;`) | 432 | a function writes its results back once, at its end, where its ways back meet (1,500 copies at every `return` before); these are the ways out of a loop, a `switch` case or a branch that could only reach the end through a control variable |
-| Memory through a computed address (`mem_read16`, `mem_write32`) | 1194 | the board's memories and registers (video RAM, palette RAM, the I/O ports) and the generic routines that fill, copy and draw wherever they are told |
+| Results written back again before an early return (`*p_x = x; return;`) | 274 | a function writes its results back once, at its end, where its ways back meet (1,500 copies at every `return` before); these are the ways out of a loop, a `switch` case or a branch that could only reach the end through a control variable |
+| Memory through a computed address (`mem_read16`, `mem_write32`) | 1197 | the board's memories and registers (video RAM, palette RAM, the I/O ports) and the generic routines that fill, copy and draw wherever they are told |
 | Partial writes of a variable (`(x & ~0xFFFFu) \| y`) | 720 | the original writes the low byte or halfword of a register and keeps the rest |
 | `default: invalid_jump(...)` | 243 | the original never checks a jump table's index; the C stops where it would leave the table |
 | Object fields without a name (`var_80`) | 14 | all in `init_object_fields_tail`, which clears a new object: every object type uses those bytes (0x7F-0x9F) its own way, so where the engine clears them for any type they have no one name |
-| Functions with `bool` control variables | 7 | a test with statements between its halves, as C writes it (`check_hit`, `fill_span_list`, `step_fm_vibrato`); the sprite list's multi-part tail, which only a 60-line copy would take away; the unused flood fill's row scans (see Control flow) |
+| Functions with `bool` control variables | 4 | a test with statements between its halves, as C writes it (`check_hit`, `fill_span_list`, `step_fm_vibrato`), and the sprite list's multi-part tail, which only a 60-line copy would take away (see Control flow) |
 | Functions the board puts its own in place of (`runtime/replaced.txt`, `BOARD_ORIGINAL`) | 1 | `check_rom_checksums`, the MEMORY TEST's ROM part: it measures ROM chips, and the decompiled game has none (it finds no error, as a board with good chips does) |
 | Bytes of the code the game also reads as data (`assets.json`, `read_as_data`) | 999 | the original reads them through a null pointer or past a table's end: a structure or a text at a null pointer (the program's first 512 bytes, and the frames of its characters past `text_frames`), the map trail and marker of a stage with none, a rope bridge's sag. Each piece takes all a pointer or an index can reach there; the assets hold them, and no other byte of the code |
 

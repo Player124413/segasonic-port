@@ -3,7 +3,7 @@
  *    Description: the ring tally after a stage (game mode 0x1D): the total and the players' panels
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    22-10-2026
+ *    Modified:    23-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -197,7 +197,7 @@ void pick_ring_bonus_players(uint32_t *p_player_1_rings, uint32_t *p_player_2_ri
 void ring_tally_percent_update(void)
 {
 	uint8_t shown_percent = 0;
-	uint32_t ignored = 0, object = 0, shown_percent_2 = 0;
+	uint32_t ignored = 0, ignored_2 = 0, ignored_3 = 0, ignored_4 = 0, object = 0, shown_percent_2 = 0;
 
 	if (OBJECT(current_object)->ring_tally_percent_view.started != 0u)
 	{
@@ -223,7 +223,7 @@ void ring_tally_percent_update(void)
 			return;
 		}
 		OBJECT(object_cursor)->ring_tally_percent_view.roll_delay = 1u;
-		next_random(&shown_percent_2, &ignored, &ignored);
+		next_random(&shown_percent_2, &ignored_3, &ignored_4);
 		ring_tally_percent_set_digits((uint8_t)shown_percent_2);
 		return;
 	}
@@ -236,7 +236,7 @@ void ring_tally_percent_update(void)
 	OBJECT(current_object)->screen_x = 0xA0;
 	OBJECT(current_object)->sprite_layer = 0u;
 	OBJECT(current_object)->sprite_flags = 0u;
-	allocate_object_2(&ignored, &ignored, &object);
+	allocate_object_2(&ignored, &ignored_2, &object);
 	OBJECT(current_object)->speed_y = object;
 	OBJECT(object)->sprite_frame = 0x9DE0u;
 	OBJECT(object)->sprite_palette = 0xBA0u;
@@ -246,7 +246,7 @@ void ring_tally_percent_update(void)
 	OBJECT(object)->screen_x = 0xA0;
 	OBJECT(object)->sprite_layer = 1u;
 	OBJECT(object)->sprite_flags = 0u;
-	allocate_object_2(&ignored, &ignored, &object);
+	allocate_object_2(&ignored, &ignored_2, &object);
 	OBJECT(current_object)->z = object;
 	OBJECT(object)->sprite_palette = 0xBF0u;
 	OBJECT(object)->sprite_palette |= 0x8000u;
@@ -255,7 +255,7 @@ void ring_tally_percent_update(void)
 	OBJECT(object)->screen_x = 0x9E;
 	OBJECT(object)->sprite_layer = 0u;
 	OBJECT(object)->sprite_flags = 0u;
-	allocate_object_2(&ignored, &ignored, &object);
+	allocate_object_2(&ignored, &ignored_2, &object);
 	OBJECT(current_object)->ring_tally_percent_view.tens_digit = object;
 	OBJECT(object)->sprite_palette = 0xBF0u;
 	OBJECT(object)->sprite_palette |= 0x8000u;
@@ -264,7 +264,7 @@ void ring_tally_percent_update(void)
 	OBJECT(object)->screen_x = 0x8E;
 	OBJECT(object)->sprite_layer = 0u;
 	OBJECT(object)->sprite_flags = 0u;
-	allocate_object_2(&ignored, &ignored, &object);
+	allocate_object_2(&ignored, &ignored_2, &object);
 	OBJECT(current_object)->animation = object;
 	OBJECT(object)->sprite_palette = 0xBF0u;
 	OBJECT(object)->sprite_palette |= 0x8000u;
@@ -347,14 +347,14 @@ void update_ring_tally_percent(void)
 void ring_tally_end_sound_wait(void)
 {
 	uint8_t sound_id = 0;
-	uint32_t ignored = 0;
+	uint32_t ignored = 0, ignored_2 = 0;
 
 	if (ring_tally_counted == 0u)
 		return;
 	if ((int16_t)ring_tally_percent < (int16_t)stage_ring_bonus_percents[stage])
 	{
 		sound_id = 0x73u;
-		queue_sound(sound_id, &ignored, &ignored);
+		queue_sound(sound_id, &ignored, &ignored_2);
 	}
 	delete_current_object();
 }
@@ -363,7 +363,7 @@ void ring_tally_end_sound_wait(void)
 void ring_tally_ticker_update(void)
 {
 	uint8_t sound_id = 0;
-	uint32_t ignored = 0;
+	uint32_t ignored = 0, ignored_2 = 0;
 
 	if (OBJECT(current_object)->ring_tally_ticker.started == 0u)
 	{
@@ -380,7 +380,7 @@ void ring_tally_ticker_update(void)
 	{
 		OBJECT(current_object)->timer = 0;
 		sound_id = 0x83u;
-		queue_sound(sound_id, &ignored, &ignored);
+		queue_sound(sound_id, &ignored, &ignored_2);
 	}
 }
 
@@ -472,7 +472,7 @@ void ring_tally_player_3_update_spare_return(void)
    ring icon and three digits. */
 void build_ring_tally_panel(uint32_t character)
 {
-	uint32_t ignored = 0, object = 0, portrait_record = 0;
+	uint32_t ignored = 0, ignored_2 = 0, object = 0, portrait_record = 0;
 
 	portrait_record = ring_tally_portraits[character];
 	OBJECT(current_object)->sprite_palette = RING_TALLY_PORTRAIT(portrait_record)->sprite_palette;
@@ -485,7 +485,7 @@ void build_ring_tally_panel(uint32_t character)
 	OBJECT(current_object)->screen_x = 0x40;
 	OBJECT(current_object)->sprite_layer = 0u;
 	OBJECT(current_object)->build_ring_tally_panel.result_frames = portrait_record + 2u;
-	allocate_object_2(&ignored, &ignored, &object);
+	allocate_object_2(&ignored, &ignored_2, &object);
 	OBJECT(current_object)->build_ring_tally_panel.bonus_label = object;
 	OBJECT(object)->sprite_frame = 0x9EF0u;
 	if (OBJECT(current_object)->build_ring_tally_panel.gets_bonus == 0u)
@@ -497,7 +497,7 @@ void build_ring_tally_panel(uint32_t character)
 	OBJECT(object)->sprite_layer = 0u;
 	OBJECT(object)->sprite_flags = 0u;
 	OBJECT(object)->sprite_scale = 0x100u;
-	allocate_object_2(&ignored, &ignored, &object);
+	allocate_object_2(&ignored, &ignored_2, &object);
 	OBJECT(current_object)->build_ring_tally_panel.backdrop = object;
 	OBJECT(object)->screen_x = 0x40;
 	OBJECT(object)->screen_y = 0xA0;
@@ -507,7 +507,7 @@ void build_ring_tally_panel(uint32_t character)
 	OBJECT(object)->sprite_palette |= 0x8000u;
 	OBJECT(object)->sprite_flags = 0u;
 	OBJECT(object)->sprite_scale = 0x100u;
-	allocate_object_2(&ignored, &ignored, &object);
+	allocate_object_2(&ignored, &ignored_2, &object);
 	OBJECT(current_object)->build_ring_tally_panel.part_3 = object;
 	OBJECT(object)->screen_x = 0x40;
 	OBJECT(object)->screen_y = 0x70;
@@ -517,7 +517,7 @@ void build_ring_tally_panel(uint32_t character)
 	OBJECT(object)->sprite_palette |= 0x8000u;
 	OBJECT(object)->sprite_flags = 0u;
 	OBJECT(object)->sprite_scale = 0x100u;
-	allocate_object_2(&ignored, &ignored, &object);
+	allocate_object_2(&ignored, &ignored_2, &object);
 	OBJECT(current_object)->build_ring_tally_panel.units_digit = object;
 	OBJECT(object)->screen_x = 0x56;
 	OBJECT(object)->screen_y = 0x75;
@@ -527,7 +527,7 @@ void build_ring_tally_panel(uint32_t character)
 	OBJECT(object)->sprite_palette |= 0x8000u;
 	OBJECT(object)->sprite_flags = 0u;
 	OBJECT(object)->sprite_scale = 0x100u;
-	allocate_object_2(&ignored, &ignored, &object);
+	allocate_object_2(&ignored, &ignored_2, &object);
 	OBJECT(current_object)->build_ring_tally_panel.tens_digit = object;
 	OBJECT(object)->screen_x = 0x4D;
 	OBJECT(object)->screen_y = 0x75;
@@ -537,7 +537,7 @@ void build_ring_tally_panel(uint32_t character)
 	OBJECT(object)->sprite_palette |= 0x8000u;
 	OBJECT(object)->sprite_flags = 0u;
 	OBJECT(object)->sprite_scale = 0x100u;
-	allocate_object_2(&ignored, &ignored, &object);
+	allocate_object_2(&ignored, &ignored_2, &object);
 	OBJECT(current_object)->build_ring_tally_panel.hundreds_digit = object;
 	OBJECT(object)->screen_x = 0x44;
 	OBJECT(object)->screen_y = 0x75;
@@ -555,7 +555,7 @@ void build_ring_tally_panel(uint32_t character)
 void update_ring_tally_panel(void)
 {
 	uint8_t sound_id = 0;
-	uint32_t ignored = 0, speed_x = 0;
+	uint32_t ignored = 0, ignored_2 = 0, speed_x = 0;
 
 	if (stage_results_done != 0u)
 	{
@@ -572,9 +572,9 @@ void update_ring_tally_panel(void)
 		speed_x = OBJECT(object_cursor)->speed_x;
 		give_result_bonus(speed_x);
 		sound_id = ring_tally_character_sounds[OBJECT(object_cursor)->update_ring_tally_panel.character];
-		queue_sound(sound_id, &ignored, &ignored);
+		queue_sound(sound_id, &ignored, &ignored_2);
 		sound_id = 0x88u;
-		queue_sound(sound_id, &ignored, &ignored);
+		queue_sound(sound_id, &ignored, &ignored_2);
 		OBJECT(object_cursor)->update_ring_tally_panel.step++;
 		update_ring_tally_panel_count_up();
 		return;
@@ -607,7 +607,7 @@ void update_ring_tally_panel(void)
 		return;
 	case 3:
 		sound_id = 0x89u;
-		queue_sound(sound_id, &ignored, &ignored);
+		queue_sound(sound_id, &ignored, &ignored_2);
 		OBJECT(object_cursor)->update_ring_tally_panel.step++;
 		OBJECT(object_cursor)->sprite_frame = RING_TALLY_RESULT_FACES(OBJECT(object_cursor)->update_ring_tally_panel.result_frames)->no_bonus_frame;
 		queue_sprite_in_layer();

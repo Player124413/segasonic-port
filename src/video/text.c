@@ -3,7 +3,7 @@
  *    Description: text: the text layer's font, printing and erasing text, lines, fractions and digits, and the strings drawn with sprites
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    22-10-2026
+ *    Modified:    23-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -172,7 +172,7 @@ void load_text_font(uint32_t *p_pixels, uint32_t *p_color_index)
 {
 	uint8_t color = 0;
 	uint16_t count = 0;
-	uint32_t dest = 0, dest_end = 0, ignored = 0, source = 0, source_end = 0;
+	uint32_t dest = 0, dest_end = 0, ignored = 0, ignored_2 = 0, ignored_3 = 0, source = 0, source_end = 0;
 
 	mem_write16(video_text_control, 0x1F7u);
 	move_string(text_font_ADDRESS, 0x9A0u, VIDEO_RAM + 0x1C000u, 0x9A0u, 2u, 0u, 0u, fill_value, &dest_end, &source_end);
@@ -181,20 +181,15 @@ void load_text_font(uint32_t *p_pixels, uint32_t *p_color_index)
 	count = 0x5Bu;
 	color = 1u;
 	expand_font(color, count, source, dest, p_pixels, p_color_index);
-	clear_text_layer(&ignored, &ignored, &ignored);
+	clear_text_layer(&ignored, &ignored_2, &ignored_3);
 }
 
 /* Zeroes the text map: 0xE0 blocks of 16 bytes from its first cell (clear_blocks). */
 void clear_text_layer(uint32_t *p_value, uint32_t *p_count, uint32_t *p_dest)
 {
-	uint32_t count = 0, dest = 0, value = 0;
-
-	dest = TEXT_CELL(0, 0);
-	count = 0xE0u;
-	clear_blocks(&value, &count, &dest);
-	*p_value = value;
-	*p_count = count;
-	*p_dest = dest;
+	*p_dest = TEXT_CELL(0, 0);
+	*p_count = 0xE0u;
+	clear_blocks(p_value, p_count, p_dest);
 }
 
 /* Expands count 1-bit characters, 8 rows of a byte, from source into 4-bit characters at dest in color &

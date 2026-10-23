@@ -3,7 +3,7 @@
  *    Description: the player: starting, joining, resetting and placing a player, player_update, the movement (screen edges, trackball, turning, jumps, walls), the shadow, the floor checks, the restart point, the checks of every frame, and check_player_contacts (what touching each kind of object does)
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    22-10-2026
+ *    Modified:    23-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -182,7 +182,7 @@ void player_reset_joined(void)
 void player_reset(void)
 {
 	uint8_t sound_id = 0;
-	uint32_t ignored = 0, stage_index = 0;
+	uint32_t ignored = 0, ignored_2 = 0, stage_index = 0;
 
 	OBJECT(current_object)->sprite_palette &= 0x5FFFu;
 	PLAYER(current_player)->invulnerable_timer = 0;
@@ -278,7 +278,7 @@ void player_reset(void)
 				sound_id = 0x52u;
 		}
 	}
-	play_sound(sound_id, &ignored, &ignored);
+	play_sound(sound_id, &ignored, &ignored_2);
 	player_place();
 }
 
@@ -289,11 +289,11 @@ void player_reset(void)
 void player_place(void)
 {
 	uint8_t entry_status = 0;
-	uint32_t ignored = 0, player_offset = 0;
+	uint32_t ignored = 0, ignored_2 = 0, ignored_3 = 0, ignored_4 = 0, ignored_5 = 0, player_offset = 0;
 
 	current_player = PLAYER_BLOCK(1) + ((uint32_t)OBJECT(current_object)->player << 7) * 4u;
 	player_offset = place_player_at_restart_point();
-	find_floor(&player_offset, &ignored, &ignored, &ignored, &ignored);
+	find_floor(&player_offset, &ignored, &ignored_2, &ignored_3, &ignored_4);
 	OBJECT(current_object)->z = OBJECT(current_object)->floor_z;
 	PLAYER(current_player)->substate = 0u;
 	PLAYER(current_player)->state = 0u;
@@ -330,7 +330,7 @@ void player_place(void)
 	{
 		PLAYER(current_player)->previous_z = OBJECT(current_object)->floor_z;
 		OBJECT(current_object)->previous_floor_z = OBJECT(current_object)->floor_z;
-		project_object(&ignored, &ignored);
+		project_object(&ignored_5, &ignored);
 		PLAYER(current_player)->screen_x_int = OBJECT(current_object)->projected_x;
 		PLAYER(current_player)->screen_x_fraction = 0u;
 		remember_platform();
@@ -347,7 +347,7 @@ void player_place(void)
 		{
 			PLAYER(current_player)->previous_z = OBJECT(current_object)->floor_z;
 			OBJECT(current_object)->previous_floor_z = OBJECT(current_object)->floor_z;
-			project_object(&ignored, &ignored);
+			project_object(&ignored_5, &ignored);
 			PLAYER(current_player)->screen_x_int = OBJECT(current_object)->projected_x;
 			PLAYER(current_player)->screen_x_fraction = 0u;
 			remember_platform();
@@ -562,7 +562,7 @@ uint32_t keep_player_on_screen(uint32_t depth)
 {
 	uint8_t sound_id = 0;
 	uint16_t base_x = 0, base_y = 0, edge = 0, scroll_direction = 0;
-	uint32_t direction_row = 0, floor_slope = 0, ignored = 0, offset_x = 0, slope_direction = 0, slope_factor = 0, slope_speed = 0, voice_range = 0;
+	uint32_t direction_row = 0, floor_slope = 0, ignored = 0, ignored_2 = 0, offset_x = 0, slope_direction = 0, slope_factor = 0, slope_speed = 0, voice_range = 0;
 	uint8_t health = 0;
 
 	if (nearby_floor_blocks_locked != 0u || (OBJECT(current_object)->flags & 0x4000000u) != 0u)
@@ -626,7 +626,7 @@ uint32_t keep_player_on_screen(uint32_t depth)
 				if (OBJECT(current_object)->kind != 1u)
 					sound_id = 0x4Cu;
 			}
-			play_sound(sound_id, &ignored, &ignored);
+			play_sound(sound_id, &ignored, &ignored_2);
 			PLAYER(current_player)->flags |= 0x20u;
 		}
 	}
@@ -692,7 +692,7 @@ uint32_t push_player_from_screen_edge(void)
 void compute_scroll_drift(uint32_t block, uint8_t drift_byte)
 {
 	uint16_t dy = 0;
-	uint32_t divisor = 0, drift_angle = 0, ignored = 0, scroll_angle = 0, slope = 0, vx = 0, vy = 0;
+	uint32_t divisor = 0, drift_angle = 0, ignored = 0, ignored_2 = 0, scroll_angle = 0, slope = 0, vx = 0, vy = 0;
 
 	if (scroll_drift_block == block && scroll_drift_vx == (uint32_t)camera_velocity_x && scroll_drift_vy == (uint32_t)camera_velocity_y)
 		return;
@@ -707,11 +707,11 @@ void compute_scroll_drift(uint32_t block, uint8_t drift_byte)
 		scroll_drift_speed = (vx & 0xFFFFu) << 13;
 		drift_angle = (int32_t)camera_velocity_x >> 9;
 		dy = (uint16_t)((int32_t)camera_velocity_y >> 8);
-		angle_of_vector(dy, &drift_angle, &ignored);
+		angle_of_vector(dy, &drift_angle, &ignored_2);
 		scroll_drift_direction = (drift_angle + 0x80u) & 0x3FFu;
 		scroll_angle = (int32_t)camera_velocity_x >> 5;
 		dy = (uint16_t)((int32_t)camera_velocity_y >> 5);
-		angle_of_vector(dy, &scroll_angle, &ignored);
+		angle_of_vector(dy, &scroll_angle, &ignored_2);
 		camera_scroll_direction = scroll_angle;
 		scroll_drift_vx = camera_velocity_x;
 		scroll_drift_vy = camera_velocity_y;
@@ -732,7 +732,7 @@ void compute_scroll_drift(uint32_t block, uint8_t drift_byte)
 	scroll_drift_direction = (uint32_t)FLOOR_BLOCK(scroll_drift_block)->travel_direction << 8;
 	scroll_angle = (int32_t)camera_velocity_x >> 5;
 	dy = (uint16_t)((int32_t)camera_velocity_y >> 5);
-	angle_of_vector(dy, &scroll_angle, &ignored);
+	angle_of_vector(dy, &scroll_angle, &ignored_2);
 	camera_scroll_direction = scroll_angle;
 	scroll_drift_vx = camera_velocity_x;
 	scroll_drift_vy = camera_velocity_y;
@@ -744,15 +744,15 @@ void compute_scroll_drift(uint32_t block, uint8_t drift_byte)
 void slip_effect_update(void)
 {
 	uint8_t bucket = 0;
-	uint32_t ignored = 0;
+	uint32_t ignored = 0, ignored_2 = 0, ignored_3 = 0, ignored_4 = 0;
 
-	animate(&ignored, &ignored, &ignored);
+	animate(&ignored, &ignored_2, &ignored_3);
 	if (OBJECT(current_object)->animation_frame == 0u)
 	{
 		delete_current_object();
 		return;
 	}
-	update_screen_position(&ignored, &ignored);
+	update_screen_position(&ignored_4, &ignored);
 	if ((int16_t)OBJECT(current_object)->direction >= 2)
 	{
 		bucket = 0u;
@@ -769,7 +769,7 @@ void slip_effect_update(void)
 uint32_t set_speed_from_trackball(void)
 {
 	uint16_t trackball_y_2 = 0;
-	uint32_t ignored = 0, speed = 0, trackball_angle = 0, trackball_y = 0;
+	uint32_t ignored = 0, ignored_2 = 0, speed = 0, trackball_angle = 0, trackball_y = 0;
 
 	read_player_trackball();
 	speed = PLAYER(current_player)->trackball_x;
@@ -783,7 +783,7 @@ uint32_t set_speed_from_trackball(void)
 	OBJECT(current_object)->speed = speed;
 	trackball_angle = (uint16_t)PLAYER(current_player)->trackball_x;
 	trackball_y_2 = (uint16_t)PLAYER(current_player)->trackball_y;
-	angle_of_vector(trackball_y_2, &trackball_angle, &ignored);
+	angle_of_vector(trackball_y_2, &trackball_angle, &ignored_2);
 	OBJECT(current_object)->direction = (trackball_angle + 0x80u) & 0x3FFu;
 	return set_speed_from_direction();
 }
@@ -793,7 +793,7 @@ uint32_t set_speed_from_trackball(void)
 uint32_t set_climb_speed_from_trackball(void)
 {
 	uint16_t trackball_y_2 = 0;
-	uint32_t ignored = 0, speed = 0, trackball_angle = 0, trackball_y = 0;
+	uint32_t ignored = 0, ignored_2 = 0, speed = 0, trackball_angle = 0, trackball_y = 0;
 
 	read_player_trackball();
 	speed = PLAYER(current_player)->trackball_x;
@@ -807,7 +807,7 @@ uint32_t set_climb_speed_from_trackball(void)
 	OBJECT(current_object)->speed = speed;
 	trackball_angle = (uint16_t)PLAYER(current_player)->trackball_x;
 	trackball_y_2 = (uint16_t)PLAYER(current_player)->trackball_y;
-	angle_of_vector(trackball_y_2, &trackball_angle, &ignored);
+	angle_of_vector(trackball_y_2, &trackball_angle, &ignored_2);
 	OBJECT(current_object)->direction = trackball_angle & 0x3FFu;
 	return set_speed_from_direction();
 }
@@ -1120,9 +1120,8 @@ void push_player_out_of_wall(uint32_t *p_angle, uint32_t *p_push_direction, uint
 {
 	uint32_t angle = *p_angle;
 	uint16_t push_direction = (uint16_t)*p_push_direction;
-	uint32_t record_index = *p_record_index;
 	uint16_t drift_bounce_direction = 0;
-	uint32_t drift_angle = 0, rebound_direction = 0, wall_push_direction = 0, wall_record_index = 0;
+	uint32_t drift_angle = 0, rebound_direction = 0, wall_push_direction = 0;
 	uint8_t wall_timer = 0;
 
 	if (PLAYER(current_player)->path_request != 0u || PLAYER(current_player)->path != 0u || all_players_path_request != 0u)
@@ -1194,10 +1193,9 @@ void push_player_out_of_wall(uint32_t *p_angle, uint32_t *p_push_direction, uint
 	{
 		if (OBJECT(current_object)->floor_type == 4u || OBJECT(current_object)->speed_int >= 0x200)
 		{
-			push_player_out_of_wall_deflect(&angle, &wall_push_direction, &wall_record_index);
+			push_player_out_of_wall_deflect(&angle, &wall_push_direction, p_record_index);
 			*p_angle = angle;
 			*p_push_direction = (*p_push_direction & 0xFFFF0000u) | (wall_push_direction & 0xFFFFu);
-			*p_record_index = wall_record_index;
 			return;
 		}
 		angle = 0u;
@@ -1221,18 +1219,16 @@ void push_player_out_of_wall(uint32_t *p_angle, uint32_t *p_push_direction, uint
 	{
 		drift_bounce_direction -= 0x80u;
 		scroll_drift_direction = drift_bounce_direction & 0x3FFu;
-		push_player_out_of_wall_deflect(&drift_angle, &wall_push_direction, &wall_record_index);
+		push_player_out_of_wall_deflect(&drift_angle, &wall_push_direction, p_record_index);
 		*p_angle = drift_angle;
 		*p_push_direction = (*p_push_direction & 0xFFFF0000u) | (wall_push_direction & 0xFFFFu);
-		*p_record_index = wall_record_index;
 		return;
 	}
 	drift_bounce_direction += 0x80u;
 	scroll_drift_direction = drift_bounce_direction & 0x3FFu;
-	push_player_out_of_wall_deflect(&drift_angle, &wall_push_direction, &wall_record_index);
+	push_player_out_of_wall_deflect(&drift_angle, &wall_push_direction, p_record_index);
 	*p_angle = drift_angle;
 	*p_push_direction = (*p_push_direction & 0xFFFF0000u) | (wall_push_direction & 0xFFFFu);
-	*p_record_index = wall_record_index;
 }
 
 /* Turns the player along the wall: direction = the wall's sonic_bounce_records angle - or + 0x80, by the
@@ -1741,7 +1737,7 @@ void shadow_start(void)
 void shadow_update(void)
 {
 	uint16_t priority_bits = 0;
-	uint32_t depth = 0, ignored = 0, offset_y = 0, player = 0, point_x = 0, point_y = 0, scaled_offset_y = 0, scaled_player = 0, scene_player = 0, sprite_scale = 0, z = 0;
+	uint32_t depth = 0, ignored = 0, ignored_2 = 0, ignored_3 = 0, ignored_4 = 0, offset_y = 0, player = 0, point_x = 0, point_y = 0, scaled_offset_y = 0, scaled_player = 0, scene_player = 0, sprite_scale = 0, z = 0;
 	uint8_t flicker_timer = 0;
 
 	player = PLAYER_BLOCK(1) + ((uint32_t)OBJECT(current_object)->player << 7) * 4u;
@@ -1771,7 +1767,7 @@ void shadow_update(void)
 				OBJECT(current_object)->sprite_palette |= 0x2000u;
 				OBJECT(current_object)->sprite_flags = 0x1188u;
 				OBJECT(current_object)->sprite_flags |= OBJECT(current_player)->sprite_flags & 0x40u;
-				update_screen_position(&ignored, &ignored);
+				update_screen_position(&ignored, &ignored_2);
 				depth = (uint16_t)(OBJECT(current_object)->screen_y - 0x18u);
 				queue_sprite_at_depth(&ignored, &depth);
 			}
@@ -1795,8 +1791,8 @@ void shadow_update(void)
 				OBJECT(current_object)->sprite_palette &= 0x9FFFu;
 				OBJECT(current_object)->sprite_palette |= priority_bits;
 				OBJECT(current_object)->animation = pit_sinking_shadow_animation_ADDRESS;
-				animate(&ignored, &ignored, &ignored);
-				update_screen_position(&ignored, &ignored);
+				animate(&ignored_2, &ignored_3, &ignored_4);
+				update_screen_position(&ignored, &ignored_2);
 				depth = (uint16_t)(OBJECT(current_object)->screen_y + 0x10u);
 				queue_sprite_at_depth(&ignored, &depth);
 				draw_attack_effect(player);
@@ -1902,7 +1898,7 @@ void shadow_update(void)
 			z = OBJECT(current_player)->floor_z;
 		point_x = OBJECT(current_player)->x;
 		point_y = OBJECT(current_player)->y;
-		project_point(z, &ignored, &point_x, &point_y);
+		project_point(z, &ignored_2, &point_x, &point_y);
 		PLAYER(player)->ground_clip_bottom = point_y;
 		OBJECT(current_object)->sprite_flags = 0u;
 		OBJECT(current_object)->flags &= ~0x80000u;
@@ -1912,8 +1908,8 @@ void shadow_update(void)
 		OBJECT(current_object)->sprite_palette &= 0x9FFFu;
 		OBJECT(current_object)->sprite_palette |= priority_bits;
 		OBJECT(current_object)->animation = sinking_shadow_animation_ADDRESS;
-		animate(&ignored, &ignored, &ignored);
-		update_screen_position(&ignored, &ignored);
+		animate(&ignored_2, &ignored_3, &ignored_4);
+		update_screen_position(&ignored, &ignored_2);
 		depth = (uint16_t)(OBJECT(current_object)->screen_y + 0x10u);
 		queue_sprite_at_depth(&ignored, &depth);
 		draw_attack_effect(player);
@@ -3068,7 +3064,7 @@ void start_climb_at_spawn(uint32_t climbed_height)
    its height above climb_base_z; state 0xA, substate 3. */
 void start_climb(void)
 {
-	uint32_t animation = 0, ignored = 0;
+	uint32_t animation = 0, ignored = 0, ignored_2 = 0;
 
 	if (OBJECT(current_object)->floor_type != 2u)
 		return;
@@ -3091,7 +3087,7 @@ void start_climb(void)
 	PLAYER(current_player)->climb_base_z_fraction = 0u;
 	PLAYER(current_player)->climb_remaining = FLOOR_ATTRIBUTE_RECORD(floor_types_ADDRESS + OBJECT(current_object)->floor_attribute)->height;
 	PLAYER(current_player)->climb_remaining -= PLAYER(current_player)->climb_base_z_int - OBJECT(current_object)->z_int;
-	project_object(&ignored, &ignored);
+	project_object(&ignored, &ignored_2);
 	PLAYER(current_player)->screen_x_int = OBJECT(current_object)->projected_x;
 	PLAYER(current_player)->screen_x_fraction = 0u;
 	PLAYER(current_player)->step_accumulator = 0;
@@ -3105,7 +3101,7 @@ void start_climb(void)
 void add_push_to_player_motion(void)
 {
 	uint16_t dy = 0;
-	uint32_t angle = 0, ignored = 0, length = 0, sum_dx = 0, sum_dy = 0;
+	uint32_t angle = 0, ignored = 0, ignored_2 = 0, length = 0, sum_dx = 0, sum_dy = 0;
 
 	if (PLAYER(current_player)->push_xy == 0u)
 	{
@@ -3134,7 +3130,7 @@ void add_push_to_player_motion(void)
 		OBJECT(current_object)->speed = 0x5000000;
 	sum_dx = push_motion_x;
 	dy = (uint16_t)push_motion_y;
-	angle_of_vector(dy, &sum_dx, &ignored);
+	angle_of_vector(dy, &sum_dx, &ignored_2);
 	PLAYER(current_player)->heading = sum_dx;
 	PLAYER(current_player)->push_xy = 0u;
 	PLAYER(current_player)->push_y = 0;
@@ -3165,7 +3161,7 @@ void apply_floor_push(void)
    (slip_piece_update). */
 uint32_t spawn_slip_piece(uint32_t piece)
 {
-	uint32_t free_count = 0, ignored = 0;
+	uint32_t free_count = 0, ignored = 0, ignored_2 = 0;
 
 	allocate_object(&free_count, &piece);
 	if (free_count == 0u)
@@ -3186,7 +3182,7 @@ uint32_t spawn_slip_piece(uint32_t piece)
 	OBJECT(piece)->y = OBJECT(current_object)->y;
 	OBJECT(piece)->z = OBJECT(current_object)->z;
 	current_object = piece;
-	project_object(&ignored, &ignored);
+	project_object(&ignored, &ignored_2);
 	current_object = object_cursor;
 	return piece;
 }
@@ -3197,7 +3193,7 @@ uint32_t spawn_slip_piece(uint32_t piece)
 void slip_piece_update(void)
 {
 	uint8_t bucket = 0;
-	uint32_t ignored = 0, off_screen = 0;
+	uint32_t ignored = 0, ignored_2 = 0, off_screen = 0;
 	uint16_t speed_x_fraction = 0;
 
 	off_screen = is_off_screen();
@@ -3213,10 +3209,10 @@ void slip_piece_update(void)
 		OBJECT(current_object)->speed_z += 0x6000u;
 		OBJECT(current_object)->z += OBJECT(current_object)->speed_z;
 	}
-	update_screen_position(&ignored, &ignored);
+	update_screen_position(&ignored, &ignored_2);
 	if ((int16_t)OBJECT(current_object)->direction >= 2)
 	{
-		ignored = queue_sprite_at_base(ignored);
+		ignored_2 = queue_sprite_at_base(ignored_2);
 		return;
 	}
 	bucket = 0xFFu;
@@ -3282,13 +3278,13 @@ void slip_pieces_update(void)
 {
 	uint8_t bucket = 0;
 	uint16_t margin_x = 0, margin_y = 0;
-	uint32_t ignored = 0, off_screen = 0;
+	uint32_t ignored = 0, ignored_2 = 0, ignored_3 = 0, ignored_4 = 0, off_screen = 0;
 
 	OBJECT(current_object)->x += OBJECT(current_object)->speed_x;
 	OBJECT(current_object)->y += OBJECT(current_object)->speed_y;
 	OBJECT(current_object)->speed_z += 0x6000u;
 	OBJECT(current_object)->z += OBJECT(current_object)->speed_z;
-	project_object(&ignored, &ignored);
+	project_object(&ignored, &ignored_2);
 	margin_x = 0x20u;
 	margin_y = 0x50u;
 	off_screen = is_off_screen_margin(margin_x, margin_y);
@@ -3297,10 +3293,10 @@ void slip_pieces_update(void)
 		delete_current_object();
 		return;
 	}
-	animate(&ignored, &ignored, &ignored);
+	animate(&ignored_2, &ignored_3, &ignored_4);
 	if ((int16_t)OBJECT(current_object)->direction >= 2)
 	{
-		ignored = queue_sprite_at_base(ignored);
+		ignored_2 = queue_sprite_at_base(ignored_2);
 		return;
 	}
 	bucket = 0xFFu;
@@ -3466,7 +3462,7 @@ void check_player_contacts(uint32_t *p_health_limit, uint32_t *p_cursor)
 {
 	uint8_t new_substate = 0, sound_id = 0;
 	uint16_t dy = 0, held_frame = 0, saved_sides = 0;
-	uint32_t carried_x = 0, carried_y = 0, distance = 0, ignored = 0, joined_health_setting = 0, move_angle = 0, object = 0, sides = 0;
+	uint32_t carried_x = 0, carried_y = 0, distance = 0, ignored = 0, ignored_2 = 0, ignored_3 = 0, joined_health_setting = 0, move_angle = 0, object = 0, sides = 0;
 	uint32_t stored1 = 0, flags = 0, flags_2 = 0;
 
 	if (PLAYER(current_player)->path_request != 0u || all_players_path_request != 0u || (PLAYER(current_player)->path != 0u && (PLAYER(current_player)->path < 0x14 || PLAYER(current_player)->path > 0x16)) || (OBJECT(current_object)->flags & 4u) == 0u)
@@ -3829,7 +3825,7 @@ void check_player_contacts(uint32_t *p_health_limit, uint32_t *p_cursor)
 				if (OBJECT(current_object)->kind != 1u)
 					sound_id = 0x56u;
 			}
-			play_sound(sound_id, &ignored, &ignored);
+			play_sound(sound_id, &ignored, &ignored_2);
 		}
 		distance = (uint16_t)OBJECT(current_object)->touch_distance;
 		square_root(&distance, &ignored);
@@ -3849,14 +3845,14 @@ void check_player_contacts(uint32_t *p_health_limit, uint32_t *p_cursor)
 					if (OBJECT(current_object)->kind != 1u)
 						sound_id = 0x3Du;
 				}
-				play_sound(sound_id, &ignored, &ignored);
+				play_sound(sound_id, &ignored, &ignored_2);
 				*p_cursor = spawn_sink_swirl(*p_cursor);
 			}
 		}
 		object = LINKED(current_object, OBJECT(current_object)->touched_by);
 		move_angle = (uint16_t)(OBJECT(object)->x_int - OBJECT(current_object)->x_int);
 		dy = (uint16_t)(OBJECT(object)->y_int - OBJECT(current_object)->y_int);
-		angle_of_vector(dy, &move_angle, &ignored);
+		angle_of_vector(dy, &move_angle, &ignored_3);
 		move_angle = (uint16_t)(move_angle - 0x80u) & 0x3FFu;
 		PLAYER(current_player)->push_x = (int32_t)(sine_table[move_angle] * 0x6000u) >> 16;
 		*p_health_limit = (int32_t)(cosine_table[move_angle] * 0x6000u) >> 16;

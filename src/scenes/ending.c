@@ -3,7 +3,7 @@
  *    Description: stage 0x11, the ending: the runners, the tower and the explosions, the flash to white, the credits (portraits, name plates, scrolling blocks), Eggman flying away and the three running across
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    22-10-2026
+ *    Modified:    23-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -19,7 +19,7 @@ void build_ending_scene(uint32_t *p_write_index_address, uint32_t *p_tile_bank_b
 {
 	uint32_t scene_actor = *p_scene_actor;
 	uint8_t is_8bpp = 0, sound_id = 0;
-	uint32_t ignored = 0, script = 0;
+	uint32_t ignored_2 = 0, ignored_3 = 0, ignored_4 = 0, ignored_5 = 0, script = 0;
 	uint8_t io_cnt_bits = 0;
 
 	is_8bpp = (uint8_t)(ending_scene_step * 3u);
@@ -31,11 +31,11 @@ void build_ending_scene(uint32_t *p_write_index_address, uint32_t *p_tile_bank_b
 		display_off_frames = 0x10u;
 		*p_color = set_stage_layer_mixing();
 		clear_sprite_buckets();
-		clear_bitmap_layer(is_8bpp, &ignored, p_color, &ignored, p_row_pairs_left, p_blocks_per_row, &ignored);
+		clear_bitmap_layer(is_8bpp, &ignored_2, p_color, &ignored_3, p_row_pairs_left, p_blocks_per_row, &ignored_4);
 		init_video_registers();
 		load_stage_palette_set(p_tile_bank_bits, &scene_actor);
 		sound_id = 0x94u;
-		queue_sound(sound_id, &ignored, p_write_index_address);
+		queue_sound(sound_id, &ignored_2, p_write_index_address);
 		color_offset_red = 0x20u;
 		color_offset_blue = 0x20u;
 		color_offset_green = 0x20u;
@@ -77,38 +77,38 @@ void build_ending_scene(uint32_t *p_write_index_address, uint32_t *p_tile_bank_b
 		mem_write16(video_clip_1_top, 0u);
 		mem_write16(video_clip_1_bottom, 0u);
 		script = blue_sky_script_ADDRESS;
-		run_vram_script(&ignored, &script, &scene_actor);
+		run_vram_script(&ignored_2, &script, &scene_actor);
 		script = aerial_city_script_ADDRESS;
-		run_vram_script(&ignored, &script, &scene_actor);
+		run_vram_script(&ignored_2, &script, &scene_actor);
 		script = sonic_head_pattern_script_ADDRESS;
-		run_vram_script(&ignored, &script, &scene_actor);
+		run_vram_script(&ignored_2, &script, &scene_actor);
 		script = ending_eggman_machine_script_ADDRESS;
-		run_vram_script(&ignored, &script, &scene_actor);
+		run_vram_script(&ignored_2, &script, &scene_actor);
 		script = ending_logo_script_ADDRESS;
-		run_vram_script(&ignored, &script, &scene_actor);
+		run_vram_script(&ignored_2, &script, &scene_actor);
 		script = ending_bars_script_ADDRESS;
-		run_vram_script(&ignored, &script, &scene_actor);
+		run_vram_script(&ignored_2, &script, &scene_actor);
 		nbg0_pages = 0x8080707u;
 		nbg1_pages = 0x1010101u;
 		nbg2_pages = 0x5050505u;
 		break;
 	case 1:
-		allocate_object_outside_loop(&ignored, &scene_actor);
+		allocate_object_outside_loop(&ignored_5, &scene_actor);
 		OBJECT(scene_actor)->handler = ending_tower_animate_ADDRESS;
 		init_ending_scene_object(scene_actor);
-		allocate_object_outside_loop(&ignored, &scene_actor);
+		allocate_object_outside_loop(&ignored_5, &scene_actor);
 		OBJECT(scene_actor)->handler = ending_horizon_show_ADDRESS;
 		init_ending_scene_object(scene_actor);
-		allocate_object_outside_loop(&ignored, &scene_actor);
+		allocate_object_outside_loop(&ignored_5, &scene_actor);
 		OBJECT(scene_actor)->handler = ending_sonic_run_forward_ADDRESS;
 		init_ending_scene_object(scene_actor);
-		allocate_object_outside_loop(&ignored, &scene_actor);
+		allocate_object_outside_loop(&ignored_5, &scene_actor);
 		OBJECT(scene_actor)->handler = ending_ray_run_forward_ADDRESS;
 		init_ending_scene_object(scene_actor);
-		allocate_object_outside_loop(&ignored, &scene_actor);
+		allocate_object_outside_loop(&ignored_5, &scene_actor);
 		OBJECT(scene_actor)->handler = ending_mighty_run_forward_ADDRESS;
 		init_ending_scene_object(scene_actor);
-		allocate_object_outside_loop(&ignored, &scene_actor);
+		allocate_object_outside_loop(&ignored_5, &scene_actor);
 		OBJECT(scene_actor)->handler = ending_road_scroll_ADDRESS;
 		init_ending_scene_object(scene_actor);
 		break;
@@ -189,12 +189,12 @@ void ending_tower_animate(void)
 void ending_debris_1_fly(void)
 {
 	uint8_t sound_id = 0;
-	uint32_t ignored = 0, path = 0;
+	uint32_t ignored = 0, ignored_2 = 0, path = 0;
 
 	if (OBJECT(current_object)->ending.started == 0u)
 	{
 		sound_id = 0xBu;
-		queue_sound(sound_id, &ignored, &ignored);
+		queue_sound(sound_id, &ignored, &ignored_2);
 		OBJECT(current_object)->ending.started++;
 		OBJECT(current_object)->timer = 0;
 	}
@@ -209,12 +209,12 @@ void ending_debris_1_fly(void)
 void ending_debris_2_fly(void)
 {
 	uint8_t sound_id = 0;
-	uint32_t ignored = 0, path = 0;
+	uint32_t ignored = 0, ignored_2 = 0, path = 0;
 
 	if (OBJECT(current_object)->ending.started == 0u)
 	{
 		sound_id = 0xBu;
-		queue_sound(sound_id, &ignored, &ignored);
+		queue_sound(sound_id, &ignored, &ignored_2);
 		OBJECT(current_object)->ending.started++;
 		OBJECT(current_object)->timer = 0;
 	}
@@ -228,12 +228,12 @@ void ending_debris_2_fly(void)
 void ending_debris_3_fly(void)
 {
 	uint8_t sound_id = 0;
-	uint32_t ignored = 0, path = 0;
+	uint32_t ignored = 0, ignored_2 = 0, path = 0;
 
 	if (OBJECT(current_object)->ending.started == 0u)
 	{
 		sound_id = 0xBu;
-		queue_sound(sound_id, &ignored, &ignored);
+		queue_sound(sound_id, &ignored, &ignored_2);
 		OBJECT(current_object)->ending.started++;
 		OBJECT(current_object)->timer = 0;
 	}
@@ -248,12 +248,12 @@ void ending_debris_3_fly(void)
 void ending_tower_blast_1(void)
 {
 	uint8_t sound_id = 0;
-	uint32_t ignored = 0;
+	uint32_t ignored = 0, ignored_2 = 0;
 
 	if (OBJECT(current_object)->ending.started == 0u)
 	{
 		sound_id = 0xAu;
-		queue_sound(sound_id, &ignored, &ignored);
+		queue_sound(sound_id, &ignored, &ignored_2);
 		start_ending_blast();
 	}
 	OBJECT(current_object)->screen_x = 0x90;
@@ -265,12 +265,12 @@ void ending_tower_blast_1(void)
 void ending_tower_blast_2(void)
 {
 	uint8_t sound_id = 0;
-	uint32_t ignored = 0;
+	uint32_t ignored = 0, ignored_2 = 0;
 
 	if (OBJECT(current_object)->ending.started == 0u)
 	{
 		sound_id = 0xAu;
-		queue_sound(sound_id, &ignored, &ignored);
+		queue_sound(sound_id, &ignored, &ignored_2);
 		start_ending_blast();
 	}
 	OBJECT(current_object)->screen_x = 0xA1;
@@ -282,12 +282,12 @@ void ending_tower_blast_2(void)
 void ending_tower_blast_3(void)
 {
 	uint8_t sound_id = 0;
-	uint32_t ignored = 0;
+	uint32_t ignored = 0, ignored_2 = 0;
 
 	if (OBJECT(current_object)->ending.started == 0u)
 	{
 		sound_id = 0xAu;
-		queue_sound(sound_id, &ignored, &ignored);
+		queue_sound(sound_id, &ignored, &ignored_2);
 		start_ending_blast();
 	}
 	OBJECT(current_object)->screen_x = 0xAE;
@@ -300,12 +300,12 @@ void ending_tower_blast_3(void)
 void ending_horizon_blast_1(void)
 {
 	uint8_t sound_id = 0;
-	uint32_t ignored = 0;
+	uint32_t ignored = 0, ignored_2 = 0;
 
 	if (OBJECT(current_object)->ending.started == 0u)
 	{
 		sound_id = 9u;
-		queue_sound(sound_id, &ignored, &ignored);
+		queue_sound(sound_id, &ignored, &ignored_2);
 		start_ending_blast();
 	}
 	OBJECT(current_object)->screen_x = 0x35;
@@ -317,12 +317,12 @@ void ending_horizon_blast_1(void)
 void ending_horizon_blast_2(void)
 {
 	uint8_t sound_id = 0;
-	uint32_t ignored = 0;
+	uint32_t ignored = 0, ignored_2 = 0;
 
 	if (OBJECT(current_object)->ending.started == 0u)
 	{
 		sound_id = 9u;
-		queue_sound(sound_id, &ignored, &ignored);
+		queue_sound(sound_id, &ignored, &ignored_2);
 		start_ending_blast();
 	}
 	OBJECT(current_object)->screen_x = 0x52;
@@ -334,12 +334,12 @@ void ending_horizon_blast_2(void)
 void ending_horizon_blast_3(void)
 {
 	uint8_t sound_id = 0;
-	uint32_t ignored = 0;
+	uint32_t ignored = 0, ignored_2 = 0;
 
 	if (OBJECT(current_object)->ending.started == 0u)
 	{
 		sound_id = 9u;
-		queue_sound(sound_id, &ignored, &ignored);
+		queue_sound(sound_id, &ignored, &ignored_2);
 		start_ending_blast();
 	}
 	OBJECT(current_object)->screen_x = 0x73;
@@ -351,12 +351,12 @@ void ending_horizon_blast_3(void)
 void ending_horizon_blast_4(void)
 {
 	uint8_t sound_id = 0;
-	uint32_t ignored = 0;
+	uint32_t ignored = 0, ignored_2 = 0;
 
 	if (OBJECT(current_object)->ending.started == 0u)
 	{
 		sound_id = 9u;
-		queue_sound(sound_id, &ignored, &ignored);
+		queue_sound(sound_id, &ignored, &ignored_2);
 		start_ending_blast();
 	}
 	OBJECT(current_object)->screen_x = 0x93;
@@ -368,12 +368,12 @@ void ending_horizon_blast_4(void)
 void ending_horizon_blast_5(void)
 {
 	uint8_t sound_id = 0;
-	uint32_t ignored = 0;
+	uint32_t ignored = 0, ignored_2 = 0;
 
 	if (OBJECT(current_object)->ending.started == 0u)
 	{
 		sound_id = 9u;
-		queue_sound(sound_id, &ignored, &ignored);
+		queue_sound(sound_id, &ignored, &ignored_2);
 		start_ending_blast();
 	}
 	OBJECT(current_object)->screen_x = 0xAD;
@@ -385,12 +385,12 @@ void ending_horizon_blast_5(void)
 void ending_horizon_blast_6(void)
 {
 	uint8_t sound_id = 0;
-	uint32_t ignored = 0;
+	uint32_t ignored = 0, ignored_2 = 0;
 
 	if (OBJECT(current_object)->ending.started == 0u)
 	{
 		sound_id = 9u;
-		queue_sound(sound_id, &ignored, &ignored);
+		queue_sound(sound_id, &ignored, &ignored_2);
 		start_ending_blast();
 	}
 	OBJECT(current_object)->screen_x = 0xC6;
@@ -402,12 +402,12 @@ void ending_horizon_blast_6(void)
 void ending_horizon_blast_7(void)
 {
 	uint8_t sound_id = 0;
-	uint32_t ignored = 0;
+	uint32_t ignored = 0, ignored_2 = 0;
 
 	if (OBJECT(current_object)->ending.started == 0u)
 	{
 		sound_id = 9u;
-		queue_sound(sound_id, &ignored, &ignored);
+		queue_sound(sound_id, &ignored, &ignored_2);
 		start_ending_blast();
 	}
 	OBJECT(current_object)->screen_x = 0xCF;
@@ -419,12 +419,12 @@ void ending_horizon_blast_7(void)
 void ending_horizon_blast_8(void)
 {
 	uint8_t sound_id = 0;
-	uint32_t ignored = 0;
+	uint32_t ignored = 0, ignored_2 = 0;
 
 	if (OBJECT(current_object)->ending.started == 0u)
 	{
 		sound_id = 9u;
-		queue_sound(sound_id, &ignored, &ignored);
+		queue_sound(sound_id, &ignored, &ignored_2);
 		start_ending_blast();
 	}
 	OBJECT(current_object)->screen_x = 0xE4;
@@ -437,7 +437,7 @@ void ending_horizon_blast_8(void)
 void ending_horizon_blast_9(void)
 {
 	uint8_t sound_id = 0;
-	uint32_t ignored = 0;
+	uint32_t ignored = 0, ignored_2 = 0;
 
 	if (OBJECT(current_object)->ending.started != 0u)
 	{
@@ -447,7 +447,7 @@ void ending_horizon_blast_9(void)
 		return;
 	}
 	sound_id = 9u;
-	queue_sound(sound_id, &ignored, &ignored);
+	queue_sound(sound_id, &ignored, &ignored_2);
 	start_ending_blast();
 	OBJECT(current_object)->screen_x = 0xF8;
 	OBJECT(current_object)->screen_y = 0xB0;
@@ -470,7 +470,7 @@ void ending_big_explosion(void)
 {
 	uint8_t sound_id = 0;
 	uint16_t speed_x = 0;
-	uint32_t frame_record = 0, ignored = 0, second_frame_record = 0, second_object = 0;
+	uint32_t frame_record = 0, ignored = 0, ignored_2 = 0, ignored_3 = 0, second_frame_record = 0, second_object = 0;
 
 	if (OBJECT(current_object)->ending.started == 0u)
 	{
@@ -483,7 +483,7 @@ void ending_big_explosion(void)
 		OBJECT(current_object)->sprite_layer = 9u;
 		OBJECT(current_object)->sprite_scale = 0x100u;
 		OBJECT(current_object)->sprite_palette = 0x1100u;
-		allocate_object_2(&ignored, &ignored, &second_object);
+		allocate_object_2(&ignored, &ignored_2, &second_object);
 		OBJECT(current_object)->speed_x = second_object;
 		current_object = second_object;
 		OBJECT(current_object)->screen_x = 0xA1;
@@ -492,7 +492,7 @@ void ending_big_explosion(void)
 		OBJECT(current_object)->sprite_scale = 0x100u;
 		OBJECT(current_object)->sprite_palette = 0x1100u;
 		sound_id = 7u;
-		queue_sound(sound_id, &ignored, &ignored);
+		queue_sound(sound_id, &ignored_3, &ignored_2);
 	}
 	current_object = object_cursor;
 	frame_record = ending_big_explosion_frames_ADDRESS + OBJECT(current_object)->ending.frame_index * 4u;
@@ -942,16 +942,16 @@ uint32_t load_credits_palettes(void)
 void ending_music_play(void)
 {
 	uint8_t sound_id = 0;
-	uint32_t cue_record = 0, ignored = 0;
+	uint32_t cue_record = 0, ignored = 0, ignored_2 = 0;
 
 	if (OBJECT(current_object)->ending.started == 0u)
 	{
 		OBJECT(current_object)->ending.started = 1u;
 		OBJECT(current_object)->timer = 0;
 		sound_id = 0x94u;
-		queue_sound(sound_id, &ignored, &ignored);
+		queue_sound(sound_id, &ignored, &ignored_2);
 		sound_id = 0x82u;
-		queue_sound(sound_id, &ignored, &ignored);
+		queue_sound(sound_id, &ignored, &ignored_2);
 		OBJECT(current_object)->sprite_offset_x = 0;
 		OBJECT(current_object)->sprite_offset_y = 0;
 		OBJECT(current_object)->ending.list_index = 0u;
@@ -965,7 +965,7 @@ void ending_music_play(void)
 	if (ENDING_MUSIC_CUE(cue_record)->time <= OBJECT(current_object)->timer)
 	{
 		sound_id = (uint8_t)ENDING_MUSIC_CUE(cue_record)->sound_id;
-		queue_sound(sound_id, &ignored, &ignored);
+		queue_sound(sound_id, &ignored, &ignored_2);
 		OBJECT(current_object)->ending.list_index++;
 	}
 	OBJECT(current_object)->timer++;
@@ -977,13 +977,13 @@ void ending_music_play(void)
 void ending_portrait_show(void)
 {
 	uint16_t speed_y = 0;
-	uint32_t backdrop_object = 0, ignored = 0, palette_record = 0, timed_record = 0;
+	uint32_t backdrop_object = 0, ignored = 0, ignored_2 = 0, palette_record = 0, timed_record = 0;
 
 	if (OBJECT(current_object)->ending.started == 0u)
 	{
 		OBJECT(current_object)->ending.started = 1u;
 		OBJECT(current_object)->timer = 0;
-		allocate_object_2(&ignored, &ignored, &backdrop_object);
+		allocate_object_2(&ignored, &ignored_2, &backdrop_object);
 		OBJECT(current_object)->speed_y = backdrop_object;
 	}
 	OBJECT(current_object)->timer++;
@@ -1032,7 +1032,7 @@ void ending_portrait_show(void)
    ending_name_plate_frames at (0xE8, 0xA3), NBG0 scrolling 1 a frame; at the end ending_window_open. */
 void ending_name_plate_show(void)
 {
-	uint32_t frame_record = 0, ignored = 0, object = 0;
+	uint32_t frame_record = 0, ignored = 0, ignored_2 = 0, object = 0;
 
 	if (OBJECT(current_object)->ending.started == 0u)
 	{
@@ -1042,7 +1042,7 @@ void ending_name_plate_show(void)
 		mem_write16(video_clip_1_right, 0x120u);
 		mem_write16(video_clip_1_top, 0x21u);
 		mem_write16(video_clip_1_bottom, 0x78u);
-		allocate_object_2(&ignored, &ignored, &object);
+		allocate_object_2(&ignored, &ignored_2, &object);
 		OBJECT(current_object)->z = object;
 	}
 	OBJECT(current_object)->timer++;
@@ -1085,7 +1085,7 @@ void ending_name_plate_show(void)
 void ending_credits_team_logo_scroll(void)
 {
 	uint16_t speed_y = 0;
-	uint32_t field_cursor = 0, ignored = 0, object = 0;
+	uint32_t field_cursor = 0, ignored = 0, ignored_2 = 0, object = 0;
 
 	if (OBJECT(current_object)->ending.started == 0u)
 	{
@@ -1102,7 +1102,7 @@ void ending_credits_team_logo_scroll(void)
 			field_cursor = OBJECT(object_cursor)->speed_x;
 			if (CREDIT_PART(field_cursor)->sprite_frame == 0xFFFFu)
 				break;
-			allocate_object_2(&ignored, &ignored, &object);
+			allocate_object_2(&ignored, &ignored_2, &object);
 			OBJECT(object)->sprite_frame = CREDIT_PART(field_cursor)->sprite_frame;
 			field_cursor += 2u;
 			OBJECT(object)->screen_y = CREDIT_PART(field_cursor - 0x2u)->screen_y;
@@ -1140,7 +1140,7 @@ void ending_credits_team_logo_scroll(void)
    scroll_credits_block does the rest. */
 void ending_credits_director_scroll(void)
 {
-	uint32_t field_cursor = 0, ignored = 0, object = 0;
+	uint32_t field_cursor = 0, ignored = 0, ignored_2 = 0, object = 0;
 
 	if (OBJECT(current_object)->ending.started != 0u)
 	{
@@ -1160,7 +1160,7 @@ void ending_credits_director_scroll(void)
 		field_cursor = OBJECT(object_cursor)->speed_x;
 		if (CREDIT_PART(field_cursor)->sprite_frame == 0xFFFFu)
 			break;
-		allocate_object_2(&ignored, &ignored, &object);
+		allocate_object_2(&ignored, &ignored_2, &object);
 		OBJECT(object)->sprite_frame = CREDIT_PART(field_cursor)->sprite_frame;
 		field_cursor += 2u;
 		OBJECT(object)->screen_y = CREDIT_PART(field_cursor - 0x2u)->screen_y;
@@ -1213,7 +1213,7 @@ void scroll_credits_block(void)
 void ending_credits_program_scroll(void)
 {
 	uint16_t animation = 0, part_3 = 0, speed_y = 0, z = 0;
-	uint32_t field_cursor = 0, ignored = 0, object = 0;
+	uint32_t field_cursor = 0, ignored = 0, ignored_2 = 0, object = 0;
 
 	if (OBJECT(current_object)->ending.started != 0u)
 	{
@@ -1262,7 +1262,7 @@ void ending_credits_program_scroll(void)
 		field_cursor = OBJECT(object_cursor)->speed_x;
 		if (CREDIT_PART(field_cursor)->sprite_frame == 0xFFFFu)
 			break;
-		allocate_object_2(&ignored, &ignored, &object);
+		allocate_object_2(&ignored, &ignored_2, &object);
 		OBJECT(object)->sprite_frame = CREDIT_PART(field_cursor)->sprite_frame;
 		field_cursor += 2u;
 		OBJECT(object)->screen_y = CREDIT_PART(field_cursor - 0x2u)->screen_y;
@@ -1284,7 +1284,7 @@ void ending_credits_program_scroll(void)
 void ending_credits_design_scroll(void)
 {
 	uint16_t animation = 0, part_3 = 0, speed_y = 0, x = 0, z = 0;
-	uint32_t field_cursor = 0, ignored = 0, object = 0;
+	uint32_t field_cursor = 0, ignored = 0, ignored_2 = 0, object = 0;
 
 	if (OBJECT(current_object)->ending.started != 0u)
 	{
@@ -1337,7 +1337,7 @@ void ending_credits_design_scroll(void)
 		field_cursor = OBJECT(object_cursor)->speed_x;
 		if (CREDIT_PART(field_cursor)->sprite_frame == 0xFFFFu)
 			break;
-		allocate_object_2(&ignored, &ignored, &object);
+		allocate_object_2(&ignored, &ignored_2, &object);
 		OBJECT(object)->sprite_frame = CREDIT_PART(field_cursor)->sprite_frame;
 		field_cursor += 2u;
 		OBJECT(object)->screen_y = CREDIT_PART(field_cursor - 0x2u)->screen_y;
@@ -1358,7 +1358,7 @@ void ending_credits_design_scroll(void)
 void ending_credits_sound_scroll(void)
 {
 	uint16_t animation = 0, part_3 = 0, speed_y = 0, z = 0;
-	uint32_t field_cursor = 0, ignored = 0, object = 0;
+	uint32_t field_cursor = 0, ignored = 0, ignored_2 = 0, object = 0;
 
 	if (OBJECT(current_object)->ending.started != 0u)
 	{
@@ -1407,7 +1407,7 @@ void ending_credits_sound_scroll(void)
 		field_cursor = OBJECT(object_cursor)->speed_x;
 		if (CREDIT_PART(field_cursor)->sprite_frame == 0xFFFFu)
 			break;
-		allocate_object_2(&ignored, &ignored, &object);
+		allocate_object_2(&ignored, &ignored_2, &object);
 		OBJECT(object)->sprite_frame = CREDIT_PART(field_cursor)->sprite_frame;
 		field_cursor += 2u;
 		OBJECT(object)->screen_y = CREDIT_PART(field_cursor - 0x2u)->screen_y;
@@ -1428,7 +1428,7 @@ void ending_credits_sound_scroll(void)
 void ending_credits_voice_actor_scroll(void)
 {
 	uint16_t animation = 0, part_3 = 0, speed_y = 0, x = 0, z = 0;
-	uint32_t field_cursor = 0, ignored = 0, object = 0;
+	uint32_t field_cursor = 0, ignored = 0, ignored_2 = 0, object = 0;
 
 	if (OBJECT(current_object)->ending.started != 0u)
 	{
@@ -1481,7 +1481,7 @@ void ending_credits_voice_actor_scroll(void)
 		field_cursor = OBJECT(object_cursor)->speed_x;
 		if (CREDIT_PART(field_cursor)->sprite_frame == 0xFFFFu)
 			break;
-		allocate_object_2(&ignored, &ignored, &object);
+		allocate_object_2(&ignored, &ignored_2, &object);
 		OBJECT(object)->sprite_frame = CREDIT_PART(field_cursor)->sprite_frame;
 		field_cursor += 2u;
 		OBJECT(object)->screen_y = CREDIT_PART(field_cursor - 0x2u)->screen_y;
@@ -1503,7 +1503,7 @@ void ending_credits_voice_actor_scroll(void)
 void ending_credits_special_thanks_scroll(void)
 {
 	uint16_t animation = 0, floor_z = 0, part_3 = 0, previous_floor_z = 0, speed_y = 0, x = 0, y = 0, z = 0;
-	uint32_t field_cursor = 0, ignored = 0, object = 0;
+	uint32_t field_cursor = 0, ignored = 0, ignored_2 = 0, object = 0;
 
 	if (OBJECT(current_object)->ending.started != 0u)
 	{
@@ -1568,7 +1568,7 @@ void ending_credits_special_thanks_scroll(void)
 		field_cursor = OBJECT(object_cursor)->speed_x;
 		if (CREDIT_PART(field_cursor)->sprite_frame == 0xFFFFu)
 			break;
-		allocate_object_2(&ignored, &ignored, &object);
+		allocate_object_2(&ignored, &ignored_2, &object);
 		OBJECT(object)->sprite_frame = CREDIT_PART(field_cursor)->sprite_frame;
 		field_cursor += 2u;
 		OBJECT(object)->screen_y = CREDIT_PART(field_cursor - 0x2u)->screen_y;
@@ -1709,7 +1709,7 @@ void ending_window_open(void)
    color_offset_red/green/blue; when done it starts ending_eggman_scene_fade_in and is removed. */
 void ending_credits_fade_out(void)
 {
-	uint32_t ignored = 0, object = 0;
+	uint32_t ignored_2 = 0, object = 0;
 
 	if (OBJECT(current_object)->ending.started == 0u)
 	{
@@ -1723,7 +1723,7 @@ void ending_credits_fade_out(void)
 	color_offset_2_green = color_offset_green;
 	if (fade_kind >= 0)
 		return;
-	allocate_object_outside_loop(&ignored, &object);
+	allocate_object_outside_loop(&ignored_2, &object);
 	OBJECT(object)->ending.started = 0u;
 	OBJECT(object)->handler = ending_eggman_scene_fade_in_ADDRESS;
 	delete_current_object();
@@ -1734,7 +1734,7 @@ void ending_credits_fade_out(void)
    ending_eggman_fly_in and is removed. */
 void ending_eggman_scene_fade_in(void)
 {
-	uint32_t ignored = 0, object = 0, script = 0;
+	uint32_t ignored = 0, ignored_2 = 0, object = 0, script = 0;
 
 	if (OBJECT(current_object)->ending.started != 0u)
 	{
@@ -1744,7 +1744,7 @@ void ending_eggman_scene_fade_in(void)
 		color_offset_2_green = color_offset_green;
 		if (fade_kind >= 0)
 			return;
-		allocate_object_outside_loop(&ignored, &object);
+		allocate_object_outside_loop(&ignored_2, &object);
 		OBJECT(object)->ending_eggman_fly_in.started = 0u;
 		OBJECT(object)->handler = ending_eggman_fly_in_ADDRESS;
 		delete_current_object();
@@ -1772,7 +1772,7 @@ void ending_eggman_fly_in(void)
 {
 	uint8_t sound_id = 0;
 	uint16_t exhaust_flame = 0, path = 0, puff_1 = 0, puff_2 = 0, puff_3 = 0, puff_4 = 0, puff_5 = 0, puff_6 = 0, puff_7 = 0, puff_8 = 0;
-	uint32_t ignored = 0, object = 0, object_2 = 0, y_entry = 0;
+	uint32_t ignored = 0, ignored_2 = 0, ignored_3 = 0, object = 0, object_2 = 0, y_entry = 0;
 
 	if (OBJECT(current_object)->ending_eggman_fly_in.started == 0u)
 	{
@@ -1782,33 +1782,33 @@ void ending_eggman_fly_in(void)
 		OBJECT(current_object)->screen_x = -0x20;
 		OBJECT(current_object)->ending_eggman_fly_in.path = ending_eggman_flight_path_ADDRESS;
 		OBJECT(current_object)->timer = 0x1E0;
-		allocate_object_2(&ignored, &ignored, &object);
+		allocate_object_2(&ignored, &ignored_2, &object);
 		OBJECT(current_object)->ending_eggman_fly_in.exhaust_flame = object;
-		allocate_object_2(&ignored, &ignored, &object);
+		allocate_object_2(&ignored, &ignored_2, &object);
 		OBJECT(current_object)->ending_eggman_fly_in.puff_1 = object;
 		init_eggman_smoke_puff(object);
-		allocate_object_2(&ignored, &ignored, &object);
+		allocate_object_2(&ignored, &ignored_2, &object);
 		OBJECT(current_object)->ending_eggman_fly_in.puff_2 = object;
 		init_eggman_smoke_puff(object);
-		allocate_object_2(&ignored, &ignored, &object);
+		allocate_object_2(&ignored, &ignored_2, &object);
 		OBJECT(current_object)->ending_eggman_fly_in.puff_3 = object;
 		init_eggman_smoke_puff(object);
-		allocate_object_2(&ignored, &ignored, &object);
+		allocate_object_2(&ignored, &ignored_2, &object);
 		OBJECT(current_object)->ending_eggman_fly_in.puff_4 = object;
 		init_eggman_smoke_puff(object);
-		allocate_object_2(&ignored, &ignored, &object);
+		allocate_object_2(&ignored, &ignored_2, &object);
 		OBJECT(current_object)->ending_eggman_fly_in.puff_5 = object;
 		init_eggman_smoke_puff(object);
 		OBJECT(object)->sprite_frame = 0x9B80u;
-		allocate_object_2(&ignored, &ignored, &object);
+		allocate_object_2(&ignored, &ignored_2, &object);
 		OBJECT(current_object)->ending_eggman_fly_in.puff_6 = object;
 		init_eggman_smoke_puff(object);
 		OBJECT(object)->sprite_frame = 0x9B78u;
-		allocate_object_2(&ignored, &ignored, &object);
+		allocate_object_2(&ignored, &ignored_2, &object);
 		OBJECT(current_object)->ending_eggman_fly_in.puff_7 = object;
 		init_eggman_smoke_puff(object);
 		OBJECT(object)->sprite_frame = 0x9B70u;
-		allocate_object_2(&ignored, &ignored, &object);
+		allocate_object_2(&ignored, &ignored_2, &object);
 		OBJECT(current_object)->ending_eggman_fly_in.puff_8 = object;
 		init_eggman_smoke_puff(object);
 		OBJECT(object)->sprite_frame = 0x9B68u;
@@ -1817,7 +1817,7 @@ void ending_eggman_fly_in(void)
 	if ((uint16_t)OBJECT(current_object)->timer == 0x104u)
 	{
 		sound_id = 0x75u;
-		queue_sound(sound_id, &ignored, &ignored);
+		queue_sound(sound_id, &ignored_3, &ignored_2);
 	}
 	if ((uint16_t)OBJECT(current_object)->timer != 0u)
 	{
@@ -1984,7 +1984,7 @@ void ending_eggman_turn(void)
    ending_close_up_fade_in and ending_eggman_fly_away and is removed. */
 void ending_eggman_scene_fade_out(void)
 {
-	uint32_t ignored = 0, object = 0;
+	uint32_t ignored_2 = 0, object = 0;
 
 	if (OBJECT(current_object)->ending.started == 0u)
 	{
@@ -1998,10 +1998,10 @@ void ending_eggman_scene_fade_out(void)
 	color_offset_2_green = color_offset_green;
 	if (fade_kind >= 0)
 		return;
-	allocate_object_outside_loop(&ignored, &object);
+	allocate_object_outside_loop(&ignored_2, &object);
 	OBJECT(object)->ending.started = 0u;
 	OBJECT(object)->handler = ending_close_up_fade_in_ADDRESS;
-	allocate_object_outside_loop(&ignored, &object);
+	allocate_object_outside_loop(&ignored_2, &object);
 	OBJECT(object)->ending.started = 0u;
 	OBJECT(object)->handler = ending_eggman_fly_away_ADDRESS;
 	delete_current_object();
@@ -2034,7 +2034,7 @@ void ending_eggman_fly_away(void)
 {
 	uint8_t sound_id = 0;
 	uint16_t halfwords = 0, line_dy = 0, scale_step = 0, speed_y = 0, z = 0;
-	uint32_t cycle = 0, half_width_squared = 0, ignored = 0, left_entry = 0, lines_left = 0, object = 0, palette_count = 0, right_entry = 0, source = 0;
+	uint32_t cycle = 0, half_width_squared = 0, ignored = 0, ignored_2 = 0, ignored_3 = 0, left_entry = 0, lines_left = 0, object = 0, palette_count = 0, right_entry = 0, source = 0;
 
 	if (OBJECT(current_object)->ending.started == 0u)
 	{
@@ -2051,7 +2051,7 @@ void ending_eggman_fly_away(void)
 		OBJECT(current_object)->sprite_flags = 0u;
 		OBJECT(current_object)->sprite_frame = 0x9AD8u;
 		OBJECT(current_object)->sprite_palette = 0x1230u;
-		allocate_object_2(&ignored, &ignored, &object);
+		allocate_object_2(&ignored, &ignored_2, &object);
 		OBJECT(current_object)->speed_y = object;
 		OBJECT(object)->screen_x = 0xA0;
 		OBJECT(object)->screen_y = 0x70;
@@ -2061,7 +2061,7 @@ void ending_eggman_fly_away(void)
 		OBJECT(object)->sprite_flags += 8u;
 		OBJECT(object)->sprite_frame = 0x9AD0u;
 		OBJECT(object)->sprite_palette = 0x1240u;
-		allocate_object_2(&ignored, &ignored, &object);
+		allocate_object_2(&ignored, &ignored_2, &object);
 		OBJECT(current_object)->z = object;
 		OBJECT(object)->screen_x = 0xA0;
 		OBJECT(object)->screen_y = 0x70;
@@ -2071,7 +2071,7 @@ void ending_eggman_fly_away(void)
 		OBJECT(object)->sprite_frame = 0x9B50u;
 		OBJECT(object)->sprite_palette = 0x1270u;
 		sound_id = 0x72u;
-		queue_sound(sound_id, &ignored, &ignored);
+		queue_sound(sound_id, &ignored_3, &ignored_2);
 	}
 	object = PALETTE_RAM + 0x8BC0u;
 	palette_count = 1u;
@@ -2080,7 +2080,7 @@ void ending_eggman_fly_away(void)
 	cycle = palette_cycle_0_ADDRESS;
 	palette_cycle_0 = 6u;
 	palette_cycle_0_frames = 9u;
-	cycle_palette(cycle, halfwords, &ignored, &ignored, &palette_count, &source, &object);
+	cycle_palette(cycle, halfwords, &ignored_3, &ignored_2, &palette_count, &source, &object);
 	if ((int16_t)OBJECT(current_object)->sprite_scale >= 0x20)
 	{
 		current_object = object_cursor;
@@ -2100,7 +2100,7 @@ void ending_eggman_fly_away(void)
 	case 0:
 	case 7:
 		sound_id = 9u;
-		queue_sound(sound_id, &ignored, &ignored);
+		queue_sound(sound_id, &ignored_3, &ignored_2);
 		nbg2_pages = 0x2020202u;
 		OBJECT(object_cursor)->step = 1u;
 		return;
@@ -2166,7 +2166,7 @@ void ending_eggman_fly_away(void)
 			half_width_squared = (uint16_t)(half_width_squared * half_width_squared - (uint32_t)line_dy * line_dy);
 			if ((int16_t)half_width_squared >= 0)
 			{
-				square_root(&half_width_squared, &ignored);
+				square_root(&half_width_squared, &ignored_3);
 				circle_wipe_left = 0xA0u;
 				circle_wipe_right = 0xA0u;
 				circle_wipe_right += half_width_squared;
@@ -2236,7 +2236,7 @@ void ending_eggman_fly_away_spare_return(void)
    hit_list_next, it sets ending_finished. */
 void ending_sonic_run_across(void)
 {
-	uint32_t ignored = 0, second_object = 0;
+	uint32_t ignored = 0, ignored_2 = 0, second_object = 0;
 
 	if (OBJECT(current_object)->ending.started != 0u)
 	{
@@ -2253,7 +2253,7 @@ void ending_sonic_run_across(void)
 	OBJECT(current_object)->sprite_frame = 0xA810u;
 	OBJECT(current_object)->sprite_scale = 0x100u;
 	init_ending_runner_across();
-	allocate_object_2(&ignored, &ignored, &second_object);
+	allocate_object_2(&ignored, &ignored_2, &second_object);
 	OBJECT(current_object)->speed_y = second_object;
 	current_object = second_object;
 	OBJECT(current_object)->sprite_frame = 0xA820u;
@@ -2272,7 +2272,7 @@ void ending_sonic_run_across(void)
    ending_ray_body_frames and ending_ray_leg_frames kept in x and y), 4 pixels a frame. */
 void ending_ray_run_across(void)
 {
-	uint32_t ignored = 0, second_object = 0;
+	uint32_t ignored = 0, ignored_2 = 0, second_object = 0;
 
 	if (OBJECT(current_object)->ending.started != 0u)
 	{
@@ -2286,7 +2286,7 @@ void ending_ray_run_across(void)
 	OBJECT(current_object)->sprite_frame = 0xA7E0u;
 	OBJECT(current_object)->sprite_scale = 0xF0u;
 	init_ending_runner_across();
-	allocate_object_2(&ignored, &ignored, &second_object);
+	allocate_object_2(&ignored, &ignored_2, &second_object);
 	OBJECT(current_object)->speed_y = second_object;
 	current_object = second_object;
 	OBJECT(current_object)->sprite_frame = 0xA7F0u;
@@ -2304,7 +2304,7 @@ void ending_ray_run_across(void)
    ending_mighty_body_frames and ending_mighty_leg_frames kept in x and y), 3 pixels a frame. */
 void ending_mighty_run_across(void)
 {
-	uint32_t ignored = 0, second_object = 0;
+	uint32_t ignored = 0, ignored_2 = 0, second_object = 0;
 
 	if (OBJECT(current_object)->ending.started != 0u)
 	{
@@ -2318,7 +2318,7 @@ void ending_mighty_run_across(void)
 	OBJECT(current_object)->sprite_frame = 0xA7B0u;
 	OBJECT(current_object)->sprite_scale = 0xE0u;
 	init_ending_runner_across();
-	allocate_object_2(&ignored, &ignored, &second_object);
+	allocate_object_2(&ignored, &ignored_2, &second_object);
 	OBJECT(current_object)->speed_y = second_object;
 	current_object = second_object;
 	OBJECT(current_object)->sprite_frame = 0xA7C0u;

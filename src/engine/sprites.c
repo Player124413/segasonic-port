@@ -49,7 +49,6 @@ void cycle_part_palettes(void)
    animate_step_with_flags. */
 void animate_with_flags(uint32_t *p_frame, uint32_t *p_at_last_step)
 {
-	uint32_t frame = *p_frame;
 	uint32_t at_last_step = 0;
 	uint8_t animation_timer = 0;
 
@@ -59,9 +58,8 @@ void animate_with_flags(uint32_t *p_frame, uint32_t *p_at_last_step)
 	if ((int8_t)animation_timer <= 1)
 	{
 		OBJECT(current_object)->animation_timer = OBJECT(current_object)->animation_speed;
-		animate_step_with_flags(&frame, &at_last_step);
+		animate_step_with_flags(p_frame, &at_last_step);
 	}
-	*p_frame = frame;
 	*p_at_last_step = (*p_at_last_step & 0xFFFFFF00u) | (at_last_step & 0xFFu);
 }
 
@@ -99,7 +97,6 @@ void animate_step_with_flags(uint32_t *p_frame, uint32_t *p_at_last_step)
    step (animate_step). wrapped and at_last_step come back FF when the step wrapped round or is the last. */
 void animate(uint32_t *p_frame, uint32_t *p_wrapped, uint32_t *p_at_last_step)
 {
-	uint32_t frame = *p_frame;
 	uint32_t at_last_step = 0, wrapped = 0;
 	uint8_t animation_timer = 0;
 
@@ -110,9 +107,8 @@ void animate(uint32_t *p_frame, uint32_t *p_wrapped, uint32_t *p_at_last_step)
 	if ((int8_t)animation_timer <= 1)
 	{
 		OBJECT(current_object)->animation_timer = OBJECT(current_object)->animation_speed;
-		animate_step(&frame, &wrapped, &at_last_step);
+		animate_step(p_frame, &wrapped, &at_last_step);
 	}
-	*p_frame = frame;
 	*p_wrapped = (*p_wrapped & 0xFFFFFF00u) | (wrapped & 0xFFu);
 	*p_at_last_step = (*p_at_last_step & 0xFFFFFF00u) | (at_last_step & 0xFFu);
 }
@@ -524,12 +520,11 @@ void init_sprites_swapping_every_frame(void)
    init_sprite_hardware (through init_sprites_from_frame_wait). */
 void init_sprites(uint32_t *p_end_mark, uint32_t *p_source)
 {
-	uint32_t control_init = 0, end_mark = 0;
+	uint32_t end_mark = 0;
 
 	vblank_hook = swap_sprite_buffers_ADDRESS;
-	init_sprites_from_frame_wait(&end_mark, &control_init);
+	init_sprites_from_frame_wait(&end_mark, p_source);
 	*p_end_mark = (*p_end_mark & 0xFFFF0000u) | (end_mark & 0xFFFFu);
-	*p_source = control_init;
 }
 
 /* init_sprites from its frame wait on: frames_to_wait = frames_per_wait = 0, then init_sprite_hardware.
@@ -551,7 +546,7 @@ void init_sprites_from_frame_wait(uint32_t *p_end_mark, uint32_t *p_source)
 void init_sprite_hardware(uint32_t *p_end_mark, uint32_t *p_source)
 {
 	uint16_t end_mark = 0;
-	uint32_t control_cursor = 0, control_init = 0, dest_end = 0, ignored = 0, list_start = 0, registers_left = 0;
+	uint32_t control_cursor = 0, control_init = 0, dest_end = 0, ignored = 0, ignored_2 = 0, list_start = 0, registers_left = 0;
 
 	control_init = sprite_control_init_ADDRESS;
 	mem_write16(sprite_flip, setting_monitor_flip);
@@ -577,7 +572,7 @@ void init_sprite_hardware(uint32_t *p_end_mark, uint32_t *p_source)
 	mem_write16(list_start + 0x5FD0u, 0xFFFFu);
 	sprite_list_end_command = 0xFFFFu;
 	sprite_frames = 0x130000u;
-	ignored = clear_sprite_buckets();
+	ignored_2 = clear_sprite_buckets();
 	*p_end_mark = (*p_end_mark & 0xFFFF0000u) | end_mark;
 	*p_source = control_init;
 }
@@ -882,7 +877,7 @@ void build_sprite_list(uint32_t *p_height, uint32_t *p_scale_x, uint32_t *p_scal
 	bool write_parts = false;
 	uint8_t scale_shift = 0;
 	uint16_t dest_height = 0, dest_width = 0, part_dest_width = 0, screen_x = 0, screen_y = 0, sized_width = 0, source_width = 0;
-	uint32_t copy_entry = 0, flags_word = 0, frame_data = 0, ignored = 0, object = 0, part_scale = 0, parts_left = 0, rounding = 0, scaled_dx = 0, sprite_entry = 0, sprite_scale = 0;
+	uint32_t copy_entry = 0, flags_word = 0, frame_data = 0, ignored = 0, ignored_2 = 0, ignored_3 = 0, object = 0, part_scale = 0, parts_left = 0, rounding = 0, scaled_dx = 0, sprite_entry = 0, sprite_scale = 0;
 	uint16_t part_width = 0, part_height = 0, width_bits = 0;
 
 	sprite_entry = sprite_list_start;
@@ -1082,7 +1077,7 @@ void build_sprite_list(uint32_t *p_height, uint32_t *p_scale_x, uint32_t *p_scal
 				r14 = r14 + 2u;
 				if (parts_left >= 0x11u)
 				{
-					int_default(&ignored, &ignored, &ignored, &copy_entry);
+					int_default(&ignored, &ignored_2, &ignored_3, &copy_entry);
 					*p_height = copy_entry;
 					*p_scale_x = scale_x;
 					*p_scale_y = scale_y;

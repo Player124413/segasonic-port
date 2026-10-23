@@ -3,7 +3,7 @@
  *    Description: stage 4's objects: the vines, the catapults, arrow boards, pebbles, the propped board, boulders, the door wall at the start and the rollers behind it, the fireball emitter and the bouncing fireballs, the electric fence and the flame machine at the end
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    22-10-2026
+ *    Modified:    23-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -17,7 +17,7 @@
    8, floor_z = z; then vine_swing. */
 void vine_init(void)
 {
-	uint32_t block = 0, free_count = 0, ignored = 0, object = 0, object_2 = 0, object_3 = 0, spawned = 0;
+	uint32_t block = 0, free_count = 0, ignored = 0, ignored_2 = 0, object = 0, object_2 = 0, object_3 = 0, spawned = 0;
 	uint16_t speed_x_fraction = 0;
 
 	OBJECT(current_object)->flags = 0u;
@@ -72,7 +72,7 @@ void vine_init(void)
 	OBJECT(current_player)->sprite_frame = 0x6E70u;
 	OBJECT(current_player)->sprite_palette = 0x10E0u;
 	OBJECT(current_object)->floor_z = OBJECT(current_object)->z;
-	project_object(&ignored, &ignored);
+	project_object(&ignored_2, &ignored);
 }
 
 /* Swings the vine: its phase (speed_z) grows by speed, the curl speed_y = sine_table[phase] *
@@ -83,7 +83,7 @@ void vine_swing(void)
 {
 	uint8_t bucket = 0;
 	uint16_t screen_x = 0;
-	uint32_t ignored = 0, in_front = 0, point_x = 0, point_y = 0, segment_angle_int = 0, segment_depth = 0, z = 0;
+	uint32_t ignored = 0, ignored_2 = 0, ignored_3 = 0, ignored_4 = 0, in_front = 0, point_x = 0, point_y = 0, segment_angle_int = 0, segment_depth = 0, z = 0;
 	uint16_t speed_x_fraction = 0;
 
 	OBJECT(current_object)->vine_swing.holding = 1u;
@@ -92,7 +92,7 @@ void vine_swing(void)
 	screen_x = (uint16_t)OBJECT(current_object)->screen_x;
 	if ((int16_t)screen_x >= 0x200 || (int16_t)screen_x <= -0x200)
 	{
-		delete_object_and_children(&ignored, &ignored, &ignored);
+		delete_object_and_children(&ignored, &ignored_2, &ignored_3);
 		vines_hold_players = 0xFFu;
 		return;
 	}
@@ -100,7 +100,7 @@ void vine_swing(void)
 	OBJECT(current_object)->speed_z_int &= 0x3FFu;
 	OBJECT(current_object)->speed_y = (uint32_t)sine_table[(uint16_t)OBJECT(current_object)->speed_z_int] * OBJECT(current_object)->vine_swing.curl_scale;
 	OBJECT(current_object)->z = OBJECT(current_object)->floor_z;
-	update_screen_position(&ignored, &ignored);
+	update_screen_position(&ignored, &ignored_4);
 	in_front = 0u;
 	if (OBJECT(object_cursor)->vine_swing.segment_angle_int >= 0x100 && OBJECT(object_cursor)->vine_swing.segment_angle_int < 0x300)
 		in_front = 1u;
@@ -119,7 +119,7 @@ void vine_swing(void)
 		OBJECT(object_cursor)->z += cosine_table[segment_angle_int] * 0x18u;
 		z = OBJECT(object_cursor)->z;
 		point_y = OBJECT(object_cursor)->y;
-		project_point(z, &ignored, &point_x, &point_y);
+		project_point(z, &ignored_4, &point_x, &point_y);
 		OBJECT(current_object)->screen_x = point_x;
 		OBJECT(current_object)->screen_y = point_y;
 		if (in_front == 0u)
@@ -144,7 +144,7 @@ void vine_swing(void)
 void vine_bar_update(void)
 {
 	uint16_t kind = 0, screen_dy = 0, screen_x = 0, x_int = 0, y_int = 0, z = 0;
-	uint32_t cursor = 0, height = 0, ignored = 0, vine = 0;
+	uint32_t cursor = 0, height = 0, ignored = 0, ignored_2 = 0, ignored_3 = 0, ignored_4 = 0, vine = 0;
 
 	OBJECT(current_object)->vine_bar.holding = OBJECT(LINKED(WORK_RAM, OBJECT(current_object)->vine_bar.vine))->vine_swing.holding;
 	if ((OBJECT(current_object)->flags & 8u) != 0u && OBJECT(current_object)->floor_z_int < 0x800)
@@ -162,11 +162,11 @@ void vine_bar_update(void)
 	OBJECT(current_object)->z = OBJECT(vine)->z;
 	screen_x = (uint16_t)OBJECT(current_object)->screen_x;
 	screen_dy = (uint16_t)OBJECT(current_object)->screen_y;
-	project_object(&ignored, &ignored);
+	project_object(&ignored_2, &ignored);
 	screen_dy -= OBJECT(current_object)->screen_y;
 	OBJECT(current_object)->projected_x += screen_x - OBJECT(current_object)->screen_x;
 	OBJECT(current_object)->projected_y_int += screen_dy;
-	unproject_object(&ignored, &ignored, &ignored, &cursor);
+	unproject_object(&ignored_2, &ignored_3, &ignored_4, &cursor);
 	height = (OBJECT(object_cursor)->floor_z_int - OBJECT(object_cursor)->z_int) & 0x7Fu;
 	if ((int16_t)height > 0x50)
 	{
@@ -264,14 +264,14 @@ void vine_scroll_stop_hold(void)
    vines_hold_players = 0, and the stop object deletes itself. */
 void vine_scroll_stop_end(void)
 {
-	uint32_t ignored = 0;
+	uint32_t ignored = 0, ignored_2 = 0, ignored_3 = 0;
 
 	if ((int16_t)OBJECT(current_object)->spawn_arg_2 < (int16_t)scroll_position)
 	{
 		scroll_mode = 7u;
 		saved_scroll_mode = 7u;
 		vines_hold_players = 0u;
-		delete_object_and_children(&ignored, &ignored, &ignored);
+		delete_object_and_children(&ignored, &ignored_2, &ignored_3);
 	}
 }
 
@@ -282,7 +282,7 @@ void vine_scroll_stop_end(void)
 void flame_machine_init(void)
 {
 	uint16_t back_wall = 0;
-	uint32_t block = 0, free_count = 0, ignored = 0, object = 0;
+	uint32_t block = 0, free_count = 0, ignored = 0, ignored_2 = 0, object = 0;
 
 	flame_machine_flags = 0u;
 	OBJECT(current_object)->sprite_frame = 0x6258u;
@@ -312,7 +312,7 @@ void flame_machine_init(void)
 	OBJECT(current_object)->sprite_palette = 0x9FFEu;
 	r14 = current_object;
 	spawn_count = 3u;
-	spawn_object_with_pieces(0x00FC8Fu, &ignored, &ignored, &free_count, &object, &block);
+	spawn_object_with_pieces(0x00FC8Fu, &ignored, &ignored_2, &free_count, &object, &block);
 	OBJECT(r14)->child = object;
 	copy_position_to(object);
 	OBJECT(object)->sprite_frame = 0x6268u;
@@ -328,7 +328,7 @@ void flame_machine_init(void)
 	OBJECT(object)->sprite_flags = 5u;
 	r14 = object;
 	spawn_count = 2u;
-	spawn_object_with_pieces(0x00FCE4u, &ignored, &ignored, &free_count, &object, &block);
+	spawn_object_with_pieces(0x00FCE4u, &ignored, &ignored_2, &free_count, &object, &block);
 	copy_position_to(object);
 	OBJECT(r14)->child = object;
 	OBJECT(object)->parent = back_wall;
@@ -342,7 +342,7 @@ void flame_machine_init(void)
 	OBJECT(object)->sprite_palette = 0x9220u;
 	r14 = object;
 	spawn_count = 2u;
-	spawn_object_with_pieces(0x00FD2Eu, &ignored, &ignored, &free_count, &object, &block);
+	spawn_object_with_pieces(0x00FD2Eu, &ignored, &ignored_2, &free_count, &object, &block);
 	copy_position_to(object);
 	OBJECT(r14)->child = object;
 	OBJECT(object)->parent = back_wall;
@@ -418,12 +418,12 @@ void flame_machine_update(void)
 void flame_machine_draw(void)
 {
 	uint8_t sound_id = 0;
-	uint32_t block_offset = 0, bucket = 0, cursor = 0, depth = 0, ignored = 0, slope_height = 0;
+	uint32_t block_offset = 0, bucket = 0, cursor = 0, depth = 0, ignored = 0, ignored_2 = 0, slope_height = 0;
 	uint8_t flash_steps_left = 0, odd_frame = 0;
 	uint16_t flash_count = 0;
 
 	unproject_object(&ignored, &block_offset, &slope_height, &cursor);
-	ignored = queue_sprite(0u);
+	ignored_2 = queue_sprite(0u);
 	add_to_touchable_list(ignored);
 	if ((uint8_t)OBJECT(current_object)->flame_machine_update.previous_health != (uint8_t)OBJECT(current_object)->health)
 	{
@@ -431,7 +431,7 @@ void flame_machine_draw(void)
 		flame_machine_flags |= 0x1000u;
 		flame_machine_flash_step = 4;
 		sound_id = 0x21u;
-		play_sound(sound_id, &ignored, &block_offset);
+		play_sound(sound_id, &ignored_2, &block_offset);
 	}
 	if ((flame_machine_flags & 0x1000u) != 0u)
 	{
@@ -447,7 +447,7 @@ void flame_machine_draw(void)
 			{
 				OBJECT(current_object)->sprite_palette = flame_machine_hit_palettes[(uint8_t)flame_machine_flash_step];
 				sound_id = 0x1Eu;
-				play_sound(sound_id, &ignored, &block_offset);
+				play_sound(sound_id, &ignored_2, &block_offset);
 			}
 		}
 	}
@@ -457,7 +457,7 @@ void flame_machine_draw(void)
 	OBJECT(current_object)->screen_x -= 2u;
 	OBJECT(current_object)->screen_y -= 0x40u;
 	OBJECT(current_object)->sprite_palette = OBJECT(object_cursor)->sprite_palette;
-	queue_sprite(ignored);
+	queue_sprite(ignored_2);
 	current_object = LINKED(current_object, OBJECT(current_object)->child);
 	OBJECT(current_object)->direction_high++;
 	odd_frame = OBJECT(current_object)->direction_high & 1u;
@@ -500,7 +500,7 @@ void flame_machine_draw(void)
    0x14F. */
 void flame_machine_destroyed(uint32_t free_count, uint32_t first, uint32_t block)
 {
-	uint32_t ignored = 0, object = 0, object_2 = 0, spawned = 0;
+	uint32_t ignored = 0, ignored_2 = 0, ignored_3 = 0, ignored_4 = 0, object = 0, object_2 = 0, spawned = 0;
 	uint16_t explosion_phase = 0;
 
 	goal_unlocked = 0xFFu;
@@ -520,13 +520,13 @@ void flame_machine_destroyed(uint32_t free_count, uint32_t first, uint32_t block
 				return;
 			object_2 = first;
 			copy_position_to(first);
-			next_random(&first, &ignored, &ignored);
+			next_random(&first, &ignored_2, &ignored_3);
 			first = (first & ~0xFFFFu) | (first & 0x3FFu);
 			OBJECT(object_2)->sprite_scale += first;
 			first = (first & ~0xFFFFu) | (first & 0x7Fu);
 			OBJECT(object_2)->projected_y_int += 0x13u;
 			OBJECT(object_2)->projected_y_int += first;
-			next_random(&first, &ignored, &ignored);
+			next_random(&first, &ignored_2, &ignored_3);
 			OBJECT(object_2)->projected_x += first & 0x7Fu;
 			OBJECT(object_2)->projected_x -= 0x53u;
 			OBJECT(object_2)->handler = flame_machine_explosion_start_ADDRESS;
@@ -536,7 +536,7 @@ void flame_machine_destroyed(uint32_t free_count, uint32_t first, uint32_t block
 	}
 	OBJECT(current_object)->handler = flame_machine_remove_ADDRESS;
 	spawn_count = 3u;
-	spawn_object_with_pieces(0x010820u, &ignored, &ignored, &free_count, &first, &block);
+	spawn_object_with_pieces(0x010820u, &ignored_4, &ignored, &free_count, &first, &block);
 	OBJECT(first)->projected_x = 0x1B2F;
 	OBJECT(first)->projected_y_int = 0x14F;
 	OBJECT(first)->z = 0;
@@ -562,10 +562,10 @@ void flame_machine_update_spare_return(void)
    themselves, and the machine is deleted with all its parts. */
 void flame_machine_remove(void)
 {
-	uint32_t ignored = 0;
+	uint32_t ignored = 0, ignored_2 = 0, ignored_3 = 0;
 
 	electric_fence_state = 0xFFu;
-	delete_object_and_children(&ignored, &ignored, &ignored);
+	delete_object_and_children(&ignored, &ignored_2, &ignored_3);
 }
 
 /* One of the breaking machine's explosions: speed 0x20, direction 0x80, 8 debris chunks (spawn_debris),
@@ -588,12 +588,12 @@ void flame_machine_explosion_start(void)
 void flame_machine_back_wall_update(void)
 {
 	uint16_t rod_sprite = 0;
-	uint32_t depth = 0, frame_index = 0, ignored = 0, object = 0, offset_record = 0, wall_frame = 0;
+	uint32_t depth = 0, frame_index = 0, ignored = 0, ignored_2 = 0, ignored_3 = 0, ignored_4 = 0, object = 0, offset_record = 0, wall_frame = 0;
 	uint16_t next_phase = 0;
 
 	if ((flame_machine_flags & 0x100000u) == 0u)
 	{
-		move_object_projected(&ignored, &ignored, &ignored, &ignored);
+		move_object_projected(&ignored, &ignored_2, &ignored_3, &ignored_4);
 		if ((flame_machine_flags & 0x10u) == 0u && (flame_machine_flags & 0x20u) == 0u)
 		{
 			if (OBJECT(current_object)->flame_machine_back_wall.pause_timer > 0)
@@ -810,7 +810,7 @@ void flame_machine_arm_draw(void)
    flame_machine_flame_burn and clears the bit. */
 void flame_machine_cannon_update(void)
 {
-	uint32_t block_offset = 0, cursor = 0, fire_bit_or_spawned = 0, ignored = 0, object = 0, offset_record = 0, spawn_arg_1 = 0;
+	uint32_t block_offset = 0, cursor = 0, fire_bit_or_spawned = 0, ignored = 0, ignored_2 = 0, object = 0, offset_record = 0, spawn_arg_1 = 0;
 
 	unproject_object(&ignored, &block_offset, &object, &cursor);
 	queue_sprite(0u);
@@ -822,7 +822,7 @@ void flame_machine_cannon_update(void)
 	if ((flame_machine_flags & shl32(1u, (int)(fire_bit_or_spawned))) == 0u)
 		return;
 	spawn_count = 2u;
-	spawn_object_with_pieces(0x010440u, &fire_bit_or_spawned, &ignored, &block_offset, &object, &cursor);
+	spawn_object_with_pieces(0x010440u, &fire_bit_or_spawned, &ignored_2, &block_offset, &object, &cursor);
 	if ((uint8_t)fire_bit_or_spawned != 0u)
 	{
 		copy_position_to(object);
@@ -855,11 +855,11 @@ void flame_machine_cannon_update(void)
    destroyed. */
 void flame_machine_flame_burn(void)
 {
-	uint32_t bucket = 0, depth = 0, flame_frame = 0, ignored = 0;
+	uint32_t bucket = 0, depth = 0, flame_frame = 0, ignored = 0, ignored_2 = 0, ignored_3 = 0, ignored_4 = 0;
 	uint16_t odd_frame = 0;
 
 	OBJECT(object_cursor)->z_int -= 0x20u;
-	unproject_object(&ignored, &ignored, &ignored, &ignored);
+	unproject_object(&ignored, &ignored_2, &ignored_3, &ignored_4);
 	OBJECT(current_object)->flame_machine_flame.frame_toggle++;
 	odd_frame = OBJECT(current_object)->flame_machine_flame.frame_toggle & 1u;
 	OBJECT(current_object)->flame_machine_flame.frame_toggle = odd_frame;
@@ -871,7 +871,7 @@ void flame_machine_flame_burn(void)
 		OBJECT(current_object)->sprite_frame = flame_machine_flame_sprites[flame_frame];
 		if (flame_frame == 0xBu)
 		{
-			delete_object_and_children(&ignored, &ignored, &ignored);
+			delete_object_and_children(&ignored, &ignored_2, &ignored_3);
 			return;
 		}
 		if ((int16_t)OBJECT(current_object)->spawn_arg_2 >= 2)
@@ -901,10 +901,10 @@ void flame_machine_flame_burn(void)
    (0x6988); clears the arm's take-disc bit (0x400 << arm_index). */
 void flame_machine_arm_take_disc(uint32_t free_count, uint32_t disc, uint32_t block)
 {
-	uint32_t disc_flag_bit = 0, ignored = 0, object = 0;
+	uint32_t disc_flag_bit = 0, ignored = 0, ignored_2 = 0, object = 0;
 
 	spawn_count = 2u;
-	spawn_object_with_pieces(0x01061Fu, &ignored, &ignored, &free_count, &disc, &block);
+	spawn_object_with_pieces(0x01061Fu, &ignored, &ignored_2, &free_count, &disc, &block);
 	copy_position_to(disc);
 	OBJECT(disc)->direction = 0x200u;
 	OBJECT(disc)->sprite_scale = 0xC0u;
@@ -951,9 +951,9 @@ void spiked_disc_hold(void)
    spiked_disc_draw_held. */
 void spiked_disc_drop(void)
 {
-	uint32_t height = 0, ignored = 0;
+	uint32_t height = 0, ignored = 0, ignored_2 = 0;
 
-	fall_to_floor(&height, &ignored, &ignored);
+	fall_to_floor(&height, &ignored, &ignored_2);
 	if (height != 0u)
 	{
 		spiked_disc_draw_held();
@@ -969,9 +969,9 @@ void spiked_disc_drop(void)
 void spiked_disc_draw_held(void)
 {
 	uint8_t bucket = 0;
-	uint32_t ignored = 0;
+	uint32_t ignored = 0, ignored_2 = 0, ignored_3 = 0, ignored_4 = 0;
 
-	move_object_projected(&ignored, &ignored, &ignored, &ignored);
+	move_object_projected(&ignored, &ignored_2, &ignored_3, &ignored_4);
 	bucket = (uint8_t)((OBJECT(current_object)->spawn_arg_1 + 1u) * 2u);
 	queue_sprite_in_bucket(bucket);
 	if ((int16_t)(OBJECT(current_object)->spiked_disc.arm_frame | ((uint32_t)(OBJECT(current_object)->spiked_disc.spin_toggle & 0xFFu) << 8u)) >= 8)
@@ -987,11 +987,11 @@ void spiked_disc_draw_held(void)
    shadow, then spiked_disc_spin. */
 void spiked_disc_roll(void)
 {
-	uint32_t deleted = 0, depth = 0, direction = 0, ignored = 0, speed = 0, speed_x = 0, speed_y = 0;
+	uint32_t deleted = 0, depth = 0, direction = 0, ignored = 0, ignored_2 = 0, ignored_3 = 0, ignored_4 = 0, ignored_5 = 0, speed = 0, speed_x = 0, speed_y = 0;
 
-	move_object_projected(&ignored, &ignored, &ignored, &ignored);
-	fall_to_floor(&ignored, &ignored, &ignored);
-	delete_if_off_screen(&deleted, &ignored, &ignored);
+	move_object_projected(&ignored, &ignored_2, &ignored_3, &ignored_4);
+	fall_to_floor(&ignored, &ignored_5, &ignored_2);
+	delete_if_off_screen(&deleted, &ignored_2, &ignored_3);
 	if ((uint8_t)deleted == 1u)
 		return;
 	direction = 0x154u;
@@ -1076,14 +1076,14 @@ void flame_machine_wreck_draw(void)
 {
 	uint8_t bucket = 0;
 	uint16_t offset_x = 0, offset_y = 0;
-	uint32_t ignored = 0;
+	uint32_t ignored = 0, ignored_2 = 0, ignored_3 = 0, ignored_4 = 0;
 
 	if (map_screen_active != 0u)
 	{
-		delete_object_and_children(&ignored, &ignored, &ignored);
+		delete_object_and_children(&ignored, &ignored_2, &ignored_3);
 		return;
 	}
-	unproject_object(&ignored, &ignored, &ignored, &ignored);
+	unproject_object(&ignored, &ignored_2, &ignored_3, &ignored_4);
 	bucket = 0xFEu;
 	queue_sprite_in_bucket(bucket);
 	current_object = LINKED(current_object, OBJECT(current_object)->child);
@@ -1160,10 +1160,10 @@ void fence_post_init(void)
    fence_post_update. */
 void fence_post_start(void)
 {
-	uint32_t ignored = 0;
+	uint32_t ignored = 0, ignored_2 = 0, ignored_3 = 0, ignored_4 = 0;
 
 	add_to_rider_list();
-	unproject_object(&ignored, &ignored, &ignored, &ignored);
+	unproject_object(&ignored, &ignored_2, &ignored_3, &ignored_4);
 	OBJECT(current_object)->handler = fence_post_update_ADDRESS;
 }
 
@@ -1174,7 +1174,7 @@ void fence_post_start(void)
 void fence_post_update(void)
 {
 	uint16_t offset_x = 0, offset_y = 0;
-	uint32_t arc_offset_record = 0, depth = 0, ignored = 0;
+	uint32_t arc_offset_record = 0, depth = 0, ignored = 0, ignored_2 = 0, ignored_3 = 0;
 	uint16_t odd_frame = 0;
 
 	if (electric_fence_state == 1u)
@@ -1201,7 +1201,7 @@ void fence_post_update(void)
 	}
 	if (electric_fence_state == 0xFFu)
 	{
-		delete_object_and_children(&ignored, &ignored, &ignored);
+		delete_object_and_children(&ignored, &ignored_2, &ignored_3);
 		return;
 	}
 	OBJECT(current_object)->kind = 5u;
@@ -1234,14 +1234,14 @@ void fence_post_update(void)
    else queues it, touchable (health 0x7F) and in the rider list. */
 void fence_post_draw(void)
 {
-	uint32_t deleted = 0, ignored = 0;
+	uint32_t deleted = 0, ignored = 0, ignored_2 = 0, ignored_3 = 0, ignored_4 = 0, ignored_5 = 0;
 
-	unproject_object(&ignored, &ignored, &ignored, &ignored);
-	fall_to_floor(&ignored, &ignored, &ignored);
-	delete_if_off_screen(&deleted, &ignored, &ignored);
+	unproject_object(&ignored, &ignored_2, &ignored_3, &ignored_4);
+	fall_to_floor(&ignored, &ignored_5, &ignored_2);
+	delete_if_off_screen(&deleted, &ignored_2, &ignored_3);
 	if ((uint8_t)deleted != 1u)
 	{
-		queue_sprite(ignored);
+		queue_sprite(ignored_5);
 		OBJECT(current_object)->health = 0x7F;
 		add_to_touchable_list(deleted);
 		add_to_rider_list();
@@ -1317,7 +1317,7 @@ void catapult_x_start_on_floor(uint32_t object)
 void catapult_wait_for_platform_setup(uint32_t template_offset, uint32_t object)
 {
 	uint16_t launch_delay = 0;
-	uint32_t frame = 0, free_count = 0, ignored = 0, steps = 0, template_cursor = 0;
+	uint32_t frame = 0, free_count = 0, ignored = 0, ignored_2 = 0, ignored_3 = 0, ignored_4 = 0, steps = 0, template_cursor = 0;
 
 	template_cursor = object_pair_templates_ADDRESS + template_offset;
 	catapult_pair_template = template_cursor;
@@ -1335,9 +1335,9 @@ void catapult_wait_for_platform_setup(uint32_t template_offset, uint32_t object)
 	OBJECT(current_object)->hitbox_size_y = 0u;
 	OBJECT(current_object)->sprite_palette = 0x9000u;
 	OBJECT(current_object)->animation_frame = 0u;
-	find_floor(&ignored, &ignored, &ignored, &ignored, &object);
+	find_floor(&ignored, &ignored_2, &ignored_3, &ignored_4, &object);
 	OBJECT(current_object)->z = OBJECT(current_object)->floor_z;
-	project_object(&ignored, &ignored);
+	project_object(&ignored, &ignored_2);
 	OBJECT(current_object)->anchor_x = OBJECT(current_object)->projected_x;
 	OBJECT(current_object)->anchor_y = OBJECT(current_object)->projected_y_int;
 	OBJECT(current_object)->catapult.launch_position = scroll_position;
@@ -1411,13 +1411,13 @@ void catapult_wait_for_platform_setup(uint32_t template_offset, uint32_t object)
 void catapult_update(void)
 {
 	uint16_t depth_offset = 0;
-	uint32_t depth = 0, ignored = 0, object = 0, off_screen = 0, platform_z = 0;
+	uint32_t depth = 0, ignored = 0, ignored_2 = 0, ignored_3 = 0, object = 0, off_screen = 0, platform_z = 0;
 
 	off_screen = check_left_screen();
 	if ((uint8_t)off_screen != 0u)
 	{
 		object = LINKED(current_object, OBJECT(current_object)->child);
-		delete_object(object, &ignored, &ignored);
+		delete_object(object, &ignored, &ignored_2);
 		delete_current_object();
 		return;
 	}
@@ -1452,14 +1452,14 @@ void catapult_update(void)
 		OBJECT(current_object)->floor_z = platform_z;
 		OBJECT(current_object)->z = platform_z;
 	}
-	update_screen_position(&ignored, &ignored);
-	add_to_touchable_list(ignored);
+	update_screen_position(&ignored_3, &ignored);
+	add_to_touchable_list(ignored_3);
 	depth = (uint16_t)OBJECT(current_object)->screen_y;
 	depth_offset = 0xFFECu;
 	if (OBJECT(current_object)->catapult.state >= 1 && OBJECT(current_object)->catapult.state <= 3)
 		depth_offset = 0x14u;
 	depth = (uint16_t)(depth + depth_offset);
-	queue_sprite_at_depth(&ignored, &depth);
+	queue_sprite_at_depth(&ignored_3, &depth);
 }
 
 /* Shows frame 1 (pressed) while touched (flags 4), else frame 0; touched with touch_distance at most
@@ -1484,7 +1484,7 @@ void catapult_wait_for_rider(void)
 void catapult_launch(void)
 {
 	uint8_t sound_id = 0;
-	uint32_t ignored = 0;
+	uint32_t ignored = 0, ignored_2 = 0;
 
 	OBJECT(current_object)->catapult.state = 1u;
 	OBJECT(current_object)->animation_timer = 0;
@@ -1492,7 +1492,7 @@ void catapult_launch(void)
 	OBJECT(current_object)->animation_frame = 1u;
 	OBJECT(current_object)->flags &= ~0x80u;
 	sound_id = 0x1Du;
-	play_sound(sound_id, &ignored, &ignored);
+	play_sound(sound_id, &ignored, &ignored_2);
 }
 
 /* Swings the spoon up around its anchor (animate_around_anchor); after the last step, state 2 with
@@ -1581,7 +1581,7 @@ void catapult_wait_for_scroll(void)
    animation_frame - 1, stepped once by animate_around_anchor); queued when it has a sprite_frame. */
 void catapult_base_update(void)
 {
-	uint32_t ignored = 0, object = 0, parent_z = 0;
+	uint32_t ignored_2 = 0, ignored_3 = 0, object = 0, parent_z = 0;
 
 	object = LINKED(current_object, OBJECT(current_object)->parent);
 	parent_z = OBJECT(object)->z;
@@ -1591,10 +1591,10 @@ void catapult_base_update(void)
 	OBJECT(current_object)->animation_frame--;
 	OBJECT(current_object)->animation_timer = 0;
 	animate_around_anchor();
-	update_screen_position(&ignored, &ignored);
+	update_screen_position(&ignored_2, &ignored_3);
 	if (OBJECT(current_object)->sprite_frame == 0u)
 		return;
-	ignored = queue_sprite(ignored);
+	ignored_3 = queue_sprite(ignored_3);
 }
 
 /* The handler of the dummy part catapult_wait_for_platform_setup adds to a catapult with a launch delay:
@@ -1614,7 +1614,7 @@ void goal_unlocker_start(void)
    from its x and y; then arrow_board_wait_for_platform, this frame too. */
 void arrow_board_start(void)
 {
-	uint32_t ignored = 0;
+	uint32_t ignored = 0, ignored_2 = 0;
 
 	OBJECT(current_object)->sprite_flags = 0x1002u;
 	OBJECT(current_object)->sprite_frame = 0x6EB8u;
@@ -1623,7 +1623,7 @@ void arrow_board_start(void)
 	OBJECT(current_object)->sprite_offset_y = 0;
 	OBJECT(current_object)->flags = 0u;
 	OBJECT(current_object)->handler = arrow_board_wait_for_platform_ADDRESS;
-	project_object(&ignored, &ignored);
+	project_object(&ignored, &ignored_2);
 	arrow_board_wait_for_platform();
 }
 
@@ -1640,7 +1640,7 @@ void arrow_board_wait_for_platform(void)
    grey_screen_active is set, palette 0x9190 again once grey_screen_ended is set. */
 void arrow_board_ride(void)
 {
-	uint32_t depth = 0, ignored = 0, off_screen = 0, platform_z = 0;
+	uint32_t depth = 0, ignored = 0, ignored_2 = 0, off_screen = 0, platform_z = 0;
 
 	if (grey_screen_active != 0u)
 	{
@@ -1651,7 +1651,7 @@ void arrow_board_ride(void)
 		off_screen = check_left_screen();
 		if (off_screen == 0u)
 		{
-			update_screen_position(&ignored, &ignored);
+			update_screen_position(&ignored, &ignored_2);
 			depth = (uint16_t)(OBJECT(current_object)->screen_y - 0x20u);
 			queue_sprite_at_depth(&ignored, &depth);
 			return;
@@ -1667,7 +1667,7 @@ void arrow_board_ride(void)
 		off_screen = check_left_screen();
 		if (off_screen == 0u)
 		{
-			update_screen_position(&ignored, &ignored);
+			update_screen_position(&ignored, &ignored_2);
 			depth = (uint16_t)(OBJECT(current_object)->screen_y - 0x20u);
 			queue_sprite_at_depth(&ignored, &depth);
 			return;
@@ -1682,7 +1682,7 @@ void arrow_board_ride(void)
 	off_screen = check_left_screen();
 	if (off_screen == 0u)
 	{
-		update_screen_position(&ignored, &ignored);
+		update_screen_position(&ignored, &ignored_2);
 		depth = (uint16_t)(OBJECT(current_object)->screen_y - 0x20u);
 		queue_sprite_at_depth(&ignored, &depth);
 		return;
@@ -1694,7 +1694,7 @@ void arrow_board_ride(void)
    then pebble_update. */
 void pebble_start(void)
 {
-	uint32_t ignored = 0;
+	uint32_t ignored = 0, ignored_2 = 0, ignored_3 = 0, ignored_4 = 0, ignored_5 = 0;
 
 	OBJECT(current_object)->sprite_flags = 0x1004u;
 	OBJECT(current_object)->sprite_frame = 0x6C60u;
@@ -1703,20 +1703,20 @@ void pebble_start(void)
 	OBJECT(current_object)->sprite_offset_y = 0;
 	OBJECT(current_object)->flags = 0u;
 	OBJECT(current_object)->handler = pebble_update_ADDRESS;
-	find_floor(&ignored, &ignored, &ignored, &ignored, &ignored);
+	find_floor(&ignored, &ignored_2, &ignored_3, &ignored_4, &ignored_5);
 	OBJECT(current_object)->z = OBJECT(current_object)->floor_z;
-	project_object(&ignored, &ignored);
+	project_object(&ignored, &ignored_2);
 }
 
 /* Queued at screen_y - 0x10 until check_left_screen finds it has left the screen, then deleted. */
 void pebble_update(void)
 {
-	uint32_t depth = 0, ignored = 0, off_screen = 0;
+	uint32_t depth = 0, ignored = 0, ignored_2 = 0, off_screen = 0;
 
 	off_screen = check_left_screen();
 	if (off_screen == 0u)
 	{
-		update_screen_position(&ignored, &ignored);
+		update_screen_position(&ignored, &ignored_2);
 		depth = (uint16_t)(OBJECT(current_object)->screen_y - 0x10u);
 		queue_sprite_at_depth(&ignored, &depth);
 		return;
@@ -1730,7 +1730,7 @@ void pebble_update(void)
 void propped_board_start(void)
 {
 	uint16_t prop_dy = 0;
-	uint32_t ignored = 0, object = 0;
+	uint32_t ignored = 0, ignored_2 = 0, object = 0;
 	uint16_t props_left_before = 0;
 
 	OBJECT(current_object)->sprite_flags = 0x1000u;
@@ -1751,7 +1751,7 @@ void propped_board_start(void)
 	OBJECT(current_object)->kind = 0x11u;
 	OBJECT(current_object)->handler = propped_board_update_ADDRESS;
 	propped_board_object = current_object;
-	project_object(&ignored, &ignored);
+	project_object(&ignored, &ignored_2);
 	if (free_object_stack < 2)
 		return;
 	board_props_left = 2;
@@ -1790,7 +1790,7 @@ void propped_board_start(void)
    rings; touchable, queued at draw_depth. */
 void propped_board_update(void)
 {
-	uint32_t depth = 0, ignored = 0, shake_dx = 0;
+	uint32_t depth = 0, ignored = 0, ignored_2 = 0, shake_dx = 0;
 	uint16_t shake_strength = 0;
 	uint32_t flags = 0;
 
@@ -1828,7 +1828,7 @@ void propped_board_update(void)
 	{
 		add_to_touchable_list(shake_dx);
 		depth = OBJECT(current_object)->propped_board.draw_depth;
-		queue_sprite_at_depth(&ignored, &depth);
+		queue_sprite_at_depth(&ignored_2, &depth);
 		return;
 	}
 	shake_dx = (uint16_t)OBJECT(current_object)->propped_board.shake_strength >> 4;
@@ -1843,15 +1843,15 @@ void propped_board_update(void)
 		OBJECT(current_object)->propped_board.shake_strength = 0;
 	add_to_touchable_list(shake_dx);
 	depth = OBJECT(current_object)->propped_board.draw_depth;
-	queue_sprite_at_depth(&ignored, &depth);
+	queue_sprite_at_depth(&ignored_2, &depth);
 }
 
 /* Projects the prop from its x and y and goes on to board_prop_update. */
 void board_prop_start(void)
 {
-	uint32_t ignored = 0;
+	uint32_t ignored = 0, ignored_2 = 0;
 
-	project_object(&ignored, &ignored);
+	project_object(&ignored, &ignored_2);
 	OBJECT(current_object)->handler = board_prop_update_ADDRESS;
 }
 
@@ -1860,7 +1860,7 @@ void board_prop_start(void)
    with it (shake_dx), is touchable and queued at draw_depth. */
 void board_prop_update(void)
 {
-	uint32_t depth = 0, ignored = 0, object = 0, off_screen = 0;
+	uint32_t depth = 0, ignored = 0, ignored_2 = 0, object = 0, off_screen = 0;
 
 	off_screen = check_left_screen();
 	if (off_screen != 0u)
@@ -1869,7 +1869,7 @@ void board_prop_update(void)
 		return;
 	}
 	OBJECT(current_object)->z += OBJECT(LINKED(current_object, propped_board_object))->speed_z;
-	update_screen_position(&ignored, &ignored);
+	update_screen_position(&ignored, &ignored_2);
 	object = LINKED(current_object, propped_board_object);
 	if ((uint32_t)OBJECT(object)->speed_z == 0u)
 		OBJECT(current_object)->board_prop.draw_depth = OBJECT(current_object)->screen_y - 0xBu;
@@ -1971,7 +1971,7 @@ void boulder_wait(void)
 void boulder_roll(void)
 {
 	uint8_t sound_id = 0;
-	uint32_t ignored = 0;
+	uint32_t ignored = 0, ignored_2 = 0, ignored_3 = 0, ignored_4 = 0, ignored_5 = 0, ignored_6 = 0, ignored_7 = 0;
 
 	OBJECT(current_object)->health = 0x7F;
 	if ((OBJECT(current_object)->flags & 1u) == 0u && OBJECT(current_object)->x_int <= 0x180)
@@ -1979,23 +1979,23 @@ void boulder_roll(void)
 		OBJECT(current_object)->flags |= 1u;
 		camera_shake_active = 1u;
 		sound_id = 0xFu;
-		play_sound(sound_id, &ignored, &ignored);
+		play_sound(sound_id, &ignored, &ignored_2);
 	}
 	group_leader_0_held = 0u;
 	OBJECT(current_object)->x = OBJECT(LINKED(current_object, group_leaders[0]))->x;
 	OBJECT(current_object)->x_int -= 0x30u;
 	OBJECT(current_object)->speed_x = 0u - ((uint32_t)(uint16_t)chaser_speed << 12);
 	OBJECT(current_object)->speed_y = 0;
-	find_floor(&ignored, &ignored, &ignored, &ignored, &ignored);
+	find_floor(&ignored_3, &ignored, &ignored_2, &ignored_4, &ignored_5);
 	if ((int16_t)(uint16_t)OBJECT(current_object)->floor_block < 0)
 	{
 		OBJECT(current_object)->speed_z += 0x6000u;
 		OBJECT(current_object)->z += OBJECT(current_object)->speed_z;
-		animate(&ignored, &ignored, &ignored);
-		project_object(&ignored, &ignored);
+		animate(&ignored, &ignored_6, &ignored_7);
+		project_object(&ignored_3, &ignored);
 		if (OBJECT(current_object)->screen_y < 0x180)
 		{
-			add_to_touchable_list(ignored);
+			add_to_touchable_list(ignored_3);
 			add_to_rider_list();
 			ignored = queue_sprite_at_previous_floor();
 			return;
@@ -2006,11 +2006,11 @@ void boulder_roll(void)
 	OBJECT(current_object)->z = OBJECT(current_object)->floor_z;
 	if ((uint16_t)OBJECT(current_object)->z_int != 0x7FFu)
 	{
-		animate(&ignored, &ignored, &ignored);
-		project_object(&ignored, &ignored);
+		animate(&ignored, &ignored_6, &ignored_7);
+		project_object(&ignored_3, &ignored);
 		if (OBJECT(current_object)->screen_y < 0x180)
 		{
-			add_to_touchable_list(ignored);
+			add_to_touchable_list(ignored_3);
 			add_to_rider_list();
 			ignored = queue_sprite_at_previous_floor();
 			return;
@@ -2019,11 +2019,11 @@ void boulder_roll(void)
 		return;
 	}
 	OBJECT(current_object)->z_int = 0x230;
-	animate(&ignored, &ignored, &ignored);
-	project_object(&ignored, &ignored);
+	animate(&ignored, &ignored_6, &ignored_7);
+	project_object(&ignored_3, &ignored);
 	if (OBJECT(current_object)->screen_y < 0x180)
 	{
-		add_to_touchable_list(ignored);
+		add_to_touchable_list(ignored_3);
 		add_to_rider_list();
 		ignored = queue_sprite_at_previous_floor();
 		return;
@@ -2036,7 +2036,7 @@ void boulder_roll(void)
    door_wall_wait_to_burst. */
 void door_wall_start(void)
 {
-	uint32_t ignored = 0;
+	uint32_t ignored = 0, ignored_2 = 0, ignored_3 = 0, ignored_4 = 0, ignored_5 = 0;
 
 	OBJECT(current_object)->sprite_flags = 0x1000u;
 	OBJECT(current_object)->sprite_palette = 0x9110u;
@@ -2049,9 +2049,9 @@ void door_wall_start(void)
 	OBJECT(current_object)->x = -0xE2E0000;
 	OBJECT(current_object)->y = 0xF310000;
 	OBJECT(current_object)->handler = door_wall_wait_to_burst_ADDRESS;
-	find_floor(&ignored, &ignored, &ignored, &ignored, &ignored);
+	find_floor(&ignored, &ignored_2, &ignored_3, &ignored_4, &ignored_5);
 	OBJECT(current_object)->z = OBJECT(current_object)->floor_z;
-	project_object(&ignored, &ignored);
+	project_object(&ignored, &ignored_2);
 }
 
 /* Drawn until scene_step reaches 3; then it bursts into pieces_left (0x10) fragments (rock_debris_fly,
@@ -2060,13 +2060,13 @@ void door_wall_start(void)
 void door_wall_wait_to_burst(void)
 {
 	uint32_t carry = 0;
-	uint32_t fragment_animation = 0, free_count = 0, ignored = 0, object = 0, random_bits = 0, random_offsets = 0;
+	uint32_t fragment_animation = 0, free_count = 0, ignored = 0, ignored_2 = 0, ignored_3 = 0, ignored_4 = 0, object = 0, random_bits = 0, random_offsets = 0;
 	uint8_t pieces_left = 0;
 
 	if ((int8_t)scene_step < 3)
 	{
-		update_screen_position(&ignored, &ignored);
-		ignored = queue_sprite(ignored);
+		update_screen_position(&ignored_3, &ignored_4);
+		ignored_4 = queue_sprite(ignored_4);
 		return;
 	}
 	for (;;)
@@ -2080,7 +2080,7 @@ void door_wall_wait_to_burst(void)
 			break;
 		OBJECT(object)->screen_x = OBJECT(current_object)->screen_x;
 		OBJECT(object)->screen_y = OBJECT(current_object)->screen_y;
-		next_random(&random_bits, &ignored, &ignored);
+		next_random(&random_bits, &ignored, &ignored_2);
 		random_offsets = (random_bits & ~0xFFFFu) | (random_bits & 0x3Fu);
 		OBJECT(object)->screen_x += random_offsets;
 		OBJECT(object)->screen_y += (random_offsets >> 16) & 0x3Fu;
@@ -2123,7 +2123,7 @@ void door_wall_wait_to_burst(void)
    their floors, with door_roller_update; current_object is left on the last one. */
 void spawn_door_rollers(uint32_t *p_block_offset, uint32_t *p_slope_height, uint32_t *p_object)
 {
-	uint32_t free_count = 0, ignored = 0, layout_record = 0;
+	uint32_t free_count = 0, ignored = 0, ignored_2 = 0, layout_record = 0;
 	uint16_t rollers_left_before = 0;
 
 	door_rollers_left = 4;
@@ -2160,7 +2160,7 @@ void spawn_door_rollers(uint32_t *p_block_offset, uint32_t *p_slope_height, uint
 		OBJECT(current_object)->animation_timer = 0;
 		OBJECT(current_object)->animation = spiked_roller_animation_ADDRESS;
 		OBJECT(current_object)->sprite_frame = spiked_roller_frames[OBJECT(current_object)->animation_frame];
-		find_floor(&ignored, &ignored, p_block_offset, p_slope_height, p_object);
+		find_floor(&ignored, &ignored_2, p_block_offset, p_slope_height, p_object);
 		OBJECT(current_object)->z = OBJECT(current_object)->floor_z;
 		rollers_left_before = door_rollers_left;
 		door_rollers_left = rollers_left_before - 1u;
@@ -2172,7 +2172,7 @@ void spawn_door_rollers(uint32_t *p_block_offset, uint32_t *p_slope_height, uint
    set; animated, projected and, from state 1 on, queued (queue_sprite_at_base). */
 void door_roller_update(void)
 {
-	uint32_t ignored = 0;
+	uint32_t ignored = 0, ignored_2 = 0, ignored_3 = 0, ignored_4 = 0;
 
 	switch (OBJECT(current_object)->door_roller.state)
 	{
@@ -2199,8 +2199,8 @@ void door_roller_update(void)
 		delete_current_object();
 		return;
 	}
-	animate(&ignored, &ignored, &ignored);
-	project_object(&ignored, &ignored);
+	animate(&ignored, &ignored_2, &ignored_3);
+	project_object(&ignored_4, &ignored);
 	if (OBJECT(current_object)->door_roller.state == 0u)
 		return;
 	ignored = queue_sprite_at_base(ignored);
@@ -2219,14 +2219,14 @@ void door_roller_wait(void)
    when there is no floor there (z_int 0x800 or more). */
 void door_roller_drop(void)
 {
-	uint32_t ignored = 0;
+	uint32_t ignored = 0, ignored_2 = 0, ignored_3 = 0, ignored_4 = 0, ignored_5 = 0, ignored_6 = 0, ignored_7 = 0;
 
 	OBJECT(current_object)->health = 0x7F;
 	OBJECT(current_object)->speed_z += 0x6000u;
 	OBJECT(current_object)->z += OBJECT(current_object)->speed_z;
 	OBJECT(current_object)->y_int += 5u;
-	animate(&ignored, &ignored, &ignored);
-	find_floor(&ignored, &ignored, &ignored, &ignored, &ignored);
+	animate(&ignored, &ignored_2, &ignored_3);
+	find_floor(&ignored_4, &ignored, &ignored_5, &ignored_6, &ignored_7);
 	if (OBJECT(current_object)->z_int < OBJECT(current_object)->floor_z_int)
 	{
 		add_to_rider_list();
@@ -2281,7 +2281,7 @@ void door_roller_ride(void)
    fireball_emitter_update. It has no sprite. */
 void fireball_emitter_start(void)
 {
-	uint32_t ignored = 0, list_cursor = 0;
+	uint32_t ignored = 0, ignored_2 = 0, ignored_3 = 0, ignored_4 = 0, ignored_5 = 0, list_cursor = 0;
 
 	list_cursor = fireball_emitter_lists[OBJECT(current_object)->sprite_frame] + fireball_emitter_lists_ADDRESS;
 	OBJECT(current_object)->x_int = FIREBALL_EMITTER_LIST(list_cursor)->x;
@@ -2294,7 +2294,7 @@ void fireball_emitter_start(void)
 	OBJECT(current_object)->floor_z_fraction = 0u;
 	OBJECT(current_object)->fireball_emitter.shot = list_cursor + 2u;
 	OBJECT(current_object)->flags = 0u;
-	find_floor(&ignored, &ignored, &ignored, &ignored, &ignored);
+	find_floor(&ignored, &ignored_2, &ignored_3, &ignored_4, &ignored_5);
 	OBJECT(current_object)->handler = fireball_emitter_update_ADDRESS;
 }
 
@@ -2305,9 +2305,9 @@ void fireball_emitter_start(void)
 void fireball_emitter_update(void)
 {
 	uint16_t scale = 0;
-	uint32_t floor_slope = 0, ignored = 0, list_record = 0, object = 0, slope_direction = 0, slope_factor = 0, slope_speed = 0, type_record = 0;
+	uint32_t floor_slope = 0, ignored = 0, ignored_2 = 0, ignored_3 = 0, ignored_4 = 0, list_record = 0, object = 0, slope_direction = 0, slope_factor = 0, slope_speed = 0, type_record = 0;
 
-	project_object(&ignored, &ignored);
+	project_object(&ignored, &ignored_2);
 	if (OBJECT(current_object)->screen_y >= -0x40)
 	{
 		slope_factor = 0u;
@@ -2322,7 +2322,7 @@ void fireball_emitter_update(void)
 		OBJECT(current_object)->x += (int32_t)(sine_table[slope_direction] * slope_speed) >> 7;
 		OBJECT(current_object)->y -= (int32_t)(cosine_table[slope_direction] * slope_speed) >> 7;
 	}
-	find_floor(&ignored, &ignored, &ignored, &ignored, &object);
+	find_floor(&ignored, &ignored_2, &ignored_4, &ignored_3, &object);
 	OBJECT(current_object)->z = OBJECT(current_object)->floor_z;
 	if (scroll_position < FIREBALL_SHOT(OBJECT(current_object)->fireball_emitter.shot)->position)
 	{
@@ -2393,12 +2393,12 @@ void bouncing_fireball_update(void)
 {
 	uint8_t sound_id = 0;
 	uint16_t child = 0, shadow_dx = 0, shadow_dy = 0;
-	uint32_t depth = 0, ignored = 0, off_screen = 0;
+	uint32_t depth = 0, ignored = 0, ignored_2 = 0, ignored_3 = 0, ignored_4 = 0, ignored_5 = 0, ignored_6 = 0, ignored_7 = 0, off_screen = 0;
 	uint8_t blink_phase = 0;
 
 	OBJECT(current_object)->x += OBJECT(current_object)->speed_x;
 	OBJECT(current_object)->y += OBJECT(current_object)->speed_y;
-	find_floor(&ignored, &ignored, &ignored, &ignored, &ignored);
+	find_floor(&ignored, &ignored_2, &ignored_3, &ignored_4, &ignored_5);
 	OBJECT(current_object)->speed_z += 0x6000u;
 	OBJECT(current_object)->z += OBJECT(current_object)->speed_z;
 	if (OBJECT(current_object)->floor_z <= OBJECT(current_object)->z)
@@ -2409,10 +2409,10 @@ void bouncing_fireball_update(void)
 		if (OBJECT(current_object)->speed_z_int <= -2)
 		{
 			sound_id = 0x21u;
-			play_sound(sound_id, &ignored, &ignored);
+			play_sound(sound_id, &ignored_2, &ignored_3);
 		}
 	}
-	project_object(&ignored, &ignored);
+	project_object(&ignored, &ignored_2);
 	off_screen = check_left_screen();
 	if (off_screen != 0u)
 	{
@@ -2422,14 +2422,14 @@ void bouncing_fireball_update(void)
 		delete_current_object();
 		return;
 	}
-	animate(&ignored, &ignored, &ignored);
+	animate(&ignored_2, &ignored_6, &ignored_7);
 	if (OBJECT(current_object)->hitbox_size_x != 0u)
 		add_to_touchable_list(ignored);
 	OBJECT(current_object)->flags &= ~0x10u;
 	if ((OBJECT(current_object)->flags & 8u) != 0u)
 		OBJECT(current_object)->flags |= 0x10u;
 	add_to_rider_list();
-	queue_sprite(ignored);
+	queue_sprite(ignored_2);
 	shadow_dx = 8u;
 	shadow_dy = 0xFFFDu;
 	if (OBJECT(current_object)->hitbox_size_x == 0u)
@@ -2494,18 +2494,18 @@ void bouncing_fireball_knocked_away(void)
 void knocked_object_fly(void)
 {
 	uint16_t child = 0;
-	uint32_t ignored = 0, off_screen = 0;
+	uint32_t ignored = 0, ignored_2 = 0, ignored_4 = 0, ignored_5 = 0, off_screen = 0;
 
 	OBJECT(current_object)->speed_z += 0x6000u;
 	OBJECT(current_object)->z += OBJECT(current_object)->speed_z;
 	OBJECT(current_object)->x += OBJECT(current_object)->speed_x;
 	OBJECT(current_object)->y += OBJECT(current_object)->speed_y;
-	project_object(&ignored, &ignored);
+	project_object(&ignored, &ignored_2);
 	off_screen = is_off_screen();
 	if (off_screen == 0u)
 	{
-		animate(&ignored, &ignored, &ignored);
-		ignored = queue_sprite(ignored);
+		animate(&ignored_2, &ignored_4, &ignored_5);
+		ignored_2 = queue_sprite(ignored_2);
 		return;
 	}
 	child = OBJECT(current_object)->child;

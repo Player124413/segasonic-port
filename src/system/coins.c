@@ -3,7 +3,7 @@
  *    Description: coins and credits: the coin inputs and counters, the credits and start prompts drawn outside a game
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    22-10-2026
+ *    Modified:    23-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -66,7 +66,7 @@ void apply_settings(void)
 void update_coins(void)
 {
 	uint8_t changed_flag = 0, max_credits = 0, sound_id = 0;
-	uint32_t block_cursor = 0, bookkeeping_chute = 0, chute_offset = 0, coin_credit_block = 0, coin_credits_added = 0, coin_inputs = 0, counter_bit = 0, counter_state = 0, credit_block = 0, credit_blocks_left = 0, ignored = 0, pending_offset = 0, service_credits_added = 0;
+	uint32_t block_cursor = 0, bookkeeping_chute = 0, chute_offset = 0, coin_credit_block = 0, coin_credits_added = 0, coin_inputs = 0, counter_bit = 0, counter_state = 0, credit_block = 0, credit_blocks_left = 0, ignored = 0, ignored_2 = 0, pending_offset = 0, service_credits_added = 0;
 	uint32_t coins_released = 0;
 
 	block_cursor = p1_coins_ADDRESS;
@@ -83,13 +83,13 @@ void update_coins(void)
 	if (coin_sounds != 0u)
 	{
 		sound_id = 0x7Fu;
-		queue_sound(sound_id, &ignored, &ignored);
+		queue_sound(sound_id, &ignored, &ignored_2);
 		coin_sounds--;
 	}
 	if (service_coin_sounds != 0u)
 	{
 		sound_id = 0x7Fu;
-		queue_sound(sound_id, &ignored, &ignored);
+		queue_sound(sound_id, &ignored, &ignored_2);
 		service_coin_sounds--;
 	}
 	max_credits = 9u;
@@ -470,58 +470,65 @@ void erase_attract_credits(void)
    by turns when 2 are needed). Its cabinet_config test changes nothing. */
 void blink_start_prompt(uint32_t credit_block, uint32_t prompt_texts, uint32_t *p_blink_bit, uint32_t *p_text, uint32_t *p_text_position)
 {
-	uint32_t blink_bit = *p_blink_bit;
-	uint32_t text = *p_text;
 	uint16_t credits = 0;
-	uint32_t frame_bit = 0, prompt_index = 0;
+	uint32_t prompt_index = 0;
 	uint8_t port_d_bits = 0;
 
 	if ((frame_counter & 0xFu) != 0u)
 		return;
 	prompt_index = 0u;
-	frame_bit = (uint8_t)(5u - frames_per_wait);
-	if ((frame_counter_long & shl32(1u, (int)(frame_bit))) != 0u)
+	*p_blink_bit = (uint8_t)(5u - frames_per_wait);
+	if ((frame_counter_long & shl32(1u, (int)(*p_blink_bit))) != 0u)
 	{
 		port_d_bits = mem_read8(io_port_d);
 		mem_write8(io_port_d, port_d_bits & ~0xCu);
-		text = prompt_texts + START_PROMPT_TEXT_OFFSETS(prompt_texts)[prompt_index];
-		erase_text_lines(&text, p_text_position);
-		*p_blink_bit = frame_bit;
-		*p_text = text;
+		*p_text = prompt_texts + START_PROMPT_TEXT_OFFSETS(prompt_texts)[prompt_index];
+		erase_text_lines(p_text, p_text_position);
 		return;
 	}
 	if (free_play != 0u)
 	{
-		if ((cabinet_config & 1u) == 0u && setting_moving_seat == 0u)
-			r14 = p1_coins_ADDRESS;
-	}
-	else
-	{
-		credits = CREDIT_BLOCK(credit_block)->credits;
-		if (credits_per_start <= credits)
+		if ((cabinet_config & 1u) != 0u || setting_moving_seat != 0u)
 		{
-			if ((cabinet_config & 1u) == 0u && setting_moving_seat == 0u)
-				r14 = p1_coins_ADDRESS;
-			text = prompt_texts + START_PROMPT_TEXT_OFFSETS(prompt_texts)[prompt_index];
-			print_text_lines(&text, p_text_position);
-			*p_blink_bit = frame_bit;
-			*p_text = text;
+			*p_text = prompt_texts + START_PROMPT_TEXT_OFFSETS(prompt_texts)[prompt_index];
+			print_text_lines(p_text, p_text_position);
 			return;
 		}
-		prompt_index = 1u;
-		if (credits_per_start == 2u)
-		{
-			frame_bit++;
-			if ((frame_counter_long & shl32(1u, (int)(frame_bit))) != 0u)
-				prompt_index = 3u;
-		}
-		if (CREDIT_BLOCK(credit_block)->coins == 0u && credits == 0u)
-			prompt_index = 2u;
+		r14 = p1_coins_ADDRESS;
+		*p_text = prompt_texts + START_PROMPT_TEXT_OFFSETS(prompt_texts)[prompt_index];
+		print_text_lines(p_text, p_text_position);
+		return;
 	}
-	text = prompt_texts + START_PROMPT_TEXT_OFFSETS(prompt_texts)[prompt_index];
-	print_text_lines(&text, p_text_position);
-	*p_blink_bit = frame_bit;
-	*p_text = text;
+	credits = CREDIT_BLOCK(credit_block)->credits;
+	if (credits_per_start <= credits)
+	{
+		if ((cabinet_config & 1u) != 0u || setting_moving_seat != 0u)
+		{
+			*p_text = prompt_texts + START_PROMPT_TEXT_OFFSETS(prompt_texts)[prompt_index];
+			print_text_lines(p_text, p_text_position);
+			return;
+		}
+		r14 = p1_coins_ADDRESS;
+		*p_text = prompt_texts + START_PROMPT_TEXT_OFFSETS(prompt_texts)[prompt_index];
+		print_text_lines(p_text, p_text_position);
+		return;
+	}
+	prompt_index = 1u;
+	if (credits_per_start == 2u)
+	{
+		(*p_blink_bit)++;
+		if ((frame_counter_long & shl32(1u, (int)(*p_blink_bit))) != 0u)
+			prompt_index = 3u;
+	}
+	if (CREDIT_BLOCK(credit_block)->coins != 0u || credits != 0u)
+	{
+		*p_text = prompt_texts + START_PROMPT_TEXT_OFFSETS(prompt_texts)[prompt_index];
+		print_text_lines(p_text, p_text_position);
+		return;
+	}
+	prompt_index = 2u;
+	*p_text = prompt_texts + START_PROMPT_TEXT_OFFSETS(prompt_texts)[prompt_index];
+	print_text_lines(p_text, p_text_position);
 }
 
 /* Unused: clears io_port_d bits 2-3 and erases prompt 1 of prompt_texts ("Insert more coin") at
@@ -570,26 +577,23 @@ void draw_credit_count(uint32_t credit_block, uint32_t *p_credits, uint32_t *p_c
 void draw_credit_count_now(uint32_t credit_block, uint32_t *p_credits, uint32_t *p_coins_per_credit, uint32_t *p_text, uint32_t *p_text_position)
 {
 	uint32_t credits = *p_credits;
-	uint32_t coins_per_credit = *p_coins_per_credit;
 	uint32_t text_position = *p_text_position;
 	uint8_t attribute = 0;
 	uint16_t tens = 0;
-	uint32_t coin_cost = 0, ignored = 0, plural_cell = 0, text = 0;
+	uint32_t ignored = 0, plural_cell = 0;
 	uint8_t tens_nibble = 0;
 
 	credit_text_position = text_position;
 	if (free_play != 0u)
 	{
-		text = free_play_text_ADDRESS;
-		print_text_here(&ignored, &text, &text_position);
+		*p_text = free_play_text_ADDRESS;
+		print_text_here(&ignored, p_text, &text_position);
 		*p_credits = credits;
-		*p_coins_per_credit = coins_per_credit;
-		*p_text = text;
 		*p_text_position = text_position;
 		return;
 	}
-	text = credits_label_text_ADDRESS;
-	print_text_here(&plural_cell, &text, &text_position);
+	*p_text = credits_label_text_ADDRESS;
+	print_text_here(&plural_cell, p_text, &text_position);
 	credits = (credits & ~0xFFu) | CREDIT_BLOCK(credit_block)->credits;
 	if ((uint8_t)credits >= 2u)
 	{
@@ -610,27 +614,21 @@ void draw_credit_count_now(uint32_t credit_block, uint32_t *p_credits, uint32_t 
 	credits = (credits & ~0xFFFFu) | (uint16_t)tens;
 	draw_credit_digits(tens, &credits, &text_position);
 	text_position = (text_position & ~0xFFFFu) | (uint16_t)(text_position + 4u);
-	coin_cost = credit_coin_cost;
-	if (coin_cost != 1u)
+	*p_coins_per_credit = credit_coin_cost;
+	if (*p_coins_per_credit != 1u)
 	{
 		credits = CREDIT_BLOCK(credit_block)->coins;
-		if (credits == 0u)
-			mem_write32(text_position, 0u);
-		else
+		if (credits != 0u)
 		{
 			attribute = 0u;
-			draw_fraction(attribute, &credits, &coin_cost, &text_position);
+			draw_fraction(attribute, &credits, p_coins_per_credit, &text_position);
+			*p_credits = credits;
+			*p_text_position = text_position;
+			return;
 		}
-		*p_credits = credits;
-		*p_coins_per_credit = coin_cost;
-		*p_text = text;
-		*p_text_position = text_position;
-		return;
 	}
 	mem_write32(text_position, 0u);
 	*p_credits = credits;
-	*p_coins_per_credit = coin_cost;
-	*p_text = text;
 	*p_text_position = text_position;
 }
 

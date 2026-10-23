@@ -121,7 +121,7 @@ void play_midi_message(uint8_t message_byte, uint16_t part)
 {
 	uint32_t carry = 0;
 	uint8_t bend = 0, bend_high = 0, bend_low = 0, bend_sign = 0, bend_steps = 0, channel = 0, channels_left = 0, chip_channel = 0, control_value = 0, controller = 0, controller_number = 0, controls = 0, depth = 0, detune_low = 0, detune_sign = 0, effective_volume = 0, event = 0, first_byte = 0, first_data_byte = 0, fm_detune = 0, fm_register = 0, ignored8 = 0, level = 0, level_register = 0, modulation_depth = 0, note = 0, note_number = 0, note_to_mark = 0, note_velocity = 0, old_controls = 0, operators_left = 0, part_channel = 0, parts_left = 0, pcm_register = 0, pitch_bend_high = 0, pitch_bend_low = 0, preset = 0, program = 0, register_number = 0, register_value = 0, rounded_volume = 0, sample = 0, scale = 0, setup = 0, total_level = 0, velocity = 0, velocity_then_steal_low = 0, vibrato_preset = 0, voice_channel = 0, voice_chip_channel = 0, voice_note = 0, voices_left = 0, voices_or_bytes_left = 0, voices_unchecked = 0, volume = 0, volume_curve = 0, volume_scale = 0;
-	uint16_t bend_entry = 0, bend_index = 0, byte_copy = 0, channel_in_part = 0, channel_offset = 0, controls_entry = 0, each_part = 0, fnum = 0, fnum_entry = 0, fnum_table_entry = 0, free_fm_voice = 0, ignored16 = 0, instrument = 0, kept_channel = 0, kit_note = 0, level_product = 0, new_voice = 0, new_voice_field = 0, note_index = 0, patch_levels = 0, preset_address = 0, preset_data = 0, preset_target = 0, register_channel = 0, register_list = 0, scaled_part_volume = 0, setup_data = 0, velocity_index = 0, voice = 0, voice_field = 0, voice_size = 0, voices_left_pair = 0, voices_to_end_at = 0;
+	uint16_t bend_entry = 0, bend_index = 0, byte_copy = 0, channel_in_part = 0, channel_offset = 0, controls_entry = 0, each_part = 0, fnum = 0, fnum_entry = 0, fnum_table_entry = 0, free_fm_voice = 0, ignored16 = 0, ignored16_2 = 0, instrument = 0, kept_channel = 0, kit_note = 0, level_product = 0, new_voice = 0, new_voice_field = 0, note_index = 0, patch_levels = 0, preset_address = 0, preset_data = 0, preset_target = 0, register_channel = 0, register_list = 0, scaled_part_volume = 0, setup_data = 0, velocity_index = 0, voice = 0, voice_field = 0, voice_size = 0, voices_left_pair = 0, voices_to_end_at = 0;
 	uint8_t saved_channel = 0, saved_count = 0, saved_value = 0, saved_voices_left = 0;
 	uint16_t saved_outer = 0, saved_inner = 0;
 	uint8_t old_voices_to_end = 0, note_level_byte = 0, level_rotated = 0, fm_detune_byte = 0, negated_bend = 0, negated_steps = 0, modulation_value = 0, modulation_rotated_1 = 0, modulation_rotated_2 = 0, doubled_volume = 0, doubled_music_volume = 0;
@@ -415,7 +415,7 @@ void play_midi_message(uint8_t message_byte, uint16_t part)
 		}
 		z80_block(21);
 		bend_low = first_data_byte;
-		read_midi_byte(&ignored16, &ignored16, &bend_high);
+		read_midi_byte(&ignored16_2, &ignored16, &bend_high);
 		z80_block(26);
 		carry = bend_high & 1u;
 		bend_sign = bend_high >> 1;
@@ -1537,7 +1537,7 @@ void allocate_sample_voice(uint8_t note_velocity, uint16_t part)
 void note_off(uint16_t part)
 {
 	uint8_t channel = 0, channel_index = 0, flags = 0, ignored8 = 0, program = 0, voices_left = 0;
-	uint16_t ignored16 = 0, instrument = 0, voice = 0, voice_size = 0;
+	uint16_t ignored16 = 0, ignored16_2 = 0, instrument = 0, voice = 0, voice_size = 0;
 
 	z80_block(31);
 	program = MIDI_PART(part)->program;
@@ -1552,7 +1552,7 @@ void note_off(uint16_t part)
 	z80_block(22);
 	if (((INSTRUMENT(instrument)->flags >> 1) & 1u) != 0u)
 	{
-		fm_note_off(&ignored16, &ignored16, &ignored8);
+		fm_note_off(&ignored16, &ignored16_2, &ignored8);
 		return;
 	}
 	z80_block(51);

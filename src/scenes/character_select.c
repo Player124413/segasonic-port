@@ -3,7 +3,7 @@
  *    Description: choosing a character: the PLAYER SELECT chooser at a new game and the chooser of a player joining
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    22-10-2026
+ *    Modified:    23-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -27,7 +27,7 @@ void reset_character_select(void)
 void start_character_chooser(uint32_t block)
 {
 	uint16_t chooser_x = 0;
-	uint32_t character = 0, frame_index = 0, free_count = 0, ignored = 0, object = 0, player = 0, x_index = 0;
+	uint32_t character = 0, frame_index = 0, free_count = 0, ignored = 0, ignored_2 = 0, ignored_3 = 0, ignored_4 = 0, object = 0, player = 0, x_index = 0;
 
 	count_free_characters(&ignored, &free_count, &object);
 	players_choosing_character++;
@@ -35,10 +35,10 @@ void start_character_chooser(uint32_t block)
 	{
 		mem_write16(video_layer_disable, 0x2Fu);
 		mem_write16(video_backdrop_control, 0u);
-		show_nbg0_picture(&free_count, &ignored, &ignored, &block);
+		show_nbg0_picture(&free_count, &ignored_2, &ignored_3, &block);
 		spawn_count = 2u;
 		spawn_count = 0xAu;
-		spawn_object_with_pieces(0x08F9E2u, &ignored, &ignored, &free_count, &object, &block);
+		spawn_object_with_pieces(0x08F9E2u, &ignored, &ignored_4, &free_count, &object, &block);
 		OBJECT(object)->screen_x = 0x118;
 		OBJECT(object)->screen_y = 0x1F;
 		OBJECT(object)->sprite_palette = 0x8AD0u;
@@ -52,7 +52,7 @@ void start_character_chooser(uint32_t block)
 	}
 	character_select_timer = 0x258;
 	spawn_count = 8u;
-	spawn_object_with_pieces(0x08FA36u, &ignored, &ignored, &free_count, &object, &block);
+	spawn_object_with_pieces(0x08FA36u, &ignored, &ignored_4, &free_count, &object, &block);
 	OBJECT(object)->character_chooser.player_block = current_player;
 	player = OBJECT(object_cursor)->player;
 	OBJECT(object)->kind = player;
@@ -190,7 +190,7 @@ void character_chooser_wait(void)
 void character_chooser_confirm(void)
 {
 	uint8_t sound_id = 0;
-	uint32_t character = 0, chosen_character = 0, frame_index = 0, ignored = 0, random_value = 0, x_index = 0;
+	uint32_t character = 0, chosen_character = 0, frame_index = 0, ignored = 0, ignored_2 = 0, ignored_3 = 0, ignored_4 = 0, random_value = 0, x_index = 0;
 
 	while ((characters_taken & shl32(1u, (int)(character_taken_bits[OBJECT(current_object)->character_chooser.character]))) != 0u)
 	{
@@ -216,11 +216,11 @@ void character_chooser_confirm(void)
 	OBJECT(current_object)->sprite_frame = chooser_portrait_frames[(uint8_t)(frame_index + 3u)];
 	OBJECT(current_object)->sprite_palette = chooser_portrait_palettes[chosen_character];
 	OBJECT(current_object)->handler = character_chooser_chosen_ADDRESS;
-	next_random(&random_value, &ignored, &ignored);
+	next_random(&random_value, &ignored, &ignored_2);
 	sound_id = chooser_voice_sounds[OBJECT(current_object)->character_chooser.character].sounds[random_value & 3u];
-	play_sound(sound_id, &ignored, &ignored);
+	play_sound(sound_id, &ignored_3, &ignored_4);
 	sound_id = 0x20u;
-	play_sound(sound_id, &ignored, &ignored);
+	play_sound(sound_id, &ignored_3, &ignored_4);
 	character_chooser_chosen();
 }
 
@@ -412,23 +412,23 @@ void character_chooser_turn(void)
    longer drawn. */
 void character_chooser_chosen(void)
 {
-	uint32_t ignored = 0;
+	uint32_t ignored = 0, ignored_2 = 0, ignored_3 = 0, ignored_4 = 0;
 
 	if (character_select_timer <= 0)
 	{
-		delete_object_and_children(&ignored, &ignored, &ignored);
+		delete_object_and_children(&ignored, &ignored_2, &ignored_3);
 		return;
 	}
-	ignored = queue_sprite(0u);
+	ignored_4 = queue_sprite(0u);
 	current_object = LINKED(current_object, OBJECT(current_object)->child);
 	current_object = LINKED(current_object, OBJECT(current_object)->child);
 	current_object = LINKED(current_object, OBJECT(current_object)->child);
 	OBJECT(current_object)->sprite_frame = character_name_sprites[OBJECT(object_cursor)->character_chooser.character];
-	ignored = queue_sprite(ignored);
+	ignored_4 = queue_sprite(ignored_4);
 	current_object = LINKED(current_object, OBJECT(current_object)->child);
-	ignored = queue_sprite(ignored);
+	ignored_4 = queue_sprite(ignored_4);
 	current_object = LINKED(current_object, OBJECT(current_object)->child);
-	queue_sprite(ignored);
+	queue_sprite(ignored_4);
 }
 
 /* The PLAYER SELECT countdown: counts character_select_timer down, never below 0, its seconds shown as a
@@ -437,12 +437,12 @@ void character_chooser_chosen(void)
    timer is out. */
 void character_select_countdown_update(void)
 {
-	uint32_t ignored = 0, seconds = 0;
+	uint32_t ignored = 0, ignored_2 = 0, ignored_3 = 0, ignored_4 = 0, seconds = 0;
 	uint16_t time_left = 0, direction = 0;
 
 	if (players_choosing_character == 0u && character_select_timer <= 0)
 	{
-		delete_object_and_children(&ignored, &ignored, &ignored);
+		delete_object_and_children(&ignored, &ignored_2, &ignored_3);
 		return;
 	}
 	time_left = character_select_timer;
@@ -459,13 +459,13 @@ void character_select_countdown_update(void)
 	}
 	if ((int16_t)OBJECT(current_object)->sprite_scale < 0x140)
 		OBJECT(current_object)->sprite_scale += 8u;
-	ignored = queue_sprite(0u);
+	ignored_4 = queue_sprite(0u);
 	current_object = LINKED(current_object, OBJECT(current_object)->child);
 	direction = OBJECT(current_object)->direction;
 	OBJECT(current_object)->direction = direction - 1u;
 	if (direction != 0u)
 	{
-		queue_sprite(ignored);
+		queue_sprite(ignored_4);
 		return;
 	}
 	OBJECT(current_object)->direction = 2u;
@@ -483,7 +483,7 @@ void character_select_countdown_update(void)
 		OBJECT(current_object)->piece_frame = 0;
 		OBJECT(current_object)->piece_value = 1u;
 	}
-	queue_sprite(ignored);
+	queue_sprite(ignored_4);
 }
 
 /* A joining player's chooser (player_select_character), when a character is free: in the player's block
@@ -493,9 +493,9 @@ void character_select_countdown_update(void)
 uint32_t start_join_character_chooser(void)
 {
 	uint16_t chooser_x = 0;
-	uint32_t block = 0, character = 0, ignored = 0, object = 0, player = 0, x_index = 0;
+	uint32_t block = 0, character = 0, ignored = 0, ignored_2 = 0, object = 0, player = 0, x_index = 0;
 
-	count_free_characters(&x_index, &ignored, &ignored);
+	count_free_characters(&x_index, &ignored, &ignored_2);
 	if (free_character_count == 0u)
 		return x_index;
 	character = OBJECT(object_cursor)->kind;
@@ -668,20 +668,18 @@ void join_character_chooser_take_character(void)
 void count_free_characters(uint32_t *p_characters_left, uint32_t *p_character, uint32_t *p_taken_bit)
 {
 	uint8_t free_characters = 0;
-	uint32_t character = 0, characters_left = 0, taken_bit = 0;
+	uint32_t characters_left = 0;
 
 	characters_left = 3u;
 	free_characters = 0u;
 	do
 	{
-		character = characters_left - 1u;
-		taken_bit = character_taken_bits[character];
-		if ((characters_taken & shl32(1u, (int)(taken_bit))) == 0u)
+		*p_character = characters_left - 1u;
+		*p_taken_bit = character_taken_bits[*p_character];
+		if ((characters_taken & shl32(1u, (int)(*p_taken_bit))) == 0u)
 			free_characters++;
 		characters_left--;
 	} while (characters_left != 0u);
 	free_character_count = free_characters;
 	*p_characters_left = characters_left;
-	*p_character = character;
-	*p_taken_bit = taken_bit;
 }

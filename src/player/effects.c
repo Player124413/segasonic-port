@@ -3,7 +3,7 @@
  *    Description: around the players: the skid dust, the HUD (gauge, portrait, ring count, start prompt, messages), the ride of game mode 0x1C, joining with a character select, the result bonus, the climb zone splash, the intro marker
  *    Version:     0.1.0
  *    Created:     12-10-2026
- *    Modified:    22-10-2026
+ *    Modified:    23-10-2026
  *    Author:      Sebastian Toyos
  *
  *    SegaSonic The Hedgehog (arcade, Sega System 32): the game's V60 program decompiled into C by
@@ -43,12 +43,12 @@ void spawn_skid_dust(uint32_t dust)
 /* Plays the skid dust's animation once, drawn meanwhile, then deletes it. */
 void skid_dust_update(void)
 {
-	uint32_t ignored = 0, wrapped = 0;
+	uint32_t ignored = 0, ignored_2 = 0, ignored_3 = 0, wrapped = 0;
 
-	animate(&ignored, &wrapped, &ignored);
+	animate(&ignored, &wrapped, &ignored_2);
 	if ((uint8_t)wrapped == 0u)
 	{
-		update_screen_position(&ignored, &ignored);
+		update_screen_position(&ignored_3, &ignored);
 		ignored = queue_sprite(ignored);
 		return;
 	}
@@ -375,7 +375,7 @@ void player_hud_update(uint32_t *p_digit_attribute, uint32_t *p_text_position)
    cabinet_config is 2 or 3; hands back the text position. */
 uint32_t draw_player_start_prompt(void)
 {
-	uint32_t credit_block = 0, ignored = 0, player = 0, prompt_position = 0, prompt_texts = 0;
+	uint32_t credit_block = 0, ignored = 0, ignored_2 = 0, player = 0, prompt_position = 0, prompt_texts = 0;
 
 	switch (cabinet_config)
 	{
@@ -388,7 +388,7 @@ uint32_t draw_player_start_prompt(void)
 		if ((cabinet_config & 1u) == 0u)
 			prompt_position = (prompt_position & ~0xFFFFu) | start_prompt_positions_2p[player];
 		prompt_texts = start_prompt_texts_ADDRESS;
-		blink_start_prompt(credit_block, prompt_texts, &ignored, &ignored, &prompt_position);
+		blink_start_prompt(credit_block, prompt_texts, &ignored, &ignored_2, &prompt_position);
 		return prompt_position;
 	case 2:
 	case 3:
@@ -398,7 +398,7 @@ uint32_t draw_player_start_prompt(void)
 		if ((cabinet_config & 1u) == 0u)
 			prompt_position = (prompt_position & ~0xFFFFu) | start_prompt_positions_2p[player];
 		prompt_texts = start_prompt_texts_ADDRESS;
-		blink_start_prompt(credit_block, prompt_texts, &ignored, &ignored, &prompt_position);
+		blink_start_prompt(credit_block, prompt_texts, &ignored, &ignored_2, &prompt_position);
 		return prompt_position;
 	default:
 		invalid_jump(0xA9E6u + cabinet_config * 2u);
@@ -643,9 +643,9 @@ void spawn_climb_zone_effect(uint32_t object)
 /* Projects the climb zone splash and makes climb_zone_effect_update its handler, running it at once. */
 void climb_zone_effect_start(void)
 {
-	uint32_t ignored = 0;
+	uint32_t ignored = 0, ignored_2 = 0;
 
-	project_object(&ignored, &ignored);
+	project_object(&ignored, &ignored_2);
 	OBJECT(current_object)->handler = climb_zone_effect_update_ADDRESS;
 	climb_zone_effect_update();
 }
@@ -655,7 +655,7 @@ void climb_zone_effect_start(void)
    0x28. */
 void climb_zone_effect_update(void)
 {
-	uint32_t climbing_player = 0, depth = 0, ignored = 0;
+	uint32_t climbing_player = 0, depth = 0, ignored = 0, ignored_2 = 0, ignored_3 = 0, ignored_4 = 0;
 
 	climbing_player = LINKED(current_object, OBJECT(current_object)->parent);
 	if (PLAYER(climbing_player)->state != 0xAu || PLAYER(climbing_player)->splash_zone == 0u)
@@ -664,10 +664,10 @@ void climb_zone_effect_update(void)
 		return;
 	}
 	OBJECT(current_object)->y = OBJECT(LINKED(current_object, PLAYER(climbing_player)->object))->y;
-	animate(&ignored, &ignored, &ignored);
-	project_object(&ignored, &ignored);
+	animate(&ignored, &ignored_2, &ignored_3);
+	project_object(&ignored_4, &ignored);
 	depth = (uint16_t)(OBJECT(current_object)->screen_y + 0x28u);
-	queue_sprite_at_depth(&ignored, &depth);
+	queue_sprite_at_depth(&ignored_4, &depth);
 }
 
 /* Spawns the intro marker (frame 0xA0C0, intro_marker_animation), 0x50 above and 8 right of the player
@@ -700,7 +700,7 @@ void spawn_intro_marker(uint32_t object)
    scene_step reaches 2. */
 void intro_marker_update(void)
 {
-	uint32_t ignored = 0, object = 0, scale = 0;
+	uint32_t ignored = 0, ignored_2 = 0, object = 0, scale = 0;
 
 	if ((int8_t)scene_step >= 2)
 	{
@@ -714,7 +714,7 @@ void intro_marker_update(void)
 	scale = OBJECT(current_object)->sprite_scale;
 	OBJECT(current_object)->screen_y += (OBJECT(current_object)->sprite_offset_y * scale) >> 8;
 	OBJECT(current_object)->screen_x += OBJECT(current_object)->sprite_offset_x;
-	animate(&scale, &ignored, &ignored);
+	animate(&scale, &ignored, &ignored_2);
 	scale = queue_sprite(scale);
 }
 
