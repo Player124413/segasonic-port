@@ -5,12 +5,14 @@ Description: makes the README's screenshots of the console build (docs/screensho
              control script, and one frame of it as the window shows it, at twice the game's size
 Version:     0.1.0
 Created:     21-10-2026
-Modified:    21-10-2026
+Modified:    23-10-2026
 Author:      Sebastian Toyos
 
-Usage: python tools/make_screenshots.py [NAME ...]
+Usage: python tools/make_screenshots.py [--check] [NAME ...]
 Writes docs/screenshots/NAME.png for the shots below (all of them by default), from build/bin's console
-headless build and the assets pack beside it.
+headless build and the assets pack beside it. With --check it writes nothing: each shot must match its
+picture there pixel for pixel, so a change that alters the console's screens shows (a merge of the
+decompilation that left OPTIONS with the title's menu under it, 23-10-2026).
 
 A frame is what the window shows with WIDE on: the video's 416 pixels less 9 at each side, or a 320-pixel
 picture between bars (the scenes), 398 x 224 doubled with sharp pixels. The actions are the console's
@@ -21,7 +23,7 @@ import sys
 import tempfile
 from pathlib import Path
 
-from PIL import Image
+from PIL import Image, ImageChops
 
 ROOT = Path(__file__).resolve().parent.parent
 BIN = ROOT / "build" / "bin"
@@ -79,7 +81,8 @@ def window_picture(frame):
     return picture.resize((WIDE_WIDTH * SCALE, HEIGHT * SCALE), Image.NEAREST)
 
 
-def shoot(name, work):
+def shoot(name, work, check=False):
+    """The shot into docs/screenshots; with 'check', True when it matches the picture there."""
     frame, actions, script, _ = SHOTS[name]
     actions_path, script_path = work / f"{name}_actions.txt", work / f"{name}_script.txt"
     actions_path.write_text("\n".join(actions) + "\n", encoding="ascii")
@@ -90,20 +93,32 @@ def shoot(name, work):
     if result.returncode != 0 or not dumped.exists():
         raise SystemExit(f"{name}: the run drew no frame {frame}\n{result.stderr[-2000:]}")
     with Image.open(dumped) as image:
-        window_picture(image.convert("RGB")).save(OUT_DIR / f"{name}.png", optimize=True)
+        picture = window_picture(image.convert("RGB"))
     dumped.unlink()
+    if check:
+        with Image.open(OUT_DIR / f"{name}.png") as saved:
+            return ImageChops.difference(picture, saved.convert("RGB")).getbbox() is None
+    picture.save(OUT_DIR / f"{name}.png", optimize=True)
+    return True
 
 
 def main():
-    names = sys.argv[1:] or list(SHOTS)
+    arguments = sys.argv[1:]
+    check = "--check" in arguments
+    names = [name for name in arguments if name != "--check"] or list(SHOTS)
     for name in names:
         if name not in SHOTS:
             raise SystemExit(f"{name}: no such shot ({', '.join(SHOTS)})")
     OUT_DIR.mkdir(parents=True, exist_ok=True)
+    differ = []
     with tempfile.TemporaryDirectory() as folder:
         for name in names:
-            shoot(name, Path(folder))
-            print(f"docs/screenshots/{name}.png  {SHOTS[name][3]}")
+            same = shoot(name, Path(folder), check)
+            print(f"docs/screenshots/{name}.png  {SHOTS[name][3]}" + ("" if not check else "  same" if same else "  DIFFERENT"))
+            if not same:
+                differ.append(name)
+    if differ:
+        raise SystemExit(f"different from docs/screenshots: {', '.join(differ)}")
 
 
 if __name__ == "__main__":

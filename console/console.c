@@ -4,7 +4,7 @@
  *                 sound, no coins, PRESS START on the title and a menu over it
  *    Version:     0.1.0
  *    Created:     19-10-2026
- *    Modified:    19-10-2026
+ *    Modified:    23-10-2026
  *    Author:      Sebastian Toyos
  *
  *    The game's C (src/) stays as the decompilation wrote it. A function listed in console/replaced.txt is
@@ -780,19 +780,21 @@ static void open_options(void)
    no table: the NBG0 picture of Sonic faces, and the object that drifts it */
 static void build_options_page(void)
 {
-	uint32_t ignored = 0, display = 0, rows = 0, source = 0;
+	/* (what the calls hand back and nothing reads: a variable for each pointer, as the game's C has them,
+	   since a function reads and writes through its pointers: one variable for two would mix them up) */
+	uint32_t ignored = 0, ignored_2 = 0, ignored_3 = 0, display = 0, rows = 0, source = 0;
 	uint8_t mode = 0u;
 
 	set_screen_mode(mode);
-	clear_text_layer(&ignored, &ignored, &ignored);
+	clear_text_layer(&ignored, &ignored_2, &ignored_3);
 	display = clear_page_0_and_scroll();
-	reset_objects(&ignored, &ignored);
+	reset_objects(&ignored, &ignored_2);
 	current_screen = 2u;
 	display = allocate_object_or_start_list(display);
 	OBJECT(display)->parent = object_cursor;
 	OBJECT(display)->child = 0xFFFFu;
 	init_object(display);
-	show_nbg0_picture(&ignored, &rows, &source, &ignored);
+	show_nbg0_picture(&ignored, &rows, &source, &ignored_2);
 	OBJECT(display)->handler = ranking_display_hold_ADDRESS;
 	options_backdrop = display;
 }
@@ -1950,7 +1952,7 @@ static int current_section(void)
    scroll_skip_last_points[stage]); its number shown a moment */
 static void debug_sections(void)
 {
-	uint32_t ignored = 0;
+	uint32_t ignored = 0, ignored_2 = 0, ignored_3 = 0;
 	char text[24] = "SECTION ";
 	int section, last, at;
 
@@ -1959,7 +1961,7 @@ static void debug_sections(void)
 		last = scroll_skip_last_points[stage];
 		section = clamp(current_section() + debug_section_step, 0, last);
 		stage_start_section = (uint16_t)section;
-		move_camera_to_start_section(&ignored, &ignored, &ignored);
+		move_camera_to_start_section(&ignored, &ignored_2, &ignored_3);
 		at = 8;
 		if (section >= 10)
 			text[at++] = (char)('0' + section / 10);
