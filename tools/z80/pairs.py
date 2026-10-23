@@ -5,7 +5,7 @@ Name:        pairs.py
 Description: splits the bytes the Z80's register pairs hold apart into variables of their own
 Version:     0.1.0
 Created:     13-10-2026
-Modified:    14-10-2026
+Modified:    23-10-2026
 Author:      Sebastian Toyos
 
 The IR keeps BC, DE and HL whole (tools/z80/lift.py): a byte of one is a part of it, which is how the
@@ -25,6 +25,9 @@ A byte the function never writes on its own stays in the pair: reading it is rea
 number that comes in C and goes on to the callee in C). The C does the same; what the cleanup finds
 dead of all that goes. tidy_bytes then takes the bytes of a pair put together back to the bytes.
 """
+import copy
+import re
+
 from decompiler import dataflow
 from v60 import ir
 
@@ -153,11 +156,14 @@ class Splitter:
         self.function = function
         self.flow = flow
         self.signature = signature
-        self.count = 0
+        self.counts = {}
 
-    def temp(self, value):
-        self.count += 1
-        return ir.Temp(f"t_pair_{self.count}", value.bits)
+    def temp(self, value, origin):
+        """A temporary for the pair's value an instruction writes: pADDR_N_pair, the Nth at that instruction
+        (sound_symbols.txt's "local" lines name it pN, as the instruction's own temporaries are tN)."""
+        self.counts[origin] = self.counts.get(origin, 0) + 1
+        where = "" if origin is None else f"{origin:04X}"
+        return ir.Temp(f"p{where}_{self.counts[origin]}_pair", value.bits)
 
     def bytes_to_split(self, pair):
         """The parts of the pair the function writes on their own, if it uses the pair more often a byte at
@@ -235,11 +241,11 @@ class Splitter:
         else:
             value = rewrite(statement.value, pair, split)
             if split == {0, 1}:
-                temp = self.temp(value)
+                temp = self.temp(value, origin)
                 new = [ir.SetTemp(temp, value)] + [ir.SetReg(byte_reg(pair, part).index, part_of(temp, part))
                                                    for part in (1, 0)]
             else:
-                temp = self.temp(value)
+                temp = self.temp(value, origin)
                 new = [ir.SetTemp(temp, value), ir.SetReg(pair, temp)] + \
                     [ir.SetReg(byte_reg(pair, part).index, part_of(temp, part)) for part in sorted(split)]
         for item in new:
@@ -659,45 +665,70 @@ def written_by(statement):
     return set()
 
 
+def is_pair_temp(name):
+    """True for a temporary of the pairs' own (Splitter.temp)."""
+    return re.fullmatch(r"p[0-9A-F]*_\d+_pair", name) is not None
+
+
 def inlined_temp(statement):
     """True for a temporary tidy() puts into what reads it: the pairs' own, and what a POP reads from the
     slots of bytes a PUSH saved (split_slots), when they read no memory."""
     if not isinstance(statement, ir.SetTemp) or not pure(statement.value):
         return False
-    return statement.temp.name.startswith("t_pair_") or any(
+    return is_pair_temp(statement.temp.name) or any(
         isinstance(node, ir.Stack) and node.offset <= BYTE_SLOTS // 2 for node in ir.walk(statement.value))
 
 
 def tidy(function):
     """The pairs' own temporaries go into what reads them, where they only put bytes together, and the
     bytes read from a pair put together become the bytes themselves. A temporary whose inputs change
-    before a later read stays, from there on."""
+    before a later read stays, and is read as itself from the start (not its value in some reads and the
+    temporary in others: "t = bc - 1; b = (bc - 1) >> 8; c = t")."""
     for block in function.blocks.values():
-        values = {}
-        originals = {}
-        statements = []
-
-        def inline(node, values=values):
-            if isinstance(node, ir.Temp) and node.name in values:
-                return values[node.name]
-            return None
-        for statement in block.statements:
-            ir.map_statement(statement, inline)
-            written = written_by(statement)
-            for name in list(values):
-                inputs = leaves(values[name])
-                if written is None and any(kind != "s" for kind, _ in inputs) or written and inputs & written:
-                    statements.append(originals.pop(name))
-                    del values[name]
-            if inlined_temp(statement):
-                values[statement.temp.name] = statement.value
-                originals[statement.temp.name] = statement
-                continue
-            statements.append(statement)
-        ir.map_statement(block.end, inline)
-        block.statements = statements
+        kept = set()
+        while True:
+            trial = copy.deepcopy(block)
+            needed = tidy_block(trial, kept) - kept
+            if not needed:
+                break
+            kept |= needed
+        tidy_block(block, kept)
         for statement in block.statements + [block.end]:
             ir.map_statement(statement, tidy_change)
+
+
+def tidy_block(block, kept):
+    """tidy for one block, but for the temporaries in 'kept'; hands back those that had to stay for a read
+    after their inputs changed."""
+    values = {}
+    originals = {}
+    restored = {}
+    statements = []
+
+    def inline(node):
+        if isinstance(node, ir.Temp) and node.name in values:
+            return values[node.name]
+        return None
+    for statement in block.statements:
+        ir.map_statement(statement, inline)
+        written = written_by(statement)
+        for name in list(values):
+            inputs = leaves(values[name])
+            if written is None and any(kind != "s" for kind, _ in inputs) or written and inputs & written:
+                statements.append(originals.pop(name))
+                restored[name] = len(statements)
+                del values[name]
+        if inlined_temp(statement) and statement.temp.name not in kept:
+            values[statement.temp.name] = statement.value
+            originals[statement.temp.name] = statement
+            continue
+        statements.append(statement)
+    ir.map_statement(block.end, inline)
+    block.statements = statements
+    return {name for name, start in restored.items()
+            if any(isinstance(node, ir.Temp) and node.name == name
+                   for statement in statements[start:] + [block.end]
+                   for expression in ir.statement_expressions(statement) for node in ir.walk(expression))}
 
 
 def split(function, flow, signature):

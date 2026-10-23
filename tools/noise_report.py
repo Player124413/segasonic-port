@@ -4,12 +4,12 @@ Description: counts what is left of the CPU and of the decompiler in the C (src/
              with the counts last saved
 Version:     0.1.0
 Created:     17-10-2026
-Modified:    21-10-2026
+Modified:    23-10-2026
 Author:      Sebastian Toyos
 
 Every kind of leftover the C can still have, counted in one pass over the generated C, so a round of work
 shows what it took away and nothing comes back unseen: gotos, functions and locals named after an address
-or a register, fields without a name, memory reached through computed addresses, results written back again
+or a register, values the decompiler works out once named by a number, fields without a name, memory reached through computed addresses, results written back again
 before an early return (a function writes them once, at its end, where its ways out can meet), jumps out of a
 table, ROM addresses printed as numbers, functions without a comment, data
 read through its ROM address instead of a table or structure with a name, functions the board puts its own
@@ -40,6 +40,7 @@ KINDS = {
     "sub_functions": ("functions named after their address (sub_XXXXXX)", None),
     "unk_names": ("memory named after its address (unk_XXXXXX)", re.compile(r"\bunk_[0-9A-F]{4,6}\b")),
     "register_names": ("parameters and locals named after a register (r1, p_r4, r0_2)", None),
+    "temp_names": ("values the decompiler works out once, named by a number (t1)", None),
     "var_fields": ("object fields without a name (var_XX)", re.compile(r"\bvar_[0-9A-F]{2}\b")),
     "mem_access": ("memory reached through a computed address (mem_read/mem_write)",
                    re.compile(r"\bmem_(?:read|write)\d+\(")),
@@ -89,6 +90,7 @@ def count(paths):
                     counts[kind] += len(pattern.findall(line))
             if re.match(r"^\t(?:uint\d+_t|int\d+_t) ", line):
                 counts["register_names"] += len(re.findall(r"\br\d+(?:_\d+)? = ", line))
+                counts["temp_names"] += len(re.findall(r"\bt\d+ = ", line))
             if line.startswith("\tbool "):
                 counts["control_variables"] += 1
             if COPY_BACK.match(line) and not COPY_BACK.match(lines[index - 1]):

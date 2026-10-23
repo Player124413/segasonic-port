@@ -19,7 +19,7 @@ void boot(void)
 {
 	uint32_t bytes_left = 0, count = 0, cursor = 0, dest = 0, height = 0, ignored = 0, ignored_2 = 0, ignored_3 = 0, ignored_4 = 0, input_cursor = 0, pairs_left = 0, pressed = 0, released = 0, scale = 0, source = 0, trackball_cursor = 0, trackball_port = 0;
 	uint32_t stack_100004 = 0;
-	uint32_t psw1 = 0;
+	uint32_t psw = 0;
 
 	load_privileged(5u, vector_table_ADDRESS);
 	source = 0x7Eu;
@@ -45,8 +45,8 @@ void boot(void)
 		source++;
 	} while (bytes_left != 0u);
 	stack_100004 = 0u;
-	psw1 = stack_100004;
-	psw_write(psw1);
+	psw = stack_100004;
+	psw_write(psw);
 	load_privileged(2u, 0x20FE00u);
 	load_privileged(3u, 0x20FE00u);
 	load_privileged(4u, 0x20FE00u);

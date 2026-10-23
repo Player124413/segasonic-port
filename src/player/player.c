@@ -2054,7 +2054,7 @@ void check_player_step_against_floor(uint32_t *p_height_diff, uint32_t *p_cursor
 {
 	uint32_t floor_block = 0, object_z = 0, opposite_side = 0, y = 0;
 	uint16_t floor_z_int = 0, z_int = 0, height_diff_2 = 0;
-	uint32_t stored1 = 0;
+	uint32_t bounce_direction_halfword = 0;
 
 	if (PLAYER(current_player)->path != 0u)
 	{
@@ -2110,9 +2110,9 @@ void check_player_step_against_floor(uint32_t *p_height_diff, uint32_t *p_cursor
 		y = OBJECT(current_object)->y;
 		opposite_side = get_floor_block_side(floor_block, *p_cursor, y);
 		opposite_side = (opposite_side & ~0xFFu) | (uint8_t)(opposite_side + 2u);
-		stored1 = (opposite_side & ~0xFFu) | (opposite_side & 3u);
-		PLAYER(current_player)->bounce_direction = (uint8_t)stored1;
-		PLAYER(current_player)->bounce_speed_z = (PLAYER(current_player)->bounce_speed_z & 0xFFFFFF00u) | ((stored1 >> 8u) & 0xFFu);
+		bounce_direction_halfword = (opposite_side & ~0xFFu) | (opposite_side & 3u);
+		PLAYER(current_player)->bounce_direction = (uint8_t)bounce_direction_halfword;
+		PLAYER(current_player)->bounce_speed_z = (PLAYER(current_player)->bounce_speed_z & 0xFFFFFF00u) | ((bounce_direction_halfword >> 8u) & 0xFFu);
 		PLAYER(current_player)->state = 0xEu;
 		PLAYER(current_player)->substate = 0u;
 		return;
@@ -3463,7 +3463,7 @@ void check_player_contacts(uint32_t *p_health_limit, uint32_t *p_cursor)
 	uint8_t new_substate = 0, sound_id = 0;
 	uint16_t dy = 0, held_frame = 0, saved_sides = 0;
 	uint32_t carried_x = 0, carried_y = 0, distance = 0, ignored = 0, ignored_2 = 0, ignored_3 = 0, joined_health_setting = 0, move_angle = 0, object = 0, sides = 0;
-	uint32_t stored1 = 0, flags = 0, flags_2 = 0;
+	uint32_t bounce_direction_halfword = 0, flags = 0, flags_2 = 0;
 
 	if (PLAYER(current_player)->path_request != 0u || all_players_path_request != 0u || (PLAYER(current_player)->path != 0u && (PLAYER(current_player)->path < 0x14 || PLAYER(current_player)->path > 0x16)) || (OBJECT(current_object)->flags & 4u) == 0u)
 	{
@@ -3715,9 +3715,9 @@ void check_player_contacts(uint32_t *p_health_limit, uint32_t *p_cursor)
 			{
 				if (OBJECT(current_object)->speed_int >= 0x500)
 				{
-					stored1 = ((OBJECT(current_object)->direction + 0x80u) & 0x3FFu) >> 8;
-					PLAYER(current_player)->bounce_direction = (uint8_t)stored1;
-					PLAYER(current_player)->bounce_speed_z = (PLAYER(current_player)->bounce_speed_z & 0xFFFFFF00u) | ((stored1 >> 8u) & 0xFFu);
+					bounce_direction_halfword = ((OBJECT(current_object)->direction + 0x80u) & 0x3FFu) >> 8;
+					PLAYER(current_player)->bounce_direction = (uint8_t)bounce_direction_halfword;
+					PLAYER(current_player)->bounce_speed_z = (PLAYER(current_player)->bounce_speed_z & 0xFFFFFF00u) | ((bounce_direction_halfword >> 8u) & 0xFFu);
 					PLAYER(current_player)->state = 0xEu;
 					PLAYER(current_player)->substate = 0u;
 					return;
@@ -3989,7 +3989,7 @@ uint32_t check_player_contacts_solid(uint32_t health_limit, uint32_t toucher)
 {
 	uint32_t dx = 0, dy = 0;
 	uint8_t push_out_delay = 0, push_out_delay_2 = 0;
-	uint32_t stored1 = 0, stored2 = 0;
+	uint32_t bounce_direction_halfword = 0, bounce_direction_halfword_2 = 0;
 
 	if (PLAYER(current_player)->state == 4u)
 	{
@@ -4057,9 +4057,9 @@ uint32_t check_player_contacts_solid(uint32_t health_limit, uint32_t toucher)
 		OBJECT(current_object)->floor_z = OBJECT(current_object)->previous_floor_z;
 		if (OBJECT(toucher)->kind != 0x20u && OBJECT(current_object)->speed_int >= 0x500)
 		{
-			stored1 = ((OBJECT(current_object)->direction + 0x80u) & 0x3FFu) >> 8;
-			PLAYER(current_player)->bounce_direction = (uint8_t)stored1;
-			PLAYER(current_player)->bounce_speed_z = (PLAYER(current_player)->bounce_speed_z & 0xFFFFFF00u) | ((stored1 >> 8u) & 0xFFu);
+			bounce_direction_halfword = ((OBJECT(current_object)->direction + 0x80u) & 0x3FFu) >> 8;
+			PLAYER(current_player)->bounce_direction = (uint8_t)bounce_direction_halfword;
+			PLAYER(current_player)->bounce_speed_z = (PLAYER(current_player)->bounce_speed_z & 0xFFFFFF00u) | ((bounce_direction_halfword >> 8u) & 0xFFu);
 			PLAYER(current_player)->state = 0xEu;
 			PLAYER(current_player)->substate = 0u;
 			return health_limit;
@@ -4102,9 +4102,9 @@ uint32_t check_player_contacts_solid(uint32_t health_limit, uint32_t toucher)
 	OBJECT(current_object)->floor_z = OBJECT(current_object)->previous_floor_z;
 	if (OBJECT(toucher)->kind != 0x20u && OBJECT(current_object)->speed_int >= 0x500)
 	{
-		stored2 = ((OBJECT(current_object)->direction + 0x80u) & 0x3FFu) >> 8;
-		PLAYER(current_player)->bounce_direction = (uint8_t)stored2;
-		PLAYER(current_player)->bounce_speed_z = (PLAYER(current_player)->bounce_speed_z & 0xFFFFFF00u) | ((stored2 >> 8u) & 0xFFu);
+		bounce_direction_halfword_2 = ((OBJECT(current_object)->direction + 0x80u) & 0x3FFu) >> 8;
+		PLAYER(current_player)->bounce_direction = (uint8_t)bounce_direction_halfword_2;
+		PLAYER(current_player)->bounce_speed_z = (PLAYER(current_player)->bounce_speed_z & 0xFFFFFF00u) | ((bounce_direction_halfword_2 >> 8u) & 0xFFu);
 		PLAYER(current_player)->state = 0xEu;
 		PLAYER(current_player)->substate = 0u;
 		return health_limit;

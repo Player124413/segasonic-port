@@ -515,9 +515,9 @@ of them can go without the C doing something the original does not:
 
 | What | Count | Why it stays |
 |---|---:|---|
-| `goto`, functions or memory named after an address (`sub_`, `unk_`), functions without a comment, data read through its ROM address (`ROM16(...)`: 1,137 of them before the program's data had names), numbers in the ROM's range left as numbers, parameters and locals named after a register (98 before this round), several fields read or written at once (`AS16`, `AT8`: 67) | 0 | |
+| `goto`, functions or memory named after an address (`sub_`, `unk_`), functions without a comment, data read through its ROM address (`ROM16(...)`: 1,137 of them before the program's data had names), numbers in the ROM's range left as numbers, parameters and locals named after a register (98 before this round), several fields read or written at once (`AS16`, `AT8`: 67), values the decompiler works out once named by a number (`t1`, `stored1`: 7) | 0 | |
 | Results written back again before an early return (`*p_x = x; return;`) | 274 | a function writes its results back once, at its end, where its ways back meet (1,500 copies at every `return` before); these are the ways out of a loop, a `switch` case or a branch that could only reach the end through a control variable |
-| Memory through a computed address (`mem_read16`, `mem_write32`) | 1197 | the board's memories and registers (video RAM, palette RAM, the I/O ports) and the generic routines that fill, copy and draw wherever they are told |
+| Memory through a computed address (`mem_read16`, `mem_write32`) | 1199 | the board's memories and registers (video RAM, palette RAM, the I/O ports) and the generic routines that fill, copy and draw wherever they are told |
 | Partial writes of a variable (`(x & ~0xFFFFu) \| y`) | 720 | the original writes the low byte or halfword of a register and keeps the rest |
 | `default: invalid_jump(...)` | 243 | the original never checks a jump table's index; the C stops where it would leave the table |
 | Object fields without a name (`var_80`) | 14 | all in `init_object_fields_tail`, which clears a new object: every object type uses those bytes (0x7F-0x9F) its own way, so where the engine clears them for any type they have no one name |

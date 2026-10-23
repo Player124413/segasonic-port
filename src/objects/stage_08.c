@@ -939,7 +939,7 @@ void burning_boulder_update(void)
 	uint32_t depth = 0, drop_step = 0, flames_left = 0, floor_slope = 0, ignored = 0, ignored_2 = 0, ignored_3 = 0, ignored_4 = 0, ignored_5 = 0, ignored_6 = 0, ignored_7 = 0, object = 0, path_cursor = 0, slope_factor = 0, speed_level = 0, step_y = 0;
 	uint8_t hold_timer = 0;
 	uint16_t start_delay = 0, wait_timer = 0, record_scroll = 0, record_y = 0, next_slow_timer = 0, rumble_before = 0, rumble_after = 0, start_delay_2 = 0;
-	uint32_t stored1 = 0;
+	uint32_t rumble_timer_halfword = 0;
 
 	switch (OBJECT(current_object)->burning_boulder.state)
 	{
@@ -1112,9 +1112,9 @@ void burning_boulder_update(void)
 			animation_speed = OBJECT(current_object)->animation_speed;
 			if (zero == 0u)
 			{
-				stored1 = animation_speed * 0xAu;
-				OBJECT(current_object)->burning_boulder.rumble_timer = (uint8_t)stored1;
-				OBJECT(current_object)->burning_boulder.start_delay = (OBJECT(current_object)->burning_boulder.start_delay & 0xFF00u) | ((stored1 >> 8u) & 0xFFu);
+				rumble_timer_halfword = animation_speed * 0xAu;
+				OBJECT(current_object)->burning_boulder.rumble_timer = (uint8_t)rumble_timer_halfword;
+				OBJECT(current_object)->burning_boulder.start_delay = (OBJECT(current_object)->burning_boulder.start_delay & 0xFF00u) | ((rumble_timer_halfword >> 8u) & 0xFFu);
 				sound_id = 0xDu;
 				play_sound(sound_id, &ignored_2, &ignored_3);
 			}

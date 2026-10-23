@@ -913,6 +913,7 @@ local step_fm_vibrato        006216,006220,006224,00622E,006243,00624A,006260,00
 local step_fm_vibrato        00621B,006237,006264,006288,0062CE,0062FE,00633B,006375,006399,0063E2  de  frequency  # the pitch bend (621B), the note's F-number and block (6237), the swept one (62FE, 63E2), D the channel's bits (62CE)
 local step_player            004729,00472C,004730,00474B,004789,00478F,0047B3,0047BF,0047CA,0047DA,0047E1,0047EC,0047F6,004808,004811,00481F,004823,004831,004835,00483A,004848,00485F,004886,00488A,00488F,0048C5,0048C8,0048DA  hl  cursor  # field 06 of the player (4729), then the read position in the sequence (474B) or the playlist (4886)
 local step_player            00473E  ix  player sequence_player             # the player (HL with L = 0)
+local step_player            00472E  p1  delta_time                         # dec bc: the player's delta_time (fields 06-07) counted down one tick, written back a byte at a time
 local step_player            004752,004761,00478C,004794,0047A0,0047A6,0047AE,0047C2,0047C5,0047E4,0047E7,0047F5,004810,00481C,004826,004847,00484B,004854,004859,00485D,004889,00488F,004892,0048CB,0048D5  a  event_byte  # status, data, meta type and delta bytes as they are read
 local stop_fm_voice 11F0 r6 register_value     # chip_channel, then & 7: the key off for register 28
 local stop_pcm_voice 0D09,0D13,0D15,0D16,0D17,0D1B r6 register_value  # C0h|channel for register 7 (picks the voice's channel), then turned into channel*20h+18h for register 5 (the loop address's high byte: the silent stretch)
