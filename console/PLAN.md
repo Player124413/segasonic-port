@@ -52,8 +52,8 @@ Done:
   bars. The window takes the largest whole
   scale under WINDOW at which it fits the screen, so a 16:9 one stays 16:9.
 - The icon: Sonic's, Mighty's and Ray's heads (the join chooser's) from the game's assets: the window's at
-  run time (console_window_icon). The .exe carries nothing of the game's, so its own icon will be a
-  neutral one of ours.
+  run time (console_window_icon). The .exe carries nothing of the game's: its icon, and the .apps', is
+  ours, a trackball with speed lines (tools/make_icon.py, ports/sdl2/icon/; v1.1.0).
 
 - PIXELS' CRT: scanlines, a soft RGB phosphor mask and a little vignette over smooth pixels (a
   multiplying overlay the size the picture is shown at).
@@ -101,13 +101,13 @@ Done 21-10-2026:
 Next (in this order unless Sebas says otherwise):
 1. macOS played by someone with a Mac: the CI's segasonic-macos-universal (unsigned: right click → Open, or
    Open Anyway), the first run with sonic.zip beside the .app and dropped on the window, WIDE, a controller.
-2. Quiver Launcher: v1.0.0 is released (a tag v* makes the release from the CI's packages, its notes in
-   docs/releases/; the packages carry their licenses, the C runtime on Windows, the .apps signed ad hoc).
-   Next a neutral icon of ours for the .exe and the .app (the window's comes from the game's assets), in the
-   next release; then Sebas submits it to Quiver (its account), with a description and screenshots from here.
-3. The C's data through names, in segasonic-decomp: the 1137 reads through ROM addresses (rom_reads in
-   tools/noise_report.py: ROM8/16/32, mostly pointers that walk records, scripts and texts) become tables
-   and structures with names and types over the loaded assets, as the work RAM's variables are.
+2. Quiver Launcher: v1.1.0 is the release it shows (a tag v* makes the release from the CI's packages, its
+   notes in docs/releases/; the packages carry their licenses, the C runtime on Windows, the .apps signed ad
+   hoc, the icon of ours). Sebas submits it (its account), declared mostly AI-generated, with a description
+   and the screenshots in docs/screenshots/.
+3. Done in segasonic-decomp (22-23 October): the C reads all of the program's data by name (the 1137 reads
+   through ROM addresses are tables and structures over the loaded assets), and its other leftovers are
+   counted down to what the original does (segasonic-decomp's README, "What is left, and why").
 4. Achievements: our own, defined on the game's memory as RetroAchievements does (the work RAM is the
    original's, byte for byte); RetroAchievements itself only runs in the emulators it approves.
 5. The bitmap layer in the ice and tower stages' dark parts: the original leaves it on, 8 bits a pixel, over

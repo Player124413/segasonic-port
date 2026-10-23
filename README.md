@@ -189,7 +189,8 @@ console/                the console version: what it changes in the game (replac
                         (console.c), and what is next (PLAN.md)
 ports/sdl2/             the window: the picture, sound and controls on SDL2, the settings, the first run
                         (first_run.c), the console's actions and their keys (actions.c, controls.ini),
-                        the pictures of Kenney's (prompts/, font/)
+                        the pictures of Kenney's (prompts/, font/), the executables' icon (icon/,
+                        tools/make_icon.py)
 ports/headless/         the game without a window, for checks and screenshots
 tools/make_screenshots.py  the screenshots above
 .github/workflows/      the builds and packages for Windows, Linux and macOS

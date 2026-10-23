@@ -2,7 +2,7 @@
 # Description: build of the SegaSonic runtime and its development tools
 # Version:     0.1.0
 # Created:     11-10-2026
-# Modified:    21-10-2026
+# Modified:    23-10-2026
 # Author:      Sebastian Toyos
 cmake_minimum_required(VERSION 3.20)
 project(segasonic C CXX)
@@ -210,6 +210,23 @@ if(SONIC_DECOMPILED)
 					$<TARGET_FILE_DIR:SegaSonic>
 				COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_SOURCE_DIR}/ports/sdl2/font/font.bmp
 					$<TARGET_FILE_DIR:SegaSonic>)
+		endif()
+		# the executables' icon (tools/make_icon.py): a resource on Windows, the .app's on macOS, a picture
+		# beside them on Linux (for a launcher of the desktop's)
+		foreach(game sonic SegaSonic)
+			if(WIN32)
+				target_sources(${game} PRIVATE ports/sdl2/icon/segasonic.rc)
+			elseif(APPLE)
+				target_sources(${game} PRIVATE ports/sdl2/icon/segasonic.icns)
+				set_target_properties(${game} PROPERTIES MACOSX_BUNDLE_ICON_FILE segasonic.icns)
+			else()
+				add_custom_command(TARGET ${game} POST_BUILD
+					COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_SOURCE_DIR}/ports/sdl2/icon/segasonic.png
+						$<TARGET_FILE_DIR:${game}>)
+			endif()
+		endforeach()
+		if(APPLE)
+			set_source_files_properties(ports/sdl2/icon/segasonic.icns PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
 		endif()
 	else()
 		message(STATUS "No SDL2: the window port (sonic) is not built")
