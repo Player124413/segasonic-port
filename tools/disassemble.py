@@ -315,11 +315,11 @@ def load_names(path, registers=None):
         if parts[0] == "local":
             spots = parts[2].split(",") if len(parts) in (5, 6) else []
             value = parts[3] if len(parts) in (5, 6) else ""
-            if not re.fullmatch(r"[rt]\d+|s[0-9A-F]+", value) and register_number(value) is not None:
+            if not re.fullmatch(r"[rtp]\d+|s[0-9A-F]+", value) and register_number(value) is not None:
                 value = f"r{register_number(value)}"
             if not spots or any(spot != "entry" and not re.fullmatch(r"[0-9A-Fa-f]{4,6}", spot) for spot in spots) \
-                    or not re.fullmatch(r"[rt]\d+|s[0-9A-F]+", value) or not parts[4].isidentifier():
-                raise SystemExit(f"{where}: expected 'local FUNCTION WHERE RN NAME [STRUCT]' or 'local FUNCTION WHERE TN NAME'")
+                    or not re.fullmatch(r"[rtp]\d+|s[0-9A-F]+", value) or not parts[4].isidentifier():
+                raise SystemExit(f"{where}: expected 'local FUNCTION WHERE RN NAME [STRUCT]' or 'local FUNCTION WHERE TN|PN NAME'")
             for spot in spots:
                 key = (parts[1], spot if spot == "entry" else int(spot, 16), value)
                 names.locals[key] = parts[4]

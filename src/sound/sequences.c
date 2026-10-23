@@ -101,7 +101,6 @@ void playlist_command(uint16_t queue_pointer, uint16_t player, uint16_t mailbox_
 	uint8_t next_song = 0;
 	uint16_t cleared_player = 0, handler = 0;
 	uint16_t saved_playlist = 0, saved_player = 0;
-	uint32_t target1 = 0;
 
 	z80_block(45);
 	saved_playlist = playlist;
@@ -109,8 +108,7 @@ void playlist_command(uint16_t queue_pointer, uint16_t player, uint16_t mailbox_
 	handler = playlist_command_table_ADDRESS;
 	handler = read_table_word(handler, playlist_byte);
 	z80_block(4);
-	target1 = handler;
-	switch (target1)
+	switch (handler)
 	{
 	case 0x0046B4u:
 		z80_block(57);
@@ -158,7 +156,7 @@ void playlist_command(uint16_t queue_pointer, uint16_t player, uint16_t mailbox_
 		*p_playlist_byte = next_song;
 		return;
 	default:
-		sound_invalid_jump(target1);
+		sound_invalid_jump(handler);
 	}
 	z80_block(117);
 	saved_player = player;
@@ -195,16 +193,15 @@ void step_player(uint16_t player_address, uint16_t mailbox_page)
 	uint8_t saved_queue_page = 0, saved_write_index = 0;
 	uint16_t player_then_queue_pointer = 0, saved_player = 0;
 	uint8_t controller_number = 0;
-	uint16_t t1 = 0;
+	uint16_t delta_time = 0;
 
 	z80_block(64);
 	cursor = (player_address & ~0xFFu) | 6u;
 	delta_time_low = SEQUENCE_PLAYER(cursor - 0x6u)->delta_time_low;
 	cursor = (cursor & ~0xFFu) | (uint8_t)(cursor + 1u);
-	delta_time_high = SEQUENCE_PLAYER(cursor - 0x7u)->delta_time_high;
-	t1 = (((uint32_t)delta_time_high << 8) | delta_time_low) - 1u;
-	delta_time_high = (uint8_t)((uint16_t)((((uint32_t)delta_time_high << 8) | delta_time_low) - 1u) >> 8);
-	delta_time_low = (uint8_t)t1;
+	delta_time = (((uint32_t)SEQUENCE_PLAYER(cursor - 0x7u)->delta_time_high << 8) | delta_time_low) - 1u;
+	delta_time_high = (uint8_t)(delta_time >> 8);
+	delta_time_low = (uint8_t)delta_time;
 	SEQUENCE_PLAYER(cursor - 0x7u)->delta_time_high = delta_time_high;
 	cursor--;
 	SEQUENCE_PLAYER(cursor - 0x6u)->delta_time_low = delta_time_low;

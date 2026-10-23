@@ -281,6 +281,9 @@ class Printer(cprint.Printer):
 
 
 SELF_ASSIGNMENT = re.compile(r"([A-Za-z_][A-Za-z0-9_]*) = \1;")
+# a temporary of one instruction's (tADDR_N_hint), or of a Z80 pair's value it writes (pADDR_N_pair,
+# tools/z80/pairs.py): "local" lines name them tN and pN
+TEMP_SPOT = re.compile(r"([tp])([0-9A-F]{4,6})_(\d+)_\w+")
 REPEAT_MINIMUM = 8    # a group of statements written this many times in a row or more becomes a loop (rerolled)
 
 
@@ -732,11 +735,12 @@ class FunctionWriter:
         return self.temps[temp.name]
 
     def chosen_temp(self, temp):
-        """symbols.txt's name for a temporary (a "local" line with tN), when no other variable has it."""
-        found = re.fullmatch(r"t([0-9A-F]{4,6})_(\d+)_\w+", temp.name)
+        """symbols.txt's name for a temporary (a "local" line with tN, or pN for a Z80 pair's value), when no
+        other variable has it."""
+        found = TEMP_SPOT.fullmatch(temp.name)
         if found is None:
             return None
-        named = self.chosen.get((int(found.group(1), 16), f"t{found.group(2)}"))
+        named = self.chosen.get((int(found.group(2), 16), f"{found.group(1)}{found.group(3)}"))
         if named is None or named in self.vars.declarations() or named in self.temps.values():
             return None
         return self.vars.unused(named)
@@ -745,9 +749,9 @@ class FunctionWriter:
         """{C name of a local: where its values come from, as "local" lines name them}."""
         found = self.vars.variable_sites()
         for temp, name in self.temps.items():
-            spot = re.fullmatch(r"t([0-9A-F]{4,6})_(\d+)_\w+", temp)
+            spot = TEMP_SPOT.fullmatch(temp)
             if spot is not None:
-                found.setdefault(name, []).append((int(spot.group(1), 16), f"t{spot.group(2)}", "temp"))
+                found.setdefault(name, []).append((int(spot.group(2), 16), f"{spot.group(1)}{spot.group(3)}", "temp"))
         # the stack slots: by the instructions that store to them ("s" and the slot's distance below the
         # function's start)
         for offset, name in self.slots.items():
@@ -1096,8 +1100,10 @@ class FunctionWriter:
         else:
             text = self.expr(value)
             if len(pieces) > 1 and not re.fullmatch(r"\w+", text):
-                # (the value once, before its bytes go to their fields)
-                temp = self.fresh("stored")
+                # (the value once, before its bytes go to their fields: named after the first of them and
+                # the access, bounce_direction_halfword)
+                first = re.split(r"->|\.", pieces[0][2])[-1]
+                temp = self.fresh(f"{first}_{ {8: 'byte', 16: 'halfword', 32: 'long'}[statement.bits] }")
                 lines.append(f"{temp} = {text};")
                 text = temp
         for position, count, target, width, signed, within in pieces:
@@ -1394,8 +1400,13 @@ class FunctionWriter:
         self.emitter.missing_fields.setdefault(key, set()).add(self.function.name)
 
     def fresh(self, stem):
-        self.extra += 1
-        name = f"{stem}{self.extra}"
+        """A variable of the function's own for a value the C works out once: 'stem', or stem_2... when the
+        function has a variable by that name already."""
+        taken = set(self.temps.values()) | set(self.vars.declarations())
+        name, number = stem, 1
+        while name in taken:
+            number += 1
+            name = f"{stem}_{number}"
         self.temps[name] = name
         self.temp_bits[name] = 32
         return name
@@ -2018,8 +2029,13 @@ class FunctionWriter:
                           "\tbreak;"]
             lines += ["default:", f"\t{cpu.current.invalid_jump}({self.expr(statement.address)});", "}"]
             return lines
-        target = self.fresh("target")
-        lines = [f"{target} = {self.expr(statement.address)};", f"switch ({target})", "{"]
+        target = self.expr(statement.address)
+        lines = [f"switch ({target})", "{"]
+        if not re.fullmatch(r"\w+", target):
+            # (the address once, for the cases and the default)
+            value = target
+            target = self.fresh("jump_target")
+            lines = [f"{target} = {value};", f"switch ({target})", "{"]
         for choice in statement.choices:
             lines += [f"case 0x{choice:06X}u:", "\t" + self.call_text(choice, statement.return_address), "\tbreak;"]
         lines += ["default:", f"\t{cpu.current.invalid_jump}({target});", "}"]
@@ -2145,8 +2161,13 @@ class FunctionWriter:
                     lines += self.nodes(body, depth + 1)
                 lines += [pad + "default:", pad + f"\t{cpu.current.invalid_jump}({self.expr(node.value)});", pad + "}"]
                 return lines
-            target = self.fresh("target")
-            lines = [pad + f"{target} = {self.expr(node.value)};", pad + f"switch ({target})", pad + "{"]
+            target = self.expr(node.value)
+            lines = [pad + f"switch ({target})", pad + "{"]
+            if not re.fullmatch(r"\w+", target):
+                # (the address once, for the cases and the default)
+                value = target
+                target = self.fresh("jump_target")
+                lines.insert(0, pad + f"{target} = {value};")
             for values, body in node.cases:
                 lines += [pad + f"case 0x{value:06X}u:" for value in values]
                 lines += self.nodes(body, depth + 1)
