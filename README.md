@@ -127,6 +127,18 @@ Support/SegaSonic` on macOS:
 | `segasonic.times` | TIME ATTACK's best times and best run |
 | `segasonic.eeprom`, `sonic.eeprom` | each one's game settings and bookkeeping, as the board's EEPROM keeps them |
 
+### Nintendo Switch and Anbernic handhelds
+
+The console version also runs on game devices, with its picture and controls set for them and its assets
+prepared on your computer from your ROM set (the device makes nothing from it):
+
+- **Nintendo Switch**: an `.nsp` that `SegaSonic NSP`, a tool for your computer, makes from the game's
+  Switch build, your `sonic.zip` and your console's keys (`prod.keys`), to install as any homebrew `.nsp`.
+  16:9, the video on three cores, HOME leaves it. See [ports/switch/README.md](ports/switch/README.md).
+- **Anbernic's H700 handhelds** (checked on the RG40XX H, stock firmware): a folder for `Roms/PORTS`, built
+  with Zig. 4:3, 60 frames a second on four cores, MENU leaves it, the volume keys work. See
+  [ports/anbernic/README.md](ports/anbernic/README.md).
+
 ## Building
 
 Requirements: CMake 3.20 or newer, a C11 / C++17 compiler (Visual Studio Build Tools on Windows, GCC or
@@ -174,7 +186,12 @@ python tools/check_scenarios.py --video --sound
 The console version changes the game only where `console/replaced.txt` says: its own versions of those
 functions, in `console/`, while the arcade build keeps the originals. It runs the same on every system,
 frame by frame: `segasonic_console_headless --actions` drives its menus as the window's keys do, and
-`python tools/make_screenshots.py` remakes the pictures at the top of this page from such runs.
+`python tools/make_screenshots.py` remakes the pictures at the top of this page from such runs, and
+`--check` says whether they are still those.
+
+The game devices draw the board's video on several threads, a band of rows each
+(`runtime/src/workers.c`): the frames are the same, which the scenarios show with the threads on
+(`SEGASONIC_VIDEO_WORKERS=2`).
 
 ## This repository and segasonic-decomp
 
@@ -192,6 +209,10 @@ ports/sdl2/             the window: the picture, sound and controls on SDL2, the
                         the pictures of Kenney's (prompts/, font/), the executables' icon (icon/,
                         tools/make_icon.py)
 ports/headless/         the game without a window, for checks and screenshots
+ports/switch/           the Nintendo Switch: its build (switch.cmake) and SegaSonic NSP, the tool that
+                        makes the .nsp on the player's computer (nsp/; tools/check_nsp.py checks one)
+ports/anbernic/         Anbernic's H700 handhelds: the build with Zig (zig_aarch64.cmake), the launcher
+runtime/src/workers.c   the video's rows on several threads, as the game devices draw it
 tools/make_screenshots.py  the screenshots above
 .github/workflows/      the builds and packages for Windows, Linux and macOS
 ```

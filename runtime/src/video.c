@@ -24,6 +24,7 @@
 #include "s32/video.h"
 
 #include "s32/machine.h"
+#include "s32/workers.h"
 
 #include <stdbool.h>
 #include <string.h>
@@ -459,6 +460,37 @@ static uint16_t zoomed_pixel(const void *source, int x)
 	return page_pixel(row->pages[(column >> 29) & 1], row->bank, row->line, (column >> 20) & 0x1ff);
 }
 
+/* What NBG0 or NBG1 draws with, the same on every row: the source at the top row, and how it moves */
+typedef struct zoomed_layer
+{
+	int number;
+	int pages[4];
+	int bank;
+	bool first_drawn;
+	uint32_t x_start;
+	uint32_t x_step;
+	uint32_t source_y;  /* at the top row, 12.20 */
+	uint32_t y_step;
+} zoomed_layer;
+
+static void draw_zoomed_rows(void *context, int first, int last)
+{
+	const zoomed_layer *zoomed = (const zoomed_layer *)context;
+
+	for (int y = first; y <= last; y++)
+	{
+		const uint32_t source_y = zoomed->source_y + (uint32_t)(y - video.visible.top) * zoomed->y_step;
+		const int half = (source_y >> 27) & 2;
+		const zoomed_row row = {
+			{ zoomed->pages[half], zoomed->pages[half + 1] }, zoomed->bank, (source_y >> 20) & 0xff,
+			zoomed->x_start, zoomed->x_step
+		};
+
+		draw_row(&video.layers[LAYER_NBG0 + zoomed->number], y, video.runs.lists[video.runs.list_of_row[y]],
+			zoomed->first_drawn, zoomed_pixel, &row);
+	}
+}
+
 /* NBG0 and NBG1: scrolled (with a fraction) and zoomed about a center. The steps are screen pixels per
    source pixel (0x200 = 1); the source moves by their reciprocal, in 12.20. */
 static void draw_zoomed(int number)
@@ -506,13 +538,12 @@ static void draw_zoomed(int number)
 		x_step = 0u - x_step;
 	}
 
-	for (int y = video.visible.top; y <= video.visible.bottom; y++, source_y += y_step)
 	{
-		const int half = (source_y >> 27) & 2;
-		const zoomed_row row = { { pages[half], pages[half + 1] }, bank, (source_y >> 20) & 0xff, x_start, x_step };
+		const zoomed_layer zoomed = {
+			number, { pages[0], pages[1], pages[2], pages[3] }, bank, first_drawn, x_start, x_step, source_y, y_step
+		};
 
-		draw_row(&video.layers[LAYER_NBG0 + number], y, video.runs.lists[video.runs.list_of_row[y]], first_drawn,
-			zoomed_pixel, &row);
+		s32_workers_rows(draw_zoomed_rows, (void *)&zoomed, video.visible.top, video.visible.bottom);
 	}
 }
 
@@ -533,52 +564,74 @@ static uint16_t scrolled_pixel(const void *source, int x)
 	return page_pixel(row->pages[(column >> 9) & 1], row->bank, row->line, column & 0x1ff);
 }
 
+/* What NBG2 or NBG3 draws with, the same on every row */
+typedef struct scrolled_layer
+{
+	int number;
+	uint32_t table;
+	bool row_scroll;
+	bool row_select;
+	int x_scroll;
+	int y_scroll;
+	int pages[4];
+	int bank;
+	bool flip_x;
+	bool flip_y;
+	bool first_drawn;
+} scrolled_layer;
+
+static void draw_scrolled_rows(void *context, int first, int last)
+{
+	const scrolled_layer *scrolled = (const scrolled_layer *)context;
+
+	for (int y = first; y <= last; y++)
+	{
+		const int line = scrolled->flip_y ? video.visible.bottom - y : y;
+		int source_y = scrolled->y_scroll + line;
+		scrolled_row row;
+
+		row.x_start = (scrolled->flip_x ? video.visible.right : video.visible.left) + scrolled->x_scroll - video.side;
+		row.x_step = scrolled->flip_x ? -1 : 1;
+		if (scrolled->row_scroll)
+			row.x_start += video_word(scrolled->table + (uint32_t)line) & 0x3ff;
+		if (scrolled->row_select)
+			source_y = (scrolled->y_scroll + video_word(scrolled->table + 0x200 + (uint32_t)line)) & 0x1ff;
+		row.pages[0] = scrolled->pages[(source_y >> 7) & 2];
+		row.pages[1] = scrolled->pages[((source_y >> 7) & 2) + 1];
+		row.bank = scrolled->bank;
+		row.line = source_y & 0xff;
+		draw_row(&video.layers[LAYER_NBG0 + scrolled->number], y, video.runs.lists[video.runs.list_of_row[y]],
+			scrolled->first_drawn, scrolled_pixel, &row);
+	}
+}
+
 /* NBG2 and NBG3: scrolled, and row by row the line table can add to the column (row scroll) or pick
    the source row (row select). Register 0x04 turns those on; its top bits place the table. */
 static void draw_scrolled(int number)
 {
 	const uint16_t line_control = video_register(0x04);
-	const uint32_t table = (uint32_t)(line_control >> 10) * 0x400 + 0x100 * (uint32_t)(number - 2);
 	const bool line_windows = bit(line_control, number + 2);
-	const bool row_scroll = bit(line_control, number - 2) && !line_windows;
-	const bool row_select = bit(line_control, number) && !line_windows;
-	const int x_scroll = (video_register(0x12 + 8 * (uint32_t)number) & 0x3ff) - (video_register(0x30 + 4 * (uint32_t)number) & 0x1ff);
-	const int y_scroll = video_register(0x16 + 8 * (uint32_t)number) & 0x1ff;
-	int pages[4];
-	const int bank = pages_of(number, pages);
-	bool flip_x;
-	bool flip_y;
-	const bool first_drawn = find_clip_runs(bit(video_register(0x02), 11 + number), bit(video_register(0x02), 6 + number),
+	scrolled_layer scrolled;
+
+	scrolled.number = number;
+	scrolled.table = (uint32_t)(line_control >> 10) * 0x400 + 0x100 * (uint32_t)(number - 2);
+	scrolled.row_scroll = bit(line_control, number - 2) && !line_windows;
+	scrolled.row_select = bit(line_control, number) && !line_windows;
+	scrolled.x_scroll = (video_register(0x12 + 8 * (uint32_t)number) & 0x3ff) - (video_register(0x30 + 4 * (uint32_t)number) & 0x1ff);
+	scrolled.y_scroll = video_register(0x16 + 8 * (uint32_t)number) & 0x1ff;
+	scrolled.bank = pages_of(number, scrolled.pages);
+	scrolled.first_drawn = find_clip_runs(bit(video_register(0x02), 11 + number), bit(video_register(0x02), 6 + number),
 		(video_register(0x06) >> (4 * number)) & 0x0f, &video.runs);
-
-	flips_of(number, &flip_x, &flip_y);
-	for (int y = video.visible.top; y <= video.visible.bottom; y++)
-	{
-		const int line = flip_y ? video.visible.bottom - y : y;
-		int source_y = y_scroll + line;
-		scrolled_row row;
-
-		row.x_start = (flip_x ? video.visible.right : video.visible.left) + x_scroll - video.side;
-		row.x_step = flip_x ? -1 : 1;
-		if (row_scroll)
-			row.x_start += video_word(table + (uint32_t)line) & 0x3ff;
-		if (row_select)
-			source_y = (y_scroll + video_word(table + 0x200 + (uint32_t)line)) & 0x1ff;
-		row.pages[0] = pages[(source_y >> 7) & 2];
-		row.pages[1] = pages[((source_y >> 7) & 2) + 1];
-		row.bank = bank;
-		row.line = source_y & 0xff;
-		draw_row(&video.layers[LAYER_NBG0 + number], y, video.runs.lists[video.runs.list_of_row[y]], first_drawn,
-			scrolled_pixel, &row);
-	}
+	flips_of(number, &scrolled.flip_x, &scrolled.flip_y);
+	s32_workers_rows(draw_scrolled_rows, &scrolled, video.visible.top, video.visible.bottom);
 }
 
 /* The text layer, with no scroll and no windows; the screen's flip turns the whole 512 x 256 map */
-static void draw_text(void)
+static void draw_text_rows(void *context, int first, int last)
 {
-	const bool flip = bit(video_register(0x00), 9);
+	const bool flip = *(const bool *)context;
 
-	for (int y = video.visible.top; y <= video.visible.bottom; y++)
+	for (int y = first; y <= last; y++)
 		for (int x = video.visible.left; x <= video.visible.right; x++)
 		{
 			const int column = x - video.side;
@@ -588,6 +641,13 @@ static void draw_text(void)
 			else
 				video.layers[LAYER_TEXT].pixels[y][x] = flip ? text_pixel(255 - y, 511 - column) : text_pixel(y, column);
 		}
+}
+
+static void draw_text(void)
+{
+	bool flip = bit(video_register(0x00), 9);
+
+	s32_workers_rows(draw_text_rows, &flip, video.visible.top, video.visible.bottom);
 }
 
 typedef struct bitmap_row
@@ -613,26 +673,44 @@ static uint16_t bitmap_pixel(const void *source, int x)
 	return (pixel & 0x0f) ? (uint16_t)pixel : 0;
 }
 
+/* What the bitmap layer draws with, the same on every row */
+typedef struct bitmap_layer
+{
+	bool bits8;
+	int x_scroll;
+	int y_scroll;
+	int color;
+	bool first_drawn;
+} bitmap_layer;
+
+static void draw_bitmap_rows(void *context, int first, int last)
+{
+	const bitmap_layer *bitmap = (const bitmap_layer *)context;
+
+	for (int y = first; y <= last; y++)
+	{
+		const bitmap_row row = {
+			bitmap->bits8 ? 512 * (uint32_t)((y + bitmap->y_scroll) & 0xff) : 128 * (uint32_t)((y + bitmap->y_scroll) & 0x1ff),
+			bitmap->x_scroll, bitmap->color, bitmap->bits8
+		};
+
+		draw_row(&video.layers[LAYER_BITMAP], y, video.runs.lists[video.runs.list_of_row[y]], bitmap->first_drawn,
+			bitmap_pixel, &row);
+	}
+}
+
 /* The bitmap layer: 512 pixels a row from the start of video RAM, 4 or 8 bits each (register 0x00
    bit 11), scrolled by registers 0x88 and 0x8A, its palette from 0x8C; window 4 clips it */
 static void draw_bitmap(void)
 {
-	const bool bits8 = bit(video_register(0x00), 11);
-	const int x_scroll = video_register(0x88) & 0x1ff;
-	const int y_scroll = video_register(0x8a) & 0x1ff;
-	const int color = (video_register(0x8c) << 4) & 0x1fff0 & ~((1 << (bits8 ? 8 : 4)) - 1);
-	const bool first_drawn = find_clip_runs(bit(video_register(0x02), 15), bit(video_register(0x02), 10), 0x10, &video.runs);
+	bitmap_layer bitmap;
 
-	for (int y = video.visible.top; y <= video.visible.bottom; y++)
-	{
-		const bitmap_row row = {
-			bits8 ? 512 * (uint32_t)((y + y_scroll) & 0xff) : 128 * (uint32_t)((y + y_scroll) & 0x1ff),
-			x_scroll, color, bits8
-		};
-
-		draw_row(&video.layers[LAYER_BITMAP], y, video.runs.lists[video.runs.list_of_row[y]], first_drawn,
-			bitmap_pixel, &row);
-	}
+	bitmap.bits8 = bit(video_register(0x00), 11);
+	bitmap.x_scroll = video_register(0x88) & 0x1ff;
+	bitmap.y_scroll = video_register(0x8a) & 0x1ff;
+	bitmap.color = (video_register(0x8c) << 4) & 0x1fff0 & ~((1 << (bitmap.bits8 ? 8 : 4)) - 1);
+	bitmap.first_drawn = find_clip_runs(bit(video_register(0x02), 15), bit(video_register(0x02), 10), 0x10, &video.runs);
+	s32_workers_rows(draw_bitmap_rows, &bitmap, video.visible.top, video.visible.bottom);
 }
 
 /* The backdrop: one color for the screen, or one per line (register 0x5E bit 15), wrapping at 511 */
@@ -1118,6 +1196,80 @@ uint16_t s32_video_sprite_pixel_color(uint16_t pixel)
 	return palette_color(&sprites, pixel & (((1 << grouping.shift) - 1) & 0x3fff));
 }
 
+/* What the mixer mixes with, the same on every row of a frame: the layers' order under each sprite group */
+typedef struct mix_frame
+{
+	int blend_factor;
+	sprite_grouping grouping;
+	int shadow_mask;
+	int sprite_bits;
+	int shadow_pen;
+	uint8_t sprite_flips;
+	int offsets[3][3];
+	mix_layer orders[16][8];
+} mix_frame;
+
+static void mix_rows(void *context, int first, int last)
+{
+	const mix_frame *frame = (const mix_frame *)context;
+	const int blend_factor = frame->blend_factor;
+	const sprite_grouping grouping = frame->grouping;
+
+	for (int y = first; y <= last; y++)
+	{
+		const uint16_t *rows[LAYERS];
+		/* (the sprite buffer is scanned flipped as the sprite controls say) */
+		const int sprite_y = bit(frame->sprite_flips, 1) ? video.visible.bottom - (y - video.visible.top) : y;
+		int sprite_x = bit(frame->sprite_flips, 0) ? video.visible.right : video.visible.left;
+		const int sprite_dx = bit(frame->sprite_flips, 0) ? -1 : 1;
+
+		for (int index = LAYER_TEXT; index <= LAYER_BITMAP; index++)
+			rows[index] = video.layers[index].empty[y] ? transparent_row : video.layers[index].pixels[y];
+		rows[LAYER_SPRITES] = video.sprites[video.shown_sprites][sprite_y];
+		rows[LAYER_BACKDROP] = video.layers[LAYER_BACKDROP].pixels[y];
+
+		for (int x = video.visible.left; x <= video.visible.right; x++, sprite_x += sprite_dx)
+		{
+			const int sprite_pixel = rows[LAYER_SPRITES][sprite_x];
+			const int group = (sprite_pixel >> grouping.shift) & grouping.mask;
+			int shadow = 0;
+			int pixel;
+			const mix_layer *first_layer = top_layer(frame->orders[group], rows, x, sprite_pixel, frame->shadow_mask,
+				frame->sprite_bits, frame->shadow_pen, &pixel, &shadow);
+			uint16_t color = palette_color(first_layer, pixel);
+			int red = (color & 0x1f) + frame->offsets[first_layer->offsets][0];
+			int green = ((color >> 5) & 0x1f) + frame->offsets[first_layer->offsets][1];
+			int blue = ((color >> 10) & 0x1f) + frame->offsets[first_layer->offsets][2];
+
+			if (first_layer->blend != 0)
+			{
+				int below;
+				const mix_layer *second = top_layer(first_layer + 1, rows, x, sprite_pixel, frame->shadow_mask,
+					frame->sprite_bits, frame->shadow_pen, &below, &shadow);
+
+				if (bit(first_layer->blend, second->index)
+					&& (second->index != LAYER_SPRITES || bit(first_layer->sprite_blend, group)))
+				{
+					color = palette_color(second, below);
+					red = shift_down(red * (7 - blend_factor) + ((color & 0x1f) + frame->offsets[second->offsets][0]) * (blend_factor + 1), 3);
+					green = shift_down(green * (7 - blend_factor) + (((color >> 5) & 0x1f) + frame->offsets[second->offsets][1]) * (blend_factor + 1), 3);
+					blue = shift_down(blue * (7 - blend_factor) + (((color >> 10) & 0x1f) + frame->offsets[second->offsets][2]) * (blend_factor + 1), 3);
+				}
+			}
+			if (shadow)
+			{
+				red = shift_down(red, 1);
+				green = shift_down(green, 1);
+				blue = shift_down(blue, 1);
+			}
+			red = red > 31 ? 31 : (red > 0 ? red : 0);
+			green = green > 31 ? 31 : (green > 0 ? green : 0);
+			blue = blue > 31 ? 31 : (blue > 0 ? blue : 0);
+			video.frame[y][x] = (uint32_t)red << 19 | (uint32_t)green << 11 | (uint32_t)blue << 3;
+		}
+	}
+}
+
 /* The frame from the layers: registers 0x00-0x1E give each sprite group its priority and palette, 0x20-0x2C
    each layer, 0x30-0x3A what each blends with, 0x40-0x4A two color offsets, 0x4C the sprite grouping and
    shadows, 0x4E blending */
@@ -1125,20 +1277,20 @@ static void mix(int drawn)
 {
 	const uint16_t blend_control = mixer_register(0x4e);
 	const bool blending = bit(blend_control, 11);
-	const int blend_factor = (blend_control >> 8) & 7;
 	const uint16_t sprite_control = mixer_register(0x4c);
 	const sprite_grouping grouping = groupings[sprite_control & 0x0f];
-	const int shadow_mask = bit(sprite_control, 2) ? 0x8000 : 0;
-	const int sprite_bits = ((1 << grouping.shift) - 1) & 0x3fff;
-	const int shadow_pen = 0x7ffe & sprite_bits;
-	const uint8_t sprite_flips = s32_board.sprite_control_latched[2];
-	int offsets[3][3];
+	static mix_frame frame;
+	int (*offsets)[3] = frame.offsets;
+	mix_layer (*orders)[8] = frame.orders;
 	mix_layer sorted[8];
-	mix_layer orders[16][8];
 	int count = 0;
-	int sprite_y;
-	int sprite_dy;
 
+	frame.blend_factor = (blend_control >> 8) & 7;
+	frame.grouping = grouping;
+	frame.shadow_mask = bit(sprite_control, 2) ? 0x8000 : 0;
+	frame.sprite_bits = ((1 << grouping.shift) - 1) & 0x3fff;
+	frame.shadow_pen = 0x7ffe & frame.sprite_bits;
+	frame.sprite_flips = s32_board.sprite_control_latched[2];
 	for (int channel = 0; channel < 3; channel++)
 	{
 		offsets[0][channel] = sign_extend(mixer_register(0x40 + 2 * (uint32_t)channel), 6);
@@ -1205,60 +1357,7 @@ static void mix(int drawn)
 		sprites->sprite_blend = 0;
 		sprites->offsets = color_offsets(bit(mixer_register(0x3e), 6), bit(sprite_control, 15));
 	}
-
-	/* the sprite buffer is scanned flipped as the sprite controls say */
-	sprite_y = bit(sprite_flips, 1) ? video.visible.bottom : video.visible.top;
-	sprite_dy = bit(sprite_flips, 1) ? -1 : 1;
-	for (int y = video.visible.top; y <= video.visible.bottom; y++, sprite_y += sprite_dy)
-	{
-		const uint16_t *rows[LAYERS];
-		int sprite_x = bit(sprite_flips, 0) ? video.visible.right : video.visible.left;
-		const int sprite_dx = bit(sprite_flips, 0) ? -1 : 1;
-
-		for (int index = LAYER_TEXT; index <= LAYER_BITMAP; index++)
-			rows[index] = video.layers[index].empty[y] ? transparent_row : video.layers[index].pixels[y];
-		rows[LAYER_SPRITES] = video.sprites[video.shown_sprites][sprite_y];
-		rows[LAYER_BACKDROP] = video.layers[LAYER_BACKDROP].pixels[y];
-
-		for (int x = video.visible.left; x <= video.visible.right; x++, sprite_x += sprite_dx)
-		{
-			const int sprite_pixel = rows[LAYER_SPRITES][sprite_x];
-			const int group = (sprite_pixel >> grouping.shift) & grouping.mask;
-			int shadow = 0;
-			int pixel;
-			const mix_layer *first = top_layer(orders[group], rows, x, sprite_pixel, shadow_mask, sprite_bits,
-				shadow_pen, &pixel, &shadow);
-			uint16_t color = palette_color(first, pixel);
-			int red = (color & 0x1f) + offsets[first->offsets][0];
-			int green = ((color >> 5) & 0x1f) + offsets[first->offsets][1];
-			int blue = ((color >> 10) & 0x1f) + offsets[first->offsets][2];
-
-			if (first->blend != 0)
-			{
-				int below;
-				const mix_layer *second = top_layer(first + 1, rows, x, sprite_pixel, shadow_mask, sprite_bits,
-					shadow_pen, &below, &shadow);
-
-				if (bit(first->blend, second->index) && (second->index != LAYER_SPRITES || bit(first->sprite_blend, group)))
-				{
-					color = palette_color(second, below);
-					red = shift_down(red * (7 - blend_factor) + ((color & 0x1f) + offsets[second->offsets][0]) * (blend_factor + 1), 3);
-					green = shift_down(green * (7 - blend_factor) + (((color >> 5) & 0x1f) + offsets[second->offsets][1]) * (blend_factor + 1), 3);
-					blue = shift_down(blue * (7 - blend_factor) + (((color >> 10) & 0x1f) + offsets[second->offsets][2]) * (blend_factor + 1), 3);
-				}
-			}
-			if (shadow)
-			{
-				red = shift_down(red, 1);
-				green = shift_down(green, 1);
-				blue = shift_down(blue, 1);
-			}
-			red = red > 31 ? 31 : (red > 0 ? red : 0);
-			green = green > 31 ? 31 : (green > 0 ? green : 0);
-			blue = blue > 31 ? 31 : (blue > 0 ? blue : 0);
-			video.frame[y][x] = (uint32_t)red << 19 | (uint32_t)green << 11 | (uint32_t)blue << 3;
-		}
-	}
+	s32_workers_rows(mix_rows, &frame, video.visible.top, video.visible.bottom);
 }
 
 /* ---- the frame ---- */

@@ -4,7 +4,7 @@
  *                 the pace, around the same game and board the headless runs check
  *    Version:     0.1.0
  *    Created:     13-10-2026
- *    Modified:    21-10-2026
+ *    Modified:    23-10-2026
  *    Author:      Sebastian Toyos
  *
  *    license:BSD-3-Clause
@@ -13,7 +13,9 @@
  *    The executable carries nothing of the game's: it loads the game's assets from segasonic.assets beside
  *    it (game/data.h; the pack of the assets taken out of the player's ROM set), with SDL2 beside it too.
  *    What it writes goes beside it on Windows, elsewhere to the user's folder for the game (saves_folder).
- *    With no pack there the first run makes one from the player's ROM set (first_run.c).
+ *    With no pack there the first run makes one from the player's ROM set (first_run.c). On the Nintendo
+ *    Switch (SegaSonic.nro, SEGASONIC_HANDHELD) what comes with the game is in the .nro's romfs and what it
+ *    writes, the pack too, in /switch/segasonic/ on the SD card; the picture is fixed (fix_settings).
  *
  *    The game (src/) and the board (runtime/) run as they are: this file only wraps them. Where the board
  *    has its hooks, the port does its part: when VBLANK starts the video draws the frame and the port puts
@@ -43,6 +45,7 @@
 #include "s32/machine.h"
 #include "s32/program.h"
 #include "s32/video.h"
+#include "s32/workers.h"
 #include "game/data.h"
 #include "first_run.h"
 #include "sound/chips.h"
@@ -71,6 +74,28 @@ static bool mouse_click_taken;      /* that click, until its buttons are let go 
 #endif
 
 #include <SDL.h>
+
+#ifdef __SWITCH__
+#include <switch.h>        /* romfsInit: the .nro's own files */
+#include <sys/stat.h>
+#define SWITCH_FOLDER "sdmc:/switch/segasonic"    /* the game's folder on the SD card */
+#endif
+#if defined(SEGASONIC_HANDHELD) && !defined(_WIN32) && !defined(__SWITCH__)
+#include <unistd.h>        /* fsync: the log on the card as it is written */
+#endif
+#ifdef SEGASONIC_HANDHELD
+#define HANDHELD_MENU_BUTTON 8    /* the joystick button that leaves the game: the RG40XX H's MENU */
+static void log_written(void);
+#ifndef __SWITCH__
+static bool settings_unsaved;    /* the volume keys turned the volume */
+static void handheld_event(const SDL_Event *event);
+static void save_handheld_settings(void);
+#endif
+/* What pauses a stage and goes on from the pause: start; a handheld's B (back) does nothing there */
+#define PAUSE_ACTIONS (ACTION_BIT(ACTION_START))
+#else
+#define PAUSE_ACTIONS (ACTION_BIT(ACTION_START) | ACTION_BIT(ACTION_BACK))
+#endif
 
 #include <math.h>
 #include <setjmp.h>
@@ -194,6 +219,7 @@ static int picture_width(void)
 	return 320;
 }
 
+#ifndef __SWITCH__    /* (the Switch's window is its screen) */
 #define WINDOW_EDGES 64    /* room left on the screen for the window's title bar and borders */
 
 /* The window's scale: settings.window_scale, or the largest whole one under it at which the picture fits
@@ -211,6 +237,7 @@ static double window_scale_that_fits(void)
 		scale -= 1.0;
 	return scale;
 }
+#endif
 
 /* ---- CRT: a multiplying overlay on smooth pixels, the size the picture is shown at ---- */
 
@@ -605,8 +632,30 @@ static void tell_console_settings(void)
 }
 #endif
 
+#ifdef SEGASONIC_HANDHELD
+/* A game device's build (the Switch's): one screen and the device's own controls, so the picture is fixed,
+   WIDE, the whole screen and smooth pixels, whatever segasonic.ini says; OPTIONS has no VIDEO or CONTROLS
+   page (console.c) */
+static void fix_settings(void)
+{
+#ifdef SEGASONIC_SCREEN_WIDE
+	settings.wide = true;     /* (a 16:9 screen: the Switch's) */
+#else
+	settings.wide = false;    /* (a 4:3 one: the game's own picture, twice its size on a handheld's 640 x 480) */
+#endif
+	settings.full_screen = true;
+	settings.smooth = true;
+	settings.bilinear = false;
+	settings.crt = false;
+}
+#endif
+
 static void apply_settings(void)
 {
+#ifdef SEGASONIC_HANDHELD
+	fix_settings();
+	set_smooth(settings.smooth);
+#else
 	const bool full = (SDL_GetWindowFlags(window) & SDL_WINDOW_FULLSCREEN_DESKTOP) != 0;
 
 	set_smooth(settings.smooth);
@@ -619,6 +668,7 @@ static void apply_settings(void)
 		SDL_SetWindowSize(window, (int)(picture_width() * window_scale_that_fits()),
 			(int)(S32_VIDEO_HEIGHT * window_scale_that_fits()));
 	}
+#endif
 	show_mouse_speed();
 #ifdef SEGASONIC_CONSOLE
 	console_jingle_program((int)settings.sega_jingle_program, (int)settings.sega_jingle_layer);
@@ -632,6 +682,9 @@ static void read_events(void)
 
 	while (SDL_PollEvent(&event))
 	{
+#if defined(SEGASONIC_HANDHELD) && !defined(__SWITCH__)
+		handheld_event(&event);
+#endif
 		switch (event.type)
 		{
 			case SDL_QUIT:
@@ -696,6 +749,12 @@ static void read_events(void)
 				{
 					actions_bind_button(console_controls_player(), console_controls_waiting(),
 						(SDL_GameControllerButton)event.cbutton.button);
+#ifdef SEGASONIC_HANDHELD
+					fprintf(stderr, "CONTROLS: player %d, action %d: %s\n", console_controls_player() + 1,
+						console_controls_waiting(),
+						SDL_GameControllerGetStringForButton((SDL_GameControllerButton)event.cbutton.button));
+					log_written();
+#endif
 					console_controls_bound();
 					bound_now = true;
 				}
@@ -772,7 +831,7 @@ static void on_controls_update(void)
 		controls.button[player] = actions_holds(player, pad, ACTION_JUMP);
 		if (!console_in_game() || console_start_prompted(player))
 			controls.start[player] |= (actions_player_held(player) & ACTION_BIT(ACTION_START)) != 0;
-		else if (actions_player_pressed(player) & (ACTION_BIT(ACTION_START) | ACTION_BIT(ACTION_BACK)))
+		else if (actions_player_pressed(player) & PAUSE_ACTIONS)
 			pause_requested = true;
 	}
 	controls.button[0] |= (mouse & SDL_BUTTON_LMASK) != 0;
@@ -935,6 +994,9 @@ static void run_pause(void)
 	bool paused = true;
 
 	pause_requested = false;
+#if defined(SEGASONIC_HANDHELD) && !defined(__SWITCH__)
+	save_handheld_settings();
+#endif
 	mouse_held = false;    /* (a click takes it again) */
 	SDL_SetRelativeMouseMode(SDL_FALSE);
 	if (audio)
@@ -947,6 +1009,9 @@ static void run_pause(void)
 		{
 			if (event.type == SDL_QUIT)
 				longjmp(finished, 1);
+#if defined(SEGASONIC_HANDHELD) && !defined(__SWITCH__)
+			handheld_event(&event);
+#endif
 			if (event.type == SDL_KEYDOWN && !event.key.repeat && (event.key.keysym.sym == SDLK_F11
 				|| (event.key.keysym.sym == SDLK_RETURN && (event.key.keysym.mod & KMOD_ALT))))
 			{
@@ -957,7 +1022,7 @@ static void run_pause(void)
 				present(pause_picture, width);
 		}
 		actions_read(controllers);
-		if (actions_pressed() & (ACTION_BIT(ACTION_START) | ACTION_BIT(ACTION_BACK)))
+		if (actions_pressed() & PAUSE_ACTIONS)
 			paused = false;
 		SDL_Delay(16);
 	}
@@ -988,8 +1053,151 @@ static void wait_for_frame(void)
 	}
 }
 
+#ifdef SEGASONIC_HANDHELD
+/* ---- a game device's log (stderr: segasonic.log): what SDL found, the frames' pace, the buttons' numbers ---- */
+
+/* Handhelds' own buttons as SDL's game controller has them, where SDL does not know them. Anbernic's H700
+   consoles show theirs as a joystick, "ANBERNIC-keys" (gpio-keys: bus 0x19, vendor and product 1, version
+   0x100), numbered as Anbernic's SDL 2.0.12 numbers them: the RG40XX H's as its controls test found them,
+   button by button (the d-pad a hat, the sticks four axes; MENU is guide, button 8) */
+static const char *const device_mappings[] = {
+	"19000000010000000100000000010000,ANBERNIC-keys,a:b0,b:b1,x:b3,y:b2,leftshoulder:b4,rightshoulder:b10,"
+	"lefttrigger:b5,righttrigger:b11,back:b6,start:b7,guide:b8,dpup:h0.1,dpdown:h0.4,dpleft:h0.8,dpright:h0.2,"
+	"leftx:a0,lefty:a1,rightx:a2,righty:a3,leftstick:b9,rightstick:b12,platform:Linux,",
+};
+
+static uint64_t pace_start, pace_work_ticks, pace_work_most, pace_frame_start;
+static int pace_frames;
+
+/* The log on the card as it is written: a handheld is often left with its reset button */
+static void log_written(void)
+{
+	fflush(stderr);
+#if !defined(_WIN32) && !defined(__SWITCH__)
+	fsync(fileno(stderr));
+#endif
+}
+
+/* The mappings as a hint before SDL starts: the game controllers it finds then are opened as such (added
+   after, a joystick already there stays a joystick until it is plugged in again, as SDL 2.0.12 does) */
+static void add_device_mappings(void)
+{
+	static char mappings[2048];
+
+	mappings[0] = '\0';
+	for (size_t mapping = 0; mapping < SDL_arraysize(device_mappings); mapping++)
+	{
+		SDL_strlcat(mappings, device_mappings[mapping], sizeof(mappings));
+		SDL_strlcat(mappings, "\n", sizeof(mappings));
+	}
+	SDL_SetHint(SDL_HINT_GAMECONTROLLERCONFIG, mappings);
+}
+
+#ifndef __SWITCH__
+/* A handheld's own keys, as its firmware's games have them: MENU leaves the game (the joystick's own button,
+   whatever the mapping makes of the rest; the Switch's HOME leaves it there), the volume keys turn the
+   game's volume (OPTIONS' VOLUME), a step of ten a press. They come as keys or as joystick buttons the
+   mapping has not: the log says which */
+static void handheld_event(const SDL_Event *event)
+{
+	int step = 0;
+
+	if (event->type == SDL_JOYBUTTONDOWN && event->jbutton.button == HANDHELD_MENU_BUTTON)
+		longjmp(finished, 1);
+	if (event->type == SDL_KEYDOWN && !event->key.repeat)
+	{
+		fprintf(stderr, "key: %s\n", SDL_GetKeyName(event->key.keysym.sym));
+		step = event->key.keysym.sym == SDLK_VOLUMEUP ? 1 : (event->key.keysym.sym == SDLK_VOLUMEDOWN ? -1 : 0);
+	}
+	if (event->type == SDL_JOYBUTTONDOWN && event->jbutton.button > 12)
+		fprintf(stderr, "joystick button: %d\n", event->jbutton.button);    /* (one the mapping has not) */
+	if (step)
+	{
+		const long volume = lround(settings.volume * 5.0) + step;
+
+		settings.volume = (volume < 0 ? 0 : (volume > 10 ? 10 : volume)) / 5.0;
+		settings_unsaved = true;    /* (written at the pause or at the end: a write to the card holds frames) */
+		fprintf(stderr, "volume: %ld\n", lround(settings.volume * 5.0));
+	}
+}
+
+/* The volume the keys turned, into segasonic.ini, where a moment's wait does not show */
+static void save_handheld_settings(void)
+{
+	if (!settings_unsaved)
+		return;
+	settings_save();
+	settings_unsaved = false;
+}
+#endif
+
+static void log_device(void)
+{
+	SDL_version linked;
+	SDL_RendererInfo info;
+	int width = 0, height = 0;
+
+	SDL_GetVersion(&linked);
+	fprintf(stderr, "SDL %d.%d.%d, video %s, audio %s\n", linked.major, linked.minor, linked.patch,
+		SDL_GetCurrentVideoDriver() ? SDL_GetCurrentVideoDriver() : "none",
+		SDL_GetCurrentAudioDriver() ? SDL_GetCurrentAudioDriver() : "none");
+	if (renderer && SDL_GetRendererInfo(renderer, &info) == 0)
+	{
+		SDL_GetRendererOutputSize(renderer, &width, &height);
+		fprintf(stderr, "renderer %s, screen %d x %d\n", info.name, width, height);
+	}
+	for (int index = 0; index < SDL_NumJoysticks(); index++)
+	{
+		char guid[64];
+
+		SDL_JoystickGetGUIDString(SDL_JoystickGetDeviceGUID(index), guid, sizeof(guid));
+		fprintf(stderr, "joystick %d: %s, %s, %s\n", index, SDL_JoystickNameForIndex(index), guid,
+			SDL_IsGameController(index) ? "a game controller" : "no game controller mapping");
+	}
+	log_written();
+}
+
+
+/* Every 5 seconds: the frames a second, and the time a frame takes to make before it waits (the average
+   and the most) */
+static void log_pace(bool frame_made)
+{
+	const uint64_t now = SDL_GetPerformanceCounter(), frequency = SDL_GetPerformanceFrequency();
+
+	if (!frame_made)
+	{
+		pace_frame_start = now;    /* (after the wait: the next frame starts) */
+		return;
+	}
+	if (!pace_start)
+		pace_start = now;
+	if (pace_frame_start)
+	{
+		const uint64_t work = now - pace_frame_start;
+
+		pace_work_ticks += work;
+		if (work > pace_work_most)
+			pace_work_most = work;
+	}
+	if (++pace_frames == 300)
+	{
+		fprintf(stderr, "%.1f frames a second; a frame takes %.1f ms, at most %.1f\n",
+			pace_frames * (double)frequency / (double)(now - pace_start),
+			1000.0 * (double)pace_work_ticks / (double)frequency / pace_frames,
+			1000.0 * (double)pace_work_most / (double)frequency);
+		fflush(stderr);    /* (not to the card at once: a write to it would hold a frame) */
+		pace_start = now;
+		pace_frames = 0;
+		pace_work_ticks = pace_work_most = 0;
+	}
+}
+#endif
+
 static void on_frame_done(void)
 {
+#ifdef SEGASONIC_HANDHELD
+	log_pace(true);
+#endif
 	play_frame();
 #ifdef SEGASONIC_CONSOLE
 	if (console_quit_requested())
@@ -1019,6 +1227,9 @@ static void on_frame_done(void)
 	if (program_frames() % 30 == 0 && settings_reread())
 		apply_settings();
 	wait_for_frame();
+#ifdef SEGASONIC_HANDHELD
+	log_pace(false);
+#endif
 }
 
 static void on_irq_changed(bool asserted)
@@ -1050,6 +1261,11 @@ static char *saves_folder(void)
 {
 #ifdef _WIN32
 	return SDL_GetBasePath();
+#elif defined(__SWITCH__)
+	mkdir(SWITCH_FOLDER, 0777);
+	return SDL_strdup(SWITCH_FOLDER "/");
+#elif defined(SEGASONIC_HANDHELD)
+	return SDL_GetBasePath();    /* (a handheld's: the game's folder on its card) */
 #else
 	return SDL_GetPrefPath("", "SegaSonic");
 #endif
@@ -1077,9 +1293,24 @@ int main(int argc, char **argv)
 
 	(void)argc;
 	(void)argv;
+#ifdef __SWITCH__
+	romfsInit();
+	/* (what the game says, failures included, goes to segasonic.log in its folder: the Switch has no console
+	   and SDL no message boxes there) */
+	mkdir(SWITCH_FOLDER, 0777);
+	freopen(SWITCH_FOLDER "/segasonic.log", "w", stderr);
+	fprintf(stderr, "SegaSonic: starting\n");
+#endif
+#ifdef SEGASONIC_HANDHELD
+	add_device_mappings();
+#endif
 	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_GAMECONTROLLER) != 0)
 		return fail("SDL could not start.", SDL_GetError());
+#ifdef __SWITCH__
+	base = SDL_strdup("romfs:/");
+#else
 	base = SDL_GetBasePath();
+#endif
 	saves = saves_folder();
 	snprintf(settings_path, sizeof(settings_path), "%s" FILE_NAME ".ini", saves ? saves : "");
 	snprintf(eeprom_path, sizeof(eeprom_path), "%s" FILE_NAME ".eeprom", saves ? saves : "");
@@ -1095,17 +1326,23 @@ int main(int argc, char **argv)
 	}
 #endif
 	assets = load_assets(base, saves, assets_path, sizeof(assets_path));
+	fprintf(stderr, "assets: %s (%d)\n", assets_path, (int)assets);
+#if !defined(__SWITCH__) && !defined(SEGASONIC_HANDHELD)
+	/* (a game device makes nothing from the ROM set: its assets come with the game, made on a computer, in
+	   the Switch's .nsp or beside a handheld's executable) */
 	if (assets == GAME_DATA_MISSING)
 	{
 		/* (the first run: the pack from the player's ROM set, where the game keeps what it writes) */
 		snprintf(assets_path, sizeof(assets_path), "%s" ASSETS_FILE, saves ? saves : "");
 		if (!first_run(base, saves, assets_path))
 		{
+			fprintf(stderr, "first run: no assets made\n");
 			SDL_Quit();
 			return 0;
 		}
 		assets = game_data_load(assets_path);
 	}
+#endif
 	switch (assets)
 	{
 	case GAME_DATA_LOADED:
@@ -1118,6 +1355,9 @@ int main(int argc, char **argv)
 	SDL_free(base);
 	SDL_free(saves);
 	settings_open(settings_path);
+#ifdef SEGASONIC_HANDHELD
+	fix_settings();
+#endif
 #ifdef SEGASONIC_CONSOLE
 	console_jingle_program((int)settings.sega_jingle_program, (int)settings.sega_jingle_layer);
 #endif
@@ -1126,9 +1366,14 @@ int main(int argc, char **argv)
 #endif
 	shown_scale = settings.window_scale;
 	shown_width = picture_width();
+#ifdef __SWITCH__
+	/* (the Switch's screen, 1280 x 720; docked, the system shows it at the TV's size) */
+	window = SDL_CreateWindow(WINDOW_TITLE, 0, 0, 1280, 720, 0);
+#else
 	window = SDL_CreateWindow(WINDOW_TITLE, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
 		(int)(picture_width() * window_scale_that_fits()), (int)(S32_VIDEO_HEIGHT * window_scale_that_fits()),
 		SDL_WINDOW_RESIZABLE | (settings.full_screen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0));
+#endif
 #ifdef SEGASONIC_CONSOLE
 	if (window)
 	{
@@ -1157,6 +1402,10 @@ int main(int argc, char **argv)
 		S32_VIDEO_MAX_WIDTH, S32_VIDEO_HEIGHT) : NULL;
 	if (!texture)
 		return fail("The window could not be opened.", SDL_GetError());
+	fprintf(stderr, "window: %d x %d\n", picture_width(), S32_VIDEO_HEIGHT);
+#ifdef SEGASONIC_HANDHELD
+	log_device();
+#endif
 	SDL_RenderSetIntegerScale(renderer, SDL_FALSE);
 	SDL_SetTextureScaleMode(texture, SDL_ScaleModeNearest);
 #ifndef SEGASONIC_CONSOLE
@@ -1186,6 +1435,14 @@ int main(int argc, char **argv)
 #endif
 	s32_video_init(game_tiles, GAME_TILES_SIZE, game_sprites, GAME_SPRITES_SIZE);
 	s32_board.frame_shown = on_frame_shown;
+	/* the video's rows on the cores beside the game's (runtime/src/workers.c): the Switch's 1 and 2, up to
+	   three elsewhere (a handheld's four cores) */
+#ifdef __SWITCH__
+	s32_workers_start(2);
+#else
+	s32_workers_start(SDL_min(SDL_GetCPUCount() - 1, 3));
+#endif
+	fprintf(stderr, "video: %d threads beside the game's\n", s32_workers_count());
 	sound_chips_attach();
 	sound_cpu_attach();
 	s32_init(game_program);
@@ -1198,8 +1455,15 @@ int main(int argc, char **argv)
 		program_run();
 
 	save_eeprom();
+#if defined(SEGASONIC_HANDHELD) && !defined(__SWITCH__)
+	save_handheld_settings();
+	fflush(stderr);
+#endif
 	if (audio)
 		SDL_CloseAudioDevice(audio);
 	SDL_Quit();
+#ifdef __SWITCH__
+	romfsExit();
+#endif
 	return 0;
 }

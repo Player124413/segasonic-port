@@ -40,9 +40,15 @@ add_library(s32runtime STATIC
 	runtime/src/rf5c68.c
 	runtime/src/ym3438.c
 	runtime/src/video.c
+	runtime/src/workers.c
 	runtime/src/memory_census.c
 )
 target_include_directories(s32runtime PUBLIC runtime/include)
+# (the video's rows on several threads, workers.c: POSIX threads but on Windows and the Switch)
+if(NOT WIN32 AND NOT (NINTENDO_SWITCH OR CMAKE_SYSTEM_NAME STREQUAL "NintendoSwitch"))
+	find_package(Threads REQUIRED)
+	target_link_libraries(s32runtime PUBLIC Threads::Threads)
+endif()
 if(UNIX AND NOT APPLE)
 	target_link_libraries(s32runtime PUBLIC m)    # (the C library's maths are apart there)
 endif()
@@ -80,6 +86,14 @@ if(SONIC_ROM_FILES AND Python3_FOUND)
 	add_dependencies(sonic_data sonic_assets)
 else()
 	message(STATUS "No ROM set at ${SONIC_ROM} (or no Python): no assets pack; the game needs one beside it")
+endif()
+
+# The Switch's .nsp, made on the player's computer (ports/switch/nsp): the game's Switch build (main,
+# main.npdm, control.nacp, icon.jpg), the assets of the player's ROM set and the keys of the player's console
+if(NOT (NINTENDO_SWITCH OR CMAKE_SYSTEM_NAME STREQUAL "NintendoSwitch"))
+	add_executable(segasonic_nsp ports/switch/nsp/main.c ports/switch/nsp/formats.c ports/switch/nsp/crypto.c)
+	target_link_libraries(segasonic_nsp PRIVATE sonic_data)
+	set_target_properties(segasonic_nsp PROPERTIES OUTPUT_NAME "SegaSonic NSP")
 endif()
 
 # The translation scaffold the decompiler grew from: the V60 runtime plus the C tools/recompile.py writes
@@ -143,6 +157,21 @@ if(SONIC_DECOMPILED)
 		target_compile_options(sonic_game_console PRIVATE -fno-strict-aliasing)
 	endif()
 
+	# The Nintendo Switch (devkitPro's toolchain): the console game alone, its .nro and its .nsp's pieces
+	# (ports/switch/switch.cmake); nothing of what follows
+	if(NINTENDO_SWITCH OR CMAKE_SYSTEM_NAME STREQUAL "NintendoSwitch")
+		include(ports/switch/switch.cmake)
+		return()
+	endif()
+
+	# Anbernic's H700 handhelds (toolchain ports/anbernic/zig_aarch64.cmake): the console game alone, as a
+	# folder for the stock firmware's Roms/PORTS (ports/anbernic/anbernic.cmake)
+	option(SEGASONIC_ANBERNIC "Build the game for Anbernic's H700 handhelds" OFF)
+	if(SEGASONIC_ANBERNIC)
+		include(ports/anbernic/anbernic.cmake)
+		return()
+	endif()
+
 	# The game in a window (ports/sdl2): SDL2 from the system, or on Windows the development package
 	# unpacked in build/downloads/sdl2 (SDL2_DIR picks another), a library beside the executable; or, with
 	# SEGASONIC_STATIC_SDL2 (the releases), SDL2 built from its own source into the executable
@@ -171,7 +200,8 @@ if(SONIC_DECOMPILED)
 	endif()
 	if(SDL2_FOUND)
 		# (an .app on macOS: SDL_GetBasePath is its Resources folder)
-		add_executable(sonic WIN32 MACOSX_BUNDLE ports/sdl2/main.c ports/sdl2/settings.c ports/sdl2/first_run.c)
+		add_executable(sonic WIN32 MACOSX_BUNDLE ports/sdl2/main.c ports/sdl2/settings.c ports/sdl2/first_run.c
+			ports/sdl2/letters.c)
 		target_link_libraries(sonic PRIVATE sonic_game sonic_data ${SONIC_SDL2})
 		# (the arcade game beside the console one: "SegaSonic Arcade" its executable, .app and window)
 		set_target_properties(sonic PROPERTIES OUTPUT_NAME "SegaSonic Arcade" MACOSX_BUNDLE_BUNDLE_NAME "SegaSonic Arcade"
@@ -191,7 +221,7 @@ if(SONIC_DECOMPILED)
 					$<TARGET_FILE_DIR:sonic>)
 		endif()
 		add_executable(SegaSonic WIN32 MACOSX_BUNDLE ports/sdl2/main.c ports/sdl2/settings.c ports/sdl2/actions.c
-			ports/sdl2/first_run.c)
+			ports/sdl2/first_run.c ports/sdl2/letters.c)
 		target_link_libraries(SegaSonic PRIVATE sonic_game_console sonic_data ${SONIC_SDL2})
 		set_target_properties(SegaSonic PROPERTIES MACOSX_BUNDLE_BUNDLE_NAME "SegaSonic"
 			MACOSX_BUNDLE_GUI_IDENTIFIER io.github.cheviman.segasonic-port)

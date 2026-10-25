@@ -5,13 +5,14 @@
  *                 format tools/reference/s32ref uses
  *    Version:     0.1.0
  *    Created:     11-10-2026
- *    Modified:    21-10-2026
+ *    Modified:    23-10-2026
  *    Author:      Sebastian Toyos
  *
  *    license:BSD-3-Clause
  *    Usage: sonic_headless [--frames N] [--hashes FILE] [--script FILE]
  *                          [--dump-frame N --dump-dir DIR] [--video-hashes FILE] [--video-dump N ... --video-dir DIR]
- *                          [--sound-hashes FILE] [--wide] [--assets FILE] [--extract ROM_SET] [--actions FILE]
+ *                          [--sound-hashes FILE] [--sound-levels FILE] [--wide] [--assets FILE] [--extract ROM_SET]
+ *                          [--actions FILE]
  *    The game's data is its assets pack (game/data.h): --assets, or segasonic.assets beside the executable.
  *    --extract first writes that pack from the player's ROM set (a .zip or a folder), as the first run does
  *    (runtime/src/extract.c). The scaffold (SEGASONIC_SCAFFOLD) runs the original code, so it reads the ROM
@@ -21,6 +22,10 @@
  *    board's video (runtime/src/video.c): the hash of each frame, and frames as BMP. --sound-hashes runs the
  *    sound board too (the decompiled sound program and the chips, runtime/src/sound_cpu.c and
  *    sound_chips.c), and writes for each frame the hash of its samples and of the sound board's memories.
+ *    --sound-levels runs it too, and writes for each frame how loud each chip and the window port's mix of
+ *    them are, and how many of the mix's samples pass 16 bits (write_levels). SEGASONIC_VIDEO_WORKERS=N in
+ *    the environment draws the video's rows on N threads beside this one (runtime/src/workers.c), as the
+ *    ports do: the frames are the same, which the checks show.
  *    --actions (the console build) presses the console's actions in the frames a file names, as the window
  *    port's keys do: the menus, OPTIONS, the map (tools/make_screenshots.py).
  */
@@ -28,6 +33,7 @@
 #include "s32/program.h"
 #include "s32/script.h"
 #include "s32/video.h"
+#include "s32/workers.h"
 #include "sound/chips.h"
 #include "game/data.h"
 #include "game/extract.h"
@@ -49,7 +55,7 @@
 #endif
 #define USAGE "Usage: sonic_headless [--frames N] [--hashes FILE] [--script FILE]" \
 	" [--dump-frame N --dump-dir DIR] [--video-hashes FILE] [--video-dump N ... --video-dir DIR]" \
-	" [--sound-hashes FILE] [--sprite-census FILE] [--tile-census FILE] [--memory-census FILE] [--wide]" \
+	" [--sound-hashes FILE] [--sound-levels FILE] [--sprite-census FILE] [--tile-census FILE] [--memory-census FILE] [--wide]" \
 	" [--assets FILE] [--extract ROM_SET]" USAGE_ACTIONS "\n"
 #define ASSETS_FILE "segasonic.assets"
 #define MAX_VIDEO_DUMPS 64
@@ -67,6 +73,7 @@ static uint64_t video_dumps[MAX_VIDEO_DUMPS];
 static int video_dump_count;
 static const char *video_dir;
 static FILE *sound_hashes;
+static FILE *sound_levels;
 static FILE *sprite_census;
 static uint64_t *census_seen;    /* hashes of the sprite and color sets written, open addressing (0 = free) */
 
@@ -212,6 +219,48 @@ static void on_log(const char *message)
 	fprintf(stderr, "[s32] %s\n", message);
 }
 
+/* --sound-levels: the frame's loudest sample of each chip (FM0, FM1: the YM3438s; PCM: the RF5C68) and of
+   their mix as the window port makes it (each YM3438 at 0.30, the RF5C68 at 0.40, volume 1; the RF5C68's
+   samples taken at the YM3438s' times), how many of the mix's samples pass 16 bits, and how many of the
+   RF5C68's are at its own limit (it sums its channels into 16 bits): "FRAME FM0 FM1 PCM MIX CLIPPED PCM_LIMIT" */
+static void write_levels(void)
+{
+	const int32_t *samples[3];
+	size_t counts[3];
+	int32_t peaks[3] = { 0 };
+	double mix_peak = 0.0;
+	unsigned clipped = 0, pcm_limit = 0;
+
+	for (int chip = 0; chip < 3; chip++)
+	{
+		samples[chip] = sound_chips_frame_samples(chip, &counts[chip]);
+		for (size_t at = 0; at < counts[chip] * 2; at++)
+		{
+			if (abs(samples[chip][at]) > peaks[chip])
+				peaks[chip] = abs(samples[chip][at]);
+			if (chip == 2 && (samples[chip][at] >= 32767 || samples[chip][at] <= -32767))
+				pcm_limit++;
+		}
+	}
+	for (size_t at = 0; counts[1] && counts[2] && at < counts[0]; at++)
+	{
+		const size_t fm1 = at < counts[1] ? at : counts[1] - 1, pcm = at * counts[2] / counts[0];
+
+		for (int side = 0; side < 2; side++)
+		{
+			const double value = 0.30 * (samples[0][at * 2 + side] + samples[1][fm1 * 2 + side])
+				+ 0.40 * samples[2][pcm * 2 + side];
+
+			if (value > mix_peak || -value > mix_peak)
+				mix_peak = value < 0 ? -value : value;
+			if (value > 32767.0 || value < -32768.0)
+				clipped++;
+		}
+	}
+	fprintf(sound_levels, "%" PRIu64 " %d %d %d %.0f %u %u\n", program_frames() - 1, peaks[0], peaks[1], peaks[2],
+		mix_peak, clipped, pcm_limit);
+}
+
 static void on_frame_done(void)
 {
 	if (hashes)
@@ -220,12 +269,15 @@ static void on_frame_done(void)
 		dump_state();
 	if (video_hashes)
 		fprintf(video_hashes, "%" PRIu64 " %016" PRIx64 "\n", program_frames() - 1, s32_video_frame_hash());
-	if (sound_hashes)
+	if (sound_hashes || sound_levels)
 	{
 		s32_board.time_passes(s32_board.cycles);
 		sound_chips_end_frame(s32_board.cycles);
-		fprintf(sound_hashes, "%" PRIu64 " %016" PRIx64 " %016" PRIx64 "\n", program_frames() - 1,
-			sound_chips_frame_hash(), sound_board_state_hash());
+		if (sound_hashes)
+			fprintf(sound_hashes, "%" PRIu64 " %016" PRIx64 " %016" PRIx64 "\n", program_frames() - 1,
+				sound_chips_frame_hash(), sound_board_state_hash());
+		if (sound_levels)
+			write_levels();
 	}
 	for (int index = 0; index < video_dump_count && video_dir; index++)
 		if (video_dumps[index] == program_frames() - 1)
@@ -349,6 +401,7 @@ int main(int argc, char **argv)
 	const char *script_path = NULL;
 	const char *video_hashes_path = NULL;
 	const char *sound_hashes_path = NULL;
+	const char *sound_levels_path = NULL;
 	const char *sprite_census_path = NULL;
 	const char *tile_census_path = NULL;
 	const char *memory_census_path = NULL;
@@ -389,6 +442,8 @@ int main(int argc, char **argv)
 			video_dir = argv[++index];
 		else if (strcmp(argv[index], "--sound-hashes") == 0 && index + 1 < argc)
 			sound_hashes_path = argv[++index];
+		else if (strcmp(argv[index], "--sound-levels") == 0 && index + 1 < argc)
+			sound_levels_path = argv[++index];
 		else if (strcmp(argv[index], "--sprite-census") == 0 && index + 1 < argc)
 			sprite_census_path = argv[++index];
 		else if (strcmp(argv[index], "--tile-census") == 0 && index + 1 < argc)
@@ -503,18 +558,24 @@ int main(int argc, char **argv)
 		}
 		s32_video_tile_observer = on_tile_shown;
 	}
-	if (sound_hashes_path)
+	if (sound_hashes_path || sound_levels_path)
 	{
 		s32_board.sound_rom = game_sound;
 		sound_chips_attach();
 		sound_cpu_attach();
-		sound_hashes = fopen(sound_hashes_path, "w");
+		if (sound_hashes_path)
+			sound_hashes = fopen(sound_hashes_path, "w");
+		if (sound_levels_path)
+			sound_levels = fopen(sound_levels_path, "w");
 	}
 
 	s32_board.irq_changed = on_irq_changed;
 	s32_board.controls_update = on_controls_update;
 	s32_board.log = on_log;
 	s32_board.frame_timing = true;
+	/* (the video's rows on that many threads beside this one: the same frames, which the checks show) */
+	if (getenv("SEGASONIC_VIDEO_WORKERS"))
+		s32_workers_start(atoi(getenv("SEGASONIC_VIDEO_WORKERS")));
 	s32_init(game_program);
 	program_reset();
 	program_frame_done = on_frame_done;
@@ -528,6 +589,8 @@ int main(int argc, char **argv)
 		fclose(video_hashes);
 	if (sound_hashes)
 		fclose(sound_hashes);
+	if (sound_levels)
+		fclose(sound_levels);
 	if (sprite_census)
 		fclose(sprite_census);
 	free(census_seen);

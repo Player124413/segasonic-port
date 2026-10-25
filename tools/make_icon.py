@@ -11,7 +11,8 @@ Usage: python tools/make_icon.py
 
 The icon of SegaSonic.exe and SegaSonic Arcade.exe (segasonic.ico, through segasonic.rc), of their .apps on
 macOS (segasonic.icns) and of the Linux package (segasonic.png, 1024 x 1024, for a launcher of the
-desktop's). The game's own pictures are in the ROM, which no file of the project carries: SegaSonic's
+desktop's), and of the Switch's .nro (ports/switch/icon.jpg, 256 x 256: the plate to the edges, which the
+HOME menu rounds itself). The game's own pictures are in the ROM, which no file of the project carries: SegaSonic's
 window, once the game has its assets, shows the characters' heads (console_window_icon); SDL gives
 SegaSonic Arcade's the executable's first icon. Drawn at twice the size and scaled down, so its edges are
 smooth.
@@ -23,6 +24,7 @@ from PIL import Image
 
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "ports" / "sdl2" / "icon"
+SWITCH = ROOT / "ports" / "switch" / "icon.jpg"
 SIZE = 1024
 SCALE = 2                       # (drawn at 2048, then scaled down)
 ICO_SIZES = [16, 24, 32, 48, 64, 128, 256]
@@ -63,7 +65,8 @@ def over(image, color, alpha):
     image[..., 3:] = image[..., 3:] * (1 - alpha) + alpha
 
 
-def draw():
+def draw(margin=48, radius=210):
+    """The icon; 'margin' and 'radius' are the plate's room around it and its corners' (0: to the edges)."""
     size = SIZE * SCALE
     unit = size / SIZE
     y, x = np.mgrid[0:size, 0:size].astype(np.float64) + 0.5
@@ -72,8 +75,8 @@ def draw():
     image = np.zeros((size, size, 4))
 
     # the plate
-    plate = coverage(rounded_square(x, y, 48, 48, SIZE - 48, SIZE - 48, 210), pixel)
-    shade = (y - 48) / (SIZE - 96)
+    plate = coverage(rounded_square(x, y, margin, margin, SIZE - margin, SIZE - margin, max(radius, 1)), pixel)
+    shade = (y - margin) / (SIZE - 2 * margin)
     color = PLATE_TOP * (1 - shade[..., None]) + PLATE_BOTTOM * shade[..., None]
     sheen = np.clip(1 - np.hypot(x - 300, y - 180) / 700, 0, 1) ** 2 * 0.25    # (a soft light, top left)
     color = color + (255 - color) * sheen[..., None]
@@ -125,6 +128,9 @@ def main():
     icon.save(OUT / "segasonic.icns")
     print(f"written: {', '.join(name for name in ('segasonic.png', 'segasonic.ico', 'segasonic.icns'))} "
           f"in {OUT.relative_to(ROOT)}")
+    SWITCH.parent.mkdir(parents=True, exist_ok=True)
+    draw(margin=0, radius=0).convert("RGB").resize((256, 256), Image.LANCZOS).save(SWITCH, quality=95)
+    print(f"written: {SWITCH.relative_to(ROOT)}")
 
 
 if __name__ == "__main__":

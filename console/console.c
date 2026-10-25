@@ -49,8 +49,14 @@ static const uint8_t attract_order[8] = {
 	MODE_TITLE, MODE_RANKING, MODE_DEMO_1, MODE_TITLE, MODE_RANKING, MODE_DEMO_2, MODE_TITLE, MODE_RANKING
 };
 
+/* (where the device's system leaves games, SEGASONIC_SYSTEM_EXIT: the Switch's HOME button, there is no EXIT) */
+#ifdef SEGASONIC_SYSTEM_EXIT
+static const char *const menu_items[] = { "START GAME", "TIME ATTACK", "OPTIONS" };
+#define MENU_ITEMS  3
+#else
 static const char *const menu_items[] = { "START GAME", "TIME ATTACK", "OPTIONS", "EXIT" };
 #define MENU_ITEMS  4
+#endif
 
 static uint32_t title_frames;     /* frames the title has shown its logo (PRESS START blinks by them) */
 static bool sega_logo_shown;      /* the SEGA logo has been shown (once, at power-on) */
@@ -519,9 +525,17 @@ static const char *const option_names[OPTION_COUNT] = {
 	"SOUND TEST", "STAGE SELECT", "BACK"
 };
 
-/* The pages: OPTIONS, and VIDEO under it (its BACK goes back to OPTIONS) */
+/* The pages: OPTIONS, and VIDEO under it (its BACK goes back to OPTIONS). A game device's build
+   (SEGASONIC_HANDHELD) has no VIDEO: its picture is fixed; nor CONTROLS where the device's controls are fixed
+   (the Switch), but where they may need putting right (SEGASONIC_CONTROLS_PAGE: a handheld's own buttons) */
 static const int main_options[] = {
+#if defined(SEGASONIC_HANDHELD) && defined(SEGASONIC_CONTROLS_PAGE)
+	OPTION_DIFFICULTY, OPTION_VITALITY, OPTION_CONTINUES, OPTION_CONTROLS, OPTION_VOLUME,
+#elif defined(SEGASONIC_HANDHELD)
+	OPTION_DIFFICULTY, OPTION_VITALITY, OPTION_CONTINUES, OPTION_VOLUME,
+#else
 	OPTION_DIFFICULTY, OPTION_VITALITY, OPTION_CONTINUES, OPTION_VIDEO, OPTION_CONTROLS, OPTION_VOLUME,
+#endif
 	OPTION_SOUND_TEST, OPTION_STAGE_SELECT, OPTION_BACK
 };
 static const int video_options[] = { OPTION_WINDOW, OPTION_FULL_SCREEN, OPTION_PIXELS, OPTION_WIDE, OPTION_BACK };
@@ -2999,4 +3013,5 @@ bool console_quit_requested(void)
 {
 	return quit_requested;
 }
+
 

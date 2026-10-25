@@ -1,11 +1,12 @@
 # Name:        build.yml
 # Description: builds the game on clean machines with no ROM set (Linux with GCC, macOS with Clang,
 #              Windows with MSVC), SDL2 inside the executables, and packs what a player runs: the
-#              executables only, which load the player's assets pack, with their licenses; a tag v* makes
-#              a release of those packages
-# Version:     0.3.0
+#              executables only, which load the player's assets pack, with their licenses; the Nintendo
+#              Switch's .nro and .nsp pieces with devkitPro's toolchain; a tag v* makes a release of those
+#              packages
+# Version:     0.4.0
 # Created:     20-10-2026
-# Modified:    21-10-2026
+# Modified:    23-10-2026
 # Author:      Sebastian Toyos
 name: build
 
@@ -108,6 +109,26 @@ jobs:
           path: |
             dist/segasonic-${{ matrix.name }}.*
             dist/segasonic-${{ matrix.name }}-all.tar.gz
+
+  # The Nintendo Switch: SegaSonic.nro (the Homebrew Menu) and the .nsp's pieces (main, main.npdm,
+  # control.nacp, icon.jpg, font.bmp), with devkitPro's toolchain in its own image
+  switch:
+    name: switch
+    runs-on: ubuntu-24.04
+    container: devkitpro/devkita64:latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Configure
+        run: /opt/devkitpro/portlibs/switch/bin/aarch64-none-elf-cmake -S . -B build/switch -DCMAKE_BUILD_TYPE=Release -DSEGASONIC_REFERENCE_TOOLS=OFF
+
+      - name: Build
+        run: cmake --build build/switch --target SegaSonic_switch --parallel
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: segasonic-switch
+          path: build/bin/switch/
 
   # A tag v*: the packages as a GitHub release, its notes from docs/releases/TAG.md
   release:

@@ -108,9 +108,15 @@ Next (in this order unless Sebas says otherwise):
 3. Done in segasonic-decomp (22-23 October): the C reads all of the program's data by name (the 1137 reads
    through ROM addresses are tables and structures over the loaded assets), and its other leftovers are
    counted down to what the original does (segasonic-decomp's README, "What is left, and why").
-4. Achievements: our own, defined on the game's memory as RetroAchievements does (the work RAM is the
+4. Done (23-25 October, the game devices): the Nintendo Switch (the .nsp made on the player's computer by
+   SegaSonic NSP; 16:9, no EXIT, the video on three cores; tried on Eden) and Anbernic's H700 handhelds
+   (the RG40XX H's stock firmware, built with Zig; 4:3, 60 frames a second on four cores, its buttons, MENU
+   and the volume keys): ports/switch/README.md, ports/anbernic/README.md. Next for them: the Switch on a
+   console, the 4:3 picture 8 lines taller at each side (no bars on 640 x 480), the sound on a thread of
+   its own, Android.
+5. Achievements: our own, defined on the game's memory as RetroAchievements does (the work RAM is the
    original's, byte for byte); RetroAchievements itself only runs in the emulators it approves.
-5. The bitmap layer in the ice and tower stages' dark parts: the original leaves it on, 8 bits a pixel, over
+6. The bitmap layer in the ice and tower stages' dark parts: the original leaves it on, 8 bits a pixel, over
    video RAM's start, where the tilemaps' pages are, and MAME draws them as rows of dots (the arcade build
    does as MAME; the console hides it). If the board does not (footage or photos of a real one), a fix for
    MAME's segas32 video.
