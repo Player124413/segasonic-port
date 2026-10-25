@@ -23,16 +23,33 @@ You need three things of your own, which never leave your computer:
 - `prod.keys`, your console's keys (the tool uses `header_key` and `key_area_key_application_00`);
 - `sonic.zip`, MAME's ROM set of *SegaSonic The Hedgehog* (Japan, rev. C), or a folder of its files;
 - the tool, `SegaSonic NSP` (`SegaSonic NSP.exe` on Windows), with the `switch` folder beside it: the
-  game's Switch build (below).
+  game's Switch build (below); and `font.bmp`, its window's letters.
 
-Drop `prod.keys` and `sonic.zip` on the tool (or put them beside it and start it; it also looks for
-`prod.keys` in `.switch` in your user folder). It writes `SegaSonic.nsp` beside it. To give the game an
-icon of your own on the HOME menu, drop a 256 x 256 JPEG on it too (by default it has the project's
-trackball). From a command line:
+Start the tool (a double click). Its window shows what the `.nsp` will be made of, each with its state
+(found, not found, or what is wrong with it):
+
+- **Console keys**: `prod.keys` beside the tool, or in `.switch` in your user folder;
+- **ROM set**: `sonic.zip` beside the tool;
+- **HOME menu icon**: the game's own (the project's trackball), or a 256 x 256 JPEG of yours;
+- **The game's Switch build**: the `switch` folder beside the tool;
+- **Output folder**: where `SegaSonic.nsp` goes, beside the tool unless you choose another.
+
+Drop your files on the window and it takes each by what it is: a `.keys` (or `.txt`) is the keys, a
+`.jpg` the icon, anything else the ROM set (`sonic.zip`, or a folder of its files). **Choose the output
+folder** opens your system's folder dialog (on Linux zenity's or kdialog's: without either, the button
+says so and the folder stays beside the tool). **Make SegaSonic.nsp**, or Enter, makes it: the window
+shows the step it is at, then the `.nsp`'s path and size, or what failed.
+
+Files dropped on the tool itself, not on its window, are taken the same way, and it makes the `.nsp` at
+once in its console. With options, from a command line, it is a console program and nothing else:
 
 ```
 SegaSonic NSP --keys prod.keys --rom sonic.zip --icon my_icon.jpg --out SegaSonic.nsp
 ```
+
+When it cannot show its window (no display, no `font.bmp` beside it, a build without SDL2), the tool
+started with nothing makes the `.nsp` at once with the defaults, in its console, as with files dropped on
+it.
 
 Install the `.nsp` with an installer (Tinfoil, DBI, Goldleaf...) on a console that runs Atmosphère with
 signature patches: the `.nsp` is not signed by Nintendo, as no homebrew `.nsp` is.
@@ -77,7 +94,9 @@ without the `.nro`.
 cmake --build build/cmake --config Release --target segasonic_nsp
 ```
 
-It lands in `build/bin/`, beside `build/bin/switch/`, so from the repository it makes the `.nsp` at once:
+Its window is built where the game's is, with SDL2 (with `font.bmp`, and on Windows `SDL2.dll` unless
+SDL2 is built in); without SDL2 the tool is its command line alone. It lands in `build/bin/`, beside
+`build/bin/switch/`, so from the repository it makes the `.nsp` at once:
 
 ```bash
 "build/bin/SegaSonic NSP" --keys prod.keys --rom rom
@@ -126,7 +145,10 @@ starts (`crypto.c`). The same inputs make the same `.nsp`.
 | `icon.jpg` | the HOME menu's icon (`tools/make_icon.py`) |
 | `nsp/crypto.c` | AES-128 (ECB, CTR, XTS) and SHA-256 |
 | `nsp/formats.c` | PFS0, RomFS, the hashed sections, the NCA, the content meta |
-| `nsp/main.c` | the tool: its inputs, the three NCAs, the `.nsp` |
+| `nsp/make_nsp.c` | the `.nsp` from its inputs, for the command line and the window: the three NCAs, the `.nsp`; the inputs' defaults |
+| `nsp/main.c` | the tool's command line; started with nothing, its window |
+| `nsp/window.c` | the window (SDL2, with Kenney Mini's letters: `ports/sdl2/letters.c`): the inputs and their state, files dropped on it, the `.nsp` made on a thread of its own |
+| `nsp/folder_dialog.c` | the system's folder dialog: Windows' (COM's `IFileOpenDialog`), macOS's (`osascript`), Linux's (`zenity` or `kdialog`) |
 
 The game's own changes for the Switch are in `ports/sdl2/` (`__SWITCH__`: the romfs, the SD card folder,
 the screen; `SEGASONIC_HANDHELD`: the fixed picture and controls) and in `console/console.c`

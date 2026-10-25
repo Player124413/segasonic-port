@@ -2,7 +2,7 @@
 # Description: build of the SegaSonic runtime and its development tools
 # Version:     0.1.0
 # Created:     11-10-2026
-# Modified:    23-10-2026
+# Modified:    25-10-2026
 # Author:      Sebastian Toyos
 cmake_minimum_required(VERSION 3.20)
 project(segasonic C CXX)
@@ -89,9 +89,11 @@ else()
 endif()
 
 # The Switch's .nsp, made on the player's computer (ports/switch/nsp): the game's Switch build (main,
-# main.npdm, control.nacp, icon.jpg), the assets of the player's ROM set and the keys of the player's console
+# main.npdm, control.nacp, icon.jpg), the assets of the player's ROM set and the keys of the player's console.
+# A command line; with SDL2 also a window (below, with the game's window)
 if(NOT (NINTENDO_SWITCH OR CMAKE_SYSTEM_NAME STREQUAL "NintendoSwitch"))
-	add_executable(segasonic_nsp ports/switch/nsp/main.c ports/switch/nsp/formats.c ports/switch/nsp/crypto.c)
+	add_executable(segasonic_nsp ports/switch/nsp/main.c ports/switch/nsp/make_nsp.c ports/switch/nsp/formats.c
+		ports/switch/nsp/crypto.c)
 	target_link_libraries(segasonic_nsp PRIVATE sonic_data)
 	set_target_properties(segasonic_nsp PROPERTIES OUTPUT_NAME "SegaSonic NSP")
 endif()
@@ -258,8 +260,28 @@ if(SONIC_DECOMPILED)
 		if(APPLE)
 			set_source_files_properties(ports/sdl2/icon/segasonic.icns PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
 		endif()
+
+		# SegaSonic NSP's window (ports/switch/nsp/window.c), when it is started with nothing: still a console
+		# program, with its own main (SDL2 without SDL2main); the folder dialog is COM's on Windows. Its
+		# letters (Kenney Mini, font.bmp) beside it, as SDL2's library is
+		list(GET SONIC_SDL2 0 SONIC_SDL2_LIBRARY)
+		target_sources(segasonic_nsp PRIVATE ports/switch/nsp/window.c ports/switch/nsp/folder_dialog.c
+			ports/sdl2/letters.c)
+		target_include_directories(segasonic_nsp PRIVATE ports/sdl2)
+		target_compile_definitions(segasonic_nsp PRIVATE SEGASONIC_NSP_WINDOW)
+		target_link_libraries(segasonic_nsp PRIVATE ${SONIC_SDL2_LIBRARY})
+		if(WIN32)
+			target_link_libraries(segasonic_nsp PRIVATE ole32 shell32 uuid)
+			if(NOT SEGASONIC_STATIC_SDL2)
+				add_custom_command(TARGET segasonic_nsp POST_BUILD
+					COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:SDL2::SDL2> $<TARGET_FILE_DIR:segasonic_nsp>)
+			endif()
+		endif()
+		add_custom_command(TARGET segasonic_nsp POST_BUILD
+			COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_SOURCE_DIR}/ports/sdl2/font/font.bmp
+				$<TARGET_FILE_DIR:segasonic_nsp>)
 	else()
-		message(STATUS "No SDL2: the window port (sonic) is not built")
+		message(STATUS "No SDL2: the window port (sonic) is not built, and SegaSonic NSP is its command line alone")
 	endif()
 else()
 	message(STATUS "No game C in ${SONIC_DECOMPILED_DIR}: run tools/decompile.py")
