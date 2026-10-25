@@ -159,7 +159,7 @@ void touch_config_set_defaults(touch_config *cfg, bool console_mode)
 	memset(cfg, 0, sizeof(*cfg));
 	cfg->move_mode = TOUCH_MOVE_STICK;
 	cfg->modern_controls = true;
-	cfg->floating_origin = true;
+	cfg->floating_origin = false;
 	cfg->haptics_enabled = true;
 	cfg->auto_hide_gamepad = true;
 	cfg->grid_snap = false;
@@ -368,17 +368,20 @@ bool touch_controls_load_ini(touch_controls *tc, const char *path)
 
 	fclose(fp);
 
-	/* Migrate v1 config automatically to responsive v2 Modern Joystick defaults */
+	/* Migrate older configs automatically to stationary fixed Modern Joystick (v3) */
 	if (file_version < TOUCH_CONFIG_VERSION)
 	{
-		tc->cfg.move_mode = TOUCH_MOVE_STICK;
-		tc->cfg.modern_controls = true;
-		tc->cfg.floating_origin = true;
-		tc->cfg.trackball_sensitivity = 1.00f;
-		tc->cfg.stick_deadzone = 0.08f;
-		tc->cfg.widgets[TOUCH_WIDGET_TURBO].visible = false;
-		if (tc->cfg.widgets[TOUCH_WIDGET_JUMP].scale < 1.12f)
-			tc->cfg.widgets[TOUCH_WIDGET_JUMP].scale = 1.16f;
+		if (file_version < 2)
+		{
+			tc->cfg.move_mode = TOUCH_MOVE_STICK;
+			tc->cfg.modern_controls = true;
+			tc->cfg.trackball_sensitivity = 1.00f;
+			tc->cfg.stick_deadzone = 0.08f;
+			tc->cfg.widgets[TOUCH_WIDGET_TURBO].visible = false;
+			if (tc->cfg.widgets[TOUCH_WIDGET_JUMP].scale < 1.12f)
+				tc->cfg.widgets[TOUCH_WIDGET_JUMP].scale = 1.16f;
+		}
+		tc->cfg.floating_origin = false;
 		touch_controls_save_ini(tc, path);
 	}
 
@@ -565,8 +568,8 @@ static int hit_test_widget(const touch_controls *tc, float px, float py, bool in
 		widget_center_px(tc, id, &cx, &cy);
 		widget_half_extents(tc, id, &hw, &hh);
 
-		/* Generous touch halos for reliable eyes-free thumb hits */
-		const float halo = (id == TOUCH_WIDGET_MOVE) ? 1.42f
+		/* Generous touch halos for reliable eyes-free thumb hits around the stationary joystick */
+		const float halo = (id == TOUCH_WIDGET_MOVE) ? 1.60f
 			: ((id == TOUCH_WIDGET_JUMP) ? 1.36f : 1.18f);
 		const float hit_hw = hw * halo;
 		const float hit_hh = hh * halo;
@@ -763,19 +766,11 @@ static void update_move_deflection(touch_controls *tc, float px, float py)
 		float dy = py - tc->move_origin_y;
 		const float dist = sqrtf(dx * dx + dy * dy);
 
+		/* Clamp inner stick nub cleanly inside the stationary outer ring — base never moves! */
 		if (dist > max_r && dist > 0.0001f)
 		{
 			dx = dx * (max_r / dist);
 			dy = dy * (max_r / dist);
-			/*
-			 * Dynamic Follow-Thumb Stick: slide the joystick center right behind the thumb
-			 * whenever thumb pushes beyond max_r, so reversing direction has ZERO dead travel!
-			 */
-			if (tc->cfg.floating_origin && tc->cfg.move_mode == TOUCH_MOVE_STICK)
-			{
-				tc->move_origin_x = px - dx;
-				tc->move_origin_y = py - dy;
-			}
 		}
 		tc->nub_offset_x = dx;
 		tc->nub_offset_y = dy;
@@ -1520,7 +1515,8 @@ static void draw_single_widget(const touch_controls *tc, ui_quad_batch *batch, t
 	if (alpha == 0)
 		return;
 
-	const float press_scale = pressed ? 0.94f : 1.0f;
+	/* Action buttons bounce slightly on press; joystick outer base stays 100% motionless! */
+	const float press_scale = (pressed && id != TOUCH_WIDGET_MOVE) ? 0.94f : 1.0f;
 	const rect_f box = {
 		cx - hw * press_scale, cy - hh * press_scale,
 		cx + hw * press_scale, cy + hh * press_scale

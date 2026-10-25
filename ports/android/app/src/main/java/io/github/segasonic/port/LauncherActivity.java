@@ -960,18 +960,19 @@ public class LauncherActivity extends Activity {
             LinkedHashMap<String, LinkedHashMap<String, String>> consoleSec =
                 readSectionedIni(getConsoleIniFile());
 
-            // Auto-migrate v1 touch_controls.ini to v2 responsive Modern Joystick defaults
+            // Auto-migrate v1/v2 touch_controls.ini to v3 Stationary Fixed Modern Joystick defaults
             int cfgVersion = parseIntSafe(touchMap.get("config_version"), 1, 1, 99);
             boolean migrateV1 = !touchMap.isEmpty() && cfgVersion < 2;
+            boolean migrateV2 = !touchMap.isEmpty() && cfgVersion < 3;
 
-            // Touch settings (matching exact keys & v2 defaults in touch_controls.c!)
+            // Touch settings (matching exact keys & v3 defaults in touch_controls.c!)
             int moveMode = migrateV1 ? 1 : parseIntSafe(touchMap.get("move_mode"), 1, 0, 2);
             int modernCtrl = migrateV1 ? 1 : parseIntSafe(touchMap.get("modern_controls"), 1, 0, 1);
             int colorIdx = parseIntSafe(touchMap.get("player_color"), 0, 0, 2);
             float sens = migrateV1 ? 1.00f : parseFloatSafe(touchMap.get("trackball_sensitivity"), 1.00f, 0.25f, 3.0f);
             float friction = parseFloatSafe(touchMap.get("trackball_friction"), 0.91f, 0.80f, 0.97f);
             float opacity = parseFloatSafe(touchMap.get("master_opacity"), 0.88f, 0.20f, 1.0f);
-            int floating = migrateV1 ? 1 : parseIntSafe(touchMap.get("floating_origin"), 1, 0, 1);
+            int floating = migrateV2 ? 0 : parseIntSafe(touchMap.get("floating_origin"), 0, 0, 1);
             int haptics = parseIntSafe(touchMap.get("haptics_enabled"), 1, 0, 1);
             int autoHide = parseIntSafe(touchMap.get("auto_hide_gamepad"), 1, 0, 1);
 
@@ -995,7 +996,7 @@ public class LauncherActivity extends Activity {
             mHapticsSwitch.setChecked(haptics != 0);
             mAutoHidePadSwitch.setChecked(autoHide != 0);
 
-            if (migrateV1) {
+            if (migrateV2) {
                 saveAllConfigs();
             }
 
@@ -1055,7 +1056,7 @@ public class LauncherActivity extends Activity {
         float sens = (25 + mSensitivitySeek.getProgress()) / 100.0f;
         float friction = (80 + mInertiaSeek.getProgress()) / 100.0f;
         float opacity = (20 + mOpacitySeek.getProgress()) / 100.0f;
-        touchMap.put("config_version", "2");
+        touchMap.put("config_version", "3");
         touchMap.put("move_mode", String.valueOf(mMoveModeSpinner.getSelectedItemPosition()));
         touchMap.put("modern_controls", mModernControlsSwitch.isChecked() ? "1" : "0");
         touchMap.put("player_color", String.valueOf(mThemeColorSpinner.getSelectedItemPosition()));

@@ -30,7 +30,7 @@
     <string name="lbl_inertia">Инерция вращения трекбола: %1$d%%</string>
     <string name="lbl_hud_opacity">Прозрачность сенсорных кнопок: %1$d%%</string>
     <string name="sw_modern_controls">Отзывчивое управление (мгновенный разворот 360°, чёткая остановка и точные углы)</string>
-    <string name="sw_floating_origin">Плавающий джойстик (следует за большим пальцем слева)</string>
+    <string name="sw_floating_origin">Плавающий центр стика (выкл. = джойстик стоит на месте)</string>
     <string name="sw_haptics">Тактильная виброотдача кнопок и трекбола</string>
     <string name="sw_autohide_pad">Автоскрытие кнопок при подключении геймпада</string>
     <string name="btn_reset_touch">Сбросить расположение кнопок</string>

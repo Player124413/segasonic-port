@@ -30,7 +30,7 @@
     <string name="lbl_inertia">Trackball Bearing Momentum: %1$d%%</string>
     <string name="lbl_hud_opacity">Touch Controls Opacity: %1$d%%</string>
     <string name="sw_modern_controls">Responsive Console Steering (instant 360° turn, crisp stop &amp; true screen angles)</string>
-    <string name="sw_floating_origin">Dynamic Follow-Thumb Joystick (centers where left thumb touches)</string>
+    <string name="sw_floating_origin">Floating Joystick Origin (off = joystick stays fixed in place)</string>
     <string name="sw_haptics">Arcade Haptic Vibration Feedback</string>
     <string name="sw_autohide_pad">Auto-hide Touch HUD when Bluetooth Gamepad active</string>
     <string name="btn_reset_touch">Reset Touch Layout to Default</string>

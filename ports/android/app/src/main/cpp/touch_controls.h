@@ -17,7 +17,7 @@ extern "C" {
 #endif
 
 #define TOUCH_MAX_FINGERS    10
-#define TOUCH_CONFIG_VERSION 2
+#define TOUCH_CONFIG_VERSION 3
 
 typedef enum touch_move_mode
 {

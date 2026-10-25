@@ -138,17 +138,6 @@ jobs:
         run: |
           git clone --depth 1 --branch release-2.32.10 https://github.com/libsdl-org/SDL.git ports/android/sdl2
 
-      - name: Prepare Android signing keystore
-        run: |
-          mkdir -p "$HOME/.android"
-          if [ ! -f "$HOME/.android/debug.keystore" ]; then
-            keytool -genkeypair -v \
-              -keystore "$HOME/.android/debug.keystore" \
-              -storepass android -alias androiddebugkey -keypass android \
-              -keyalg RSA -keysize 2048 -validity 10000 \
-              -dname "CN=Android Debug,O=Android,C=US"
-          fi
-
       - name: "Build Universal Release APK (32-bit and 64-bit)"
         working-directory: ports/android
         run: ./gradlew assembleRelease --no-daemon --stacktrace
@@ -160,7 +149,7 @@ jobs:
           cp ports/android/app/build/outputs/apk/release/app-release.apk \
             dist/segasonic-android-universal.apk
           unzip -l dist/segasonic-android-universal.apk | grep -E "lib/.*\.so|assets/"
-          "${SDK_ROOT}/build-tools/35.0.0/apksigner" verify --verbose dist/segasonic-android-universal.apk
+          "${SDK_ROOT}/build-tools/35.0.0/apksigner" verify --print-certs --verbose dist/segasonic-android-universal.apk
           ls -lh dist/segasonic-android-universal.apk
 
       - uses: actions/upload-artifact@v7
