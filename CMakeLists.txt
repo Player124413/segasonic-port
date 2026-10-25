@@ -98,6 +98,21 @@ if(NOT (NINTENDO_SWITCH OR CMAKE_SYSTEM_NAME STREQUAL "NintendoSwitch") AND NOT 
 	set_target_properties(segasonic_nsp PROPERTIES OUTPUT_NAME "SegaSonic NSP")
 endif()
 
+# Android's APK, made on the player's computer (ports/android/apk): the game's Android build
+# (android/segasonic-base.apk), the assets of the player's ROM set, signed with the player's own key; its
+# SHA-256 is SegaSonic NSP's (crypto.c). A command line; with SDL2 also a window (below, with the game's
+# window)
+if(NOT (NINTENDO_SWITCH OR CMAKE_SYSTEM_NAME STREQUAL "NintendoSwitch") AND NOT ANDROID)
+	add_executable(segasonic_apk_maker ports/android/apk/main.c ports/android/apk/make_apk.c ports/android/apk/zip.c
+		ports/android/apk/sign.c ports/android/apk/key.c ports/android/apk/ecdsa.c ports/switch/nsp/crypto.c)
+	target_include_directories(segasonic_apk_maker PRIVATE ports/switch/nsp)
+	target_link_libraries(segasonic_apk_maker PRIVATE sonic_data)
+	if(WIN32)
+		target_link_libraries(segasonic_apk_maker PRIVATE bcrypt)    # (BCryptGenRandom: the key)
+	endif()
+	set_target_properties(segasonic_apk_maker PROPERTIES OUTPUT_NAME "SegaSonic APK")
+endif()
+
 # The translation scaffold the decompiler grew from: the V60 runtime plus the C tools/recompile.py writes
 # from the user's ROM into build/generated, instruction by instruction (for comparisons only)
 option(SEGASONIC_SCAFFOLD "Build the V60 translation scaffold (sonic_headless)" OFF)
@@ -287,8 +302,29 @@ if(SONIC_DECOMPILED)
 		add_custom_command(TARGET segasonic_nsp POST_BUILD
 			COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_SOURCE_DIR}/ports/sdl2/font/font.bmp
 				$<TARGET_FILE_DIR:segasonic_nsp>)
+
+		# SegaSonic APK's window (ports/android/apk/window.c), as SegaSonic NSP's: its folder dialog (with a
+		# title of its own) and its letters, font.bmp and SDL2.dll beside it
+		target_sources(segasonic_apk_maker PRIVATE ports/android/apk/window.c ports/switch/nsp/folder_dialog.c
+			ports/sdl2/letters.c)
+		target_include_directories(segasonic_apk_maker PRIVATE ports/sdl2)
+		target_compile_definitions(segasonic_apk_maker PRIVATE SEGASONIC_APK_WINDOW
+			[[FOLDER_TITLE="The folder for SegaSonic.apk"]])
+		target_link_libraries(segasonic_apk_maker PRIVATE ${SONIC_SDL2_LIBRARY})
+		if(WIN32)
+			target_link_libraries(segasonic_apk_maker PRIVATE ole32 shell32 uuid)
+			if(NOT SEGASONIC_STATIC_SDL2)
+				add_custom_command(TARGET segasonic_apk_maker POST_BUILD
+					COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:SDL2::SDL2>
+						$<TARGET_FILE_DIR:segasonic_apk_maker>)
+			endif()
+		endif()
+		add_custom_command(TARGET segasonic_apk_maker POST_BUILD
+			COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_SOURCE_DIR}/ports/sdl2/font/font.bmp
+				$<TARGET_FILE_DIR:segasonic_apk_maker>)
 	else()
-		message(STATUS "No SDL2: the window port (sonic) is not built, and SegaSonic NSP is its command line alone")
+		message(STATUS "No SDL2: the window port (sonic) is not built, and SegaSonic NSP and SegaSonic APK are "
+			"their command lines alone")
 	endif()
 else()
 	message(STATUS "No game C in ${SONIC_DECOMPILED_DIR}: run tools/decompile.py")

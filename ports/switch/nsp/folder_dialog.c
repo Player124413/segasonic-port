@@ -12,14 +12,17 @@
  *    its output and ends with 0, or with another code when it is cancelled; a shell that cannot find it ends
  *    with 127, and then the next is tried. Their commands are fixed text: nothing of the player's goes into
  *    them. On Windows the folder comes in UTF-16 and goes to the C library in the system's code page, as
- *    the tool's other paths do.
+ *    the tool's other paths do. SegaSonic APK's window uses it too, with a title of its own (FOLDER_TITLE,
+ *    from its CMake target).
  */
 #include "folder_dialog.h"
 
 #include <stdio.h>
 #include <string.h>
 
+#ifndef FOLDER_TITLE
 #define FOLDER_TITLE "The folder for SegaSonic.nsp"
+#endif
 
 #ifdef _WIN32
 
