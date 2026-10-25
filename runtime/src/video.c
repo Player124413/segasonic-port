@@ -70,9 +70,6 @@ typedef struct clip_runs
 	uint16_t lists[256][16];
 } clip_runs;
 
-/* The source of one row of a layer: its pixel at a screen column */
-typedef uint16_t (*pixel_source)(const void *row, int x);
-
 /* A layer in the mixer's list */
 typedef struct mix_layer
 {
@@ -185,10 +182,11 @@ static void clip_area(area *target, const area *bounds)
 
 /* The pen (0-15) of a pixel of a 16x16 tile: rows of 8 bytes, two pens a byte with the high nibble
    first, and the byte pairs of each half of the row swapped */
-static int tile_pen(uint32_t tile, int x, int y)
+static const uint8_t tile_byte_of_column[16] = { 0, 0, 2, 2, 1, 1, 3, 3, 4, 4, 6, 6, 5, 5, 7, 7 };
+
+static inline int tile_pen_from_row(const uint8_t *tile_row, int x)
 {
-	static const uint8_t byte_of_column[16] = { 0, 0, 2, 2, 1, 1, 3, 3, 4, 4, 6, 6, 5, 5, 7, 7 };
-	const uint8_t value = video.tiles[(size_t)(tile % video.tile_count) * 128 + y * 8 + byte_of_column[x]];
+	const uint8_t value = tile_row[tile_byte_of_column[x]];
 
 	return (x & 1) ? (value & 0x0f) : (value >> 4);
 }
@@ -198,30 +196,34 @@ static int tile_pen(uint32_t tile, int x, int y)
 static const uint16_t *own_cell_words;    /* s32_video_set_cells */
 static const uint8_t *own_cell_marks;
 
-static uint16_t page_pixel(int page, int bank, int y, int x)
+typedef struct tile_cell_cache
+{
+	uint32_t key;
+	uint16_t pixels[16];
+} tile_cell_cache;
+
+static inline uint16_t cached_page_pixel(tile_cell_cache *cache, int page, int bank, int y, int x)
 {
 	const uint32_t index = (uint32_t)page << 9 | (uint32_t)(y >> 4) << 5 | (uint32_t)(x >> 4);
-	const uint16_t cell = own_cell_marks && own_cell_marks[index] ? own_cell_words[index] : video_word(index);
-	const uint32_t tile = (uint32_t)bank << 13 | (cell & 0x1fff);
-	const int column = (cell & 0x4000) ? 15 - (x & 15) : (x & 15);
-	const int line = (cell & 0x8000) ? 15 - (y & 15) : (y & 15);
-	const int pen = tile_pen(tile, column, line);
 
-	return pen ? (uint16_t)(((cell >> 4) & 0x1ff) << 4 | pen) : 0;
-}
+	if (index != cache->key)
+	{
+		const uint16_t cell = own_cell_marks && own_cell_marks[index] ? own_cell_words[index] : video_word(index);
+		const uint32_t tile = (uint32_t)bank << 13 | (cell & 0x1fff);
+		const int line = (cell & 0x8000) ? 15 - (y & 15) : (y & 15);
+		const uint8_t *tr = &video.tiles[(size_t)(tile % video.tile_count) * 128 + line * 8];
+		const uint16_t cb = (uint16_t)(((cell >> 4) & 0x1ff) << 4);
+		const int fm = (cell & 0x4000) ? 15 : 0;
 
-/* A pixel of the text layer (64 x 32 cells of 8x8, a 512 x 256 map). The cells' page and the bank of
-   their graphics come from register 0x5C; the graphics are in video RAM too, 32 bytes a character,
-   four bytes a row, the high nibble first. */
-static uint16_t text_pixel(int y, int x)
-{
-	const uint16_t control = video_register(0x5c);
-	const uint16_t cell = video_word((uint32_t)((control >> 4) & 0x1f) << 11 | (uint32_t)(y >> 3) << 6 | (uint32_t)(x >> 3));
-	const uint32_t character = (uint32_t)(control & 7) << 9 | (cell & 0x1ff);
-	const uint8_t value = s32_board.video_ram[character * 32 + (y & 7) * 4 + (x & 7) / 2];
-	const int pen = (x & 1) ? (value & 0x0f) : (value >> 4);
+		cache->key = index;
+		for (int c = 0; c < 16; c++)
+		{
+			const int pen = tile_pen_from_row(tr, c ^ fm);
 
-	return pen ? (uint16_t)(((cell >> 9) & 0x7f) << 4 | pen) : 0;
+			cache->pixels[c] = pen ? (uint16_t)(cb | pen) : 0;
+		}
+	}
+	return cache->pixels[x & 15];
 }
 
 /* ---- clip windows ---- */
@@ -386,35 +388,6 @@ static bool find_clip_runs(bool enabled, bool outside, int selected, clip_runs *
 	return outside;
 }
 
-/* One row of a layer through its runs, which alternate between drawn and cleared starting with 'drawn'.
-   Overlapping windows can make a run start before the last one ended: it is drawn again. */
-static void draw_row(layer *out, int y, const uint16_t *runs, bool drawn, pixel_source pixel, const void *row)
-{
-	uint16_t *pixels = out->pixels[y];
-	int transparent = 0;
-
-	for (;; runs++, drawn = !drawn)
-	{
-		if (drawn)
-		{
-			for (int x = runs[0]; x < runs[1] && x < WIDTH; x++)
-			{
-				pixels[x] = pixel(row, x);
-				transparent += pixels[x] == 0;
-			}
-		}
-		else
-		{
-			for (int x = runs[0]; x < runs[1] && x < WIDTH; x++)
-				pixels[x] = 0;
-			transparent += runs[1] - runs[0];
-		}
-		if (runs[1] > video.visible.right)
-			break;
-	}
-	out->empty[y] = transparent == video.visible.right + 1 - video.visible.left;
-}
-
 /* ---- the layers ---- */
 
 /* The four pages of tilemap 0-3 (upper left, upper right, lower left, lower right) and its tile bank */
@@ -451,12 +424,41 @@ typedef struct zoomed_row
 	uint32_t x_step;
 } zoomed_row;
 
-static uint16_t zoomed_pixel(const void *source, int x)
+static void draw_zoomed_row(layer *out, int y, const uint16_t *runs, bool drawn, const zoomed_row *row)
 {
-	const zoomed_row *row = (const zoomed_row *)source;
-	const uint32_t column = row->x_start + row->x_step * (uint32_t)(x - video.visible.left);
+	uint16_t *pixels = out->pixels[y];
+	int transparent = 0;
+	tile_cell_cache cache;
 
-	return page_pixel(row->pages[(column >> 29) & 1], row->bank, row->line, (column >> 20) & 0x1ff);
+	cache.key = 0xffffffffu;
+
+	for (;; runs++, drawn = !drawn)
+	{
+		if (drawn)
+		{
+			uint32_t column = row->x_start + row->x_step * (uint32_t)(runs[0] - video.visible.left);
+
+			for (int x = runs[0]; x < runs[1] && x < WIDTH; x++, column += row->x_step)
+			{
+				const uint16_t px = cached_page_pixel(&cache, row->pages[(column >> 29) & 1], row->bank,
+					row->line, (column >> 20) & 0x1ff);
+
+				pixels[x] = px;
+				transparent += px == 0;
+			}
+		}
+		else
+		{
+			const int end = runs[1] < WIDTH ? runs[1] : WIDTH;
+
+			if (runs[0] < end)
+				memset(&pixels[runs[0]], 0, (size_t)(end - runs[0]) * sizeof(uint16_t));
+			transparent += runs[1] - runs[0];
+		}
+		if (runs[1] > video.visible.right)
+			break;
+	}
+	out->empty[y] = transparent == video.visible.right + 1 - video.visible.left;
 }
 
 /* NBG0 and NBG1: scrolled (with a fraction) and zoomed about a center. The steps are screen pixels per
@@ -511,8 +513,8 @@ static void draw_zoomed(int number)
 		const int half = (source_y >> 27) & 2;
 		const zoomed_row row = { { pages[half], pages[half + 1] }, bank, (source_y >> 20) & 0xff, x_start, x_step };
 
-		draw_row(&video.layers[LAYER_NBG0 + number], y, video.runs.lists[video.runs.list_of_row[y]], first_drawn,
-			zoomed_pixel, &row);
+		draw_zoomed_row(&video.layers[LAYER_NBG0 + number], y, video.runs.lists[video.runs.list_of_row[y]], first_drawn,
+			&row);
 	}
 }
 
@@ -525,12 +527,42 @@ typedef struct scrolled_row
 	int x_step;
 } scrolled_row;
 
-static uint16_t scrolled_pixel(const void *source, int x)
+static void draw_scrolled_row(layer *out, int y, const uint16_t *runs, bool drawn, const scrolled_row *row)
 {
-	const scrolled_row *row = (const scrolled_row *)source;
-	const uint32_t column = (uint32_t)(row->x_start + row->x_step * (x - video.visible.left));
+	uint16_t *pixels = out->pixels[y];
+	int transparent = 0;
+	tile_cell_cache cache;
 
-	return page_pixel(row->pages[(column >> 9) & 1], row->bank, row->line, column & 0x1ff);
+	cache.key = 0xffffffffu;
+
+	for (;; runs++, drawn = !drawn)
+	{
+		if (drawn)
+		{
+			uint32_t column = (uint32_t)(row->x_start + row->x_step * (runs[0] - video.visible.left));
+			const uint32_t step = (uint32_t)row->x_step;
+
+			for (int x = runs[0]; x < runs[1] && x < WIDTH; x++, column += step)
+			{
+				const uint16_t px = cached_page_pixel(&cache, row->pages[(column >> 9) & 1], row->bank,
+					row->line, column & 0x1ff);
+
+				pixels[x] = px;
+				transparent += px == 0;
+			}
+		}
+		else
+		{
+			const int end = runs[1] < WIDTH ? runs[1] : WIDTH;
+
+			if (runs[0] < end)
+				memset(&pixels[runs[0]], 0, (size_t)(end - runs[0]) * sizeof(uint16_t));
+			transparent += runs[1] - runs[0];
+		}
+		if (runs[1] > video.visible.right)
+			break;
+	}
+	out->empty[y] = transparent == video.visible.right + 1 - video.visible.left;
 }
 
 /* NBG2 and NBG3: scrolled, and row by row the line table can add to the column (row scroll) or pick
@@ -568,8 +600,8 @@ static void draw_scrolled(int number)
 		row.pages[1] = pages[((source_y >> 7) & 2) + 1];
 		row.bank = bank;
 		row.line = source_y & 0xff;
-		draw_row(&video.layers[LAYER_NBG0 + number], y, video.runs.lists[video.runs.list_of_row[y]], first_drawn,
-			scrolled_pixel, &row);
+		draw_scrolled_row(&video.layers[LAYER_NBG0 + number], y, video.runs.lists[video.runs.list_of_row[y]], first_drawn,
+			&row);
 	}
 }
 
@@ -577,17 +609,59 @@ static void draw_scrolled(int number)
 static void draw_text(void)
 {
 	const bool flip = bit(video_register(0x00), 9);
+	const uint16_t control = video_register(0x5c);
+	const uint32_t page_base = (uint32_t)((control >> 4) & 0x1f) << 11;
+	const uint32_t char_bank = (uint32_t)(control & 7) << 9;
+	const int limit = video.side ? 320 : video.visible.right + 1;
+	const int visible_width = video.visible.right + 1 - video.visible.left;
 
 	for (int y = video.visible.top; y <= video.visible.bottom; y++)
+	{
+		uint16_t *out = video.layers[LAYER_TEXT].pixels[y];
+		const int ty = flip ? 255 - y : y;
+		const uint32_t row_cells = page_base | ((uint32_t)(ty >> 3) << 6);
+		const uint32_t row_in_char = (uint32_t)(ty & 7) * 4;
+		int transparent = 0;
+		int cached_cell_x = -1;
+		const uint8_t *char_row = NULL;
+		uint16_t attr = 0;
+
 		for (int x = video.visible.left; x <= video.visible.right; x++)
 		{
 			const int column = x - video.side;
 
-			if (column < 0 || column >= (video.side ? 320 : video.visible.right + 1))
-				video.layers[LAYER_TEXT].pixels[y][x] = 0;
+			if (column < 0 || column >= limit)
+			{
+				out[x] = 0;
+				transparent++;
+			}
 			else
-				video.layers[LAYER_TEXT].pixels[y][x] = flip ? text_pixel(255 - y, 511 - column) : text_pixel(y, column);
+			{
+				const int tx = flip ? 511 - column : column;
+				const int cell_x = tx >> 3;
+				int pen;
+
+				if (cell_x != cached_cell_x)
+				{
+					const uint16_t cell = video_word(row_cells | (uint32_t)cell_x);
+					const uint32_t character = char_bank | (cell & 0x1ff);
+
+					cached_cell_x = cell_x;
+					char_row = &s32_board.video_ram[character * 32 + row_in_char];
+					attr = (uint16_t)(((cell >> 9) & 0x7f) << 4);
+				}
+				pen = (tx & 1) ? (char_row[(tx & 7) >> 1] & 0x0f) : (char_row[(tx & 7) >> 1] >> 4);
+				if (pen)
+					out[x] = (uint16_t)(attr | pen);
+				else
+				{
+					out[x] = 0;
+					transparent++;
+				}
+			}
 		}
+		video.layers[LAYER_TEXT].empty[y] = (transparent == visible_width);
+	}
 }
 
 typedef struct bitmap_row
@@ -598,19 +672,58 @@ typedef struct bitmap_row
 	bool bits8;
 } bitmap_row;
 
-static uint16_t bitmap_pixel(const void *source, int x)
+static void draw_bitmap_row(layer *out, int y, const uint16_t *runs, bool drawn, const bitmap_row *row)
 {
-	const bitmap_row *row = (const bitmap_row *)source;
-	const int column = (x - video.side + row->x_scroll) & 0x1ff;
-	int pixel;
+	uint16_t *pixels = out->pixels[y];
+	int transparent = 0;
+	const int offset = row->x_scroll - video.side;
 
-	if (row->bits8)
+	for (;; runs++, drawn = !drawn)
 	{
-		pixel = s32_board.video_ram[row->start + (uint32_t)column] + row->color;
-		return (pixel & 0xff) ? (uint16_t)pixel : 0;
+		if (drawn)
+		{
+			if (row->bits8)
+			{
+				const uint8_t *vram = &s32_board.video_ram[row->start];
+				const int color = row->color;
+
+				for (int x = runs[0]; x < runs[1] && x < WIDTH; x++)
+				{
+					const int pixel = vram[(x + offset) & 0x1ff] + color;
+					const uint16_t px = (pixel & 0xff) ? (uint16_t)pixel : 0;
+
+					pixels[x] = px;
+					transparent += px == 0;
+				}
+			}
+			else
+			{
+				const uint32_t start = row->start;
+				const int color = row->color;
+
+				for (int x = runs[0]; x < runs[1] && x < WIDTH; x++)
+				{
+					const int column = (x + offset) & 0x1ff;
+					const int pixel = ((video_word(start + (uint32_t)column / 4) >> (4 * (column & 3))) & 0x0f) + color;
+					const uint16_t px = (pixel & 0x0f) ? (uint16_t)pixel : 0;
+
+					pixels[x] = px;
+					transparent += px == 0;
+				}
+			}
+		}
+		else
+		{
+			const int end = runs[1] < WIDTH ? runs[1] : WIDTH;
+
+			if (runs[0] < end)
+				memset(&pixels[runs[0]], 0, (size_t)(end - runs[0]) * sizeof(uint16_t));
+			transparent += runs[1] - runs[0];
+		}
+		if (runs[1] > video.visible.right)
+			break;
 	}
-	pixel = ((video_word(row->start + (uint32_t)column / 4) >> (4 * (column & 3))) & 0x0f) + row->color;
-	return (pixel & 0x0f) ? (uint16_t)pixel : 0;
+	out->empty[y] = transparent == video.visible.right + 1 - video.visible.left;
 }
 
 /* The bitmap layer: 512 pixels a row from the start of video RAM, 4 or 8 bits each (register 0x00
@@ -630,8 +743,8 @@ static void draw_bitmap(void)
 			x_scroll, color, bits8
 		};
 
-		draw_row(&video.layers[LAYER_BITMAP], y, video.runs.lists[video.runs.list_of_row[y]], first_drawn,
-			bitmap_pixel, &row);
+		draw_bitmap_row(&video.layers[LAYER_BITMAP], y, video.runs.lists[video.runs.list_of_row[y]], first_drawn,
+			&row);
 	}
 }
 
@@ -1009,12 +1122,7 @@ static void draw_sprite_list(void)
 void s32_video_sprites(bool erase, bool draw)
 {
 	if (erase)
-	{
-		uint16_t *shown = &video.sprites[video.shown_sprites][0][0];
-
-		for (size_t index = 0; index < (size_t)HEIGHT * WIDTH; index++)
-			shown[index] = 0xffff;
-	}
+		memset(video.sprites[video.shown_sprites], 0xff, sizeof(video.sprites[0]));
 	if (draw)
 	{
 		video.shown_sprites ^= 1;
@@ -1066,31 +1174,35 @@ static const sprite_grouping groupings[16] = {
 
 /* The first layer down the list that is not transparent there; the backdrop always is. A sprite pixel
    all ones lets the layers below show, and the shadow pen darkens them. */
-static const mix_layer *top_layer(const mix_layer *entry, const uint16_t *const *rows, int x, int sprite_pixel,
+static inline const mix_layer *top_layer(const mix_layer *entry, const uint16_t *const *rows, int x, int sprite_pixel,
 	int shadow_mask, int sprite_bits, int shadow_pen, int *pixel, int *shadow)
 {
 	for (;; entry++)
 	{
 		if (entry->index != LAYER_SPRITES)
 		{
-			*pixel = rows[entry->index][x] & 0x1fff;
-			if (*pixel != 0 || entry->index == LAYER_BACKDROP)
+			const int p = rows[entry->index][x] & 0x1fff;
+			if (p != 0 || entry->index == LAYER_BACKDROP)
+			{
+				*pixel = p;
 				return entry;
+			}
 			continue;
 		}
 		*pixel = sprite_pixel;
 		*shadow = ~sprite_pixel & shadow_mask;
 		if ((sprite_pixel & 0x7fff) != 0x7fff)
 		{
-			*pixel = sprite_pixel & sprite_bits;
-			if ((*pixel & 0x7ffe) != shadow_pen)
+			const int sp = sprite_pixel & sprite_bits;
+			*pixel = sp;
+			if ((sp & 0x7ffe) != shadow_pen)
 				return entry;
 			*shadow = 1;
 		}
 	}
 }
 
-static uint16_t palette_color(const mix_layer *entry, int pixel)
+static inline uint16_t palette_color(const mix_layer *entry, int pixel)
 {
 	return s32_board.palette[(entry->palette_base + ((pixel >> entry->shift) & 0xfff0) + (pixel & 0x0f)) & 0x3fff];
 }
@@ -1206,6 +1318,32 @@ static void mix(int drawn)
 		sprites->offsets = color_offsets(bit(mixer_register(0x3e), 6), bit(sprite_control, 15));
 	}
 
+	/* Precompute 5-bit channel + color offset + optional shadow + clamp + byte shift for non-blended pixels */
+	uint32_t r_lut[3][2][32];
+	uint32_t g_lut[3][2][32];
+	uint32_t b_lut[3][2][32];
+	for (int o = 0; o < 3; o++)
+	{
+		for (int v = 0; v < 32; v++)
+		{
+			int r0 = v + offsets[o][0], g0 = v + offsets[o][1], b0 = v + offsets[o][2];
+			int r1 = shift_down(r0, 1), g1 = shift_down(g0, 1), b1 = shift_down(b0, 1);
+
+			r0 = r0 > 31 ? 31 : (r0 > 0 ? r0 : 0);
+			g0 = g0 > 31 ? 31 : (g0 > 0 ? g0 : 0);
+			b0 = b0 > 31 ? 31 : (b0 > 0 ? b0 : 0);
+			r1 = r1 > 31 ? 31 : (r1 > 0 ? r1 : 0);
+			g1 = g1 > 31 ? 31 : (g1 > 0 ? g1 : 0);
+			b1 = b1 > 31 ? 31 : (b1 > 0 ? b1 : 0);
+			r_lut[o][0][v] = (uint32_t)r0 << 19;
+			g_lut[o][0][v] = (uint32_t)g0 << 11;
+			b_lut[o][0][v] = (uint32_t)b0 << 3;
+			r_lut[o][1][v] = (uint32_t)r1 << 19;
+			g_lut[o][1][v] = (uint32_t)g1 << 11;
+			b_lut[o][1][v] = (uint32_t)b1 << 3;
+		}
+	}
+
 	/* the sprite buffer is scanned flipped as the sprite controls say */
 	sprite_y = bit(sprite_flips, 1) ? video.visible.bottom : video.visible.top;
 	sprite_dy = bit(sprite_flips, 1) ? -1 : 1;
@@ -1214,11 +1352,33 @@ static void mix(int drawn)
 		const uint16_t *rows[LAYERS];
 		int sprite_x = bit(sprite_flips, 0) ? video.visible.right : video.visible.left;
 		const int sprite_dx = bit(sprite_flips, 0) ? -1 : 1;
+		uint32_t *out_row = video.frame[y];
 
 		for (int index = LAYER_TEXT; index <= LAYER_BITMAP; index++)
 			rows[index] = video.layers[index].empty[y] ? transparent_row : video.layers[index].pixels[y];
 		rows[LAYER_SPRITES] = video.sprites[video.shown_sprites][sprite_y];
 		rows[LAYER_BACKDROP] = video.layers[LAYER_BACKDROP].pixels[y];
+
+		if (!blending)
+		{
+			for (int x = video.visible.left; x <= video.visible.right; x++, sprite_x += sprite_dx)
+			{
+				const int sprite_pixel = rows[LAYER_SPRITES][sprite_x];
+				const int group = (sprite_pixel >> grouping.shift) & grouping.mask;
+				int shadow = 0;
+				int pixel;
+				const mix_layer *first = top_layer(orders[group], rows, x, sprite_pixel, shadow_mask, sprite_bits,
+					shadow_pen, &pixel, &shadow);
+				const uint16_t color = palette_color(first, pixel);
+				const int sh = shadow != 0;
+				const uint8_t off = first->offsets;
+
+				out_row[x] = r_lut[off][sh][color & 0x1f]
+					| g_lut[off][sh][(color >> 5) & 0x1f]
+					| b_lut[off][sh][(color >> 10) & 0x1f];
+			}
+			continue;
+		}
 
 		for (int x = video.visible.left; x <= video.visible.right; x++, sprite_x += sprite_dx)
 		{
@@ -1229,12 +1389,21 @@ static void mix(int drawn)
 			const mix_layer *first = top_layer(orders[group], rows, x, sprite_pixel, shadow_mask, sprite_bits,
 				shadow_pen, &pixel, &shadow);
 			uint16_t color = palette_color(first, pixel);
-			int red = (color & 0x1f) + offsets[first->offsets][0];
-			int green = ((color >> 5) & 0x1f) + offsets[first->offsets][1];
-			int blue = ((color >> 10) & 0x1f) + offsets[first->offsets][2];
 
-			if (first->blend != 0)
+			if (first->blend == 0)
 			{
+				const int sh = shadow != 0;
+				const uint8_t off = first->offsets;
+
+				out_row[x] = r_lut[off][sh][color & 0x1f]
+					| g_lut[off][sh][(color >> 5) & 0x1f]
+					| b_lut[off][sh][(color >> 10) & 0x1f];
+				continue;
+			}
+			{
+				int red = (color & 0x1f) + offsets[first->offsets][0];
+				int green = ((color >> 5) & 0x1f) + offsets[first->offsets][1];
+				int blue = ((color >> 10) & 0x1f) + offsets[first->offsets][2];
 				int below;
 				const mix_layer *second = top_layer(first + 1, rows, x, sprite_pixel, shadow_mask, sprite_bits,
 					shadow_pen, &below, &shadow);
@@ -1246,17 +1415,17 @@ static void mix(int drawn)
 					green = shift_down(green * (7 - blend_factor) + (((color >> 5) & 0x1f) + offsets[second->offsets][1]) * (blend_factor + 1), 3);
 					blue = shift_down(blue * (7 - blend_factor) + (((color >> 10) & 0x1f) + offsets[second->offsets][2]) * (blend_factor + 1), 3);
 				}
+				if (shadow)
+				{
+					red = shift_down(red, 1);
+					green = shift_down(green, 1);
+					blue = shift_down(blue, 1);
+				}
+				red = red > 31 ? 31 : (red > 0 ? red : 0);
+				green = green > 31 ? 31 : (green > 0 ? green : 0);
+				blue = blue > 31 ? 31 : (blue > 0 ? blue : 0);
+				out_row[x] = (uint32_t)red << 19 | (uint32_t)green << 11 | (uint32_t)blue << 3;
 			}
-			if (shadow)
-			{
-				red = shift_down(red, 1);
-				green = shift_down(green, 1);
-				blue = shift_down(blue, 1);
-			}
-			red = red > 31 ? 31 : (red > 0 ? red : 0);
-			green = green > 31 ? 31 : (green > 0 ? green : 0);
-			blue = blue > 31 ? 31 : (blue > 0 ? blue : 0);
-			video.frame[y][x] = (uint32_t)red << 19 | (uint32_t)green << 11 | (uint32_t)blue << 3;
 		}
 	}
 }

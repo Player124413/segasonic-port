@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Outer Arcade Trackball Metallic Bezel -->
+    <path
+        android:fillColor="#8D99AE"
+        android:pathData="M54,22 A32,32 0 1,1 53.99,22 Z" />
+    <path
+        android:fillColor="#1D2D44"
+        android:pathData="M54,27 A27,27 0 1,1 53.99,27 Z" />
+    <!-- Glossy Sonic Cobalt Trackball Sphere -->
+    <path
+        android:fillColor="#1E78FF"
+        android:pathData="M54,30 A24,24 0 1,1 53.99,30 Z" />
+    <!-- Gold Ring Accent Arc -->
+    <path
+        android:strokeColor="#FFD13B"
+        android:strokeWidth="3.5"
+        android:pathData="M26,60 C34,76 74,76 82,60" />
+    <!-- Specular Highlight -->
+    <path
+        android:fillColor="#90E0EF"
+        android:pathData="M45,38 A7,5 0 1,1 44.99,38 Z" />
+</vector>

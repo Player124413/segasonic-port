@@ -56,6 +56,7 @@ static struct
 	sample_buffer pcm_buffer;
 	uint64_t override;                  /* while a timer runs out: its own time */
 	uint64_t frame_hash;
+	bool frame_hash_valid;
 	int32_t *frame[3];                  /* the frame's samples, for the mix */
 	size_t frame_counts[3];
 	size_t frame_capacity[3];
@@ -209,8 +210,8 @@ static uint64_t hash_bytes(const void *data, size_t size, uint64_t hash)
 	return hash;
 }
 
-/* the samples before sample number 'due': hashed and moved to the frame's list 'which' */
-static uint64_t take(sample_buffer *buffer, uint64_t due, uint64_t hash, int which)
+/* the samples before sample number 'due': moved to the frame's list 'which' */
+static void take(sample_buffer *buffer, uint64_t due, int which)
 {
 	size_t values = (size_t)(due - buffer->first) * 2;
 
@@ -226,25 +227,33 @@ static uint64_t take(sample_buffer *buffer, uint64_t due, uint64_t hash, int whi
 	memmove(buffer->data, buffer->data + values, (buffer->count - values) * sizeof(int32_t));
 	buffer->count -= values;
 	buffer->first += values / 2;
-	return hash_bytes(sound.frame[which], values * sizeof(int32_t), hash);
 }
 
 void sound_chips_end_frame(uint64_t time)
 {
 	const uint64_t fm_due = (time + FM_PERIOD - 1) / FM_PERIOD;
 	const uint64_t pcm_due = (time * S32_PCM_CLOCK + PCM_NUMERATOR - 1) / PCM_NUMERATOR;
-	uint64_t hash = 0xcbf29ce484222325ull;
 
 	fm_catch_up(&sound.fm[0], time);
 	fm_catch_up(&sound.fm[1], time);
 	pcm_catch_up(time);
-	hash = take(&sound.fm[0].buffer, fm_due, hash, 0);
-	hash = take(&sound.fm[1].buffer, fm_due, hash, 1);
-	sound.frame_hash = take(&sound.pcm_buffer, pcm_due, hash, 2);
+	take(&sound.fm[0].buffer, fm_due, 0);
+	take(&sound.fm[1].buffer, fm_due, 1);
+	take(&sound.pcm_buffer, pcm_due, 2);
+	sound.frame_hash_valid = false;
 }
 
 uint64_t sound_chips_frame_hash(void)
 {
+	if (!sound.frame_hash_valid)
+	{
+		uint64_t hash = 0xcbf29ce484222325ull;
+
+		for (int which = 0; which < 3; which++)
+			hash = hash_bytes(sound.frame[which], sound.frame_counts[which] * sizeof(int32_t), hash);
+		sound.frame_hash = hash;
+		sound.frame_hash_valid = true;
+	}
 	return sound.frame_hash;
 }
 

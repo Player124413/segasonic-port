@@ -12,11 +12,25 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# Every executable lands in build/bin (SONIC_BIN_DIR), whatever the generator or configuration
-set(SONIC_BIN_DIR ${CMAKE_SOURCE_DIR}/build/bin CACHE PATH "Where the executables go")
-foreach(config IN ITEMS "" _DEBUG _RELEASE _RELWITHDEBINFO _MINSIZEREL)
-	set(CMAKE_RUNTIME_OUTPUT_DIRECTORY${config} ${SONIC_BIN_DIR})
-endforeach()
+if(ANDROID)
+	set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+	# 32-bit ARMv7 safety: prevent LLVM ARMLoadStoreOptimizer from forming alignment-strict
+	# LDRD/STRD/LDM/STM instructions over V60 byte-addressed work RAM/ROM pointers
+	if(ANDROID_ABI STREQUAL "armeabi-v7a" OR CMAKE_ANDROID_ARCH_ABI STREQUAL "armeabi-v7a")
+		add_compile_options(
+			"$<$<COMPILE_LANGUAGE:C,CXX>:SHELL:-mllvm -arm-assume-misaligned-load-store>"
+			"$<$<COMPILE_LANGUAGE:C,CXX>:-fno-slp-vectorize>"
+		)
+	endif()
+endif()
+
+if(NOT ANDROID)
+	# Every executable lands in build/bin (SONIC_BIN_DIR), whatever the generator or configuration
+	set(SONIC_BIN_DIR ${PROJECT_SOURCE_DIR}/build/bin CACHE PATH "Where the executables go")
+	foreach(config IN ITEMS "" _DEBUG _RELEASE _RELWITHDEBINFO _MINSIZEREL)
+		set(CMAKE_RUNTIME_OUTPUT_DIRECTORY${config} ${SONIC_BIN_DIR})
+	endforeach()
+endif()
 
 if(MSVC)
 	add_compile_options(/W3 /utf-8)
@@ -54,7 +68,7 @@ endif()
 # the ROM set itself when it starts (runtime/src/rom_set.c). The ROM never goes into the repository.
 # Without a ROM set (a build for another machine) nothing of the game's is made, only the executables
 find_package(Python3 COMPONENTS Interpreter)
-set(SONIC_ROM ${CMAKE_SOURCE_DIR}/rom CACHE PATH "The ROM set the assets are taken out of")
+set(SONIC_ROM ${PROJECT_SOURCE_DIR}/rom CACHE PATH "The ROM set the assets are taken out of")
 set(SONIC_ROM_FILES "")
 if(IS_DIRECTORY ${SONIC_ROM})
 	file(GLOB SONIC_ROM_FILES ${SONIC_ROM}/*)
@@ -65,16 +79,16 @@ add_library(sonic_data STATIC runtime/src/game_data.c runtime/src/rom_set.c runt
 	runtime/src/extract.c runtime/src/pack_layout.c)
 target_include_directories(sonic_data PUBLIC runtime/include)
 if(SONIC_ROM_FILES AND Python3_FOUND)
-	file(GLOB_RECURSE SONIC_ASSET_FILES CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/assets/*)
-	file(GLOB SONIC_FORMAT_TOOLS CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/tools/formats/*.py)
+	file(GLOB_RECURSE SONIC_ASSET_FILES CONFIGURE_DEPENDS ${PROJECT_SOURCE_DIR}/assets/*)
+	file(GLOB SONIC_FORMAT_TOOLS CONFIGURE_DEPENDS ${PROJECT_SOURCE_DIR}/tools/formats/*.py)
 	set(SONIC_ASSETS_PACK ${SONIC_BIN_DIR}/segasonic.assets)
 	add_custom_command(OUTPUT ${SONIC_ASSETS_PACK}
-		COMMAND Python3::Interpreter ${CMAKE_SOURCE_DIR}/extract_assets.py ${SONIC_ROM}
-		COMMAND Python3::Interpreter ${CMAKE_SOURCE_DIR}/tools/make_pack.py ${SONIC_ASSETS_PACK}
-		DEPENDS ${SONIC_ROM_FILES} ${SONIC_ASSET_FILES} ${SONIC_FORMAT_TOOLS} ${CMAKE_SOURCE_DIR}/assets.json
-			${CMAKE_SOURCE_DIR}/extract_assets.py ${CMAKE_SOURCE_DIR}/tools/make_pack.py
-			${CMAKE_SOURCE_DIR}/tools/sonic_rom.py ${CMAKE_SOURCE_DIR}/tools/asset_formats.py
-			${CMAKE_SOURCE_DIR}/tools/data_formats.py
+		COMMAND Python3::Interpreter ${PROJECT_SOURCE_DIR}/extract_assets.py ${SONIC_ROM}
+		COMMAND Python3::Interpreter ${PROJECT_SOURCE_DIR}/tools/make_pack.py ${SONIC_ASSETS_PACK}
+		DEPENDS ${SONIC_ROM_FILES} ${SONIC_ASSET_FILES} ${SONIC_FORMAT_TOOLS} ${PROJECT_SOURCE_DIR}/assets.json
+			${PROJECT_SOURCE_DIR}/extract_assets.py ${PROJECT_SOURCE_DIR}/tools/make_pack.py
+			${PROJECT_SOURCE_DIR}/tools/sonic_rom.py ${PROJECT_SOURCE_DIR}/tools/asset_formats.py
+			${PROJECT_SOURCE_DIR}/tools/data_formats.py
 		COMMENT "Taking the assets out of the ROM set and packing them for the game")
 	add_custom_target(sonic_assets ALL DEPENDS ${SONIC_ASSETS_PACK})
 	add_dependencies(sonic_data sonic_assets)
@@ -85,7 +99,7 @@ endif()
 # The translation scaffold the decompiler grew from: the V60 runtime plus the C tools/recompile.py writes
 # from the user's ROM into build/generated, instruction by instruction (for comparisons only)
 option(SEGASONIC_SCAFFOLD "Build the V60 translation scaffold (sonic_headless)" OFF)
-file(GLOB SONIC_GENERATED CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/build/generated/*.c)
+file(GLOB SONIC_GENERATED CONFIGURE_DEPENDS ${PROJECT_SOURCE_DIR}/build/generated/*.c)
 if(SEGASONIC_SCAFFOLD AND SONIC_GENERATED)
 	add_library(sonic_program STATIC runtime/src/v60.c ${SONIC_GENERATED})
 	target_include_directories(sonic_program PUBLIC runtime/include build/generated)
@@ -103,7 +117,7 @@ endif()
 
 # The game: its runtime plus its C, src/ (tools/decompile.py writes it; SONIC_DECOMPILED_DIR picks another
 # copy, such as one written with --trace for debugging)
-set(SONIC_DECOMPILED_DIR ${CMAKE_SOURCE_DIR}/src CACHE PATH "The game's C (tools/decompile.py)")
+set(SONIC_DECOMPILED_DIR ${PROJECT_SOURCE_DIR}/src CACHE PATH "The game's C (tools/decompile.py)")
 file(GLOB_RECURSE SONIC_DECOMPILED CONFIGURE_DEPENDS ${SONIC_DECOMPILED_DIR}/*.c)
 if(SONIC_DECOMPILED)
 	add_library(sonic_game STATIC runtime/src/game.c runtime/src/sound_cpu.c ${SONIC_DECOMPILED})
@@ -123,20 +137,24 @@ if(SONIC_DECOMPILED)
 		target_compile_definitions(sonic_game PUBLIC S32_MEMORY_CENSUS)
 	endif()
 
-	add_executable(sonic_game_headless ports/headless/main.c)
-	target_link_libraries(sonic_game_headless PRIVATE sonic_game sonic_data)
+	if(NOT ANDROID)
+		add_executable(sonic_game_headless ports/headless/main.c)
+		target_link_libraries(sonic_game_headless PRIVATE sonic_game sonic_data)
+	endif()
 
 	# The console build: the same game with the console's own versions of the functions console/replaced.txt
 	# lists (console/*.c), in SegaSonic.exe
-	file(GLOB SONIC_CONSOLE_SOURCES CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/console/*.c)
+	file(GLOB SONIC_CONSOLE_SOURCES CONFIGURE_DEPENDS ${PROJECT_SOURCE_DIR}/console/*.c)
 	add_library(sonic_game_console STATIC runtime/src/game.c runtime/src/sound_cpu.c ${SONIC_DECOMPILED}
 		${SONIC_CONSOLE_SOURCES})
 	target_include_directories(sonic_game_console PUBLIC runtime/include ${SONIC_DECOMPILED_DIR}
 		${SONIC_DECOMPILED_DIR}/sound console)
 	target_compile_definitions(sonic_game_console PUBLIC SEGASONIC_CONSOLE)
 	target_link_libraries(sonic_game_console PUBLIC s32runtime)
-	add_executable(segasonic_console_headless ports/headless/main.c)
-	target_link_libraries(segasonic_console_headless PRIVATE sonic_game_console sonic_data)
+	if(NOT ANDROID)
+		add_executable(segasonic_console_headless ports/headless/main.c)
+		target_link_libraries(segasonic_console_headless PRIVATE sonic_game_console sonic_data)
+	endif()
 	if(MSVC)
 		target_compile_options(sonic_game_console PRIVATE /bigobj)
 	else()
@@ -161,7 +179,7 @@ if(SONIC_DECOMPILED)
 	else()
 		set(SONIC_SDL2_UNPACKED "")
 		if(WIN32)    # (the VC package: its libraries are Windows' only, a source tree shared with WSL has it)
-			file(GLOB SONIC_SDL2_UNPACKED ${CMAKE_SOURCE_DIR}/build/downloads/sdl2/SDL2-*/cmake)
+			file(GLOB SONIC_SDL2_UNPACKED ${PROJECT_SOURCE_DIR}/build/downloads/sdl2/SDL2-*/cmake)
 		endif()
 		find_package(SDL2 CONFIG QUIET HINTS ${SONIC_SDL2_UNPACKED})
 		set(SONIC_SDL2 SDL2::SDL2)
@@ -169,7 +187,7 @@ if(SONIC_DECOMPILED)
 	if(TARGET SDL2::SDL2main)
 		list(APPEND SONIC_SDL2 SDL2::SDL2main)
 	endif()
-	if(SDL2_FOUND)
+	if(SDL2_FOUND AND NOT ANDROID)
 		# (an .app on macOS: SDL_GetBasePath is its Resources folder)
 		add_executable(sonic WIN32 MACOSX_BUNDLE ports/sdl2/main.c ports/sdl2/settings.c ports/sdl2/first_run.c)
 		target_link_libraries(sonic PRIVATE sonic_game sonic_data ${SONIC_SDL2})
@@ -187,7 +205,7 @@ if(SONIC_DECOMPILED)
 			set_source_files_properties(ports/sdl2/font/font.bmp PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
 		else()
 			add_custom_command(TARGET sonic POST_BUILD
-				COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_SOURCE_DIR}/ports/sdl2/font/font.bmp
+				COMMAND ${CMAKE_COMMAND} -E copy_if_different ${PROJECT_SOURCE_DIR}/ports/sdl2/font/font.bmp
 					$<TARGET_FILE_DIR:sonic>)
 		endif()
 		add_executable(SegaSonic WIN32 MACOSX_BUNDLE ports/sdl2/main.c ports/sdl2/settings.c ports/sdl2/actions.c
@@ -206,9 +224,9 @@ if(SONIC_DECOMPILED)
 			set_source_files_properties(ports/sdl2/prompts/input_prompts.bmp PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
 		else()
 			add_custom_command(TARGET SegaSonic POST_BUILD
-				COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_SOURCE_DIR}/ports/sdl2/prompts/input_prompts.bmp
+				COMMAND ${CMAKE_COMMAND} -E copy_if_different ${PROJECT_SOURCE_DIR}/ports/sdl2/prompts/input_prompts.bmp
 					$<TARGET_FILE_DIR:SegaSonic>
-				COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_SOURCE_DIR}/ports/sdl2/font/font.bmp
+				COMMAND ${CMAKE_COMMAND} -E copy_if_different ${PROJECT_SOURCE_DIR}/ports/sdl2/font/font.bmp
 					$<TARGET_FILE_DIR:SegaSonic>)
 		endif()
 		# the executables' icon (tools/make_icon.py): a resource on Windows, the .app's on macOS, a picture
@@ -221,7 +239,7 @@ if(SONIC_DECOMPILED)
 				set_target_properties(${game} PROPERTIES MACOSX_BUNDLE_ICON_FILE segasonic.icns)
 			else()
 				add_custom_command(TARGET ${game} POST_BUILD
-					COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_SOURCE_DIR}/ports/sdl2/icon/segasonic.png
+					COMMAND ${CMAKE_COMMAND} -E copy_if_different ${PROJECT_SOURCE_DIR}/ports/sdl2/icon/segasonic.png
 						$<TARGET_FILE_DIR:${game}>)
 			endif()
 		endforeach()
@@ -237,7 +255,7 @@ endif()
 
 # Development tools built on MAME's V60 code; never linked into the game
 option(SEGASONIC_REFERENCE_TOOLS "Build the MAME-based reference tools" ON)
-if(SEGASONIC_REFERENCE_TOOLS)
+if(SEGASONIC_REFERENCE_TOOLS AND NOT ANDROID)
 	add_executable(oracle
 		tools/reference/oracle.cpp
 		tools/reference/mame/v60d.cpp
@@ -263,8 +281,8 @@ if(SEGASONIC_REFERENCE_TOOLS)
 	set(SONIC_Z80_STEPS ${CMAKE_BINARY_DIR}/generated/cpu/z80/z80.hxx)
 	add_custom_command(OUTPUT ${SONIC_Z80_STEPS}
 		COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/generated/cpu/z80
-		COMMAND Python3::Interpreter ${CMAKE_SOURCE_DIR}/tools/reference/mame/z80/z80make.py z80
-			${CMAKE_SOURCE_DIR}/tools/reference/mame/z80/z80.lst ${SONIC_Z80_STEPS}
+		COMMAND Python3::Interpreter ${PROJECT_SOURCE_DIR}/tools/reference/mame/z80/z80make.py z80
+			${PROJECT_SOURCE_DIR}/tools/reference/mame/z80/z80.lst ${SONIC_Z80_STEPS}
 		DEPENDS tools/reference/mame/z80/z80make.py tools/reference/mame/z80/z80.lst
 		VERBATIM)
 	add_library(s32sound_reference STATIC

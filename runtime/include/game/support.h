@@ -53,12 +53,24 @@ static inline uint8_t *ram(uint32_t address)
 	return &s32_board.work_ram[address & 0xffff];
 }
 
+#if defined(__GNUC__) || defined(__clang__)
+typedef uint16_t s32_ua16 __attribute__((aligned(1)));
+typedef uint32_t s32_ua32 __attribute__((aligned(1)));
+typedef int16_t  s32_sa16 __attribute__((aligned(1)));
+typedef int32_t  s32_sa32 __attribute__((aligned(1)));
+#else
+typedef uint16_t s32_ua16;
+typedef uint32_t s32_ua32;
+typedef int16_t  s32_sa16;
+typedef int32_t  s32_sa32;
+#endif
+
 #define RAM8(address)   (*(uint8_t *)ram(address))
-#define RAM16(address)  (*(uint16_t *)ram(address))
-#define RAM32(address)  (*(uint32_t *)ram(address))
+#define RAM16(address)  (*(s32_ua16 *)ram(address))
+#define RAM32(address)  (*(s32_ua32 *)ram(address))
 #define RAM8S(address)  (*(int8_t *)ram(address))
-#define RAM16S(address) (*(int16_t *)ram(address))
-#define RAM32S(address) (*(int32_t *)ram(address))
+#define RAM16S(address) (*(s32_sa16 *)ram(address))
+#define RAM32S(address) (*(s32_sa32 *)ram(address))
 
 /* The program ROM, which the game's code also reads as data (tables): the user's ROM image, as the board
    maps it (the first 2 MB, and the first 1 MB again from 0xF00000). A pointer the code sets to the ROM
@@ -78,11 +90,11 @@ static inline const uint8_t *rom(uint32_t address)
 }
 
 #define ROM8(address)  (*(const uint8_t *)rom(address))
-#define ROM16(address) (*(const uint16_t *)rom(address))
-#define ROM32(address) (*(const uint32_t *)rom(address))
+#define ROM16(address) (*(const s32_ua16 *)rom(address))
+#define ROM32(address) (*(const s32_ua32 *)rom(address))
 #define ROM8S(address)  (*(const int8_t *)rom(address))
-#define ROM16S(address) (*(const int16_t *)rom(address))
-#define ROM32S(address) (*(const int32_t *)rom(address))
+#define ROM16S(address) (*(const s32_sa16 *)rom(address))
+#define ROM32S(address) (*(const s32_sa32 *)rom(address))
 
 /* The game links its objects by the low halfword of their addresses: the object 'link' names, in the
    page of work RAM 'base' points into */
@@ -105,11 +117,11 @@ static inline const uint8_t *rom(uint32_t address)
 
 /* A variable read with another width than its own, or a part of one */
 #define AS8(variable)  (*(uint8_t *)&(variable))
-#define AS16(variable) (*(uint16_t *)&(variable))
-#define AS32(variable) (*(uint32_t *)&(variable))
+#define AS16(variable) (*(s32_ua16 *)&(variable))
+#define AS32(variable) (*(s32_ua32 *)&(variable))
 #define AT8(variable, offset)  (*(uint8_t *)((uint8_t *)&(variable) + (offset)))
-#define AT16(variable, offset) (*(uint16_t *)((uint8_t *)&(variable) + (offset)))
-#define AT32(variable, offset) (*(uint32_t *)((uint8_t *)&(variable) + (offset)))
+#define AT16(variable, offset) (*(s32_ua16 *)((uint8_t *)&(variable) + (offset)))
+#define AT32(variable, offset) (*(s32_ua32 *)((uint8_t *)&(variable) + (offset)))
 
 /* Processor status word: interrupt enable (bit 18), stacks and levels; the flags (bits 0-3) are local
    variables of the code, merged in when the program reads the whole word */

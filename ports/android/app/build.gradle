@@ -1,0 +1,85 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'io.github.segasonic.port'
+    compileSdk 35
+    ndkVersion '27.2.12479018'
+
+    defaultConfig {
+        applicationId 'io.github.segasonic.port'
+        // API 21 (Android 5.0) supports all 32-bit (armeabi-v7a, x86) and 64-bit (arm64-v8a, x86_64) devices
+        minSdk 21
+        targetSdk 35
+        versionCode 10100
+        versionName '1.1.0'
+
+        ndk {
+            abiFilters 'armeabi-v7a', 'arm64-v8a', 'x86', 'x86_64'
+        }
+
+        externalNativeBuild {
+            cmake {
+                version '3.22.1'
+                arguments '-DANDROID_STL=c++_static',
+                          '-DANDROID_PLATFORM=android-21',
+                          '-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON',
+                          '-DCMAKE_POLICY_DEFAULT_CMP0057=NEW'
+            }
+        }
+    }
+
+    signingConfigs {
+        debug {
+            // Standard debug keystore generated automatically by Android Gradle Plugin
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            // Sign universal release APKs with debug key if no release keystore is configured via env
+            signingConfig signingConfigs.debug
+        }
+        debug {
+            minifyEnabled false
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_11
+        targetCompatibility JavaVersion.VERSION_11
+    }
+
+    sourceSets {
+        main {
+            // Bundle Kenney CC0 input_prompts.bmp directly from ports/sdl2/prompts without duplicating in Git
+            assets.srcDirs = ['src/main/assets', '../../../sdl2/prompts']
+        }
+    }
+
+    externalNativeBuild {
+        cmake {
+            path file('src/main/cpp/CMakeLists.txt')
+        }
+    }
+
+    packaging {
+        jniLibs {
+            // Uncompressed 16 KB page-aligned .so packaging inside APK for instant mmap startup
+            useLegacyPackaging false
+        }
+    }
+
+    lint {
+        abortOnError false
+        checkReleaseBuilds false
+    }
+}
+
+dependencies {
+    // Zero third-party Java/Kotlin dependencies: pure Android SDK + SDL2 + NDK for a tiny, instant-starting APK!
+}

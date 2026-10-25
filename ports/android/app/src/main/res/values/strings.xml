@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">SegaSonic</string>
+    <string name="launcher_subtitle">Sega System 32 Native Port • 32/64-bit • ETC2</string>
+
+    <string name="rom_section_title">GAME ASSETS (MAME sonic.zip)</string>
+    <string name="rom_status_ready">Assets pack ready (%1$s MB) — Legal ROM-free runtime verified</string>
+    <string name="rom_status_missing">Required once: select your MAME \'sonic.zip\' ROM set (Rev. C) to extract segasonic.assets</string>
+    <string name="rom_extracting">Verifying 18 ROM CRC32s and building segasonic.assets…</string>
+    <string name="btn_import_rom">Import sonic.zip ROM Set</string>
+    <string name="btn_reimport_rom">Replace / Re-verify sonic.zip</string>
+    <string name="rom_import_ok">segasonic.assets extracted successfully!</string>
+    <string name="rom_import_failed">ROM verification failed:\n%1$s</string>
+
+    <string name="launch_section_title">LAUNCH EDITION</string>
+    <string name="btn_play_console">▶  PLAY CONSOLE EDITION (16:9 WIDESCREEN)</string>
+    <string name="btn_play_arcade">▶  PLAY ORIGINAL ARCADE (SYSTEM 32)</string>
+    <string name="btn_edit_touch">✥  CUSTOMIZE TOUCH CONTROLS (LIVE EDITOR)</string>
+
+    <string name="touch_section_title">TOUCH CONTROLS &amp; TRACKBALL PHYSICS</string>
+    <string name="lbl_move_mode">Movement Input Style</string>
+    <string name="mode_trackball">Arcade Trackball (3D Inertia &amp; Spin Brake)</string>
+    <string name="mode_stick">Virtual Analog Stick</string>
+    <string name="mode_dpad">Classic 8-Way D-Pad</string>
+    <string name="lbl_theme_color">Control Theme Color</string>
+    <string name="color_sonic">Sonic Cobalt Blue</string>
+    <string name="color_mighty">Mighty Crimson Red</string>
+    <string name="color_ray">Ray Golden Yellow</string>
+    <string name="lbl_sensitivity">Trackball / Stick Sensitivity: %1$d%%</string>
+    <string name="lbl_inertia">Trackball Bearing Momentum: %1$d%%</string>
+    <string name="lbl_hud_opacity">Touch Controls Opacity: %1$d%%</string>
+    <string name="sw_floating_origin">Floating Left Pad (centers where thumb touches)</string>
+    <string name="sw_haptics">Arcade Haptic Vibration Feedback</string>
+    <string name="sw_autohide_pad">Auto-hide Touch HUD when Bluetooth Gamepad active</string>
+    <string name="btn_reset_touch">Reset Touch Layout to Default</string>
+    <string name="touch_reset_done">Touch control layout reset to defaults.</string>
+
+    <string name="video_section_title">GRAPHICS, ETC2 COMPRESSION &amp; AUDIO</string>
+    <string name="lbl_shader_filter">Display Filter (Single-Pass GLSL)</string>
+    <string name="filter_sharp_aa">Sharp Pixels (Subpixel Anti-Shimmer)</string>
+    <string name="filter_nearest">Raw Nearest Neighbor</string>
+    <string name="filter_smooth">Smooth Arcade Bilinear</string>
+    <string name="filter_crt">15 kHz Nanao CRT Scanlines + Grille</string>
+    <string name="lbl_aspect">Screen Aspect Ratio</string>
+    <string name="aspect_auto">Auto (16:9 Console / 4:3 Arcade)</string>
+    <string name="aspect_4_3">4:3 Classic Pillarboxed</string>
+    <string name="aspect_fill">Fullscreen Ultra-Wide Fill</string>
+    <string name="lbl_etc2_mode">ETC2 Hardware Texture Compression</string>
+    <string name="etc2_auto">Auto: RGBA8_ETC2_EAC UI + Lossless PBO DMA (Recommended)</string>
+    <string name="etc2_stream">Ultra Bandwidth Save: Real-Time Dirty-Strip RGB8_ETC2 Stream</string>
+    <string name="etc2_off">Uncompressed RGB565 / RGBA8 (GLES 2.0 Compatibility)</string>
+    <string name="sw_widescreen">16:9 Widescreen Stages (Console Edition)</string>
+    <string name="sw_freeplay">Free Play / Infinite Continues (Console Edition)</string>
+    <string name="lbl_volume">Master Audio Volume: %1$d%%</string>
+    <string name="sw_low_latency">Low-Latency 10ms 48 kHz Q16.16 Audio Mixer</string>
+    <string name="sw_vsync">60 Hz Display VSync</string>
+    <string name="sw_show_fps">Show Live FPS &amp; GPU ETC2 Status Badge</string>
+</resources>

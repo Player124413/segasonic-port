@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">SegaSonic</string>
+    <string name="launcher_subtitle">Нативный порт Sega System 32 • 32/64-бит • ETC2</string>
+
+    <string name="rom_section_title">ИГРОВЫЕ РЕСУРСЫ (MAME sonic.zip)</string>
+    <string name="rom_status_ready">Пакет ресурсов готов (%1$s МБ) — проверено, готов к запуску</string>
+    <string name="rom_status_missing">Требуется один раз: выберите архив MAME \'sonic.zip\' (Rev. C) для распаковки segasonic.assets</string>
+    <string name="rom_extracting">Проверка CRC32 всех 18 ПЗУ и сборка segasonic.assets…</string>
+    <string name="btn_import_rom">Выбрать и импортировать sonic.zip</string>
+    <string name="btn_reimport_rom">Заменить / перепроверить sonic.zip</string>
+    <string name="rom_import_ok">Ресурсы segasonic.assets успешно распакованы!</string>
+    <string name="rom_import_failed">Ошибка проверки ROM-набора:\n%1$s</string>
+
+    <string name="launch_section_title">ЗАПУСК ИГРЫ</string>
+    <string name="btn_play_console">▶  ИГРАТЬ: CONSOLE EDITION (16:9 ШИРОКИЙ ЭКРАН)</string>
+    <string name="btn_play_arcade">▶  ИГРАТЬ: ОРИГИНАЛЬНАЯ АРКАДА (SYSTEM 32)</string>
+    <string name="btn_edit_touch">✥  НАСТРОИТЬ СЕНСОРНОЕ УПРАВЛЕНИЕ (РЕДАКТОР)</string>
+
+    <string name="touch_section_title">СЕНСОРНОЕ УПРАВЛЕНИЕ И ФИЗИКА ТРЕКБОЛА</string>
+    <string name="lbl_move_mode">Тип управления движением</string>
+    <string name="mode_trackball">Аркадный трекбол (3D-инерция и торможение)</string>
+    <string name="mode_stick">Виртуальный аналоговый стик</string>
+    <string name="mode_dpad">Классическая крестовина (8 направлений)</string>
+    <string name="lbl_theme_color">Цветовая тема кнопок и шара</string>
+    <string name="color_sonic">Соник (Кобальтовый синий)</string>
+    <string name="color_mighty">Майти (Рубиновый красный)</string>
+    <string name="color_ray">Рэй (Золотисто-жёлтый)</string>
+    <string name="lbl_sensitivity">Чувствительность трекбола / стика: %1$d%%</string>
+    <string name="lbl_inertia">Инерция вращения трекбола: %1$d%%</string>
+    <string name="lbl_hud_opacity">Прозрачность сенсорных кнопок: %1$d%%</string>
+    <string name="sw_floating_origin">Плавающий центр (подстраивается под палец слева)</string>
+    <string name="sw_haptics">Тактильная виброотдача кнопок и трекбола</string>
+    <string name="sw_autohide_pad">Автоскрытие кнопок при подключении геймпада</string>
+    <string name="btn_reset_touch">Сбросить расположение кнопок</string>
+    <string name="touch_reset_done">Расположение сенсорных кнопок сброшено по умолчанию.</string>
+
+    <string name="video_section_title">ГРАФИКА, СЖАТИЕ ТЕКСТУР ETC2 И ЗВУК</string>
+    <string name="lbl_shader_filter">Видеофильтр (однопроходный GLSL-шейдер)</string>
+    <string name="filter_sharp_aa">Чёткие пиксели без мерцания (Sharp Subpixel-AA)</string>
+    <string name="filter_nearest">Пиксель-в-пиксель (Nearest)</string>
+    <string name="filter_smooth">Мягкое сглаживание (Bilinear)</string>
+    <string name="filter_crt">Аркадный ЭЛТ-монитор 15 кГц (CRT Scanlines)</string>
+    <string name="lbl_aspect">Соотношение сторон экрана</string>
+    <string name="aspect_auto">Авто (16:9 Console / 4:3 Аркада)</string>
+    <string name="aspect_4_3">Классический 4:3 с полями</string>
+    <string name="aspect_fill">Во весь экран телефона (Ultra-Wide)</string>
+    <string name="lbl_etc2_mode">Аппаратное сжатие текстур ETC2 (OpenGL ES 3.0)</string>
+    <string name="etc2_auto">Авто: RGBA8_ETC2_EAC интерфейс + PBO DMA без потерь (Рекомендуется)</string>
+    <string name="etc2_stream">Макс. экономия шины GPU: потоковое сжатие кадра RGB8_ETC2</string>
+    <string name="etc2_off">Без сжатия RGB565 / RGBA8 (Режим совместимости GLES 2.0)</string>
+    <string name="sw_widescreen">Широкоэкранные уровни 16:9 (Console Edition)</string>
+    <string name="sw_freeplay">Свободная игра / бесконечные продолжения</string>
+    <string name="lbl_volume">Громкость звука: %1$d%%</string>
+    <string name="sw_low_latency">Низкая задержка звука 10 мс (48 кГц Q16.16 микшер)</string>
+    <string name="sw_vsync">Вертикальная синхронизация 60 Гц (VSync)</string>
+    <string name="sw_show_fps">Показывать счётчик FPS и режим GPU/ETC2</string>
+</resources>

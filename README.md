@@ -1,7 +1,7 @@
 # SegaSonic The Hedgehog — native port
 
-Sega's 1993 arcade game *SegaSonic The Hedgehog* (Sega System 32) as a native game for Windows, Linux and
-macOS: not an emulator, but the game's own program decompiled into C
+Sega's 1993 arcade game *SegaSonic The Hedgehog* (Sega System 32) as a native game for Windows, Linux,
+macOS and Android: not an emulator, but the game's own program decompiled into C
 ([segasonic-decomp](https://github.com/cheviman/segasonic-decomp)) and built for each system, with a
 console version made for playing at home beside the arcade one.
 
@@ -35,6 +35,7 @@ runs keep the packages as artifacts. Unpack it anywhere:
 | Windows `segasonic-windows-x64.zip` | `SegaSonic.exe` (the console version), `SegaSonic Arcade.exe` (the arcade one), and the pictures the window draws its letters and controls with |
 | Linux `segasonic-linux-x64.tar.gz` | `SegaSonic`, `SegaSonic Arcade` and the same pictures |
 | macOS `segasonic-macos-universal.zip` | `SegaSonic.app` and `SegaSonic Arcade.app` |
+| Android `segasonic-android-universal.apk` | Universal 32-bit & 64-bit APK (`armeabi-v7a`, `arm64-v8a`, `x86`, `x86_64`, Android 5.0+) with native Launcher, both Console and Arcade editions, editable trackball/stick/D-pad touch controls, and OpenGL ES 3.0 ETC2 / ES 2.0 renderer (see [`ports/android/README.md`](ports/android/README.md)) |
 
 Each has a `README.txt` that says which game is which, and the licenses of what the executables contain
 (`LICENSE.txt`, `licenses/`). SDL2 and the C runtime
@@ -191,6 +192,9 @@ ports/sdl2/             the window: the picture, sound and controls on SDL2, the
                         (first_run.c), the console's actions and their keys (actions.c, controls.ini),
                         the pictures of Kenney's (prompts/, font/), the executables' icon (icon/,
                         tools/make_icon.py)
+ports/android/          the Android port: native launcher and ROM importer, editable multi-touch
+                        trackball/stick/D-pad HUD and layout editor, OpenGL ES 3.0 ETC2/EAC & ES 2.0
+                        renderer, Gradle/CMake build for 32-bit and 64-bit devices
 ports/headless/         the game without a window, for checks and screenshots
 tools/make_screenshots.py  the screenshots above
 .github/workflows/      the builds and packages for Windows, Linux and macOS

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.SegaSonic.Launcher" parent="@android:style/Theme.DeviceDefault.NoActionBar">
+        <item name="android:windowBackground">#0A0F1E</item>
+        <item name="android:colorBackground">#0A0F1E</item>
+        <item name="android:statusBarColor">#0A0F1E</item>
+        <item name="android:navigationBarColor">#0A0F1E</item>
+    </style>
+
+    <style name="Theme.SegaSonic.Game" parent="@android:style/Theme.NoTitleBar.Fullscreen">
+        <item name="android:windowBackground">#000000</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowFullscreen">true</item>
+        <item name="android:windowContentOverlay">@null</item>
+    </style>
+</resources>
