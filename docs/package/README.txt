@@ -30,6 +30,24 @@ back (the window's close button); Escape again goes on, and a click takes the mo
 Alt+F4 (Windows) or Cmd+Q (macOS) closes the game at any time. On the title, EXIT.
 In SegaSonic Arcade the mouse is always the trackball, and Escape quits.
 
+NINTENDO SWITCH AND ANDROID
+Two more programs come in this package. They make the game for those on this computer,
+from your sonic.zip; what they make carries your ROM's assets: never share it.
+
+  SegaSonic NSP      The Switch's .nsp. Put sonic.zip and your console's prod.keys beside it,
+                     open it and press Make SegaSonic.nsp; install the .nsp as any homebrew
+                     one (Atmosphere with signature patches). The folder switch stays beside it.
+
+  SegaSonic APK      Android's APK (Android 7 or later). Put sonic.zip beside it, open it and
+                     press Make SegaSonic.apk; copy the APK to the phone and open it there.
+                     The folder android stays beside it. Keep the signing key it makes the
+                     first time (%APPDATA%\SegaSonic on Windows, ~/.config/SegaSonic on Linux,
+                     ~/Library/Application Support/SegaSonic on macOS): a new APK installs
+                     over the last one only with the same key.
+
+Files somewhere else (the keys, sonic.zip, a picture for your own icon) can be dropped on
+their windows.
+
 MACOS
 The apps are not signed by a developer. The first time, right click the app > Open (on
 macOS 15 and later: try to open it, then System Settings > Privacy & Security > Open

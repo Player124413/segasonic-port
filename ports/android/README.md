@@ -22,17 +22,20 @@ APK. It is the same game as on a computer, with what a phone asks for:
 What the game writes (its settings, the EEPROM, TIME ATTACK's times) stays in the app's own folder; its log,
 `segasonic.log`, is in `Android/data/io.github.cheviman.segasonic/files/` on the phone's storage.
 
-## The APK is the player's own
+## Making the APK (for players)
 
 Android makes nothing from the ROM set: the APK carries the game's assets, taken out of the player's ROM set
-on the player's computer (`build/bin/segasonic.assets`, the computer build's first run or `extract_assets.py`).
-So each APK is its player's alone: **never share it**. It is signed with the debug key of the computer's
-Android tools (`~/.android/debug.keystore`; made once, the same each time, so a new APK installs over the
-last one and keeps what the game wrote).
+on the player's computer, so each APK is its player's alone: **never share it**. `SegaSonic APK`, a tool in
+the computer's package (`apk/`), makes it: drop your `sonic.zip` on its window (and a square PNG or JPEG for
+your own launcher icon), **Make SegaSonic.apk**, copy it to the phone and open it there, or
+`adb install -r SegaSonic.apk`. It signs the APK with a key of yours, made the first time and kept in your own
+folder (`%APPDATA%\SegaSonic` on Windows): keep it, as only an APK with the same key installs over the last one
+and keeps what the game wrote. How it works: [apk/README.md](apk/README.md).
 
 ## Building
 
-You need, on the computer that has the assets pack:
+The game's Android build, which SegaSonic APK makes the player's APK of, and a computer's own APK with its
+assets pack. You need:
 
 - the Android SDK's command-line tools, with `platforms;android-35`, `build-tools` (35 or newer) and the NDK
   (28 or newer), installed with `sdkmanager`;
@@ -79,6 +82,7 @@ there (Android asks to allow installing from that app once).
 | `android.cmake` | the Android build: SDL2, `libmain.so`, the APK |
 | `AndroidManifest.xml` | the app: SDL's activity, landscape, full screen |
 | `res/` | the launcher's icon (`tools/make_icon.py`), and `ic_launcher_own.xml` and `ic_launcher_art.png` for a player's own picture |
+| `apk/` | SegaSonic APK, the tool that makes a player's APK on their computer ([apk/README.md](apk/README.md)) |
 
 The game's own changes for Android are in `ports/sdl2/` (`__ANDROID__`: the pack in the APK, the app's
 folders, back and the background; `SEGASONIC_TOUCH`: the touch controls, `touch.c`; `SEGASONIC_PAUSE_EXIT`: the

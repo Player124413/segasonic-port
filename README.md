@@ -1,9 +1,9 @@
 # SegaSonic The Hedgehog — native port
 
 Sega's 1993 arcade game *SegaSonic The Hedgehog* (Sega System 32) as a native game for Windows, Linux and
-macOS: not an emulator, but the game's own program decompiled into C
-([segasonic-decomp](https://github.com/cheviman/segasonic-decomp)) and built for each system, with a
-console version made for playing at home beside the arcade one.
+macOS, and from your computer for the Nintendo Switch, Android and Anbernic's handhelds: not an emulator,
+but the game's own program decompiled into C ([segasonic-decomp](https://github.com/cheviman/segasonic-decomp))
+and built for each system, with a console version made for playing at home beside the arcade one.
 
 **This repository and its downloads contain no game data.** As with
 [n64decomp/sm64](https://github.com/n64decomp/sm64), you bring your own ROM set: the first time the game
@@ -32,9 +32,9 @@ runs keep the packages as artifacts. Unpack it anywhere:
 
 | Package | What is in it |
 |---|---|
-| Windows `segasonic-windows-x64.zip` | `SegaSonic.exe` (the console version), `SegaSonic Arcade.exe` (the arcade one), and the pictures the window draws its letters and controls with |
-| Linux `segasonic-linux-x64.tar.gz` | `SegaSonic`, `SegaSonic Arcade` and the same pictures |
-| macOS `segasonic-macos-universal.zip` | `SegaSonic.app` and `SegaSonic Arcade.app` |
+| Windows `segasonic-windows-x64.zip` | `SegaSonic.exe` (the console version), `SegaSonic Arcade.exe` (the arcade one), and the pictures the window draws its letters and controls with; `SegaSonic NSP.exe` and `SegaSonic APK.exe`, which make the Switch's and Android's games, with the game's Switch and Android builds beside them (`switch/`, `android/`) |
+| Linux `segasonic-linux-x64.tar.gz` | `SegaSonic`, `SegaSonic Arcade`, the same pictures, and `SegaSonic NSP` and `SegaSonic APK` with `switch/` and `android/` |
+| macOS `segasonic-macos-universal.zip` | `SegaSonic.app` and `SegaSonic Arcade.app`, and `SegaSonic NSP` and `SegaSonic APK` with `switch/` and `android/` |
 
 Each has a `README.txt` that says which game is which, and the licenses of what the executables contain
 (`LICENSE.txt`, `licenses/`). SDL2 and the C runtime
@@ -127,17 +127,58 @@ Support/SegaSonic` on macOS:
 | `segasonic.times` | TIME ATTACK's best times and best run |
 | `segasonic.eeprom`, `sonic.eeprom` | each one's game settings and bookkeeping, as the board's EEPROM keeps them |
 
-### Nintendo Switch and Anbernic handhelds
+### Nintendo Switch
 
-The console version also runs on game devices, with its picture and controls set for them and its assets
-prepared on your computer from your ROM set (the device makes nothing from it):
+The console version as an `.nsp`, made on your computer by `SegaSonic NSP` from your `sonic.zip` and your
+console's keys, to install as any homebrew `.nsp` (a console with Atmosphère and signature patches). The
+Switch makes nothing from the ROM set: the `.nsp` carries your assets, so it is yours alone, **never share
+it**.
 
-- **Nintendo Switch**: an `.nsp` that `SegaSonic NSP`, a tool for your computer, makes from the game's
-  Switch build, your `sonic.zip` and your console's keys (`prod.keys`), to install as any homebrew `.nsp`.
-  16:9, the video on three cores, HOME leaves it. See [ports/switch/README.md](ports/switch/README.md).
-- **Anbernic's H700 handhelds** (checked on the RG40XX H, stock firmware): a folder for `Roms/PORTS`, built
-  with Zig. 4:3, 60 frames a second on four cores, MENU leaves it, the volume keys work. See
-  [ports/anbernic/README.md](ports/anbernic/README.md).
+1. Put your `sonic.zip` and your console's `prod.keys` beside `SegaSonic NSP` (it comes in the computer's
+   package, with the folder `switch` beside it: the game's Switch build). The keys may also be in `.switch`
+   in your user folder.
+2. Open `SegaSonic NSP` (a double click). Its window shows what it found; drop on it whatever is somewhere
+   else: `prod.keys`, `sonic.zip`, or a 256 x 256 JPEG for your own HOME menu icon. **Choose the output
+   folder** if `SegaSonic.nsp` should not go beside the tool.
+3. **Make SegaSonic.nsp** (or Enter). Copy it to the Switch's SD card and install it with Tinfoil, DBI,
+   Goldleaf or another installer.
+
+From a command line: `SegaSonic NSP --keys prod.keys --rom sonic.zip --icon my_icon.jpg --out SegaSonic.nsp`.
+On the Switch the picture is 16:9 and the controls fixed (the d-pad or the left stick move, A jumps and
+picks, B goes back in the menus, + starts and pauses); HOME leaves the game. More in
+[ports/switch/README.md](ports/switch/README.md).
+
+### Android
+
+The console version as an APK, made on your computer by `SegaSonic APK` from your `sonic.zip`, for Android 7
+or later. The phone makes nothing from the ROM set: the APK carries your assets, so it is yours alone,
+**never share it**.
+
+1. Put your `sonic.zip` beside `SegaSonic APK` (it comes in the computer's package, with the folder
+   `android` beside it: the game's Android build).
+2. Open `SegaSonic APK` (a double click). Drop `sonic.zip` on its window if it is somewhere else, and a
+   square PNG or JPEG if you want your own launcher icon. **Choose the output folder** if `SegaSonic.apk`
+   should not go beside the tool.
+3. **Make SegaSonic.apk** (or Enter). Copy it to the phone and open it there (Android asks once to allow
+   installing from that app), or install it from the computer with `adb install -r SegaSonic.apk`.
+
+From a command line: `SegaSonic APK --rom sonic.zip --icon my_icon.png --out SegaSonic.apk`.
+
+The first time, the tool makes a signing key of yours and keeps it in your own folder (`%APPDATA%\SegaSonic`
+on Windows, `~/.config/SegaSonic` on Linux, `~/Library/Application Support/SegaSonic` on macOS). Keep it:
+Android installs a new APK over the last one, keeping your settings and records, only when both have the same
+key.
+
+On the phone the picture is 16:9. The touch screen has its controls: a stick where your left thumb lands, A to
+jump and pick, START to start and pause; a Bluetooth or USB game controller works too (the d-pad or the left
+stick, A, B back in the menus, Start), and the touch controls hide while it is used. Android's back goes back
+in the menus. The pause has CONTINUE and EXIT. More in [ports/android/README.md](ports/android/README.md).
+
+### Anbernic handhelds
+
+Anbernic's H700 handhelds (checked on the RG40XX H, stock firmware): a folder for `Roms/PORTS` with the game
+and your assets pack, built with Zig. 4:3, 60 frames a second on four cores, MENU leaves it, the volume keys
+work. See [ports/anbernic/README.md](ports/anbernic/README.md).
 
 ## Building
 
@@ -170,7 +211,10 @@ the downloads are.
 
 The build also makes the game without a window, for scripted runs (`sonic_game_headless`, and
 `segasonic_console_headless`, whose `--actions` presses the console's actions), and the tools that check
-the game against MAME's (`s32ref`; `-DSEGASONIC_REFERENCE_TOOLS=OFF` leaves them out).
+the game against MAME's (`s32ref`; `-DSEGASONIC_REFERENCE_TOOLS=OFF` leaves them out), and the tools that
+make the game devices' games, `SegaSonic NSP` and `SegaSonic APK`. The game devices' own builds are in their
+READMEs: [the Switch](ports/switch/README.md) (devkitPro), [Android](ports/android/README.md) (the NDK and
+the SDK's tools) and [Anbernic's handhelds](ports/anbernic/README.md) (Zig).
 
 ## How it is checked
 
@@ -211,10 +255,14 @@ ports/sdl2/             the window: the picture, sound and controls on SDL2, the
 ports/headless/         the game without a window, for checks and screenshots
 ports/switch/           the Nintendo Switch: its build (switch.cmake) and SegaSonic NSP, the tool that
                         makes the .nsp on the player's computer (nsp/; tools/check_nsp.py checks one)
+ports/android/          Android: its build with the NDK, without Gradle (android.cmake), the touch
+                        controls (ports/sdl2/touch.c) and SegaSonic APK, the tool that makes the APK on the
+                        player's computer (apk/)
 ports/anbernic/         Anbernic's H700 handhelds: the build with Zig (zig_aarch64.cmake), the launcher
 runtime/src/workers.c   the video's rows on several threads, as the game devices draw it
 tools/make_screenshots.py  the screenshots above
-.github/workflows/      the builds and packages for Windows, Linux and macOS
+.github/workflows/      the builds and packages for Windows, Linux and macOS, with the Switch's and
+                        Android's builds in them
 ```
 
 ## Credits

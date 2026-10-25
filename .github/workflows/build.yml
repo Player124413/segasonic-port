@@ -2,11 +2,12 @@
 # Description: builds the game on clean machines with no ROM set (Linux with GCC, macOS with Clang,
 #              Windows with MSVC), SDL2 inside the executables, and packs what a player runs: the
 #              executables only, which load the player's assets pack, with their licenses; the Nintendo
-#              Switch's .nro and .nsp pieces with devkitPro's toolchain; a tag v* makes a release of those
-#              packages
-# Version:     0.4.0
+#              Switch's .nsp pieces with devkitPro's toolchain and Android's game without a pack with the
+#              NDK, both in every package beside the tools that make the player's .nsp and APK of them; a
+#              tag v* makes a release of those packages
+# Version:     0.5.0
 # Created:     20-10-2026
-# Modified:    23-10-2026
+# Modified:    25-10-2026
 # Author:      Sebastian Toyos
 name: build
 
@@ -29,6 +30,7 @@ jobs:
             os: windows-2022
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
+    needs: [switch, android]    # (their games go in the package, beside SegaSonic NSP and SegaSonic APK)
     steps:
       - uses: actions/checkout@v7
 
@@ -60,6 +62,18 @@ jobs:
 
       - name: Build
         run: cmake --build build/cmake --config Release --parallel
+
+      # the Switch's and Android's games, which SegaSonic NSP and SegaSonic APK make the player's .nsp and
+      # APK of: the folders switch and android beside them
+      - uses: actions/download-artifact@v8
+        with:
+          name: segasonic-switch
+          path: build/bin/switch
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: segasonic-android
+          path: build/bin/android
 
       # what a player runs (no headless runs, no build leftovers), in an archive of our own: the artifacts'
       # zip loses the executables' permissions. With it, the terms the executables come with: the project's,
@@ -129,6 +143,37 @@ jobs:
         with:
           name: segasonic-switch
           path: build/bin/switch/
+
+  # Android: the game without an assets pack or a signature (build/bin/android/segasonic-base.apk), with
+  # the NDK and the SDK's tools of the runner's Android SDK and its Java 17 (ports/android/android.cmake)
+  android:
+    name: android
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "platforms;android-35" "build-tools;35.0.1" > /dev/null
+
+      - name: Configure
+        run: |
+          export JAVA_HOME="$JAVA_HOME_17_X64"
+          cmake -S . -B build/android -G Ninja -DCMAKE_BUILD_TYPE=Release -DSEGASONIC_REFERENCE_TOOLS=OFF \
+            -DCMAKE_TOOLCHAIN_FILE="$ANDROID_NDK_LATEST_HOME/build/cmake/android.toolchain.cmake" \
+            -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-24
+
+      - name: Build
+        run: |
+          export JAVA_HOME="$JAVA_HOME_17_X64"
+          cmake --build build/android --target segasonic_apk --parallel
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: segasonic-android
+          path: build/bin/android/
 
   # A tag v*: the packages as a GitHub release, its notes from docs/releases/TAG.md
   release:
