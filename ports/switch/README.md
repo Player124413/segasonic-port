@@ -30,7 +30,8 @@ Start the tool (a double click). Its window shows what the `.nsp` will be made o
 
 - **Console keys**: `prod.keys` beside the tool, or in `.switch` in your user folder;
 - **ROM set**: `sonic.zip` beside the tool;
-- **HOME menu icon**: the game's own (the project's trackball), or a 256 x 256 JPEG of yours;
+- **HOME menu icon**: a 256 x 256 JPEG of yours, `icon.jpg` beside the tool (taken by itself, by SegaSonic APK
+  too) or dropped on the window; else the game's own (the project's trackball);
 - **The game's Switch build**: the `switch` folder beside the tool;
 - **Output folder**: where `SegaSonic.nsp` goes, beside the tool unless you choose another.
 

@@ -16,7 +16,7 @@
 # player's ROM set on a computer, so it is its player's alone and never shared. Two of them:
 #   build/bin/android/segasonic-base.apk   the game without a pack or a signature: SegaSonic APK
 #                                           (ports/android/apk) makes the player's APK of it, on their computer
-#   build/bin/SegaSonic.apk                 this computer's own, with its pack (build/bin/segasonic.assets),
+#   build/bin/android/SegaSonic-debug.apk   this computer's own, with its pack (build/bin/segasonic.assets),
 #                                           signed with the debug key of its Android tools
 #                                           (~/.android/debug.keystore, which keytool makes when there is none;
 #                                           the same key each time, so a new APK installs over the last one and
@@ -80,7 +80,7 @@ find_program(SONIC_KEYTOOL keytool HINTS ${SONIC_JAVA_BIN} REQUIRED)
 set(SONIC_WITH_JAVA ${CMAKE_COMMAND} -E env JAVA_HOME=${SONIC_JAVA_HOME})
 
 set(SONIC_APK_WORK ${CMAKE_BINARY_DIR}/apk)
-set(SONIC_APK ${SONIC_BIN_DIR}/SegaSonic.apk)
+set(SONIC_APK ${SONIC_BIN_DIR}/android/SegaSonic-debug.apk)    # (not SegaSonic APK's SegaSonic.apk)
 
 # SDL's Java, the activity that starts libmain.so: classes.dex
 file(GLOB SONIC_SDL_JAVA ${sdl2_SOURCE_DIR}/android-project/app/src/main/java/org/libsdl/app/*.java)

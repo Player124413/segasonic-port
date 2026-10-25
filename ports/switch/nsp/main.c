@@ -86,7 +86,7 @@ int main(int argc, char **argv)
 				"  --rom     the arcade ROM set (sonic.zip, MAME's, Japan, rev. C; by default beside it)\n"
 				"  --switch  the game's Switch build: main, main.npdm, control.nacp, icon.jpg (by default switch beside it)\n"
 				"  --out     the .nsp to write (by default SegaSonic.nsp beside it)\n"
-				"  --icon    the HOME menu's icon, a 256 x 256 JPEG of yours (by default the build's icon.jpg)\n");
+				"  --icon    the HOME menu's icon, a 256 x 256 JPEG of yours (by default icon.jpg beside it, else the build's)\n");
 			return 2;
 		}
 		snprintf(target, NSP_PATH_SIZE, "%s", argv[++at]);

@@ -196,6 +196,12 @@ void nsp_defaults(nsp_inputs *inputs, const char *here)
 		snprintf(inputs->pieces, sizeof(inputs->pieces), "%sswitch", here);
 	if (!inputs->out[0])
 		snprintf(inputs->out, sizeof(inputs->out), "%s" NSP_FILE, here);
+	if (!inputs->icon[0])
+	{
+		snprintf(inputs->icon, sizeof(inputs->icon), "%s" NSP_OWN_ICON, here);
+		if (!exists(inputs->icon))
+			inputs->icon[0] = '\0';    /* (the build's own) */
+	}
 }
 
 const char *nsp_keys_problem(const char *path)

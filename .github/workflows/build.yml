@@ -173,7 +173,7 @@ jobs:
       - uses: actions/upload-artifact@v7
         with:
           name: segasonic-android
-          path: build/bin/android/
+          path: build/bin/android/segasonic-base.apk    # (the game alone: not the runner's own APK beside it)
 
   # A tag v*: the packages as a GitHub release, its notes from docs/releases/TAG.md
   release:

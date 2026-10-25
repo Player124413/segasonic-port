@@ -194,7 +194,8 @@ static void refresh(void)
 		icon_problem = apk_icon_problem(inputs->icon);
 		if (!icon_problem && !base_problem && !apk_base_takes_icon(inputs->base))
 			icon_problem = "cannot go into this build of the game";
-		set_row(&tool.rows[1], "Launcher icon (a square PNG or JPEG)", inputs->icon, icon_problem, "yours");
+		set_row(&tool.rows[1], "Launcher icon (a square PNG or JPEG)",
+			tool.given.icon[0] ? inputs->icon : APK_OWN_ICON ", " BESIDE_TOOL, icon_problem, "yours");
 	}
 	else
 		set_row(&tool.rows[1], "Launcher icon (a square PNG or JPEG)", "in the game's Android build", NULL,

@@ -18,6 +18,7 @@
 
 #define NSP_PATH_SIZE 1100
 #define NSP_FILE      "SegaSonic.nsp"
+#define NSP_OWN_ICON  "icon.jpg"         /* the player's own icon, taken when it is beside the tool */
 
 /* What the .nsp is made of, and where it goes */
 typedef struct
@@ -45,7 +46,8 @@ typedef void (*nsp_step)(void *context, const char *step);
 void nsp_take_dropped(nsp_inputs *inputs, const char *path);
 
 /* The inputs not given, beside the tool (in the folder 'here', with its separator): prod.keys (else in
-   .switch in the user's folder), sonic.zip, the folder switch, SegaSonic.nsp */
+   .switch in the user's folder), sonic.zip, the folder switch, SegaSonic.nsp, and the player's icon.jpg
+   when it is there (else the build's own icon) */
 void nsp_defaults(nsp_inputs *inputs, const char *here);
 
 /* The .nsp: true when it is written. Each step's lines go to 'log' (the command line's) unless it is NULL;

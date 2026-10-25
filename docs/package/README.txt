@@ -46,7 +46,8 @@ from your sonic.zip; what they make carries your ROM's assets: never share it.
                      over the last one only with the same key.
 
 Files somewhere else (the keys, sonic.zip, a picture for your own icon) can be dropped on
-their windows.
+their windows. A picture of yours named icon.jpg beside them (a 256 x 256 JPEG) is the
+icon of both, the Switch's and the phone's, without dropping it.
 
 MACOS
 The apps are not signed by a developer. The first time, right click the app > Open (on

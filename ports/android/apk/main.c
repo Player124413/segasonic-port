@@ -82,7 +82,7 @@ int main(int argc, char **argv)
 		{
 			fprintf(stderr, "Usage: SegaSonic APK [--rom FILE] [--icon FILE] [--base FILE] [--out FILE]\n"
 				"  --rom   the arcade ROM set (sonic.zip, MAME's, Japan, rev. C; by default beside it)\n"
-				"  --icon  the launcher's icon, a square PNG or JPEG of yours (by default the game's own)\n"
+				"  --icon  the launcher's icon, a square PNG or JPEG of yours (by default icon.jpg beside it, else the game's)\n"
 				"  --base  the game's Android build (by default android/segasonic-base.apk beside it)\n"
 				"  --out   the APK to write (by default SegaSonic.apk beside it)\n");
 			return 2;

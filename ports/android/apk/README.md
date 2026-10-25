@@ -17,8 +17,9 @@ Start the tool (a double click). Its window shows what the APK will be made of, 
 not found, or what is wrong with it):
 
 - **ROM set**: `sonic.zip` beside the tool;
-- **Launcher icon**: the game's own (the project's trackball), or a square PNG or JPEG of yours, at most
-  2048 x 2048, which the launcher shows whole, its shape cutting the corners;
+- **Launcher icon**: a square PNG or JPEG of yours, at most 2048 x 2048, which the launcher shows whole, its
+  shape cutting the corners: `icon.jpg` beside the tool (taken by itself, by SegaSonic NSP too) or one dropped
+  on the window; else the game's own (the project's trackball);
 - **The game's Android build**: `segasonic-base.apk` in the folder `android` beside the tool;
 - **Signing key**: yours, kept from before, or made with the first APK (below);
 - **Output folder**: where `SegaSonic.apk` goes, beside the tool unless you choose another.

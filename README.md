@@ -138,8 +138,9 @@ it**.
    package, with the folder `switch` beside it: the game's Switch build). The keys may also be in `.switch`
    in your user folder.
 2. Open `SegaSonic NSP` (a double click). Its window shows what it found; drop on it whatever is somewhere
-   else: `prod.keys`, `sonic.zip`, or a 256 x 256 JPEG for your own HOME menu icon. **Choose the output
-   folder** if `SegaSonic.nsp` should not go beside the tool.
+   else: `prod.keys`, `sonic.zip`, or a 256 x 256 JPEG for your own HOME menu icon (named `icon.jpg`
+   beside the tool, both tools take it by themselves). **Choose the output folder** if `SegaSonic.nsp`
+   should not go beside the tool.
 3. **Make SegaSonic.nsp** (or Enter). Copy it to the Switch's SD card and install it with Tinfoil, DBI,
    Goldleaf or another installer.
 
@@ -157,8 +158,8 @@ or later. The phone makes nothing from the ROM set: the APK carries your assets,
 1. Put your `sonic.zip` beside `SegaSonic APK` (it comes in the computer's package, with the folder
    `android` beside it: the game's Android build).
 2. Open `SegaSonic APK` (a double click). Drop `sonic.zip` on its window if it is somewhere else, and a
-   square PNG or JPEG if you want your own launcher icon. **Choose the output folder** if `SegaSonic.apk`
-   should not go beside the tool.
+   square PNG or JPEG if you want your own launcher icon (the `icon.jpg` beside the tool, if there is one, is
+   taken by itself). **Choose the output folder** if `SegaSonic.apk` should not go beside the tool.
 3. **Make SegaSonic.apk** (or Enter). Copy it to the phone and open it there (Android asks once to allow
    installing from that app), or install it from the computer with `adb install -r SegaSonic.apk`.
 

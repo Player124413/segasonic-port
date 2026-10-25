@@ -18,6 +18,7 @@
 
 #define APK_PATH_SIZE    1100
 #define APK_FILE         "SegaSonic.apk"
+#define APK_OWN_ICON     "icon.jpg"         /* the player's own icon, taken when it is beside the tool */
 #define APK_BASE_FOLDER  "android"
 #define APK_BASE_FILE    "segasonic-base.apk"
 #define APK_ICON_MOST    2048    /* the icon's most pixels a side: the launcher draws it from memory */
@@ -48,7 +49,8 @@ typedef void (*apk_step)(void *context, const char *step);
 void apk_take_dropped(apk_inputs *inputs, const char *path);
 
 /* The inputs not given, beside the tool (in the folder 'here', with its separator): sonic.zip,
-   android/segasonic-base.apk, SegaSonic.apk */
+   android/segasonic-base.apk, SegaSonic.apk, and the player's icon.jpg when it is there (else the game's
+   own icon) */
 void apk_defaults(apk_inputs *inputs, const char *here);
 
 /* The APK: true when it is written. Each step's lines go to 'log' (the command line's) unless it is NULL;

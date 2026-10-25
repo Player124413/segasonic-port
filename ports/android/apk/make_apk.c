@@ -304,6 +304,12 @@ void apk_defaults(apk_inputs *inputs, const char *here)
 		snprintf(inputs->base, sizeof(inputs->base), "%s" APK_BASE_FOLDER SEPARATOR APK_BASE_FILE, here);
 	if (!inputs->out[0])
 		snprintf(inputs->out, sizeof(inputs->out), "%s" APK_FILE, here);
+	if (!inputs->icon[0])
+	{
+		snprintf(inputs->icon, sizeof(inputs->icon), "%s" APK_OWN_ICON, here);
+		if (!exists(inputs->icon))
+			inputs->icon[0] = '\0';    /* (the game's own) */
+	}
 }
 
 const char *apk_icon_problem(const char *path)

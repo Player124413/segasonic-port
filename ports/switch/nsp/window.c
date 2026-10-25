@@ -173,8 +173,8 @@ static void refresh(void)
 	set_row(&tool.rows[1], "ROM set (sonic.zip: MAME's, Japan, rev. C)", tool.given.rom[0] ? inputs->rom : BESIDE_TOOL,
 		nsp_file_exists(inputs->rom) || nsp_folder_exists(inputs->rom) ? NULL : "not found", "found");
 	if (inputs->icon[0])
-		set_row(&tool.rows[2], "HOME menu icon (a 256 x 256 JPEG)", inputs->icon, nsp_icon_problem(inputs->icon),
-			"yours");
+		set_row(&tool.rows[2], "HOME menu icon (a 256 x 256 JPEG)",
+			tool.given.icon[0] ? inputs->icon : NSP_OWN_ICON ", " BESIDE_TOOL, nsp_icon_problem(inputs->icon), "yours");
 	else
 	{
 		snprintf(path, sizeof(path), "%s" SEPARATOR "icon.jpg", inputs->pieces);

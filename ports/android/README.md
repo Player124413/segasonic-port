@@ -58,8 +58,8 @@ two APKs around them, put together by the SDK's own tools, without Gradle:
 
 - `build/bin/android/segasonic-base.apk`: the game without an assets pack or a signature, which SegaSonic APK
   makes a player's APK of;
-- `build/bin/SegaSonic.apk`: this computer's own, with its pack (`build/bin/segasonic.assets`), signed with the
-  debug key of its Android tools.
+- `build/bin/android/SegaSonic-debug.apk`: this computer's own, with its pack (`build/bin/segasonic.assets`),
+  signed with the debug key of its Android tools.
 
 | Step | Tool | What it makes |
 
