@@ -73,9 +73,13 @@ Done:
   mirrored where the map is cut straight across. Past the map's width (the pages hold another end of it
   there) a cell takes what the map draws next where it holds the same run of the row's cells (beyond_word:
   a wall's bricks go on as the designer laid them). The video RAM is the game's again once the frame is
-  drawn (console_draw_frame, the ports' frame_shown).
+  drawn (console_draw_frame, the ports' frame_shown). Stage 0, the cage room's switch scene (the tower's
+  platform in the sky, the fall by the waterfall), keeps the map's own sides: its camera is the scene's,
+  and the map holds the tower whole (25-10-2026: the sides took the sky there, cutting the tower at the
+  board's 320 pixels; found by Sebas on Android).
 - Start pauses the stage's events too (the scenes the game plays in it: the seesaw's, ...).
-- Debug: F7 and F8 move the camera to the stage's section before or after (the game's unused scroll skip).
+- Debug: F7 and F8 move the camera to the stage's section before or after (the game's unused scroll skip);
+  segasonic_console_headless's --actions has them as section- and section+.
 
 Done 20-10-2026 (segasonic-decomp first, merged here):
 - No executable carries the ROM: the game loads segasonic.assets, the reference reads rom/ (0883c7c).

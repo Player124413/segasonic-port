@@ -1854,11 +1854,13 @@ static bool stage_drawn(void)
 			|| system_mode == MODE_DEMO_2);
 }
 
-/* A stage's map on screen, wider: a stage drawn but the test corridor (the how to play's, player
-   select's) and the ending */
+/* A stage's map on screen, wider, its sides drawn their own way: a stage drawn but the test corridor (the how
+   to play's, player select's), the ending and stage 0, the cage room's switch scene (the tower's platform
+   in the sky, the fall by the waterfall): its camera is the scene's, not the stage's sections, and the map
+   holds its sides as they go on, the tower whole */
 static bool stage_map_shown(void)
 {
-	return console_window_settings.wide && stage_drawn() && stage < 0x11u && stage != 7u;
+	return console_window_settings.wide && stage_drawn() && stage < 0x11u && stage != 7u && stage != 0u;
 }
 
 #define VIDEO_PAGES        128
