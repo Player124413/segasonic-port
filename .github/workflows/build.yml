@@ -149,7 +149,7 @@ jobs:
               -dname "CN=Android Debug,O=Android,C=US"
           fi
 
-      - name: Build Universal Release APK (32-bit & 64-bit: armeabi-v7a, arm64-v8a, x86, x86_64)
+      - name: "Build Universal Release APK (32-bit and 64-bit)"
         working-directory: ports/android
         run: ./gradlew assembleRelease --no-daemon --stacktrace
 
