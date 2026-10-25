@@ -1,9 +1,10 @@
 # SegaSonic The Hedgehog — native port
 
 Sega's 1993 arcade game *SegaSonic The Hedgehog* (Sega System 32) as a native game for Windows, Linux and
-macOS, and from your computer for the Nintendo Switch, Android and Anbernic's handhelds: not an emulator,
-but the game's own program decompiled into C ([segasonic-decomp](https://github.com/cheviman/segasonic-decomp))
-and built for each system, with a console version made for playing at home beside the arcade one.
+macOS, and, made on your computer, for the Nintendo Switch and Android (Anbernic's handhelds too, built from
+the source): not an emulator, but the game's own program decompiled into C
+([segasonic-decomp](https://github.com/cheviman/segasonic-decomp)) and built for each system, with a console
+version made for playing at home beside the arcade one.
 
 **This repository and its downloads contain no game data.** As with
 [n64decomp/sm64](https://github.com/n64decomp/sm64), you bring your own ROM set: the first time the game

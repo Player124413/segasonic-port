@@ -111,9 +111,12 @@ Next (in this order unless Sebas says otherwise):
 4. Done (23-25 October, the game devices): the Nintendo Switch (the .nsp made on the player's computer by
    SegaSonic NSP; 16:9, no EXIT, the video on three cores; tried on Eden) and Anbernic's H700 handhelds
    (the RG40XX H's stock firmware, built with Zig; 4:3, 60 frames a second on four cores, its buttons, MENU
-   and the volume keys): ports/switch/README.md, ports/anbernic/README.md. Next for them: the Switch on a
-   console, the 4:3 picture 8 lines taller at each side (no bars on 640 x 480), the sound on a thread of
-   its own, Android.
+   and the volume keys): ports/switch/README.md, ports/anbernic/README.md. Android too (25 October): the
+   APK made on the player's computer by SegaSonic APK, signed with the player's own key; 16:9, touch
+   controls (a stick, A, START) or a game controller, CONTINUE and EXIT in the pause; played on Sebas's
+   phone (ports/android/README.md). Both tools have a window. Released as v1.2.0. Next for them: the Switch
+   on a console, the 4:3 picture 8 lines taller at each side (no bars on 640 x 480), the sound on a thread
+   of its own, an Anbernic package from the CI.
 5. Achievements: our own, defined on the game's memory as RetroAchievements does (the work RAM is the
    original's, byte for byte); RetroAchievements itself only runs in the emulators it approves.
 6. The bitmap layer in the ice and tower stages' dark parts: the original leaves it on, 8 bits a pixel, over
