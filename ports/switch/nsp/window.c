@@ -11,7 +11,9 @@
  *    license:BSD-3-Clause
  *    Started with nothing (a double click), the tool opens this window. Each input starts as the command
  *    line's default (make_nsp.c) and is what the player drops on the window or chooses for it; the game's
- *    Switch build, the folder switch beside the tool, is shown too. Each state is looked at again when the
+ *    Switch build, the folder switch beside the tool, is shown too. Under each its place: the path the
+ *    player gave, or for a default where the tool looks ("beside this tool"), never a folder of the
+ *    computer's own, which a picture of the window would show. Each state is looked at again when the
  *    window comes back to the front (a file put beside the tool meanwhile). The .nsp is made by make_nsp, as
  *    the command line makes it, on a thread of its own: the window keeps drawing while it works, and when
  *    it is closed then, it waits out of sight for the .nsp to be written. Its letters are Kenney Mini's
@@ -55,6 +57,7 @@
 #define BAR_EVERY        40      /* milliseconds between two of the bar's frames while it works */
 #define BAR_ROUND        1600    /* milliseconds for its block to go across */
 #define LETTER_SPACING   2       /* letters.c's pixels between two characters */
+#define BESIDE_TOOL      "beside this tool"
 
 #ifdef _WIN32
 #define SEPARATOR "\\"
@@ -81,7 +84,7 @@ enum
 typedef struct
 {
 	char line[128];               /* its name and its state: "Console keys (prod.keys): found" */
-	char path[NSP_PATH_SIZE + 16];
+	char place[NSP_PATH_SIZE + 16];    /* where it is: the player's path, or where a default is looked for */
 	int good;
 } input_row;
 
@@ -102,6 +105,7 @@ typedef struct
 	SDL_Thread *thread;
 	nsp_inputs making;
 	nsp_outcome outcome;
+	char made_place[NSP_PATH_SIZE + 32];    /* where the .nsp goes, as its row says it */
 	int made;
 	void *step;                   /* the step it is at (a const char *), SDL_AtomicSetPtr's */
 	SDL_atomic_t done;
@@ -139,11 +143,22 @@ static void *window_handle(SDL_Window *window)
 
 /* ---- the inputs' state ---- */
 
-static void set_row(input_row *row, const char *name, const char *path, const char *problem, const char *good)
+static void set_row(input_row *row, const char *name, const char *place, const char *problem, const char *good)
 {
 	snprintf(row->line, sizeof(row->line), "%s: %s", name, problem ? problem : good);
-	snprintf(row->path, sizeof(row->path), "%s", path);
+	snprintf(row->place, sizeof(row->place), "%s", place);
 	row->good = problem == NULL;
+}
+
+/* Where the keys are looked for: beside the tool, then in .switch in the player's folder */
+static const char *keys_place(const nsp_inputs *inputs)
+{
+	if (tool.given.keys[0])
+		return inputs->keys;
+	if (strncmp(inputs->keys, tool.here, strlen(tool.here)) == 0)
+		return BESIDE_TOOL;
+	return nsp_file_exists(inputs->keys) ? "in .switch in your user folder"
+		: BESIDE_TOOL ", or in .switch in your user folder";
 }
 
 /* The inputs again (the player's, the defaults for the rest) and what each is now */
@@ -154,8 +169,8 @@ static void refresh(void)
 
 	*inputs = tool.given;
 	nsp_defaults(inputs, tool.here);
-	set_row(&tool.rows[0], "Console keys (prod.keys)", inputs->keys, nsp_keys_problem(inputs->keys), "found");
-	set_row(&tool.rows[1], "ROM set (sonic.zip: MAME's, Japan, rev. C)", inputs->rom,
+	set_row(&tool.rows[0], "Console keys (prod.keys)", keys_place(inputs), nsp_keys_problem(inputs->keys), "found");
+	set_row(&tool.rows[1], "ROM set (sonic.zip: MAME's, Japan, rev. C)", tool.given.rom[0] ? inputs->rom : BESIDE_TOOL,
 		nsp_file_exists(inputs->rom) || nsp_folder_exists(inputs->rom) ? NULL : "not found", "found");
 	if (inputs->icon[0])
 		set_row(&tool.rows[2], "HOME menu icon (a 256 x 256 JPEG)", inputs->icon, nsp_icon_problem(inputs->icon),
@@ -163,14 +178,16 @@ static void refresh(void)
 	else
 	{
 		snprintf(path, sizeof(path), "%s" SEPARATOR "icon.jpg", inputs->pieces);
-		set_row(&tool.rows[2], "HOME menu icon (a 256 x 256 JPEG)", path, nsp_icon_problem(path), "the game's own");
+		set_row(&tool.rows[2], "HOME menu icon (a 256 x 256 JPEG)", "in the game's Switch build",
+			nsp_icon_problem(path), "the game's own");
 	}
 	snprintf(path, sizeof(path), "%s" SEPARATOR "main", inputs->pieces);
-	set_row(&tool.rows[3], "The game's Switch build", inputs->pieces, nsp_file_exists(path) ? NULL : "not found",
-		"found");
+	set_row(&tool.rows[3], "The game's Switch build",
+		tool.given.pieces[0] ? inputs->pieces : "the folder switch, " BESIDE_TOOL,
+		nsp_file_exists(path) ? NULL : "not found", "found");
 	nsp_folder_of(inputs->out, path, sizeof(path));
-	set_row(&tool.rows[4], "Output folder", path, nsp_folder_exists(path) ? NULL : "not found",
-		"SegaSonic.nsp goes here");
+	set_row(&tool.rows[4], "Output folder", tool.given.out[0] ? path : BESIDE_TOOL,
+		nsp_folder_exists(path) ? NULL : "not found", "SegaSonic.nsp goes here");
 }
 
 /* ---- drawing ---- */
@@ -307,7 +324,7 @@ static void draw(void)
 	{
 		letters_draw(tool.renderer, &tool.font, tool.rows[row].line, y, 1, tool.rows[row].good ? yellow : red,
 			WINDOW_WIDTH);
-		letters_draw(tool.renderer, &tool.font, fitted(tool.rows[row].path, width, shorter, sizeof(shorter)),
+		letters_draw(tool.renderer, &tool.font, fitted(tool.rows[row].place, width, shorter, sizeof(shorter)),
 			y + LETTERS_CELL + LINE_GAP, 1, white, WINDOW_WIDTH);
 		y += ROW_HEIGHT;
 	}
@@ -327,7 +344,7 @@ static void draw(void)
 	{
 		snprintf(line, sizeof(line), "SegaSonic.nsp is written: %.1f MB", (double)tool.outcome.size / (1024.0 * 1024.0));
 		first = line;
-		second = tool.making.out;
+		second = tool.made_place;
 		colour = yellow;
 	}
 	else if (tool.phase == FAILED)
@@ -377,6 +394,8 @@ static void start_making(void)
 		return;
 	refresh();
 	tool.making = tool.inputs;
+	snprintf(tool.made_place, sizeof(tool.made_place), "%s",
+		tool.given.out[0] ? tool.making.out : NSP_FILE ", " BESIDE_TOOL);
 	memset(&tool.outcome, 0, sizeof(tool.outcome));
 	SDL_AtomicSetPtr(&tool.step, NULL);
 	SDL_AtomicSet(&tool.done, 0);
