@@ -3,7 +3,7 @@
  *    Description: loads the game's assets pack into the board's memory (game/data.h)
  *    Version:     0.1.0
  *    Created:     20-10-2026
- *    Modified:    20-10-2026
+ *    Modified:    25-10-2026
  *    Author:      Sebastian Toyos
  *
  *    license:BSD-3-Clause
@@ -98,22 +98,28 @@ static int read_entries(FILE *input, uint32_t entries)
 	return 1;
 }
 
-game_data_result game_data_load(const char *path)
+game_data_result game_data_read(FILE *input)
 {
-	FILE *input = fopen(path, "rb");
 	uint8_t head[12];
-	int read;
 	size_t region;
 
-	if (!input)
-		return GAME_DATA_MISSING;
 	for (region = 0; region < REGIONS; region++)
 		memset(regions[region], 0, region_sizes[region]);
-	read = fread(head, 1, sizeof(head), input) == sizeof(head) && memcmp(head, "SSAP", 4) == 0
-		&& little16(head + 4) == PACK_VERSION && read_entries(input, little32(head + 8));
-	fclose(input);
-	if (!read)
+	if (fread(head, 1, sizeof(head), input) != sizeof(head) || memcmp(head, "SSAP", 4) != 0
+		|| little16(head + 4) != PACK_VERSION || !read_entries(input, little32(head + 8)))
 		return GAME_DATA_DAMAGED;
 	game_data_mirror();
 	return GAME_DATA_LOADED;
+}
+
+game_data_result game_data_load(const char *path)
+{
+	FILE *input = fopen(path, "rb");
+	game_data_result result;
+
+	if (!input)
+		return GAME_DATA_MISSING;
+	result = game_data_read(input);
+	fclose(input);
+	return result;
 }

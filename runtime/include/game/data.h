@@ -3,7 +3,7 @@
  *    Description: the game's data in the board's memory, loaded from its assets pack
  *    Version:     0.2.0
  *    Created:     13-10-2026
- *    Modified:    20-10-2026
+ *    Modified:    25-10-2026
  *    Author:      Sebastian Toyos
  *
  *    license:BSD-3-Clause
@@ -17,6 +17,7 @@
 #define GAME_DATA_H
 
 #include <stdint.h>
+#include <stdio.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -41,6 +42,10 @@ typedef enum
 } game_data_result;
 
 game_data_result game_data_load(const char *path);
+
+/* The pack from a file already open at its start (Android's: in the APK, with no path of its own); the
+   caller closes it */
+game_data_result game_data_read(FILE *input);
 
 /* The board's mirrors of its chips: what the regions repeat where the board decodes the same chip again */
 void game_data_mirror(void);

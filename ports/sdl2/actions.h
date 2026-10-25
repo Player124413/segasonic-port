@@ -4,7 +4,7 @@
  *                 which are held and pressed this frame, and controls.ini
  *    Version:     0.1.0
  *    Created:     19-10-2026
- *    Modified:    20-10-2026
+ *    Modified:    25-10-2026
  *    Author:      Sebastian Toyos
  */
 #ifndef SEGASONIC_PORT_ACTIONS_H
@@ -52,6 +52,9 @@ uint32_t actions_player_pressed(int player);
 /* A player's keys and game controller buttons alone (one held), without the stick: for the board's own
    controls, which take the sticks apart */
 bool actions_holds(int player, SDL_GameController *pad, int action);
+
+/* Player 1's actions the touch screen holds now (touch.c), for actions_read to count with their keys */
+void actions_touch(uint32_t actions);
 
 /* What was pressed this frame counts no more (a key the CONTROLS screen just took for an action) */
 void actions_forget_pressed(void);

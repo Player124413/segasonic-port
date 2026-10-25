@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The launcher's icon from Android 8 on with a picture of the player's own: the picture (ic_launcher_art)
+     whole in the 72 dp of the 108 the launcher shows, its shape cutting the corners. SegaSonic APK puts its
+     bytes in ic_launcher.xml's place and the player's picture in ic_launcher_art's (ports/android/apk), as
+     android.cmake does with SEGASONIC_ANDROID_ICON -->
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+	<background>
+		<inset android:drawable="@mipmap/ic_launcher_art" android:inset="18dp" />
+	</background>
+	<foreground android:drawable="@android:color/transparent" />
+</adaptive-icon>

@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+	Name:        AndroidManifest.xml
+	Description: the Android app: SDL's activity (org.libsdl.app.SDLActivity, its Java from SDL's source)
+	             starting the game in libmain.so, on its side of the screen, full screen
+	Version:     0.1.0
+	Created:     25-10-2026
+	Modified:    25-10-2026
+	Author:      Sebastian Toyos
+
+	The version and the SDKs come from android.cmake (aapt2 link). A touch screen and a game controller are
+	both welcome and neither is needed (the touch screen's controls, or a Bluetooth or USB controller's).
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+	package="io.github.cheviman.segasonic"
+	android:installLocation="auto">
+
+	<uses-feature android:glEsVersion="0x00020000" />
+	<uses-feature android:name="android.hardware.touchscreen" android:required="false" />
+	<uses-feature android:name="android.hardware.gamepad" android:required="false" />
+	<uses-feature android:name="android.hardware.bluetooth" android:required="false" />
+	<uses-feature android:name="android.hardware.usb.host" android:required="false" />
+
+	<application
+		android:label="SegaSonic"
+		android:icon="@mipmap/ic_launcher"
+		android:allowBackup="true"
+		android:hardwareAccelerated="true"
+		android:isGame="true"
+		android:appCategory="game"
+		android:theme="@android:style/Theme.NoTitleBar.Fullscreen">
+		<activity
+			android:name="org.libsdl.app.SDLActivity"
+			android:label="SegaSonic"
+			android:alwaysRetainTaskState="true"
+			android:launchMode="singleInstance"
+			android:screenOrientation="sensorLandscape"
+			android:configChanges="layoutDirection|locale|orientation|uiMode|screenLayout|screenSize|smallestScreenSize|keyboard|keyboardHidden|navigation"
+			android:preferMinimalPostProcessing="true"
+			android:exported="true">
+			<intent-filter>
+				<action android:name="android.intent.action.MAIN" />
+				<category android:name="android.intent.category.LAUNCHER" />
+			</intent-filter>
+		</activity>
+	</application>
+</manifest>

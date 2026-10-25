@@ -4,7 +4,7 @@
  *                 this frame, and the file that keeps them (controls.ini)
  *    Version:     0.1.0
  *    Created:     19-10-2026
- *    Modified:    20-10-2026
+ *    Modified:    25-10-2026
  *    Author:      Sebastian Toyos
  *
  *    The defaults below; controls.ini, beside the executable, keeps what the console's CONTROLS screen
@@ -35,7 +35,11 @@ static const SDL_Scancode default_keys[ACTION_PLAYERS][ACTIONS][ACTION_KEYS] = {
 		[ACTION_UP] = { SDL_SCANCODE_UP, SDL_SCANCODE_W }, [ACTION_DOWN] = { SDL_SCANCODE_DOWN, SDL_SCANCODE_S },
 		[ACTION_LEFT] = { SDL_SCANCODE_LEFT, SDL_SCANCODE_A }, [ACTION_RIGHT] = { SDL_SCANCODE_RIGHT, SDL_SCANCODE_D },
 		[ACTION_ACCEPT] = { SDL_SCANCODE_RETURN, SDL_SCANCODE_KP_ENTER, SDL_SCANCODE_Z, SDL_SCANCODE_SPACE },
+#ifdef __ANDROID__
+		[ACTION_BACK] = { SDL_SCANCODE_ESCAPE, SDL_SCANCODE_BACKSPACE, SDL_SCANCODE_AC_BACK },    /* (its back) */
+#else
 		[ACTION_BACK] = { SDL_SCANCODE_ESCAPE, SDL_SCANCODE_BACKSPACE },
+#endif
 		[ACTION_START] = { SDL_SCANCODE_RETURN, SDL_SCANCODE_KP_ENTER, SDL_SCANCODE_P },
 		[ACTION_JUMP] = { SDL_SCANCODE_Z, SDL_SCANCODE_SPACE },
 	},
@@ -63,6 +67,7 @@ static const SDL_GameControllerButton default_buttons[ACTIONS] = {
 action_binding action_bindings[ACTION_PLAYERS][ACTIONS];
 
 static uint32_t held, pressed, player_held[ACTION_PLAYERS], player_pressed[ACTION_PLAYERS];
+static uint32_t touched;    /* player 1's actions the touch screen holds (actions_touch) */
 static char file_path[1024];
 
 static void set_defaults(int player)
@@ -122,12 +127,19 @@ void actions_read(SDL_GameController *const *controllers)
 			if (actions_holds(player, controllers[player], action)
 				|| (controllers[player] && stick_says(controllers[player], action)))
 				mine |= ACTION_BIT(action);
+		if (player == 0)
+			mine |= touched;
 		player_pressed[player] = mine & ~player_held[player];
 		player_held[player] = mine;
 		now |= mine;
 	}
 	pressed = now & ~held;
 	held = now;
+}
+
+void actions_touch(uint32_t actions)
+{
+	touched = actions;
 }
 
 void actions_forget_pressed(void)

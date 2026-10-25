@@ -4,15 +4,18 @@ Description: draws the executables' icon (ports/sdl2/icon/): a trackball, the ca
              speed lines on a blue plate; nothing of the game's
 Version:     0.1.0
 Created:     23-10-2026
-Modified:    23-10-2026
+Modified:    25-10-2026
 Author:      Sebastian Toyos
 
 Usage: python tools/make_icon.py
 
 The icon of SegaSonic.exe and SegaSonic Arcade.exe (segasonic.ico, through segasonic.rc), of their .apps on
 macOS (segasonic.icns) and of the Linux package (segasonic.png, 1024 x 1024, for a launcher of the
-desktop's), and of the Switch's .nro (ports/switch/icon.jpg, 256 x 256: the plate to the edges, which the
-HOME menu rounds itself). The game's own pictures are in the ROM, which no file of the project carries: SegaSonic's
+desktop's), of the Switch's .nro (ports/switch/icon.jpg, 256 x 256: the plate to the edges, which the
+HOME menu rounds itself) and of the Android app (ports/android/res/mipmap-xxxhdpi: an adaptive icon's two
+layers, the plate to the edges and the trackball in the middle 66 of its 108, which the launcher shapes and
+moves itself; the icon whole for the launchers before Android 8; and the picture the APK shows in a player's
+own picture's place until one is put there, ic_launcher_art.png, the plate to the edges). The game's own pictures are in the ROM, which no file of the project carries: SegaSonic's
 window, once the game has its assets, shows the characters' heads (console_window_icon); SDL gives
 SegaSonic Arcade's the executable's first icon. Drawn at twice the size and scaled down, so its edges are
 smooth.
@@ -25,6 +28,11 @@ from PIL import Image
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "ports" / "sdl2" / "icon"
 SWITCH = ROOT / "ports" / "switch" / "icon.jpg"
+ANDROID = ROOT / "ports" / "android" / "res" / "mipmap-xxxhdpi"
+ANDROID_ICON = 192              # (the launcher's icon at xxxhdpi: 48 dp)
+ANDROID_LAYER = 432             # (an adaptive icon's layer at xxxhdpi: 108 dp)
+ANDROID_SAFE = 66 / 108         # (the part of a layer every launcher's shape shows)
+ANDROID_ART = 288               # (a picture in what the launcher shows of a layer at xxxhdpi: 72 dp)
 SIZE = 1024
 SCALE = 2                       # (drawn at 2048, then scaled down)
 ICO_SIZES = [16, 24, 32, 48, 64, 128, 256]
@@ -65,8 +73,10 @@ def over(image, color, alpha):
     image[..., 3:] = image[..., 3:] * (1 - alpha) + alpha
 
 
-def draw(margin=48, radius=210):
-    """The icon; 'margin' and 'radius' are the plate's room around it and its corners' (0: to the edges)."""
+def draw(margin=48, radius=210, plate_shown=True, trackball_shown=True, trackball_scale=1.0):
+    """The icon; 'margin' and 'radius' are the plate's room around it and its corners' (0: to the edges).
+    Without the plate or without the trackball (its lines, its ring and its ball), the other alone on
+    nothing (an adaptive icon's layers), the trackball 'trackball_scale' times its size about the middle."""
     size = SIZE * SCALE
     unit = size / SIZE
     y, x = np.mgrid[0:size, 0:size].astype(np.float64) + 0.5
@@ -80,7 +90,16 @@ def draw(margin=48, radius=210):
     color = PLATE_TOP * (1 - shade[..., None]) + PLATE_BOTTOM * shade[..., None]
     sheen = np.clip(1 - np.hypot(x - 300, y - 180) / 700, 0, 1) ** 2 * 0.25    # (a soft light, top left)
     color = color + (255 - color) * sheen[..., None]
-    over(image, color, plate)
+    if plate_shown:
+        over(image, color, plate)
+    else:
+        plate = np.ones_like(plate)     # (the lines on nothing: whole)
+    if not trackball_shown:
+        image = Image.fromarray(np.clip(image * [1, 1, 1, 255], 0, 255).round().astype(np.uint8), "RGBA")
+        return image.resize((SIZE, SIZE), Image.LANCZOS)
+    x = (x - SIZE / 2) / trackball_scale + SIZE / 2    # (the trackball's own pixels, about the middle)
+    y = (y - SIZE / 2) / trackball_scale + SIZE / 2
+    pixel = pixel / trackball_scale
 
     # the speed lines, behind the ball, fading to the left
     cx, cy, ball, ring = 600.0, 560.0, 232.0, 292.0
@@ -131,6 +150,16 @@ def main():
     SWITCH.parent.mkdir(parents=True, exist_ok=True)
     draw(margin=0, radius=0).convert("RGB").resize((256, 256), Image.LANCZOS).save(SWITCH, quality=95)
     print(f"written: {SWITCH.relative_to(ROOT)}")
+    ANDROID.mkdir(parents=True, exist_ok=True)
+    icon.resize((ANDROID_ICON, ANDROID_ICON), Image.LANCZOS).save(ANDROID / "ic_launcher.png")
+    background = draw(margin=0, radius=0, trackball_shown=False).convert("RGB")
+    background.resize((ANDROID_LAYER, ANDROID_LAYER), Image.LANCZOS).save(ANDROID / "ic_launcher_background.png")
+    foreground = draw(plate_shown=False, trackball_scale=ANDROID_SAFE)
+    foreground.resize((ANDROID_LAYER, ANDROID_LAYER), Image.LANCZOS).save(ANDROID / "ic_launcher_foreground.png")
+    art = draw(margin=0, radius=0).convert("RGB")
+    art.resize((ANDROID_ART, ANDROID_ART), Image.LANCZOS).save(ANDROID / "ic_launcher_art.png")
+    print(f"written: ic_launcher.png, ic_launcher_background.png, ic_launcher_foreground.png, ic_launcher_art.png "
+          f"in {ANDROID.relative_to(ROOT)}")
 
 
 if __name__ == "__main__":

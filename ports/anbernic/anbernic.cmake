@@ -3,17 +3,17 @@
 #              game alone, as Roms/PORTS' SegaSonic.sh and its folder segasonic/
 # Version:     0.1.0
 # Created:     23-10-2026
-# Modified:    23-10-2026
+# Modified:    25-10-2026
 # Author:      Sebastian Toyos
 #
 # Included by CMakeLists.txt with SEGASONIC_ANBERNIC (and the toolchain zig_aarch64.cmake: aarch64, glibc
-# 2.35). The game is the console build with its picture and controls fixed (SEGASONIC_HANDHELD), and with the
-# firmware's SDL2: the executable is linked against a stand-in of its name (sdl2_stub.c) and SDL's headers
+# 2.35). The game is the console build with its picture and controls fixed (SEGASONIC_HANDHELD), the
+# handheld's MENU and volume keys (SEGASONIC_HANDHELD_KEYS), CONTROLS in OPTIONS, and with the firmware's SDL2: the executable is linked against a stand-in of its name (sdl2_stub.c) and SDL's headers
 # (SEGASONIC_SDL2_INCLUDE, by default the development package in build/downloads/sdl2). The handheld makes
 # nothing from the ROM set: its folder gets the assets pack this computer has (build/bin/segasonic.assets),
 # taken out of the player's ROM set here.
 
-target_compile_definitions(sonic_game_console PUBLIC SEGASONIC_HANDHELD SEGASONIC_CONTROLS_PAGE)
+target_compile_definitions(sonic_game_console PUBLIC SEGASONIC_HANDHELD SEGASONIC_HANDHELD_KEYS SEGASONIC_CONTROLS_PAGE)
 
 set(SEGASONIC_SDL2_INCLUDE "" CACHE PATH "SDL2's headers (the folder with SDL.h)")
 if(NOT SEGASONIC_SDL2_INCLUDE)

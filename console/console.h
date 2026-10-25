@@ -3,7 +3,7 @@
  *    Description: what the console build tells the port
  *    Version:     0.1.0
  *    Created:     19-10-2026
- *    Modified:    19-10-2026
+ *    Modified:    25-10-2026
  *    Author:      Sebastian Toyos
  */
 #ifndef SEGASONIC_CONSOLE_H
@@ -112,7 +112,19 @@ void console_debug_section(int step);
    continue, the stage clear, nor the attract mode's demos): start pauses it */
 bool console_in_game(void);
 
-/* "PAUSE" on the text layer's top (shown), or the cells it covered back as they were */
+/* "PAUSE" on the text layer's top (shown), or the cells it covered back as they were; with
+   SEGASONIC_PAUSE_EXIT (Android's) its choices too, CONTINUE and EXIT, in the text layer's rows
+   CONSOLE_PAUSE_MENU_ROW and two under it */
 void console_pause_text(bool shown);
+
+#ifdef SEGASONIC_PAUSE_EXIT
+#define CONSOLE_PAUSE_ITEMS     2
+#define CONSOLE_PAUSE_CONTINUE  0
+#define CONSOLE_PAUSE_EXIT      1
+#define CONSOLE_PAUSE_MENU_ROW  12u    /* (of 28: the screen's middle) */
+
+/* The pause's choice in yellow from the next console_pause_text(true) */
+void console_pause_choice(int choice);
+#endif
 
 #endif

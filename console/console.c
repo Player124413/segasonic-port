@@ -4,7 +4,7 @@
  *                 sound, no coins, PRESS START on the title and a menu over it
  *    Version:     0.1.0
  *    Created:     19-10-2026
- *    Modified:    23-10-2026
+ *    Modified:    25-10-2026
  *    Author:      Sebastian Toyos
  *
  *    The game's C (src/) stays as the decompilation wrote it. A function listed in console/replaced.txt is
@@ -2896,6 +2896,12 @@ void join_character_chooser_update(uint32_t text_x)
 #define PAUSE_ROW          2u
 
 static uint16_t pause_saved[40];
+#ifdef SEGASONIC_PAUSE_EXIT
+/* (Android's: the pause's choices, CONTINUE and EXIT, a row apart in the screen's middle) */
+static const char *const pause_items[CONSOLE_PAUSE_ITEMS] = { "CONTINUE", "EXIT" };
+static uint16_t pause_menu_saved[CONSOLE_PAUSE_ITEMS][40];
+static int pause_choice;
+#endif
 
 void console_actions(uint32_t pressed, uint32_t held)
 {
@@ -2997,17 +3003,43 @@ bool console_in_game(void)
 void console_pause_text(bool shown)
 {
 	uint32_t column;
+#ifdef SEGASONIC_PAUSE_EXIT
+	int item;
+#endif
 
 	if (shown)
 	{
 		for (column = 0; column < 40u; column++)
 			pause_saved[column] = mem_read16(TEXT_CELL(column, PAUSE_ROW));
 		write_centered(PAUSE_ROW, "PAUSE", MENU_CHOSEN);
+#ifdef SEGASONIC_PAUSE_EXIT
+		for (item = 0; item < CONSOLE_PAUSE_ITEMS; item++)
+		{
+			const uint32_t row = CONSOLE_PAUSE_MENU_ROW + 2u * (uint32_t)item;
+
+			for (column = 0; column < 40u; column++)
+				pause_menu_saved[item][column] = mem_read16(TEXT_CELL(column, row));
+			write_centered(row, pause_items[item], item == pause_choice ? MENU_CHOSEN : MENU_TEXT);
+		}
+#endif
 		return;
 	}
 	for (column = 0; column < 40u; column++)
 		mem_write16(TEXT_CELL(column, PAUSE_ROW), pause_saved[column]);
+#ifdef SEGASONIC_PAUSE_EXIT
+	for (item = 0; item < CONSOLE_PAUSE_ITEMS; item++)
+		for (column = 0; column < 40u; column++)
+			mem_write16(TEXT_CELL(column, CONSOLE_PAUSE_MENU_ROW + 2u * (uint32_t)item),
+				pause_menu_saved[item][column]);
+#endif
 }
+
+#ifdef SEGASONIC_PAUSE_EXIT
+void console_pause_choice(int choice)
+{
+	pause_choice = choice;
+}
+#endif
 
 bool console_quit_requested(void)
 {

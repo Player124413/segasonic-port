@@ -91,7 +91,7 @@ endif()
 # The Switch's .nsp, made on the player's computer (ports/switch/nsp): the game's Switch build (main,
 # main.npdm, control.nacp, icon.jpg), the assets of the player's ROM set and the keys of the player's console.
 # A command line; with SDL2 also a window (below, with the game's window)
-if(NOT (NINTENDO_SWITCH OR CMAKE_SYSTEM_NAME STREQUAL "NintendoSwitch"))
+if(NOT (NINTENDO_SWITCH OR CMAKE_SYSTEM_NAME STREQUAL "NintendoSwitch") AND NOT ANDROID)
 	add_executable(segasonic_nsp ports/switch/nsp/main.c ports/switch/nsp/make_nsp.c ports/switch/nsp/formats.c
 		ports/switch/nsp/crypto.c)
 	target_link_libraries(segasonic_nsp PRIVATE sonic_data)
@@ -163,6 +163,13 @@ if(SONIC_DECOMPILED)
 	# (ports/switch/switch.cmake); nothing of what follows
 	if(NINTENDO_SWITCH OR CMAKE_SYSTEM_NAME STREQUAL "NintendoSwitch")
 		include(ports/switch/switch.cmake)
+		return()
+	endif()
+
+	# Android (the NDK's toolchain): the console game alone, as libmain.so in its APK
+	# (ports/android/android.cmake)
+	if(ANDROID)
+		include(ports/android/android.cmake)
 		return()
 	endif()
 

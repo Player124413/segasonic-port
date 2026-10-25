@@ -4,7 +4,7 @@
  *                 the pace, around the same game and board the headless runs check
  *    Version:     0.1.0
  *    Created:     13-10-2026
- *    Modified:    23-10-2026
+ *    Modified:    25-10-2026
  *    Author:      Sebastian Toyos
  *
  *    license:BSD-3-Clause
@@ -15,7 +15,10 @@
  *    What it writes goes beside it on Windows, elsewhere to the user's folder for the game (saves_folder).
  *    With no pack there the first run makes one from the player's ROM set (first_run.c). On the Nintendo
  *    Switch (SegaSonic.nro, SEGASONIC_HANDHELD) what comes with the game is in the .nro's romfs and what it
- *    writes, the pack too, in /switch/segasonic/ on the SD card; the picture is fixed (fix_settings).
+ *    writes, the pack too, in /switch/segasonic/ on the SD card; the picture is fixed (fix_settings). On
+ *    Android (libmain.so in the APK, SEGASONIC_HANDHELD and SEGASONIC_TOUCH) the pack and the letters come
+ *    in the APK's assets, what it writes goes to the app's own folder and the touch screen has its
+ *    controls (touch.c).
  *
  *    The game (src/) and the board (runtime/) run as they are: this file only wraps them. Where the board
  *    has its hooks, the port does its part: when VBLANK starts the video draws the frame and the port puts
@@ -51,6 +54,9 @@
 #include "sound/chips.h"
 
 #include "settings.h"
+#ifdef SEGASONIC_TOUCH
+#include "touch.h"
+#endif
 #ifdef SEGASONIC_CONSOLE
 #include "console.h"
 #include "actions.h"
@@ -84,9 +90,9 @@ static bool mouse_click_taken;      /* that click, until its buttons are let go 
 #include <unistd.h>        /* fsync: the log on the card as it is written */
 #endif
 #ifdef SEGASONIC_HANDHELD
-#define HANDHELD_MENU_BUTTON 8    /* the joystick button that leaves the game: the RG40XX H's MENU */
 static void log_written(void);
-#ifndef __SWITCH__
+#ifdef SEGASONIC_HANDHELD_KEYS
+#define HANDHELD_MENU_BUTTON 8    /* the joystick button that leaves the game: the RG40XX H's MENU */
 static bool settings_unsaved;    /* the volume keys turned the volume */
 static void handheld_event(const SDL_Event *event);
 static void save_handheld_settings(void);
@@ -286,6 +292,10 @@ static void make_crt_overlay(int width, int height)
 	SDL_SetTextureBlendMode(crt_overlay, SDL_BLENDMODE_MOD);
 }
 
+#ifdef SEGASONIC_PAUSE_EXIT
+static SDL_Rect picture_shown;    /* where the last frame was on the screen */
+#endif
+
 static void present(const uint32_t *pixels, int width)
 {
 	SDL_Rect source = { 0, 0, width, S32_VIDEO_HEIGHT };
@@ -345,6 +355,12 @@ static void present(const uint32_t *pixels, int width)
 		SDL_RenderClear(renderer);
 		SDL_RenderCopy(renderer, texture, &source, &shown);
 	}
+#ifdef SEGASONIC_TOUCH
+	touch_draw(renderer);    /* (over the picture: the touch screen's controls) */
+#endif
+#ifdef SEGASONIC_PAUSE_EXIT
+	picture_shown = shown;    /* (the pause's choices under a finger: pause_item_at) */
+#endif
 	SDL_RenderPresent(renderer);
 }
 
@@ -633,13 +649,13 @@ static void tell_console_settings(void)
 #endif
 
 #ifdef SEGASONIC_HANDHELD
-/* A game device's build (the Switch's): one screen and the device's own controls, so the picture is fixed,
-   WIDE, the whole screen and smooth pixels, whatever segasonic.ini says; OPTIONS has no VIDEO or CONTROLS
-   page (console.c) */
+/* A game device's build (the Switch's, a handheld's, Android's): one screen and the device's own controls, so
+   the picture is fixed, the whole screen and smooth pixels, whatever segasonic.ini says; OPTIONS has no
+   VIDEO page (console.c) */
 static void fix_settings(void)
 {
 #ifdef SEGASONIC_SCREEN_WIDE
-	settings.wide = true;     /* (a 16:9 screen: the Switch's) */
+	settings.wide = true;     /* (a 16:9 screen: the Switch's; a phone's, wider) */
 #else
 	settings.wide = false;    /* (a 4:3 one: the game's own picture, twice its size on a handheld's 640 x 480) */
 #endif
@@ -676,19 +692,39 @@ static void apply_settings(void)
 #endif
 }
 
+#ifdef __ANDROID__
+/* Android's own: the fingers on the touch controls; the game going to the background, where Android may
+   end it, so what it keeps is written then */
+static void android_event(const SDL_Event *event)
+{
+	touch_event(event);
+	if (event->type == SDL_APP_WILLENTERBACKGROUND)
+		save_eeprom();
+}
+#endif
+
 static void read_events(void)
 {
 	SDL_Event event;
 
 	while (SDL_PollEvent(&event))
 	{
-#if defined(SEGASONIC_HANDHELD) && !defined(__SWITCH__)
+#ifdef SEGASONIC_HANDHELD_KEYS
 		handheld_event(&event);
+#endif
+#ifdef __ANDROID__
+		android_event(&event);
 #endif
 		switch (event.type)
 		{
 			case SDL_QUIT:
 				longjmp(finished, 1);
+#if defined(__ANDROID__) && defined(SEGASONIC_CONSOLE)
+			case SDL_APP_WILLENTERBACKGROUND:
+				if (console_in_game())
+					pause_requested = true;    /* (back in the game: it waits, paused) */
+				break;
+#endif
 			case SDL_MOUSEMOTION:
 #ifdef SEGASONIC_CONSOLE
 				if (!mouse_held)
@@ -812,6 +848,9 @@ static void on_controls_update(void)
 	   their button. Start is their start, but in a stage start and back pause it, unless the player's start
 	   prompt is up (to join, or a continue's count); back elsewhere goes back (the title's menu, OPTIONS:
 	   Escape never closes the console's window) */
+#ifdef SEGASONIC_TOUCH
+	actions_touch(touch_held());
+#endif
 	actions_read(controllers);
 	if (console_controls_defaults())
 		actions_defaults(console_controls_player());
@@ -834,6 +873,17 @@ static void on_controls_update(void)
 		else if (actions_player_pressed(player) & PAUSE_ACTIONS)
 			pause_requested = true;
 	}
+#ifdef SEGASONIC_TOUCH
+	{
+		/* the touch screen's stick rolls player 1's trackball as a game controller's left stick, its A jumps */
+		int lean_x, lean_y;
+
+		touch_stick(&lean_x, &lean_y);
+		controls.roll_x[0] -= (int)lround((double)lean_x / TOUCH_STICK_FULL * settings.stick_roll);
+		controls.roll_y[0] += (int)lround((double)lean_y / TOUCH_STICK_FULL * settings.stick_roll);
+		controls.button[0] |= (touch_held() & ACTION_BIT(ACTION_JUMP)) != 0;
+	}
+#endif
 	controls.button[0] |= (mouse & SDL_BUTTON_LMASK) != 0;
 	if (!console_in_game() && (actions_pressed() & ACTION_BIT(ACTION_BACK)))
 		console_back();
@@ -984,23 +1034,52 @@ static void draw_pause_picture(int *width)
 	draw_frame();
 }
 
+#ifdef SEGASONIC_PAUSE_EXIT
+/* The pause's choice under a finger at (x, y) (SDL's, 0 to 1 across the screen), or -1: a choice's row and
+   half a row over and under it, across the picture's middle half */
+static int pause_item_at(float x, float y)
+{
+	int out_width = 0, out_height = 0;
+	double column, row;
+
+	SDL_GetRendererOutputSize(renderer, &out_width, &out_height);
+	if (picture_shown.w <= 0 || picture_shown.h <= 0)
+		return -1;
+	column = (x * out_width - picture_shown.x) / picture_shown.w;
+	row = (y * out_height - picture_shown.y) / picture_shown.h * S32_VIDEO_HEIGHT / 8.0;
+	if (column < 0.25 || column > 0.75)
+		return -1;
+	for (int item = 0; item < CONSOLE_PAUSE_ITEMS; item++)
+		if (fabs(row - (CONSOLE_PAUSE_MENU_ROW + 2.0 * item + 0.5)) <= 1.0)
+			return item;
+	return -1;
+}
+#endif
+
 /* The actions start or back in a stage: the game stops, its sound too, until one of them is pressed
    again. The mouse is the pointer again (the window's close button, another window), until a click in
-   the window takes it back */
+   the window takes it back. Android's (SEGASONIC_PAUSE_EXIT) has its choices: CONTINUE, or EXIT, which
+   ends the game as the title's EXIT does elsewhere */
 static void run_pause(void)
 {
 	int width;
 	SDL_Event event;
 	bool paused = true;
+#ifdef SEGASONIC_PAUSE_EXIT
+	int choice = CONSOLE_PAUSE_CONTINUE, picked = -1;
+#endif
 
 	pause_requested = false;
-#if defined(SEGASONIC_HANDHELD) && !defined(__SWITCH__)
+#ifdef SEGASONIC_HANDHELD_KEYS
 	save_handheld_settings();
 #endif
 	mouse_held = false;    /* (a click takes it again) */
 	SDL_SetRelativeMouseMode(SDL_FALSE);
 	if (audio)
 		SDL_PauseAudioDevice(audio, 1);
+#ifdef SEGASONIC_PAUSE_EXIT
+	console_pause_choice(choice);
+#endif
 	draw_pause_picture(&width);
 	present(pause_picture, width);
 	while (paused)
@@ -1009,8 +1088,11 @@ static void run_pause(void)
 		{
 			if (event.type == SDL_QUIT)
 				longjmp(finished, 1);
-#if defined(SEGASONIC_HANDHELD) && !defined(__SWITCH__)
+#ifdef SEGASONIC_HANDHELD_KEYS
 			handheld_event(&event);
+#endif
+#ifdef __ANDROID__
+			android_event(&event);
 #endif
 			if (event.type == SDL_KEYDOWN && !event.key.repeat && (event.key.keysym.sym == SDLK_F11
 				|| (event.key.keysym.sym == SDLK_RETURN && (event.key.keysym.mod & KMOD_ALT))))
@@ -1020,10 +1102,38 @@ static void run_pause(void)
 			}
 			if (event.type == SDL_WINDOWEVENT)
 				present(pause_picture, width);
+#ifdef SEGASONIC_TOUCH
+			if (event.type == SDL_FINGERDOWN || event.type == SDL_FINGERUP)
+				present(pause_picture, width);    /* (START lit while a finger is on it) */
+#endif
+#ifdef SEGASONIC_PAUSE_EXIT
+			if (event.type == SDL_FINGERDOWN && pause_item_at(event.tfinger.x, event.tfinger.y) >= 0)
+				picked = pause_item_at(event.tfinger.x, event.tfinger.y);    /* (a choice touched: picked) */
+#endif
 		}
+#ifdef SEGASONIC_TOUCH
+		actions_touch(touch_held());
+#endif
 		actions_read(controllers);
 		if (actions_pressed() & PAUSE_ACTIONS)
 			paused = false;
+#ifdef SEGASONIC_PAUSE_EXIT
+		/* up and down move to a choice, accept picks it; CONTINUE goes on once the button that picked it is let
+		   go (held into the stage, it would jump) */
+		if (actions_pressed() & (ACTION_BIT(ACTION_UP) | ACTION_BIT(ACTION_DOWN)))
+		{
+			choice = (actions_pressed() & ACTION_BIT(ACTION_UP)) ? CONSOLE_PAUSE_CONTINUE : CONSOLE_PAUSE_EXIT;
+			console_pause_choice(choice);
+			draw_pause_picture(&width);
+			present(pause_picture, width);
+		}
+		if (picked < 0 && (actions_pressed() & ACTION_BIT(ACTION_ACCEPT)))
+			picked = choice;
+		if (picked == CONSOLE_PAUSE_EXIT)
+			longjmp(finished, 1);
+		if (picked == CONSOLE_PAUSE_CONTINUE && !(actions_held() & ACTION_BIT(ACTION_ACCEPT)))
+			paused = false;
+#endif
 		SDL_Delay(16);
 	}
 	if (audio)
@@ -1093,7 +1203,7 @@ static void add_device_mappings(void)
 	SDL_SetHint(SDL_HINT_GAMECONTROLLERCONFIG, mappings);
 }
 
-#ifndef __SWITCH__
+#ifdef SEGASONIC_HANDHELD_KEYS
 /* A handheld's own keys, as its firmware's games have them: MENU leaves the game (the joystick's own button,
    whatever the mapping makes of the rest; the Switch's HOME leaves it there), the volume keys turn the
    game's volume (OPTIONS' VOLUME), a step of ten a press. They come as keys or as joystick buttons the
@@ -1154,6 +1264,9 @@ static void log_device(void)
 		fprintf(stderr, "joystick %d: %s, %s, %s\n", index, SDL_JoystickNameForIndex(index), guid,
 			SDL_IsGameController(index) ? "a game controller" : "no game controller mapping");
 	}
+#ifdef SEGASONIC_TOUCH
+	fprintf(stderr, "touch screens: %d\n", SDL_GetNumTouchDevices());
+#endif
 	log_written();
 }
 
@@ -1264,6 +1377,8 @@ static char *saves_folder(void)
 #elif defined(__SWITCH__)
 	mkdir(SWITCH_FOLDER, 0777);
 	return SDL_strdup(SWITCH_FOLDER "/");
+#elif defined(__ANDROID__)
+	return SDL_GetPrefPath("", "SegaSonic");    /* (the app's own folder, its internal storage) */
 #elif defined(SEGASONIC_HANDHELD)
 	return SDL_GetBasePath();    /* (a handheld's: the game's folder on its card) */
 #else
@@ -1271,10 +1386,47 @@ static char *saves_folder(void)
 #endif
 }
 
-/* The assets pack: beside the executable, else in the folder of what the game keeps */
+#ifdef __ANDROID__
+/* The pack in the APK's assets (a relative path to SDL's files there) as a FILE (funopen's), as the pack
+   on a computer is read */
+static int read_packed(void *packed, char *buffer, int size)
+{
+	return (int)SDL_RWread((SDL_RWops *)packed, buffer, 1, (size_t)size);
+}
+
+static fpos_t seek_packed(void *packed, fpos_t offset, int whence)
+{
+	return (fpos_t)SDL_RWseek((SDL_RWops *)packed, (Sint64)offset, whence);    /* (RW_SEEK_* are SEEK_*) */
+}
+
+static int close_packed(void *packed)
+{
+	return SDL_RWclose((SDL_RWops *)packed);
+}
+#endif
+
+/* The assets pack: beside the executable, else in the folder of what the game keeps (Android's: in the
+   APK) */
 static game_data_result load_assets(const char *base, const char *saves, char *path, size_t size)
 {
 	game_data_result result;
+#ifdef __ANDROID__
+	SDL_RWops *packed = SDL_RWFromFile(ASSETS_FILE, "rb");
+	FILE *input = packed ? funopen(packed, read_packed, NULL, seek_packed, close_packed) : NULL;
+
+	(void)base;
+	(void)saves;
+	snprintf(path, size, "assets/" ASSETS_FILE);
+	if (!input)
+	{
+		if (packed)
+			SDL_RWclose(packed);
+		return GAME_DATA_MISSING;
+	}
+	result = game_data_read(input);
+	fclose(input);    /* (the asset too: close_packed) */
+	return result;
+#else
 
 	snprintf(path, size, "%s" ASSETS_FILE, base ? base : "");
 	result = game_data_load(path);
@@ -1282,6 +1434,7 @@ static game_data_result load_assets(const char *base, const char *saves, char *p
 		return result;
 	snprintf(path, size, "%s" ASSETS_FILE, saves);
 	return game_data_load(path);
+#endif
 }
 
 int main(int argc, char **argv)
@@ -1300,6 +1453,22 @@ int main(int argc, char **argv)
 	mkdir(SWITCH_FOLDER, 0777);
 	freopen(SWITCH_FOLDER "/segasonic.log", "w", stderr);
 	fprintf(stderr, "SegaSonic: starting\n");
+#endif
+#ifdef __ANDROID__
+	/* (what the game says goes to segasonic.log in the app's folder on the storage, Android/data/<the
+	   app>/files: stderr goes nowhere there) */
+	if (SDL_AndroidGetExternalStoragePath())
+	{
+		char log_path[1024];
+
+		snprintf(log_path, sizeof(log_path), "%s/segasonic.log", SDL_AndroidGetExternalStoragePath());
+		freopen(log_path, "w", stderr);
+	}
+	fprintf(stderr, "SegaSonic: starting\n");
+	SDL_SetHint(SDL_HINT_ANDROID_TRAP_BACK_BUTTON, "1");    /* (back is the menus' back, actions.c, never the end) */
+	SDL_SetHint(SDL_HINT_TOUCH_MOUSE_EVENTS, "0");          /* (fingers are the touch controls, not the mouse) */
+	SDL_SetHint(SDL_HINT_ACCELEROMETER_AS_JOYSTICK, "0");
+	SDL_SetHint(SDL_HINT_ORIENTATIONS, "LandscapeLeft LandscapeRight");
 #endif
 #ifdef SEGASONIC_HANDHELD
 	add_device_mappings();
@@ -1352,8 +1521,6 @@ int main(int argc, char **argv)
 	default:
 		return fail("The game's assets cannot be read.", assets_path);
 	}
-	SDL_free(base);
-	SDL_free(saves);
 	settings_open(settings_path);
 #ifdef SEGASONIC_HANDHELD
 	fix_settings();
@@ -1403,6 +1570,11 @@ int main(int argc, char **argv)
 	if (!texture)
 		return fail("The window could not be opened.", SDL_GetError());
 	fprintf(stderr, "window: %d x %d\n", picture_width(), S32_VIDEO_HEIGHT);
+#ifdef SEGASONIC_TOUCH
+	touch_open(renderer, base ? base : "");    /* (its letters come with the game: Android's in the APK) */
+#endif
+	SDL_free(base);
+	SDL_free(saves);
 #ifdef SEGASONIC_HANDHELD
 	log_device();
 #endif
@@ -1455,7 +1627,7 @@ int main(int argc, char **argv)
 		program_run();
 
 	save_eeprom();
-#if defined(SEGASONIC_HANDHELD) && !defined(__SWITCH__)
+#ifdef SEGASONIC_HANDHELD_KEYS
 	save_handheld_settings();
 	fflush(stderr);
 #endif
@@ -1464,6 +1636,9 @@ int main(int argc, char **argv)
 	SDL_Quit();
 #ifdef __SWITCH__
 	romfsExit();
+#endif
+#ifdef __ANDROID__
+	exit(0);    /* (the app's process ends with the game: Android would start the next one in it, as this one left it) */
 #endif
 	return 0;
 }

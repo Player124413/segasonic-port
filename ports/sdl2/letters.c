@@ -3,7 +3,7 @@
  *    Description: the window's own letters: Kenney Mini (font.bmp) loaded and drawn with SDL
  *    Version:     0.1.0
  *    Created:     23-10-2026
- *    Modified:    23-10-2026
+ *    Modified:    25-10-2026
  *    Author:      Sebastian Toyos
  *
  *    license:BSD-3-Clause
@@ -69,11 +69,10 @@ static int text_width(const letters *font, const char *text, int scale)
 	return width > 0 ? width - FONT_SPACING * scale : 0;
 }
 
-void letters_draw(SDL_Renderer *renderer, const letters *font, const char *text, int y, int scale, SDL_Color colour,
-	int width)
+/* The line with its left at x */
+static void draw_from(SDL_Renderer *renderer, const letters *font, const char *text, int x, int y, int scale,
+	SDL_Color colour)
 {
-	int x = (width - text_width(font, text, scale)) / 2;
-
 	SDL_SetTextureColorMod(font->sheet, colour.r, colour.g, colour.b);
 	for (; *text; text++)
 	{
@@ -95,4 +94,16 @@ void letters_draw(SDL_Renderer *renderer, const letters *font, const char *text,
 			SDL_RenderCopy(renderer, font->sheet, &from, &to);
 		x += (font->widths[index] + FONT_SPACING) * scale;
 	}
+}
+
+void letters_draw(SDL_Renderer *renderer, const letters *font, const char *text, int y, int scale, SDL_Color colour,
+	int width)
+{
+	draw_from(renderer, font, text, (width - text_width(font, text, scale)) / 2, y, scale, colour);
+}
+
+void letters_draw_at(SDL_Renderer *renderer, const letters *font, const char *text, int centre_x, int y, int scale,
+	SDL_Color colour)
+{
+	draw_from(renderer, font, text, centre_x - text_width(font, text, scale) / 2, y, scale, colour);
 }
