@@ -1,8 +1,8 @@
 # SegaSonic The Hedgehog — native port
 
 Sega's 1993 arcade game *SegaSonic The Hedgehog* (Sega System 32) as a native game for Windows, Linux and
-macOS, and, made on your computer, for the Nintendo Switch and Android (Anbernic's handhelds too, built from
-the source): not an emulator, but the game's own program decompiled into C
+macOS, and, with its assets made on your computer, for the Nintendo Switch, Android and Anbernic's handhelds:
+not an emulator, but the game's own program decompiled into C
 ([segasonic-decomp](https://github.com/cheviman/segasonic-decomp)) and built for each system, with a console
 version made for playing at home beside the arcade one.
 
@@ -27,7 +27,8 @@ executable carries the ROM or anything from it.
 ### Download
 
 The [latest release](https://github.com/cheviman/segasonic-port/releases/latest) has a package for
-**Windows** (x64), **Linux** (x64) and **macOS** (Apple silicon and Intel, one app); every change to the
+**Windows** (x64), **Linux** (x64) and **macOS** (Apple silicon and Intel, one app), and one for **Anbernic's
+H700 handhelds**; every change to the
 code is built the same way by [GitHub Actions](https://github.com/cheviman/segasonic-port/actions), whose
 runs keep the packages as artifacts. Unpack it anywhere:
 
@@ -36,6 +37,7 @@ runs keep the packages as artifacts. Unpack it anywhere:
 | Windows `segasonic-windows-x64.zip` | `SegaSonic.exe` (the console version), `SegaSonic Arcade.exe` (the arcade one), and the pictures the window draws its letters and controls with; `SegaSonic NSP.exe` and `SegaSonic APK.exe`, which make the Switch's and Android's games, with the game's Switch and Android builds beside them (`switch/`, `android/`) |
 | Linux `segasonic-linux-x64.tar.gz` | `SegaSonic`, `SegaSonic Arcade`, the same pictures, and `SegaSonic NSP` and `SegaSonic APK` with `switch/` and `android/` |
 | macOS `segasonic-macos-universal.zip` | `SegaSonic.app` and `SegaSonic Arcade.app`, and `SegaSonic NSP` and `SegaSonic APK` with `switch/` and `android/` |
+| Anbernic `segasonic-anbernic.zip` | `PORTS/`, the folder for the handheld's `Roms/`: `SegaSonic.sh` and the game in `segasonic/`, where your `segasonic.assets` goes (below) |
 
 Each has a `README.txt` that says which game is which, and the licenses of what the executables contain
 (`LICENSE.txt`, `licenses/`). SDL2 and the C runtime
@@ -178,9 +180,19 @@ in the menus. The pause has CONTINUE and EXIT. More in [ports/android/README.md]
 
 ### Anbernic handhelds
 
-Anbernic's H700 handhelds (checked on the RG40XX H, stock firmware): a folder for `Roms/PORTS` with the game
-and your assets pack, built with Zig. 4:3, 60 frames a second on four cores, MENU leaves it, the volume keys
-work. See [ports/anbernic/README.md](ports/anbernic/README.md).
+The console version for the stock firmware of Anbernic's H700 handhelds (played on the RG40XX H; the RG35XX
+Plus, RG40XX V and RG CubeXX should run it too), in `segasonic-anbernic.zip`. The handheld makes nothing from
+the ROM set: the game's folder takes the assets pack your computer made.
+
+1. Play `SegaSonic` on your computer once with your `sonic.zip`: its first run writes `segasonic.assets`
+   (where the game keeps its files, above).
+2. Put `segasonic.assets` in the package's `PORTS/segasonic/`, beside `SegaSonic`. It is yours alone:
+   **never share it**.
+3. Copy `PORTS` into `Roms/` on the handheld's card: SegaSonic is in the firmware's PORTS.
+
+On the handheld the picture is 4:3 at 60 frames a second; the d-pad or the left stick move, A jumps and picks,
+B goes back in the menus, START starts and pauses, MENU leaves the game and the volume keys turn its volume;
+OPTIONS → CONTROLS changes the buttons. More in [ports/anbernic/README.md](ports/anbernic/README.md).
 
 ## Building
 
@@ -264,7 +276,7 @@ ports/anbernic/         Anbernic's H700 handhelds: the build with Zig (zig_aarch
 runtime/src/workers.c   the video's rows on several threads, as the game devices draw it
 tools/make_screenshots.py  the screenshots above
 .github/workflows/      the builds and packages for Windows, Linux and macOS, with the Switch's and
-                        Android's builds in them
+                        Android's builds in them, and Anbernic's package
 ```
 
 ## Credits

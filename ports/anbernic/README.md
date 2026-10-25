@@ -19,6 +19,13 @@ What the game writes (its settings, the EEPROM, TIME ATTACK's times) goes to its
 `segasonic.log`: what SDL found (its version, video and audio, the screen, the controls) and every 5
 seconds the frames a second.
 
+## Installing (for players)
+
+Each release has `segasonic-anbernic.zip`, the folder `PORTS` without an assets pack (the CI builds it as
+below, `.github/workflows/build.yml`): play `SegaSonic` on your computer once with your `sonic.zip`, put the
+`segasonic.assets` its first run writes in `PORTS/segasonic/`, and copy `PORTS` into `Roms/` on the
+handheld's card. The package's `README.txt` says the same, and where the computer keeps the pack.
+
 ## Building
 
 On Windows, Linux or macOS, with [Zig](https://ziglang.org) as the compiler for the handheld: it builds C for

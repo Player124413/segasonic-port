@@ -99,8 +99,8 @@ Done 21-10-2026:
   tools/make_screenshots.py on segasonic_console_headless, whose --actions presses the console's actions.
 
 Next (in this order unless Sebas says otherwise):
-1. macOS played by someone with a Mac: the CI's segasonic-macos-universal (unsigned: right click → Open, or
-   Open Anyway), the first run with sonic.zip beside the .app and dropped on the window, WIDE, a controller.
+1. Done (25 October): macOS played on a Mac, the release's segasonic-macos-universal (unsigned: right click
+   → Open, or Open Anyway): Sebas approved it.
 2. Quiver Launcher: v1.1.0 is the release it shows (a tag v* makes the release from the CI's packages, its
    notes in docs/releases/; the packages carry their licenses, the C runtime on Windows, the .apps signed ad
    hoc, the icon of ours). Sebas submits it (its account), declared mostly AI-generated, with a description
@@ -116,7 +116,8 @@ Next (in this order unless Sebas says otherwise):
    controls (a stick, A, START) or a game controller, CONTINUE and EXIT in the pause; played on Sebas's
    phone (ports/android/README.md). Both tools have a window. Released as v1.2.0. Next for them: the Switch
    on a console, the 4:3 picture 8 lines taller at each side (no bars on 640 x 480), the sound on a thread
-   of its own, an Anbernic package from the CI.
+   of its own. Anbernic's package comes from the CI too (segasonic-anbernic.zip, the player adds the assets
+   pack).
 5. Achievements: our own, defined on the game's memory as RetroAchievements does (the work RAM is the
    original's, byte for byte); RetroAchievements itself only runs in the emulators it approves.
 6. The bitmap layer in the ice and tower stages' dark parts: the original leaves it on, 8 bits a pixel, over
