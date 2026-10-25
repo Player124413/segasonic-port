@@ -5,7 +5,7 @@
  *                 format tools/reference/s32ref uses
  *    Version:     0.1.0
  *    Created:     11-10-2026
- *    Modified:    23-10-2026
+ *    Modified:    25-10-2026
  *    Author:      Sebastian Toyos
  *
  *    license:BSD-3-Clause
@@ -27,7 +27,8 @@
  *    the environment draws the video's rows on N threads beside this one (runtime/src/workers.c), as the
  *    ports do: the frames are the same, which the checks show.
  *    --actions (the console build) presses the console's actions in the frames a file names, as the window
- *    port's keys do: the menus, OPTIONS, the map (tools/make_screenshots.py).
+ *    port's keys do: the menus, OPTIONS, the map (tools/make_screenshots.py); and section+ and section-, the
+ *    window's F8 and F7, move the camera to the stage's section after or before.
  */
 #include "s32/machine.h"
 #include "s32/program.h"
@@ -301,6 +302,7 @@ static struct
 {
 	uint64_t frame, frames;
 	console_action action;
+	int section;          /* section+ (1) or section- (-1) instead of an action: the window's F8 and F7 */
 } action_events[MAX_ACTION_EVENTS];
 static int action_event_count;
 
@@ -323,7 +325,7 @@ static bool load_actions(const char *path)
 		char when[32], name[32];
 		unsigned long long frames = 1;
 		char *comment = strchr(line, '#');
-		int fields, action = 0;
+		int fields, action = 0, section;
 
 		number++;
 		if (comment)
@@ -333,7 +335,8 @@ static bool load_actions(const char *path)
 			continue;
 		while (fields >= 2 && action < ACTIONS && strcmp(name, action_names[action]) != 0)
 			action++;
-		if (fields < 2 || action == ACTIONS || frames == 0 || action_event_count == MAX_ACTION_EVENTS)
+		section = fields < 2 ? 0 : (strcmp(name, "section+") == 0 ? 1 : (strcmp(name, "section-") == 0 ? -1 : 0));
+		if (fields < 2 || (action == ACTIONS && !section) || frames == 0 || action_event_count == MAX_ACTION_EVENTS)
 		{
 			fprintf(stderr, "%s:%d: not an action line\n", path, number);
 			fclose(input);
@@ -342,7 +345,8 @@ static bool load_actions(const char *path)
 		previous = when[0] == '+' ? previous + strtoull(when + 1, NULL, 10) : strtoull(when, NULL, 10);
 		action_events[action_event_count].frame = previous;
 		action_events[action_event_count].frames = frames;
-		action_events[action_event_count].action = (console_action)action;
+		action_events[action_event_count].action = (console_action)(section ? 0 : action);
+		action_events[action_event_count].section = section;
 		action_event_count++;
 	}
 	fclose(input);
@@ -359,7 +363,12 @@ static void apply_actions(uint64_t frame)
 	bool start, button;
 
 	for (int index = 0; index < action_event_count; index++)
-		if (frame >= action_events[index].frame && frame - action_events[index].frame < action_events[index].frames)
+		if (action_events[index].section)
+		{
+			if (frame == action_events[index].frame)
+				console_debug_section(action_events[index].section);
+		}
+		else if (frame >= action_events[index].frame && frame - action_events[index].frame < action_events[index].frames)
 		{
 			held |= ACTION_BIT(action_events[index].action);
 			if (frame == action_events[index].frame)
