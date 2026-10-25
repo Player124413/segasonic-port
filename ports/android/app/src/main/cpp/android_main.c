@@ -51,7 +51,11 @@
 #define QUEUE_FRAMES_MAX   5
 #define ASSETS_FILE        "segasonic.assets"
 #define WIDE_WIDTH         398
-#define TRACKBALL_CAP      120
+/*
+ * Strictly below src/system/main.c:826's [-96, +96] (0x60) hardware noise filter!
+ * Values > 96 cause read_controls() to discard axis updates while still negating X.
+ */
+#define TRACKBALL_CAP      64
 
 static const double FM_RATE  = S32_SOUND_CLOCK / 144.0;
 static const double PCM_RATE = S32_PCM_CLOCK / 384.0;
@@ -710,6 +714,96 @@ static inline int clamp_trackball_delta(int v)
 	return v;
 }
 
+/*
+ * Modern Console-Style Steering & Crisp Ground Braking (Active ONLY when modern_controls = true):
+ *
+ * SegaSonic's 1993 arcade trackball physics (src/player/player.c:1332-1575) has two
+ * notorious quirks when played with a thumbstick or D-pad:
+ *   1. player_steer() sets object->speed BEFORE turn_player(), capping turn rate to
+ *      0x180000 / speed_int (6.7 deg/frame = 250ms per 90 deg!) and forcing a locked
+ *      skid animation (state = 0x0C) on any >= 90-degree change — even from standstill.
+ *      Fortunately, turn_player() natively honors player->free_turn_timer (offset 0x46)
+ *      for instant 360-degree target_heading alignment!
+ *   2. Releasing input decays speed by `speed >> 5` (31/32 per frame = 116 frames / 1.93s
+ *      uncontrollable coasting on dry ground).
+ *
+ * We apply both adjustments strictly during active human gameplay (never in attract demos,
+ * scripted rail/loop paths, airborne jumps, ice floors, quicksand, or wind/water currents),
+ * while leaving src/ 100% untouched.
+ */
+static void apply_modern_player_steering(const bool steering_active[PLAYERS])
+{
+	uint8_t *ram = s32_board.work_ram;
+
+	if (!g_touch.cfg.modern_controls)
+		return;
+
+	/* Active human play only: game_in_progress < 0, !test_mode, !players_frozen */
+	if ((int8_t)ram[0xF00A] >= 0 || (int8_t)ram[0xF004] < 0 || ram[0xE61A] != 0)
+		return;
+
+	for (int p = 0; p < PLAYERS; p++)
+	{
+		const uint32_t p_base = 0x8400u + (uint32_t)p * 0x200u;
+		uint16_t obj_off = 0;
+		uint8_t state;
+
+		/* Must be active in game, off scripted paths, unlocked, and not being pushed out */
+		if ((int8_t)ram[p_base + 0x38] >= 0)
+			continue;
+		if (ram[p_base + 0xB2] != 0 || ram[p_base + 0x06] != 0 || (int8_t)ram[p_base + 0xA0] != 0)
+			continue;
+
+		memcpy(&obj_off, ram + p_base + 0x14, sizeof(obj_off));
+		if (obj_off == 0 || (uint32_t)obj_off + 0x80u > S32_WORK_RAM_SIZE)
+			continue;
+
+		state = ram[p_base + 0x00];
+
+		if (steering_active[p])
+		{
+			/* Instant 360-degree heading response without boat-turn lag or skid lock */
+			if (state == 0 || state == 1 || state == 2 || state == 0x0C || state == 0x13 || state == 0x14)
+			{
+				ram[p_base + 0x46] = 2; /* player->free_turn_timer */
+				if (state == 0x0C)
+					ram[p_base + 0x00] = 0x13;
+			}
+		}
+		else
+		{
+			/* Crisp 4-frame (~66ms) stop on dry non-ice ground when thumbstick is released */
+			int32_t floor_block = -1;
+			uint32_t push_xy = 0;
+			const uint8_t floor_type = ram[obj_off + 0x77];
+
+			memcpy(&floor_block, ram + obj_off + 0x5C, sizeof(floor_block));
+			memcpy(&push_xy, ram + p_base + 0x94, sizeof(push_xy));
+
+			if (floor_block >= 0 && floor_type != 7 && floor_type != 0x0A && push_xy == 0
+				&& (state == 1 || state == 0x0C || state == 0x13 || state == 0x14))
+			{
+				int32_t speed = 0;
+				int32_t anim_speed = 0;
+
+				memcpy(&speed, ram + obj_off + 0x6E, sizeof(speed));
+				memcpy(&anim_speed, ram + p_base + 0x98, sizeof(anim_speed));
+
+				if (speed > 0)
+				{
+					speed = (speed <= 0x0600000) ? 0 : (speed >> 1);
+					memcpy(ram + obj_off + 0x6E, &speed, sizeof(speed));
+				}
+				if (anim_speed > 0)
+				{
+					anim_speed = (anim_speed <= 0x0600000) ? 0 : (anim_speed >> 1);
+					memcpy(ram + p_base + 0x98, &anim_speed, sizeof(anim_speed));
+				}
+			}
+		}
+	}
+}
+
 static void on_controls_update(void)
 {
 	s32_inputs *input = &s32_board.input;
@@ -807,14 +901,38 @@ static void on_controls_update(void)
 	g_controls.coin[0]  |= g_touch_out.coin_held;
 #endif
 
-	/* Physical Bluetooth / USB Gamepad Analog Sticks */
+	/* Physical Bluetooth / USB Gamepad Analog Sticks (with radial deadzone & isometric 2:1 alignment) */
 	for (int p = 0; p < PLAYERS; p++)
 	{
 		SDL_GameController *pad = g_controllers[p];
 		if (!pad)
 			continue;
-		g_controls.roll_x[p] -= (int)lround(SDL_GameControllerGetAxis(pad, SDL_CONTROLLER_AXIS_LEFTX) / 32767.0 * settings.stick_roll);
-		g_controls.roll_y[p] += (int)lround(SDL_GameControllerGetAxis(pad, SDL_CONTROLLER_AXIS_LEFTY) / 32767.0 * settings.stick_roll);
+		{
+			const float rx = (float)SDL_GameControllerGetAxis(pad, SDL_CONTROLLER_AXIS_LEFTX) / 32767.0f;
+			const float ry = (float)SDL_GameControllerGetAxis(pad, SDL_CONTROLLER_AXIS_LEFTY) / 32767.0f;
+			const float mag = sqrtf(rx * rx + ry * ry);
+			const float dz = 0.14f;
+
+			if (mag > dz)
+			{
+				const float norm = (mag > 1.0f ? 1.0f : mag - dz) / (1.0f - dz);
+				float ux = rx / mag;
+				float uy = ry / mag;
+				if (g_touch.cfg.modern_controls)
+				{
+					uy *= 1.3333333f;
+					const float ilen = sqrtf(ux * ux + uy * uy);
+					if (ilen > 0.0001f)
+					{
+						ux /= ilen;
+						uy /= ilen;
+					}
+				}
+				const float spd = 16.0f + norm * 18.0f;
+				g_controls.roll_x[p] -= (int)lroundf(ux * spd);
+				g_controls.roll_y[p] += (int)lroundf(uy * spd);
+			}
+		}
 #ifndef SEGASONIC_CONSOLE
 		g_controls.button[p] |= SDL_GameControllerGetButton(pad, SDL_CONTROLLER_BUTTON_A) != 0;
 		g_controls.start[p]  |= SDL_GameControllerGetButton(pad, SDL_CONTROLLER_BUTTON_START) != 0;
@@ -822,7 +940,7 @@ static void on_controls_update(void)
 #endif
 	}
 
-	/* Active-low System 32 I/O ports + int8-safe trackball counters */
+	/* Active-low System 32 I/O ports + hardware-safe [-64, +64] trackball counters */
 	input->port_a = (uint8_t)(0xff
 		& ~(g_controls.button[0] ? 0x01 : 0)
 		& ~(g_controls.button[2] ? 0x04 : 0));
@@ -838,14 +956,20 @@ static void on_controls_update(void)
 		& ~(g_controls.start[1] ? 0x20 : 0)
 		& ~(g_controls.start[2] ? 0x80 : 0));
 
-	for (int p = 0; p < PLAYERS; p++)
 	{
-		const int dx = clamp_trackball_delta(g_controls.roll_x[p]);
-		const int dy = clamp_trackball_delta(g_controls.roll_y[p]);
-		input->trackball_x[p] = (uint16_t)(input->trackball_x[p] + dx);
-		input->trackball_y[p] = (uint16_t)(input->trackball_y[p] + dy);
-		g_controls.roll_x[p] = 0;
-		g_controls.roll_y[p] = 0;
+		bool steering_active[PLAYERS] = { false, false, false };
+
+		for (int p = 0; p < PLAYERS; p++)
+		{
+			const int dx = clamp_trackball_delta(g_controls.roll_x[p]);
+			const int dy = clamp_trackball_delta(g_controls.roll_y[p]);
+			steering_active[p] = ((abs(dx) & ~1) != 0) || ((abs(dy) & ~1) != 0);
+			input->trackball_x[p] = (uint16_t)(input->trackball_x[p] + dx);
+			input->trackball_y[p] = (uint16_t)(input->trackball_y[p] + dy);
+			g_controls.roll_x[p] = 0;
+			g_controls.roll_y[p] = 0;
+		}
+		apply_modern_player_steering(steering_active);
 	}
 }
 

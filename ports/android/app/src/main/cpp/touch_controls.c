@@ -14,17 +14,21 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define TRACKBALL_SAFE_MAX 120
-#define DPAD_RAMP_RATE     12.0f
-#define DPAD_MAX_SPEED     92.0f
-#define TURBO_SPEED        108.0f
+/*
+ * Strictly below src/system/main.c:826's [-96, +96] (0x60) hardware noise rejection
+ * threshold! Sonic's 100% top speed (0x5000000 in src/player/player.c:1344) is already
+ * reached at ~30 counts/frame.
+ */
+#define TRACKBALL_SAFE_MAX 64
+#define STICK_MAX_COUNTS   34.0f
+#define DPAD_MAX_COUNTS    32.0f
 
 static const char *const k_widget_keys[TOUCH_WIDGET_COUNT] = {
 	"move", "jump", "turbo", "start", "coin_back", "service", "menu"
 };
 
 static const char *const k_widget_titles[TOUCH_WIDGET_COUNT] = {
-	"MOVEMENT", "JUMP / ACT", "TURBO ROLL", "START / PAUSE", "COIN / BACK", "SERVICE", "QUICK MENU"
+	"MOVEMENT", "JUMP / ACT", "RAPID JUMP", "START / PAUSE", "COIN / BACK", "SERVICE", "QUICK MENU"
 };
 
 /* ---- Math & Geometry Helpers ---- */
@@ -105,9 +109,9 @@ void touch_config_apply_preset(touch_config *cfg, touch_preset_id preset, bool c
 	switch (preset)
 	{
 		case TOUCH_PRESET_COMPACT_PHONE:
-			cfg->widgets[TOUCH_WIDGET_MOVE]      = (touch_widget_cfg){ 0.165f, 0.720f, 0.88f, 0.85f, true };
-			cfg->widgets[TOUCH_WIDGET_JUMP]      = (touch_widget_cfg){ 0.855f, 0.740f, 0.92f, 0.90f, true };
-			cfg->widgets[TOUCH_WIDGET_TURBO]     = (touch_widget_cfg){ 0.745f, 0.560f, 0.88f, 0.85f, true };
+			cfg->widgets[TOUCH_WIDGET_MOVE]      = (touch_widget_cfg){ 0.165f, 0.710f, 0.94f, 0.85f, true };
+			cfg->widgets[TOUCH_WIDGET_JUMP]      = (touch_widget_cfg){ 0.850f, 0.725f, 1.08f, 0.90f, true };
+			cfg->widgets[TOUCH_WIDGET_TURBO]     = (touch_widget_cfg){ 0.735f, 0.545f, 0.88f, 0.85f, false };
 			cfg->widgets[TOUCH_WIDGET_START]     = (touch_widget_cfg){ 0.900f, 0.100f, 0.90f, 0.80f, true };
 			cfg->widgets[TOUCH_WIDGET_COIN_BACK] = (touch_widget_cfg){ 0.760f, 0.100f, 0.90f, 0.80f, true };
 			cfg->widgets[TOUCH_WIDGET_SERVICE]   = (touch_widget_cfg){ 0.620f, 0.100f, 0.85f, 0.75f, false };
@@ -115,20 +119,30 @@ void touch_config_apply_preset(touch_config *cfg, touch_preset_id preset, bool c
 			break;
 
 		case TOUCH_PRESET_WIDE_TABLET:
-			cfg->widgets[TOUCH_WIDGET_MOVE]      = (touch_widget_cfg){ 0.145f, 0.640f, 1.05f, 0.85f, true };
-			cfg->widgets[TOUCH_WIDGET_JUMP]      = (touch_widget_cfg){ 0.875f, 0.660f, 1.08f, 0.90f, true };
-			cfg->widgets[TOUCH_WIDGET_TURBO]     = (touch_widget_cfg){ 0.775f, 0.490f, 1.00f, 0.85f, true };
+			cfg->widgets[TOUCH_WIDGET_MOVE]      = (touch_widget_cfg){ 0.145f, 0.650f, 1.05f, 0.85f, true };
+			cfg->widgets[TOUCH_WIDGET_JUMP]      = (touch_widget_cfg){ 0.870f, 0.675f, 1.16f, 0.90f, true };
+			cfg->widgets[TOUCH_WIDGET_TURBO]     = (touch_widget_cfg){ 0.765f, 0.490f, 1.00f, 0.85f, false };
 			cfg->widgets[TOUCH_WIDGET_START]     = (touch_widget_cfg){ 0.910f, 0.085f, 1.00f, 0.82f, true };
 			cfg->widgets[TOUCH_WIDGET_COIN_BACK] = (touch_widget_cfg){ 0.790f, 0.085f, 1.00f, 0.82f, true };
 			cfg->widgets[TOUCH_WIDGET_SERVICE]   = (touch_widget_cfg){ 0.670f, 0.085f, 0.95f, 0.75f, !console_mode };
 			cfg->widgets[TOUCH_WIDGET_MENU]      = (touch_widget_cfg){ 0.500f, 0.075f, 1.00f, 0.65f, true };
 			break;
 
+		case TOUCH_PRESET_LEFT_HANDED:
+			cfg->widgets[TOUCH_WIDGET_MOVE]      = (touch_widget_cfg){ 0.815f, 0.695f, 1.02f, 0.88f, true };
+			cfg->widgets[TOUCH_WIDGET_JUMP]      = (touch_widget_cfg){ 0.155f, 0.715f, 1.15f, 0.92f, true };
+			cfg->widgets[TOUCH_WIDGET_TURBO]     = (touch_widget_cfg){ 0.275f, 0.535f, 0.94f, 0.86f, false };
+			cfg->widgets[TOUCH_WIDGET_START]     = (touch_widget_cfg){ 0.105f, 0.095f, 0.96f, 0.82f, true };
+			cfg->widgets[TOUCH_WIDGET_COIN_BACK] = (touch_widget_cfg){ 0.245f, 0.095f, 0.96f, 0.82f, true };
+			cfg->widgets[TOUCH_WIDGET_SERVICE]   = (touch_widget_cfg){ 0.895f, 0.095f, 0.90f, 0.75f, false };
+			cfg->widgets[TOUCH_WIDGET_MENU]      = (touch_widget_cfg){ 0.500f, 0.085f, 0.95f, 0.68f, true };
+			break;
+
 		case TOUCH_PRESET_ARCADE_DEFAULT:
 		default:
-			cfg->widgets[TOUCH_WIDGET_MOVE]      = (touch_widget_cfg){ 0.185f, 0.695f, 1.00f, 0.88f, true };
-			cfg->widgets[TOUCH_WIDGET_JUMP]      = (touch_widget_cfg){ 0.845f, 0.720f, 1.05f, 0.92f, true };
-			cfg->widgets[TOUCH_WIDGET_TURBO]     = (touch_widget_cfg){ 0.725f, 0.545f, 0.95f, 0.86f, true };
+			cfg->widgets[TOUCH_WIDGET_MOVE]      = (touch_widget_cfg){ 0.180f, 0.695f, 1.02f, 0.86f, true };
+			cfg->widgets[TOUCH_WIDGET_JUMP]      = (touch_widget_cfg){ 0.845f, 0.715f, 1.16f, 0.92f, true };
+			cfg->widgets[TOUCH_WIDGET_TURBO]     = (touch_widget_cfg){ 0.720f, 0.535f, 0.92f, 0.85f, false };
 			cfg->widgets[TOUCH_WIDGET_START]     = (touch_widget_cfg){ 0.895f, 0.095f, 0.96f, 0.82f, true };
 			cfg->widgets[TOUCH_WIDGET_COIN_BACK] = (touch_widget_cfg){ 0.755f, 0.095f, 0.96f, 0.82f, true };
 			cfg->widgets[TOUCH_WIDGET_SERVICE]   = (touch_widget_cfg){ 0.105f, 0.095f, 0.90f, 0.75f, false };
@@ -143,14 +157,15 @@ void touch_config_set_defaults(touch_config *cfg, bool console_mode)
 		return;
 
 	memset(cfg, 0, sizeof(*cfg));
-	cfg->move_mode = TOUCH_MOVE_TRACKBALL;
-	cfg->floating_origin = false;
+	cfg->move_mode = TOUCH_MOVE_STICK;
+	cfg->modern_controls = true;
+	cfg->floating_origin = true;
 	cfg->haptics_enabled = true;
 	cfg->auto_hide_gamepad = true;
 	cfg->grid_snap = false;
-	cfg->trackball_sensitivity = 1.15f;
+	cfg->trackball_sensitivity = 1.00f;
 	cfg->trackball_friction = 0.91f;
-	cfg->stick_deadzone = 0.10f;
+	cfg->stick_deadzone = 0.08f;
 	cfg->master_opacity = 0.88f;
 	cfg->player_color = 0;
 
@@ -277,6 +292,7 @@ bool touch_controls_load_ini(touch_controls *tc, const char *path)
 {
 	FILE *fp;
 	char line[256];
+	int file_version = 1;
 
 	if (!tc || !path)
 		return false;
@@ -302,8 +318,12 @@ bool touch_controls_load_ini(touch_controls *tc, const char *path)
 		if (!*key || !*val)
 			continue;
 
-		if (strcmp(key, "move_mode") == 0)
+		if (strcmp(key, "config_version") == 0)
+			file_version = atoi(val);
+		else if (strcmp(key, "move_mode") == 0)
 			tc->cfg.move_mode = (touch_move_mode)clampf((float)atoi(val), 0.0f, 2.0f);
+		else if (strcmp(key, "modern_controls") == 0)
+			tc->cfg.modern_controls = atoi(val) != 0;
 		else if (strcmp(key, "floating_origin") == 0)
 			tc->cfg.floating_origin = atoi(val) != 0;
 		else if (strcmp(key, "haptics_enabled") == 0)
@@ -346,10 +366,24 @@ bool touch_controls_load_ini(touch_controls *tc, const char *path)
 		}
 	}
 
+	fclose(fp);
+
+	/* Migrate v1 config automatically to responsive v2 Modern Joystick defaults */
+	if (file_version < TOUCH_CONFIG_VERSION)
+	{
+		tc->cfg.move_mode = TOUCH_MOVE_STICK;
+		tc->cfg.modern_controls = true;
+		tc->cfg.floating_origin = true;
+		tc->cfg.trackball_sensitivity = 1.00f;
+		tc->cfg.stick_deadzone = 0.08f;
+		tc->cfg.widgets[TOUCH_WIDGET_TURBO].visible = false;
+		if (tc->cfg.widgets[TOUCH_WIDGET_JUMP].scale < 1.12f)
+			tc->cfg.widgets[TOUCH_WIDGET_JUMP].scale = 1.16f;
+		touch_controls_save_ini(tc, path);
+	}
+
 	/* Menu button must always remain accessible */
 	tc->cfg.widgets[TOUCH_WIDGET_MENU].visible = true;
-
-	fclose(fp);
 	return true;
 }
 
@@ -364,7 +398,9 @@ bool touch_controls_save_ini(const touch_controls *tc, const char *path)
 		return false;
 
 	fprintf(fp, "# SegaSonic The Hedgehog Android Touch Controls\n");
+	fprintf(fp, "config_version = %d\n", TOUCH_CONFIG_VERSION);
 	fprintf(fp, "move_mode = %d\n", (int)tc->cfg.move_mode);
+	fprintf(fp, "modern_controls = %d\n", tc->cfg.modern_controls ? 1 : 0);
 	fprintf(fp, "floating_origin = %d\n", tc->cfg.floating_origin ? 1 : 0);
 	fprintf(fp, "haptics_enabled = %d\n", tc->cfg.haptics_enabled ? 1 : 0);
 	fprintf(fp, "auto_hide_gamepad = %d\n", tc->cfg.auto_hide_gamepad ? 1 : 0);
@@ -529,9 +565,11 @@ static int hit_test_widget(const touch_controls *tc, float px, float py, bool in
 		widget_center_px(tc, id, &cx, &cy);
 		widget_half_extents(tc, id, &hw, &hh);
 
-		/* Slightly generous 18% touch halo for reliable thumb hits */
-		const float hit_hw = hw * 1.18f;
-		const float hit_hh = hh * 1.18f;
+		/* Generous touch halos for reliable eyes-free thumb hits */
+		const float halo = (id == TOUCH_WIDGET_MOVE) ? 1.42f
+			: ((id == TOUCH_WIDGET_JUMP) ? 1.36f : 1.18f);
+		const float hit_hw = hw * halo;
+		const float hit_hh = hh * halo;
 		const float dx = (px - cx) / hit_hw;
 		const float dy = (py - cy) / hit_hh;
 
@@ -558,11 +596,26 @@ static int hit_test_widget(const touch_controls *tc, float px, float py, bool in
 		}
 	}
 
-	/* Floating origin: unclaimed touch in left 42% below top bar activates movement widget */
+	/* Floating origin: unclaimed touch on the movement side of screen activates joystick immediately */
 	if (best_w < 0 && !include_hidden && tc->cfg.floating_origin && tc->cfg.widgets[TOUCH_WIDGET_MOVE].visible)
 	{
-		if (px < (float)tc->screen_w * 0.42f && py > (float)tc->screen_h * 0.18f)
-			best_w = TOUCH_WIDGET_MOVE;
+		bool move_already_owned = false;
+		for (int f = 0; f < TOUCH_MAX_FINGERS; f++)
+		{
+			if (tc->fingers[f].active && tc->fingers[f].owner_widget == TOUCH_WIDGET_MOVE)
+			{
+				move_already_owned = true;
+				break;
+			}
+		}
+		if (!move_already_owned && py > (float)tc->screen_h * 0.18f)
+		{
+			const bool move_on_right = (tc->cfg.widgets[TOUCH_WIDGET_MOVE].nx > 0.5f);
+			if (!move_on_right && px < (float)tc->screen_w * 0.46f)
+				best_w = TOUCH_WIDGET_MOVE;
+			else if (move_on_right && px > (float)tc->screen_w * 0.54f)
+				best_w = TOUCH_WIDGET_MOVE;
+		}
 	}
 
 	return best_w;
@@ -657,7 +710,27 @@ static void handle_qmenu_button(touch_controls *tc, int btn)
 			tc->standalone_editor = false;
 			break;
 		case QM_BTN_MOVE_MODE:
-			tc->cfg.move_mode = (touch_move_mode)(((int)tc->cfg.move_mode + 1) % 3);
+			/* Cycle: Modern Stick -> Modern D-Pad -> Classic Trackball -> Raw Arcade Stick */
+			if (tc->cfg.move_mode == TOUCH_MOVE_STICK && tc->cfg.modern_controls)
+			{
+				tc->cfg.move_mode = TOUCH_MOVE_DPAD;
+				tc->cfg.modern_controls = true;
+			}
+			else if (tc->cfg.move_mode == TOUCH_MOVE_DPAD)
+			{
+				tc->cfg.move_mode = TOUCH_MOVE_TRACKBALL;
+				tc->cfg.modern_controls = false;
+			}
+			else if (tc->cfg.move_mode == TOUCH_MOVE_TRACKBALL)
+			{
+				tc->cfg.move_mode = TOUCH_MOVE_STICK;
+				tc->cfg.modern_controls = false;
+			}
+			else
+			{
+				tc->cfg.move_mode = TOUCH_MOVE_STICK;
+				tc->cfg.modern_controls = true;
+			}
 			tc->pending_commands |= TOUCH_CMD_SAVE_CONFIG;
 			break;
 		case QM_BTN_FILTER:
@@ -685,7 +758,7 @@ static void update_move_deflection(touch_controls *tc, float px, float py)
 	widget_half_extents(tc, TOUCH_WIDGET_MOVE, &hw, &hh);
 
 	{
-		const float max_r = hw * 0.62f;
+		const float max_r = fmaxf(hw * 0.56f, 20.0f);
 		float dx = px - tc->move_origin_x;
 		float dy = py - tc->move_origin_y;
 		const float dist = sqrtf(dx * dx + dy * dy);
@@ -694,6 +767,15 @@ static void update_move_deflection(touch_controls *tc, float px, float py)
 		{
 			dx = dx * (max_r / dist);
 			dy = dy * (max_r / dist);
+			/*
+			 * Dynamic Follow-Thumb Stick: slide the joystick center right behind the thumb
+			 * whenever thumb pushes beyond max_r, so reversing direction has ZERO dead travel!
+			 */
+			if (tc->cfg.floating_origin && tc->cfg.move_mode == TOUCH_MOVE_STICK)
+			{
+				tc->move_origin_x = px - dx;
+				tc->move_origin_y = py - dy;
+			}
 		}
 		tc->nub_offset_x = dx;
 		tc->nub_offset_y = dy;
@@ -937,7 +1019,7 @@ void touch_controls_finger_motion(touch_controls *tc, int64_t finger_id, float n
 		if (tc->cfg.move_mode == TOUCH_MOVE_TRACKBALL)
 		{
 			const float scale_720 = 720.0f / base_unit_px(tc);
-			const float sens = 1.45f * tc->cfg.trackball_sensitivity * scale_720;
+			const float sens = 1.05f * tc->cfg.trackball_sensitivity * scale_720;
 			const float vx = dx * sens;
 			const float vy = dy * sens;
 
@@ -953,16 +1035,6 @@ void touch_controls_finger_motion(touch_controls *tc, int64_t finger_id, float n
 		else
 		{
 			update_move_deflection(tc, px, py);
-		}
-	}
-	else if (slot->owner_widget == TOUCH_WIDGET_JUMP || slot->owner_widget == TOUCH_WIDGET_TURBO)
-	{
-		/* Allow smooth thumb slide-over between JUMP and TURBO! */
-		const int over = hit_test_widget(tc, px, py, false);
-		if ((over == TOUCH_WIDGET_JUMP || over == TOUCH_WIDGET_TURBO) && over != slot->owner_widget)
-		{
-			slot->owner_widget = over;
-			tc->pending_haptics |= TOUCH_HAPTIC_PRESS;
 		}
 	}
 }
@@ -1117,7 +1189,7 @@ void touch_controls_step_frame(touch_controls *tc, touch_frame_output *out)
 	{
 		float hw, hh;
 		widget_half_extents(tc, TOUCH_WIDGET_MOVE, &hw, &hh);
-		const float max_r = fmaxf(hw * 0.62f, 1.0f);
+		const float max_r = fmaxf(hw * 0.56f, 20.0f);
 		const float nx = tc->nub_offset_x / max_r;
 		const float ny = tc->nub_offset_y / max_r;
 		const float mag = hypotf(nx, ny);
@@ -1126,87 +1198,159 @@ void touch_controls_step_frame(touch_controls *tc, touch_frame_output *out)
 		if (move_held && mag > dz)
 		{
 			const float norm_mag = clampf((mag - dz) / (1.0f - dz), 0.0f, 1.0f);
-			/* Subtle 1.35 exponent gives surgical low-speed control + snappy top speed */
-			const float curved = powf(norm_mag, 1.35f) * 96.0f * tc->cfg.trackball_sensitivity;
-			tc->vel_x = (nx / mag) * curved;
-			tc->vel_y = (ny / mag) * curved;
+			float angle = atan2f(ny, nx);
+
+			/* 2.5-degree angular hysteresis prevents 16-way octant border sprite flicker */
+			if (tc->has_last_angle)
+			{
+				float diff = angle - tc->last_angle_rad;
+				while (diff >  3.14159265f) diff -= 6.28318530f;
+				while (diff < -3.14159265f) diff += 6.28318530f;
+				if (fabsf(diff) < 0.044f)
+					angle = tc->last_angle_rad;
+				else
+					tc->last_angle_rad = angle;
+			}
+			else
+			{
+				tc->last_angle_rad = angle;
+				tc->has_last_angle = true;
+			}
+
+			float ux = cosf(angle);
+			float uy = sinf(angle);
+
+			/*
+			 * Isometric 2:1 screen-space compensation:
+			 * set_target_heading_from_trackball() scales trackball_y by 1.5x, while
+			 * project_object() squashes vertical screen coords by 0.5x (2:1).
+			 * Scaling uy by 4/3 makes 1.5 * (4/3 * uy) = 2.0 * uy, so Sonic runs on
+			 * screen in the EXACT visual direction the player's thumb points!
+			 */
+			if (tc->cfg.modern_controls)
+			{
+				uy *= 1.3333333f;
+				const float ilen = hypotf(ux, uy);
+				if (ilen > 0.0001f)
+				{
+					ux /= ilen;
+					uy /= ilen;
+				}
+			}
+
+			/*
+			 * Smooth 2-stage analog speed curve:
+			 *  - [0 .. 0.18]: gentle tiptoe (6 .. 16 counts/frame)
+			 *  - [0.18 .. 1.0]: smooth 60 FPS continuous run (16 .. 34 counts/frame,
+			 *    bypassing state=1's 8-frame footstep pause!)
+			 */
+			float speed_counts;
+			if (norm_mag < 0.18f)
+				speed_counts = 6.0f + (norm_mag / 0.18f) * 10.0f;
+			else
+				speed_counts = 16.0f + ((norm_mag - 0.18f) / 0.82f) * (STICK_MAX_COUNTS - 16.0f);
+
+			speed_counts = clampf(speed_counts * tc->cfg.trackball_sensitivity, 4.0f, 56.0f);
+
+			/* In raw arcade physics mode, ramp first 2 frames from rest so V60 aligns heading before sprint */
+			if (!tc->cfg.modern_controls && tc->move_held_frames < 2 && speed_counts > 10.0f)
+				speed_counts = 10.0f;
+
+			tc->move_held_frames++;
+			tc->vel_x = ux * speed_counts;
+			tc->vel_y = uy * speed_counts;
 			tc->accum_x += tc->vel_x;
 			tc->accum_y += tc->vel_y;
 
-			if (nx < -0.45f) out->actions_held |= TOUCH_ACT_LEFT;
-			if (nx >  0.45f) out->actions_held |= TOUCH_ACT_RIGHT;
-			if (ny < -0.45f) out->actions_held |= TOUCH_ACT_UP;
-			if (ny >  0.45f) out->actions_held |= TOUCH_ACT_DOWN;
+			/* Dominant-axis menu navigation for crisp Console Edition menu browsing */
+			if (norm_mag > 0.48f)
+			{
+				if (fabsf(nx) >= fabsf(ny) * 1.15f)
+					out->actions_held |= (nx < 0.0f) ? TOUCH_ACT_LEFT : TOUCH_ACT_RIGHT;
+				else if (fabsf(ny) >= fabsf(nx) * 1.15f)
+					out->actions_held |= (ny < 0.0f) ? TOUCH_ACT_UP : TOUCH_ACT_DOWN;
+			}
 		}
 		else
 		{
+			tc->move_held_frames = 0;
+			tc->has_last_angle = false;
 			tc->vel_x = 0.0f;
 			tc->vel_y = 0.0f;
+			/* Zero residual reservoir immediately on thumb release for zero input overhang */
+			tc->accum_x = 0.0f;
+			tc->accum_y = 0.0f;
 		}
 	}
 	else /* TOUCH_MOVE_DPAD */
 	{
 		float hw, hh;
 		widget_half_extents(tc, TOUCH_WIDGET_MOVE, &hw, &hh);
-		const float nx = tc->nub_offset_x / fmaxf(hw * 0.62f, 1.0f);
-		const float ny = tc->nub_offset_y / fmaxf(hw * 0.62f, 1.0f);
+		const float nx = tc->nub_offset_x / fmaxf(hw * 0.56f, 20.0f);
+		const float ny = tc->nub_offset_y / fmaxf(hw * 0.56f, 20.0f);
 		int dir_x = 0, dir_y = 0;
 
-		if (move_held && hypotf(nx, ny) > 0.18f)
+		if (move_held && hypotf(nx, ny) > 0.20f)
 		{
-			if (nx < -0.32f) { dir_x = -1; out->actions_held |= TOUCH_ACT_LEFT; }
-			if (nx >  0.32f) { dir_x =  1; out->actions_held |= TOUCH_ACT_RIGHT; }
-			if (ny < -0.32f) { dir_y = -1; out->actions_held |= TOUCH_ACT_UP; }
-			if (ny >  0.32f) { dir_y =  1; out->actions_held |= TOUCH_ACT_DOWN; }
+			/* Clean 8-way 45-degree radial sectors */
+			const float deg = atan2f(ny, nx) * (180.0f / 3.14159265f);
+			int sector = (int)floorf((deg + 202.5f) / 45.0f) & 7;
+			/* sector: 0=W, 1=NW, 2=N, 3=NE, 4=E, 5=SE, 6=S, 7=SW */
+			static const int sx_lut[8] = { -1, -1,  0,  1, 1, 1, 0, -1 };
+			static const int sy_lut[8] = {  0, -1, -1, -1, 0, 1, 1,  1 };
+			dir_x = sx_lut[sector];
+			dir_y = sy_lut[sector];
+
+			if (dir_x < 0) out->actions_held |= TOUCH_ACT_LEFT;
+			if (dir_x > 0) out->actions_held |= TOUCH_ACT_RIGHT;
+			if (dir_y < 0) out->actions_held |= TOUCH_ACT_UP;
+			if (dir_y > 0) out->actions_held |= TOUCH_ACT_DOWN;
 		}
 
-		if (dir_x == 0)
-			tc->vel_x = 0.0f;
-		else
-			tc->vel_x = clampf(tc->vel_x + dir_x * DPAD_RAMP_RATE, -DPAD_MAX_SPEED, DPAD_MAX_SPEED);
-
-		if (dir_y == 0)
-			tc->vel_y = 0.0f;
-		else
-			tc->vel_y = clampf(tc->vel_y + dir_y * DPAD_RAMP_RATE, -DPAD_MAX_SPEED, DPAD_MAX_SPEED);
-
-		if (dir_x != 0 && dir_y != 0)
+		if (dir_x != 0 || dir_y != 0)
 		{
-			tc->accum_x += tc->vel_x * 0.70710678f;
-			tc->accum_y += tc->vel_y * 0.70710678f;
-		}
-		else
-		{
+			float ux = (float)dir_x;
+			/*
+			 * On diagonals, 0.6667f * 1.5 = 1.000 -> exact 45.00° world angle,
+			 * running dead-straight along SegaSonic's 2:1 isometric bridges & ramps!
+			 */
+			float uy = (dir_x != 0 && dir_y != 0 && tc->cfg.modern_controls)
+				? ((float)dir_y * 0.6667f) : (float)dir_y;
+			const float len = hypotf(ux, uy);
+			float spd = clampf(DPAD_MAX_COUNTS * tc->cfg.trackball_sensitivity, 8.0f, 52.0f);
+			if (!tc->cfg.modern_controls && tc->move_held_frames < 2 && spd > 10.0f)
+				spd = 10.0f;
+			tc->move_held_frames++;
+			tc->vel_x = (ux / len) * spd;
+			tc->vel_y = (uy / len) * spd;
 			tc->accum_x += tc->vel_x;
 			tc->accum_y += tc->vel_y;
 		}
-	}
-
-	/* Turbo Roll button: boost along current velocity or isometric up-right run */
-	if (turbo_held)
-	{
-		float dir_x = tc->accum_x + tc->vel_x;
-		float dir_y = tc->accum_y + tc->vel_y;
-		const float len = hypotf(dir_x, dir_y);
-
-		if (len > 2.5f)
-		{
-			dir_x /= len;
-			dir_y /= len;
-		}
 		else
 		{
-			/* SegaSonic standard isometric stage progression angle (up-right) */
-			dir_x =  0.70710678f;
-			dir_y = -0.70710678f;
+			tc->move_held_frames = 0;
+			tc->vel_x = 0.0f;
+			tc->vel_y = 0.0f;
+			tc->accum_x = 0.0f;
+			tc->accum_y = 0.0f;
 		}
-		tc->accum_x = dir_x * TURBO_SPEED;
-		tc->accum_y = dir_y * TURBO_SPEED;
 	}
 
-	/* Bound reservoir and emit strictly int8-safe [-120, +120] trackball counts */
-	tc->accum_x = clampf(tc->accum_x, -240.0f, 240.0f);
-	tc->accum_y = clampf(tc->accum_y, -240.0f, 240.0f);
+	/* Optional Rapid-Jump / Mash button (when enabled in Layout Editor): clean 15 Hz pulse */
+	if (turbo_held)
+	{
+		tc->turbo_phase++;
+		if ((tc->turbo_phase & 3u) < 2u)
+			out->jump_held = true;
+	}
+	else
+	{
+		tc->turbo_phase = 0;
+	}
+
+	/* Bound reservoir and emit strictly hardware-safe [-64, +64] (< 0x60 = 96!) counts */
+	tc->accum_x = clampf(tc->accum_x, -128.0f, 128.0f);
+	tc->accum_y = clampf(tc->accum_y, -128.0f, 128.0f);
 
 	{
 		int emit_x = (int)tc->accum_x;
@@ -1441,7 +1585,7 @@ static void draw_single_widget(const touch_controls *tc, ui_quad_batch *batch, t
 			push_sprite(batch, UI_SPRITE_ICON_BOLT,
 				(rect_f){ cx - ir, cy - ir * 1.15f, cx + ir, cy + ir * 0.85f },
 				255, 255, 255, alpha);
-			push_text_centered(batch, "DASH", cx, cy + hh * 0.48f, hh * 0.28f, 255, 255, 255, alpha);
+			push_text_centered(batch, "RAPID", cx, cy + hh * 0.48f, hh * 0.28f, 255, 255, 255, alpha);
 			break;
 		}
 
@@ -1608,7 +1752,6 @@ void touch_controls_build_vertices(const touch_controls *tc, ui_quad_batch *batc
 	{
 		qmenu_layout qm;
 		char move_lbl[32], filt_lbl[40], asp_lbl[40], gpu_lbl[64], fps_lbl[28];
-		static const char *const mode_names[3] = { "TRACKBALL", "STICK", "D-PAD" };
 
 		compute_qmenu_layout(tc, &qm);
 		push_solid_rect(batch, (rect_f){ 0.0f, 0.0f, sw, sh }, 4, 8, 16, 168);
@@ -1621,7 +1764,12 @@ void touch_controls_build_vertices(const touch_controls *tc, ui_quad_batch *batc
 			(qm.panel.y1 - qm.panel.y0) * 0.068f,
 			255, 224, 72, 255);
 
-		snprintf(move_lbl, sizeof(move_lbl), "PAD: %s", mode_names[tc->cfg.move_mode]);
+		if (tc->cfg.move_mode == TOUCH_MOVE_STICK)
+			snprintf(move_lbl, sizeof(move_lbl), "PAD: %s", tc->cfg.modern_controls ? "STICK (NORMAL)" : "STICK (ARCADE)");
+		else if (tc->cfg.move_mode == TOUCH_MOVE_DPAD)
+			snprintf(move_lbl, sizeof(move_lbl), "PAD: %s", tc->cfg.modern_controls ? "D-PAD (NORMAL)" : "D-PAD");
+		else
+			snprintf(move_lbl, sizeof(move_lbl), "PAD: TRACKBALL");
 		snprintf(filt_lbl, sizeof(filt_lbl), "FILTER: %s", tc->status_filter);
 		snprintf(asp_lbl,  sizeof(asp_lbl),  "ASPECT: %s", tc->status_aspect);
 		snprintf(gpu_lbl,  sizeof(gpu_lbl),  "GPU: %s", tc->status_gpu);

@@ -17,19 +17,20 @@
     <string name="btn_play_arcade">▶  ИГРАТЬ: ОРИГИНАЛЬНАЯ АРКАДА (SYSTEM 32)</string>
     <string name="btn_edit_touch">✥  НАСТРОИТЬ СЕНСОРНОЕ УПРАВЛЕНИЕ (РЕДАКТОР)</string>
 
-    <string name="touch_section_title">СЕНСОРНОЕ УПРАВЛЕНИЕ И ФИЗИКА ТРЕКБОЛА</string>
+    <string name="touch_section_title">УПРАВЛЕНИЕ И ОТЗЫВЧИВОСТЬ ДВИЖЕНИЯ</string>
     <string name="lbl_move_mode">Тип управления движением</string>
     <string name="mode_trackball">Аркадный трекбол (3D-инерция и торможение)</string>
-    <string name="mode_stick">Виртуальный аналоговый стик</string>
+    <string name="mode_stick">Виртуальный аналоговый джойстик (Рекомендуется)</string>
     <string name="mode_dpad">Классическая крестовина (8 направлений)</string>
-    <string name="lbl_theme_color">Цветовая тема кнопок и шара</string>
+    <string name="lbl_theme_color">Цветовая тема кнопок и стика</string>
     <string name="color_sonic">Соник (Кобальтовый синий)</string>
     <string name="color_mighty">Майти (Рубиновый красный)</string>
     <string name="color_ray">Рэй (Золотисто-жёлтый)</string>
-    <string name="lbl_sensitivity">Чувствительность трекбола / стика: %1$d%%</string>
+    <string name="lbl_sensitivity">Чувствительность джойстика / трекбола: %1$d%%</string>
     <string name="lbl_inertia">Инерция вращения трекбола: %1$d%%</string>
     <string name="lbl_hud_opacity">Прозрачность сенсорных кнопок: %1$d%%</string>
-    <string name="sw_floating_origin">Плавающий центр (подстраивается под палец слева)</string>
+    <string name="sw_modern_controls">Отзывчивое управление (мгновенный разворот 360°, чёткая остановка и точные углы)</string>
+    <string name="sw_floating_origin">Плавающий джойстик (следует за большим пальцем слева)</string>
     <string name="sw_haptics">Тактильная виброотдача кнопок и трекбола</string>
     <string name="sw_autohide_pad">Автоскрытие кнопок при подключении геймпада</string>
     <string name="btn_reset_touch">Сбросить расположение кнопок</string>

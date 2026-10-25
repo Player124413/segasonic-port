@@ -93,6 +93,7 @@ public class LauncherActivity extends Activity {
     private SeekBar mInertiaSeek;
     private TextView mOpacityLabel;
     private SeekBar mOpacitySeek;
+    private Switch mModernControlsSwitch;
     private Switch mFloatingOriginSwitch;
     private Switch mHapticsSwitch;
     private Switch mAutoHidePadSwitch;
@@ -426,6 +427,7 @@ public class LauncherActivity extends Activity {
             if (!mSuppressListeners) saveAllConfigs();
         });
 
+        mModernControlsSwitch = addStyledSwitch(card, getString(R.string.sw_modern_controls));
         mFloatingOriginSwitch = addStyledSwitch(card, getString(R.string.sw_floating_origin));
         mHapticsSwitch = addStyledSwitch(card, getString(R.string.sw_haptics));
         mAutoHidePadSwitch = addStyledSwitch(card, getString(R.string.sw_autohide_pad));
@@ -958,13 +960,18 @@ public class LauncherActivity extends Activity {
             LinkedHashMap<String, LinkedHashMap<String, String>> consoleSec =
                 readSectionedIni(getConsoleIniFile());
 
-            // Touch settings (matching exact keys in touch_controls.c!)
-            int moveMode = parseIntSafe(touchMap.get("move_mode"), 0, 0, 2);
+            // Auto-migrate v1 touch_controls.ini to v2 responsive Modern Joystick defaults
+            int cfgVersion = parseIntSafe(touchMap.get("config_version"), 1, 1, 99);
+            boolean migrateV1 = !touchMap.isEmpty() && cfgVersion < 2;
+
+            // Touch settings (matching exact keys & v2 defaults in touch_controls.c!)
+            int moveMode = migrateV1 ? 1 : parseIntSafe(touchMap.get("move_mode"), 1, 0, 2);
+            int modernCtrl = migrateV1 ? 1 : parseIntSafe(touchMap.get("modern_controls"), 1, 0, 1);
             int colorIdx = parseIntSafe(touchMap.get("player_color"), 0, 0, 2);
-            float sens = parseFloatSafe(touchMap.get("trackball_sensitivity"), 1.15f, 0.25f, 3.0f);
+            float sens = migrateV1 ? 1.00f : parseFloatSafe(touchMap.get("trackball_sensitivity"), 1.00f, 0.25f, 3.0f);
             float friction = parseFloatSafe(touchMap.get("trackball_friction"), 0.91f, 0.80f, 0.97f);
             float opacity = parseFloatSafe(touchMap.get("master_opacity"), 0.88f, 0.20f, 1.0f);
-            int floating = parseIntSafe(touchMap.get("floating_origin"), 0, 0, 1);
+            int floating = migrateV1 ? 1 : parseIntSafe(touchMap.get("floating_origin"), 1, 0, 1);
             int haptics = parseIntSafe(touchMap.get("haptics_enabled"), 1, 0, 1);
             int autoHide = parseIntSafe(touchMap.get("auto_hide_gamepad"), 1, 0, 1);
 
@@ -983,9 +990,14 @@ public class LauncherActivity extends Activity {
             mOpacitySeek.setProgress(opacityPct - 20);
             mOpacityLabel.setText(getString(R.string.lbl_hud_opacity, opacityPct));
 
+            mModernControlsSwitch.setChecked(modernCtrl != 0);
             mFloatingOriginSwitch.setChecked(floating != 0);
             mHapticsSwitch.setChecked(haptics != 0);
             mAutoHidePadSwitch.setChecked(autoHide != 0);
+
+            if (migrateV1) {
+                saveAllConfigs();
+            }
 
             // Port / Video / ETC2 / Audio settings (matching android_main.c)
             int filter = parseIntSafe(portMap.get("filter"), 0, 0, 3);
@@ -1036,10 +1048,16 @@ public class LauncherActivity extends Activity {
 
         // 2. touch_controls.ini (preserves widget.nx/ny/scale/opacity/visible from HUD editor!)
         LinkedHashMap<String, String> touchMap = readFlatIniMap(getTouchControlsIniFile());
+        int prevCfgVer = parseIntSafe(touchMap.get("config_version"), 1, 1, 99);
+        if (!touchMap.isEmpty() && prevCfgVer < 2) {
+            touchMap.put("turbo.visible", "0");
+        }
         float sens = (25 + mSensitivitySeek.getProgress()) / 100.0f;
         float friction = (80 + mInertiaSeek.getProgress()) / 100.0f;
         float opacity = (20 + mOpacitySeek.getProgress()) / 100.0f;
+        touchMap.put("config_version", "2");
         touchMap.put("move_mode", String.valueOf(mMoveModeSpinner.getSelectedItemPosition()));
+        touchMap.put("modern_controls", mModernControlsSwitch.isChecked() ? "1" : "0");
         touchMap.put("player_color", String.valueOf(mThemeColorSpinner.getSelectedItemPosition()));
         touchMap.put("trackball_sensitivity", String.format(Locale.US, "%.3f", sens));
         touchMap.put("trackball_friction", String.format(Locale.US, "%.3f", friction));

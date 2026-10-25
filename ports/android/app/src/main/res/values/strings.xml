@@ -17,19 +17,20 @@
     <string name="btn_play_arcade">▶  PLAY ORIGINAL ARCADE (SYSTEM 32)</string>
     <string name="btn_edit_touch">✥  CUSTOMIZE TOUCH CONTROLS (LIVE EDITOR)</string>
 
-    <string name="touch_section_title">TOUCH CONTROLS &amp; TRACKBALL PHYSICS</string>
+    <string name="touch_section_title">CONTROLS &amp; MOVEMENT FEEL</string>
     <string name="lbl_move_mode">Movement Input Style</string>
     <string name="mode_trackball">Arcade Trackball (3D Inertia &amp; Spin Brake)</string>
-    <string name="mode_stick">Virtual Analog Stick</string>
+    <string name="mode_stick">Virtual Analog Joystick (Recommended)</string>
     <string name="mode_dpad">Classic 8-Way D-Pad</string>
     <string name="lbl_theme_color">Control Theme Color</string>
     <string name="color_sonic">Sonic Cobalt Blue</string>
     <string name="color_mighty">Mighty Crimson Red</string>
     <string name="color_ray">Ray Golden Yellow</string>
-    <string name="lbl_sensitivity">Trackball / Stick Sensitivity: %1$d%%</string>
+    <string name="lbl_sensitivity">Joystick / Trackball Speed Scale: %1$d%%</string>
     <string name="lbl_inertia">Trackball Bearing Momentum: %1$d%%</string>
     <string name="lbl_hud_opacity">Touch Controls Opacity: %1$d%%</string>
-    <string name="sw_floating_origin">Floating Left Pad (centers where thumb touches)</string>
+    <string name="sw_modern_controls">Responsive Console Steering (instant 360° turn, crisp stop &amp; true screen angles)</string>
+    <string name="sw_floating_origin">Dynamic Follow-Thumb Joystick (centers where left thumb touches)</string>
     <string name="sw_haptics">Arcade Haptic Vibration Feedback</string>
     <string name="sw_autohide_pad">Auto-hide Touch HUD when Bluetooth Gamepad active</string>
     <string name="btn_reset_touch">Reset Touch Layout to Default</string>

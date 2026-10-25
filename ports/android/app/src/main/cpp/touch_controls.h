@@ -16,20 +16,21 @@
 extern "C" {
 #endif
 
-#define TOUCH_MAX_FINGERS 10
+#define TOUCH_MAX_FINGERS    10
+#define TOUCH_CONFIG_VERSION 2
 
 typedef enum touch_move_mode
 {
 	TOUCH_MOVE_TRACKBALL = 0, /* Authentic arcade trackball with momentum & spin brake */
-	TOUCH_MOVE_STICK     = 1, /* Proportional virtual analog stick + deadzone */
+	TOUCH_MOVE_STICK     = 1, /* Responsive virtual analog joystick (default) */
 	TOUCH_MOVE_DPAD      = 2  /* Classic 8-way directional pad */
 } touch_move_mode;
 
 typedef enum touch_widget_id
 {
-	TOUCH_WIDGET_MOVE      = 0, /* Left Trackball / Stick / D-Pad */
+	TOUCH_WIDGET_MOVE      = 0, /* Left Joystick / D-Pad / Trackball */
 	TOUCH_WIDGET_JUMP      = 1, /* Primary Jump / Action / Confirm */
-	TOUCH_WIDGET_TURBO     = 2, /* Secondary Turbo Roll / Max-Speed Dash */
+	TOUCH_WIDGET_TURBO     = 2, /* Optional Rapid-Jump / Trap-Escape button */
 	TOUCH_WIDGET_START     = 3, /* Start (Arcade) / Pause (Console) */
 	TOUCH_WIDGET_COIN_BACK = 4, /* Coin (Arcade) / Back (Console) */
 	TOUCH_WIDGET_SERVICE   = 5, /* Arcade Test/Service switch */
@@ -42,7 +43,8 @@ typedef enum touch_preset_id
 	TOUCH_PRESET_ARCADE_DEFAULT = 0,
 	TOUCH_PRESET_COMPACT_PHONE  = 1,
 	TOUCH_PRESET_WIDE_TABLET    = 2,
-	TOUCH_PRESET_COUNT          = 3
+	TOUCH_PRESET_LEFT_HANDED    = 3,
+	TOUCH_PRESET_COUNT          = 4
 } touch_preset_id;
 
 /* Haptic impulse bitmask consumed each frame by android_main */
@@ -92,14 +94,15 @@ typedef struct touch_widget_cfg
 typedef struct touch_config
 {
 	touch_move_mode move_mode;
-	bool floating_origin;          /* Re-center stick/trackball where left thumb lands */
+	bool modern_controls;          /* Console-style instant turn, crisp stop & true isometric angles */
+	bool floating_origin;          /* Dynamic follow-thumb joystick / trackball origin */
 	bool haptics_enabled;
 	bool auto_hide_gamepad;        /* Smoothly fade HUD when physical controller active */
 	bool grid_snap;                /* Snap to 2.5% grid in Layout Editor */
-	float trackball_sensitivity;   /* [0.25 .. 3.00], default 1.15 */
+	float trackball_sensitivity;   /* [0.25 .. 3.00], default 1.00 */
 	float trackball_friction;      /* [0.80 .. 0.97], default 0.91 */
-	float stick_deadzone;          /* [0.02 .. 0.35], default 0.10 */
-	float master_opacity;          /* [0.20 .. 1.00], default 0.85 */
+	float stick_deadzone;          /* [0.02 .. 0.35], default 0.08 */
+	float master_opacity;          /* [0.20 .. 1.00], default 0.88 */
 	int player_color;              /* 0 = Sonic Blue, 1 = Mighty Red, 2 = Ray Gold */
 	touch_widget_cfg widgets[TOUCH_WIDGET_COUNT];
 } touch_config;
@@ -177,6 +180,10 @@ typedef struct touch_controls
 	float ball_roll_u;      /* Rolling dot-grid UV phase */
 	float ball_roll_v;
 	float tick_dist_accum;
+	float last_angle_rad;   /* Angular hysteresis against 16-way octant border flicker */
+	bool has_last_angle;
+	uint32_t move_held_frames;
+	uint32_t turbo_phase;
 
 	/* Pinch-to-scale state in Layout Editor */
 	bool pinch_active;
